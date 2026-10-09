@@ -81,8 +81,11 @@ export const approveAll: Approve = async () => ({ ok: true });
 /** A step or token limit was hit. true grants another block of the same size; false stops the run. */
 export type OnLimit = (limit: Limit, signal?: AbortSignal) => Promise<boolean>;
 
-/** Why a run stopped at a limit, as clients see it (#647); the user goes on with a new message. */
-export type StopReason = "step_limit" | "token_budget";
+/**
+ * Why a run stopped early, as clients see it (#647); the user goes on with a new message.
+ * `restarted`: the gateway died mid-run and the run was released (#696).
+ */
+export type StopReason = "step_limit" | "token_budget" | "restarted";
 export const stopReason = (s?: Stop): StopReason | undefined =>
 	s?.kind === "steps" ? "step_limit" : s?.kind === "tokens" ? "token_budget" : undefined;
 

@@ -326,3 +326,96 @@ describe("worker deps", () => {
 		expect((await repo.getConversation(c.id))?.status).toBe("completed");
 	});
 });
+
+describe("a run whose worker died (#696)", () => {
+	const askedFor = (id: string) => sql`SELECT status, stop_reason FROM agent_runs WHERE id = ${id}`.then((r) => r[0]);
+	const age = (id: string, seconds: number) =>
+		sql`UPDATE agent_runs SET updated_at = now() - ${seconds} * interval '1 second' WHERE id = ${id}`;
+	/** A run a worker claimed, and then the gateway was killed: executing, nobody holds it. */
+	async function killed(over: { waiting?: boolean } = {}) {
+		const c = await repo.createConversation(undefined as never, "p1");
+		const id = (await repo.startRun(c.id, "build it", "manual")) as string;
+		await store.append(c.id, id, [
+			{ role: "user", content: "build it" },
+			{
+				role: "assistant",
+				content: [{ type: "tool-call", toolCallId: "t1", toolName: "save_route", input: {} }],
+			},
+		]);
+		expect(await repo.claimRun(id)).toBe(true);
+		if (over.waiting) await sql`UPDATE agent_runs SET status = 'waiting_approval' WHERE id = ${id}`;
+		return { c, id };
+	}
+
+	it("the startup sweep frees the conversation: interrupted, the call answered, the next message runs", async () => {
+		const { c, id } = await killed();
+		const { sweepOrphans } = await import("./orphans");
+		expect(await sweepOrphans()).toBeGreaterThanOrEqual(1);
+		expect(await askedFor(id)).toMatchObject({ status: "interrupted", stop_reason: "restarted" });
+		expect((await repo.getConversation(c.id))?.status).toBe("interrupted");
+		expect((await store.all(c.id)).at(-1)?.role).toBe("tool");
+		expect(await repo.startRun(c.id, "next", "auto")).toBeString();
+	}, 20_000);
+
+	it("a run a live worker holds, one waiting for approval, and a finished one are left alone", async () => {
+		const live = await killed();
+		const waiting = await killed({ waiting: true });
+		await age(waiting.id, 3600);
+		const sub = queue.subscribeHeld((id) => id === live.id);
+		try {
+			const { sweepOrphans } = await import("./orphans");
+			await sweepOrphans();
+			expect((await askedFor(live.id)).status).toBe("executing");
+			expect((await askedFor(waiting.id)).status).toBe("waiting_approval");
+			// no heartbeat for the window: dead even if something still answers for it
+			await age(live.id, 3600);
+			await sweepOrphans();
+			expect((await askedFor(live.id)).status).toBe("interrupted");
+		} finally {
+			sub.unsubscribe();
+		}
+	}, 20_000);
+
+	it("the heartbeat touches an executing run and no other", async () => {
+		const { id } = await killed();
+		await age(id, 3600);
+		expect(await repo.touchRun(id)).toBe(true);
+		const [{ fresh }] = await sql`SELECT updated_at > now() - interval '1 minute' AS fresh FROM agent_runs WHERE id = ${id}`;
+		expect(fresh).toBe(true);
+		await repo.interruptOrphan(id);
+		expect(await repo.touchRun(id)).toBe(false);
+	});
+
+	it("Stop on an orphan releases it at once; a redelivered job does not bring it back", async () => {
+		const { c, id } = await killed();
+		const { freshConversation } = await import("./orphans");
+		const { stopRun } = await import("../../api/v1/agent/service");
+		const released = await freshConversation((await repo.getConversation(c.id))!);
+		expect(released.status).toBe("interrupted");
+		expect(await stopRun(released)).toEqual({ runId: id });
+		const { approve: _, ...agent } = scripted([]).agent;
+		const j = { type: "start" as const, conversationId: c.id, runId: id, userId: "u1", projectId: "p1", mode: "auto" as const, message: "x" };
+		expect(await job.executeRun(j, { ...worker.deps, build: async () => agent }, new AbortController().signal)).toBe("skipped");
+		expect((await askedFor(id)).status).toBe("interrupted");
+	}, 20_000);
+
+	it("the stream of a released run ends with a restarted done, on open and on reconnect", async () => {
+		const { c, id } = await killed();
+		const { Hono } = await import("hono");
+		const { registerAgentRoutes } = await import("../../api/v1/agent/register");
+		const app = new Hono();
+		app.use("*", async (ctx, next) => {
+			ctx.set("user" as never, { id: "admin", isSystemAdmin: true } as never);
+			ctx.set("acl" as never, [] as never);
+			await next();
+		});
+		registerAgentRoutes(app as never);
+		// the first open finds the dead run and releases it
+		const first = await (await app.request(`/agent/runs/${id}/stream`)).text();
+		expect(first).toContain("event: done");
+		expect(first).toContain('"reason":"restarted"');
+		expect((await repo.getConversation(c.id))?.status).toBe("interrupted");
+		const again = await (await app.request(`/agent/runs/${id}/stream?afterSeq=1`)).text();
+		expect(again).toContain('"status":"interrupted"');
+	}, 20_000);
+});

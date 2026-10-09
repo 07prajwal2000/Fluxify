@@ -81,6 +81,15 @@ describe("executeRun", () => {
 		expect(w.events()).toEqual([]);
 	});
 
+	it("a redelivered job for a released run does not bring it back", async () => {
+		const w = world([]);
+		w.state.run = "interrupted"; // what the startup sweep left
+		expect(await go(w, job())).toBe("skipped");
+		expect(w.state.run).toBe("interrupted");
+		expect(w.state.settled).toEqual([]);
+		expect(w.events()).toEqual([]);
+	});
+
 	it("continue: approving runs the call and the run completes; text is tagged with its message", async () => {
 		const w = world([["save_route"]]);
 		await go(w, job());

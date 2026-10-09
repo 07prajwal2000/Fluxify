@@ -12,6 +12,7 @@ import type { Context, Hono } from "hono";
 import { z } from "zod";
 import { EFFORTS } from "../../../agent/model";
 import { projectSupportsThinking } from "../../../agent/runner/integration";
+import { freshConversation, releaseIfOrphaned } from "../../../agent/runner/orphans";
 import {
 	type AgentMeta,
 	createConversation,
@@ -58,13 +59,15 @@ const json = <T extends z.ZodType>(schema: T) => zValidator("json", schema, zodE
 const mode = z.enum(MODES as [string, ...string[]]);
 const effort = z.enum(EFFORTS);
 
-/** In-conversation routes: project role first, then ownership. */
+/** In-conversation routes: project role first, then ownership. A run whose worker died is released first (#696). */
 async function conversationOf(c: Context, role: AccessControlRole) {
 	const projectId = c.req.param("projectId") as string;
 	const user = caller(c, projectId, role);
 	return {
 		user,
-		conversation: await owned(user, c.req.param("conversationId") as string, projectId),
+		conversation: await freshConversation(
+			await owned(user, c.req.param("conversationId") as string, projectId),
+		),
 	};
 }
 
@@ -223,6 +226,8 @@ export function registerAgentRoutes(app: Hono) {
 			if (!conversation?.projectId) throw new NotFoundError("Run not found");
 			const user = caller(c, conversation.projectId, "viewer");
 			await owned(user, conversation.id);
+			// Its stream then replays the `done` the release published and ends.
+			await releaseIfOrphaned(run);
 			return streamRun(c, run.id, c.req.valid("query").afterSeq);
 		},
 	);

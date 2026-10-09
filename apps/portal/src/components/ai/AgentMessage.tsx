@@ -152,6 +152,7 @@ export function Thinking({ since }: { since: number }) {
 const LIMITS: Record<StopReason, string> = {
 	step_limit: "The agent stopped at its step limit.",
 	token_budget: "The agent stopped at its token budget.",
+	restarted: "The server restarted during this run.",
 };
 
 /** Like a usage limit notice: the run ended early; a new message goes on. */

@@ -2,6 +2,7 @@ import { afterAll, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import { ConflictError, errorHandler } from "@fluxify/server";
 import { Hono } from "hono";
 import * as integration from "../../../agent/runner/integration";
+import * as orphans from "../../../agent/runner/orphans";
 import * as repo from "../../../agent/runner/repository";
 import type { AgentEvent } from "../../../agent/runner/events";
 import { registerAgentRoutes } from "./register";
@@ -11,7 +12,11 @@ import * as stream from "./stream";
 // spyOn, not mock.module: module mocks leak into every other spec in the run.
 const conv = (over: object = {}) =>
 	({ id: "c1", userId: "owner", projectId: "p1", metadata: { agent: true, mode: "manual" }, ...over }) as any;
+const fresh = spyOn(orphans, "freshConversation").mockImplementation(async (c) => c);
+const release = spyOn(orphans, "releaseIfOrphaned").mockResolvedValue(false);
 const spies = [
+	fresh,
+	release,
 	spyOn(repo, "getConversation").mockImplementation(async (id) =>
 		id === "c1" ? conv() : id === "c-untagged" ? conv({ id, metadata: {} }) : id === "c-other" ? conv({ id, projectId: "p2" }) : undefined,
 	),
@@ -171,6 +176,34 @@ describe("agent API auth", () => {
 		const res = await call("GET", path);
 		expect(res.status).toBe(200);
 		expect((spies.at(-1) as any).mock.calls.at(-1).slice(1)).toEqual(["r1", 4]);
+	});
+});
+
+describe("a run whose worker died (#696)", () => {
+	it.each(inConversation)("%s %s: the conversation is checked, and the handler gets the released one", async (m, path, body) => {
+		fresh.mockClear();
+		fresh.mockImplementationOnce(async (c) => ({ ...c, status: "interrupted" }) as never);
+		await call(m, path, body);
+		expect(fresh).toHaveBeenCalledTimes(1);
+		const handlers: Record<string, any> = {
+			GET: service.getConversationDetail,
+			PATCH: service.patchConversation,
+			DELETE: service.removeConversation,
+			POST: path.endsWith("messages")
+				? service.sendMessage
+				: path.endsWith("approval")
+					? service.answerApproval
+					: path.endsWith("stop")
+						? service.stopRun
+						: service.compactConversation,
+		};
+		expect(handlers[m].mock.calls.at(-1)[0]).toMatchObject({ id: "c1", status: "interrupted" });
+	});
+
+	it("opening the stream releases the run first, so the stream replays its done and ends", async () => {
+		release.mockClear();
+		await call("GET", "/agent/runs/r1/stream");
+		expect(release).toHaveBeenCalledWith({ id: "r1", conversationId: "c1" });
 	});
 });
 

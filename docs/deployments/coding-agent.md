@@ -180,6 +180,7 @@ Tell the agent to check each point, or check them yourself after it is done.
 | `LICENSE_KEY` | No | On the admin (or Kit) only, never on workers. Unset lets you pick the edition in the portal. |
 | `ENABLE_AI` | No | `true` turns on the AI assistant. |
 | `AGENT_CONCURRENT_JOBS` | No | How many AI assistant runs one process works on at once (1 to 100). Default `10`. Replaces `HARNESS_CONCURRENT_JOBS`, which still works for now but logs a warning. |
+| `AGENT_RUN_STALE_MS` | No | Milliseconds an AI assistant run may go silent before it counts as dead (30000 or more). Default `120000`. A run whose process was killed or restarted is then stopped with a notice, and the conversation accepts a new message. |
 | `RECORDING_MAX_AGE_DAYS` | No | Days a recorded run (Execution history) is kept before it is deleted. Default `30`. Read by the admin (or Kit) only. |
 | `HOSTNAME` | No | The address processes listen on inside the container. Leave `0.0.0.0`. It is **not** your domain. |
 

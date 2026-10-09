@@ -102,3 +102,23 @@ export const requestStop = (conversationId: string) =>
 /** Worker side: `onStop(conversationId)` for every stop request. */
 export const subscribeStops = (onStop: (conversationId: string) => void) =>
 	subscribeToChannel(stopSubject("*"), onStop);
+
+const HELD_WAIT_MS = 1500;
+const heldSubject = (runId: string) => `agent.held.${runId}`;
+
+/** Worker side: answers "is this run yours?" for the runs `holds` says it runs. Silence means no. */
+export const subscribeHeld = (holds: (runId: string) => boolean) =>
+	natsConnection().subscribe(heldSubject("*"), {
+		callback: (_err, msg) => {
+			if (holds(msg.subject.slice(heldSubject("").length))) msg.respond("1");
+		},
+	});
+
+/** Does a live worker hold this run? A worker that died, or no answer in time, is a no. */
+export const isHeld = (runId: string) =>
+	natsConnection()
+		.request(heldSubject(runId), "", { timeout: HELD_WAIT_MS })
+		.then(
+			() => true,
+			() => false,
+		);
