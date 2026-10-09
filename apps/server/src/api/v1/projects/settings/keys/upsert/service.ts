@@ -11,11 +11,7 @@ import { hasRouteClaim } from "../../../../../../modules/orchestrator/claims";
 import { getProjectSettingsKeys } from "../get-all/repository";
 import { type ProjectSettingsKeyType, projectSettingsKeySchemaMap } from "../keySchemaMap";
 import { testConnectionFn } from "./connection";
-import {
-	checkProjectExists,
-	markIntegrationForHarness,
-	upsertProjectSettingKey,
-} from "./repository";
+import { checkProjectExists, upsertProjectSettingKey } from "./repository";
 
 export default async function handleRequest(
 	projectId: string,
@@ -64,7 +60,6 @@ export default async function handleRequest(
 	await upsertProjectSettingKey(projectId, key, finalValue);
 
 	if (key === "settings.ai.agentConnectionId" && finalValue) {
-		await markIntegrationForHarness(projectId, finalValue);
 		await publishMessage(CHAN_ON_INTEGRATION_CHANGE, finalValue);
 	}
 

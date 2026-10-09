@@ -19,7 +19,7 @@ export default async function handleRequest(
 	userId: string,
 	data: z.infer<typeof requestBodySchema>,
 	outer?: DbTransactionType,
-	/** Caller-chosen id. The ops bus uses it so a route the harness planned keeps
+	/** Caller-chosen id. The ops bus uses it so a route created over it keeps
 	 *  the id its canvas output already points at; HTTP never passes one. */
 	presetId?: string,
 	/** false when the caller is about to write its own canvas for this route

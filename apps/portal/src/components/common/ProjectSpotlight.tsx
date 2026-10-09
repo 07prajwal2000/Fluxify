@@ -27,7 +27,6 @@ export function ProjectSpotlight({ isOpen, onOpenChange, onSignOut }: ProjectSpo
 	// fetched on the first search, not on every page load; kept in cache after that
 	const { data: integrations } = integrationsQuery.getBasicList.useQuery(
 		projectId ?? "",
-		undefined,
 		isOpen && query.trim() !== "",
 	);
 	const close = () => onOpenChange(false);

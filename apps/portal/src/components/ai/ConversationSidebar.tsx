@@ -6,7 +6,7 @@ import { TbAlertTriangle, TbChevronsLeft, TbPlus, TbRefresh, TbSearch } from "re
 import { agentConversationsKey, agentConversationsQuery } from "@/query/agentConversationsQuery";
 import { ConversationItem } from "./ConversationItem";
 import { groupConversations } from "./group";
-import type { HarnessConversation } from "./types";
+import type { AgentConversation } from "./types";
 
 type Tab = "all" | "pinned" | "archived";
 
@@ -39,7 +39,7 @@ export function ConversationSidebar({ projectId, onToggle, onOpen, onNew, active
 	const flatRows = useMemo(() => {
 		const rows: Array<
 			| { type: "header"; label: string; count: number; key: string }
-			| { type: "item"; item: HarnessConversation }
+			| { type: "item"; item: AgentConversation }
 		> = [];
 		for (const g of groups) {
 			rows.push({ type: "header", label: g.label, count: g.items.length, key: g.key });

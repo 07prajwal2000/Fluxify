@@ -10,9 +10,9 @@ export {
 } from "./blockHandles";
 
 /**
- * Canvas auto-layout, shared by the editor's Format button and the AI harness.
+ * Canvas auto-layout, shared by the editor's Format button and the AI agent.
  *
- * The harness needs it because a model places blocks by writing coordinates for
+ * The agent needs it because a model places blocks by writing coordinates for
  * a canvas it cannot see: inserting one block into an existing route left the
  * next block sitting on top of the response block. Anything that mutates a
  * canvas runs this over the result rather than trusting those coordinates.

@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from "bun:test";
-import { buildDocsDB, chunkPage, getDocsByTitle, INTRO, setDocsDB } from "../../db/vector";
+import { buildDocsDB, chunkPage, INTRO, setDocsDB } from "../../db/vector";
 import { docsTools } from "../docsTools";
 
 const page = (title: string, body: string) =>
@@ -92,10 +92,5 @@ describe("docs tools", () => {
 		expect(await call("read_doc", { page: "concepts/triggers", heading: "Webhooks" })).toBe(
 			`No heading "Webhooks" on concepts/triggers. Headings: ${INTRO} | Cron triggers | Queue triggers`,
 		);
-	});
-
-	it("rebuilds a whole page by title for the old harness", async () => {
-		const [doc] = await getDocsByTitle(["routes"]);
-		expect(doc.content).toBe("# Routes\n\n## Paths\n\nRoutes have paths.");
 	});
 });

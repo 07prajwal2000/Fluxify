@@ -1,4 +1,4 @@
-/** Maps a harness conversation/run status to a human label + chip color.
+/** Maps an agent conversation/run status to a human label + chip color.
  *  Shared by the recent-list cards and the sidebar so formatting stays DRY. */
 export type StatusColor = "default" | "accent" | "success" | "warning" | "danger";
 

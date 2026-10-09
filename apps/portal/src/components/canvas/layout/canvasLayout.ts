@@ -6,7 +6,7 @@ import {
 } from "@fluxify/blocks/layout";
 import type { BlockEdge, BlockNode } from "../types";
 
-// The layout itself lives in @fluxify/blocks so the AI harness formats a canvas
+// The layout itself lives in @fluxify/blocks so the AI agent formats a canvas
 // exactly the way the Format button does. This file is only the React Flow
 // adapter: measured sizes and `source`/`target` naming are editor-side details.
 export { handleSide, type LayoutOptions, type LayoutPositions };

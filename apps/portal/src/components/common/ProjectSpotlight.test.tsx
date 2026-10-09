@@ -26,7 +26,7 @@ mock.module("@/query/projectsQuery", () => ({
 		},
 	},
 }));
-const basicList = mock((_projectId: string, _forHarness?: boolean, enabled?: boolean) => ({
+const basicList = mock((_projectId: string, enabled?: boolean) => ({
 	data: enabled
 		? [{ id: "i1", name: "Main DB", group: "database", variant: "PostgreSQL" }]
 		: undefined,
@@ -109,9 +109,9 @@ test("sign out calls through", () => {
 
 test("integrations are fetched on the first search, not before", () => {
 	const { ui } = setup(true);
-	expect(basicList.mock.calls.every((call) => call[2] === false)).toBe(true);
+	expect(basicList.mock.calls.every((call) => call[1] === false)).toBe(true);
 	fireEvent.change(ui.getByRole("textbox"), { target: { value: "integration" } });
-	expect(basicList.mock.calls.at(-1)?.[2]).toBe(true);
+	expect(basicList.mock.calls.at(-1)?.[1]).toBe(true);
 	fireEvent.click(ui.getByText("Integration: Main DB"));
 	expect(navigate).toHaveBeenCalledWith({
 		to: "/$projectId/integrations/$integrationId",

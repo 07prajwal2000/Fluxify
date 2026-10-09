@@ -16,7 +16,7 @@ import {
 } from "../../../agent/runner/repository";
 import { agentStore } from "../../../agent/store";
 import type { Mode } from "../../../agent/tools";
-import { assertRunQuota } from "../harness-conversations/send-message/rateLimit";
+import { assertRunQuota } from "./rateLimit";
 
 const store = () => agentStore(db);
 

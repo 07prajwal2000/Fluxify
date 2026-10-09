@@ -6,7 +6,7 @@ import { projectSettingsKeySchemaMap } from "../settings/keys/keySchemaMap";
  *
  *  Deliberately NOT every key in `projectSettingsKeySchemaMap`: the connection-id
  *  keys (AI agent, telemetry destinations) need integration wiring — a live
- *  connection test and the harness opt-in — that only `settings/keys/upsert`
+ *  connection test — that only `settings/keys/upsert`
  *  performs. Those are configured inside the project, once integrations exist.
  *  A new non-connection config key becomes available to the creation wizard by
  *  adding it to the map and to this list; nothing else changes. */

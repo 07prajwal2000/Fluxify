@@ -4,7 +4,7 @@ import { validationErrorSchema } from "../../../../errors/validationError";
 import zodErrorCallbackParser from "../../../../middlewares/zodErrorCallbackParser";
 import type { HonoServer } from "../../../../types";
 import { requireProjectAccess } from "../../../auth/middleware";
-import { requestQuerySchema, requestRouteSchema, responseSchema } from "./dto";
+import { requestRouteSchema, responseSchema } from "./dto";
 import handleRequest from "./service";
 
 const openapiRouteOptions: DescribeRouteOptions = {
@@ -21,7 +21,7 @@ const openapiRouteOptions: DescribeRouteOptions = {
 			},
 		},
 		400: {
-			description: "Query validation error",
+			description: "Path validation error",
 			content: {
 				"application/json": {
 					schema: resolver(validationErrorSchema),
@@ -37,14 +37,9 @@ export default function (app: HonoServer) {
 		describeRoute(openapiRouteOptions),
 		requireProjectAccess("creator", { key: "projectId", source: "param" }),
 		validator("param", requestRouteSchema, zodErrorCallbackParser),
-		validator("query", requestQuerySchema, zodErrorCallbackParser),
 		async (c) => {
 			const { projectId } = c.req.valid("param");
-			const { useForHarness } = c.req.valid("query");
-			const result = await handleRequest(
-				projectId,
-				useForHarness === undefined ? undefined : useForHarness === "true",
-			);
+			const result = await handleRequest(projectId);
 			return c.json(result);
 		},
 	);

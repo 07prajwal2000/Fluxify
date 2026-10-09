@@ -1,4 +1,4 @@
-import { Checkbox, Input } from "@fluxify/components";
+import { Input } from "@fluxify/components";
 import { AppConfigSelector } from "../AppConfigSelector";
 import type { ConnectorFormProps } from "./types";
 
@@ -51,19 +51,6 @@ export function AiForm({
 					onChange={(e) => setField("model", e.currentTarget.value)}
 					placeholder="e.g. gpt-4o, claude-3-5-sonnet, gemini-1.5-pro"
 				/>
-			</div>
-
-			<div className="flex flex-col gap-1 pt-1">
-				<Checkbox
-					isSelected={Boolean(config.useForHarness)}
-					onChange={(v) => setField("useForHarness", v)}
-				>
-					Use for AI Harness
-				</Checkbox>
-				<span className="pl-6 text-xs text-muted">
-					Enable this model provider to be used as an engine for the AI coding agent and builder
-					harness.
-				</span>
 			</div>
 		</div>
 	);

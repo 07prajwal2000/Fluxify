@@ -2,7 +2,6 @@ import { blockAiDescriptions, COMPACT_SHARED_TYPES, renderCompactSchema } from "
 import { getOutputHandles } from "@fluxify/blocks/blockHandles";
 import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
-import { BUILTIN_BLOCKS_TABLE } from "../harness/agents/sub-agents/blockBuilder/promptHelpers";
 import type { AdminApi, ToolRole } from "./adminApi";
 
 /**
@@ -56,6 +55,14 @@ const paged = (body: any, keys: string[]) => ({
 	page: body.pagination.page,
 	hasNext: body.pagination.hasNext,
 });
+
+const escapeTableCell = (value: string) => value.replace(/\|/g, "\\|").replace(/\n/g, " ");
+
+const BUILTIN_BLOCKS_TABLE = `| Type | Name | Description |
+| --- | --- | --- |
+${blockAiDescriptions
+	.map(({ name, description }) => `| ${name} | ${name} | ${escapeTableCell(description)} |`)
+	.join("\n")}`;
 
 /** Built-in blocks never come from a project, so this reads no API. */
 function blockSchemas(blockTypes?: string[]) {

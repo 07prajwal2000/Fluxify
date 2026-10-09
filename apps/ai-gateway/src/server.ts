@@ -1,4 +1,3 @@
-import "./tracing";
 import { initializeLogger } from "@fluxify/common";
 import { isMainThread, Worker } from "worker_threads";
 import {
@@ -16,7 +15,6 @@ validateEnv();
 
 import { drizzleInit, initializePubSub, initializeRedis } from "@fluxify/server";
 import { initializeAgentQueue } from "./agent/runner/queue";
-import { initializeHarnessQueue } from "./harness/queue";
 
 const serviceName = isMainThread ? "fluxify.api-gateway-main" : "fluxify.api-gateway-worker";
 
@@ -31,7 +29,6 @@ initializeRedis(true);
 await initializePubSub();
 await drizzleInit(false);
 
-await initializeHarnessQueue();
 await initializeAgentQueue();
 
 if (isMainThread) {

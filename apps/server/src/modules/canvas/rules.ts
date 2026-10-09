@@ -6,7 +6,7 @@ import type { CanvasParentType } from "./types";
  * The canvas rules that depend on WHICH canvas a block sits on: a route, a
  * workflow or a custom block. One copy, on the server, because they need the
  * project's custom blocks from the DB. Every writer reaches them through
- * `saveCanvas`: the portal save, the AI harness apply and the MCP `edit_canvas`.
+ * `saveCanvas`: the portal save, the ops bus and the MCP `edit_canvas`.
  *
  * Errors block a save. Warnings never do (a canvas being built is allowed to be
  * half done, as in the portal); they come back from a dry-run save.

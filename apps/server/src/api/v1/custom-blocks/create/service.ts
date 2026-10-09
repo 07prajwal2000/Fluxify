@@ -26,8 +26,7 @@ export default async function handleRequest(
 		if (!projectExist) {
 			throw new NotFoundError(`project with id ${data.projectId} does not exist`);
 		}
-		// Idempotent: callers that already resolved the stored name — the harness
-		// binds a route to a block by it — must not end up double-prefixed.
+		// Idempotent: callers that already resolved the stored name must not end up double-prefixed.
 		data.name = withCustomBlockPrefix(data.name);
 		const existingBlock = await checkCustomBlockExist(data.projectId, data.name, tx);
 		if (existingBlock) {

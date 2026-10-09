@@ -10,7 +10,7 @@ import type { RunStatus } from "../store";
 import type { Mode } from "../tools";
 
 /**
- * Conversations and runs of the new agent, in the harness tables (#646).
+ * Conversations and runs of the new agent, in the `agent_harness_*` tables (#646).
  * `metadata.agent` marks a conversation as the new agent's; `metadata.mode`
  * is the accept mode and `metadata.effort` the thinking level of the last message
  * or approval (the picker starts from them, an approval goes on in them).

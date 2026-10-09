@@ -1,7 +1,7 @@
-import { DbService } from "../../../harness/internal/dbService";
+import { ResourceSearch } from "./search";
 
-/** Stateless — the same instance the harness tools use. */
-const dbService = new DbService();
+/** Stateless. */
+const dbService = new ResourceSearch();
 
 /**
  * One free-text box over every project resource the user can reference. Each

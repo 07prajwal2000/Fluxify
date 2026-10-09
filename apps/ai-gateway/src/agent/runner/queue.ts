@@ -15,7 +15,7 @@ import type { Mode } from "../tools";
 import type { AgentEvent } from "./events";
 
 /**
- * The new agent (#646) on NATS, apart from the old harness:
+ * The agent (#646) on NATS:
  * - jobs: a work queue (`fluxify.agent.start|continue.<conversationId>`), one
  *   durable consumer shared by every gateway replica;
  * - live events: `agent.run.<runId>` on a limits stream kept an hour, which a
@@ -62,7 +62,7 @@ export type AgentJob = {
 /** Declares both streams and the job consumer. Throws when NATS is down: it is a hard dependency. */
 export async function initializeAgentQueue() {
 	const nc = natsConnection();
-	// A run is not idempotent: a dead worker's run is not replayed (see the harness queue).
+	// A run is not idempotent: a dead worker's run is not replayed.
 	await ensureStreamConsumer(nc, JOBS, {
 		durable: AGENT_CONSUMER,
 		maxDeliver: 1,

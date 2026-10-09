@@ -2,7 +2,7 @@ import { logger } from "@fluxify/common";
 import { consumeQueue, natsConnection } from "@fluxify/common/nats";
 import { db, getProjectSetting } from "@fluxify/server";
 import { mintAgentToken } from "@fluxify/server/src/lib/agentToken";
-import { HARNESS_CONCURRENT_JOBS } from "../../lib/env";
+import { AGENT_CONCURRENT_JOBS } from "../../lib/env";
 import { httpAdminFetch } from "../../mcp/adminApi";
 import { modelFromIntegration } from "../model";
 import { agentStore } from "../store";
@@ -92,7 +92,7 @@ export async function initializeAgentWorker() {
 		running.get(conversationId)?.abort(new Error("Stopped by user")),
 	);
 	await consumeQueue<AgentJob>(natsConnection(), AGENT_STREAM, AGENT_CONSUMER, runJob, {
-		concurrency: HARNESS_CONCURRENT_JOBS,
+		concurrency: AGENT_CONCURRENT_JOBS,
 		// maxDeliver 1: acking on dispatch holds no ack open for a whole run.
 		ack: "on-dispatch",
 		// The job threw before executeRun settled it (e.g. the claim query): free the conversation.
@@ -105,5 +105,5 @@ export async function initializeAgentWorker() {
 				]).catch(deps.onError);
 		},
 	});
-	logger.info(`Initialized (concurrency ${HARNESS_CONCURRENT_JOBS})`, "AgentRunner");
+	logger.info(`Initialized (concurrency ${AGENT_CONCURRENT_JOBS})`, "AgentRunner");
 }

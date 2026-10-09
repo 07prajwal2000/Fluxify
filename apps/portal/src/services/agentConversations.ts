@@ -1,7 +1,7 @@
 import type { StopReason } from "@fluxify/ai-gateway/src/agent/agent";
 import type { Effort } from "@fluxify/ai-gateway/src/agent/model";
 import type { Mode } from "@fluxify/ai-gateway/src/agent/tools";
-import type { HarnessConversation } from "@/components/ai/types";
+import type { AgentConversation } from "@/components/ai/types";
 import { httpClient } from "@/lib/http";
 
 const base = (projectId: string) => `ai/v1/agent/${projectId}/conversations`;
@@ -28,7 +28,7 @@ export type AgentRun = {
 export type AgentSettings = { mode: Mode; effort: Effort; supportsThinking: boolean };
 export type { Effort, Mode };
 export type AgentConversationDetail = {
-	conversation: HarnessConversation & { activeRunId: string | null };
+	conversation: AgentConversation & { activeRunId: string | null };
 	/** The latest page of rows. */
 	messages: AgentRow[];
 	/** Pass it as `beforeSeq` for the page before these rows; null when there is none. */
@@ -44,14 +44,14 @@ export type ApprovalAnswer = { approve: boolean; reason?: string; mode?: Mode; e
 
 /** The new agent's API (#646). */
 export const agentConversationsService = {
-	async list(projectId: string): Promise<HarnessConversation[]> {
+	async list(projectId: string): Promise<AgentConversation[]> {
 		return (await httpClient.get(base(projectId))).data;
 	},
 	/** Does the project's model take a thinking setting? For the new-chat page, before a conversation exists. */
 	async model(projectId: string): Promise<{ supportsThinking: boolean }> {
 		return (await httpClient.get(`ai/v1/agent/${projectId}/model`)).data;
 	},
-	async create(projectId: string, title?: string): Promise<HarnessConversation> {
+	async create(projectId: string, title?: string): Promise<AgentConversation> {
 		return (await httpClient.post(base(projectId), { title })).data;
 	},
 	async get(projectId: string, conversationId: string): Promise<AgentConversationDetail> {

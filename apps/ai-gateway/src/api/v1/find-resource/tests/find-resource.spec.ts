@@ -1,11 +1,5 @@
 import { describe, it, expect, spyOn } from "bun:test";
-import {
-	DbService,
-	idLookups,
-	INTEGER,
-	toPrefixTsQuery,
-	UUID,
-} from "../../../../harness/internal/dbService";
+import { idLookups, INTEGER, ResourceSearch, toPrefixTsQuery, UUID } from "../search";
 import handleRequest from "../service";
 import { queryParamsSchema } from "../dto";
 
@@ -50,16 +44,16 @@ describe("idLookups", () => {
 
 describe("Find Resource Service", () => {
 	it("fans one query out to every resource type and flattens the hits", async () => {
-		const routes = spyOn(DbService.prototype, "findRoutes").mockResolvedValue([
+		const routes = spyOn(ResourceSearch.prototype, "findRoutes").mockResolvedValue([
 			{ type: "route", id: "r1", name: "Get Users", path: "/api/users" },
 		] as never);
-		const integrations = spyOn(DbService.prototype, "findIntegrations").mockResolvedValue([
+		const integrations = spyOn(ResourceSearch.prototype, "findIntegrations").mockResolvedValue([
 			{ type: "integration", id: "i1", name: "Main DB", variant: "postgres" },
 		] as never);
-		const appConfigs = spyOn(DbService.prototype, "findAppConfigs").mockResolvedValue(
+		const appConfigs = spyOn(ResourceSearch.prototype, "findAppConfigs").mockResolvedValue(
 			[] as never,
 		);
-		const customBlocks = spyOn(DbService.prototype, "findCustomBlocks").mockResolvedValue([
+		const customBlocks = spyOn(ResourceSearch.prototype, "findCustomBlocks").mockResolvedValue([
 			{
 				type: "custom_block",
 				id: "cb1",
