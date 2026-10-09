@@ -1,6 +1,10 @@
 import { describe, expect, it } from "bun:test";
 import { BlockTypes } from "@fluxify/blocks";
-import { blockDataValidator } from "../blockDataValidator";
+import { Hono } from "hono";
+import { validator } from "hono-openapi";
+import { blockDataValidator, requestBodyValidator } from "../blockDataValidator";
+import { takeDroppedWarnings } from "../droppedFields";
+import { canvasChangesSchema } from "../types";
 import { customBlockNames } from "../../../loaders/customBlocksLoader";
 import type { CanvasChanges } from "../types";
 
@@ -212,9 +216,83 @@ describe("saving keeps the user's data (#679)", () => {
 		expect((data.changes.blocks[0]!.data as any).data.value).toEqual([{ a: 1 }, { b: 2 }]);
 	});
 
-	it("keeps unknown keys and still fills defaults", () => {
-		const data = changes(BlockTypes.switch, { extra: { deep: 1 } });
+	it("keeps the keys of the free-form maps", () => {
+		const data = changes(BlockTypes.httprequest, {
+			url: "https://x.test",
+			method: "POST",
+			headers: { "X-Any": "1", Other: "2" },
+			body: { a: { b: [1, 2] } },
+		});
 		blockDataValidator(data);
-		expect(data.changes.blocks[0]!.data).toMatchObject({ extra: { deep: 1 }, order: [] });
+		expect(data.changes.blocks[0]!.data).toMatchObject({
+			headers: { "X-Any": "1", Other: "2" },
+			body: { a: { b: [1, 2] } },
+		});
+	});
+
+	it("keeps custom block data as given", () => {
+		customBlockNames.add("weather_lookup");
+		try {
+			const data = changes("weather_lookup", { city: "Oslo", extra: { deep: 1 } });
+			expect(blockDataValidator(data)).toEqual([]);
+			expect(data.changes.blocks[0]!.data).toEqual({ city: "Oslo", extra: { deep: 1 } });
+		} finally {
+			customBlockNames.delete("weather_lookup");
+		}
+	});
+});
+
+describe("fields a block does not have (#703)", () => {
+	it("drops them, fills defaults, and warns", () => {
+		const data = changes(BlockTypes.errorHandler, {
+			blockName: "onError",
+			statusCode: 500,
+			transform: "return 1;",
+		});
+		expect(blockDataValidator(data)).toEqual([
+			{
+				severity: "warning",
+				blockId: "b1",
+				message: "onError: removed unknown field(s) statusCode, transform",
+			},
+		]);
+		expect(data.changes.blocks[0]!.data).toEqual({ blockName: "onError", blockDescription: "Description" });
+	});
+
+	it("names nested fields by path and falls back to the block type", () => {
+		const data = changes(BlockTypes.switch, { extra: 1, conditions: {} });
+		const [warning] = blockDataValidator(data);
+		expect(warning!.message).toBe("switch: removed unknown field(s) extra");
+	});
+
+	it("does not warn when nothing was dropped, and keeps saveAsVariable", () => {
+		const data = changes(BlockTypes.errorHandler, { saveAsVariable: { enabled: false, name: "x" } });
+		expect(blockDataValidator(data)).toEqual([]);
+		expect(data.changes.blocks[0]!.data).toMatchObject({ saveAsVariable: { enabled: false, name: "x" } });
+	});
+});
+
+describe("the save middleware (#703)", () => {
+	it("hands the handler the parsed data and the warnings", async () => {
+		const app = new Hono();
+		app.put(
+			"/",
+			validator("json", canvasChangesSchema),
+			requestBodyValidator,
+			(c) => {
+				const body = c.req.valid("json");
+				return c.json({ data: body.changes.blocks[0]!.data, warnings: takeDroppedWarnings(body) });
+			},
+		);
+		const res = await app.request("/", {
+			method: "PUT",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify(changes(BlockTypes.errorHandler, { statusCode: 500 })),
+		});
+		const out = (await res.json()) as { data: object; warnings: { message: string }[] };
+		expect(out.data).not.toHaveProperty("statusCode");
+		expect(out.warnings.map((w) => w.message)).toEqual([
+			"error_handler: removed unknown field(s) statusCode",
+		]);
 	});
 });

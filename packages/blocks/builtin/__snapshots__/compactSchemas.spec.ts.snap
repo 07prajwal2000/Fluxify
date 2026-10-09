@@ -185,7 +185,7 @@ db_insert {
 	tableName: string;  // table name (supports js expression)
 	data: {
 		source: "raw" | "js";  // source of the value
-		value: object | string;  // value to insert (object values can be js expression, string when source is js)
+		value: Record<string, any> | string;  // value to insert (object values can be js expression, string when source is js)
 	};
 	useParam: boolean;  // use parameter; default false
 	onConflict?: {
@@ -200,7 +200,7 @@ db_insertbulk {
 	tableName: string;  // table name (supports js expression)
 	data: {
 		source: "raw" | "js";  // source of the value
-		value: object[] | string;  // value to insert
+		value: Record<string, any>[] | string;  // value to insert
 	};
 	useParam: boolean;  // use parameter
 	useTransaction?: boolean;  // insert every row in one transaction: all rows go in or none do. MongoDB needs a replica set for this; on a standalone server it inserts without a transaction; default false
@@ -234,7 +234,7 @@ db_update {
 	conditions: DbWhereCondition[];  // Database WHERE clause. Always emit an array of condition objects; never emit plain strings or if-block conditions. Structured condition: attribute and value are tagged objects, e.g. { attribute: { kind: 'column', value: 'status' }, operator: 'eq', value: { kind: 'literal', value: 'active' }, chain: 'and' }. Lists: { operator: 'in', value: { kind: 'literal', value: "js:return getRequestBody().ids" } } (or 'a,b,c' text); between takes [min, max]; is_null / is_not_null take no value. Conditions combine strictly left to right (no AND-before-OR), so when mixing and/or use a group for brackets: a AND (b OR c) is [a, { group: [b, c with chain 'or'], chain: 'and' }]; groups nest. When the fixed operators cannot express it (JSON/array operators, full-text search...), use a custom condition: { operator: 'raw', raw, chain } — see the raw field. A condition whose value is undefined at run time is skipped (null is kept), so optional filters need no branching: value { kind: 'literal', value: "js:getQueryParam('status')" } filters only when the query param was sent. A group whose conditions are all skipped is skipped too.
 	data: {
 		source: "raw" | "js";  // source of the value
-		value: object | string;  // columns to set; a column value can be { op: "inc" | "dec", value: number } to add to / subtract from what the database holds, safe when runs overlap, e.g. { "points": { "op": "inc", "value": 10 } }; value may be a js expression but must evaluate to a number
+		value: Record<string, any> | string;  // columns to set; a column value can be { op: "inc" | "dec", value: number } to add to / subtract from what the database holds, safe when runs overlap, e.g. { "points": { "op": "inc", "value": 10 } }; value may be a js expression but must evaluate to a number
 	};
 	useParam: boolean;  // use parameter
 }

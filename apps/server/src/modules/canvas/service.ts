@@ -12,6 +12,7 @@ import { ForbiddenError } from "../../errors/forbidError";
 import { NotFoundError } from "../../errors/notFoundError";
 import { dbIntegrationsCache } from "../../loaders/integrationsLoader";
 import { type DirectedCanvasEdge, findCycleEdgeIds } from "./cycleDetection";
+import { takeDroppedWarnings } from "./droppedFields";
 import { assertJoinsSupported } from "./joinSupport";
 import { assertSendMessageLicensed } from "./queueLicense";
 import {
@@ -390,7 +391,10 @@ export async function saveCanvas(
 			dbTypeOf,
 		);
 		assertJoinsSupported(blocksAfterSave, dbTypeOf);
-		const issues = await canvasIssues(parent, data, blocksAfterSave, tx, dryRun);
+		const issues = [
+			...(await canvasIssues(parent, data, blocksAfterSave, tx, dryRun)),
+			...takeDroppedWarnings(data),
+		];
 		await upsertBlocks(
 			data.changes.blocks.map((block) => ({ ...block, ...keys })),
 			tx,

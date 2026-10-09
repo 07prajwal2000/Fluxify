@@ -18,7 +18,7 @@ export const insertDbBlockSchema = z
 		data: z.object({
 			source: z.enum(["raw", "js"]).describe("source of the value"),
 			value: z
-				.object()
+				.record(z.string(), z.unknown())
 				.or(z.string())
 				.describe("value to insert (object values can be js expression, string when source is js)"),
 		}),
@@ -64,7 +64,7 @@ export async function runInsertDb(
  * inlined code. A payload that only exists at runtime is data: it is forwarded
  * unchanged and can never introduce a new executable `js:` expression.
  *
- * Read without parsing: `data.value` is `z.object()`, which strips every key.
+ * Read without parsing: `data.value` was `z.object()`, which strips every key; it is a free-form record now.
  */
 export function emitInsertDb(node: EmitNode) {
 	const input = node.block.data as z.infer<typeof insertDbBlockSchema>;

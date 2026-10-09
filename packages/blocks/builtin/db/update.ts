@@ -22,7 +22,7 @@ export const updateDbBlockSchema = z
 		data: z.object({
 			source: z.enum(["raw", "js"]).describe("source of the value"),
 			value: z
-				.object()
+				.record(z.string(), z.unknown())
 				.or(z.string().describe("value to insert (object values can be js expression as string)"))
 				.describe(`columns to set; ${COUNTER}`),
 		}),
@@ -70,7 +70,7 @@ export async function runUpdateDb(
 	}
 }
 
-/** read without parsing — `data.value` is `z.object()`, which strips every key */
+/** read without parsing — `data.value` was `z.object()`, which strips every key; it is a free-form record now */
 export function emitUpdateDb(node: EmitNode) {
 	const input = node.block.data as z.infer<typeof updateDbBlockSchema>;
 	const data = node.v("data");

@@ -5,6 +5,8 @@ import { BadRequestError } from "../../errors/badRequestError";
 import { ConflictError } from "../../errors/conflictError";
 import { ValidationError } from "../../errors/validationError";
 import { customBlockNames } from "../../loaders/customBlocksLoader";
+import { droppedKeys, rememberDroppedWarnings } from "./droppedFields";
+import type { CanvasIssue } from "./rules";
 import type { CanvasChanges } from "./types";
 
 /**
@@ -17,13 +19,18 @@ import type { CanvasChanges } from "./types";
  * with workflows.
  */
 export async function requestBodyValidator(ctx: Context, next: Next) {
-	const jsonData = await ctx.req.json();
-	blockDataValidator(jsonData);
+	// the validated body, not `req.json()`: the handler reads this object, so the
+	// parsed block data has to land on it
+	const body = (ctx.req as unknown as { valid(target: "json"): CanvasChanges }).valid("json");
+	rememberDroppedWarnings(body, blockDataValidator(body));
 	return next();
 }
 
-/** Exported for the test that holds every block type to having a schema. */
-export function blockDataValidator(data: CanvasChanges) {
+/**
+ * Exported for the test that holds every block type to having a schema.
+ * Returns a warning per block whose unknown fields were dropped.
+ */
+export function blockDataValidator(data: CanvasChanges): CanvasIssue[] {
 	const deleteIds = new Set<string>();
 	data.actionsToPerform.blocks.forEach((block) => {
 		if (block.action !== "delete") return;
@@ -36,18 +43,15 @@ export function blockDataValidator(data: CanvasChanges) {
 	});
 
 	const errors: { field: string; message: string }[] = [];
+	const dropped: CanvasIssue[] = [];
 
 	for (const block of data.changes.blocks) {
 		if (deleteIds.has(block.id)) continue;
 		// before the type switch: custom blocks skip schema validation below
 		const nameError = saveAsVariableError(block.data);
-		if (nameError) {
-			const label = (block.data as { blockName?: unknown })?.blockName;
-			errors.push({
-				field: block.id,
-				message: `${typeof label === "string" && label ? label : block.type}: ${nameError}`,
-			});
-		}
+		const given = (block.data as { blockName?: unknown })?.blockName;
+		const label = typeof given === "string" && given ? given : block.type;
+		if (nameError) errors.push({ field: block.id, message: `${label}: ${nameError}` });
 		const schema = blockDataSchema(block.type);
 		if (!schema) {
 			if (customBlockNames.has(block.type)) {
@@ -59,9 +63,16 @@ export function blockDataValidator(data: CanvasChanges) {
 		}
 		const result = schema.safeParse(block.data);
 		if (result.success) {
-			// zod strips keys it doesn't know (e.g. db_insert `data.value`); keep the
-			// user's data and only lay parsed values (defaults) over it
-			block.data = mergeParsed(block.data, result.data);
+			// zod strips keys the block doesn't have; a free-form field says so in its
+			// schema (z.record) and keeps its keys. Tell the caller what went.
+			const removed = droppedKeys(block.data, result.data);
+			if (removed.length)
+				dropped.push({
+					severity: "warning",
+					blockId: block.id,
+					message: `${label}: removed unknown field(s) ${removed.join(", ")}`,
+				});
+			block.data = result.data;
 			continue;
 		}
 		// the same readable messages the canvas rules refuse with on every other save path
@@ -70,6 +81,7 @@ export function blockDataValidator(data: CanvasChanges) {
 	}
 
 	if (errors.length > 0) throw new ValidationError(errors);
+	return dropped;
 }
 
 /** Why an enabled "Save output to variable" name can't be used, if it can't. */
@@ -78,19 +90,4 @@ function saveAsVariableError(data: unknown): string | undefined {
 		?.saveAsVariable;
 	if (setting?.enabled !== true) return undefined;
 	return variableNameError(typeof setting.name === "string" ? setting.name.trim() : "");
-}
-
-const isPlainObject = (v: unknown): v is Record<string, unknown> =>
-	typeof v === "object" && v !== null && !Array.isArray(v);
-
-/** Parsed values over raw, recursively, so keys the schema strips survive. */
-export function mergeParsed(raw: unknown, parsed: unknown): unknown {
-	if (isPlainObject(raw) && isPlainObject(parsed)) {
-		const out: Record<string, unknown> = { ...raw };
-		for (const [k, v] of Object.entries(parsed)) out[k] = mergeParsed(raw[k], v);
-		return out;
-	}
-	if (Array.isArray(raw) && Array.isArray(parsed) && raw.length === parsed.length)
-		return parsed.map((v, i) => mergeParsed(raw[i], v));
-	return parsed;
 }
