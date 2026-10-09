@@ -48,7 +48,7 @@ export const canvasTools: McpTool[] = [
 			'from may also be written "if_1.success". A handle left out uses the block\'s default.',
 			"A handle holds one edge (switch case and orchestrate excepted): disconnect before re-pointing it.",
 			"Bad ops, unknown block types, missing keys and broken edges are refused and nothing is saved.",
-			"It always returns rule errors and warnings (issues); errors that block a save refuse it, warnings still save. validate: false skips them. Empty ops checks without saving.",
+			"It always returns rule errors and warnings (issues); errors that block a save refuse it, warnings still save. Fix reachability warnings (a block not connected, no path to a response, an open if branch) before testing. validate: false skips them. Empty ops checks without saving.",
 			"Block text inputs are literal unless they start with `js:` followed by code that returns the value (e.g. `js: return input.id`); never use `{{ }}`.",
 			'Returns the new version; changes, one line per thing done ("updated response_1 (httpCode)", "connected if_1.success → db_insert_1", "removed log_2 (+2 edges)"), so check each hit the block you meant; and refs, the key the server gave each added block.',
 		].join(" "),

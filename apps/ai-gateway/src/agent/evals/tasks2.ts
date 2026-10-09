@@ -53,7 +53,46 @@ async function brokenSqlRoute(ctx: Ctx) {
 	});
 }
 
+/** GET /ping: a js block hangs off the entrypoint, but nothing connects it to the response. */
+async function unwiredRoute(ctx: Ctx) {
+	const { id } = await ctx.tool("save_route", {
+		projectId: ctx.projectId,
+		name: "ping",
+		method: "GET",
+		path: "/ping",
+		active: true,
+	});
+	const target = { kind: "route", id };
+	const canvas = await ctx.tool("get_canvas", { target });
+	const entry = canvas.blocks.find((b: any) => b.type === "entrypoint").key;
+	await ctx.tool("edit_canvas", {
+		target,
+		version: canvas.version,
+		ops: [
+			{
+				op: "add_block",
+				ref: "pong",
+				type: "jsRunner",
+				data: { value: "return { ok: true };" },
+				connect_from: { from: entry },
+			},
+		],
+	});
+}
+
 export const moreTasks: Task[] = [
+	{
+		id: "forgotten-edge",
+		title: "A block that is not connected to the response (#704)",
+		setup: unwiredRoute,
+		prompt: 'GET /ping should answer { "ok": true } but returns the default response. Fix it.',
+		checks: [expectCall("pings", "GET", "/ping", {}, { status: 200, body: { ok: true } })],
+		judge: [
+			"Used the reachability warning or get_canvas to find the missing connection instead of rewriting the block",
+			"Connected the existing block to the response rather than adding a second one",
+			"Called the route again to confirm the fix",
+		],
+	},
 	{
 		id: "greeting-expression",
 		title: "Dynamic value from the query",

@@ -84,6 +84,64 @@ describe("MCP canvas edits", () => {
 		expect((await call("get_canvas", { target })).version).toBe(saved.version);
 	});
 
+	it("warns about a route that does not reach a response, by block key (#704)", async () => {
+		const name = uniq("rc-");
+		const { id } = await call("save_route", {
+			projectId: stack.projectId,
+			name,
+			path: `/${name}`,
+			method: "GET",
+		});
+		const target = { kind: "route", id };
+		const canvas = await call("get_canvas", { target });
+		const entry = keyOf(canvas, "entrypoint");
+		const response = keyOf(canvas, "response");
+		const messages = (r: any) => r.issues.map((i: any) => i.message);
+
+		// a new route has its entrypoint and response apart
+		const fresh = await call("edit_canvas", { target, version: canvas.version, ops: [] });
+		expect(messages(fresh)).toEqual([
+			`${response} is not connected to the flow, so it never runs.`,
+			expect.stringContaining("No path from entrypoint to a response block"),
+		]);
+
+		const wired = await call("edit_canvas", {
+			target,
+			version: canvas.version,
+			ops: [{ op: "connect", from: entry, to: response }],
+		});
+		expect(wired.issues).toBeUndefined();
+
+		const cut = await call("edit_canvas", {
+			target,
+			version: wired.version,
+			ops: [{ op: "disconnect", from: entry, to: response }],
+		});
+		expect(messages(cut)).toEqual(messages(fresh));
+
+		const branched = await call("edit_canvas", {
+			target,
+			version: cut.version,
+			ops: [
+				{
+					op: "add_block",
+					ref: "check",
+					type: "if",
+					data: { conditions: [{ lhs: "js: return 1;", rhs: 1, operator: "eq", chain: "and" }] },
+					connect_from: { from: entry },
+				},
+				{ op: "connect", from: "check.success", to: response },
+			],
+		});
+		expect(branched.issues).toEqual([
+			expect.objectContaining({
+				severity: "warning",
+				block: "if_1",
+				message: "if_1.failure is not connected: the flow stops there with no response.",
+			}),
+		]);
+	});
+
 	it("drops fields a block does not have, warns, and keeps free-form ones (#703)", async () => {
 		const { target, canvas } = await newWorkflow();
 		const handler = keyOf(canvas, "error_handler");
