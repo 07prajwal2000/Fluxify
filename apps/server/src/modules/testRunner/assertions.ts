@@ -3,6 +3,7 @@ import type { InferSelectModel } from "drizzle-orm";
 import { z } from "zod";
 import type { assertionSchema } from "../../api/v1/test-suites/schema";
 import type { AssertionResult, routesEntity, testSuitesEntity } from "../../db/schema";
+import { type Lookup, notFound, pathParts, showValue } from "./actualValue";
 import { createExpect } from "./expect";
 
 export type AssertionType = z.infer<typeof assertionSchema>;
@@ -83,21 +84,20 @@ export type AssertionContext = {
 );
 
 /** an empty path is the whole body; `a.b[0].c` walks into it */
-function readPath(body: unknown, propertyPath?: string | null) {
+export function readPath(body: unknown, propertyPath?: string | null) {
 	if (!propertyPath) return body;
-	const parts = propertyPath
-		.replace(/\[(\d+)\]/g, ".$1")
-		.split(".")
-		.filter(Boolean);
 	let curr: any = body;
-	for (const p of parts) {
+	for (const p of pathParts(propertyPath)) {
 		if (curr === undefined || curr === null) break;
 		curr = curr[p];
 	}
 	return curr;
 }
 
-function actualFor(a: AssertionType, ctx: AssertionContext) {
+function actualFor(
+	a: AssertionType,
+	ctx: AssertionContext,
+): { value: unknown; desc: string; look?: Lookup } {
 	switch (a.target) {
 		case "status":
 			return { value: ctx.status as unknown, desc: "Status" };
@@ -107,16 +107,23 @@ function actualFor(a: AssertionType, ctx: AssertionContext) {
 			return {
 				value: ctx.headers?.[(a.propertyPath || "").toLowerCase()] as unknown,
 				desc: `Header(${a.propertyPath})`,
+				look: {
+					root: ctx.headers,
+					parts: [(a.propertyPath || "").toLowerCase()],
+					label: "headers",
+				},
 			};
 		case "body":
 			return {
 				value: readPath(ctx.body, a.propertyPath),
 				desc: `Body(${a.propertyPath || ""})`,
+				look: { root: ctx.body, parts: pathParts(a.propertyPath), label: "body" },
 			};
 		case "output":
 			return {
 				value: readPath(ctx.workflow?.output, a.propertyPath),
 				desc: `Output(${a.propertyPath || ""})`,
+				look: { root: ctx.workflow?.output, parts: pathParts(a.propertyPath), label: "output" },
 			};
 		case "successful":
 			return { value: ctx.workflow?.successful as unknown, desc: "Successful" };
@@ -178,10 +185,11 @@ export async function evaluateAssertions(assertions: AssertionType[], ctx: Asser
 		assertions.map(async (a): Promise<AssertionResult[]> => {
 			try {
 				if (a.target === "customJs") return await runCustomJs(a.customJs ?? "", ctx);
-				const { value: actualValue, desc: targetDesc } = actualFor(a, ctx);
+				const { value: actualValue, desc: targetDesc, look } = actualFor(a, ctx);
 				const passed = compare(a, actualValue);
 
-				const actualStr = actualValue == null ? "" : String(actualValue);
+				const actualStr =
+					actualValue === undefined && look ? notFound(look) : showValue(actualValue);
 				const opStr = a.operator ? a.operator.replace("_", " ") : "";
 				return [
 					{

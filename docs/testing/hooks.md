@@ -50,11 +50,13 @@ t.skip({ id: 7, name: "Test user" });
 
 ### The JSON shortcut
 
-Choosing **JSON** for a Before hook is the same as calling `t.skip` with that JSON: the block is skipped and the JSON is passed on as its result. It is the quickest way to fake a block:
+Choosing **JSON** for a Before hook is the same as calling `t.skip` with that JSON and no path: the block is skipped and the JSON is passed on as its result. It is the quickest way to fake a block:
 
 ```json
 { "id": 7, "name": "Test user" }
 ```
+
+A JSON hook can't pick a path. On a block with two paths it always takes the first one, **Success**. To make **Row Exists** answer "not found", or a transaction fail, use a script (see below).
 
 ### Skipping a block that has two paths
 
@@ -68,7 +70,19 @@ t.skip({ id: 7 }, "success");
 t.skip(null, "failure");
 ```
 
-Without a path, the first one (`"success"`) is used. The editor lists the paths each block has.
+Without a path, the first one (`"success"`) is used. These are the path names to use:
+
+| Block | Paths for `t.skip` (the first is the default) |
+| --- | --- |
+| Row Exists | `success` (a record was found), `failure` (none was) |
+| Send Message | `success`, `failure` |
+| Database Transaction | `success`, `failure` |
+| Rollback Transaction | none: skipping it ends the flow there |
+| Every other block that can be skipped | one path, `source`. Leave the path out |
+
+The names are the block's output handles, the same ones the AI assistant gets from `get_block_schemas`.
+
+A path name the block doesn't have is an error. If the name is written out as text, as in `t.skip(null, "sucess")`, **Save** refuses it and lists the names the block has. A name held in a variable can't be checked when you save, so the test fails when it runs, with "A db_exists block has no branch …".
 
 ## After
 
@@ -101,7 +115,7 @@ If a Before hook skipped the block, its After hook does not run.
 | `t.vars` | The route's variables, to read or change |
 | `t.block` | This block's `id`, `type` and `name` |
 | `t.setup` | What the suite's [setup block](./setup-and-teardown) returned |
-| `t.runId` | A value unique to this suite run |
+| `t.runId` | A value unique to this suite run. The same in every case of a workflow suite; add `t.case.index` when each case needs its own ([details](./setup-and-teardown#unique-data-per-case)) |
 | `t.case` | Workflow suites: the case being run (`index`, `name`, `input`) |
 | `t.zod` | The [zod](https://zod.dev) library, to check the shape of a value |
 
@@ -127,6 +141,20 @@ If a Before hook skipped the block, its After hook does not run.
 | Every other block, including custom blocks | Before and After, Script or JSON |
 
 A custom block placed on the route is hooked as a whole: you can skip or change the whole custom block, but not the blocks inside it.
+
+## When a hook points at the wrong place
+
+Hooks are checked when you save the suite:
+
+| Mistake | What happens |
+| --- | --- |
+| A block that is not on this suite's route or workflow (for example one deleted from the canvas, or from another route) | **Save** is refused: "Block … is not on this suite's route" (or "workflow") |
+| A block that can't have hooks, such as Response | **Save** is refused: "A response block cannot have hooks" |
+| A skip or an After hook on If, Switch, a loop, Orchestrator or Retry | **Save** is refused: "A if block only allows an onBefore script that changes its input" |
+| Two hooks for one block | **Save** is refused: "A block can have only one hook entry" |
+| A JSON hook that isn't valid JSON | **Save** is refused: "Invalid JSON" |
+| `t.skip` with a path name the block doesn't have, written as text | **Save** is refused: "A db_exists block has no branch "sucess"; t.skip can use: success, failure" |
+| `t.skip` with a path name held in a variable, or a script that throws | The suite saves. The block fails when it runs, like any error in a hook |
 
 ## Examples
 

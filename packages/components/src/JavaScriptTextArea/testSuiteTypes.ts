@@ -15,6 +15,16 @@ declare const testsuite: {
   setup?: any;
   /** Teardown only: how the suite ended. */
   outcome?: "passed" | "failed" | "error" | "timeout";
+  /**
+   * Teardown only: what the suite sent. A route: { method, path, headers, query, params, body }.
+   * A workflow: { input }, or a list of { name, input } when it runs cases.
+   */
+  request?: any;
+  /**
+   * Teardown only: what came back. A route: { status, headers, body }, or null when it errored
+   * or timed out. A workflow: { successful, output, error }, or a list of those (with name) in cases mode.
+   */
+  response?: any;
 };
 `;
 

@@ -18,6 +18,7 @@ describe("validateHooks", () => {
 	routeBlocks = [
 		{ id: "run", type: "jsrunner" },
 		{ id: "branch", type: "if" },
+		{ id: "exists", type: "db_exists" },
 		{ id: "reply", type: "response" },
 	];
 
@@ -46,6 +47,21 @@ describe("validateHooks", () => {
 		);
 		await expect(validateHooks(R1, [{ blockId: "branch", onAfter: script }])).rejects.toThrow(
 			"only allows an onBefore script",
+		);
+	});
+
+	it("refuses a t.skip to a branch the block does not have (#716)", async () => {
+		const skip = (to: string) => ({
+			kind: "script" as const,
+			value: `return t.skip({ found: true }, "${to}");`,
+		});
+		await validateHooks(R1, [{ blockId: "exists", onBefore: skip("failure") }]);
+		await expect(
+			validateHooks(R1, [{ blockId: "exists", onBefore: skip("sucess") }]),
+		).rejects.toThrow('has no branch "sucess"; t.skip can use: success, failure');
+		// a plain block has one way out
+		await expect(validateHooks(R1, [{ blockId: "run", onBefore: skip("failure") }])).rejects.toThrow(
+			't.skip can use: source',
 		);
 	});
 

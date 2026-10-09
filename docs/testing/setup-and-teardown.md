@@ -34,10 +34,12 @@ Build the block's canvas like any other custom block. While it runs, it can read
 | Name | What it is |
 | --- | --- |
 | `testsuite.phase` | `"setup"` when it runs before the request, `"teardown"` when it runs after. A workflow suite's [loader block](./workflows#where-the-value-comes-from) sees `"input"` |
-| `testsuite.runId` | A value unique to this suite run. Put it in your test data so suites running at the same time never clash |
+| `testsuite.runId` | A value unique to this suite run. Put it in your test data so suites running at the same time never clash. It is the same in every case of a [workflow suite](./workflows#single-input-or-cases); add the case number for data that must differ per case (see [below](#unique-data-per-case)) |
 | `testsuite.suite` | The suite's `id` and `name` |
 | `testsuite.setup` | Teardown only: what the setup block returned |
 | `testsuite.outcome` | Teardown only: how the suite ended: `"passed"`, `"failed"`, `"error"` or `"timeout"` |
+| `testsuite.request` | Teardown only: what the suite sent (see [Clean up what the request created](#clean-up-what-the-request-created)) |
+| `testsuite.response` | Teardown only: what came back, or `null` if nothing did |
 
 The editor suggests these names only on the canvas of a test-only block.
 
@@ -66,6 +68,51 @@ return { id: testsuite.setup.id };
 ```
 
 Packages such as `@faker-js/faker` must be added to the project first. See [Imports & Libraries](/scripting/imports).
+
+### Clean up what the request created
+
+A route often creates something the suite could not know about in advance, such as a new row with a database-made id. That id is in the response, and teardown can read it.
+
+For a **route** suite:
+
+| Name | What it holds |
+| --- | --- |
+| `testsuite.request` | What was sent: `method`, `path`, `headers`, `query`, `params`, `body` |
+| `testsuite.response` | What came back: `status`, `headers`, `body`. It is `null` when the route failed to answer or ran out of time. Check `testsuite.outcome` to tell why |
+
+A route that answers with an error status (such as `409`) did answer, so `testsuite.response` holds it. Only a route that crashed or timed out leaves it `null`.
+
+```js
+// teardown: delete the user the route created
+const created = testsuite.response?.body;
+if (!created?.id) return null; // nothing was created, nothing to clean
+return { id: created.id };
+```
+
+For a **workflow** suite:
+
+| Run | `testsuite.request` | `testsuite.response` |
+| --- | --- | --- |
+| Single input | `{ input }` | `{ successful, output, error }` |
+| Cases | a list with one `{ name, input }` for each case | a list with one `{ name, successful, output, error }` for each case |
+
+In **Cases** mode teardown still runs **once**, after all the cases, so loop over the list. Cases that never finished (the suite timed out first) are missing from the lists.
+
+```js
+// teardown for a workflow suite in Cases mode: remove every row a case created
+return testsuite.response
+  .filter((r) => r.successful && r.output?.id)
+  .map((r) => ({ id: r.output.id }));
+```
+
+### Unique data per case
+
+`testsuite.runId` (and `t.runId` in hooks and checks) is made once for each suite run. A route suite has one request, so it is unique per request. A workflow suite in **Cases** mode shares it across all its cases. When each case needs its own value, add the case number, which hooks and checks read as `t.case.index`:
+
+```js
+// hook or check
+const email = `${t.runId}-${t.case.index}@test.local`;
+```
 
 ## 3. Choose them in the suite
 

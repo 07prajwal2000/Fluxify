@@ -1,9 +1,10 @@
 import { blockName } from "@fluxify/blocks";
-import { hookSupport } from "@fluxify/blocks/testHooks";
+import { hookSupport, skipBranches } from "@fluxify/blocks/testHooks";
 import { and, eq, inArray } from "drizzle-orm";
 import { type DbTransactionType, db } from "../../db";
 import { blocksEntity, type TestHookBody, testSuiteBlockHooksEntity } from "../../db/schema";
 import { BadRequestError } from "../../errors/badRequestError";
+import { skipBranchLiterals } from "./hookBranches";
 import { type SuiteTarget, targetColumn } from "./target";
 
 /** a suite's hooks on one block, as the API reads and writes them */
@@ -51,6 +52,17 @@ export async function validateHooks(target: SuiteTarget, hooks: BlockHook[]) {
 		if (support === "input" && (hook.onAfter || hook.onBefore?.kind === "json")) {
 			throw new BadRequestError(
 				`A ${type} block only allows an onBefore script that changes its input`,
+			);
+		}
+		// `t.skip(output, "name")` must name a branch the block has
+		const branches = skipBranches(type);
+		const script = hook.onBefore?.kind === "script" ? hook.onBefore.value : "";
+		const unknown = branches.length
+			? skipBranchLiterals(script).find((name) => !branches.includes(name))
+			: undefined;
+		if (unknown !== undefined) {
+			throw new BadRequestError(
+				`A ${type} block has no branch "${unknown}"; t.skip can use: ${branches.join(", ")}`,
 			);
 		}
 	}

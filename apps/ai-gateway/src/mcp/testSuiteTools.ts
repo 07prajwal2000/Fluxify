@@ -18,8 +18,8 @@ const DESCRIPTION = `Create or update a test suite for a route or a workflow. To
 Route suite: one request. routeParams fills each :param of the path ({ id: '42' }), plus queryParams, headers, body (JSON by default; contentType for forms or files).
 Workflow suite: input = { source: 'raw', mode: 'single' | 'cases', raw }. single: one run, raw is the trigger items (a list is several items). cases: one run per entry of raw, each entry { name, input } or a plain value; max 100. source 'script' runs script (JS that returns the value); 'loader' runs loaderBlockId (a test-only custom block).
 assertions (all must pass): { target, operator, expectedValue, propertyPath }. expectedValue is a string. Route targets: status and time (eq, neq, lt, gt); body and header (eq, neq, contains, true, false, exists, not_exists), propertyPath is a body path 'user.tags[0]' or the header name. Workflow targets: successful (true, false); output (like body); time. eq compares as text, objects as compact JSON. target 'customJs' takes customJs code that calls t.expect(value).toBe(x) / toEqual / toContain / toHaveLength / toHaveProperty; it reads fluxify.response.{status,body,headers} (route) or fluxify.result.{successful,output,error} (workflow) and t.setup.
-setupBlockId / teardownBlockId: custom blocks created with usage 'test', run before / after; setup's result is t.setup. hooks (replaces all of the suite's hooks): [{ blockId, onBefore?, onAfter? }] on blocks of the target's canvas (blockId is the block key from get_canvas, e.g. db_insert_1), each { kind: 'json', value: '<made-up output as JSON text>' } to skip the block, or { kind: 'script', value: 'return {...input, x: 1}' } (input, output, t.skip(output), t.fail(msg)). if/switch/loops/retry allow only an onBefore script. appConfigOverrides [{ key, value }] and integrationOverrides [{ existingId, newId }] apply to this suite only.
-Then run it with run_test_suite.`;
+setupBlockId / teardownBlockId: custom blocks created with usage 'test', run before / after; setup's result is t.setup. Teardown also reads testsuite.request and testsuite.response (route: { status, headers, body } or null; workflow: { successful, output, error }; lists per case in cases mode), so it can delete by an id the response holds. t.runId is one value per suite run, the same for every case; add t.case.index for per-case data. hooks (replaces all of the suite's hooks): [{ blockId, onBefore?, onAfter? }] on blocks of the target's canvas (blockId is the block key from get_canvas, e.g. db_insert_1), each { kind: 'json', value: '<made-up output as JSON text>' } to skip the block, or { kind: 'script', value: 'return {...input, x: 1}' } (input, output, t.skip(output, branch?), t.fail(msg)). A json onBefore takes the first path of a two-path block (success). To take failure use t.skip(output, 'failure') on db_exists, queue_send or db_transaction; any other branch name is refused. if/switch/loops/retry allow only an onBefore script. appConfigOverrides [{ key, value }] and integrationOverrides [{ existingId, newId }] apply to this suite only.
+Then run it with run_test_suite, or check the assertions against the last run first with validate_test_suite.`;
 
 export const testSuiteTools: McpTool[] = [
 	{
@@ -67,6 +67,27 @@ export const testSuiteTools: McpTool[] = [
 			}
 			return { id: created.id };
 		},
+	},
+	{
+		name: "validate_test_suite",
+		title: "Check test suite without running",
+		description:
+			"Check a suite's assertions against a response without running anything: the response of the suite's last run, or a sample you pass ({ status, headers, body } for a route, { output } for a workflow; leave a part out to skip its checks). Reports a body, output or header path the response does not have (with the keys it does have), a true/false check on a value that is not a boolean, and an expected value that is not a number for status or time. Custom JS is not looked at. source is null when the suite has no run with an answer yet: run it once with run_test_suite, or pass a sample.",
+		role: "creator",
+		input: {
+			testSuiteId,
+			sample: z
+				.object({
+					status: z.number().int().optional(),
+					headers: z.record(z.string(), z.string()).optional(),
+					body: z.unknown().optional(),
+					output: z.unknown().optional(),
+				})
+				.optional()
+				.describe("A response to check against instead of the last run"),
+		},
+		call: ({ send }, { testSuiteId: id, sample }) =>
+			send("POST", `/v1/test-suites/${id}/validate`, sample ? { sample } : {}),
 	},
 	{
 		name: "delete_test_suite",

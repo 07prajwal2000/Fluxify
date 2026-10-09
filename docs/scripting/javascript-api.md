@@ -295,6 +295,8 @@ const testsuite: {
   suite: { id: string; name: string };
   setup?: any;    // teardown only: what setup returned
   outcome?: "passed" | "failed" | "error" | "timeout"; // teardown only
+  request?: any;  // teardown only: what the suite sent
+  response?: any; // teardown only: what came back, or null if nothing did
 };
 ```
 
