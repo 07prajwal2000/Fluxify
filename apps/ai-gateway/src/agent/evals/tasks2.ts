@@ -1,4 +1,12 @@
-import { type Check, type Ctx, expectCall, routeActive, routeWithCode, type Task } from "./checks";
+import {
+	type Check,
+	type Ctx,
+	expectCall,
+	routeActive,
+	routeWithCode,
+	suitesPass,
+	type Task,
+} from "./checks";
 
 /**
  * More eval tasks, kept out of tasks.ts so that file stays under the FTA cap.
@@ -130,7 +138,74 @@ const wroteNote: Check = {
 	},
 };
 
+/** A small window forces the conversation to be compacted partway through the build. */
+const COMPACTED: Check = {
+	name: "the conversation was compacted mid-build",
+	run: async (ctx) =>
+		ctx.summaries
+			? { pass: true, message: `${ctx.summaries} summary` }
+			: { pass: false, message: "no summary: raise the task's limit pressure" },
+};
+
+/** Some test suite of POST /signup asserts both exact error messages, not just a failing body. */
+const suiteAssertsMessages: Check = {
+	name: "a suite asserts the exact error messages",
+	run: async (ctx) => {
+		const [route] = (await ctx.tool("list_routes", { projectId: ctx.projectId })).items.filter(
+			(r: any) => r.path === "/signup",
+		);
+		const suites = await ctx.tool("list_test_suites", { targetType: "route", targetId: route.id });
+		const text = JSON.stringify(
+			await Promise.all(suites.map((s: any) => ctx.tool("get_test_suite", { testSuiteId: s.id }))),
+		);
+		const missing = ["Email is required", "Email already registered"].filter(
+			(m) => !text.includes(m),
+		);
+		return missing.length
+			? { pass: false, message: `no assertion on: ${missing.join(", ")}` }
+			: { pass: true, message: "both messages asserted" };
+	},
+};
+
 export const moreTasks: Task[] = [
+	{
+		id: "suite-after-compaction",
+		title: "Exact error messages in a suite, after the context was compacted (#704)",
+		limits: { maxContextTokens: 20_000 },
+		prompt:
+			'Build POST /signup. The body is { "email": string }. A missing email answers 400 { "success": false, "message": "Email is required" }. The email "taken@x.io" answers 409 { "success": false, "message": "Email already registered" }. Any other email answers 201 { "success": true }. Then write a test suite for the 400 and the 409 case that asserts the exact message of each, and run it.',
+		checks: [
+			COMPACTED,
+			expectCall(
+				"missing email",
+				"POST",
+				"/signup",
+				{ body: {} },
+				{ status: 400, body: { success: false, message: "Email is required" } },
+			),
+			expectCall(
+				"taken email",
+				"POST",
+				"/signup",
+				{ body: { email: "taken@x.io" } },
+				{ status: 409, body: { success: false, message: "Email already registered" } },
+			),
+			expectCall(
+				"new email",
+				"POST",
+				"/signup",
+				{ body: { email: "new@x.io" } },
+				{ status: 201, body: { success: true } },
+			),
+			suiteAssertsMessages,
+			suitesPass("POST", "/signup"),
+		],
+		judge: [
+			"Asserted the exact message of each error, not just success: false",
+			"Read the canvas again for block keys after the context was compacted, instead of trusting the summary",
+			"Ran the suite and reported the real result",
+		],
+	},
 	{
 		id: "one-line-script-fix",
 		title: "Change one line of a longer script (#704)",
