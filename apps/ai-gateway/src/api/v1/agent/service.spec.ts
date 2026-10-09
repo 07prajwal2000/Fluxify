@@ -6,6 +6,7 @@ import * as store from "../../../agent/store";
 import * as quota from "./rateLimit";
 import {
 	answerApproval,
+	compactConversation,
 	getConversationDetail,
 	getOlderMessages,
 	patchConversation,
@@ -24,6 +25,14 @@ const del = spyOn(repo, "deleteConversation").mockResolvedValue(undefined as nev
 const publish = spyOn(queue, "publishAgentJob").mockResolvedValue(undefined);
 const supports = spyOn(integration, "projectSupportsThinking").mockResolvedValue(true);
 const pageOf = mock(async (_id: string, _before?: number) => ({ messages: [] as unknown[], nextBeforeSeq: 7 as number | null }));
+/** The model view /compact checks: enough to summarize by default. */
+const long = [
+	{ role: "user", content: "build a route" },
+	{ role: "assistant", content: "ok" },
+	{ role: "user", content: "now test it" },
+	{ role: "assistant", content: "tested" },
+];
+const viewOf = mock(async (_id: string) => long.map((message, seq) => ({ message, seq })));
 const spies = [
 	startRun,
 	setMeta,
@@ -34,7 +43,7 @@ const spies = [
 	supports,
 	spyOn(queue, "purgeRunEvents").mockResolvedValue(undefined as never),
 	spyOn(quota, "assertRunQuota").mockResolvedValue(undefined as never),
-	spyOn(store, "agentStore").mockReturnValue({ page: pageOf } as never),
+	spyOn(store, "agentStore").mockReturnValue({ page: pageOf, modelView: viewOf } as never),
 	spyOn(repo, "getRun").mockResolvedValue({ id: "r1" } as never),
 ];
 afterAll(() => {
@@ -123,5 +132,46 @@ describe("rename, pin, archive, delete", () => {
 		expect(del).not.toHaveBeenCalled();
 		expect(await removeConversation(conv())).toEqual({ success: true });
 		expect(del).toHaveBeenCalledWith("c1");
+	});
+});
+
+describe("/compact", () => {
+	it("starts a compact job under the run lock, keeping the picker settings", async () => {
+		const c = conv({ metadata: { agent: true, mode: "auto", effort: "low" } });
+		expect(await compactConversation(c, "u", "keep the ids")).toEqual({ runId: "r2" });
+		expect(startRun).toHaveBeenCalledWith("c1", "/compact keep the ids", "auto", "low");
+		expect(publish.mock.calls[0][0]).toMatchObject({
+			type: "compact",
+			conversationId: "c1",
+			runId: "r2",
+			userId: "u",
+			projectId: "p1",
+			keep: "keep the ids",
+		});
+		expect((publish.mock.calls[0][0] as { message?: string }).message).toBeUndefined();
+	});
+
+	it("is refused while a run is active or waits for an approval", async () => {
+		for (const status of ["running", "paused_hitl"])
+			await expect(compactConversation(conv({ status }), "u")).rejects.toThrow("before compacting");
+		// the lock itself said no (a send won the race)
+		startRun.mockResolvedValueOnce(null);
+		await expect(compactConversation(conv(), "u")).rejects.toThrow("before compacting");
+		expect(publish).not.toHaveBeenCalled();
+	});
+
+	it("is refused on an archived conversation", async () => {
+		await expect(compactConversation(conv({ archived: true }), "u")).rejects.toThrow("archived");
+		expect(startRun).not.toHaveBeenCalled();
+	});
+
+	it("says so, with no run and no job, when there is nothing to compact", async () => {
+		viewOf.mockResolvedValueOnce([{ message: long[0], seq: 0 }] as never);
+		expect(await compactConversation(conv(), "u")).toEqual({
+			runId: null,
+			message: "Nothing to compact yet",
+		});
+		expect(startRun).not.toHaveBeenCalled();
+		expect(publish).not.toHaveBeenCalled();
 	});
 });

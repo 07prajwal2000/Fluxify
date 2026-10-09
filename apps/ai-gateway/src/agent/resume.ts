@@ -130,10 +130,10 @@ export async function continueConversation(o: {
 		history,
 		abortSignal: ctrl.signal,
 		onMessages: (list) => enqueue(() => record(list)),
-		onSummary: (summary, covered) =>
+		onSummary: (summary, covered, event) =>
 			enqueue(async () => {
 				const covers = Math.max(...covered.map((m) => seqs.get(m) ?? -1));
-				await store.appendSummary(conversationId, runId, summary, covers);
+				await store.appendSummary(conversationId, runId, summary, covers, event);
 				seqs.set(summary, covers);
 			}),
 	});

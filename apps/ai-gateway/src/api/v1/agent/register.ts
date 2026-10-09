@@ -22,6 +22,7 @@ import {
 import { MODES } from "../../../agent/tools";
 import {
 	answerApproval,
+	compactConversation,
 	getConversationDetail,
 	getOlderMessages,
 	patchConversation,
@@ -153,6 +154,21 @@ export function registerAgentRoutes(app: Hono) {
 				await sendMessage(conversation, user.id, body.text, body.mode as never, body.effort),
 				202,
 			);
+		},
+	);
+
+	// /compact [instructions]: 202 with the run to follow, or 200 when there is nothing to compact.
+	r.post(
+		`${base}/:conversationId/compact`,
+		json(z.object({ instructions: z.string().max(2000).optional() })),
+		async (c) => {
+			const { user, conversation } = await conversationOf(c, "creator");
+			const result = await compactConversation(
+				conversation,
+				user.id,
+				c.req.valid("json").instructions?.trim() || undefined,
+			);
+			return c.json(result, result.runId ? 202 : 200);
 		},
 	);
 

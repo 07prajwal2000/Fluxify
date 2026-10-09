@@ -1,4 +1,5 @@
 import { ConflictError, db } from "@fluxify/server";
+import { canCompact } from "../../../agent/compact";
 import type { Effort } from "../../../agent/model";
 import { projectSupportsThinking } from "../../../agent/runner/integration";
 import { rejectPending } from "../../../agent/runner/job";
@@ -70,6 +71,47 @@ export async function sendMessage(
 		mode,
 		effort,
 		message: text,
+	});
+	return { runId };
+}
+
+/**
+ * /compact: summarizes the conversation as a job of its own, with no model turn
+ * after it. It takes the same run lock as a message, so it is refused while a run
+ * is active or waiting for an approval. Nothing to summarize yet: no job, `runId` null.
+ */
+export async function compactConversation(
+	conversation: Conversation,
+	userId: string,
+	keep?: string,
+): Promise<{ runId: string } | { runId: null; message: string }> {
+	if (conversation.archived) throw new ConflictError("Cannot compact an archived conversation");
+	const busy = new ConflictError(
+		"Wait for the current run to finish (or answer its approval) before compacting",
+	);
+	if (conversation.status === "running" || conversation.status === "paused_hitl") throw busy;
+	const view = await store().modelView(conversation.id);
+	if (!canCompact(view.map((v) => v.message)))
+		return { runId: null, message: "Nothing to compact yet" };
+	await assertRunQuota(userId);
+	const meta = metaOf(conversation);
+	// The run row holds the lock; the picker settings stay as they were.
+	const runId = await startRun(
+		conversation.id,
+		keep ? `/compact ${keep}` : "/compact",
+		meta.mode ?? "manual",
+		meta.effort,
+	);
+	if (!runId) throw busy;
+	await publishAgentJob({
+		type: "compact",
+		conversationId: conversation.id,
+		runId,
+		userId,
+		projectId: conversation.projectId as string,
+		mode: meta.mode ?? "manual",
+		effort: meta.effort,
+		keep,
 	});
 	return { runId };
 }

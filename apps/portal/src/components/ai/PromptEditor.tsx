@@ -21,6 +21,8 @@ import { lexicalToMarkdown, markdownToLexical } from "./lexical/MarkdownTransfor
 import { ResourceNode } from "./lexical/ResourceNode";
 import { ResourcePlugin } from "./lexical/ResourcePlugin";
 import { MentionPopover } from "./MentionPopover";
+import { SlashPopover } from "./SlashPopover";
+import { type SlashCommand, slashSuggestions } from "./slashCommands";
 import { STARTERS } from "./starters";
 
 const PLACEHOLDERS = [
@@ -118,6 +120,8 @@ type Props = {
 	isDisabled?: boolean;
 	/** Next to the model name: the mode and effort pickers. */
 	controls?: ReactNode;
+	/** A lone `/` at the start suggests the slash commands (the chat only). */
+	slashCommands?: boolean;
 };
 
 export function PromptEditor({
@@ -134,6 +138,7 @@ export function PromptEditor({
 	onStop,
 	isDisabled,
 	controls,
+	slashCommands,
 }: Props) {
 	const [popoverOpen, setPopoverOpen] = useState(false);
 	const [wasAtTyped, setWasAtTyped] = useState(false);
@@ -196,7 +201,15 @@ export function PromptEditor({
 	// directly and was firing a second run over the top of the first.
 	const canSend = trimmed.length > 0 && !isPending && !isDisabled && !isRunning;
 
+	// Suggestions come with a lone `/` and a name in the making, and not while a run is on.
+	const suggestions = slashCommands && !isRunning ? slashSuggestions(value) : [];
+	const pickSlash = (c: SlashCommand) =>
+		document.dispatchEvent(new CustomEvent("set-editor-text", { detail: { text: `/${c.name} ` } }));
+
 	const submit = () => {
+		// Enter on a half-typed command completes it; a whole one is sent.
+		if (suggestions.length && !suggestions.some((c) => trimmed === `/${c.name}`))
+			return pickSlash(suggestions[0]);
 		if (canSend) onSubmit(trimmed);
 	};
 
@@ -223,6 +236,8 @@ export function PromptEditor({
 					onClose={closePopover}
 				/>
 			)}
+
+			{suggestions.length > 0 && <SlashPopover commands={suggestions} onPick={pickSlash} />}
 
 			<LexicalComposer initialConfig={initialConfig}>
 				<div className="relative w-full min-h-[46px]">

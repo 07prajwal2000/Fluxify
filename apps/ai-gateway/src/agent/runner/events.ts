@@ -199,7 +199,7 @@ export function decidedEvent(r: ToolResultPart, seq: number): AgentEvent {
 }
 
 /** A summary is saved as its own row (the last one); a trim saves nothing. */
-const compactionEvent = (c: Compaction, t: { next: number }): AgentEvent => ({
+export const compactionEvent = (c: Compaction, t: { next: number }): AgentEvent => ({
 	type: "compaction",
 	seq: c.kind === "summary" ? t.next - 1 : t.next,
 	compaction: c,

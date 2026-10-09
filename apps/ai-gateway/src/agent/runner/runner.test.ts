@@ -235,6 +235,43 @@ describe("a job against Postgres and NATS", () => {
 	});
 });
 
+describe("compact job", () => {
+	it("takes the run lock, saves the summary row, streams the compaction and frees the conversation", async () => {
+		const c = await repo.createConversation(undefined as never, "p1");
+		const { approve: _, ...agent } = scripted([["get_route"]], async () => ({ ok: true })).agent;
+		const first = (await repo.startRun(c.id, "go", "auto")) as string;
+		await job.executeRun(
+			{ type: "start", conversationId: c.id, runId: first, userId: "u1", projectId: "p1", mode: "auto", message: "go" },
+			{ ...worker.deps, build: async () => agent },
+			new AbortController().signal,
+		);
+		await store.append(c.id, first, [{ role: "user", content: "now test it" }, { role: "assistant", content: "tested" }]);
+		const before = (await store.all(c.id)).length;
+
+		const id = (await repo.startRun(c.id, "/compact keep the ids", "auto")) as string;
+		// the lock: nothing else can start while the compact job holds the conversation
+		expect(await repo.startRun(c.id, "again", "auto")).toBeNull();
+		const { executeCompact } = await import("./compactJob");
+		const status = await executeCompact(
+			{ type: "compact", conversationId: c.id, runId: id, userId: "u1", projectId: "p1", mode: "auto", keep: "the ids" },
+			{ ...worker.deps, build: async () => agent },
+			new AbortController().signal,
+		);
+		expect(status).toBe("completed");
+		const rows = await store.all(c.id);
+		expect(rows).toHaveLength(before + 1);
+		expect(rows.at(-1)).toMatchObject({ role: "summary", coversUpToSeq: before - 3 });
+		expect(rows.at(-1)?.content).toMatchObject({ compaction: { kind: "summary" } });
+		const seen = await client(id, -1);
+		expect(await seen.ended).toBe(true);
+		expect(seen.got.map((e) => e.type)).toEqual(["compaction", "done"]);
+		expect(seen.got[0]).toMatchObject({ seq: before });
+		expect((await repo.getRun(id))?.status).toBe("completed");
+		expect((await repo.getConversation(c.id))?.status).toBe("completed");
+		expect(await repo.startRun(c.id, "next", "auto")).toBeString();
+	});
+});
+
 describe("SSE endpoint", () => {
 	async function sse(path: string) {
 		const { Hono } = await import("hono");

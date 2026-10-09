@@ -6,7 +6,7 @@ import { usePageTitle } from "@/lib/seo";
 import { AgentMessage, LimitNotice, Thinking } from "./AgentMessage";
 import { AgentPickers } from "./AgentPickers";
 import { ApprovalBar } from "./ApprovalBar";
-import type { ChatMessage } from "./agentMessages";
+import { type ChatMessage, messageKey } from "./agentMessages";
 import { ChatTitleEditor } from "./ChatTitleEditor";
 import { PromptEditor } from "./PromptEditor";
 import { RunSummary } from "./RunSummary";
@@ -119,9 +119,18 @@ export function ConversationPage() {
 						</div>
 					)}
 					{chat.messages.map((m) => (
-						<AgentMessage key={m.seq} message={m} waiting={chat.waiting} running={chat.running} />
+						<AgentMessage
+							key={messageKey(m)}
+							message={m}
+							waiting={chat.waiting}
+							running={chat.running}
+						/>
 					))}
-					{chat.running && isThinking(chat.messages) && <Thinking since={chat.runStartedAt} />}
+					{chat.compacting ? (
+						<p className="animate-pulse text-xs text-muted">Compacting the conversation…</p>
+					) : (
+						chat.running && isThinking(chat.messages) && <Thinking since={chat.thinkingSince} />
+					)}
 					{chat.error && <p className="text-sm text-danger">The run failed: {chat.error}</p>}
 					{chat.stopReason && <LimitNotice reason={chat.stopReason} />}
 					{!chat.running && chat.run && <RunSummary run={chat.run} rows={chat.rows} />}
@@ -156,6 +165,7 @@ export function ConversationPage() {
 								value={query}
 								onChange={setQuery}
 								onSubmit={submit}
+								slashCommands
 								typewriter={false}
 								placeholder={chat.approval ? CHANGE_PLACEHOLDER : "Reply to AI..."}
 								isRunning={chat.running}

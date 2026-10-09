@@ -8,6 +8,7 @@ import { modelFromIntegration } from "../model";
 import { agentStore } from "../store";
 import { limitsFromProject } from "../timeouts";
 import { agentTools } from "../tools";
+import { executeCompact } from "./compactJob";
 import { agentIntegration } from "./integration";
 import { executeRun, type RunDeps } from "./job";
 import {
@@ -78,7 +79,11 @@ async function runJob({ data }: { data: AgentJob }) {
 	const ctrl = new AbortController();
 	running.set(data.conversationId, ctrl);
 	try {
-		const status = await executeRun(data, deps, ctrl.signal);
+		const status = await (data.type === "compact" ? executeCompact : executeRun)(
+			data,
+			deps,
+			ctrl.signal,
+		);
 		logger.info("[AgentRunner] job done", { runId: data.runId, type: data.type, status });
 	} finally {
 		running.delete(data.conversationId);

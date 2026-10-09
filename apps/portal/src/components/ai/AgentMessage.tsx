@@ -2,7 +2,14 @@ import type { StopReason } from "@fluxify/ai-gateway/src/agent/agent";
 import { Spinner } from "@fluxify/components";
 import { useEffect, useState } from "react";
 import { TbAlertTriangle, TbBan, TbCheck, TbClock, TbX } from "react-icons/tb";
-import { type ChatMessage, type Part, type ToolPart, toolTitle } from "./agentMessages";
+import {
+	type ChatMessage,
+	type Part,
+	type ReasoningPart,
+	type ToolPart,
+	toolTitle,
+} from "./agentMessages";
+import { CompactionLine } from "./CompactionLine";
 import { MarkdownViewer } from "./MarkdownViewer";
 import { UserMessage } from "./UserMessage";
 
@@ -63,8 +70,13 @@ function ToolRow({
 	);
 }
 
-/** Reasoning, dimmed and folded. Hidden (encrypted) reasoning has no text. */
-function Reasoning({ text }: { text: string }) {
+/** Under a second is a replayed burst or a blink: no time. */
+const thoughtLabel = (ms?: number) =>
+	ms !== undefined && ms >= 1000 ? `Thought for ${Math.round(ms / 1000)}s` : "Thought";
+
+/** Reasoning, dimmed and folded, with the time that model call thought. Hidden (encrypted) reasoning has no text. */
+function Reasoning({ part }: { part: ReasoningPart }) {
+	const { text } = part;
 	const [open, setOpen] = useState(false);
 	return (
 		<details
@@ -73,7 +85,7 @@ function Reasoning({ text }: { text: string }) {
 			onToggle={(e) => setOpen(e.currentTarget.open)}
 		>
 			<summary className="cursor-pointer list-none">
-				{text ? "Thought" : "Thought (hidden)"}
+				{text ? thoughtLabel(part.ms) : `${thoughtLabel(part.ms)} (hidden)`}
 			</summary>
 			{text && (
 				<>
@@ -94,7 +106,7 @@ function Reasoning({ text }: { text: string }) {
 
 function PartView({ part, waiting, running }: { part: Part; waiting: boolean; running: boolean }) {
 	if (part.type === "text") return part.text ? <MarkdownViewer content={part.text} /> : null;
-	if (part.type === "reasoning") return <Reasoning text={part.text} />;
+	if (part.type === "reasoning") return <Reasoning part={part} />;
 	return <ToolRow tool={part} waiting={waiting} running={running} />;
 }
 
@@ -108,6 +120,7 @@ export function AgentMessage({
 	waiting: boolean;
 	running: boolean;
 }) {
+	if (message.role === "compaction") return <CompactionLine message={message} />;
 	if (message.role === "user")
 		return (
 			<UserMessage query={message.parts.map((p) => (p.type === "text" ? p.text : "")).join("")} />
@@ -122,7 +135,7 @@ export function AgentMessage({
 	);
 }
 
-/** `Thinking… 3s` since the run began, while the model works without showing text. */
+/** `Thinking… 3s` since this model call began, while the model works without showing text. */
 export function Thinking({ since }: { since: number }) {
 	const [now, setNow] = useState(Date.now());
 	useEffect(() => {

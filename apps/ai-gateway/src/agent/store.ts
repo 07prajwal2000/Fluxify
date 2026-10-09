@@ -6,6 +6,7 @@ import {
 import type { ModelMessage } from "ai";
 import { and, asc, desc, eq, gt, lt, lte, max, ne } from "drizzle-orm";
 import type { BunSQLDatabase } from "drizzle-orm/bun-sql";
+import type { Compaction } from "./compact";
 
 export type RunStatus = (typeof runs.$inferSelect)["status"];
 /** A message of the model view and the seq it maps to (a summary maps to the seq it covers up to). */
@@ -56,15 +57,25 @@ export function agentStore(db: BunSQLDatabase) {
 					)
 				: Promise.resolve([]),
 
-		/** Stores a summary standing in for every row up to `coversUpToSeq`. */
+		/**
+		 * Stores a summary standing in for every row up to `coversUpToSeq`. `stats` (what
+		 * the compaction did) rides on the row for the UI; the model never sees it.
+		 */
 		appendSummary: async (
 			conversationId: string,
 			runId: string,
 			summary: ModelMessage,
 			coversUpToSeq: number,
+			stats?: Compaction,
 		) =>
 			(
-				await insert(conversationId, runId, [{ role: "summary", content: summary, coversUpToSeq }])
+				await insert(conversationId, runId, [
+					{
+						role: "summary",
+						content: stats ? { ...summary, compaction: stats } : summary,
+						coversUpToSeq,
+					},
+				])
 			)[0],
 
 		/** Every row, in order (the UI). */
@@ -125,7 +136,8 @@ export function agentStore(db: BunSQLDatabase) {
 				.orderBy(asc(messages.seq));
 			const head: Seqd[] = [];
 			if (summary) {
-				head.push({ message: summary.content as ModelMessage, seq: covers });
+				const { compaction: _, ...message } = summary.content;
+				head.push({ message: message as ModelMessage, seq: covers });
 				if (!rest.some((r) => r.role === "user")) {
 					const [user] = await db
 						.select()

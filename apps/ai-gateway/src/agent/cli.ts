@@ -23,8 +23,8 @@ export { printRun, short } from "./progress";
 /**
  * Terminal agent against a Fluxify admin API, acting as the user behind FLUXIFY_PAT.
  *   bun run agent ["<first prompt>"] --project <id> [--mode manual|auto|plan]
- * Then `[mode] > ` takes the next message. /mode <name> switches mode, /compact summarizes
- * the conversation so far now, /exit quits;
+ * Then `[mode] > ` takes the next message. /mode <name> switches mode, /compact [what to keep]
+ * summarizes the conversation so far now (text after it tells the summary what to keep), /exit quits;
  * Ctrl+C stops a run (or rejects at an approval prompt), twice at an empty prompt quits.
  * manual asks before every change, auto only before deletes (deletes always ask), plan
  * only reads and writes a plan, then asks Start? (y runs it in auto).
@@ -77,14 +77,15 @@ export function startAgent(projectId: string, { loaded, ...run }: Run) {
 	});
 }
 
-/** What a line typed at `> ` means. `{ mode }` is /mode with its argument, if any. */
+/** What a line typed at `> ` means. `{ mode }` is /mode with its argument, if any; `{ compact }` is /compact with what to keep. */
 export function parseLine(
 	line: string,
-): "skip" | "exit" | "compact" | "unknown" | "run" | { mode?: string } {
+): "skip" | "exit" | "compact" | "unknown" | "run" | { mode?: string } | { compact: string } {
 	const t = line.trim();
 	if (!t) return "skip";
 	if (t === "/exit") return "exit";
 	if (t === "/compact") return "compact";
+	if (t.startsWith("/compact ")) return { compact: t.slice(9).trim() };
 	if (t === "/mode" || t.startsWith("/mode ")) return { mode: t.slice(5).trim() || undefined };
 	return t.startsWith("/") ? "unknown" : "run";
 }
@@ -221,16 +222,17 @@ async function turn(
 	await printRun(result, { write, tty: process.stdout.isTTY, log, paused });
 }
 
-/** /compact: the 80% summary now, swapped into `history`. */
+/** /compact [keep]: the 80% summary now, swapped into `history`; `keep` is what the summary should keep. */
 export async function compactNow(
 	history: ModelMessage[],
 	instructions: string,
 	write: (s: string) => void,
 	log: Log,
 	model = modelFromEnv(process.env),
+	keep?: string,
 ) {
 	try {
-		const r = await summarize(model, history, { instructions });
+		const r = await summarize(model, history, { instructions, keep });
 		if (!r) return write("[compacted] nothing to compact yet\n");
 		history.splice(0, history.length, ...r.messages);
 		const { type: _, ...stats } = r.event;
@@ -246,7 +248,7 @@ export async function compactNow(
 async function repl(projectId: string, first: string | undefined, mode: Mode) {
 	const { file, log } = runLog(path.join(import.meta.dir, "../../logs"));
 	console.log(
-		`Log: ${file}\n/mode <manual|auto|plan> switches mode, /exit quits. Ctrl+C stops a run.`,
+		`Log: ${file}\n/mode <manual|auto|plan> switches mode, /compact [what to keep] summarizes, /exit quits. Ctrl+C stops a run.`,
 	);
 	const session: Session = { history: [], mode, allowed: new Set(), loaded: new Set() };
 	const rl = createInterface({ input: process.stdin, output: process.stdout });
@@ -341,6 +343,17 @@ async function repl(projectId: string, first: string | undefined, mode: Mode) {
 	for (let line = first ?? (await next()); ; line = await next()) {
 		const kind = parseLine(line);
 		if (kind === "exit") quit();
+		if (typeof kind === "object" && "compact" in kind) {
+			await compactNow(
+				session.history,
+				agentPrompt(projectId),
+				write,
+				log,
+				undefined,
+				kind.compact,
+			);
+			continue;
+		}
 		if (kind === "compact") {
 			await compactNow(session.history, agentPrompt(projectId), write, log);
 			continue;
@@ -352,7 +365,8 @@ async function repl(projectId: string, first: string | undefined, mode: Mode) {
 			console.log(`Mode: ${session.mode}`);
 			continue;
 		}
-		if (kind === "unknown") console.log("Commands: /mode <manual|auto|plan>, /compact, /exit");
+		if (kind === "unknown")
+			console.log("Commands: /mode <manual|auto|plan>, /compact [what to keep], /exit");
 		if (kind !== "run") continue;
 		await converse(session, line.trim(), runOne, askStart, write);
 	}

@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it, spyOn } from "bun:test";
-import { errorHandler } from "@fluxify/server";
+import { ConflictError, errorHandler } from "@fluxify/server";
 import { Hono } from "hono";
 import * as integration from "../../../agent/runner/integration";
 import * as repo from "../../../agent/runner/repository";
@@ -26,6 +26,7 @@ const spies = [
 	spyOn(service, "sendMessage").mockResolvedValue({ runId: "r1" }),
 	spyOn(service, "answerApproval").mockResolvedValue({ runId: "r1" }),
 	spyOn(service, "stopRun").mockResolvedValue({ runId: "r1" }),
+	spyOn(service, "compactConversation").mockResolvedValue({ runId: "r1" }),
 	spyOn(service, "patchConversation").mockResolvedValue({} as any),
 	spyOn(service, "removeConversation").mockResolvedValue({ success: true }),
 	spyOn(stream, "streamRun").mockImplementation(((c: any) => c.text("stream")) as any),
@@ -61,6 +62,7 @@ const inConversation: [string, string, object | undefined, "viewer" | "creator"]
 	["POST", `${P}/c1/messages`, { text: "hi" }, "creator"],
 	["POST", `${P}/c1/approval`, { approve: true }, "creator"],
 	["POST", `${P}/c1/stop`, undefined, "creator"],
+	["POST", `${P}/c1/compact`, { instructions: "keep the ids" }, "creator"],
 	["PATCH", `${P}/c1`, { title: "New name" }, "creator"],
 	["DELETE", `${P}/c1`, undefined, "creator"],
 ];
@@ -127,6 +129,31 @@ describe("agent API auth", () => {
 		expect((await call("POST", `${P}/c1/approval`, { approve: true, effort: "x" })).status).toBe(400);
 		expect((await call("PATCH", `${P}/c1`, {})).status).toBe(400);
 		expect((await call("PATCH", `${P}/c1`, { title: "" })).status).toBe(400);
+	});
+
+	it("compact passes the trimmed instructions: 202 with the run, or 200 when there is nothing to do", async () => {
+		const compact = service.compactConversation as any;
+		const res = await call("POST", `${P}/c1/compact`, { instructions: "  keep the ids " });
+		expect(res.status).toBe(202);
+		expect(await res.json()).toEqual({ runId: "r1" });
+		expect(compact.mock.calls.at(-1).slice(1)).toEqual(["owner", "keep the ids"]);
+		await call("POST", `${P}/c1/compact`, {});
+		expect(compact.mock.calls.at(-1).slice(1)).toEqual(["owner", undefined]);
+		await call("POST", `${P}/c1/compact`, { instructions: "  " });
+		expect(compact.mock.calls.at(-1).slice(1)).toEqual(["owner", undefined]);
+		compact.mockResolvedValueOnce({ runId: null, message: "Nothing to compact yet" });
+		const none = await call("POST", `${P}/c1/compact`, {});
+		expect(none.status).toBe(200);
+		expect(await none.json()).toEqual({ runId: null, message: "Nothing to compact yet" });
+	});
+
+	it("compact during a run is a readable 409", async () => {
+		(service.compactConversation as any).mockRejectedValueOnce(
+			new ConflictError("Wait for the current run to finish"),
+		);
+		const res = await call("POST", `${P}/c1/compact`, {});
+		expect(res.status).toBe(409);
+		expect(JSON.stringify(await res.json())).toContain("Wait for the current run to finish");
 	});
 
 	it("the stream is for the run's owner only", async () => {

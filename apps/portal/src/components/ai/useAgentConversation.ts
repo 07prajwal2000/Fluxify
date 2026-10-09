@@ -1,4 +1,5 @@
 import type { AgentEvent } from "@fluxify/ai-gateway/src/agent/runner/events";
+import { toast } from "@fluxify/components";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { showErrorNotification } from "@/lib/errorNotifier";
@@ -12,6 +13,7 @@ import {
 } from "@/services/agentConversations";
 import { type ApprovalRequest, planReply, waitingCall } from "./agentApproval";
 import { applyEvent, chatView, EMPTY_LIVE, type Live } from "./agentMessages";
+import { parseSlash, type SlashName } from "./slashCommands";
 
 /** Run statuses a job still holds (or will): the stream is open for these. */
 const ACTIVE = new Set(["queued", "executing"]);
@@ -72,6 +74,8 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 	const [pending, setPending] = useState<{ text: string; afterSeq: number } | null>(null);
 	/** When this page started the run it follows; after a refresh the run row's createdAt stands in. */
 	const [startedAt, setStartedAt] = useState<number | null>(null);
+	/** This page started a /compact job and follows it. */
+	const [compactStarted, setCompactStarted] = useState(false);
 	const [attempt, setAttempt] = useState(0);
 	/** The pickers move this; until they do, the conversation's saved settings show. */
 	const [picked, setPicked] = useState<Picks>({});
@@ -86,7 +90,12 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 		if (!streamId) return;
 		let closed = false;
 		let disposed = false;
-		setLive((l) => ({ ...EMPTY_LIVE, results: l.results, lastEventAt: Date.now() }));
+		setLive((l) => ({
+			...EMPTY_LIVE,
+			results: l.results,
+			callStartedAt: l.callStartedAt,
+			lastEventAt: Date.now(),
+		}));
 		const es = new EventSource(agentConversationsService.streamUrl(streamId, top.current), {
 			withCredentials: true,
 		});
@@ -100,6 +109,7 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 				setStarted(null);
 				setStartedAt(null);
 				setPending(null);
+				setCompactStarted(false);
 				setLive((l) => ({ ...EMPTY_LIVE, end: l.end }));
 				qc.invalidateQueries({ queryKey: [...agentConversationsKey(projectId), "list"] });
 			});
@@ -140,6 +150,7 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 
 	const send = async (text: string, over: Picks = {}) => {
 		const go = { mode: over.mode ?? mode, effort: over.effort ?? effort };
+		setCompactStarted(false);
 		setStartedAt(Date.now());
 		setPending({ text, afterSeq: top.current });
 		setLive({ ...EMPTY_LIVE, lastEventAt: Date.now() });
@@ -158,6 +169,23 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 			throw e;
 		}
 	};
+
+	/** /compact: summarizes the conversation as a job of its own and follows it; the summary line arrives as an event. */
+	const compact = async (text: string) => {
+		if (running || waiting) throw new Error("Wait for the current run to finish before compacting");
+		const { runId, message } = await agentConversationsService.compact(
+			projectId,
+			conversationId,
+			text || undefined,
+		);
+		if (!runId) return void toast.info(message ?? "Nothing to compact yet");
+		setCompactStarted(true);
+		setStartedAt(Date.now());
+		setLive({ ...EMPTY_LIVE, lastEventAt: Date.now() });
+		setStarted(runId);
+	};
+	/** One handler per slash command; typed by the commands list, so a new command cannot be forgotten. */
+	const slash: Record<SlashName, (args: string) => Promise<void>> = { compact };
 
 	/** Answers the call the run waits on; the run goes on with the mode it picks. */
 	const answer = async (a: ApprovalAnswer) => {
@@ -202,6 +230,10 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 	const running = Boolean(streamId) || Boolean(pending);
 	const waiting = !running && run?.status === "waiting_approval";
 	const end = live.end;
+	// After a refresh the page did not start the job: the run row says what it is.
+	const compacting =
+		running &&
+		(compactStarted || (streamId === run?.id && !!run?.userQuery?.startsWith("/compact")));
 	const messages = useMemo(() => chatView(rows, live, pending), [rows, live, pending]);
 
 	/** What the bar above the editor asks: the call that waits, or a plan in plan mode that is ready to start. */
@@ -219,8 +251,11 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 			? { kind: "plan" }
 			: undefined;
 	/** Typed text while something waits is the reason the user turns it down; otherwise it is a new message. */
-	const submit = (text: string) =>
-		waiting ? answer({ approve: false, reason: text }) : send(text);
+	const submit = (text: string) => {
+		const command = parseSlash(text);
+		if (command) return slash[command.command.name](command.args);
+		return waiting ? answer({ approve: false, reason: text }) : send(text);
+	};
 	const approve = (to: Mode) =>
 		plan ? send(START_PLAN, { mode: to }) : answer({ approve: true, mode: to });
 	const reject = () => (plan ? Promise.resolve(setDismissed(lastSeq)) : answer({ approve: false }));
@@ -246,10 +281,22 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 		effort,
 		setEffort: (e: Effort) => setPicked((p) => ({ ...p, effort: e })),
 		supportsThinking: saved?.supportsThinking ?? false,
-		/** When the last event came, for the thinking timer. */
 		lastEventAt: live.lastEventAt,
-		/** When the active run began, for the thinking timer: it counts the whole wait, not the gap since the last token. */
-		runStartedAt: startedAt ?? (run?.createdAt ? Date.parse(run.createdAt) : live.lastEventAt),
+		/**
+		 * When the model call in progress began, for the thinking timer: the last tool result
+		 * this page's stream saw, else the run's start; after a refresh, the last saved row (or
+		 * the run's start), which is the same moment. Each call counts from its own start.
+		 */
+		thinkingSince:
+			live.callStartedAt ??
+			startedAt ??
+			(Math.max(
+				Date.parse(rows.at(-1)?.createdAt ?? "") || 0,
+				Date.parse(run?.createdAt ?? "") || 0,
+			) ||
+				live.lastEventAt),
+		/** A /compact job is running: no model turn follows it. */
+		compacting,
 		error: end?.type === "error" ? end.message : null,
 		/** The last run stopped at its step or token limit. */
 		stopReason: running

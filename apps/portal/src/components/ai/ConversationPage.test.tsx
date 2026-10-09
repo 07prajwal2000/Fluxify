@@ -14,6 +14,8 @@ mock.module("@tanstack/react-router", () => ({
 	),
 }));
 // The Lexical editor is not what is tested here: a textarea with the same props stands in.
+// Module mocks outlive the file, so the real editor is kept to put back when it is done.
+const realEditor = { ...(await import("./PromptEditor")) };
 mock.module("./PromptEditor", () => ({
 	PromptEditor: ({ placeholder, onSubmit, controls, isRunning }: any) => {
 		const { useState } = require("react");
@@ -54,7 +56,7 @@ const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query
 const { agentConversationsService } = await import("@/services/agentConversations");
 const { ConversationPage } = await import("./ConversationPage");
 
-type Row = { seq: number; role: string; runId: string; content: unknown };
+type Row = { seq: number; role: string; runId: string; content: unknown; createdAt?: string };
 const user = (seq: number, text: string): Row => ({
 	seq,
 	role: "user",
@@ -121,7 +123,10 @@ afterEach(() => {
 	globalThis.IntersectionObserver = saved.io as never;
 	for (const s of [get, approve, send]) s.mockRestore();
 });
-afterAll(() => GlobalRegistrator.unregister());
+afterAll(() => {
+	mock.module("./PromptEditor", () => realEditor);
+	GlobalRegistrator.unregister();
+});
 
 function open(d: ReturnType<typeof detail>) {
 	get.mockResolvedValue(d as never);
@@ -357,6 +362,46 @@ test("an open thinking block has a Collapse at the bottom that closes it", async
 	await until(() => expect(thought.open).toBe(true));
 	fireEvent.click(q().getByRole("button", { name: "Collapse" }));
 	await until(() => expect(thought.open).toBe(false));
+});
+
+const summaryRow = (seq: number): Row => ({
+	seq,
+	role: "summary",
+	runId: "r1",
+	content: {
+		role: "user",
+		content: "Summary of the earlier conversation:\nbuilt the users route",
+		compaction: {
+			type: "compaction",
+			kind: "summary",
+			messages: 12,
+			coversUpTo: 12,
+			before: 102000,
+			after: 9000,
+		},
+	},
+});
+
+test("a saved summary row is a quiet line where it happened; it opens to read the summary", async () => {
+	open(detail([user(0, "build it"), summaryRow(1), user(2, "go on")], "completed"));
+	const line = await until(() => q().getByText("Context compacted: 102k → 9k tokens"));
+	const details = line.closest("details") as HTMLDetailsElement;
+	expect(details.open).toBe(false);
+	expect(details.textContent).toContain("built the users route");
+	// between the two user messages
+	const text = document.body.textContent ?? "";
+	expect(text.indexOf("build it")).toBeLessThan(text.indexOf("Context compacted"));
+	expect(text.indexOf("Context compacted")).toBeLessThan(text.indexOf("go on"));
+	fireEvent.click(line);
+	await until(() => expect(details.open).toBe(true));
+});
+
+test("a running /compact says so instead of Thinking…", async () => {
+	const d = detail([user(0, "hi"), reply(1, "hello")], "executing");
+	(d.run as { userQuery?: string }).userQuery = "/compact keep the ids";
+	open(d);
+	await until(() => q().getByText("Compacting the conversation…"));
+	expect(q().queryByText(/Thinking…/)).toBeNull();
 });
 
 test("scrolling to the top loads the older page, shows a loader, and keeps the scroll position", async () => {

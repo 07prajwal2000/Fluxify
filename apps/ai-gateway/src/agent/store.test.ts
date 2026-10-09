@@ -137,6 +137,18 @@ describe("agent_messages", () => {
 		expect(await store.all(c)).toHaveLength(8);
 	});
 
+	it("a summary's stats ride on its row for the UI; the model never sees them", async () => {
+		const c = await conversation();
+		await store.append(c, c, [{ role: "user", content: "build" }, ...step(1)]); // 0..2
+		const stats = { type: "compaction", kind: "summary", messages: 3, coversUpTo: 3, before: 100, after: 10 } as const;
+		await store.appendSummary(c, c, { role: "user", content: `${SUMMARY_HEAD}one` }, 2, stats); // 3
+		const row = (await store.all(c)).at(-1)!;
+		expect(row).toMatchObject({ role: "summary", coversUpToSeq: 2 });
+		expect(row.content).toEqual({ role: "user", content: `${SUMMARY_HEAD}one`, compaction: stats });
+		const [head] = await store.modelView(c);
+		expect(head.message).toEqual({ role: "user", content: `${SUMMARY_HEAD}one` });
+	});
+
 	it("a reload is exactly the history the run kept", async () => {
 		const c = await conversation();
 		const m = scripted([["get_route"], ["get_route"]], async () => ({ ok: true }));
