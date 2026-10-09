@@ -61,7 +61,7 @@ describe("compaction lines", () => {
 	const trim: AgentEvent = {
 		type: "compaction",
 		seq: 9,
-		compaction: { type: "compaction", kind: "trim", results: 12, savedTokens: 5000 },
+		compaction: { type: "compaction", kind: "trim", results: 12, tools: { get_recording: 12 }, before: 41000, after: 12000 },
 	};
 
 	test("a live event is a line in place, apart from the step that shares its seq", () => {

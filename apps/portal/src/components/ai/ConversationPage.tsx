@@ -125,7 +125,7 @@ export function ConversationPage() {
 						/>
 					))}
 					{chat.compacting ? (
-						<p className="animate-pulse text-xs text-muted">Compacting the conversation…</p>
+						<p className="animate-pulse text-xs text-muted">Compacting…</p>
 					) : (
 						chat.running && isThinking(chat.messages) && <Thinking since={chat.thinkingSince} />
 					)}

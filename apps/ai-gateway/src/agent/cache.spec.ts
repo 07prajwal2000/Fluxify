@@ -16,6 +16,17 @@ describe("prompt cache", () => {
 		}
 	});
 
+	it("the budget line goes after the breakpoint, so the cached prefix stays the same", async () => {
+		const r = await run(same, opts("anthropic.messages"));
+		for (const p of r.raw) {
+			expect(JSON.stringify(p.at(-1))).toContain("Budget: step");
+			expect(cached(p.at(-1))).toBe(false);
+			expect(cached(p.at(-2))).toBe(true);
+		}
+		// what comes before the budget line does not mention it
+		expect(JSON.stringify(r.prompts)).not.toContain("Budget:");
+	});
+
 	it.each(["openai.responses", "google.generative-ai", "openai-compatible.chat"])(
 		"%s: no cache control",
 		async (provider) => {

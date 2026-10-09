@@ -3,6 +3,7 @@ import { APICallError, type ModelMessage, tool } from "ai";
 import { convertArrayToReadableStream, MockLanguageModelV4 } from "ai/test";
 import { z } from "zod";
 import { approveAll, assertEndsOnUserOrTool, MAX_STEPS, runAgent } from "./agent";
+import { withoutBudget } from "./budget.fixture";
 import { stopNote } from "./guards";
 import { onInterrupt, parseLine } from "./cli";
 import { printRun } from "./progress";
@@ -34,7 +35,7 @@ async function run(
 	const prompts: ModelMessage[][] = [];
 	const model = new MockLanguageModelV4({
 		doStream: async (o) => {
-			prompts.push(o.prompt as ModelMessage[]);
+			prompts.push(withoutBudget(o.prompt as ModelMessage[]));
 			return answers[prompts.length - 1]() as any;
 		},
 	});

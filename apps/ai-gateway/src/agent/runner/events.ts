@@ -40,6 +40,8 @@ export type AgentEvent =
 			isDelete: boolean;
 	  }
 	| { type: "compaction"; seq: number; compaction: Compaction }
+	/** A summary is being written (on) or has ended (off): the chat shows "Compacting…" meanwhile. */
+	| { type: "compacting"; seq: number; on: boolean }
 	| { type: "done"; seq: number; status: RunStatus; reason?: StopReason }
 	| { type: "error"; seq: number; message: string };
 
@@ -211,6 +213,7 @@ export async function pump(
 	t: { next: number; step: number },
 	push: (e: AgentEvent) => void,
 ) {
+	result.whenCompacting((on) => push({ type: "compacting", seq: t.next, on }));
 	for await (const part of result.stream) {
 		for (const c of result.compactions.splice(0)) push(compactionEvent(c, t));
 		const e = toEvent(part, t);

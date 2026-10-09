@@ -13,6 +13,17 @@ const NEVER_CUT = new Set(["get_canvas", "edit_canvas"]);
 export const WRAP_UP =
 	"Note: you have used 80% of this run's token budget. Wrap up: finish the current change, check it, and summarize.";
 
+const tokenText = (n: number) =>
+	n >= 1_000_000
+		? `${+(n / 1_000_000).toFixed(1)}M`
+		: n >= 1000
+			? `${Math.round(n / 1000)}k`
+			: `${n}`;
+
+/** What the model is told each step, so it can scope its work (it is never stored or cached). */
+export const budgetLine = (step: number, maxSteps: number, used: number, maxTokens: number) =>
+	`Budget: step ${step}/${maxSteps}, ${tokenText(used)}/${tokenText(maxTokens)} tokens used`;
+
 /** A step or token limit that was reached. */
 export type Limit = { kind: "steps" | "tokens"; used: number; limit: number };
 /** Why a run ended early. */

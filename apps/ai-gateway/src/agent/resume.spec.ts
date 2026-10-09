@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import type { ModelMessage } from "ai";
 import { runAgent } from "./agent";
 import { SUMMARY_HEAD } from "./compact";
-import { json, scripted, step } from "./resume.fixture";
+import { editStep, json, scripted, step, withCanvas } from "./resume.fixture";
 import { continueConversation, pendingCalls } from "./resume";
 import type { AgentStore } from "./store";
 
@@ -163,6 +163,21 @@ describe("summary rows", () => {
 		expect(String(summary.content.content)).toStartWith(SUMMARY_HEAD);
 		expect(m.prompts[0].map((p) => p.role)).toEqual(["system", "user", "user"]);
 		expect(s.rows.slice(0, 7).map((r) => r.seq)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+	});
+});
+
+describe("the canvas in a summary", () => {
+	it("is part of the summary row, so the next turn gets it from the stored rows", async () => {
+		const s = memStore();
+		await s.store.append("c", "r", [{ role: "user", content: "build" }, ...editStep(1), ...step(2), ...step(3), ...step(4)]);
+		await s.store.append("c", "r", [{ role: "assistant", content: "built" }]);
+		const m = scripted([], undefined, 1000);
+		await turn(s, withCanvas(m.agent), { message: "now test it" });
+		const summary = s.rows.find((r) => r.role === "summary")!;
+		expect(String(summary.content.content)).toContain("[canvas route r1]");
+		expect(String(summary.content.content)).toContain("kv_set_9");
+		// resume: a fresh process reads the summary row back as the first message
+		expect(JSON.stringify(m.prompts[0][1])).toContain("kv_set_9");
 	});
 });
 

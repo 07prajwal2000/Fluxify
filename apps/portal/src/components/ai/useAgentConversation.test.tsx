@@ -365,6 +365,22 @@ test("a compaction event is a line in the chat; after the reload the saved summa
 	expect(line.summary).toContain("built the users route");
 });
 
+test("compacting is on from the compacting event until it ends or the run is done", async () => {
+	get.mockResolvedValue(detail([user(0, "build it")], "executing"));
+	const { result } = setup();
+	const es = await stream();
+	expect(result.current.compacting).toBe(false);
+	act(() => es.emit({ type: "compacting", seq: 1, on: true }));
+	expect(result.current.compacting).toBe(true);
+	act(() => es.emit({ type: "compacting", seq: 1, on: false }));
+	expect(result.current.compacting).toBe(false);
+	act(() => es.emit({ type: "compacting", seq: 1, on: true }));
+	get.mockResolvedValue(detail([user(0, "build it")], "completed"));
+	act(() => es.emit({ type: "done", seq: 1, status: "completed" }));
+	await waitFor(() => expect(result.current.running).toBe(false));
+	expect(result.current.compacting).toBe(false);
+});
+
 test("saved summary rows are lines after a refresh, in the latest page and in older pages", async () => {
 	get.mockResolvedValue(detail([summaryRow(5), user(6, "next")], "completed", null, 5));
 	const older = spyOn(agentConversationsService, "getOlder").mockResolvedValue({

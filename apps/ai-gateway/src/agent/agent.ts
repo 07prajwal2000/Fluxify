@@ -2,6 +2,7 @@ import { type LanguageModel, type ModelMessage, NoSuchToolError, streamText, typ
 import { anthropicCache } from "./cache";
 import { compactor, type SummaryCompaction } from "./compact";
 import {
+	budgetLine,
 	guardTools,
 	type Limit,
 	MAX_RESULT_CHARS,
@@ -205,12 +206,20 @@ export function runAgent({
 	};
 	const instructions = agentPrompt(projectId) + (mode === "plan" ? PLAN_PROMPT : "");
 	const timed = withModelTimeouts(model, limits, onRetry ?? (() => {}));
+	let compacting = false;
+	const watchers = new Set<(on: boolean) => void>();
 	const compact = compactor({
 		model: timed,
 		history,
 		instructions,
 		context: limits.maxContextTokens,
+		// not the guarded set: the summary's canvas reads are not the model's calls to count
+		tools: withToolTimeouts(tools, limits.toolMs),
 		abortSignal,
+		onCompacting: (on) => {
+			compacting = on;
+			for (const w of watchers) w(on);
+		},
 		onSummary,
 	});
 	// plan mode: load_tools must not offer write tools as usable now
@@ -240,14 +249,17 @@ export function runAgent({
 			}
 			return !(await pastLimit("steps", steps.length)) || !(await pastLimit("tokens", used));
 		},
-		// Built from `history` each step: the 60% trim is never stored, the 80% summary is.
+		// Built from `history` each step: the 60% trim is never stored, the 80% summary is. The budget line is the one thing added after.
 		prepareStep: async ({ steps }) => {
-			const messages = await compact.next(steps.at(-1)?.usage);
-			assertEndsOnUserOrTool(messages);
+			const sent = await compact.next(steps.at(-1)?.usage);
+			assertEndsOnUserOrTool(sent);
+			const cache = anthropicCache(model, instructions, sent);
+			// after the cache breakpoint, and not in `history`: it changes every step
+			const budget = budgetLine(steps.length + 1, max.steps, tokens(steps), max.tokens);
 			return {
 				activeTools: mode === "plan" ? active().filter(isRead) : active(),
-				messages,
-				...anthropicCache(model, instructions, messages),
+				...cache,
+				messages: [...(cache.messages ?? sent), { role: "user" as const, content: budget }],
 			};
 		},
 		// A call to a real tool that is not active yet (#699): parsing only sees `activeTools`,
@@ -300,7 +312,15 @@ export function runAgent({
 		// Ctrl+C at the limit prompt: the run is aborted, but history still says why.
 		onAbort: () => noteStop(asking ?? stop),
 	});
-	return Object.assign(result, { stopped: () => stop, compactions: compact.events });
+	return Object.assign(result, {
+		stopped: () => stop,
+		compactions: compact.events,
+		/** Calls `fn(true)` when a summary starts and `fn(false)` when it ends (now too, if one is running). */
+		whenCompacting: (fn: (on: boolean) => void) => {
+			watchers.add(fn);
+			if (compacting) fn(true);
+		},
+	});
 }
 
 /** In plan mode load_tools still loads (for after the plan) but only reports read tools as usable. */

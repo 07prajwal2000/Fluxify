@@ -3,6 +3,7 @@ import { type ModelMessage, tool } from "ai";
 import { convertArrayToReadableStream, MockLanguageModelV4 } from "ai/test";
 import { z } from "zod";
 import { approveAll, assertEndsOnUserOrTool, type Limit, runAgent } from "./agent";
+import { withoutBudget } from "./budget.fixture";
 import { type Log, printRun } from "./progress";
 
 /** Test harness for the guard specs: a fake model that makes the given calls, then says "done". */
@@ -47,12 +48,15 @@ const NAMES = ["get_canvas", "edit_canvas", "call_route", "save_route"];
 /** Every step uses 2 tokens (1 in, 1 out). */
 export async function run(calls: Step[], opts: Opts = {}) {
 	const prompts: ModelMessage[][] = [];
+	/** The requests as sent, budget line included. */
+	const raw: ModelMessage[][] = [];
 	const limitsAsked: Limit[] = [];
 	cacheRead = opts.cacheRead ?? 0;
 	const model = new MockLanguageModelV4({
 		provider: opts.provider,
 		doStream: async (o) => {
-			prompts.push(o.prompt as ModelMessage[]);
+			raw.push(o.prompt as ModelMessage[]);
+			prompts.push(withoutBudget(o.prompt as ModelMessage[]));
 			const step = calls[prompts.length - 1];
 			if (!step) return done() as any;
 			const [toolName, input] = Array.isArray(step) ? step : ["get_canvas", step];
@@ -102,7 +106,7 @@ export async function run(calls: Step[], opts: Opts = {}) {
 	const results = history.flatMap((m) =>
 		m.role === "tool" ? m.content.map((p) => JSON.stringify(p)) : [],
 	);
-	return { prompts, history, shown, results, limitsAsked, stopped: result.stopped() };
+	return { prompts, raw, history, shown, results, limitsAsked, stopped: result.stopped() };
 }
 
 export const nextRequestIsValid = (history: ModelMessage[]) => {

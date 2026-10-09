@@ -231,6 +231,7 @@ export async function compactNow(
 	model = modelFromEnv(process.env),
 	keep?: string,
 ) {
+	write("Compacting…\n");
 	try {
 		const r = await summarize(model, history, { instructions, keep });
 		if (!r) return write("[compacted] nothing to compact yet\n");

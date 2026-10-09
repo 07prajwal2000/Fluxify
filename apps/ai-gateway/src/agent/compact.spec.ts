@@ -3,6 +3,7 @@ import { type ModelMessage, tool } from "ai";
 import { convertArrayToReadableStream, MockLanguageModelV4 } from "ai/test";
 import { z } from "zod";
 import { approveAll, assertEndsOnUserOrTool, runAgent } from "./agent";
+import { withoutBudget } from "./budget.fixture";
 import { compactNow, parseLine } from "./cli";
 import { canCompact, SUMMARY_HEAD, summarize, trimOld } from "./compact";
 import { printRun } from "./progress";
@@ -68,7 +69,7 @@ async function run(
 			warnings: [],
 		}),
 		doStream: async (call) => {
-			prompts.push(call.prompt as ModelMessage[]);
+			prompts.push(withoutBudget(call.prompt as ModelMessage[]));
 			const n = prompts.length;
 			const parts =
 				n > o.calls
@@ -122,7 +123,7 @@ describe("60%: trim old tool results", () => {
 		];
 		const before = JSON.stringify(ms);
 		// the cut-off is the start of the last 3 steps; h3 is the latest canvas
-		const t = trimOld(ms, 7, "h3");
+		const t = trimOld(ms, 7, { keep: new Set(["h3"]) });
 		expect(JSON.stringify(ms)).toBe(before);
 		expect(results(t.messages)).toEqual([
 			"[result trimmed: get_canvas, 2026 chars]",
@@ -133,7 +134,7 @@ describe("60%: trim old tool results", () => {
 			BIG,
 		]);
 		expect(t.results).toBe(2);
-		expect(JSON.stringify(trimOld(ms, 7, "h3"))).toBe(JSON.stringify(t)); // same input, same output
+		expect(JSON.stringify(trimOld(ms, 7, { keep: new Set(["h3"]) }))).toBe(JSON.stringify(t)); // same input, same output
 	});
 
 	it("trims what is sent but not the history, and the CLI shows it", async () => {
@@ -143,8 +144,8 @@ describe("60%: trim old tool results", () => {
 		const r = await run(history, { calls: 1, input: 3400, context: 5000 });
 		expect(results(r.prompts[0]).filter((s) => s.startsWith("[result trimmed"))).toHaveLength(3);
 		expect(history.slice(0, copy.length)).toEqual(copy);
-		expect(r.shown).toContain("[compacted] trimmed 3 old tool results (−1k tokens)");
-		expect(r.logged[0]).toMatchObject({ kind: "trim", results: 3 });
+		expect(r.shown).toContain("[compacted] Trimmed 3 old tool results (get_route ×3), 3k → 2k tokens");
+		expect(r.logged[0]).toMatchObject({ kind: "trim", results: 3, tools: { get_route: 3 } });
 	});
 
 	it("keeps the trimmed prefix identical between batches and moves it only on a new crossing", async () => {
@@ -161,13 +162,13 @@ describe("60%: trim old tool results", () => {
 		expect(trimmed(3)).toBeGreaterThan(3);
 		expect(head(4)).toBe(head(3));
 		// one line per batch
-		expect(r.shown.match(/\[compacted\] trimmed/g)).toHaveLength(2);
+		expect(r.shown.match(/\[compacted\] Trimmed/g)).toHaveLength(2);
 		expect(r.logged).toHaveLength(2);
 	});
 
 	it("does not trim again while usage stays over 60% (the summary is the backstop)", async () => {
 		const r = await run(longChat(), { calls: 3, input: 3400, context: 5000 });
-		expect(r.shown.match(/\[compacted\] trimmed/g)).toHaveLength(1);
+		expect(r.shown.match(/\[compacted\] Trimmed/g)).toHaveLength(1);
 		expect(JSON.stringify(r.prompts[3].slice(0, 12))).toBe(JSON.stringify(r.prompts[0].slice(0, 12)));
 	});
 
@@ -188,13 +189,13 @@ describe("80%: summary", () => {
 		expect(() => assertEndsOnUserOrTool(sent)).not.toThrow();
 		expect(history[0]).toEqual({ role: "user", content: `${SUMMARY_HEAD}the summary` });
 		expect(history[1]).toEqual({ role: "user", content: "now test it" });
-		expect(r.shown).toMatch(/\[compacted\] summarized 12 messages: \S+ → \S+ tokens/);
+		expect(r.shown).toMatch(/\[compacted\] Summarized 12 messages, \S+ → \S+ tokens/);
 		expect(r.logged[0]).toMatchObject({ kind: "summary", messages: 12, coversUpTo: 12 });
 		// the cached prefix: same system prompt on every step
 		const systems = r.prompts.map((p) => JSON.stringify(p.filter((m) => m.role === "system")));
 		expect(new Set(systems).size).toBe(1);
 		// the history is small after the summary, so nothing else is trimmed
-		expect(r.shown).not.toContain("trimmed");
+		expect(r.shown).not.toContain("Trimmed");
 	});
 
 	it("falls back to the trim when the summary fails", async () => {
@@ -208,7 +209,7 @@ describe("80%: summary", () => {
 			},
 		});
 		expect(r.shown).toContain("[compacted] summary failed (boom)");
-		expect(r.shown).toContain("[compacted] trimmed");
+		expect(r.shown).toContain("[compacted] Trimmed");
 		expect(results(r.prompts[0])[0]).toStartWith("[result trimmed");
 		expect(history[0]).toEqual({ role: "user", content: "build a route" });
 	});
@@ -225,7 +226,7 @@ describe("80%: summary", () => {
 		});
 		let out = "";
 		await compactNow(history, "sys", (s) => (out += s), () => {}, model);
-		expect(out).toMatch(/^\[compacted\] summarized 12 messages: 3k → \d+ tokens\n$/);
+		expect(out).toMatch(/^Compacting…\n\[compacted\] Summarized 12 messages, 3k → \d+ tokens\n$/);
 		expect(history.map((m) => m.role)).toEqual(["user", "user", "assistant"]);
 		expect(() => assertEndsOnUserOrTool([...history, { role: "user", content: "hi" }])).not.toThrow();
 	});

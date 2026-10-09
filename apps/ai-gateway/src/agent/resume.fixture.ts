@@ -1,8 +1,9 @@
 // Shared by resume.spec.ts and store.test.ts: a scripted model and the agent around it.
-import { type ModelMessage, tool } from "ai";
+import { type ModelMessage, type Tool, tool } from "ai";
 import { convertArrayToReadableStream, MockLanguageModelV4 } from "ai/test";
 import { z } from "zod";
 import type { Approve } from "./agent";
+import { withoutBudget } from "./budget.fixture";
 
 const usage = (input: number) => ({
 	inputTokens: { total: input, noCache: input, cacheRead: 0, cacheWrite: 0 },
@@ -38,7 +39,7 @@ export function scripted(script: string[][], approve: Approve = defer, maxContex
 			warnings: [],
 		}),
 		doStream: async (call) => {
-			prompts.push(call.prompt as ModelMessage[]);
+			prompts.push(withoutBudget(call.prompt as ModelMessage[]));
 			const names = script[prompts.length - 1] ?? [];
 			const parts = names.length
 				? [
@@ -99,3 +100,45 @@ export const step = (i: number): ModelMessage[] => [
 
 /** As stored and read back: plain JSON. */
 export const json = <T>(v: T): T => JSON.parse(JSON.stringify(v));
+
+/** A finished step that edited route r1's canvas. */
+export const editStep = (i: number): ModelMessage[] => [
+	{
+		role: "assistant",
+		content: [
+			{
+				type: "tool-call",
+				toolCallId: `e${i}`,
+				toolName: "edit_canvas",
+				input: { target: { kind: "route", id: "r1" }, version: i, ops: [] },
+			},
+		],
+	},
+	{
+		role: "tool",
+		content: [
+			{
+				type: "tool-result",
+				toolCallId: `e${i}`,
+				toolName: "edit_canvas",
+				output: { type: "json", value: { version: i + 1 } },
+			},
+		],
+	},
+];
+
+/** The agent plus a get_canvas that answers a one-block canvas: what a summary re-attaches. */
+export const withCanvas = <A extends { tools: Record<string, Tool> }>(agent: A): A => ({
+	...agent,
+	tools: {
+		...agent.tools,
+		get_canvas: tool({
+			inputSchema: z.object({}).passthrough(),
+			execute: async () => ({
+				version: 9,
+				blocks: [{ key: "kv_set_9", type: "kv_set" }],
+				edges: [],
+			}),
+		}),
+	},
+});

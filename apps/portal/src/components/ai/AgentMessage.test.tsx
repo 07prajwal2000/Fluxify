@@ -53,7 +53,7 @@ test("a saved summary is a quiet line that opens to the summary", () => {
 			after: 9000,
 		},
 	});
-	const line = r.getByText("Context compacted: 102k → 9k tokens");
+	const line = r.getByText("Summarized 12 messages, 102k → 9k tokens");
 	const details = line.closest("details") as HTMLDetailsElement;
 	expect(details.open).toBe(false);
 	expect(details.textContent).toContain("built the users route");
@@ -65,8 +65,15 @@ test("a summary saved before the numbers were kept, a trim and a failure each ha
 	const lines: [ChatMessage["compaction"], string][] = [
 		[undefined, "Context compacted"],
 		[
-			{ type: "compaction", kind: "trim", results: 12, savedTokens: 5000 },
-			"Trimmed 12 old tool results",
+			{
+				type: "compaction",
+				kind: "trim",
+				results: 12,
+				tools: { get_recording: 3, get_system_logs: 4, list_routes: 2, get_route: 3 },
+				before: 41000,
+				after: 12000,
+			},
+			"Trimmed 12 old tool results (get_system_logs ×4, get_recording ×3, get_route ×3, list_routes ×2), 41k → 12k tokens",
 		],
 		[{ type: "compaction", kind: "summary-failed", error: "boom" }, "Compaction failed: boom"],
 	];
