@@ -6,6 +6,7 @@ import { AGENT_CONCURRENT_JOBS } from "../../lib/env";
 import { httpAdminFetch } from "../../mcp/adminApi";
 import { modelFromIntegration } from "../model";
 import { agentStore } from "../store";
+import { setupTelemetry } from "../telemetry";
 import { limitsFromProject } from "../timeouts";
 import { agentTools } from "../tools";
 import { executeCompact } from "./compactJob";
@@ -100,6 +101,7 @@ async function runJob({ data }: { data: AgentJob }) {
 
 /** Consumes agent jobs in the gateway worker thread. Replicas share the durable consumer. */
 export async function initializeAgentWorker() {
+	setupTelemetry();
 	await initializeAgentQueue();
 	await subscribeStops((conversationId) =>
 		running.get(conversationId)?.ctrl.abort(new Error("Stopped by user")),

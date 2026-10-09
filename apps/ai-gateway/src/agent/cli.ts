@@ -15,6 +15,7 @@ import {
 import { compactionLine, summarize } from "./compact";
 import { effortFromEnv, modelFromEnv } from "./model";
 import { describeCall, type Log, printRun, runLog } from "./progress";
+import { flushTraces, setupTelemetry } from "./telemetry";
 import { limitsFromEnv } from "./timeouts";
 import { agentTools, MODES, type Mode } from "./tools";
 
@@ -220,6 +221,8 @@ async function turn(
 		onRetry,
 	});
 	await printRun(result, { write, tty: process.stdout.isTTY, log, paused });
+	// the exporter batches; a CLI run is short, so send it now
+	await flushTraces();
 }
 
 /** /compact [keep]: the 80% summary now, swapped into `history`; `keep` is what the summary should keep. */
@@ -380,6 +383,7 @@ if (import.meta.main) {
 		allowPositionals: true,
 	});
 	const mode = values.mode as Mode;
+	setupTelemetry();
 	if (!values.project || !MODES.includes(mode)) {
 		console.error(
 			'Usage: bun run agent ["<prompt>"] --project <projectId> [--mode manual|auto|plan]',

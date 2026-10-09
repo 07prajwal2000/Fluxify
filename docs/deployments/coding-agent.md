@@ -181,6 +181,11 @@ Tell the agent to check each point, or check them yourself after it is done.
 | `ENABLE_AI` | No | `true` turns on the AI assistant. |
 | `AGENT_CONCURRENT_JOBS` | No | How many AI assistant runs one process works on at once (1 to 100). Default `10`. Replaces `HARNESS_CONCURRENT_JOBS`, which still works for now but logs a warning. |
 | `AGENT_RUN_STALE_MS` | No | Milliseconds an AI assistant run may go silent before it counts as dead (30000 or more). Default `120000`. A run whose process was killed or restarted is then stopped with a notice, and the conversation accepts a new message. |
+| `LLM_TRACING_ENABLED` | No | `true` sends traces of the AI assistant to Phoenix, Langfuse or another OpenInference viewer. Default `false`. Needs `LLM_OTLP_TRACES_ENDPOINT`. |
+| `LLM_OTLP_TRACES_ENDPOINT` | With tracing on | Where traces are sent, e.g. `http://localhost:6006/v1/traces` for Phoenix. |
+| `LLM_OTLP_TRACES_HEADERS` | No | Headers for that endpoint as `key:value` pairs split by `;`, e.g. `Authorization:Bearer abc`. |
+| `LLM_TRACING_SAMPLE_RATE` | No | Share of runs traced, 0 to 1. Default `1`. |
+| `LLM_TRACING_RECORD_CONTENT` | No | `true` also sends prompts, messages and tool inputs/outputs, which can hold user data and secrets. Default `false`: only names, timings and token counts are sent. |
 | `RECORDING_MAX_AGE_DAYS` | No | Days a recorded run (Execution history) is kept before it is deleted. Default `30`. Read by the admin (or Kit) only. |
 | `HOSTNAME` | No | The address processes listen on inside the container. Leave `0.0.0.0`. It is **not** your domain. |
 

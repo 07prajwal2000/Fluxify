@@ -1,5 +1,6 @@
 import { generateText, type LanguageModel, type ModelMessage, type Tool } from "ai";
 import { estimate, type SummaryCompaction } from "./compactStats";
+import { compactionSpan, telemetryFor } from "./telemetry";
 
 /** The last steps (assistant turns) always go out verbatim. */
 export const KEEP_STEPS = 3;
@@ -136,8 +137,23 @@ async function canvasSection(
  * summary call fails. `instructions` is the agent's system prompt (it counts
  * toward the size); `keep` is what the user asked the summary to keep; `tools`
  * (when given) re-attach the compact canvas of every edited target to the summary.
+ * A summary is one compaction span (#719), with the token counts when it ends.
  */
-export async function summarize(
+export const summarize = (...args: Parameters<typeof summarizeNow>) =>
+	compactionSpan(
+		"summary",
+		() => summarizeNow(...args),
+		(r) =>
+			r
+				? {
+						"fluxify.compaction.tokens_before": r.event.before,
+						"fluxify.compaction.tokens_after": r.event.after,
+						"fluxify.compaction.messages": r.event.messages,
+					}
+				: { "fluxify.compaction.skipped": true },
+	);
+
+async function summarizeNow(
 	model: Exclude<LanguageModel, string>,
 	messages: ModelMessage[],
 	opts: {
@@ -156,6 +172,7 @@ export async function summarize(
 		instructions: SUMMARY_PROMPT + keepPrompt(opts.keep),
 		messages: [{ role: "user", content: transcript(covered) }],
 		abortSignal: opts.abortSignal,
+		telemetry: telemetryFor("fluxify.agent.compaction"),
 	});
 	if (!text.trim()) throw new Error("the model returned an empty summary");
 	const canvases = opts.tools

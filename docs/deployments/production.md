@@ -306,6 +306,36 @@ record at once.
 
 ---
 
+## AI assistant traces {#llm-tracing}
+
+Send a trace of every AI assistant run to [Phoenix](https://phoenix.arize.com),
+Langfuse or any viewer that reads OpenInference. You see each run, its model
+calls and its tool calls with timings and token counts. Off by default.
+
+```env
+LLM_TRACING_ENABLED=true
+# Phoenix on the Docker host. Use http://localhost:6006/v1/traces outside Docker.
+LLM_OTLP_TRACES_ENDPOINT=http://host.docker.internal:6006/v1/traces
+# Optional. key:value pairs split by ;
+LLM_OTLP_TRACES_HEADERS=
+# Share of runs traced, 0 to 1 (default 1).
+LLM_TRACING_SAMPLE_RATE=1
+# Default false: prompts, messages and tool inputs/outputs stay out.
+LLM_TRACING_RECORD_CONTENT=false
+```
+
+Set them in the `.env` the AI assistant's service reads (see [Step 1](#env)).
+See [Trace the AI assistant](/integrations/agent-tracing) for what shows up.
+
+::: warning Content can hold secrets
+With `LLM_TRACING_RECORD_CONTENT=true` the traces carry every prompt and tool
+result as the assistant saw it: user data, and secrets such as password hashes
+from run history. Anyone who can open the viewer can read them. Keep it `false`
+outside your own machine.
+:::
+
+---
+
 ## Local async executor
 
 Compiled workers include a bounded local executor for the future async-trigger

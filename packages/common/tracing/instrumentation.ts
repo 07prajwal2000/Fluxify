@@ -7,9 +7,14 @@ import { Resource } from "@opentelemetry/resources";
 import type {
 	BatchSpanProcessor,
 	ReadableSpan,
+	SpanExporter,
 	SpanProcessor,
 } from "@opentelemetry/sdk-trace-base";
-import { BatchSpanProcessor as _BatchSpanProcessor } from "@opentelemetry/sdk-trace-base";
+import {
+	BatchSpanProcessor as _BatchSpanProcessor,
+	ParentBasedSampler,
+	TraceIdRatioBasedSampler,
+} from "@opentelemetry/sdk-trace-base";
 import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
 
 export type { Context, Span } from "@opentelemetry/api";
@@ -60,11 +65,18 @@ export interface TracingOptions {
 	endpoint: string;
 	headers?: Record<string, string>;
 	instrumentations?: Instrumentation[];
+	/** Share of traces kept, 0 to 1 (default all). A span follows its parent's decision. */
+	sampleRate?: number;
+	/** Builds the processor that feeds the OTLP exporter (default: a batch processor). */
+	processor?: (exporter: SpanExporter) => SpanProcessor;
+	/** Flush and exit on SIGINT/SIGTERM (default true). Off for a CLI that handles Ctrl+C itself. */
+	exitHooks?: boolean;
 }
 
 let isInitialized = false;
 
-export function initializeTracing(options: TracingOptions): void {
+/** Sets up the global tracer provider once; returns it, or undefined when already set up or no endpoint. */
+export function initializeTracing(options: TracingOptions): NodeTracerProvider | undefined {
 	if (isInitialized) return;
 	if (!options.endpoint) return;
 
@@ -73,6 +85,10 @@ export function initializeTracing(options: TracingOptions): void {
 		resource: new Resource({
 			"service.name": options.serviceName,
 		}),
+		sampler:
+			options.sampleRate === undefined
+				? undefined
+				: new ParentBasedSampler({ root: new TraceIdRatioBasedSampler(options.sampleRate) }),
 	});
 
 	const exporter = new OTLPTraceExporter({
@@ -82,7 +98,7 @@ export function initializeTracing(options: TracingOptions): void {
 	});
 
 	provider.addSpanProcessor(new FluxifyContextSpanProcessor());
-	provider.addSpanProcessor(new _BatchSpanProcessor(exporter));
+	provider.addSpanProcessor(options.processor?.(exporter) ?? new _BatchSpanProcessor(exporter));
 
 	(global as any).__tracerProvider = provider;
 
@@ -94,7 +110,17 @@ export function initializeTracing(options: TracingOptions): void {
 		});
 	}
 
+	if (options.exitHooks !== false) {
+		// Graceful process exit hooks to safely shutdown the BatchSpanProcessor
+		for (const signal of ["SIGINT", "SIGTERM"] as const)
+			process.on(signal, async () => {
+				await shutdownTraces();
+				process.exit(0);
+			});
+	}
+
 	isInitialized = true;
+	return provider;
 }
 
 export async function flushTraces(): Promise<void> {
@@ -123,14 +149,3 @@ export async function shutdownTraces(): Promise<void> {
 		}
 	}
 }
-
-// Graceful process exit hooks to safely shutdown the BatchSpanProcessor
-process.on("SIGINT", async () => {
-	await shutdownTraces();
-	process.exit(0);
-});
-
-process.on("SIGTERM", async () => {
-	await shutdownTraces();
-	process.exit(0);
-});
