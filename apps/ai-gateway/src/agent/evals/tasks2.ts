@@ -65,12 +65,10 @@ async function unwiredRoute(ctx: Ctx) {
 	const target = { kind: "route", id };
 	const canvas = await ctx.tool("get_canvas", { target });
 	const entry = canvas.blocks.find((b: any) => b.type === "entrypoint").key;
-	const response = canvas.blocks.find((b: any) => b.type === "response").key;
 	await ctx.tool("edit_canvas", {
 		target,
 		version: canvas.version,
 		ops: [
-			{ op: "disconnect", from: entry, to: response },
 			{
 				op: "add_block",
 				ref: "pong",

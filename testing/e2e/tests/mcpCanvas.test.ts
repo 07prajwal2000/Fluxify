@@ -98,18 +98,26 @@ describe("MCP canvas edits", () => {
 		const response = keyOf(canvas, "response");
 		const messages = (r: any) => r.issues.map((i: any) => i.message);
 
-		// the new route is wired: no reachability warning
-		expect((await call("edit_canvas", { target, version: canvas.version, ops: [] })).issues).toBeUndefined();
-
-		const cut = await call("edit_canvas", {
-			target,
-			version: canvas.version,
-			ops: [{ op: "disconnect", from: entry, to: response }],
-		});
-		expect(messages(cut)).toEqual([
+		// a new route has its entrypoint and response apart
+		const fresh = await call("edit_canvas", { target, version: canvas.version, ops: [] });
+		expect(messages(fresh)).toEqual([
 			`${response} is not connected to the flow, so it never runs.`,
 			expect.stringContaining("No path from entrypoint to a response block"),
 		]);
+
+		const wired = await call("edit_canvas", {
+			target,
+			version: canvas.version,
+			ops: [{ op: "connect", from: entry, to: response }],
+		});
+		expect(wired.issues).toBeUndefined();
+
+		const cut = await call("edit_canvas", {
+			target,
+			version: wired.version,
+			ops: [{ op: "disconnect", from: entry, to: response }],
+		});
+		expect(messages(cut)).toEqual(messages(fresh));
 
 		const branched = await call("edit_canvas", {
 			target,
