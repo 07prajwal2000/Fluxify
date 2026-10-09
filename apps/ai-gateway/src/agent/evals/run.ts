@@ -6,6 +6,7 @@ import { ADMIN_API_URL } from "../../lib/env";
 import { type AdminFetch, adminApi } from "../../mcp/adminApi";
 import { type Approve, runAgent } from "../agent";
 import { cacheTokens } from "../cache";
+import { SUMMARY_HEAD } from "../compact";
 import { modelFromEnv } from "../model";
 import { printRun } from "../progress";
 import { type Limits, limitsFromEnv } from "../timeouts";
@@ -172,7 +173,7 @@ export async function runTask(task: Task, deps: Deps, signal: AbortSignal): Prom
 				load,
 				projectId,
 				history,
-				limits: deps.limits,
+				limits: { ...deps.limits, ...task.limits },
 				mode: "auto",
 				approve,
 				// Unattended: a limit stops the task so runs stay bounded.
@@ -193,6 +194,9 @@ export async function runTask(task: Task, deps: Deps, signal: AbortSignal): Prom
 		if (signal.aborted) throw new Error("Stopped by user");
 
 		ctx.calls = toolCalls(history);
+		ctx.summaries = history.filter(
+			(m) => typeof m.content === "string" && m.content.startsWith(SUMMARY_HEAD),
+		).length;
 		out("\nchecks:\n");
 		for (const check of task.checks) {
 			const r = { name: check.name, ...(await runCheck(check, ctx)) };

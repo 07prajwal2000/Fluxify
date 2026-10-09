@@ -9,6 +9,7 @@ async function drive(steps: (Part | number)[]) {
 	let shown = "";
 	const result = {
 		compactions: [],
+		whenCompacting: () => {},
 		stopped: () => undefined,
 		stream: (async function* () {
 			for (const s of steps) {

@@ -54,6 +54,8 @@ export type Live = {
 	callStartedAt?: number;
 	/** Results of calls saved before this run began (an approved or rejected one); they ride on the saved row. */
 	results: Record<string, Result>;
+	/** A summary is being written: the status says "Compacting…" instead of the thinking timer. */
+	compacting?: boolean;
 };
 
 export const EMPTY_LIVE: Live = { messages: [], lastEventAt: 0, results: {} };
@@ -126,6 +128,9 @@ export function toMessages(rows: AgentRow[]): ChatMessage[] {
 			continue;
 		}
 		if (row.role !== "user" && row.role !== "assistant") continue;
+		// a trim line is saved on the step it came before
+		const trim = (row.content as { compaction?: Compaction } | null)?.compaction;
+		if (trim) out.push({ seq: row.seq, role: "compaction", parts: [], compaction: trim });
 		const msg: ChatMessage = { seq: row.seq, role: row.role, parts: [] };
 		for (const p of parts) {
 			if (p.type === "text" || p.type === "reasoning")
@@ -171,6 +176,10 @@ export const applyEvent = (live: Live, e: AgentEvent, now = Date.now()): Live =>
 		endThoughts(d.messages, now, e.type === "reasoning" ? e.seq : -1);
 		if (e.type === "done" || e.type === "error") {
 			d.end = e;
+			return;
+		}
+		if (e.type === "compacting") {
+			d.compacting = e.on;
 			return;
 		}
 		if (e.type === "compaction") {

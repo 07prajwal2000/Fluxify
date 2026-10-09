@@ -92,6 +92,12 @@ const detail = (messages: Row[], status: string, settings: Partial<Settings> = {
 
 /** Callbacks of the observers a render armed; the last one is the top sentinel. */
 let observers: ((e: { isIntersecting: boolean }[]) => void)[] = [];
+/** The event streams a render opened; `emit` plays a server event on the last one. */
+let streams: { listeners: Record<string, ((m: { data: string }) => void)[]> }[] = [];
+const emit = (e: { type: string; [k: string]: unknown }) =>
+	act(() => {
+		for (const f of streams.at(-1)?.listeners[e.type] ?? []) f({ data: JSON.stringify(e) });
+	});
 const saved: { es?: typeof EventSource; io?: typeof IntersectionObserver } = {};
 let get: ReturnType<typeof spyOn>;
 let approve: ReturnType<typeof spyOn>;
@@ -100,8 +106,15 @@ beforeEach(() => {
 	// per test: the other DOM test files set these once, at load
 	saved.es = globalThis.EventSource;
 	saved.io = globalThis.IntersectionObserver;
+	streams = [];
 	globalThis.EventSource = class {
-		addEventListener() {}
+		listeners: Record<string, ((m: { data: string }) => void)[]> = {};
+		constructor() {
+			streams.push(this);
+		}
+		addEventListener(type: string, f: (m: { data: string }) => void) {
+			this.listeners[type] = [...(this.listeners[type] ?? []), f];
+		}
 		close() {}
 	} as never;
 	observers = [];
@@ -383,14 +396,14 @@ const summaryRow = (seq: number): Row => ({
 
 test("a saved summary row is a quiet line where it happened; it opens to read the summary", async () => {
 	open(detail([user(0, "build it"), summaryRow(1), user(2, "go on")], "completed"));
-	const line = await until(() => q().getByText("Context compacted: 102k → 9k tokens"));
+	const line = await until(() => q().getByText("Summarized 12 messages, 102k → 9k tokens"));
 	const details = line.closest("details") as HTMLDetailsElement;
 	expect(details.open).toBe(false);
 	expect(details.textContent).toContain("built the users route");
 	// between the two user messages
 	const text = document.body.textContent ?? "";
-	expect(text.indexOf("build it")).toBeLessThan(text.indexOf("Context compacted"));
-	expect(text.indexOf("Context compacted")).toBeLessThan(text.indexOf("go on"));
+	expect(text.indexOf("build it")).toBeLessThan(text.indexOf("Summarized 12 messages"));
+	expect(text.indexOf("Summarized 12 messages")).toBeLessThan(text.indexOf("go on"));
 	fireEvent.click(line);
 	await until(() => expect(details.open).toBe(true));
 });
@@ -399,8 +412,36 @@ test("a running /compact says so instead of Thinking…", async () => {
 	const d = detail([user(0, "hi"), reply(1, "hello")], "executing");
 	(d.run as { userQuery?: string }).userQuery = "/compact keep the ids";
 	open(d);
-	await until(() => q().getByText("Compacting the conversation…"));
+	await until(() => q().getByText("Compacting…"));
 	expect(q().queryByText(/Thinking…/)).toBeNull();
+});
+
+test("an automatic compaction says Compacting… instead of the Thinking timer, then leaves its line", async () => {
+	open(detail([user(0, "build it")], "executing"));
+	await until(() => q().getByText(/Thinking…/));
+	await emit({ type: "compacting", seq: 1, on: true });
+	await until(() => q().getByText("Compacting…"));
+	expect(q().queryByText(/Thinking…/)).toBeNull();
+	await emit({ type: "compacting", seq: 1, on: false });
+	await emit({
+		type: "compaction",
+		seq: 1,
+		compaction: {
+			type: "compaction",
+			kind: "trim",
+			results: 9,
+			tools: { get_recording: 3, get_system_logs: 4, list_routes: 2 },
+			before: 41000,
+			after: 12000,
+		},
+	});
+	await until(() =>
+		q().getByText(
+			"Trimmed 9 old tool results (get_system_logs ×4, get_recording ×3, list_routes ×2), 41k → 12k tokens",
+		),
+	);
+	expect(q().queryByText("Compacting…")).toBeNull();
+	await until(() => q().getByText(/Thinking…/));
 });
 
 test("scrolling to the top loads the older page, shows a loader, and keeps the scroll position", async () => {

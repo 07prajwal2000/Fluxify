@@ -234,6 +234,24 @@ describe("project tools", () => {
 		);
 	});
 
+	it("get_recording names each span's block by its canvas key, in every form", async () => {
+		const canvas = { blocks: [{ id: "b0", key: "entrypoint_1" }, { id: "b1", key: "jsrunner_1" }] };
+		const { api } = fakeApi({ [`${REC}/x`]: recorded, "/v1/workflows/w1/canvas-items": canvas });
+		const short: any = await run("get_recording", { ...target, runId: "x" }, api);
+		expect(short.spans.map((s: any) => s.blockKey)).toEqual(["entrypoint_1", "jsrunner_1"]);
+		expect(short.spans[1]).toMatchObject({ blockId: "b1", blockKey: "jsrunner_1", outcome: "failure" });
+		const full: any = await run("get_recording", { ...target, runId: "x", full: true }, api);
+		expect(full.spans.map((s: any) => s.blockKey)).toEqual(["entrypoint_1", "jsrunner_1"]);
+		expect(full.spans[0].input).toBeDefined();
+		const one: any = await run("get_recording", { ...target, runId: "x", spanSeq: 1 }, api);
+		expect(one).toMatchObject({ blockKey: "jsrunner_1", output: { ok: 1 } });
+		// a block deleted since has no key, and an unreadable canvas does not fail the read
+		const gone = { blocks: [{ id: "b0", key: "entrypoint_1" }] };
+		const second = fakeApi({ [`${REC}/x`]: recorded, "/v1/workflows/w1/canvas-items": gone }).api;
+		const after: any = await run("get_recording", { ...target, runId: "x" }, second);
+		expect(after.spans[1]).not.toHaveProperty("blockKey");
+	});
+
 	it("add_member looks an email up and refuses an unknown one without adding anyone", async () => {
 		const users = { data: [{ id: "u2", email: "Ana@x.io" }, { id: "u3", email: "ana@x.io.evil" }] };
 		const { api, calls } = fakeApi({ "/auth/list-users": users });

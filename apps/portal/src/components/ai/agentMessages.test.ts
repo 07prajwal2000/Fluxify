@@ -61,7 +61,7 @@ describe("compaction lines", () => {
 	const trim: AgentEvent = {
 		type: "compaction",
 		seq: 9,
-		compaction: { type: "compaction", kind: "trim", results: 12, savedTokens: 5000 },
+		compaction: { type: "compaction", kind: "trim", results: 12, tools: { get_recording: 12 }, before: 41000, after: 12000 },
 	};
 
 	test("a live event is a line in place, apart from the step that shares its seq", () => {
@@ -104,6 +104,37 @@ describe("saved rows", () => {
 		expect(withStats.summary).toContain("built a route");
 		// a summary from before the stats were kept still shows
 		expect(old).toMatchObject({ role: "compaction", seq: 2, compaction: undefined });
+	});
+
+	test("a trim line saved on a step shows before that step, with its stats", () => {
+		const stats = { type: "compaction" as const, kind: "trim" as const, results: 3, tools: { get_recording: 3 }, before: 41_000, after: 12_000 };
+		const rows = [
+			row(0, "user", { role: "user", content: "go" }),
+			row(1, "assistant", { role: "assistant", content: [{ type: "text", text: "ok" }], compaction: stats }),
+		];
+		const view = toMessages(rows);
+		expect(view.map((m) => [m.role, m.seq])).toEqual([
+			["user", 0],
+			["compaction", 1],
+			["assistant", 1],
+		]);
+		expect(view[1].compaction).toEqual(stats);
+		expect(new Set(view.map(messageKey)).size).toBe(3);
+	});
+
+	test("the live trim line gives way to the saved one, so the line stays after the run", () => {
+		const stats = { type: "compaction" as const, kind: "trim" as const, results: 3, tools: { get_route: 3 }, before: 41_000, after: 12_000 };
+		const live = play([
+			[{ type: "compaction", seq: 1, compaction: stats }, 1],
+			[{ type: "text", seq: 1, text: "ok" }, 2],
+		]);
+		expect(chatView([row(0, "user", { role: "user", content: "go" })], live, null).filter((m) => m.role === "compaction")).toHaveLength(1);
+		const saved = [
+			row(0, "user", { role: "user", content: "go" }),
+			row(1, "assistant", { role: "assistant", content: [{ type: "text", text: "ok" }], compaction: stats }),
+		];
+		const view = chatView(saved, live, null);
+		expect(view.map((m) => [m.role, m.seq])).toEqual([["user", 0], ["compaction", 1], ["assistant", 1]]);
 	});
 
 	test("a step that only thought and called tools keeps the time it took; one with an answer does not", () => {

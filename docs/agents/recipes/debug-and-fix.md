@@ -94,13 +94,13 @@ Take the newest `id` and call `get_recording`:
 { "projectId": "<project id>", "kind": "route", "targetId": "<route id>", "runId": "<run id>" }
 ```
 
-Find the first span with `outcome: "failure"`. Its `error` is the cause and its `blockId` is the block to fix. A span with `parentSeq` ran inside another block, such as a loop or a custom block. Pass `spanSeq` to see one span's `input` and `output`; `full: true` returns all of them (a run can be 256 KB).
+Find the first span with `outcome: "failure"`. Its `error` is the cause and its `blockKey` (the key `get_canvas` shows, like `jsrunner_1`) names the block to fix. `blockId` is the same block as an id. A span with `parentSeq` ran inside another block, such as a loop or a custom block. Pass `spanSeq` to see one span's `input` and `output`; `full: true` returns all of them (a run can be 256 KB).
 
 Recordings keep headers, bodies and secrets as they were. Turn recording off when you are done (step 5).
 
 ## 4. Fix it
 
-Call `get_canvas`, find the block by its id, then change only what is wrong.
+Call `get_canvas`, find the block by its key, then change only what is wrong.
 
 Call `edit_canvas`:
 
@@ -110,7 +110,7 @@ Call `edit_canvas`:
   "version": 3,
   "validate": true,
   "ops": [
-    { "op": "update_block", "id": "b7", "data": { "js": "return await dbQuery('SELECT id, email FROM users WHERE id = $1', [input.id]);" } }
+    { "op": "update_block", "id": "jsrunner_1", "data": { "js": "return await dbQuery('SELECT id, email FROM users WHERE id = $1', [input.id]);" } }
   ]
 }
 ```

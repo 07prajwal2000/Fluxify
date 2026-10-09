@@ -8,7 +8,7 @@ import { SQL } from "bun";
 import type Docker from "dockerode";
 import { drizzle } from "drizzle-orm/bun-sql";
 import { SUMMARY_HEAD } from "./compact";
-import { json, scripted, step } from "./resume.fixture";
+import { editStep, json, scripted, step, withCanvas } from "./resume.fixture";
 import { continueConversation } from "./resume";
 import { type AgentStore, agentStore } from "./store";
 
@@ -170,6 +170,32 @@ describe("agent_messages", () => {
 		const view = await store.modelView(c);
 		expect(view.map((v) => v.message.role)).toEqual(["user", "user", "assistant"]);
 		expect(String(view[0].message.content)).toStartWith(SUMMARY_HEAD);
+	});
+
+	it("the canvas a summary carries comes back with the model view after a restart", async () => {
+		const c = await conversation();
+		await store.append(c, c, [{ role: "user", content: "build" }, ...editStep(1), ...step(2), ...step(3)]);
+		const m = scripted([], undefined, 1000);
+		await (await continueConversation({ store, conversationId: c, runId: c, agent: withCanvas(m.agent), message: "test" })).status;
+		// the view is read from the database alone
+		const view = await store.modelView(c);
+		expect(String(view[0].message.content)).toStartWith(SUMMARY_HEAD);
+		expect(String(view[0].message.content)).toContain("[canvas route r1]");
+		expect(String(view[0].message.content)).toContain("kv_set_9");
+	});
+
+	it("a trim line saved on an assistant row is in the UI rows but not in the model view", async () => {
+		const c = await conversation();
+		const trim = { type: "compaction", kind: "trim", results: 2, tools: { get_route: 2 }, before: 3000, after: 2000 };
+		await store.append(c, c, [
+			{ role: "user", content: "go" },
+			{ role: "assistant", content: "ok", compaction: trim } as ModelMessage,
+		]);
+		expect(((await store.all(c))[1].content as { compaction?: unknown }).compaction).toEqual(trim);
+		expect((await store.modelView(c)).map((v) => v.message)).toEqual([
+			{ role: "user", content: "go" },
+			{ role: "assistant", content: "ok" },
+		]);
 	});
 
 	it("resumes after an approval wait, and never sends an assistant message last", async () => {

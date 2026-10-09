@@ -217,6 +217,8 @@ export async function printRun(result: ReturnType<typeof runAgent>, out: Out) {
 		}
 	};
 	status.set("waiting for model…");
+	// a summary is the slow part of a compaction: say so instead of "waiting for model…"
+	result.whenCompacting((on) => (on ? status.set("compacting…") : waiting()));
 	try {
 		// Compactions happen in prepareStep, so they show right before the step they shrank.
 		for await (const part of result.stream) {

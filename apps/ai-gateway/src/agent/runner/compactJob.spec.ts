@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import type { ModelMessage } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
+import { editStep, step, withCanvas } from "../resume.fixture";
 import type { AgentStore, RunStatus } from "../store";
 import { executeCompact } from "./compactJob";
 import type { AgentEvent } from "./events";
@@ -66,7 +67,7 @@ function world(messages: ModelMessage[] = chat, summary: () => string = () => "t
 		publish: async (_r, e) => void sent.push(structuredClone(e)),
 		batchMs: 5,
 	};
-	return { deps, state, saved, events: () => sent.flat() };
+	return { deps, model, state, saved, events: () => sent.flat() };
 }
 
 const job = (over: Partial<AgentJob> = {}): AgentJob => ({
@@ -106,6 +107,22 @@ describe("executeCompact", () => {
 		const w = world();
 		await go(w, job({ keep: "the users table schema" }));
 		expect(w.state.prompts[0]).toContain("The user asks you to keep: the users table schema");
+	});
+
+	it("/compact re-attaches the compact canvas of what was edited", async () => {
+		const w = world([
+			{ role: "user", content: "build" },
+			...editStep(1),
+			...step(2),
+			...step(3),
+			...step(4),
+			{ role: "user", content: "now test it" },
+		]);
+		const { tools } = withCanvas({ tools: {} });
+		w.deps.build = async () => ({ model: w.model, tools, projectId: "p", limits: {}, mode: "manual" }) as never;
+		await go(w);
+		expect(String(w.saved[0].summary.content)).toContain("[canvas route r1]");
+		expect(String(w.saved[0].summary.content)).toContain("kv_set_9");
 	});
 
 	it("nothing to cover: no row, no compaction, the run still ends", async () => {

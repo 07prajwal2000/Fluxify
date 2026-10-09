@@ -68,8 +68,8 @@ export function truncate(body: unknown) {
 }
 
 /** block id → canvas key, so the agent reads keys everywhere, like in get_canvas */
-async function blockKeys(get: AdminApi["get"], routeId: string) {
-	const canvas = await get(`/v1/routes/${routeId}/canvas-items`).catch(() => undefined);
+export async function blockKeys(get: AdminApi["get"], kind: "route" | "workflow", id: string) {
+	const canvas = await get(`/v1/${kind}s/${id}/canvas-items`).catch(() => undefined);
 	return new Map<string, string>(
 		(canvas?.blocks ?? []).flatMap((b: { id: string; key?: string }) =>
 			b.key ? [[b.id, b.key]] : [],
@@ -205,7 +205,7 @@ export const routeTools: McpTool[] = [
 				`/v1/routes/${routeId}/call`,
 				{ ...a, debug },
 			);
-			const keys = debugError || debugTrace ? await blockKeys(get, routeId) : new Map();
+			const keys = debugError || debugTrace ? await blockKeys(get, "route", routeId) : new Map();
 			return {
 				...result,
 				body: truncate(result.body),

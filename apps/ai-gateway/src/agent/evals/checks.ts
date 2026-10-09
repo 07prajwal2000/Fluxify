@@ -12,6 +12,8 @@ export type Ctx = {
 	seed: Record<string, string>;
 	/** Every tool call the agent made, in order. */
 	calls: { name: string; input: unknown }[];
+	/** How many times the conversation was summarized (compaction ran). */
+	summaries?: number;
 	env: Record<string, string | undefined>;
 };
 
@@ -25,6 +27,8 @@ export type Task = {
 	prompt: string | string[];
 	/** Env vars the task needs; it is skipped with a reason when one is missing. */
 	needsEnv?: string[];
+	/** Limits for this task over the run's own, e.g. a small context window to force compaction. */
+	limits?: { maxContextTokens?: number };
 	setup?: (ctx: Ctx) => Promise<void>;
 	checks: Check[];
 	/** Quality items for the judge, scored pass/fail from the conversation. */

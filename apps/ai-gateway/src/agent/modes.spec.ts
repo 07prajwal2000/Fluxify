@@ -3,6 +3,7 @@ import { type ModelMessage, tool } from "ai";
 import { convertArrayToReadableStream, MockLanguageModelV4 } from "ai/test";
 import { z } from "zod";
 import { type Approval, type PendingCall, runAgent } from "./agent";
+import { withoutBudget } from "./budget.fixture";
 import { cliApprover, converse, parseApproval, parseLine, parseStart } from "./cli";
 import { describeCall, printRun } from "./progress";
 import type { Mode } from "./tools";
@@ -53,7 +54,7 @@ async function run(
 	);
 	const model = new MockLanguageModelV4({
 		doStream: async (o) => {
-			prompts.push({ tools: (o.tools ?? []).map((t) => t.name), messages: o.prompt as ModelMessage[] });
+			prompts.push({ tools: (o.tools ?? []).map((t) => t.name), messages: withoutBudget(o.prompt as ModelMessage[]) });
 			const names = steps[prompts.length - 1];
 			if (!names) return reply(text("done"), "stop") as any;
 			const calls = names.map((n, i) => ({

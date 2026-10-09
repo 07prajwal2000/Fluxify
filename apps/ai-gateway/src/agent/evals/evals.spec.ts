@@ -191,6 +191,20 @@ describe("tasks", () => {
 		expect(pickTasks("broken-sql")[0]?.needsEnv).toEqual(["EVAL_POSTGRES_URL"]);
 	});
 
+	it("the compaction task gets a small window and wants both exact messages asserted", async () => {
+		const task = pickTasks("suite-after-compaction")[0];
+		expect(task.limits?.maxContextTokens).toBeLessThan(30_000);
+		const [compacted, , , , asserts] = task.checks;
+		expect((await compacted.run({ ...ctxWith(() => null), summaries: 0 })).pass).toBe(false);
+		expect((await compacted.run({ ...ctxWith(() => null), summaries: 1 })).pass).toBe(true);
+		const suite = (assertions: string) => (name: string) =>
+			name === "list_routes" ? { items: [{ id: "r1", path: "/signup" }] } : name === "list_test_suites" ? [{ id: "s1" }] : { assertions };
+		const both = '[{"expectedValue":"Email is required"},{"expectedValue":"Email already registered"}]';
+		expect((await asserts.run(ctxWith(suite(both)))).pass).toBe(true);
+		const weak = '[{"propertyPath":"success","expectedValue":"false"}]';
+		expect(await asserts.run(ctxWith(suite(weak)))).toMatchObject({ pass: false });
+	});
+
 	it("--task picks in suite order and refuses unknown ids", () => {
 		expect(pickTasks("echo,health").map((t) => t.id)).toEqual(["health", "echo"]);
 		expect(() => pickTasks("health,nope")).toThrow("Unknown task(s): nope");

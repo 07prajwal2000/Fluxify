@@ -25,6 +25,7 @@ const EVENTS: AgentEvent["type"][] = [
 	"tool-end",
 	"approval",
 	"compaction",
+	"compacting",
 	"done",
 	"error",
 ];
@@ -245,7 +246,9 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 	// After a refresh the page did not start the job: the run row says what it is.
 	const compacting =
 		running &&
-		(compactStarted || (streamId === run?.id && !!run?.userQuery?.startsWith("/compact")));
+		(compactStarted ||
+			!!live.compacting ||
+			(streamId === run?.id && !!run?.userQuery?.startsWith("/compact")));
 	const messages = useMemo(() => chatView(rows, live, pending), [rows, live, pending]);
 
 	/** What the bar above the editor asks: the call that waits, or a plan in plan mode that is ready to start. */

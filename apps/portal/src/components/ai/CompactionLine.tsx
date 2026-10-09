@@ -1,19 +1,10 @@
-import type { Compaction } from "@fluxify/ai-gateway/src/agent/compact";
+import { compactionText } from "@fluxify/ai-gateway/src/agent/compactStats";
 import type { ChatMessage } from "./agentMessages";
-
-const k = (n: number) => (n >= 1000 ? `${Math.round(n / 1000)}k` : `${n}`);
-
-/** "Context compacted: 102k → 9k tokens"; a saved summary from before the numbers were kept has just the first part. */
-export const compactionText = (c?: Compaction) => {
-	if (!c || c.kind === "summary")
-		return c ? `Context compacted: ${k(c.before)} → ${k(c.after)} tokens` : "Context compacted";
-	if (c.kind === "trim") return `Trimmed ${c.results} old tool results`;
-	return `Compaction failed: ${c.error}`;
-};
 
 /** A quiet line where the context was shortened; a saved summary opens to be read. */
 export function CompactionLine({ message }: { message: ChatMessage }) {
-	const text = compactionText(message.compaction);
+	// a summary saved before the numbers were kept has no stats
+	const text = message.compaction ? compactionText(message.compaction) : "Context compacted";
 	const rule = <span className="h-px flex-1 bg-border" />;
 	if (!message.summary)
 		return (

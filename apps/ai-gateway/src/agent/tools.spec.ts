@@ -1,3 +1,4 @@
+import { withoutBudget } from "./budget.fixture";
 import { describe, expect, it } from "bun:test";
 import type { ModelMessage } from "ai";
 import { convertArrayToReadableStream, MockLanguageModelV4 } from "ai/test";
@@ -177,7 +178,7 @@ describe("agent loop", () => {
 			doStream: async (options) => {
 				seen.push({
 					tools: (options.tools ?? []).map((t) => t.name),
-					lastRole: options.prompt.at(-1)!.role,
+					lastRole: withoutBudget(options.prompt as ModelMessage[]).at(-1)!.role,
 				});
 				return answers[seen.length - 1] as any;
 			},
