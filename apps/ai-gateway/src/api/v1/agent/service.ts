@@ -1,6 +1,7 @@
 import { ConflictError, db } from "@fluxify/server";
 import { canCompact } from "../../../agent/compact";
 import type { Effort } from "../../../agent/model";
+import { pendingCalls } from "../../../agent/resume";
 import { projectSupportsThinking } from "../../../agent/runner/integration";
 import { rejectPending } from "../../../agent/runner/job";
 import { publishAgentJob, purgeRunEvents, requestStop } from "../../../agent/runner/queue";
@@ -117,12 +118,29 @@ export async function compactConversation(
 }
 
 /** Answers the first waiting call; the run goes on in a new job. */
+export type Decision = { toolCallId: string; approve: boolean; reason?: string };
+
 export async function answerApproval(
 	conversation: Conversation,
 	userId: string,
-	approval: { approve: boolean; reason?: string; mode?: Mode; effort?: Effort },
+	approval: { mode?: Mode; effort?: Effort } & (
+		| { approve: boolean; reason?: string; decisions?: undefined }
+		| { decisions: Decision[] }
+	),
 ) {
 	const runId = conversation.activeRunId;
+	if (approval.decisions) {
+		const pending = new Set(
+			pendingCalls((await store().modelView(conversation.id)).map((v) => v.message)).map(
+				(c) => c.toolCallId,
+			),
+		);
+		const stale = approval.decisions.filter((d) => !pending.has(d.toolCallId));
+		if (stale.length)
+			throw new ConflictError(
+				`Not waiting for an approval: ${stale.map((d) => d.toolCallId).join(", ")}`,
+			);
+	}
 	if (!runId || !(await claimContinue(conversation.id, runId)))
 		throw new ConflictError("This conversation is not waiting for an approval");
 	// The approval can pick the mode the conversation goes on in ("Approve with Auto").
@@ -141,7 +159,15 @@ export async function answerApproval(
 		projectId: conversation.projectId as string,
 		mode,
 		effort,
-		approval: { ok: approval.approve, reason: approval.reason },
+		...(approval.decisions
+			? {
+					decisions: approval.decisions.map((d) => ({
+						toolCallId: d.toolCallId,
+						ok: d.approve,
+						reason: d.reason,
+					})),
+				}
+			: { approval: { ok: approval.approve, reason: approval.reason } }),
 	});
 	return { runId };
 }

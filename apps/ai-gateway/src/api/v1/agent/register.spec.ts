@@ -121,6 +121,10 @@ describe("agent API auth", () => {
 		expect(approve.mock.calls.at(-1)[2]).toEqual({ approve: true, mode: "auto" });
 		await call("POST", `${P}/c1/approval`, { approve: false, reason: "no" });
 		expect(approve.mock.calls.at(-1)[2]).toEqual({ approve: false, reason: "no" });
+		const decisions = [{ toolCallId: "t1", approve: true }];
+		await call("POST", `${P}/c1/approval`, { decisions, mode: "auto" });
+		expect(approve.mock.calls.at(-1)[2]).toEqual({ decisions, mode: "auto" });
+		expect((await call("POST", `${P}/c1/approval`, { decisions: [] })).status).toBe(400);
 	});
 
 	it("refuses an unknown mode or effort and an empty update", async () => {

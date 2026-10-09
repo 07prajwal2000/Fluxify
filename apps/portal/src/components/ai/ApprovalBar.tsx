@@ -2,8 +2,9 @@ import { Button, ButtonGroup, Chip, Dropdown, Label } from "@fluxify/components"
 import { useState } from "react";
 import { TbChevronDown, TbClipboardCheck, TbClock, TbTrash } from "react-icons/tb";
 import { showErrorNotification } from "@/lib/errorNotifier";
-import type { Mode } from "@/services/agentConversations";
-import { type ApprovalRequest, summarizeInput } from "./agentApproval";
+import type { Decision, Mode } from "@/services/agentConversations";
+import { type ApprovalRequest, summarizeInput, type ToolRequest } from "./agentApproval";
+import { ReviewAllDialog } from "./ReviewAllDialog";
 
 type Props = {
 	request: ApprovalRequest;
@@ -11,6 +12,10 @@ type Props = {
 	onApprove: (mode: Mode) => Promise<unknown>;
 	/** Turn it down with no reason; typing in the editor turns it down with one. */
 	onReject: () => Promise<unknown>;
+	/** Every call that waits; with 2 or more, Approve all and Review all show up. */
+	calls?: ToolRequest[];
+	/** Answers the listed calls together; the rest keep waiting. */
+	onDecide?: (decisions: Decision[]) => Promise<unknown>;
 };
 
 /**
@@ -18,8 +23,13 @@ type Props = {
  * wants to make, or its finished plan in plan mode. Replaces cards and diffs in
  * the chat; the call itself stays a folded row there.
  */
-export function ApprovalBar({ request, onApprove, onReject }: Props) {
+export function ApprovalBar({ request, onApprove, onReject, calls = [], onDecide }: Props) {
 	const [busy, setBusy] = useState(false);
+	const [reviewing, setReviewing] = useState(false);
+	const many = request.kind === "tool" && onDecide !== undefined && calls.length > 1;
+	// Approve all never covers a delete: those need their own answer.
+	const safe = calls.filter((c) => !c.isDelete && c.id);
+	const deletes = calls.length - calls.filter((c) => !c.isDelete).length;
 	const answer = (f: () => Promise<unknown>) => {
 		setBusy(true);
 		f()
@@ -59,7 +69,32 @@ export function ApprovalBar({ request, onApprove, onReject }: Props) {
 					</>
 				)}
 			</div>
-			<div className="flex shrink-0 items-center gap-1">
+			<div className="flex shrink-0 flex-wrap items-center gap-1">
+				{many && (
+					<>
+						<Button size="sm" variant="ghost" isDisabled={busy} onPress={() => setReviewing(true)}>
+							Review all
+						</Button>
+						{safe.length > 0 && (
+							<Button
+								size="sm"
+								variant="secondary"
+								isDisabled={busy}
+								onPress={() =>
+									answer(() =>
+										onDecide(safe.map((c) => ({ toolCallId: c.id as string, approve: true }))),
+									)
+								}
+							>
+								{`Approve all (${safe.length})${
+									deletes
+										? ` · ${deletes} ${deletes === 1 ? "delete needs" : "deletes need"} review`
+										: ""
+								}`}
+							</Button>
+						)}
+					</>
+				)}
 				<Button size="sm" variant="ghost" isDisabled={busy} onPress={() => answer(onReject)}>
 					Reject
 				</Button>
@@ -80,6 +115,17 @@ export function ApprovalBar({ request, onApprove, onReject }: Props) {
 					</Dropdown>
 				</ButtonGroup>
 			</div>
+			{many && reviewing && (
+				<ReviewAllDialog
+					calls={calls}
+					open
+					onOpenChange={setReviewing}
+					onConfirm={(d) => {
+						setReviewing(false);
+						answer(() => onDecide(d));
+					}}
+				/>
+			)}
 		</section>
 	);
 }

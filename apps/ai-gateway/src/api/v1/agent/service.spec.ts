@@ -33,6 +33,16 @@ const long = [
 	{ role: "assistant", content: "tested" },
 ];
 const viewOf = mock(async (_id: string) => long.map((message, seq) => ({ message, seq })));
+/** An assistant message with two calls (a, b) and no results yet. */
+const waiting = [
+	{
+		message: {
+			role: "assistant",
+			content: ["a", "b"].map((id) => ({ type: "tool-call", toolCallId: id, toolName: "save_route", input: {} })),
+		},
+		seq: 0,
+	},
+];
 const spies = [
 	startRun,
 	setMeta,
@@ -50,7 +60,7 @@ afterAll(() => {
 	for (const s of spies) s.mockRestore();
 });
 beforeEach(() => {
-	for (const s of [startRun, setMeta, update, del, publish]) s.mockClear();
+	for (const s of [startRun, setMeta, claim, update, del, publish]) s.mockClear();
 });
 
 describe("mode and effort stick to the conversation", () => {
@@ -69,6 +79,31 @@ describe("mode and effort stick to the conversation", () => {
 		await answerApproval(conv(), "u", { approve: true, mode: "auto" });
 		expect(setMeta).toHaveBeenCalledWith("c1", { agent: true, mode: "auto" });
 		expect(publish.mock.calls[0][0]).toMatchObject({ mode: "auto", approval: { ok: true } });
+	});
+
+	it("a list of decisions is queued as one job; the single form stays as it was", async () => {
+		viewOf.mockResolvedValueOnce(waiting as never);
+		await answerApproval(conv(), "u", {
+			decisions: [
+				{ toolCallId: "a", approve: true },
+				{ toolCallId: "b", approve: false, reason: "no" },
+			],
+		});
+		const job = publish.mock.calls[0][0] as any;
+		expect(job.decisions).toEqual([
+			{ toolCallId: "a", ok: true, reason: undefined },
+			{ toolCallId: "b", ok: false, reason: "no" },
+		]);
+		expect(job.approval).toBeUndefined();
+	});
+
+	it("refuses a decision for a call that is not pending, before claiming the run", async () => {
+		viewOf.mockResolvedValueOnce(waiting as never);
+		await expect(
+			answerApproval(conv(), "u", { decisions: [{ toolCallId: "zzz", approve: true }] }),
+		).rejects.toThrow("Not waiting for an approval: zzz");
+		expect(claim).not.toHaveBeenCalled();
+		expect(publish).not.toHaveBeenCalled();
 	});
 
 	it("an approval that picks nothing leaves the settings alone", async () => {
