@@ -61,7 +61,7 @@ Call `get_canvas`:
 { "target": { "kind": "route", "id": "<route id>" } }
 ```
 
-You get `version`, `blocks` and `edges`. Note three ids: the `entrypoint` block (`<entry id>`), the `response` block with `httpCode` `"200"` (`<ok response id>`), and the `version`.
+You get `version`, `blocks` and `edges`. Note three things: the key of the `entrypoint` block (`entrypoint_1`), the key of the `response` block with `httpCode` `"200"` (`response_1`), and the `version`.
 
 ## 5. Build the check
 
@@ -83,11 +83,11 @@ Call `edit_canvas`:
   "ops": [
     { "op": "add_block", "ref": "verify", "type": "jsrunner",
       "data": { "value": "const token = (getHeader('Authorization') || '').replace('Bearer ', '');\nconst { success, payload } = jwt.verify(token, getConfig('JWT_SECRET'));\nif (!success) return { ok: false, error: 'Invalid or missing token' };\nreturn { ok: true, userId: payload.sub, role: payload.role };" },
-      "connect_from": { "from": "<entry id>" } },
+      "connect_from": { "from": "entrypoint_1" } },
     { "op": "add_block", "ref": "check", "type": "if",
       "data": { "conditions": [ { "lhs": "js:return input.ok", "rhs": true, "operator": "eq", "chain": "and" } ] },
       "connect_from": { "from": "verify" } },
-    { "op": "connect", "from": "check", "to": "<ok response id>", "handle": "success" },
+    { "op": "connect", "from": "check", "to": "response_1", "handle": "success" },
     { "op": "add_block", "ref": "denied", "type": "response",
       "data": { "httpCode": "401" },
       "connect_from": { "from": "check", "handle": "failure" } }
@@ -95,7 +95,7 @@ Call `edit_canvas`:
 }
 ```
 
-If `get_canvas` showed an edge from the entrypoint to the response block, add `{ "op": "disconnect", "from": "<entry id>", "to": "<ok response id>" }` as the first op. A handle holds one edge, so the connect would be refused without it.
+If `get_canvas` showed an edge from the entrypoint to the response block, add `{ "op": "disconnect", "from": "entrypoint_1", "to": "response_1" }` as the first op. A handle holds one edge, so the connect would be refused without it.
 
 The answer has the new `version`, `refs` and, with `validate`, any `issues`. Errors are refused and nothing is saved. Warnings still save.
 

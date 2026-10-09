@@ -149,11 +149,13 @@ describe("route and workflow tools", () => {
 			body: { error: "Error: failed to execute native db block" },
 			debugError,
 		});
+		// the failed block is named by its key on the route's canvas, not its id
+		api.get = async () => ({ blocks: [{ id: "b7", key: "db_native_1" }] });
 		expect(await run("call_route", { routeId: "r1" }, api)).toEqual({
 			status: 500,
 			contentType: "application/json",
 			body: { error: "Error: failed to execute native db block" },
-			error: debugError,
+			error: { ...debugError, block: { key: "db_native_1", type: "db_native", name: "Load user" } },
 		});
 		expect(tool("call_route").description).toContain("agents/recipes/debug-and-fix");
 	});

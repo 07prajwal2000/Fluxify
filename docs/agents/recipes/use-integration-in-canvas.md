@@ -113,13 +113,13 @@ Call `edit_canvas`:
         "offset": 0,
         "paging": "offset"
       },
-      "connect_from": { "from": "<entry id>" } },
-    { "op": "connect", "from": "users", "to": "<response id>" }
+      "connect_from": { "from": "entrypoint_1" } },
+    { "op": "connect", "from": "users", "to": "response_1" }
   ]
 }
 ```
 
-If the canvas already has an edge from the entrypoint to the response, put `{ "op": "disconnect", "from": "<entry id>", "to": "<response id>" }` first.
+If the canvas already has an edge from the entrypoint to the response, put `{ "op": "disconnect", "from": "entrypoint_1", "to": "response_1" }` first.
 
 The response body is the output of the block before it, so the caller gets the list of rows.
 

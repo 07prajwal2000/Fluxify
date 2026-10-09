@@ -25,7 +25,7 @@ When the route fails, the answer has an `error`:
   "contentType": "application/json",
   "body": { "error": "Error: failed to execute native db block" },
   "error": {
-    "block": { "id": "b7", "type": "db_native", "name": "Load user" },
+    "block": { "key": "db_native_1", "type": "db_native", "name": "Load user" },
     "message": "failed to execute native db block",
     "detail": "PostgresError: column \"emial\" does not exist"
   }
@@ -34,7 +34,7 @@ When the route fails, the answer has an `error`:
 
 | Field | Meaning |
 | --- | --- |
-| `block` | The block that failed: `id` (the canvas block id), `type` and `name`. Missing for a route not saved since this feature came in: save it again. |
+| `block` | The block that failed: `key` (its name on the canvas, such as `db_native_1`), `type` and `name`. Missing for a route not saved since this feature came in: save it again. |
 | `message` | What the block said. |
 | `detail` | The real cause the message hides, such as the database error. |
 | `stack` | Only for an error thrown by your own code (JS Runner, Transformer, custom block code, `js:` expressions): where in that code. |

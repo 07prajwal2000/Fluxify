@@ -111,7 +111,7 @@ Call `save_test_suite`:
 
 ## 6. Test a path without the real database
 
-Skip the database block with a hook and give it made-up data. First get the block id:
+Skip the database block with a hook and give it made-up data. First get the block key:
 
 Call `get_canvas`:
 
@@ -128,7 +128,7 @@ Call `save_test_suite`:
   "name": "Unknown user",
   "routeParams": { "id": "999" },
   "hooks": [
-    { "blockId": "<db block id>", "onBefore": { "kind": "json", "value": "null" } }
+    { "blockId": "db_getsingle_1", "onBefore": { "kind": "json", "value": "null" } }
   ],
   "assertions": [{ "target": "status", "operator": "eq", "expectedValue": "404" }]
 }

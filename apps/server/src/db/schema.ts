@@ -26,6 +26,14 @@ import type { DebugError } from "../modules/requestRouter/debugError";
 import { systemUsers } from "./auth-schema";
 import { jsonb } from "./jsonbColumn";
 
+/**
+ * How many blocks of each key prefix this canvas has ever created, e.g.
+ * `{ "response": 2 }`. A block's key takes the next number, so deleting a block
+ * never frees its key: a key an agent read earlier can never name a new block.
+ */
+const blockKeyCounters = () =>
+	jsonb("block_key_counters").$type<Record<string, number>>().default({}).notNull();
+
 /* ============================================================================
  * 1. GENERAL ENUMS & TYPES
  * ============================================================================ */
@@ -257,6 +265,7 @@ export const routesEntity = pgTable(
 		recordExecution: boolean("record_execution").default(false).notNull(),
 		/** #597: +1 on every canvas save, in the same transaction. A save naming an older one is refused. */
 		canvasVersion: integer("canvas_version").default(0).notNull(),
+		blockKeyCounters: blockKeyCounters(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		createdBy: varchar("created_by", { length: 50 }),
 		updatedAt: timestamp("updated_at")
@@ -309,6 +318,7 @@ export const workflowsEntity = pgTable(
 		recordExecution: boolean("record_execution").default(false).notNull(),
 		/** #597: +1 on every canvas save, in the same transaction. A save naming an older one is refused. */
 		canvasVersion: integer("canvas_version").default(0).notNull(),
+		blockKeyCounters: blockKeyCounters(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		createdBy: varchar("created_by", { length: 50 }),
 		updatedAt: timestamp("updated_at")
@@ -456,6 +466,8 @@ export const blocksEntity = pgTable(
 		id: varchar({ length: 50 })
 			.primaryKey()
 			.$defaultFn(() => generateID()),
+		/** readable name on its canvas (`response_1`), set by the server on create and never changed */
+		key: text().notNull(),
 		type: varchar({ length: 100 }),
 		position: jsonb("position").$type<{
 			x: number;
@@ -481,6 +493,10 @@ export const blocksEntity = pgTable(
 		index("idx_blocks_route_id").on(table.routeId),
 		index("idx_blocks_custom_block_id").on(table.customBlockId),
 		index("idx_blocks_workflow_id").on(table.workflowId),
+		// a canvas has one parent, so the other two columns are NULL there and never clash
+		uniqueIndex("uq_blocks_route_key").on(table.routeId, table.key),
+		uniqueIndex("uq_blocks_custom_block_key").on(table.customBlockId, table.key),
+		uniqueIndex("uq_blocks_workflow_key").on(table.workflowId, table.key),
 	],
 );
 
@@ -870,6 +886,7 @@ export const customBlocksListEntity = pgTable(
 		docs: text(),
 		/** #597: +1 on every canvas save, in the same transaction. A save naming an older one is refused. */
 		canvasVersion: integer("canvas_version").default(0).notNull(),
+		blockKeyCounters: blockKeyCounters(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		updatedAt: timestamp("updated_at")
 			.defaultNow()

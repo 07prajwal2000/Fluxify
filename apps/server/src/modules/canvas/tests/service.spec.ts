@@ -59,6 +59,9 @@ describe("canvas saveCanvas", () => {
 	beforeEach(() => {
 		published.length = 0;
 		spyOn(repository, "getBlocksCountByType").mockResolvedValue([]);
+		spyOn(repository, "reserveBlockKeys").mockImplementation(async (_parent, types) =>
+			types.map((type, i) => `${type}_${i + 1}`),
+		);
 		// e1 points at b2, which the fixture leaves already stored
 		spyOn(repository, "getBlocks").mockResolvedValue([{ id: "b2" }] as any);
 		getEdges.mockResolvedValue([] as any);
@@ -151,6 +154,7 @@ describe("canvas saveCanvas", () => {
 		expect(upsertBlocks.mock.calls[0][0]).toEqual([
 			{
 				id: "b1",
+				key: "entrypoint_1",
 				type: "entrypoint",
 				data: {},
 				position: { x: 1, y: 2 },

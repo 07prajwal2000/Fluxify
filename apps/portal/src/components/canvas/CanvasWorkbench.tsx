@@ -67,6 +67,7 @@ export function toGraph(data: CanvasItems | undefined): CanvasGraph {
 			type: block.type,
 			position: block.position,
 			data: (block.data ?? {}) as BlockData,
+			key: block.key,
 		})),
 		edges: data.edges,
 	};

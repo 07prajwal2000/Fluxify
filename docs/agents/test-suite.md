@@ -225,8 +225,8 @@ A hook changes one block of the target's canvas during the test only. `hooks` is
 {
   "testSuiteId": "<suite id>",
   "hooks": [
-    { "blockId": "<db block id>", "onBefore": { "kind": "json", "value": "{\"id\":7,\"name\":\"Test user\"}" } },
-    { "blockId": "<js block id>", "onAfter": { "kind": "script", "value": "t.expect(output).toHaveLength(2);\nreturn [];" } }
+    { "blockId": "db_getsingle_1", "onBefore": { "kind": "json", "value": "{\"id\":7,\"name\":\"Test user\"}" } },
+    { "blockId": "jsrunner_1", "onAfter": { "kind": "script", "value": "t.expect(output).toHaveLength(2);\nreturn [];" } }
   ]
 }
 ```
@@ -248,7 +248,7 @@ A hook body is `{ "kind": "json" | "script", "value": "<text>" }`. For `json`, `
 | `if`, `switch`, `forloop`, `foreachloop`, `orchestrator`, `retry` | An `onBefore` script that changes the input. They cannot be skipped. |
 | Every other block, custom blocks too | `onBefore` and `onAfter`, script or json. |
 
-The block must be on the suite's own route or workflow. Each block has one entry. Get block ids from `get_canvas`.
+The block must be on the suite's own route or workflow. Each block has one entry. Name each block by its key from `get_canvas` (such as `db_getsingle_1`); a block id also works. `get_test_suite` shows the keys.
 
 ## Overrides
 
@@ -321,7 +321,7 @@ Every test run is recorded, even when `recordExecution` is off. Read a case's re
 | `Invalid input: input.raw: Input is too large (1MB max).` | Shorten `input`. Use a `script` or `loader` source for big data. |
 | `Invalid input: hooks.0.onBefore.value: Invalid JSON` | A `json` hook value does not parse. |
 | `Invalid input: Setup, teardown and loader blocks must be test-only custom blocks of this project` | The block is missing, from another project, or its `usage` is not `test`. |
-| `Invalid input: Block X is not on this suite's route` | Use block ids from the target's canvas. |
+| `Invalid input: Block X is not on this suite's route` | Use block keys from the target's canvas. |
 | `Invalid input: A block can have only one hook entry` | Merge the two entries. |
 | `Invalid input: A if block only allows an onBefore script that changes its input` | See the hook table. |
 | `Not found: Test suite not found` | Wrong `testSuiteId`. Use `list_test_suites`. |

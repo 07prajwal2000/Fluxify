@@ -4,6 +4,7 @@ import {
 	customBlock,
 	expectCall,
 	findRoute,
+	nextKey,
 	oneRoute,
 	routeActive,
 	routeUsesBlock,
@@ -156,23 +157,23 @@ export const tasks: Task[] = [
 			);
 			const canvas = await ctx.tool("get_canvas", { target: { kind: "route", id } });
 			const code = canvas.blocks.find((b: any) => b.type === "jsrunner");
-			const next = canvas.edges.find((e: any) => e.from === code.id).to;
+			const next = nextKey(canvas, code.key)!;
 			await ctx.tool("edit_canvas", {
 				target: { kind: "route", id },
 				version: canvas.version,
 				ops: [
 					{
 						op: "update_block",
-						id: code.id,
+						id: code.key,
 						data: { value: "return { text: getQueryParam('text') };" },
 					},
-					{ op: "disconnect", from: code.id, to: next },
+					{ op: "disconnect", from: code.key, to: next },
 					{
 						op: "add_block",
 						ref: "slug",
 						type: "user_defined.project.slugify",
 						data: { text: "js:return input.text" },
-						connect_from: { from: code.id },
+						connect_from: { from: code.key },
 					},
 					{
 						op: "add_block",
@@ -335,18 +336,18 @@ export const tasks: Task[] = [
 			);
 			const canvas = await ctx.tool("get_canvas", { target: { kind: "route", id } });
 			const code = canvas.blocks.find((b: any) => b.type === "jsrunner");
-			const next = canvas.edges.find((e: any) => e.from === code.id).to;
+			const next = nextKey(canvas, code.key)!;
 			await ctx.tool("edit_canvas", {
 				target: { kind: "route", id },
 				version: canvas.version,
 				ops: [
-					{ op: "disconnect", from: code.id, to: next },
+					{ op: "disconnect", from: code.key, to: next },
 					{
 						op: "add_block",
 						ref: "fmt",
 						type: "user_defined.project.format_price",
 						data: { amount: "js:return input.amount" },
-						connect_from: { from: code.id },
+						connect_from: { from: code.key },
 					},
 					{
 						op: "add_block",

@@ -67,6 +67,19 @@ export function truncate(body: unknown) {
 	return `${text.slice(0, MAX_RESPONSE_CHARS)}… (truncated, ${text.length} characters in all)`;
 }
 
+/** The failed block is named by its canvas key, like everywhere else the agent sees blocks. */
+async function withBlockKey(
+	get: AdminApi["get"],
+	routeId: string,
+	error: { block?: { id: string; type: string; name?: string } },
+) {
+	if (!error.block) return error;
+	const { id, ...rest } = error.block;
+	const canvas = await get(`/v1/routes/${routeId}/canvas-items`).catch(() => undefined);
+	const key = canvas?.blocks?.find((b: { id: string }) => b.id === id)?.key;
+	return { ...error, block: { ...(key ? { key } : {}), ...rest } };
+}
+
 export const routeTools: McpTool[] = [
 	{
 		name: "save_route",
@@ -140,7 +153,7 @@ export const routeTools: McpTool[] = [
 	{
 		name: "call_route",
 		title: "Call route",
-		description: `Send a REAL HTTP request to a route and get back its status and body. This runs the route for real: it can create, change or delete data and call other services. Read get_route first for the path params and the body/query schemas. The route must be active. Bodies over ${MAX_RESPONSE_CHARS} characters are cut. When the route fails, error has the real cause its callers never see: { block: { id, type, name }, message, detail (e.g. the SQL error), stack (your own code only) }. To debug and fix: read_doc ${DEBUG_RECIPE}.`,
+		description: `Send a REAL HTTP request to a route and get back its status and body. This runs the route for real: it can create, change or delete data and call other services. Read get_route first for the path params and the body/query schemas. The route must be active. Bodies over ${MAX_RESPONSE_CHARS} characters are cut. When the route fails, error has the real cause its callers never see: { block: { key, type, name }, message, detail (e.g. the SQL error), stack (your own code only) }. To debug and fix: read_doc ${DEBUG_RECIPE}.`,
 		role: "creator",
 		annotations: RUN,
 		input: {
@@ -153,12 +166,16 @@ export const routeTools: McpTool[] = [
 			headers: z.record(z.string(), z.string()).optional(),
 			body: z.unknown().optional().describe("JSON body; a string is sent as-is"),
 		},
-		call: async ({ send }, { routeId, ...a }) => {
+		call: async ({ get, send }, { routeId, ...a }) => {
 			const { debugError, ...result } = await send("POST", `/v1/routes/${routeId}/call`, {
 				...a,
 				debug: true,
 			});
-			return { ...result, body: truncate(result.body), ...(debugError && { error: debugError }) };
+			return {
+				...result,
+				body: truncate(result.body),
+				...(debugError && { error: await withBlockKey(get, routeId, debugError) }),
+			};
 		},
 	},
 	{

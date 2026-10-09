@@ -22,6 +22,7 @@ export function blockToNode(block: CanvasBlock): BlockNode {
 		type: block.type,
 		position: block.position,
 		data: block.data ?? {},
+		...(block.key ? { blockKey: block.key } : {}),
 		...noteNodeFields(block),
 	};
 }

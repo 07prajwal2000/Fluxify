@@ -4,6 +4,7 @@ import { generateID } from "@fluxify/lib";
 import { and, count, desc, eq, ilike, type SQL } from "drizzle-orm";
 import { type DbTransactionType, db } from "../../../db";
 import { blocksEntity, projectsEntity, workflowsEntity } from "../../../db/schema";
+import { reserveBlockKeys } from "../../../modules/canvas/repository";
 
 type WorkflowInsert = typeof workflowsEntity.$inferInsert;
 
@@ -20,9 +21,15 @@ export async function insertWorkflow(data: WorkflowInsert, tx?: DbTransactionTyp
  * `response` block — nothing is waiting on an answer.
  */
 export async function seedDefaultBlocks(workflowId: string, tx?: DbTransactionType) {
+	const [entryKey, errorKey] = await reserveBlockKeys(
+		{ type: "workflow", id: workflowId },
+		[BlockTypes.entrypoint, BlockTypes.errorHandler],
+		tx,
+	);
 	await (tx ?? db).insert(blocksEntity).values([
 		{
 			id: generateID(),
+			key: entryKey,
 			workflowId,
 			type: BlockTypes.entrypoint,
 			position: STARTER_POSITIONS.entrypoint,
@@ -30,6 +37,7 @@ export async function seedDefaultBlocks(workflowId: string, tx?: DbTransactionTy
 		},
 		{
 			id: generateID(),
+			key: errorKey,
 			workflowId,
 			type: BlockTypes.errorHandler,
 			position: STARTER_POSITIONS.errorHandler,

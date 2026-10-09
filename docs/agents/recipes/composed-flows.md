@@ -7,7 +7,7 @@ description: Canvas patterns with exact edit_canvas ops, check then update or 40
 
 Patterns you combine on a route canvas. Every step is an `edit_canvas` call. Read the [Canvas guide](/agents/canvas) first for handles, refs and validation. Validate input with the route schemas, not with blocks: [Validate a request](/agents/recipes/validate-request).
 
-In every example, ids in angle brackets come from `get_canvas`, and `version` is the one you just read. A new route has an edge from the entrypoint to its 200 response. When you put blocks in between, add `{ "op": "disconnect", "from": "<entry id>", "to": "<ok response id>" }` as the first op, because a handle holds one edge. Block text inputs are literal unless they start with `js:`; code fields (`transformScript`, JS Runner `value`) never take `js:`. See [Dynamic values and `js:` expressions](/agents/expressions).
+In every example, blocks are named by the keys `get_canvas` shows (`entrypoint_1`, `response_1`; yours may differ), and `version` is the one you just read. A new route has an edge from the entrypoint to its 200 response. When you put blocks in between, add `{ "op": "disconnect", "from": "entrypoint_1", "to": "response_1" }` as the first op, because a handle holds one edge. Block text inputs are literal unless they start with `js:`; code fields (`transformScript`, JS Runner `value`) never take `js:`. See [Dynamic values and `js:` expressions](/agents/expressions).
 
 ## 1. Check, then update or answer 404
 
@@ -26,10 +26,10 @@ The flow: read the body, look the user up, branch.
   "target": { "kind": "route", "id": "<route id>" },
   "version": 0,
   "ops": [
-    { "op": "disconnect", "from": "<entry id>", "to": "<ok response id>" },
+    { "op": "disconnect", "from": "entrypoint_1", "to": "response_1" },
     { "op": "add_block", "ref": "body", "type": "httpgetrequestbody",
       "data": { "blockName": "Read body", "saveAsVariable": { "enabled": true, "name": "payload" } },
-      "connect_from": { "from": "<entry id>" } },
+      "connect_from": { "from": "entrypoint_1" } },
     { "op": "add_block", "ref": "find", "type": "db_exists",
       "data": {
         "blockName": "User exists",
@@ -54,8 +54,8 @@ The flow: read the body, look the user up, branch.
         "useParam": false
       },
       "connect_from": { "from": "find", "handle": "success" } },
-    { "op": "connect", "from": "update", "to": "<ok response id>" },
-    { "op": "update_block", "id": "<ok response id>",
+    { "op": "connect", "from": "update", "to": "response_1" },
+    { "op": "update_block", "id": "response_1",
       "data": { "transformEnabled": true,
                 "transformScript": "return { id: outputs.user.id, name: outputs.payload.name };" } },
     { "op": "add_block", "ref": "missing", "type": "response",
@@ -83,15 +83,15 @@ The `retry` block runs the chain on its `executor` handle. If the chain throws, 
   "target": { "kind": "route", "id": "<route id>" },
   "version": 0,
   "ops": [
-    { "op": "disconnect", "from": "<entry id>", "to": "<ok response id>" },
+    { "op": "disconnect", "from": "entrypoint_1", "to": "response_1" },
     { "op": "add_block", "ref": "retry", "type": "retry",
       "data": { "maxRetries": 3, "retryType": "exponential", "delayMs": 500, "maxDelayMs": 5000 },
-      "connect_from": { "from": "<entry id>" } },
+      "connect_from": { "from": "entrypoint_1" } },
     { "op": "add_block", "ref": "call", "type": "httprequest",
       "data": { "url": "https://api.example.com/status", "method": "GET", "headers": {}, "body": null, "useParam": false },
       "connect_from": { "from": "retry", "handle": "executor" } },
-    { "op": "connect", "from": "retry", "to": "<ok response id>", "handle": "success" },
-    { "op": "update_block", "id": "<ok response id>",
+    { "op": "connect", "from": "retry", "to": "response_1", "handle": "success" },
+    { "op": "update_block", "id": "response_1",
       "data": { "transformEnabled": true, "transformScript": "return input.data;" } },
     { "op": "add_block", "ref": "bad-gateway", "type": "response",
       "data": { "httpCode": "502", "transformEnabled": true,
@@ -121,7 +121,7 @@ The error handler block is already on the canvas. Give its `source` handle an ed
     { "op": "add_block", "ref": "fail", "type": "response",
       "data": { "httpCode": "500", "transformEnabled": true,
                 "transformScript": "return { error: 'Something went wrong' };" },
-      "connect_from": { "from": "<error handler id>" } }
+      "connect_from": { "from": "error_handler_1" } }
   ]
 }
 ```
@@ -135,7 +135,7 @@ The response block's `httpCode` is a fixed code like `"404"`, or `js:` code that
 From the previous block's output:
 
 ```json
-{ "op": "update_block", "id": "<ok response id>",
+{ "op": "update_block", "id": "response_1",
   "data": { "httpCode": "js: return input.created ? 201 : 200;" } }
 ```
 
@@ -148,7 +148,7 @@ From a variable set earlier. A Set Variable block assigns `statusCode`, and the 
 ```
 
 ```json
-{ "op": "update_block", "id": "<ok response id>", "data": { "httpCode": "js: return statusCode;" } }
+{ "op": "update_block", "id": "response_1", "data": { "httpCode": "js: return statusCode;" } }
 ```
 
 From a saved output: `"httpCode": "js: return outputs.check.ok ? 200 : 422;"`.

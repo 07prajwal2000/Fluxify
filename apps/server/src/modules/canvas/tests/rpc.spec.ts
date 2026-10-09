@@ -46,6 +46,9 @@ describe("fluxify.ops.canvas responder", () => {
 		spyOn(repository, "deleteBlocks").mockResolvedValue(undefined);
 		spyOn(repository, "deleteEdges").mockResolvedValue(undefined);
 		spyOn(repository, "getBlocksCountByType").mockResolvedValue([]);
+		spyOn(repository, "reserveBlockKeys").mockImplementation(async (_parent, types) =>
+			types.map((type, i) => `${type}_${i + 1}`),
+		);
 		spyOn(repository, "touchParent").mockResolvedValue(1);
 		spyOn(repository, "getCanvasVersion").mockResolvedValue(1);
 		upsertBlocks.mockResolvedValue(undefined);

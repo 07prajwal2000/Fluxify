@@ -51,7 +51,8 @@ export type CanvasChanges = z.infer<typeof canvasChangesSchema>;
 export const canvasItemsSchema = z.object({
 	/** +1 on every save (#597); pass it back as `expectedVersion` to refuse a stale save */
 	canvasVersion: z.number().int(),
-	blocks: z.array(canvasBlockSchema),
+	/** `key` is the block's readable name on this canvas (`response_1`); the server sets it, a save never takes it */
+	blocks: z.array(canvasBlockSchema.extend({ key: z.string() })),
 	edges: z.array(
 		z.object({
 			id: z.string(),
@@ -87,4 +88,6 @@ export const saveCanvasResultSchema = z.object({
 			blockId: z.string().optional(),
 		}),
 	),
+	/** the key each block this save created was given, by block id */
+	newKeys: z.record(z.string(), z.string()),
 });

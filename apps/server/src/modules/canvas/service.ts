@@ -11,6 +11,7 @@ import { ConflictError } from "../../errors/conflictError";
 import { ForbiddenError } from "../../errors/forbidError";
 import { NotFoundError } from "../../errors/notFoundError";
 import { dbIntegrationsCache } from "../../loaders/integrationsLoader";
+import { assignBlockKeys } from "./blockKeys";
 import { type DirectedCanvasEdge, findCycleEdgeIds } from "./cycleDetection";
 import { takeDroppedWarnings } from "./droppedFields";
 import { assertJoinsSupported } from "./joinSupport";
@@ -375,7 +376,7 @@ export async function saveCanvas(
 		.filter((c) => c.action === "delete")
 		.map((c) => c.id);
 
-	let result: SaveResult = { canvasVersion: 0, issues: [] };
+	let result: SaveResult = { canvasVersion: 0, issues: [], newKeys: {} };
 	// a tx nests as a savepoint, so the outer transaction still decides the outcome
 	const saving = (outer ?? db).transaction(async (tx) => {
 		await assertBlockTypesExist(parent, data, tx);
@@ -395,8 +396,9 @@ export async function saveCanvas(
 			...(await canvasIssues(parent, data, blocksAfterSave, tx, dryRun)),
 			...takeDroppedWarnings(data),
 		];
+		const { keyOf, newKeys } = await assignBlockKeys(parent, data.changes.blocks, tx);
 		await upsertBlocks(
-			data.changes.blocks.map((block) => ({ ...block, ...keys })),
+			data.changes.blocks.map((block) => ({ ...block, key: keyOf(block.id), ...keys })),
 			tx,
 		);
 		await upsertEdges(
@@ -423,7 +425,7 @@ export async function saveCanvas(
 			throw new BadRequestError(`Duplicate block ${block.type} found`);
 		}
 		// a dry run reports the version the canvas is still at
-		result = { canvasVersion: dryRun ? canvasVersion - 1 : canvasVersion, issues };
+		result = { canvasVersion: dryRun ? canvasVersion - 1 : canvasVersion, issues, newKeys };
 		if (dryRun) throw DRY_RUN;
 	});
 	try {
@@ -438,7 +440,12 @@ export async function saveCanvas(
 }
 
 export type SaveOptions = { expectedVersion?: number; dryRun?: boolean };
-export type SaveResult = { canvasVersion: number; issues: CanvasIssue[] };
+export type SaveResult = {
+	canvasVersion: number;
+	issues: CanvasIssue[];
+	/** the key each block this save created was given, by block id */
+	newKeys: Record<string, string>;
+};
 
 /** Thrown to roll a dry-run save back; never leaves `saveCanvas`. */
 const DRY_RUN = new Error("canvas dry run");
@@ -463,6 +470,7 @@ export async function getCanvas(parent: CanvasParent, projectIds: string[] = [])
 			canvasVersion,
 			blocks: blocks.map((b) => ({
 				id: b.id,
+				key: b.key,
 				type: b.type!,
 				data: b.data as any,
 				position: (b.position as { x: number; y: number }) ?? { x: 0, y: 0 },
