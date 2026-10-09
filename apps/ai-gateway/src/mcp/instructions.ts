@@ -31,6 +31,10 @@ Building tips:
   returns rule errors and warnings; check the changes hit the blocks you meant and fix every error.
 - Change part of a script with an edit_code op, not by resending the whole field. On a big canvas read get_canvas with compact: true, then blocks: [keys] for the ones you will edit.
 - Leave notes: put a short blockDescription on a block whose purpose is not obvious (a workaround, a contract, why a value is parked in a variable), and a sticky_note block for a rule the whole canvas follows. get_canvas shows them; read them before you change plumbing that looks pointless.
+- Don't invent topology or style rules. One response block per happy path is fine; don't force several terminal paths onto one block. Never write a note that states a rule the canvas doesn't already follow.
+- Keep notes true: after an edit, re-check every blockDescription and sticky note (yours or earlier ones) against the new edges, and fix any the edit made false in the same edit_canvas call.
+- Block names (blockName) are unique per canvas and say where the block sits ("200 OK: cached users", "200 OK: users from DB"). Rename a block when you clone it.
+- Say "no behaviour change" only after you call the rewired branch with input that takes it (call_route or a test suite), not just any 200.
 - Block text inputs are literal unless they start with \`js:\` followed by code that returns the value (e.g. \`js: return input.id\`); never use \`{{ }}\`.
 - call_route returns the real error and a short trace of the blocks that ran. Check get_system_logs after a change: compile errors show up there.
 - Stop when the tests pass or the route works; don't keep polishing.

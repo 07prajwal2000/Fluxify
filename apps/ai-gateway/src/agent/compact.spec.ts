@@ -144,7 +144,8 @@ describe("60%: trim old tool results", () => {
 		const r = await run(history, { calls: 1, input: 3400, context: 5000 });
 		expect(results(r.prompts[0]).filter((s) => s.startsWith("[result trimmed"))).toHaveLength(3);
 		expect(history.slice(0, copy.length)).toEqual(copy);
-		expect(r.shown).toContain("[compacted] Trimmed 3 old tool results (get_route ×3), 3k → 2k tokens");
+		// the first figure rounds with the size of the system prompt
+		expect(r.shown).toMatch(/\[compacted\] Trimmed 3 old tool results \(get_route ×3\), \dk → 2k tokens/);
 		expect(r.logged[0]).toMatchObject({ kind: "trim", results: 3, tools: { get_route: 3 } });
 	});
 

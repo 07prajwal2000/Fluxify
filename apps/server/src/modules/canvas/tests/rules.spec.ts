@@ -79,4 +79,38 @@ describe("canvas rules", () => {
 	it("is quiet for a plain canvas", () => {
 		expect(check("workflow", "jsrunner", { value: "return trigger.data;" })).toEqual([]);
 	});
+
+	describe("duplicate block names", () => {
+		const named = (...names: (string | undefined)[]) =>
+			canvasRuleIssues({
+				kind: "route",
+				usageOf,
+				blocks: names.map((blockName, i) => ({
+					id: `b${i}`,
+					key: `response_${i + 1}`,
+					type: "response",
+					data: { blockName },
+				})),
+				edges: [],
+			}).filter((i) => i.message.includes("named"));
+
+		it("warns once per shared name, listing the blocks", () => {
+			expect(named("200 OK: users", "x", "200 OK: users")).toEqual([
+				{
+					severity: "warning",
+					message:
+						"Two blocks are named '200 OK: users' (response_1, response_3). Give each a name that says where it sits in the flow.",
+					blockId: "b0",
+				},
+			]);
+		});
+
+		it("ignores default and empty names", () => {
+			expect(named("Name", "Name", "", "  ", undefined, undefined)).toEqual([]);
+		});
+
+		it("is quiet when every name is unique", () => {
+			expect(named("a", "b")).toEqual([]);
+		});
+	});
 });

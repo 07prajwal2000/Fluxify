@@ -1,5 +1,5 @@
-import { HANDLE_SIDE, type HandleKind, type HandleSide } from "./blockHandles";
 import { BlockTypes } from "./blockTypes";
+import { handleSide, layoutBand, splitIntoBands } from "./layoutLanes";
 
 export {
 	FAN_OUT_HANDLES,
@@ -46,6 +46,8 @@ export type LayoutNode = {
 	position?: { x: number; y: number } | null;
 	width?: number | null;
 	height?: number | null;
+	/** Block data; only `order` / `defaultCase` (fan-out branch order) are read. */
+	data?: unknown;
 };
 
 export type LayoutEdge = {
@@ -72,13 +74,7 @@ export type LayoutOptions = {
 
 export type LayoutPositions = Record<string, { x: number; y: number }>;
 
-const HANDLE_KINDS = Object.keys(HANDLE_SIDE) as HandleKind[];
-
-/** Which side of the block a handle id (`<blockId>-<kind>`) sits on. */
-export function handleSide(handleId: string): HandleSide {
-	const kind = HANDLE_KINDS.find((candidate) => handleId.endsWith(`-${candidate}`));
-	return kind ? HANDLE_SIDE[kind] : "right";
-}
+export { handleSide };
 
 /**
  * Column per block: one past its furthest predecessor. Cycles cannot come out
@@ -130,9 +126,11 @@ function anchorOffset(
 	};
 }
 
+/** Space between two root bands. */
+const BAND_SPACING = 48;
+
 /**
- * Lays the graph out left to right, one column per step, columns centred on a
- * common axis. Sticky notes are excluded, so callers keep their positions.
+ * Lays the graph out left to right, one column per step, one lane per branch. Sticky notes are excluded, so callers keep their positions.
  * With `changedIds`, only the blocks that actually moved come back.
  */
 export function layoutGraph(
@@ -143,35 +141,37 @@ export function layoutGraph(
 	const laidOut = nodes.filter((node) => node.type !== BlockTypes.sticky_note);
 	if (laidOut.length === 0) return {};
 
-	const placed = new Set(laidOut.map((n) => n.id));
-	const graphEdges = edges.filter((e) => placed.has(e.from) && placed.has(e.to));
+	const byId = new Map(laidOut.map((n) => [n.id, n]));
+	// The compiler ignores an edge into the error handler, so layout does too:
+	// that keeps the handler a root with a band of its own.
+	const graphEdges = edges.filter(
+		(e) => byId.has(e.from) && byId.has(e.to) && byId.get(e.to)!.type !== BlockTypes.errorHandler,
+	);
 	const layers = layerOf(laidOut, graphEdges);
-
-	const columns = new Map<number, LayoutNode[]>();
-	for (const node of laidOut) {
-		const layer = layers.get(node.id) ?? 0;
-		columns.set(layer, [...(columns.get(layer) ?? []), node]);
-	}
-
-	const widthOf = (n: LayoutNode) => n.width ?? FALLBACK_WIDTH;
 	const heightOf = (n: LayoutNode) => n.height ?? FALLBACK_HEIGHT;
 
-	// Within a column, keep the order the blocks already had on screen so a
-	// reflow does not shuffle siblings the user is reading top to bottom.
-	const positions: LayoutPositions = {};
+	// Columns are shared by every band so a block lines up with its peers.
+	const columnX = new Map<number, number>();
 	let x = 0;
-	for (const layer of [...columns.keys()].sort((a, b) => a - b)) {
-		const column = [...columns.get(layer)!].sort(
-			(a, b) => (a.position?.y ?? 0) - (b.position?.y ?? 0),
-		);
-		const total =
-			column.reduce((sum, n) => sum + heightOf(n), 0) + nodeSpacing * (column.length - 1);
-		let y = -total / 2;
-		for (const node of column) {
-			positions[node.id] = { x, y };
-			y += heightOf(node) + nodeSpacing;
+	for (const layer of [...new Set(layers.values())].sort((a, b) => a - b)) {
+		columnX.set(layer, x);
+		const members = laidOut.filter((n) => layers.get(n.id) === layer);
+		x += Math.max(...members.map((n) => n.width ?? FALLBACK_WIDTH)) + layerSpacing;
+	}
+
+	const positions: LayoutPositions = {};
+	let bandTop = 0;
+	for (const band of splitIntoBands(laidOut, graphEdges)) {
+		const inBand = new Set(band.map((n) => n.id));
+		const bandEdges = graphEdges.filter((e) => inBand.has(e.from) && inBand.has(e.to));
+		const { tops, height } = layoutBand(band, bandEdges, layers, heightOf, nodeSpacing);
+		for (const node of band) {
+			positions[node.id] = {
+				x: columnX.get(layers.get(node.id) ?? 0)!,
+				y: bandTop + tops.get(node.id)!,
+			};
 		}
-		x += Math.max(...column.map(widthOf)) + layerSpacing;
+		bandTop += height + BAND_SPACING;
 	}
 
 	if (!changedIds) return positions;

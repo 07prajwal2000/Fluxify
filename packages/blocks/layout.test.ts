@@ -91,3 +91,172 @@ test("an edit reflows around the blocks it did not touch", () => {
 	expect(moved.new).toBeUndefined();
 	expect(moved.b!.x).toBeGreaterThan(inserted.position!.x);
 });
+
+const bare = (id: string, type: string, data?: Record<string, unknown>): LayoutNode => ({
+	id,
+	type,
+	width: 160,
+	height: 40,
+	data,
+});
+const at = (positions: Record<string, { x: number; y: number }>, id: string) => positions[id]!.y;
+
+test("if: the true branch sits above the false branch, whatever order they arrive in", () => {
+	const nodes = [
+		bare("e", BlockTypes.entrypoint),
+		bare("i", BlockTypes.if),
+		bare("f", BlockTypes.jsrunner),
+		bare("t", BlockTypes.jsrunner),
+	];
+	const edges = [edge("e", "i"), edge("i", "f", "failure"), edge("i", "t", "success")];
+	const p = layoutGraph(nodes, edges);
+	expect(at(p, "t")).toBeLessThan(at(p, "f"));
+});
+
+test("a top-handle child sits above the parent's right-hand children", () => {
+	const nodes = [
+		bare("e", BlockTypes.entrypoint),
+		bare("loop", BlockTypes.forloop),
+		bare("after", BlockTypes.jsrunner),
+		bare("body", BlockTypes.jsrunner),
+	];
+	const edges = [edge("e", "loop"), edge("loop", "after", "source"), edge("loop", "body", "executor")];
+	const p = layoutGraph(nodes, edges);
+	expect(at(p, "body")).toBeLessThan(at(p, "after"));
+});
+
+test("switch: cases follow data.order, the default case comes last", () => {
+	const nodes = [
+		bare("e", BlockTypes.entrypoint),
+		bare("sw", BlockTypes.switch, { order: ["c2", "c1"], defaultCase: "d" }),
+		bare("c1", BlockTypes.jsrunner),
+		bare("d", BlockTypes.jsrunner),
+		bare("c2", BlockTypes.jsrunner),
+	];
+	const edges = [
+		edge("e", "sw"),
+		edge("sw", "c1", "case"),
+		edge("sw", "d", "case"),
+		edge("sw", "c2", "case"),
+	];
+	const p = layoutGraph(nodes, edges);
+	expect(at(p, "c2")).toBeLessThan(at(p, "c1"));
+	expect(at(p, "c1")).toBeLessThan(at(p, "d"));
+});
+
+const withErrorHandler = () => ({
+	nodes: [
+		bare("e", BlockTypes.entrypoint),
+		bare("i", BlockTypes.if),
+		bare("t", BlockTypes.jsrunner),
+		bare("f", BlockTypes.jsrunner),
+		bare("r", BlockTypes.response),
+		bare("h", BlockTypes.errorHandler),
+		bare("h1", BlockTypes.jsrunner),
+		bare("h2", BlockTypes.jsrunner),
+	],
+	edges: [
+		edge("e", "i"),
+		edge("i", "t", "success"),
+		edge("i", "f", "failure"),
+		edge("t", "r"),
+		edge("h", "h1"),
+		edge("h", "h2"),
+	],
+});
+
+test("the error handler's chain stays below the main chain, however often it is formatted", () => {
+	const { nodes, edges } = withErrorHandler();
+	let current = nodes;
+	let first: Record<string, { x: number; y: number }> | undefined;
+	for (let run = 0; run < 3; run++) {
+		const p = layoutGraph(current, edges);
+		first ??= p;
+		expect(p).toEqual(first);
+		const mainBottom = Math.max(...["e", "i", "t", "f", "r"].map((id) => at(p, id) + 40));
+		for (const id of ["h", "h1", "h2"]) expect(at(p, id)).toBeGreaterThanOrEqual(mainBottom);
+		// feed the result back in, the way a second Format press does
+		current = current.map((n) => ({ ...n, position: p[n.id] }));
+	}
+});
+
+test("the error handler stays below even when it was last on screen above", () => {
+	const { nodes, edges } = withErrorHandler();
+	const swapped = nodes.map((n) => ({
+		...n,
+		position: { x: 0, y: n.id.startsWith("h") ? -500 : 500 },
+	}));
+	const p = layoutGraph(swapped, edges);
+	expect(at(p, "h")).toBeGreaterThan(at(p, "r"));
+});
+
+test("blocks with no position (agent-added) get a stable, non-overlapping layout", () => {
+	const { nodes, edges } = withErrorHandler();
+	const p = layoutGraph(nodes, edges);
+	expect(layoutGraph([...nodes].reverse(), edges)).toEqual(p);
+	const column = ["t", "f"].map((id) => at(p, id)).sort((a, b) => a - b);
+	expect(column[1]! - column[0]!).toBeGreaterThanOrEqual(40);
+});
+
+test("with changedIds only the blocks that moved come back", () => {
+	const { nodes, edges } = withErrorHandler();
+	const p = layoutGraph(nodes, edges);
+	const formatted = nodes.map((n) => ({ ...n, position: p[n.id] }));
+	// nothing moved: nothing to persist
+	expect(layoutGraph(formatted, edges, { changedIds: ["t"] })).toEqual({});
+	// one block dragged away: only it snaps back
+	const dragged = formatted.map((n) => (n.id === "f" ? { ...n, position: { x: 9, y: 9 } } : n));
+	expect(Object.keys(layoutGraph(dragged, edges, { changedIds: ["f"] }))).toEqual(["f"]);
+});
+
+test("each if branch keeps its own lane to its own response, in handle order", () => {
+	const nodes = [
+		bare("e", BlockTypes.entrypoint),
+		bare("i", BlockTypes.if),
+		bare("read", BlockTypes.jsrunner),
+		bare("check", BlockTypes.jsrunner),
+		bare("r1", BlockTypes.response),
+		bare("query", BlockTypes.jsrunner),
+		bare("write", BlockTypes.jsrunner),
+		bare("r2", BlockTypes.response),
+	];
+	const edges = [
+		edge("e", "i"),
+		// failure listed first: the lanes still follow handle order
+		edge("i", "query", "failure"),
+		edge("i", "read", "success"),
+		edge("read", "check"),
+		edge("check", "r1"),
+		edge("query", "write"),
+		edge("write", "r2"),
+	];
+	const p = layoutGraph(nodes, edges);
+	// a lane is one straight row
+	expect(new Set(["read", "check", "r1"].map((id) => at(p, id))).size).toBe(1);
+	expect(new Set(["query", "write", "r2"].map((id) => at(p, id))).size).toBe(1);
+	// success lane above failure lane, no overlap
+	expect(at(p, "r2") - at(p, "r1")).toBeGreaterThanOrEqual(40);
+});
+
+test("a block two branches converge on sits after the lanes, centred between its parents", () => {
+	const nodes = [
+		bare("e", BlockTypes.entrypoint),
+		bare("i", BlockTypes.if),
+		bare("a", BlockTypes.jsrunner),
+		bare("b", BlockTypes.jsrunner),
+		bare("b2", BlockTypes.jsrunner),
+		bare("join", BlockTypes.response),
+	];
+	const edges = [
+		edge("e", "i"),
+		edge("i", "a", "success"),
+		edge("i", "b", "failure"),
+		edge("b", "b2"),
+		edge("a", "join"),
+		edge("b2", "join"),
+	];
+	const p = layoutGraph(nodes, edges);
+	expect(p.join!.x).toBeGreaterThan(p.b2!.x);
+	expect(at(p, "join")).toBe((at(p, "a") + at(p, "b2")) / 2);
+	expect(at(p, "a")).toBeLessThan(at(p, "b"));
+});

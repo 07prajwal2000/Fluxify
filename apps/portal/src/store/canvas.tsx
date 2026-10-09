@@ -64,6 +64,7 @@ export const createCanvasStore = (initProps?: Partial<State>) => {
 							id: block.id,
 							type: block.type,
 							position: block.position,
+							data: block.data,
 						})),
 						get().edges.map((edge) => ({
 							id: edge.id,
