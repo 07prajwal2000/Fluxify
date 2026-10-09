@@ -379,6 +379,7 @@ export default withMermaid(
 							{ text: "KV Stores", link: "/integrations/kv-stores" },
 							{ text: "Observability", link: "/integrations/observability" },
 							{ text: "AI Models", link: "/integrations/ai-models" },
+							{ text: "Trace the AI Assistant", link: "/integrations/agent-tracing" },
 							{ text: "Message Queues", link: "/integrations/message-queues" },
 						],
 					},

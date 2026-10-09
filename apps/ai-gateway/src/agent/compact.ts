@@ -1,6 +1,7 @@
 import type { LanguageModel, ModelMessage, Tool } from "ai";
 import { type Compaction, estimate, type SummaryCompaction } from "./compactStats";
 import { KEEP_STEPS, keepFrom, summarize } from "./summary";
+import { trimSpan } from "./telemetry";
 import { keepSet, type TrimLevel, trimOld } from "./trim";
 
 export {
@@ -84,6 +85,7 @@ export function compactor(o: {
 			after: estimate(t.messages, o.instructions),
 		};
 		events.push(event);
+		trimSpan(event);
 		o.onTrim?.(event);
 	};
 	const next = async (last: Usage) => {

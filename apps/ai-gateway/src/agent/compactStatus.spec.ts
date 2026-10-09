@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it } from "bun:test";
 import { type ModelMessage, tool } from "ai";
 import { convertArrayToReadableStream, MockLanguageModelV4 } from "ai/test";
 import { z } from "zod";
@@ -6,6 +6,8 @@ import { approveAll, runAgent } from "./agent";
 import { budgetLine } from "./guards";
 import { printRun } from "./progress";
 import { type AgentEvent, pump } from "./runner/events";
+import { disableTelemetry } from "./telemetry";
+import { collect, kind } from "./telemetry.fixture";
 
 const usage = (input: number) => ({
 	inputTokens: { total: input, noCache: input, cacheRead: 0, cacheWrite: 0 },
@@ -112,6 +114,35 @@ describe("Compacting… while a summary is written", () => {
 		expect(plain).toContain("compacting… 0s");
 		expect(plain.indexOf("compacting…")).toBeLessThan(plain.indexOf("[compacted] Summarized"));
 		expect(plain.indexOf("compacting…")).toBeGreaterThan(plain.indexOf("waiting for model…"));
+	});
+});
+
+describe("compaction traces (#719)", () => {
+	afterEach(disableTelemetry);
+
+	it("a summary and a trim are spans inside the run", async () => {
+		const t = collect(true);
+		const { result } = start({ context: 3000, input: 100 });
+		await result.consumeStream();
+		const [root] = t.named("fluxify.agent.run");
+		const [summary] = t.named("fluxify.compaction");
+		expect(kind(summary)).toBe("CHAIN");
+		expect(summary.attributes["fluxify.compaction.kind"]).toBe("summary");
+		expect(summary.parentSpanId).toBeDefined();
+		expect(summary.spanContext().traceId).toBe(root.spanContext().traceId);
+		expect(summary.attributes["fluxify.compaction.tokens_after"]).toBeLessThan(
+			Number(summary.attributes["fluxify.compaction.tokens_before"]),
+		);
+	});
+
+	it("a trim batch is a span with the tokens before and after", async () => {
+		const t = collect(true);
+		const { result } = start({ context: 5000, input: 3400 });
+		await result.consumeStream();
+		const trims = t.named("fluxify.compaction").filter((s) => s.attributes["fluxify.compaction.kind"] === "trim");
+		expect(trims.length).toBeGreaterThan(0);
+		expect(trims[0].spanContext().traceId).toBe(t.named("fluxify.agent.run")[0].spanContext().traceId);
+		expect(Number(trims[0].attributes["fluxify.compaction.results"])).toBeGreaterThan(0);
 	});
 });
 

@@ -3,6 +3,7 @@ import { type Approval, rejected, runAgent } from "./agent";
 import type { Compaction } from "./compact";
 import { guardTools, MAX_RESULT_CHARS, newGuard } from "./guards";
 import type { AgentStore, RunStatus } from "./store";
+import { type RunMeta, toolSpan } from "./telemetry";
 import { withToolTimeouts } from "./timeouts";
 
 /** Tool calls of the last assistant message that have no result yet: what an approval wait is waiting on. */
@@ -32,6 +33,7 @@ async function decide(
 	call: ToolCallPart,
 	approval: Approval,
 	history: ModelMessage[],
+	meta: RunMeta,
 ) {
 	const part = (output: ToolResultPart["output"]): ToolResultPart => ({
 		type: "tool-result",
@@ -39,20 +41,24 @@ async function decide(
 		toolName: call.toolName,
 		output,
 	});
-	if (!approval.ok)
+	if (!approval.ok) {
+		await toolSpan(call, "denied", meta);
 		return part({ type: "execution-denied", reason: rejected(call.toolName, approval.reason) });
+	}
 	const max = agent.limits.maxResultChars ?? MAX_RESULT_CHARS;
 	const tool = guardTools(withToolTimeouts(agent.tools, agent.limits.toolMs), newGuard(), max)[
 		call.toolName
 	];
 	try {
 		if (!tool?.execute) throw new Error(`No tool named ${call.toolName}`);
-		const out = await tool.execute(call.input, {
-			toolCallId: call.toolCallId,
-			messages: history,
-			abortSignal: agent.abortSignal,
-			context: undefined,
-		});
+		const out = await toolSpan(call, "approved", meta, async () =>
+			tool.execute?.(call.input, {
+				toolCallId: call.toolCallId,
+				messages: history,
+				abortSignal: agent.abortSignal,
+				context: undefined,
+			}),
+		);
 		return part(
 			typeof out === "string" ? { type: "text", value: out } : { type: "json", value: out ?? null },
 		);
@@ -83,6 +89,13 @@ export async function continueConversation(o: {
 	onDecided?: (result: ToolResultPart, seq: number) => void;
 }) {
 	const { store, conversationId, runId, agent } = o;
+	const meta: RunMeta = {
+		projectId: agent.projectId,
+		mode: agent.mode,
+		model: `${agent.model.provider}/${agent.model.modelId}`,
+		conversationId,
+		runId,
+	};
 	const view = await store.modelView(conversationId);
 	const history = view.map((v) => v.message);
 	const seqs = new Map(view.map((v) => [v.message, v.seq]));
@@ -119,7 +132,7 @@ export async function continueConversation(o: {
 		for (const call of pending) {
 			const approval = answers.get(call.toolCallId);
 			if (!approval) continue;
-			const decided = await decide(agent, call, approval, history);
+			const decided = await decide(agent, call, approval, history, meta);
 			const msg: ModelMessage = { role: "tool", content: [decided] };
 			await save([msg]);
 			o.onDecided?.(decided, seqs.get(msg) as number);
@@ -153,6 +166,7 @@ export async function continueConversation(o: {
 		...agent,
 		history,
 		abortSignal: ctrl.signal,
+		trace: { conversationId, runId },
 		onMessages: (list) => enqueue(() => record(list)),
 		onTrim: (event) => {
 			trim = event;

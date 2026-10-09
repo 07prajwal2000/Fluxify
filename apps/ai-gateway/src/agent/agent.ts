@@ -14,6 +14,7 @@ import {
 	WRAP_UP,
 } from "./guards";
 import { type Effort, providerOf, thinkingOptions } from "./model";
+import { traceRun } from "./telemetry";
 import { type Limits, withModelTimeouts, withToolTimeouts } from "./timeouts";
 import { closeMatches, isDelete, isRead, type Mode, needsApproval } from "./tools";
 
@@ -110,6 +111,8 @@ type Run = {
 	abortSignal?: AbortSignal;
 	/** A model call is being retried (idle timeout, or a 429/5xx). */
 	onRetry?: (why: string) => void;
+	/** Ids that tag this run's traces (#719); the CLI passes none. */
+	trace?: { conversationId?: string; runId?: string };
 	/** Each finished message, in order, once (persistence; the CLI passes none). */
 	onMessages?: (messages: ModelMessage[]) => void | Promise<void>;
 	/** A trim batch ran; resume saves its line with the next message. */
@@ -168,11 +171,16 @@ export function runAgent({
 	allowed = new Set(),
 	abortSignal,
 	onRetry,
+	trace,
 	onMessages,
 	onTrim,
 	onSummary,
 }: Run) {
 	let error = "";
+	const run = traceRun(
+		{ projectId, mode, model: `${model.provider}/${model.modelId}`, ...trace },
+		history.at(-1)?.content,
+	);
 	const stopped = new Promise<Approval>((resolve) =>
 		abortSignal?.addEventListener("abort", () => resolve({ ok: false, reason: "stopped" }), {
 			once: true,
@@ -234,15 +242,18 @@ export function runAgent({
 		onSummary,
 	});
 	// plan mode: load_tools must not offer write tools as usable now
-	const guarded = guardTools(
-		withToolTimeouts(mode === "plan" ? planTools(tools) : tools, limits.toolMs),
-		guard,
-		limits.maxResultChars ?? MAX_RESULT_CHARS,
+	const guarded = run.tools(
+		guardTools(
+			withToolTimeouts(mode === "plan" ? planTools(tools) : tools, limits.toolMs),
+			guard,
+			limits.maxResultChars ?? MAX_RESULT_CHARS,
+		),
 	);
 	const providerOptions = effort
 		? thinkingOptions(providerOf(model), model.modelId, effort)
 		: undefined;
-	const result = streamText({
+	const result = run.within(streamText)({
+		telemetry: run.telemetry,
 		tools: guarded,
 		model: timed,
 		providerOptions: providerOptions as never,
@@ -296,13 +307,15 @@ export function runAgent({
 		toolApproval: async ({ toolCall: { toolCallId, toolName, input } }) => {
 			const del = isDelete(toolName);
 			if (!needsApproval(mode, toolName) || (!del && allowed.has(toolName))) return undefined;
-			const r = await Promise.race([
-				approve({ toolCallId, toolName, input, isDelete: del }, abortSignal),
-				stopped,
-			]);
+			const call = { toolCallId, toolName, input };
+			const r = await Promise.race([approve({ ...call, isDelete: del }, abortSignal), stopped]);
 			if (!r.ok && r.defer) return "user-approval";
-			if (!r.ok) return { type: "denied", reason: rejected(toolName, r.reason) };
+			if (!r.ok) {
+				run.approval(call, "denied");
+				return { type: "denied", reason: rejected(toolName, r.reason) };
+			}
 			if (r.always && !del) allowed.add(toolName);
+			run.approval(call, r.always && !del ? "always" : "approved");
 			return "approved";
 		},
 		// Errors already come out of the stream as parts; the default also logs them.
@@ -319,9 +332,19 @@ export function runAgent({
 			);
 		},
 		// After the last step is in history, so the note lands after its tool results.
-		onFinish: () => noteStop(stop),
+		onFinish: async (e) => {
+			await noteStop(stop);
+			run.end({
+				stop: stop?.kind,
+				finish: e.finishReason,
+				error: e.finishReason === "error" ? error : undefined,
+			});
+		},
 		// Ctrl+C at the limit prompt: the run is aborted, but history still says why.
-		onAbort: () => noteStop(asking ?? stop),
+		onAbort: async () => {
+			await noteStop(asking ?? stop);
+			run.end({ aborted: true, stop: (asking ?? stop)?.kind });
+		},
 	});
 	return Object.assign(result, {
 		stopped: () => stop,

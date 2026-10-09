@@ -2,9 +2,10 @@ import { expect } from "bun:test";
 import { type ModelMessage, tool } from "ai";
 import { convertArrayToReadableStream, MockLanguageModelV4 } from "ai/test";
 import { z } from "zod";
-import { approveAll, assertEndsOnUserOrTool, type Limit, runAgent } from "./agent";
+import { type Approve, approveAll, assertEndsOnUserOrTool, type Limit, runAgent } from "./agent";
 import { withoutBudget } from "./budget.fixture";
 import { type Log, printRun } from "./progress";
+import type { Mode } from "./tools";
 
 /** Test harness for the guard specs: a fake model that makes the given calls, then says "done". */
 
@@ -42,6 +43,11 @@ type Opts = {
 	/** Cache tokens every step reports as read. */
 	cacheRead?: number;
 	log?: Log;
+	/** Run mode (default auto) and who answers approvals (default: everyone approved). */
+	mode?: Mode;
+	approve?: Approve;
+	/** Ids tagged on the run's traces. */
+	trace?: { conversationId?: string; runId?: string };
 };
 const NAMES = ["get_canvas", "edit_canvas", "call_route", "save_route"];
 
@@ -90,8 +96,9 @@ export async function run(calls: Step[], opts: Opts = {}) {
 		projectId: "p",
 		history,
 		limits: { idleMs: 1000, callMs: 1000, toolMs: 1000, retries: 0, maxSteps, tokenBudget },
-		mode: "auto",
-		approve: approveAll,
+		mode: opts.mode ?? "auto",
+		approve: opts.approve ?? approveAll,
+		trace: opts.trace,
 		abortSignal: opts.signal,
 		onLimit: onLimit
 			? async (l) => {

@@ -40,6 +40,38 @@ export const aiGatewayEnvSchema = baseEnvSchema.extend({
 			"Milliseconds an executing agent run may go without a heartbeat before it counts as dead (min 30000, default 120000)",
 		),
 
+	LLM_TRACING_ENABLED: z
+		.string()
+		.optional()
+		.describe(
+			"true sends OpenInference traces of agent runs to LLM_OTLP_TRACES_ENDPOINT (default off)",
+		),
+
+	LLM_OTLP_TRACES_ENDPOINT: z
+		.string()
+		.optional()
+		.describe("OTLP traces URL of the viewer, e.g. Phoenix http://localhost:6006/v1/traces"),
+
+	LLM_OTLP_TRACES_HEADERS: z
+		.string()
+		.optional()
+		.describe("Headers for that endpoint as key:value pairs split by ;"),
+
+	LLM_TRACING_SAMPLE_RATE: z
+		.string()
+		.optional()
+		.refine((val) => !val || (Number(val) >= 0 && Number(val) <= 1), {
+			message: "LLM_TRACING_SAMPLE_RATE must be a number between 0 and 1",
+		})
+		.describe("Share of runs traced, 0 to 1 (default 1)"),
+
+	LLM_TRACING_RECORD_CONTENT: z
+		.string()
+		.optional()
+		.describe(
+			"true also puts prompts, messages and tool inputs/outputs in traces (default false: metadata and tokens only)",
+		),
+
 	DOCS_INDEX_FILE_PATH: z
 		.string()
 		.max(500)
