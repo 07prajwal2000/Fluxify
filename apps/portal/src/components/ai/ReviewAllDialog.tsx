@@ -23,17 +23,18 @@ export function ReviewAllDialog({ calls, open, onOpenChange, onConfirm }: Props)
 		<Modal isOpen={open} onOpenChange={onOpenChange}>
 			<Modal.Backdrop>
 				<Modal.Container placement="center" size="lg" scroll="inside">
-					<Modal.Dialog>
+					<Modal.Dialog className="sm:max-w-3xl">
 						<Modal.Header className="flex flex-row items-center justify-between">
 							<Modal.Heading>Review {rows.length} changes</Modal.Heading>
 							<CloseButton />
 						</Modal.Header>
 						<Modal.Body>
-							<div className="flex items-center justify-end gap-1 pb-2">
-								{/* Deletes are never covered by Approve all: they need their own Approve. */}
+							{/* Same columns and order as the rows below: Approve, then Reject. */}
+							<div className="flex justify-end gap-1 pb-2">
 								<Button
 									size="sm"
-									variant="ghost"
+									variant="primary"
+									className="w-[5.5rem] whitespace-nowrap h-7 min-h-7 px-2 text-xs"
 									onPress={() =>
 										set(
 											rows.filter((c) => !c.isDelete).map((c) => c.id),
@@ -43,9 +44,11 @@ export function ReviewAllDialog({ calls, open, onOpenChange, onConfirm }: Props)
 								>
 									Approve all
 								</Button>
+								{/* Deletes are never covered by Approve all: they need their own Approve. */}
 								<Button
 									size="sm"
-									variant="ghost"
+									variant="danger-soft"
+									className="w-[5.5rem] whitespace-nowrap h-7 min-h-7 px-2 text-xs"
 									onPress={() =>
 										set(
 											rows.map((c) => c.id),
@@ -75,21 +78,23 @@ export function ReviewAllDialog({ calls, open, onOpenChange, onConfirm }: Props)
 										<div className="flex shrink-0 gap-1">
 											<Button
 												size="sm"
-												variant={picks[c.id] === false ? "danger-soft" : "ghost"}
-												aria-label={`Reject ${c.title}`}
-												aria-pressed={picks[c.id] === false}
-												onPress={() => set([c.id], false)}
-											>
-												Reject
-											</Button>
-											<Button
-												size="sm"
 												variant={picks[c.id] === true ? "primary" : "ghost"}
+												className={`w-[5.5rem] whitespace-nowrap h-7 min-h-7 px-2 text-xs ${picks[c.id] === true ? "" : "text-success"}`}
 												aria-label={`Approve ${c.title}`}
 												aria-pressed={picks[c.id] === true}
 												onPress={() => set([c.id], true)}
 											>
 												Approve
+											</Button>
+											<Button
+												size="sm"
+												variant={picks[c.id] === false ? "danger-soft" : "ghost"}
+												className={`w-[5.5rem] whitespace-nowrap h-7 min-h-7 px-2 text-xs ${picks[c.id] === false ? "" : "text-danger"}`}
+												aria-label={`Reject ${c.title}`}
+												aria-pressed={picks[c.id] === false}
+												onPress={() => set([c.id], false)}
+											>
+												Reject
 											</Button>
 										</div>
 									</li>
