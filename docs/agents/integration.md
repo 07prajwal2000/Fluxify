@@ -170,15 +170,15 @@ Variants with one form:
 
 | Variant | Fields |
 | --- | --- |
-| `OpenAI`, `Anthropic`, `Gemini`, `Mistral` | `apiKey`, `model`, `useForHarness?` (default `false`) |
-| `OpenAI Compatible` | `baseUrl`, `apiKey`, `model`, `useForHarness?` |
+| `OpenAI`, `Anthropic`, `Gemini`, `Mistral` | `apiKey`, `model` |
+| `OpenAI Compatible` | `baseUrl`, `apiKey`, `model` |
 | `Kafka` | `brokers` (comma-separated `host:port`), `clientId?`, `ssl?` (default `false`), `saslMechanism?` (`none`, `PLAIN`, `SCRAM-SHA-256`, `SCRAM-SHA-512`, default `none`), `username?`, `password?`, `dlqTopic?`, `sendTimeoutMs?` |
 | `NATS` | `servers` (comma-separated `nats://host:port`), `tls?`, `token?`, `user?`, `pass?`, `creds?`, `nkeySeed?`, `dlqSubject?`, `monitoringEndpoint?`, `account?`, `sendTimeoutMs?` |
 | `SQS` | `region`, `accessKeyId?`, `secretAccessKey?`, `sessionToken?`, `endpoint?`, `sendTimeoutMs?`. Blank keys fall back to the server's AWS credentials. |
 | `Open Telemetry` | `baseUrl`, `credentials` (`{ "username", "password" }` or base64 text), `headers?`, `protocol?` (`http` or `grpc`, default `http`), `tlsMode?` (`none`, `tls`, `mtls`, default `tls`), `caCert?`, `clientCert?`, `clientKey?` |
 | `Loki` | `baseUrl`, `credentials?`, `headers?` |
 
-`sendTimeoutMs` is how long the Send Message block waits for the broker. The runtime uses 30000 when it is left out. `useForHarness` makes an AI integration selectable to drive an agent conversation.
+`sendTimeoutMs` is how long the Send Message block waits for the broker. The runtime uses 30000 when it is left out.
 
 `baseUrl` must be a URL unless it is a `cfg:` reference. With `protocol: "grpc"`, `tlsMode: "mtls"` needs `clientCert` and `clientKey`.
 

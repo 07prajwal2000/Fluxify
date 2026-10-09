@@ -228,7 +228,7 @@ You rarely need the full stack. Run just the part you're changing:
 | :--- | :--- | :--- |
 | `apps/server` | `@fluxify/server` | Admin API, compiler, request workers, database schema |
 | `apps/portal` | `@fluxify/portal` | The admin dashboard, including the AI assistant UI |
-| `apps/ai-gateway` | `@fluxify/ai-gateway` | AI agent harness, LLM providers, MCP tooling |
+| `apps/ai-gateway` | `@fluxify/ai-gateway` | AI agent, LLM providers, MCP tooling |
 | `packages/blocks` | `@fluxify/blocks` | Block definitions, schemas, runtime actions, compiler emitters |
 | `packages/lib` | `@fluxify/lib` | Execution engine, VM, state runtime |
 | `packages/adapters` | `@fluxify/adapters` | Database, API, and cloud service integrations |
