@@ -121,6 +121,7 @@ export async function runSuiteInChild(
 	const teardown = await runChild(bootstrap, entry, {
 		setup: run.setup,
 		outcome: result.timedOut ? "timeout" : "error",
+		result,
 	});
 	return { ...result, teardownError: teardownFailure(bootstrap, teardown) };
 }

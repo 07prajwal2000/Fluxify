@@ -10,6 +10,7 @@ import appGetRuns from "./get-runs/route";
 import appListByProject from "./list-by-project/route";
 import appStartRun from "./start-run/route";
 import appUpdate from "./update/route";
+import appValidate from "./validate/route";
 
 const TARGET = ":kind{route|workflow}/:targetId";
 
@@ -30,6 +31,7 @@ export default {
 		appUpdate(router);
 		appDelete(router);
 		appClone(router);
+		appValidate(router);
 		appGetById(router);
 		appListByProject(router);
 

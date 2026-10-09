@@ -118,12 +118,13 @@ export type TestResult =
 
 /**
  * `teardownOnly`: a fresh child that runs just the teardown, after the suite's
- * own child was killed mid-setup or mid-route — seed data must not leak.
+ * own child was killed mid-setup or mid-route — seed data must not leak. `result`
+ * is how the suite ended: the cases that finished still reach teardown (#716).
  */
 export type TestBootstrapMessage = {
 	type: "bootstrap";
 	bootstrap: TestBootstrap;
-	teardownOnly?: { setup: unknown; outcome: SuiteOutcome };
+	teardownOnly?: { setup: unknown; outcome: SuiteOutcome; result: TestResult };
 };
 
 /**

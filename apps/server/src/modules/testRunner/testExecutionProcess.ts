@@ -22,6 +22,7 @@ import { RouteTraceRecorder } from "../telemetry/routeRecorder";
 import { evaluateAssertions } from "./assertions";
 import { buildHooks } from "./hookRuntime";
 import { decodeSuiteBody } from "./suiteBody";
+import { teardownView } from "./teardownView";
 import type {
 	RouteTarget,
 	SuiteOutcome,
@@ -100,7 +101,7 @@ function prepare(boot: TestBootstrap) {
 async function runPhase(
 	boot: TestBootstrap,
 	phase: "setup" | "input" | "teardown",
-	extra: { setup?: unknown; outcome?: SuiteOutcome } = {},
+	extra: { setup?: unknown; outcome?: SuiteOutcome; request?: unknown; response?: unknown } = {},
 ) {
 	// "input": a workflow suite's loader, or its script compiled as a block (#487)
 	const { block, timeoutMs } = phase === "input" ? boot.input!.block! : boot[phase]!;
@@ -151,17 +152,23 @@ async function runSuite(boot: TestBootstrap) {
 		? await runWorkflowSuite(boot, setup, () => runPhase(boot, "input", { setup }), send)
 		: await runRoute(boot, setup);
 	send({ type: "route-done", result });
-	await finish(boot, () => runPhase(boot, "teardown", { setup, outcome: outcomeOf(result) }));
+	await finish(boot, () =>
+		runPhase(boot, "teardown", {
+			setup,
+			outcome: outcomeOf(result),
+			...teardownView(boot, result),
+		}),
+	);
 }
 
 /** a fresh child's only job, after the suite's own child was killed */
 async function runTeardownOnly(
 	boot: TestBootstrap,
-	{ setup, outcome }: { setup: unknown; outcome: SuiteOutcome },
+	{ setup, outcome, result }: NonNullable<TestBootstrapMessage["teardownOnly"]>,
 ) {
 	await finish(boot, async () => {
 		prepare(boot);
-		await runPhase(boot, "teardown", { setup, outcome });
+		await runPhase(boot, "teardown", { setup, outcome, ...teardownView(boot, result) });
 	});
 }
 

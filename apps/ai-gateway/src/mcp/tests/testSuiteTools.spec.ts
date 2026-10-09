@@ -124,6 +124,20 @@ describe("test suite tools", () => {
 		]);
 	});
 
+	it("validate_test_suite posts the sample, or an empty body for the last run", async () => {
+		const { api, calls } = fakeApi();
+		await run("validate_test_suite", { testSuiteId: "s1" }, api);
+		await run("validate_test_suite", { testSuiteId: "s1", sample: { status: 400, body: { message: "x" } } }, api);
+		expect(calls).toEqual([
+			{ method: "POST", path: "/v1/test-suites/s1/validate", body: {} },
+			{
+				method: "POST",
+				path: "/v1/test-suites/s1/validate",
+				body: { sample: { status: 400, body: { message: "x" } } },
+			},
+		]);
+	});
+
 	it("delete_test_suite deletes by id", async () => {
 		const { api, calls } = fakeApi();
 		expect(await run("delete_test_suite", { testSuiteId: "s1" }, api)).toEqual({ deleted: "s1" });

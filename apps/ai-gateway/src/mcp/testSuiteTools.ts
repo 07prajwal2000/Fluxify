@@ -69,6 +69,27 @@ export const testSuiteTools: McpTool[] = [
 		},
 	},
 	{
+		name: "validate_test_suite",
+		title: "Check test suite without running",
+		description:
+			"Check a suite's assertions against a response without running anything: the response of the suite's last run, or a sample you pass ({ status, headers, body } for a route, { output } for a workflow; leave a part out to skip its checks). Reports a body, output or header path the response does not have (with the keys it does have), a true/false check on a value that is not a boolean, and an expected value that is not a number for status or time. Custom JS is not looked at. source is null when the suite has no run with an answer yet: run it once with run_test_suite, or pass a sample.",
+		role: "creator",
+		input: {
+			testSuiteId,
+			sample: z
+				.object({
+					status: z.number().int().optional(),
+					headers: z.record(z.string(), z.string()).optional(),
+					body: z.unknown().optional(),
+					output: z.unknown().optional(),
+				})
+				.optional()
+				.describe("A response to check against instead of the last run"),
+		},
+		call: ({ send }, { testSuiteId: id, sample }) =>
+			send("POST", `/v1/test-suites/${id}/validate`, sample ? { sample } : {}),
+	},
+	{
 		name: "delete_test_suite",
 		title: "Delete test suite",
 		description: "Delete a test suite and its hooks. Its route or workflow stays.",
