@@ -107,3 +107,33 @@ test("Enter on a half-typed command completes it instead of sending; a whole one
 	document.removeEventListener("set-editor-text", listen);
 	expect(sent).toEqual(["/compact"]);
 });
+
+test("Tab completes a half-typed command like Enter; with nothing to complete it does nothing", async () => {
+	const filled: string[] = [];
+	const listen = (e: Event) => filled.push((e as CustomEvent<{ text: string }>).detail.text);
+	document.addEventListener("set-editor-text", listen);
+	const { rerender } = editor({ value: "/co" });
+	const box = document.querySelector("[contenteditable]") as HTMLElement;
+	const tab = async () => {
+		const down = new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true });
+		await act(async () => {
+			box.dispatchEvent(down);
+		});
+		return down.defaultPrevented;
+	};
+	expect(await tab()).toBe(true);
+	expect(filled).toEqual(["/compact "]);
+	rerender(
+		<PromptEditor
+			projectId="p1"
+			value="hello"
+			onChange={() => {}}
+			onSubmit={() => {}}
+			typewriter={false}
+			slashCommands
+		/>,
+	);
+	expect(await tab()).toBe(false);
+	document.removeEventListener("set-editor-text", listen);
+	expect(filled).toEqual(["/compact "]);
+});

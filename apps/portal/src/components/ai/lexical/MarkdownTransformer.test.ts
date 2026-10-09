@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
-import { createEditor } from "lexical";
+import { $getRoot, $getSelection, $isRangeSelection, createEditor } from "lexical";
 import { REF_PATTERN, refText } from "../agentRefs";
-import { lexicalToMarkdown, markdownToLexical } from "./MarkdownTransformer";
+import { lexicalToMarkdown, markdownToLexical, setEditorText } from "./MarkdownTransformer";
 import { ResourceNode } from "./ResourceNode";
 
 const editor = () => createEditor({ nodes: [ResourceNode], onError: (e) => { throw e; } });
@@ -29,4 +29,19 @@ test("every type is matched; an unknown type stays text", async () => {
 		expect([...refText(t, "x", "L").matchAll(REF_PATTERN)]).toHaveLength(1);
 	const unknown = ":ref[Thing]{type=banana id=1}";
 	expect(await roundTrip(unknown)).toBe(unknown);
+});
+
+test("setting the text puts the cursor at its end, even when it was at the start before", async () => {
+	const e = editor();
+	setEditorText(e, "/");
+	await Promise.resolve();
+	e.update(() => $getRoot().selectStart());
+	await Promise.resolve();
+	setEditorText(e, "/compact ");
+	await Promise.resolve();
+	const at = e.getEditorState().read(() => {
+		const sel = $getSelection();
+		return $isRangeSelection(sel) ? sel.anchor.offset : -1;
+	});
+	expect(at).toBe("/compact ".length);
 });

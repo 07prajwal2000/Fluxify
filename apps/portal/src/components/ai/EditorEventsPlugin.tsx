@@ -1,7 +1,7 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { COMMAND_PRIORITY_HIGH, PASTE_COMMAND } from "lexical";
 import { useEffect } from "react";
-import { insertMarkdownAtSelection, markdownToLexical } from "./lexical/MarkdownTransformer";
+import { insertMarkdownAtSelection, setEditorText } from "./lexical/MarkdownTransformer";
 import { INSERT_RESOURCE_COMMAND } from "./lexical/ResourcePlugin";
 
 export function EditorEventsPlugin() {
@@ -25,9 +25,9 @@ export function EditorEventsPlugin() {
 		const focusHandler = () => {
 			editor.focus();
 		};
-		// Replaces the editor text (a picked slash command); focus leaves the cursor at its end.
+		// Replaces the editor text (a picked slash command) and puts the cursor at its end.
 		const setTextHandler = (e: Event) => {
-			markdownToLexical((e as CustomEvent<{ text: string }>).detail.text, editor);
+			setEditorText(editor, (e as CustomEvent<{ text: string }>).detail.text);
 			editor.focus();
 		};
 

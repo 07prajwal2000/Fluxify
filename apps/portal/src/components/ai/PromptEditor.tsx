@@ -12,6 +12,7 @@ import {
 	COMMAND_PRIORITY_HIGH,
 	KEY_DOWN_COMMAND,
 	KEY_ENTER_COMMAND,
+	KEY_TAB_COMMAND,
 } from "lexical";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { TbArrowUp, TbAt, TbPlayerStopFilled } from "react-icons/tb";
@@ -34,11 +35,14 @@ function EditorLogicPlugin({
 	value,
 	onChange,
 	onSubmit,
+	onTab,
 	onAtTrigger,
 }: {
 	value: string;
 	onChange: (v: string) => void;
 	onSubmit: () => void;
+	/** Tab; true when it did something (it then does not move focus). */
+	onTab: () => boolean;
 	onAtTrigger: () => void;
 }) {
 	const [editor] = useLexicalComposerContext();
@@ -77,6 +81,18 @@ function EditorLogicPlugin({
 			COMMAND_PRIORITY_HIGH,
 		);
 	}, [editor, onSubmit]);
+
+	useEffect(() => {
+		return editor.registerCommand(
+			KEY_TAB_COMMAND,
+			(e: KeyboardEvent) => {
+				if (e.shiftKey || !onTab()) return false;
+				e.preventDefault();
+				return true;
+			},
+			COMMAND_PRIORITY_HIGH,
+		);
+	}, [editor, onTab]);
 
 	useEffect(() => {
 		return editor.registerCommand(
@@ -206,10 +222,14 @@ export function PromptEditor({
 	const pickSlash = (c: SlashCommand) =>
 		document.dispatchEvent(new CustomEvent("set-editor-text", { detail: { text: `/${c.name} ` } }));
 
+	/** Completes a half-typed command (Enter and Tab); false when there is nothing to complete. */
+	const complete = () => {
+		if (!suggestions.length || suggestions.some((c) => trimmed === `/${c.name}`)) return false;
+		pickSlash(suggestions[0]);
+		return true;
+	};
 	const submit = () => {
-		// Enter on a half-typed command completes it; a whole one is sent.
-		if (suggestions.length && !suggestions.some((c) => trimmed === `/${c.name}`))
-			return pickSlash(suggestions[0]);
+		if (complete()) return;
 		if (canSend) onSubmit(trimmed);
 	};
 
@@ -258,6 +278,7 @@ export function PromptEditor({
 						value={value}
 						onChange={onChange}
 						onSubmit={submit}
+						onTab={complete}
 						onAtTrigger={() => {
 							setPopoverOpen(true);
 							setWasAtTyped(true);
