@@ -1,4 +1,4 @@
-import { BlockTypes, blockDataIssues, literalExpressionIssues } from "@fluxify/blocks";
+import { BlockTypes, blockDataIssues, blockName, literalExpressionIssues } from "@fluxify/blocks";
 import type { CustomBlockUsage } from "../../db/schema";
 import { reachabilityIssues } from "./reachability";
 import type { CanvasParentType } from "./types";
@@ -104,10 +104,27 @@ function blockIssues(block: RulesInput["blocks"][number], input: RulesInput): Ca
 	return [...out, ...blockDataIssues([block]), ...literalExpressionIssues([block])];
 }
 
+/** Two blocks with one name cannot be told apart in a trace, a log or a note. Default names are skipped. */
+function duplicateNameIssues({ blocks }: RulesInput): CanvasIssue[] {
+	const byName = new Map<string, RulesInput["blocks"]>();
+	for (const b of blocks) {
+		const name = b.type === BlockTypes.sticky_note ? "" : blockName(b.data);
+		if (name) byName.set(name, [...(byName.get(name) ?? []), b]);
+	}
+	return [...byName]
+		.filter(([, same]) => same.length > 1)
+		.map(([name, same]) => ({
+			severity: "warning",
+			message: `${same.length === 2 ? "Two" : same.length} blocks are named '${name}' (${same.map((b) => b.key ?? b.id).join(", ")}). Give each a name that says where it sits in the flow.`,
+			blockId: same[0]!.id,
+		}));
+}
+
 /** All rule issues of a canvas as it will be after a save. */
 export function canvasRuleIssues(input: RulesInput): CanvasIssue[] {
 	return [
 		...input.blocks.flatMap((block) => blockIssues(block, input)),
 		...reachabilityIssues(input),
+		...duplicateNameIssues(input),
 	];
 }
