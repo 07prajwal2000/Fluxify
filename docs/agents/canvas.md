@@ -82,6 +82,13 @@ A workaround looks like pointless plumbing to the next reader: a variable that e
 - **A sticky note.** Add a `sticky_note` block for a rule the whole canvas follows, for example `"passwords: salt:hash, pbkdf2 sha256 100k"`. It never runs and has no edges.
 - **Read before you change.** `get_canvas` shows each block's note as `note`, and a sticky note's text as the note of the sticky note block. A block with the default placeholder text shows no note. Read the notes before you remove or rewire a block that looks pointless.
 
+### Keep the canvas honest
+
+- **Do not invent rules.** One response block per happy path is fine. Do not force several end paths onto one block just to make the canvas look tidy. Never write a note that states a rule the canvas does not already follow.
+- **Notes must stay true.** After an edit, re-read every `blockDescription` and sticky note against the new edges, yours and earlier ones. Fix any note the edit made false in the same `edit_canvas` call.
+- **Give blocks unique names that say where they sit.** Set `blockName` so no two blocks on a canvas share one: `200 OK: cached users` and `200 OK: users from DB`, not two blocks called `200 OK: users`. Rename a block when you clone it. Saving warns when two blocks share a name; the default name is ignored.
+- **Claim "no behaviour change" only after you test it.** Call the rewired branch with input that takes it, with `call_route` or a test suite. Any 200 from the other branch proves nothing.
+
 ## Block keys
 
 Every block has a **key**: its type and a number, such as `response_1`, `db_insert_2` or `custom_send_mail_1`. You name blocks by key in `get_canvas`, `edit_canvas` and test suite hooks. You never need a block id.

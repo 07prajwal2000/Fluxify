@@ -59,6 +59,7 @@ export const canvasTools: McpTool[] = [
 			"A handle holds one edge (switch case and orchestrate excepted): disconnect before re-pointing it.",
 			"Bad ops, unknown block types, missing keys and broken edges are refused and nothing is saved.",
 			"Leave notes for the next reader: set blockDescription in a block's data when its purpose is not obvious (a workaround, a contract, why a value is parked in a variable), and add a sticky_note block for a rule the whole canvas follows.",
+			"Keep notes true: after an edit re-check every blockDescription and sticky note against the new edges and fix any the edit made false in this same call. Block names are unique per canvas and say where the block sits; rename a block you clone.",
 			"It always returns rule errors and warnings (issues); errors that block a save refuse it, warnings still save. Fix reachability warnings (a block not connected, no path to a response, an open if branch) before testing. validate: false skips them. Empty ops checks without saving.",
 			"Block text inputs are literal unless they start with `js:` followed by code that returns the value (e.g. `js: return input.id`); never use `{{ }}`.",
 			'Returns the new version; changes, one line per thing done ("updated response_1 (httpCode)", "edited jsrunner_1.value (1 change, lines 12–14)", "connected if_1.success → db_insert_1", "removed log_2 (+2 edges)"; an added block also says what it outputs), so check each hit the block you meant; and refs, the key the server gave each added block.',
