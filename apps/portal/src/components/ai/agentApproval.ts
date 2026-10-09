@@ -5,6 +5,8 @@ export type ApprovalRequest =
 	| { kind: "tool"; id?: string; name: string; title: string; input: unknown; isDelete: boolean }
 	| { kind: "plan" };
 
+export type ToolRequest = Extract<ApprovalRequest, { kind: "tool" }>;
+
 /** Deletes (and removals) ask in every mode; the server uses the same rule. */
 export const isDeleteTool = (name: string) => /^(delete|remove)_/.test(name);
 
@@ -15,22 +17,24 @@ const unanswered = (p: { type: string }): p is ToolPart =>
 	(p as ToolPart).status === undefined;
 
 /**
- * The first call of the last assistant message that has no result: the one an
- * approval answers (the server answers them in order). Undefined when none waits.
+ * Every call of the last assistant message that has no result, in the order the
+ * model made them (the order the server answers them).
  */
-export function waitingCall(messages: ChatMessage[]): ApprovalRequest | undefined {
+export function waitingCalls(messages: ChatMessage[]): ToolRequest[] {
 	const last = messages.findLast((m) => m.role === "assistant");
-	const call = last?.parts.find(unanswered);
-	if (!call) return;
-	return {
+	return (last?.parts.filter(unanswered) ?? []).map((call) => ({
 		kind: "tool",
 		id: call.id,
 		name: call.name,
 		title: toolTitle(call),
 		input: call.input,
 		isDelete: isDeleteTool(call.name),
-	};
+	}));
 }
+
+/** The first of them: the one a single approval answers. Undefined when none waits. */
+export const waitingCall = (messages: ChatMessage[]): ToolRequest | undefined =>
+	waitingCalls(messages)[0];
 
 /** Plan mode ended its run with a reply: the plan, waiting for Start. */
 export function planReply(messages: ChatMessage[]) {

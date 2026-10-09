@@ -8,10 +8,11 @@ import {
 	type AgentRow,
 	type ApprovalAnswer,
 	agentConversationsService,
+	type Decision,
 	type Effort,
 	type Mode,
 } from "@/services/agentConversations";
-import { type ApprovalRequest, planReply, waitingCall } from "./agentApproval";
+import { type ApprovalRequest, planReply, type ToolRequest, waitingCalls } from "./agentApproval";
 import { applyEvent, chatView, EMPTY_LIVE, type Live } from "./agentMessages";
 import { parseSlash, type SlashName } from "./slashCommands";
 
@@ -191,11 +192,22 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 	const answer = async (a: ApprovalAnswer) => {
 		const go = { mode: a.mode ?? mode, effort };
 		// A no ends the row now; the run's own tool-end says the same a moment later.
-		const call = !a.approve && approval?.kind === "tool" ? approval.id : undefined;
-		const results: Live["results"] = call
-			? { [call]: { status: "rejected", error: a.reason ?? "Not approved", endedAt: Date.now() } }
-			: {};
-		if (call) setLive((l) => ({ ...l, results }));
+		const first = approval?.kind === "tool" ? approval.id : undefined;
+		const noes: { toolCallId?: string; reason?: string }[] =
+			"decisions" in a
+				? a.decisions.filter((d) => !d.approve).map((d) => ({ ...d }))
+				: a.approve
+					? []
+					: [{ toolCallId: first, reason: a.reason }];
+		const results: Live["results"] = {};
+		for (const n of noes)
+			if (n.toolCallId)
+				results[n.toolCallId] = {
+					status: "rejected",
+					error: n.reason ?? "Not approved",
+					endedAt: Date.now(),
+				};
+		if (noes.length) setLive((l) => ({ ...l, results }));
 		const { runId } = await agentConversationsService.approve(projectId, conversationId, {
 			...a,
 			...go,
@@ -239,8 +251,9 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 	/** What the bar above the editor asks: the call that waits, or a plan in plan mode that is ready to start. */
 	const lastSeq = messages.at(-1)?.seq ?? -1;
 	const plan = !running && !waiting && saved?.mode === "plan" && run?.status === "completed";
+	const calls = waiting ? waitingCalls(messages) : [];
 	const approval: ApprovalRequest | undefined = waiting
-		? (waitingCall(messages) ?? {
+		? (calls[0] ?? {
 				kind: "tool",
 				name: "the next step",
 				title: "the next step",
@@ -254,8 +267,17 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 	const submit = (text: string) => {
 		const command = parseSlash(text);
 		if (command) return slash[command.command.name](command.args);
-		return waiting ? answer({ approve: false, reason: text }) : send(text);
+		if (!waiting) return send(text);
+		// Every call that waits is turned down with the text as the reason.
+		const ids = calls.flatMap((c) => (c.id ? [c.id] : []));
+		return ids.length > 1
+			? answer({
+					decisions: ids.map((toolCallId) => ({ toolCallId, approve: false, reason: text })),
+				})
+			: answer({ approve: false, reason: text });
 	};
+	/** Answers the listed calls in one go (#704); the rest keep waiting. */
+	const decide = (decisions: Decision[], to: Mode = "manual") => answer({ decisions, mode: to });
 	const approve = (to: Mode) =>
 		plan ? send(START_PLAN, { mode: to }) : answer({ approve: true, mode: to });
 	const reject = () => (plan ? Promise.resolve(setDismissed(lastSeq)) : answer({ approve: false }));
@@ -273,6 +295,9 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 		/** Stopped on a call that needs approval. */
 		waiting,
 		approval,
+		/** Every call that waits, in the model's order. */
+		calls,
+		decide,
 		approve,
 		reject,
 		submit,

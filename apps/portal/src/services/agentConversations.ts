@@ -48,8 +48,15 @@ export type AgentConversationDetail = {
 };
 /** Rename, pin or archive; archiving unpins. */
 export type ConversationPatch = { title?: string; pinned?: boolean; archived?: boolean };
-/** An answer to the first waiting call; `mode` is the mode the conversation goes on in. */
-export type ApprovalAnswer = { approve: boolean; reason?: string; mode?: Mode; effort?: Effort };
+export type Decision = { toolCallId: string; approve: boolean; reason?: string };
+/**
+ * An answer to the first waiting call, or `decisions` for several at once (the
+ * calls not listed keep waiting); `mode` is the mode the conversation goes on in.
+ */
+export type ApprovalAnswer = { mode?: Mode; effort?: Effort } & (
+	| { approve: boolean; reason?: string }
+	| { decisions: Decision[] }
+);
 
 /** The new agent's API (#646). */
 export const agentConversationsService = {

@@ -99,6 +99,7 @@ export async function executeRun(job: AgentJob, deps: RunDeps, signal: AbortSign
 			agent: { ...agent, approve: async () => ({ ok: false, defer: true }), abortSignal: signal },
 			message: job.message,
 			approval: job.approval,
+			decisions: job.decisions,
 			onDecided: (r, seq) => events.push(decidedEvent(r, seq)),
 		});
 		if (r.result) await pump(r.result, t, events.push).catch(onError);

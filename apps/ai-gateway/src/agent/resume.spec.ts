@@ -32,7 +32,11 @@ function memStore() {
 const turn = async (
 	s: ReturnType<typeof memStore>,
 	agent: ReturnType<typeof scripted>["agent"],
-	input: { message?: string; approval?: { ok: true } | { ok: false; reason?: string } },
+	input: {
+		message?: string;
+		approval?: { ok: true } | { ok: false; reason?: string };
+		decisions?: ({ toolCallId: string } & ({ ok: true } | { ok: false; reason?: string }))[];
+	},
 ) => {
 	const r = await continueConversation({ store: s.store, conversationId: "c", runId: "r", agent, ...input });
 	return r.status;
@@ -88,6 +92,61 @@ describe("approval wait", () => {
 		const m = scripted([["save_route"]]);
 		await turn(s, m.agent, { message: "build it" });
 		expect(turn(s, m.agent, { message: "hello?" })).rejects.toThrow("waiting for an approval");
+	});
+});
+
+describe("decisions (#704)", () => {
+	const two = async () => {
+		const s = memStore();
+		const m = scripted([["save_route", "save_route", "save_route"]]);
+		await turn(s, m.agent, { message: "build three" });
+		const ids = pendingCalls(s.rows.map((r) => r.content)).map((c) => c.toolCallId);
+		return { s, m, ids };
+	};
+
+	it("runs the approved calls in the order the model made them, then continues once", async () => {
+		const { s, m, ids } = await two();
+		// listed out of order on purpose
+		const decisions = [...ids].reverse().map((toolCallId) => ({ toolCallId, ok: true as const }));
+		expect(await turn(s, m.agent, { decisions })).toBe("completed");
+		expect(m.ran).toHaveLength(3);
+		expect(m.prompts).toHaveLength(2);
+		// results are stored in the model's order, not the order listed
+		const stored = s.rows.filter((r) => r.role === "tool").map((r) => (r.content.content as any)[0].toolCallId);
+		expect(stored).toEqual(ids);
+		expect(s.rows.map((r) => r.role)).toEqual(["user", "assistant", "tool", "tool", "tool", "assistant"]);
+	});
+
+	it("a partial list leaves the rest pending", async () => {
+		const { s, m, ids } = await two();
+		expect(await turn(s, m.agent, { decisions: [{ toolCallId: ids[1], ok: true }] })).toBe(
+			"waiting_approval",
+		);
+		expect(m.ran).toHaveLength(1);
+		expect(m.prompts).toHaveLength(1);
+		expect(pendingCalls(s.rows.map((r) => r.content)).map((c) => c.toolCallId)).toEqual([ids[0], ids[2]]);
+		const rest = [ids[0], ids[2]].map((toolCallId) => ({ toolCallId, ok: true as const }));
+		expect(await turn(s, m.agent, { decisions: rest })).toBe("completed");
+		expect(m.ran).toHaveLength(3);
+	});
+
+	it("a rejection carries its reason and the others still run", async () => {
+		const { s, m, ids } = await two();
+		const decisions = [
+			{ toolCallId: ids[0], ok: false as const, reason: "use /v2" },
+			{ toolCallId: ids[1], ok: true as const },
+			{ toolCallId: ids[2], ok: false as const },
+		];
+		expect(await turn(s, m.agent, { decisions })).toBe("completed");
+		expect(m.ran).toHaveLength(1);
+		expect(JSON.stringify(m.prompts[1])).toContain("The user did not approve save_route: use /v2.");
+	});
+
+	it("the single form still answers only the first pending call", async () => {
+		const { s, m } = await two();
+		expect(await turn(s, m.agent, { approval: { ok: true } })).toBe("waiting_approval");
+		expect(m.ran).toHaveLength(1);
+		expect(pendingCalls(s.rows.map((r) => r.content))).toHaveLength(2);
 	});
 });
 

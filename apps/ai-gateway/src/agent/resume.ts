@@ -59,9 +59,9 @@ async function decide(
 
 /**
  * The next turn of a stored conversation (#645). The run row exists already.
- * Waiting on an approval, `approval` answers the first pending call: it runs
- * (or is rejected), its result is stored, and the loop goes on once nothing
- * else waits. Otherwise `message` is the user's new message. Every finished
+ * Waiting on an approval, `approval` answers the first pending call and
+ * `decisions` the ones they name: each runs (or is rejected), its result is
+ * stored, and the loop goes on once nothing else waits. Otherwise `message` is the user's new message. Every finished
  * message and summary is stored as the loop goes. `result` is the run's stream
  * (none while other calls still wait); `status` settles when the run ends:
  * `waiting_approval` when `approve` deferred a call.
@@ -73,6 +73,8 @@ export async function continueConversation(o: {
 	agent: Agent;
 	message?: string;
 	approval?: Approval;
+	/** Several answers at once (#704): the calls named run in order, the rest stay pending. */
+	decisions?: (Approval & { toolCallId: string })[];
 	/** The approved call ran (or was turned down): its result is saved, at `seq`, before the loop goes on. */
 	onDecided?: (result: ToolResultPart, seq: number) => void;
 }) {
@@ -93,14 +95,24 @@ export async function continueConversation(o: {
 		return status;
 	};
 
-	const [call, ...others] = pendingCalls(history);
-	if (call) {
-		if (!o.approval) throw new Error("The run is waiting for an approval; answer it first.");
-		const decided = await decide(agent, call, o.approval, history);
-		const msg: ModelMessage = { role: "tool", content: [decided] };
-		await save([msg]);
-		o.onDecided?.(decided, seqs.get(msg) as number);
-		if (others.length) return { status: settle("waiting_approval") };
+	const pending = pendingCalls(history);
+	if (pending.length) {
+		// A single `approval` answers the first pending call, `decisions` the ones they name.
+		const answers = new Map(
+			o.decisions?.map((d) => [d.toolCallId, d] as const) ??
+				(o.approval ? [[pending[0].toolCallId, o.approval] as const] : []),
+		);
+		if (!answers.size) throw new Error("The run is waiting for an approval; answer it first.");
+		// In the order the model made the calls, one after another: writes to one canvas would clash on version.
+		for (const call of pending) {
+			const approval = answers.get(call.toolCallId);
+			if (!approval) continue;
+			const decided = await decide(agent, call, approval, history);
+			const msg: ModelMessage = { role: "tool", content: [decided] };
+			await save([msg]);
+			o.onDecided?.(decided, seqs.get(msg) as number);
+		}
+		if (pendingCalls(history).length) return { status: settle("waiting_approval") };
 	} else {
 		if (!o.message) throw new Error("A message is needed to continue the conversation.");
 		await save([{ role: "user", content: o.message }]);

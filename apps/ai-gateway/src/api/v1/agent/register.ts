@@ -175,12 +175,28 @@ export function registerAgentRoutes(app: Hono) {
 	r.post(
 		`${base}/:conversationId/approval`,
 		json(
-			z.object({
-				approve: z.boolean(),
-				reason: z.string().max(2000).optional(),
-				mode: mode.optional(),
-				effort: effort.optional(),
-			}),
+			z.union([
+				z.object({
+					approve: z.boolean(),
+					reason: z.string().max(2000).optional(),
+					mode: mode.optional(),
+					effort: effort.optional(),
+				}),
+				z.object({
+					decisions: z
+						.array(
+							z.object({
+								toolCallId: z.string().min(1),
+								approve: z.boolean(),
+								reason: z.string().max(2000).optional(),
+							}),
+						)
+						.min(1)
+						.max(100),
+					mode: mode.optional(),
+					effort: effort.optional(),
+				}),
+			]),
 		),
 		async (c) => {
 			const { user, conversation } = await conversationOf(c, "creator");

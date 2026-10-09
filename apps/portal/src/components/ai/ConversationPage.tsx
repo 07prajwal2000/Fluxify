@@ -148,6 +148,11 @@ export function ConversationPage() {
 							{chat.approval && (
 								<ApprovalBar
 									request={chat.approval}
+									calls={chat.calls}
+									onDecide={(d) => {
+										follow.current = true;
+										return chat.decide(d);
+									}}
 									onApprove={(m) => {
 										follow.current = true;
 										return chat.approve(m);
