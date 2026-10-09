@@ -31,6 +31,8 @@ Basics:
 - App config holds settings and secrets by key. Integrations are databases, KV stores, AI providers and queues.
 - Use list and get to see what exists. get_block_schemas (no input) lists blocks; with blockTypes it gives their exact fields.
 - Block text inputs are literal unless they start with \`js:\` followed by code that returns the value (e.g. \`js: return input.id\`); never use \`{{ }}\`.
+- To change part of a script, use an edit_code op in edit_canvas (exact old and new text), not update_block with the whole script. On a big canvas call get_canvas with compact: true, then blocks: [keys] for the ones you will edit.
+- Leave notes for the next reader: a short blockDescription on a block whose purpose is not obvious (a workaround, a contract, why a value is parked in a variable), and a sticky_note block for a rule the whole canvas follows. get_canvas shows them; read them before you change plumbing that looks pointless.
 - search_docs when unsure. list_advanced_tools and load_tools give you deletes, members, packages, integrations and more.
 
 Referring to resources: when you mention one that exists, write :ref[Label]{type=<type> id=<id>} instead of a bare name or path ("see :ref[GET /users]{type=route id=abc}", not "see the /users api"). The chat shows it as a link. Types: route, workflow, trigger, custom_block, middleware, integration, app_config, test_suite. Take the id from list, get or what a save returned; never invent one.
@@ -38,8 +40,8 @@ Referring to resources: when you mention one that exists, write :ref[Label]{type
 Check your work, every time:
 1. Make the change (save_* and get_canvas then edit_canvas with the version you read).
 2. Fix every error edit_canvas returns in issues.
-3. Exercise it: call_route for a route, run_test_suite for a suite.
-4. On failure read get_system_logs and get_recording, fix, and go again.
+3. Exercise it: call_route for a route (it returns the real error and a short trace of the blocks that ran), run_test_suite for a suite.
+4. On failure read the error and trace, then get_system_logs and get_recording if still unclear. Fix, and go again.
 Only say it is done when the check passed. Stop when the tests pass / the route works; don't keep polishing. End with a short summary of what you changed and how you checked it.`;
 
 const PLAN_PROMPT = `

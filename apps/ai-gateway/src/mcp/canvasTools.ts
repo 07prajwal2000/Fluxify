@@ -31,11 +31,20 @@ export const canvasTools: McpTool[] = [
 			"The blocks and edges of a route, workflow or custom block canvas, and its version. Pass the version to edit_canvas.",
 			"Every block has a key like response_1 or db_insert_2 (its type and a number); use keys everywhere, edit_canvas takes them.",
 			'Edges read like "if_1.success → db_insert_1": from.handle → to. The handle is left out when the block has only one.',
+			"A block's note says why it is there (a workaround, a contract); a sticky note block's text is its note. Read notes before you change plumbing that looks pointless.",
+			'On a big canvas pass compact: true (per block: key, type, note and a one-line summary; code shows as "code: 30 lines", a js: input as "js: 4 lines"), then blocks: [keys] for the full data of just the blocks you will edit, with their edges.',
 			"Block data contracts: get_block_schemas.",
 		].join(" "),
 		role: "viewer",
-		input: { target },
-		call: async ({ get }, a) => trimCanvas(await read(get, a.target)),
+		input: {
+			target,
+			compact: z.boolean().optional().describe("Key, type, note and a one-line summary per block"),
+			blocks: z
+				.array(z.string())
+				.optional()
+				.describe("Block keys: full data for just these blocks and the edges touching them"),
+		},
+		call: async ({ get }, a) => trimCanvas(await read(get, a.target), a),
 	},
 	{
 		name: "edit_canvas",
@@ -43,14 +52,16 @@ export const canvasTools: McpTool[] = [
 		description: [
 			"Change a canvas in small steps, applied in order and saved together. It never runs anything.",
 			"Ops: add_block {ref, type, data, position?, connect_from?}; update_block {id, data} (only changed fields, merged);",
+			"edit_code {id, field?, old, new} (replace exact text inside a code field, by default the block's main one, or inside a js: input; prefer it to update_block for code changes: old must match exactly once, else nothing is saved);",
 			"remove_block {id} (its edges go too); connect / disconnect {from, to, handle?}.",
 			"Blocks are named by the keys get_canvas shows (response_1, db_insert_2), or by a ref added earlier in the same call.",
 			'from may also be written "if_1.success". A handle left out uses the block\'s default.',
 			"A handle holds one edge (switch case and orchestrate excepted): disconnect before re-pointing it.",
 			"Bad ops, unknown block types, missing keys and broken edges are refused and nothing is saved.",
+			"Leave notes for the next reader: set blockDescription in a block's data when its purpose is not obvious (a workaround, a contract, why a value is parked in a variable), and add a sticky_note block for a rule the whole canvas follows.",
 			"It always returns rule errors and warnings (issues); errors that block a save refuse it, warnings still save. Fix reachability warnings (a block not connected, no path to a response, an open if branch) before testing. validate: false skips them. Empty ops checks without saving.",
 			"Block text inputs are literal unless they start with `js:` followed by code that returns the value (e.g. `js: return input.id`); never use `{{ }}`.",
-			'Returns the new version; changes, one line per thing done ("updated response_1 (httpCode)", "connected if_1.success → db_insert_1", "removed log_2 (+2 edges)"), so check each hit the block you meant; and refs, the key the server gave each added block.',
+			'Returns the new version; changes, one line per thing done ("updated response_1 (httpCode)", "edited jsrunner_1.value (1 change, lines 12–14)", "connected if_1.success → db_insert_1", "removed log_2 (+2 edges)"; an added block also says what it outputs), so check each hit the block you meant; and refs, the key the server gave each added block.',
 		].join(" "),
 		role: "creator",
 		annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false },

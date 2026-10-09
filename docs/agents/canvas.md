@@ -53,6 +53,35 @@ A custom block's inputs come from `get_custom_block`. Any block's `data` can als
 
 Block text inputs are literal unless they start with `js:`. See [Dynamic values and `js:` expressions](/agents/expressions).
 
+## Read a big canvas in parts
+
+`get_canvas` returns the full data of every block. On a big canvas that is a lot to read each time. Ask for less:
+
+- `compact: true` gives each block as `key`, `type`, `note` and a one-line `summary`. Code shows as `code: 30 lines` and a `js:` input as `js: 4 lines`. Long text is cut. Edges and `version` are the same, so the `version` works with `edit_canvas`.
+- `blocks: ["jsrunner_1", "response_1"]` gives the full data of just those blocks, and the edges that touch them. An unknown key is refused and the error lists the keys on the canvas.
+
+Read compact first, then fetch the blocks you will change.
+
+```json
+{
+  "version": 12,
+  "blocks": [
+    { "key": "entrypoint_1", "type": "entrypoint" },
+    { "key": "jsrunner_1", "type": "jsrunner", "note": "Parks the hash: KV returns true", "summary": "blockName=\"Hash it\"; value=code: 24 lines" },
+    { "key": "response_1", "type": "response", "summary": "httpCode=js: 1 line" }
+  ],
+  "edges": ["entrypoint_1 → jsrunner_1", "jsrunner_1 → response_1"]
+}
+```
+
+## Leave notes
+
+A workaround looks like pointless plumbing to the next reader: a variable that exists only because a block returns `true`, or a hash format that lives inside one script. Write down why.
+
+- **A block note.** Set `blockDescription` in the block's `data` (`add_block` or `update_block`) on any block whose purpose is not obvious: a workaround, a contract, why a value is parked in a variable. One or two short sentences about *why*, not what the block does: `"KV Set returns true, so the id is saved here for the response"`.
+- **A sticky note.** Add a `sticky_note` block for a rule the whole canvas follows, for example `"passwords: salt:hash, pbkdf2 sha256 100k"`. It never runs and has no edges.
+- **Read before you change.** `get_canvas` shows each block's note as `note`, and a sticky note's text as the note of the sticky note block. A block with the default placeholder text shows no note. Read the notes before you remove or rewire a block that looks pointless.
+
 ## Block keys
 
 Every block has a **key**: its type and a number, such as `response_1`, `db_insert_2` or `custom_send_mail_1`. You name blocks by key in `get_canvas`, `edit_canvas` and test suite hooks. You never need a block id.
@@ -84,15 +113,29 @@ Call `get_canvas` first. It gives `version`, `blocks` (key, type, data) and `edg
 | --- | --- |
 | `add_block` | `ref` (your name for it), `type`, `data`, optional `position`, optional `connect_from: { from, handle? }` |
 | `update_block` | `id`, `data`. Only the fields that change. They are merged into the block's data. |
+| `edit_code` | `id`, optional `field`, `old`, `new`. Replaces exact text inside one field. See [Change part of a script](#change-part-of-a-script). |
 | `remove_block` | `id`. Its edges go with it. The entrypoint and error handler cannot be removed. |
 | `connect`, `disconnect` | `from`, `to`, optional `handle` (the handle on `from`) |
 
 - `from` can also carry the handle: `"from": "if_1.success"`.
 - Ops run **in order**. A later op can use a `ref` added earlier in the same call, and a `disconnect` followed by a `connect` on the same handle works.
 - All or nothing: one bad op (unknown block type, missing id, a handle the block does not have, a handle already used) refuses the whole call and saves nothing. The error names the block and lists its valid handles.
-- The answer has the new `version`; `changes`, one line per thing done (`updated response_1 (httpCode)`, `connected if_1.success → db_insert_1`, `removed log_2 (+2 edges)`), so you can see each op hit the block you meant; and `refs`, which maps each of your refs to the key the block got. Use those keys in later calls.
+- The answer has the new `version`; `changes`, one line per thing done (`updated response_1 (httpCode)`, `edited jsrunner_1.value (1 change, lines 12–14)`, `connected if_1.success → db_insert_1`, `removed log_2 (+2 edges)`), so you can see each op hit the block you meant. A block you add also says what it outputs, which is the next block's `input`; and `refs`, which maps each of your refs to the key the block got. Use those keys in later calls.
 - Leave `position` out and the server places new blocks. Pass `auto_layout: true` to lay out the whole canvas again.
 - `ops: []` checks the canvas and saves nothing.
+
+### Change part of a script
+
+A script is one long string. To change a line, do not send the whole script again with `update_block`: it costs tokens every time and a slip in the escaping can break the code without an error. Use `edit_code` instead:
+
+```json
+{ "op": "edit_code", "id": "jsrunner_1", "old": "subtotal * 0.2", "new": "subtotal * 0.1" }
+```
+
+- `field` is the text field to edit. Leave it out for the block's main code field: `value` on a JS Runner, `js` on a Transformer, KV raw and DB native, `transformScript` on a response block. Name the field to edit a `js:` text input, for example `"field": "httpCode"`.
+- `old` must be found **exactly once**, spaces and line breaks included. Copy it from `get_canvas`. If it is found no times or several times, the call is refused and nothing is saved. The error says how many matches there are and on which lines, or shows the closest lines. Add more of the surrounding text to `old` to make it unique.
+- The answer says where the change landed: `edited jsrunner_1.value (1 change, lines 12–14)`.
+- A custom block's code is the JS Runner on its own canvas, so `edit_code` works there too: `target: { "kind": "custom_block", "id": "<custom block id>" }`.
 
 ### Validation
 
@@ -159,7 +202,7 @@ If the next block needs only the previous output, just read `input`. Do not save
 1. `get_block_schemas` with `blockTypes` for the blocks you will use.
 2. `get_canvas` for the keys and `version`.
 3. `edit_canvas` with small ops. Fix every `error` in `issues`.
-4. `get_system_logs` for compile errors.
+4. `get_system_logs` for compile errors. `call_route` also gives the real error and a trace of the blocks that ran.
 5. Activate the route if needed (`save_route` with `active: true`), then `call_route` with real input.
 6. Stop when the route works and its tests pass. Do not rewrite a working canvas.
 

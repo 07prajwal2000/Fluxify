@@ -1,4 +1,4 @@
-import { type Ctx, expectCall, routeActive, type Task } from "./checks";
+import { type Check, type Ctx, expectCall, routeActive, routeWithCode, type Task } from "./checks";
 
 /**
  * More eval tasks, kept out of tasks.ts so that file stays under the FTA cap.
@@ -80,7 +80,103 @@ async function unwiredRoute(ctx: Ctx) {
 	});
 }
 
+/** A 20-line order total whose tax rate is wrong; the fix is one line. */
+const ORDER_TOTAL = [
+	"// order total",
+	"const subtotal = Number(getQueryParam('subtotal'));",
+	"const shipping = subtotal > 50 ? 0 : 5;",
+	"const items = Math.max(1, Math.round(subtotal / 10));",
+	"const handling = items > 20 ? 2 : 0;",
+	"const coupon = 0;",
+	"const rounding = 0;",
+	"const fees = shipping + handling;",
+	"const tax = subtotal * 0.2;",
+	"const credit = 0;",
+	"const adjustments = coupon + rounding - credit;",
+	"const total = subtotal + tax + fees + adjustments;",
+	"return { total };",
+].join("\n");
+
+/** The agent changed the script with an edit_code op, not by resending it. */
+const usedEditCode: Check = {
+	name: "changed the script with edit_code",
+	run: async (ctx) => {
+		const used = ctx.calls.some((c) => {
+			const input = c.input as { ops?: unknown } | undefined;
+			const ops = typeof input?.ops === "string" ? JSON.parse(input.ops) : input?.ops;
+			return (
+				c.name === "edit_canvas" && Array.isArray(ops) && ops.some((o) => o?.op === "edit_code")
+			);
+		});
+		return used ? { pass: true, message: "yes" } : { pass: false, message: "no edit_code op" };
+	},
+};
+
+/** Some block on the route carries a note: a blockDescription or a sticky note. */
+const wroteNote: Check = {
+	name: "left a note on the canvas",
+	run: async (ctx) => {
+		const [route] = (await ctx.tool("list_routes", { projectId: ctx.projectId })).items.filter(
+			(r: any) => r.path === "/stamp",
+		);
+		const canvas = await ctx.tool("get_canvas", {
+			target: { kind: "route", id: route.id },
+			compact: true,
+		});
+		const noted = canvas.blocks.filter((b: any) => b.note).map((b: any) => b.key);
+		return noted.length
+			? { pass: true, message: noted.join(", ") }
+			: { pass: false, message: "no block has a note" };
+	},
+};
+
 export const moreTasks: Task[] = [
+	{
+		id: "one-line-script-fix",
+		title: "Change one line of a longer script (#704)",
+		setup: async (ctx) => {
+			await routeWithCode(ctx, { method: "GET", path: "/total", active: true }, ORDER_TOTAL);
+		},
+		prompt:
+			'GET /total?subtotal=100 answers { "total": 120 }, but the tax rate is 10%, so it should be 110. Fix it.',
+		checks: [
+			expectCall(
+				"tax is 10%",
+				"GET",
+				"/total",
+				{ query: { subtotal: "100" } },
+				{ status: 200, body: { total: 110 } },
+			),
+			usedEditCode,
+		],
+		judge: [
+			"Changed only the tax line instead of rewriting the whole script",
+			"Called the route again to confirm the fix",
+		],
+	},
+	{
+		id: "note-on-workaround",
+		title: "Explain a workaround with a note (#704)",
+		prompt:
+			'Build GET /stamp that answers { "id": <the id query param>, "at": <the current time in ms> }. The time comes from a JS Runner block, whose output replaces the input, so carry the id past it in a saved variable (saveAsVariable "id").',
+		checks: [
+			expectCall(
+				"stamps",
+				"GET",
+				"/stamp",
+				{ query: { id: "7" } },
+				{
+					status: 200,
+					body: (b: any) => b?.id === "7" && typeof b?.at === "number",
+				},
+			),
+			wroteNote,
+		],
+		judge: [
+			"Wrote a short note (blockDescription or a sticky note) saying why the variable exists, not just what the block does",
+			"Called the route to confirm it answers the id and a time",
+		],
+	},
 	{
 		id: "forgotten-edge",
 		title: "A block that is not connected to the response (#704)",
