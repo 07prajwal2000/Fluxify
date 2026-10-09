@@ -111,6 +111,7 @@ export function defaultBlockData(type: BlockType): Record<string, unknown> {
 			key: "",
 			parseJson: false,
 			useParam: false,
+			keepResult: false,
 			value: "",
 			ttl: "",
 		};

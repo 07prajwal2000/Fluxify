@@ -36,16 +36,22 @@ export const kvOperationsBlockSchema = z
 			.describe(
 				"`get` only: parse the stored string as JSON. A missing key stays null; a value that is not valid JSON fails the block",
 			),
+		keepResult: z
+			.boolean()
+			.nullish()
+			.describe(
+				"output `{ input, result }` instead of the default. `result` is the stored value for `get`, true for `set` and `delete`. Default false",
+			),
 	})
 	.extend(baseBlockDataSchema.shape);
 
 export const kvOperationsAiDescription = {
 	name: BlockTypes.kv_operations,
 	description:
-		"Reads, writes or deletes a key in a Redis/Memcached store. `get` returns the stored string or null, `set` returns true, `delete` returns true.",
+		"Reads, writes or deletes a key in a Redis/Memcached store. `get` returns the stored string or null; `set` and `delete` pass their input through to the next block. Set keepResult to get `{ input, result }` instead.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(kvOperationsBlockSchema)),
 	output:
-		"get: the stored string (parsed when parseJson is set), or null when the key is missing. set and delete: true.",
+		"get: the stored string (parsed when parseJson is set), or null when the key is missing. set and delete: the block's input, unchanged. With keepResult, all three: `{ input, result }` where result is the get value, or true for set and delete.",
 	example: {
 		connection: "<integration id>",
 		operation: "get",
@@ -67,34 +73,52 @@ export async function runKvOperations(
 	value?: unknown,
 	ttl?: string | number | null,
 	parseJson?: boolean | null,
+	keepResult?: boolean | null,
+	input?: unknown,
 ) {
 	const adapter = kvAdapterFor(context, connection);
 	try {
-		if (operation === "get") {
-			const stored = await adapter.get(key);
-			// a missing key is null, not the string "null" — there is nothing to
-			// parse, and JSON.parse(null) would hand back a misleading null anyway
-			if (!parseJson || stored === null) return stored;
-			// a value that is not JSON fails the block rather than silently
-			// returning a string, which only surprises the next block
-			return JSON.parse(stored);
-		}
-		if (operation === "delete") {
-			await adapter.delete(key);
-			return true;
-		}
-		// `setex` rejects a non-positive lifetime, and "no expiry" is the default
-		// a blank TTL field means — so only a real number routes to it.
-		const seconds = Number(ttl);
-		if (Number.isFinite(seconds) && seconds > 0) {
-			await adapter.setex(key, seconds, serialize(value));
-		} else {
-			await adapter.set(key, serialize(value));
-		}
-		return true;
+		const result = await perform(adapter, operation, key, value, ttl, parseJson);
+		if (keepResult) return { input, result };
+		// a write already succeeded or the block would have failed, so the next
+		// block gets the data it was given; only `get` produces new data
+		return operation === "get" ? result : input;
 	} catch (error) {
 		kvFailure(operation, error);
 	}
+}
+
+/** The store call itself: the stored value for `get`, `true` for the writes. */
+async function perform(
+	adapter: ReturnType<typeof kvAdapterFor>,
+	operation: z.infer<typeof kvOperationSchema>,
+	key: string,
+	value?: unknown,
+	ttl?: string | number | null,
+	parseJson?: boolean | null,
+) {
+	if (operation === "get") {
+		const stored = await adapter.get(key);
+		// a missing key is null, not the string "null" — there is nothing to
+		// parse, and JSON.parse(null) would hand back a misleading null anyway
+		if (!parseJson || stored === null) return stored;
+		// a value that is not JSON fails the block rather than silently
+		// returning a string, which only surprises the next block
+		return JSON.parse(stored);
+	}
+	if (operation === "delete") {
+		await adapter.delete(key);
+		return true;
+	}
+	// `setex` rejects a non-positive lifetime, and "no expiry" is the default
+	// a blank TTL field means — so only a real number routes to it.
+	const seconds = Number(ttl);
+	if (Number.isFinite(seconds) && seconds > 0) {
+		await adapter.setex(key, seconds, serialize(value));
+	} else {
+		await adapter.set(key, serialize(value));
+	}
+	return true;
 }
 
 export function emitKvOperations(node: EmitNode) {
@@ -102,6 +126,6 @@ export function emitKvOperations(node: EmitNode) {
 	// `node.in` is read as an argument before it is assigned the result, so
 	// passing it as the value is safe
 	const value = input.useParam ? node.in : node.value(input.value ?? null);
-	return `${node.in} = await lib.kvOperations(ctx, ${node.value(input.connection)}, ${JSON.stringify(input.operation)}, ${node.value(input.key)}, ${value}, ${node.value(input.ttl ?? null)}, ${JSON.stringify(input.parseJson ?? false)});
+	return `${node.in} = await lib.kvOperations(ctx, ${node.value(input.connection)}, ${JSON.stringify(input.operation)}, ${node.value(input.key)}, ${value}, ${node.value(input.ttl ?? null)}, ${JSON.stringify(input.parseJson ?? false)}, ${JSON.stringify(input.keepResult ?? false)}, ${node.in});
 ${node.next()}`;
 }
