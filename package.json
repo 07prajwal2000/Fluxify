@@ -41,7 +41,7 @@
 	"//scripts": {
 		"prepare": "Runs on every bun install. prepare:docs-index skips itself when the ai-gateway sources are absent, as in the Docker deps stage that copies manifests only.",
 		"dev:worker": "Compiled worker — runs routes as generated JavaScript. This is the default execution engine.",
-		"dev:worker:development": "Second compiled worker, FLUXIFY_ENV=development, traffic on 5602 and health on 5603 beside the production worker's 5600 and 5601. It serves every project and takes no license slot. The inline variables win over .env, so put FLUXIFY_ENV in no .env file.",
+		"dev:worker:development": "Second compiled worker, FLUXIFY_ENV=development, traffic on 5602 and health on 5603 beside the production worker's 5600 and 5601. It serves every project and takes no license slot. Put FLUXIFY_ENV, WORKER_PORT and WORKER_HEALTH_PORT in no .env file: under --watch a value there beats the inline one, and the two workers then share a port.",
 		"dev:worker:dag": "LEGACY graph interpreter. Kept only until the compiled worker clears manual testing, then removed.",
 		"build:ai": "Removed — `bun run build` already builds the AI gateway through turbo."
 	},
