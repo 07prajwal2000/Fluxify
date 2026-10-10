@@ -141,6 +141,12 @@ export type ProjectConfigPayload = {
 	 * on `undefined`. `integrations` maps an id to the reason.
 	 */
 	missingValues?: { integrations: Record<string, string>; appConfig: string[] };
+	/**
+	 * sha256 (hex) of the project's development access token (#734). Only ever
+	 * set on the development config, so a production worker has nothing to match
+	 * a token against and refuses every one.
+	 */
+	devTokenHash?: string;
 };
 
 /**

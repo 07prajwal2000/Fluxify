@@ -98,6 +98,39 @@ Triggers have the same consumer group names in both environments. A development
 value that points at a **production** queue takes production's messages.
 :::
 
+## Development access
+
+Every project has one **development access token**. It lets you call the
+project's development routes and sandboxes from outside Fluxify, for example
+from Postman, curl or a frontend you are building.
+
+Send it in the `x-fluxify-dev-token` header:
+
+```bash
+curl -H "x-fluxify-dev-token: fxd_..." https://your-host/...
+```
+
+| What | Detail |
+| :--- | :--- |
+| Where to find it | Project settings, **Development access**. It also shows your development URL, ending in `/_/dev`. If the project has a subdomain, the URL uses it. |
+| Who can copy it | Creators and project admins. Viewers don't see the section. |
+| Who can rotate it | Project admins only. |
+| What it opens | Development routes and sandboxes of that project. Nothing else. |
+
+**Rotating** gives you a new token and the old one stops working straight away.
+Anything that still uses the old token, such as a saved Postman request or a
+frontend, has to be updated.
+
+::: info It never opens production
+A production worker ignores this header. The token cannot reach your live
+routes, whatever you send.
+:::
+
+::: tip Coming with the development routes
+The development routes and sandboxes that accept this token arrive with the
+development routing work. You can already copy and rotate the token.
+:::
+
 ## Related
 
 - [Workers per edition](/deployments/editions#workers)

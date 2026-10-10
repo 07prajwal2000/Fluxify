@@ -7,12 +7,14 @@ import {
 	TbAlertTriangle,
 	TbCpu,
 	TbFlask,
+	TbKey,
 	TbPackage,
 	TbTopologyStar3,
 	TbUsers,
 } from "react-icons/tb";
 import { AiConnectionsSettings } from "@/components/settings/AiConnectionsSettings";
 import { DangerZoneSettings } from "@/components/settings/DangerZoneSettings";
+import { DevAccessSettings } from "@/components/settings/DevAccessSettings";
 import { ExperimentalSettings } from "@/components/settings/ExperimentalSettings";
 import { GeneralSettings } from "@/components/settings/GeneralSettings";
 import { MembersSettings } from "@/components/settings/MembersSettings";
@@ -28,6 +30,7 @@ import { projectMembersQuery } from "@/query/projectMembersQuery";
 import { projectSettingsKeysQuery } from "@/query/projectSettingsKeysQuery";
 import { projectsQuery } from "@/query/projectsQuery";
 import { publicSettingsQuery } from "@/query/publicSettingsQuery";
+import { useCanEditProject } from "@/store/auth";
 
 type SettingsSearch = {
 	tab?:
@@ -35,6 +38,7 @@ type SettingsSearch = {
 		| "telemetry"
 		| "ai-connections"
 		| "packages"
+		| "dev-access"
 		| "nodes"
 		| "members"
 		| "experimental"
@@ -62,6 +66,8 @@ const SETTINGS_TABS = [
 	// by construction and nothing to claim.
 	{ id: "nodes", label: "Nodes", icon: TbTopologyStar3, flag: "orchestration" },
 	{ id: "packages", label: "npm Packages", icon: TbPackage },
+	// Creators and above; a viewer does not see it, and the API refuses them too.
+	{ id: "dev-access", label: "Development access", icon: TbKey, editorsOnly: true },
 	{ id: "members", label: "Members", icon: TbUsers },
 	{ id: "experimental", label: "Experimental", icon: TbFlask },
 	{ id: "danger", label: "Danger Zone", icon: TbAlertTriangle },
@@ -77,8 +83,11 @@ function ProjectSettingsPage() {
 	usePageTitle(formatProjectTitle(project?.name, "Project Settings"));
 
 	const { data: publicSettings } = publicSettingsQuery.get.useQuery();
+	const canEdit = useCanEditProject(projectId);
 	const tabs = SETTINGS_TABS.filter(
-		(tab) => !("flag" in tab) || publicSettings?.orchestration?.enabled !== false,
+		(tab) =>
+			(!("flag" in tab) || publicSettings?.orchestration?.enabled !== false) &&
+			(!("editorsOnly" in tab) || canEdit),
 	);
 
 	const validTabs = tabs.map((t) => t.id);
@@ -177,6 +186,7 @@ function ProjectSettingsPage() {
 						)}
 						{activeTab === "nodes" && <NodesSettings projectId={projectId} />}
 						{activeTab === "packages" && <PackagesSettings projectId={projectId} />}
+						{activeTab === "dev-access" && <DevAccessSettings projectId={projectId} />}
 						{activeTab === "members" && <MembersSettings projectId={projectId} />}
 						{activeTab === "ai-connections" && <AiConnectionsSettings projectId={projectId} />}
 						{activeTab === "experimental" && <ExperimentalSettings projectId={projectId} />}

@@ -1,9 +1,11 @@
-import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { beforeEach, describe, expect, it, mock, spyOn } from "bun:test";
 import handleRequest from "../service";
 import * as repository from "../repository";
 import * as membersRepository from "../../settings/members/repository";
 import * as settingsRepository from "../../settings/keys/upsert/repository";
 import * as redis from "../../../../../db/redis";
+import * as publisher from "../../../../../modules/compiler/publisher";
+import * as devToken from "../../settings/dev-token/create";
 import { ConflictError } from "../../../../../errors/conflictError";
 
 mock.module("../repository", () => ({
@@ -26,6 +28,11 @@ mock.module("../../../../../db/redis", () => ({
 	publishMessage: mock(),
 }));
 
+const createDevToken = spyOn(devToken, "createDevToken").mockResolvedValue(undefined);
+const requestConfigPublish = spyOn(publisher, "requestProjectConfigPublish").mockResolvedValue(
+	undefined as never,
+);
+
 const tx = { __tx: true };
 mock.module("../../../../../db", () => ({
 	db: { transaction: (fn: (t: unknown) => unknown) => fn(tx) },
@@ -38,6 +45,8 @@ describe("create project service", () => {
 		(membersRepository.addProjectMember as any).mockClear();
 		(settingsRepository.upsertProjectSettingKey as any).mockClear();
 		(redis.publishMessage as any).mockClear();
+		createDevToken.mockClear();
+		requestConfigPublish.mockClear();
 		(repository.checkProjectExists as any).mockResolvedValue(false);
 		(repository.createProject as any).mockResolvedValue("proj-1");
 		(repository.isSlugTaken as any).mockResolvedValue(false);
@@ -99,6 +108,13 @@ describe("create project service", () => {
 			redis.CHAN_ON_PROJECT_SETTING_CHANGE,
 			"proj-1",
 		);
+	});
+
+	it("makes the dev token in the creating transaction and has the config published", async () => {
+		await handleRequest({ name: "Billing" } as any);
+
+		expect(createDevToken).toHaveBeenCalledWith("proj-1", tx);
+		expect(requestConfigPublish).toHaveBeenCalledWith("proj-1", "project created");
 	});
 
 	it("creates a bare project when members and settings are omitted", async () => {
