@@ -23,7 +23,14 @@ function authModeOf(config: Record<string, unknown>): AuthMode {
 }
 
 // NATS: server list, one way to log in, optional TLS, and a dead-letter subject.
-export function NatsForm({ projectId, name, onName, config, setField }: ConnectorFormProps) {
+export function NatsForm({
+	projectId,
+	name,
+	onName,
+	config,
+	setField,
+	hideName = false,
+}: ConnectorFormProps) {
 	const [mode, setMode] = useState<AuthMode>(() => authModeOf(config));
 	const field = (key: string) => (config[key] as string) ?? "";
 
@@ -40,17 +47,19 @@ export function NatsForm({ projectId, name, onName, config, setField }: Connecto
 				server Fluxify itself runs on.
 			</p>
 
-			<div className="flex flex-col gap-1">
-				<label htmlFor="nats-integration-name" className="text-xs font-medium text-foreground">
-					Integration Name <span className="text-danger">*</span>
-				</label>
-				<Input
-					id="nats-integration-name"
-					value={name}
-					onChange={(e) => onName(e.currentTarget.value)}
-					placeholder="NATS | Production"
-				/>
-			</div>
+			{!hideName && (
+				<div className="flex flex-col gap-1">
+					<label htmlFor="nats-integration-name" className="text-xs font-medium text-foreground">
+						Integration Name <span className="text-danger">*</span>
+					</label>
+					<Input
+						id="nats-integration-name"
+						value={name}
+						onChange={(e) => onName(e.currentTarget.value)}
+						placeholder="NATS | Production"
+					/>
+				</div>
+			)}
 
 			<AppConfigSelector
 				projectId={projectId}

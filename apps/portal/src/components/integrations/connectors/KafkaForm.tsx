@@ -6,22 +6,31 @@ import type { ConnectorFormProps } from "./types";
 const SASL_MECHANISMS = ["none", "PLAIN", "SCRAM-SHA-256", "SCRAM-SHA-512"] as const;
 
 // Kafka: broker list, optional TLS and SASL login, and a dead-letter topic.
-export function KafkaForm({ projectId, name, onName, config, setField }: ConnectorFormProps) {
+export function KafkaForm({
+	projectId,
+	name,
+	onName,
+	config,
+	setField,
+	hideName = false,
+}: ConnectorFormProps) {
 	const mechanism = (config.saslMechanism as string) || "none";
 
 	return (
 		<div className="flex flex-col gap-3.5">
-			<div className="flex flex-col gap-1">
-				<label htmlFor="kafka-integration-name" className="text-xs font-medium text-foreground">
-					Integration Name <span className="text-danger">*</span>
-				</label>
-				<Input
-					id="kafka-integration-name"
-					value={name}
-					onChange={(e) => onName(e.currentTarget.value)}
-					placeholder="Kafka | Production"
-				/>
-			</div>
+			{!hideName && (
+				<div className="flex flex-col gap-1">
+					<label htmlFor="kafka-integration-name" className="text-xs font-medium text-foreground">
+						Integration Name <span className="text-danger">*</span>
+					</label>
+					<Input
+						id="kafka-integration-name"
+						value={name}
+						onChange={(e) => onName(e.currentTarget.value)}
+						placeholder="Kafka | Production"
+					/>
+				</div>
+			)}
 
 			<AppConfigSelector
 				projectId={projectId}

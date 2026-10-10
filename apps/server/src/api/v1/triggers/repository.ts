@@ -201,9 +201,12 @@ export async function findIntegration(id: string, tx?: DbTransactionType) {
 	const [row] = await (tx ?? db)
 		.select({
 			projectId: integrationsEntity.projectId,
+			name: integrationsEntity.name,
 			group: integrationsEntity.group,
 			variant: integrationsEntity.variant,
 			config: integrationsEntity.config,
+			devConfig: integrationsEntity.devConfig,
+			syncDev: integrationsEntity.syncDev,
 		})
 		.from(integrationsEntity)
 		.where(eq(integrationsEntity.id, id))

@@ -22,6 +22,7 @@ export function CredentialsUrlForm({
 	onName,
 	config,
 	setField,
+	hideName = false,
 	placeholders,
 	hasDatabase = true,
 	hasSSL = false,
@@ -45,20 +46,22 @@ export function CredentialsUrlForm({
 
 	return (
 		<div className="flex flex-col gap-3.5">
-			<div className="flex flex-col gap-1">
-				<label
-					htmlFor="credentials-integration-name"
-					className="text-xs font-medium text-foreground"
-				>
-					Integration Name <span className="text-danger">*</span>
-				</label>
-				<Input
-					id="credentials-integration-name"
-					value={name}
-					onChange={(e) => onName(e.currentTarget.value)}
-					placeholder={placeholders.name}
-				/>
-			</div>
+			{!hideName && (
+				<div className="flex flex-col gap-1">
+					<label
+						htmlFor="credentials-integration-name"
+						className="text-xs font-medium text-foreground"
+					>
+						Integration Name <span className="text-danger">*</span>
+					</label>
+					<Input
+						id="credentials-integration-name"
+						value={name}
+						onChange={(e) => onName(e.currentTarget.value)}
+						placeholder={placeholders.name}
+					/>
+				</div>
+			)}
 
 			<div className="flex rounded-lg border border-border bg-background-secondary p-1">
 				{(["credentials", "url"] as const).map((t) => (

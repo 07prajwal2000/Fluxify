@@ -4,7 +4,14 @@ import { SendTimeoutField } from "./SendTimeoutField";
 import type { ConnectorFormProps } from "./types";
 
 // SQS: a region and, optionally, keys. No dead-letter field: AWS handles that.
-export function SqsForm({ projectId, name, onName, config, setField }: ConnectorFormProps) {
+export function SqsForm({
+	projectId,
+	name,
+	onName,
+	config,
+	setField,
+	hideName = false,
+}: ConnectorFormProps) {
 	const field = (key: string) => (config[key] as string) ?? "";
 
 	return (
@@ -14,17 +21,19 @@ export function SqsForm({ projectId, name, onName, config, setField }: Connector
 				(its redrive policy) in AWS, not by Fluxify.
 			</p>
 
-			<div className="flex flex-col gap-1">
-				<label htmlFor="sqs-integration-name" className="text-xs font-medium text-foreground">
-					Integration Name <span className="text-danger">*</span>
-				</label>
-				<Input
-					id="sqs-integration-name"
-					value={name}
-					onChange={(e) => onName(e.currentTarget.value)}
-					placeholder="SQS | Production"
-				/>
-			</div>
+			{!hideName && (
+				<div className="flex flex-col gap-1">
+					<label htmlFor="sqs-integration-name" className="text-xs font-medium text-foreground">
+						Integration Name <span className="text-danger">*</span>
+					</label>
+					<Input
+						id="sqs-integration-name"
+						value={name}
+						onChange={(e) => onName(e.currentTarget.value)}
+						placeholder="SQS | Production"
+					/>
+				</div>
+			)}
 
 			<AppConfigSelector
 				projectId={projectId}

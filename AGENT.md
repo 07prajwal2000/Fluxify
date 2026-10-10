@@ -172,6 +172,11 @@ Never edit a filter to silence the check without confirming the dependency reall
 **Workflow layout (`.github/workflows`):** `ci.yml` (PRs, pushes to main) calls `checks.yml` (lint, helm, secret scan) and `tests.yml` (path-filtered tests; `full: true` disables the filter). `nightly.yml` (Kit image) and `release.yml` (version tags) call both with `full: true`, then build. Nothing but those two builds or publishes.
 **Rules:** every workflow's top-level jobs carry `if: github.repository_owner == 'Fluxify-rest'`, so forks never run CI. A deployment (nightly, release) must see every job `success`: never use `always()` or `!contains(needs.*.result, 'failure')` on it, because those let a skipped job pass. `tests.yml`'s `require-all` job fails a `full` run if any test job was skipped, so keep every new test job in its `needs`.
 
+### New Routes Are Created Inactive, so the Compiler Skips Them
+**Issue:** Route never served / e2e route 404.
+**Cause:** New routes default to inactive (`active: false`), so the compiler ignores them and workers never receive the route artifact.
+**Fix & Best Practices:** Pass `active: true` when creating routes in tests and seeds (`POST /v1/routes`, seed fixtures). Bit in #746 e2e.
+
 ---
 
 ## Documentation Writing Rules

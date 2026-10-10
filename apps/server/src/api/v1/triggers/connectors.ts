@@ -1,5 +1,6 @@
 import { BadRequestError } from "../../../errors/badRequestError";
-import { resolveQueueConfig } from "../integrations/test-connection/service";
+import { missingIntegrationMessage, pickValue } from "../../../lib/envValues";
+import * as testConnectionService from "../integrations/test-connection/service";
 import {
 	kafkaSourceSchema,
 	natsSourceSchema,
@@ -7,7 +8,7 @@ import {
 	redisSourceSchema,
 	sqsSourceSchema,
 } from "./dto";
-import { findIntegration } from "./repository";
+import * as triggerRepo from "./repository";
 
 /** Each connector type's integration variant and source shape. */
 const CONNECTORS = {
@@ -65,16 +66,39 @@ export type ConnectorCheck = {
  *
  * Returns warnings: settings that work but that the user should know about.
  */
+export const connectorProbers = {
+	nats: async (config: any, stream: string) => {
+		const { assertNatsStream } = await import("@fluxify/adapters/queue/nats");
+		await assertNatsStream(config, stream);
+	},
+	redis: async (config: any, stream: string) => {
+		const { assertRedisStream } = await import("@fluxify/adapters/queue/redis");
+		await assertRedisStream(config, stream);
+	},
+	sqs: async (config: any, queueUrl: string) => {
+		const { assertSqsQueue } = await import("@fluxify/adapters/queue/sqs");
+		return await assertSqsQueue(config, queueUrl);
+	},
+	rabbitmq: async (config: any, queue: string) => {
+		const { assertRabbitMqQueue } = await import("@fluxify/adapters/queue/rabbitmq");
+		await assertRabbitMqQueue(config, queue);
+	},
+	kafka: async (config: any, topics: string[], createTopics: boolean) => {
+		const { ensureKafkaTopics } = await import("@fluxify/adapters/queue/kafka");
+		await ensureKafkaTopics(config, topics, createTopics);
+	},
+};
+
 export async function assertConnector(
 	check: ConnectorCheck,
-	tx?: Parameters<typeof findIntegration>[1],
+	tx?: Parameters<typeof triggerRepo.findIntegration>[1],
 ): Promise<string[]> {
 	const connector = CONNECTORS[check.type as keyof typeof CONNECTORS];
 	if (!connector) return [];
 	const { label, schema } = connector;
 	if (!schema.safeParse(check.source).success) throw new BadRequestError(connector.invalid);
 	const integration = check.integrationId
-		? await findIntegration(check.integrationId, tx)
+		? await triggerRepo.findIntegration(check.integrationId, tx)
 		: undefined;
 	if (
 		!integration ||
@@ -86,12 +110,23 @@ export async function assertConnector(
 		);
 	if (!check.probe) return settingsWarnings(check);
 
-	// the production credentials a deployed trigger will read: saving a trigger
-	// asks the real broker whether its stream or queue exists
-	const config = await resolveQueueConfig(
+	// the development credentials an admin-side connection uses (#733): saving a trigger
+	// probes the development broker. When development has no value, skip the probe and warn.
+	const rawConfig = pickValue(
+		"development",
+		integration.syncDev,
+		integration.config,
+		integration.devConfig,
+	);
+	if (!rawConfig) {
+		const base = await settingsWarnings(check);
+		return [...base, `${missingIntegrationMessage(integration.name)}: skipped probe`];
+	}
+
+	const config = await testConnectionService.resolveQueueConfig(
 		check.projectId,
-		integration.config as Record<string, unknown>,
-		"production",
+		rawConfig as Record<string, unknown>,
+		"development",
 	);
 	try {
 		return await probe(check, config);
@@ -102,31 +137,27 @@ export async function assertConnector(
 
 async function probe(check: ConnectorCheck, config: any): Promise<string[]> {
 	if (check.type === "nats") {
-		const { assertNatsStream } = await import("@fluxify/adapters/queue/nats");
-		await assertNatsStream(config, natsSourceSchema.parse(check.source).stream);
+		await connectorProbers.nats(config, natsSourceSchema.parse(check.source).stream);
 		return [];
 	}
 	if (check.type === "redis") {
-		const { assertRedisStream } = await import("@fluxify/adapters/queue/redis");
-		await assertRedisStream(config, redisSourceSchema.parse(check.source).stream);
+		await connectorProbers.redis(config, redisSourceSchema.parse(check.source).stream);
 		return [];
 	}
 	if (check.type === "sqs") {
-		const { assertSqsQueue, sqsWarnings } = await import("@fluxify/adapters/queue/sqs");
+		const { sqsWarnings } = await import("@fluxify/adapters/queue/sqs");
 		const source = sqsSourceSchema.parse(check.source);
 		return sqsWarnings(
 			{ ...source, batchSize: check.batchSize },
-			await assertSqsQueue(config, source.queueUrl),
+			await connectorProbers.sqs(config, source.queueUrl),
 		);
 	}
 	if (check.type === "rabbitmq") {
-		const { assertRabbitMqQueue } = await import("@fluxify/adapters/queue/rabbitmq");
-		await assertRabbitMqQueue(config, rabbitMqSourceSchema.parse(check.source).queue);
+		await connectorProbers.rabbitmq(config, rabbitMqSourceSchema.parse(check.source).queue);
 		return settingsWarnings(check);
 	}
 	const { topics, createTopics } = kafkaSourceSchema.parse(check.source);
-	const { ensureKafkaTopics } = await import("@fluxify/adapters/queue/kafka");
-	await ensureKafkaTopics(config, topics, Boolean(createTopics));
+	await connectorProbers.kafka(config, topics, Boolean(createTopics));
 	return [];
 }
 

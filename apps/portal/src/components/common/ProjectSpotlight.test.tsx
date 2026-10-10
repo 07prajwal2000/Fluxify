@@ -31,8 +31,13 @@ const basicList = mock((_projectId: string, enabled?: boolean) => ({
 		? [{ id: "i1", name: "Main DB", group: "database", variant: "PostgreSQL" }]
 		: undefined,
 }));
+const actualIntegrationsQuery = await import("@/query/integrationsQuery");
 mock.module("@/query/integrationsQuery", () => ({
-	integrationsQuery: { getBasicList: { useQuery: basicList } },
+	...actualIntegrationsQuery,
+	integrationsQuery: {
+		...actualIntegrationsQuery.integrationsQuery,
+		getBasicList: { useQuery: basicList },
+	},
 }));
 mock.module("@/components/canvas/spotlight/useSpotlightResources", () => ({
 	useSpotlightResources: () => ({ projectId: "p1", routes: [], workflows: [], customBlocks: [] }),

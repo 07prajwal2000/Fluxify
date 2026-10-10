@@ -89,6 +89,13 @@ export const integrationsQuery = {
 			});
 		},
 	},
+	testProductionConnection: {
+		mutation(projectId: string) {
+			return useMutation({
+				mutationFn: (id: string) => integrationService.testProductionConnection(projectId, id),
+			});
+		},
+	},
 	getMetadata: {
 		useQuery(projectId: string, integrationId?: string) {
 			return useQuery({
