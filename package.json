@@ -6,7 +6,7 @@
 		"dev": "bun --parallel 'bun run dev:server' 'bun run dev:worker' 'bun run dev:worker:development' 'bun run dev:portal' 'bun run dev:ai' 'bun run dev:docs'",
 		"dev:server": "bun run --env-file=.env --watch ./apps/server/deployments/standalone.ts",
 		"dev:worker": "bun run --env-file=.env --watch ./apps/server/deployments/compiledWorker.ts",
-		"dev:worker:development": "FLUXIFY_ENV=development WORKER_PORT=5602 bun run --env-file=.env --watch ./apps/server/deployments/compiledWorker.ts",
+		"dev:worker:development": "FLUXIFY_ENV=development WORKER_PORT=5602 WORKER_HEALTH_PORT=5603 bun run --env-file=.env --watch ./apps/server/deployments/compiledWorker.ts",
 		"dev:worker:dag": "bun run --env-file=.env --watch ./apps/server/deployments/worker.ts",
 		"dev:portal": "turbo run dev --filter=@fluxify/portal",
 		"dev:ai": "bun run --env-file=.env --watch ./apps/ai-gateway/src/server.ts",
