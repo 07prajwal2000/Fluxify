@@ -68,6 +68,8 @@ Call `get_system_logs`:
 { "projectId": "<project id>", "resourceId": "<route or workflow id>", "level": "error" }
 ```
 
+When recording is on, every failed run also adds an entry with `type: "runtime"`. Its `detail` has the failing `block`, the `stack` (when your own code threw) and the `runId`. Pass that `runId` to `get_recording` (step 3). Add `"type": "runtime"` to the call to see only these.
+
 ## 3. Still unclear? Record a run
 
 A recording shows what every block received and returned. `get_recording` is always available. `list_recordings` and `get_test_runs` are advanced tools: call `load_tools` first.

@@ -70,7 +70,7 @@ const cap = (text: string, max: number) => (text.length > max ? `${text.slice(0,
  * The frames of the user's own code, or nothing when the error came from
  * anywhere else (a driver, the server): those frames are server file paths.
  */
-function userStack(error: Error) {
+export function userStack(error: Error) {
 	const frames = (error.stack ?? "")
 		.split("\n")
 		.map((line) => line.trim())

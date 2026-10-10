@@ -103,12 +103,26 @@ Every [test suite](../testing/index.md) run is recorded, **even when Recording i
 
 Test traces follow the same retention as other runs. Once deleted, the results show **Trace expired**.
 
+## Failed runs show up in the project logs
+
+When a recorded run fails, Fluxify also adds an **error** to the project's logs, so a failure is easy to find without opening every run. The entry says:
+
+- which route or workflow failed, and the error message;
+- the block that failed (its id, type and name);
+- the lines of your own code where it broke, when the error came from your code;
+- the id of the run, so you can open that exact recording.
+
+Every failed run adds its own entry, so two failures leave two entries. Runs that succeed add nothing, and neither do [test suite](../testing/index.md) runs.
+
+An entry is deleted together with its run: when the run is deleted by hand, or removed after its retention period.
+
 ## Use it from an AI agent
 
 An agent connected through [MCP](../getting-started/ai-agents.md) can read recorded runs too, with the Creator role:
 
 - `list_recordings` lists a route's or workflow's runs.
 - `get_recording` reads one run: first a short form without inputs and outputs, then one block in full.
+- `get_system_logs` with `type: "runtime"` lists failed runs. Each entry's `detail.runId` is the run to read with `get_recording`.
 - `get_test_runs` gives each test case's trace id, to read with `get_recording`.
 
 `save_route` and `save_workflow` can turn recording on with `recordExecution: true`.

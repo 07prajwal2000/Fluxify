@@ -336,6 +336,71 @@ describe("MCP runs", () => {
 		expect(reply).toHaveProperty("output");
 	});
 
+	it("a failed recorded run appends a runtime system log, and goes with its recording (#731)", async () => {
+		const name = uniq("rtlog-");
+		const { id } = await call("save_route", {
+			projectId: stack.projectId,
+			name,
+			path: `/${name}`,
+			method: "GET",
+			active: true,
+			recordExecution: true,
+		});
+		const canvas = await call("get_canvas", { target: { kind: "route", id } });
+		const entry = canvas.blocks.find((b: any) => b.type === "entrypoint").key;
+		await call("edit_canvas", {
+			target: { kind: "route", id },
+			version: canvas.version,
+			ops: [
+				{
+					op: "add_block",
+					ref: "js",
+					type: "jsRunner",
+					data: { value: "throw new Error('boom', { cause: new Error('the real reason') });" },
+					connect_from: { from: entry },
+				},
+			],
+		});
+		// the save compiles and reaches the worker a moment later; that call fails too
+		for (let i = 0; i < 80; i++) {
+			if ((await call("call_route", { routeId: id })).error?.message === "boom") break;
+			await Bun.sleep(250);
+		}
+		// a second failure in a new run: it must add a row, not overwrite
+		await call("call_route", { routeId: id });
+
+		const logs = async (type: string) =>
+			call("get_system_logs", { projectId: stack.projectId, resourceId: id, type });
+		let runtime: any[] = [];
+		for (let i = 0; i < 80 && runtime.length < 2; i++) {
+			runtime = await logs("runtime");
+			if (runtime.length < 2) await Bun.sleep(250);
+		}
+		expect(runtime).toHaveLength(2);
+		for (const row of runtime) {
+			expect(row).toMatchObject({
+				level: "error",
+				type: "runtime",
+				resourceType: "route",
+				resourceId: id,
+				detail: { block: { type: "jsrunner" } },
+			});
+			expect(row.message).toContain("boom");
+			expect(row.detail.stack).toContain("fluxify-graph");
+		}
+		expect(new Set(runtime.map((row) => row.detail.runId)).size).toBe(2);
+		// compile logs keep one row per resource
+		expect(await logs("compile")).toHaveLength(1);
+
+		const res = await adminCall(stack, stack.tokens.creator, {
+			method: "DELETE",
+			path: `/v1/${stack.projectId}/recordings/route/${id}/runs`,
+		});
+		expect(res.status).toBe(200);
+		expect(await logs("runtime")).toEqual([]);
+		expect(await logs("compile")).toHaveLength(1);
+	});
+
 	it("viewers get 403, not 404, saving a workflow canvas", async () => {
 		const res = await adminCall(stack, stack.tokens.viewer, {
 			method: "PUT",

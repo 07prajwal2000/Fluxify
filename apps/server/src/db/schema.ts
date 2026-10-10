@@ -1220,15 +1220,21 @@ export const systemLogsEntity = pgTable(
 		/** `route`, `workflow`, `custom_block`, `project`, … */
 		resourceType: varchar("resource_type", { length: 50 }).notNull(),
 		resourceId: varchar("resource_id", { length: 50 }).notNull(),
-		/** what produced it: `compile`, … */
+		/** what produced it: `compile`, `runtime`, … */
 		type: varchar({ length: 50 }).notNull(),
 		level: systemLogLevelEnum().notNull(),
 		message: text().notNull(),
 		detail: jsonb().$type<Record<string, unknown>>(),
+		/** a `runtime` row's recording (#731); the row goes with the run */
+		runId: uuid("run_id").references(() => traceRunsEntity.id, { onDelete: "cascade" }),
 		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 	},
 	(table) => [
-		uniqueIndex("uq_system_logs_resource").on(table.type, table.resourceId, table.resourceType),
+		// one row per resource, except `runtime`, which appends one per failed run (#731)
+		uniqueIndex("uq_system_logs_resource")
+			.on(table.type, table.resourceId, table.resourceType)
+			.where(sql`${table.type} <> 'runtime'`),
+		index("idx_system_logs_run_id").on(table.runId),
 		index("idx_system_logs_project_id").on(table.projectId, table.updatedAt),
 	],
 );

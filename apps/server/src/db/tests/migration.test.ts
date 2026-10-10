@@ -173,7 +173,9 @@ describe("migrateDB", () => {
 				cpSync(MIGRATIONS_FOLDER, folder, { recursive: true });
 				const journalPath = join(folder, "meta/_journal.json");
 				const meta = await Bun.file(journalPath).json();
-				meta.entries = meta.entries.filter((e: { tag: string }) => e.tag !== "0009_block_keys");
+				// 0009 and every later one: drizzle skips a migration older than the last applied
+				const from = meta.entries.findIndex((e: { tag: string }) => e.tag === "0009_block_keys");
+				meta.entries = meta.entries.slice(0, from);
 				await Bun.write(journalPath, JSON.stringify(meta));
 				await migrateDB(url, folder);
 			} finally {

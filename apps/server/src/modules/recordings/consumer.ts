@@ -7,6 +7,7 @@ import { db } from "../../db";
 import { natsConnection } from "../../db/nats";
 import { routesEntity, traceRunsEntity, traceSpansEntity, workflowsEntity } from "../../db/schema";
 import { RECORDING_MAX_AGE_DAYS } from "../../lib/env";
+import { RUNTIME_LOG_TYPE, systemLog } from "../../lib/systemLogs";
 import { onSystemTick } from "../schedules/system";
 import { MAX_SPANS_PER_RUN } from "../telemetry/routeRecorder";
 import { RECORDINGS_CONSUMER, RECORDINGS_STREAM, RECORDINGS_STREAM_SPEC } from "./stream";
@@ -77,6 +78,7 @@ const runSchema = z
 					outcome,
 					branch: outcome.optional(),
 					error: z.string().optional(),
+					stack: z.string().optional(),
 					truncated: z.boolean().optional(),
 					metadata: spanMetadataSchema.optional(),
 				}),
@@ -139,9 +141,9 @@ export async function persistRecording(payload: unknown): Promise<"stored" | "dr
 
 	// span times are `performance.now()` readings; this puts them on the wall clock
 	const wall = (t: number) => new Date(run.startedAtWallMs + (t - run.perfOrigin));
-	await db.transaction(async (tx) => {
+	const fresh = await db.transaction(async (tx) => {
 		// the run id is the key: a redelivered run writes nothing twice
-		await tx
+		const [inserted] = await tx
 			.insert(traceRunsEntity)
 			.values({
 				id: run.runId,
@@ -161,8 +163,9 @@ export async function persistRecording(payload: unknown): Promise<"stored" | "dr
 				spanCount: run.spans.length,
 				metadata: run.metadata,
 			})
-			.onConflictDoNothing();
-		if (!run.spans.length) return;
+			.onConflictDoNothing()
+			.returning({ id: traceRunsEntity.id });
+		if (!run.spans.length) return Boolean(inserted);
 		await tx
 			.insert(traceSpansEntity)
 			.values(
@@ -187,8 +190,37 @@ export async function persistRecording(payload: unknown): Promise<"stored" | "dr
 				})),
 			)
 			.onConflictDoNothing();
+		return Boolean(inserted);
 	});
+	// not on a redelivery, which would append the same failure again
+	if (fresh) await logFailedRun(run);
 	return "stored";
+}
+
+/**
+ * A recorded run that failed leaves a `runtime` system log for the agent (#731):
+ * the first failing span is where it broke. Test runs are left out, a failing
+ * case is the test doing its job. Never throws, a failed log write keeps the run.
+ */
+async function logFailedRun(run: z.infer<typeof runSchema>) {
+	if (run.outcome !== "failure" || run.metadata?.source === "test") return;
+	const span = run.spans.find((s) => s.outcome === "failure");
+	await systemLog.error({
+		projectId: run.projectId,
+		resourceType: run.routeId ? "route" : "workflow",
+		resourceId: (run.routeId ?? run.workflowId)!,
+		type: RUNTIME_LOG_TYPE,
+		message: span?.error ?? "The run failed",
+		runId: run.runId,
+		detail: {
+			runId: run.runId,
+			...(span && {
+				block: { id: span.blockId, type: span.blockType, name: span.blockName },
+				...(span.stack && { stack: span.stack }),
+			}),
+			...(run.statusCode !== undefined && { statusCode: run.statusCode }),
+		},
+	});
 }
 
 /**
@@ -222,8 +254,8 @@ async function shouldStore(run: {
 
 /**
  * Deletes runs older than `maxAgeDays`, a batch at a time so one tick never
- * holds a long lock. Spans go with their run (FK cascade). Idempotent: a missed
- * tick is covered by the next one.
+ * holds a long lock. Spans and `runtime` system logs go with their run (FK
+ * cascade). Idempotent: a missed tick is covered by the next one.
  */
 export async function deleteExpiredRecordings(maxAgeDays = RECORDING_MAX_AGE_DAYS) {
 	const cutoff = new Date(Date.now() - maxAgeDays * 24 * 60 * 60_000);

@@ -6,7 +6,8 @@ import { type SuiteTarget, targetColumn } from "../../../../modules/testRunner/t
 /**
  * Deletes one recorded run, or every run of a route or workflow when `runId` is
  * left out. Scoped by project AND target, so ids from elsewhere delete nothing.
- * Spans cascade with their run — see the foreign key in `db/schema.ts`.
+ * Spans and the run's `runtime` system logs cascade with it — see the foreign
+ * keys in `db/schema.ts`.
  */
 export async function deleteRecordedRuns(projectId: string, target: SuiteTarget, runId?: string) {
 	const deleted = await db
