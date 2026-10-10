@@ -8,5 +8,7 @@ export default async function handleRequest(projectId: string) {
 		name: result.name || "",
 		group: result.group || "",
 		variant: result.variant || "",
+		hasDevConfig: result.hasDevConfig,
+		syncDev: result.syncDev,
 	}));
 }

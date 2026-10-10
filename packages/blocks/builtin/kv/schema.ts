@@ -1,3 +1,4 @@
+import { MissingEnvValueError } from "@fluxify/common";
 import type { Context } from "../../baseBlock";
 
 /** every kv block resolves its adapter the same way */
@@ -7,5 +8,7 @@ export function kvAdapterFor(context: Context, connection: string) {
 
 /** keeps the block's error text while preserving the real cause */
 export function kvFailure(block: string, error: unknown): never {
+	// a missing development value names itself; wrapping it hides which one
+	if (error instanceof MissingEnvValueError) throw error;
 	throw new Error(`failed to execute ${block} kv block`, { cause: error });
 }

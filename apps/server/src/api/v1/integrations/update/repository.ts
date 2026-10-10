@@ -5,7 +5,14 @@ import { integrationsEntity } from "../../../../db/schema";
 export async function updateIntegration(
 	projectId: string,
 	id: string,
-	data: { name: string; config: any; tags?: string[] },
+	data: {
+		name: string;
+		config: any;
+		/** undefined leaves it alone, null removes it */
+		devConfig?: any;
+		syncDev?: boolean;
+		tags?: string[];
+	},
 	tx?: DbTransactionType,
 ): Promise<any> {
 	const result = await (tx ?? db)
@@ -13,6 +20,8 @@ export async function updateIntegration(
 		.set({
 			name: data.name,
 			config: data.config,
+			devConfig: data.devConfig,
+			syncDev: data.syncDev,
 			tags: data.tags ? data.tags.join(",") : undefined,
 		})
 		.where(and(eq(integrationsEntity.id, id), eq(integrationsEntity.projectId, projectId)))

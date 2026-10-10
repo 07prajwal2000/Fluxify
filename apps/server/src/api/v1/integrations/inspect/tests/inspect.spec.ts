@@ -38,7 +38,8 @@ const { Hono } = await import("hono");
 const registerInspectRoutes = (await import("../route")).default;
 
 const params = { projectId: P, integrationId: I };
-const pg = { group: "database", variant: "PostgreSQL", config: { source: "credentials", host: "h", port: "5432", username: "u", password: "p", database: "d", ssl: "false" } };
+const pgConfig = { source: "credentials", host: "h", port: "5432", username: "u", password: "p", database: "d", ssl: "false" };
+const pg = { name: "db_main", group: "database", variant: "PostgreSQL", config: { ...pgConfig, host: "prod-host" }, devConfig: { ...pgConfig, host: "dev-host" }, syncDev: false };
 
 beforeEach(() => {
 	describeConnection.mockClear();
@@ -53,8 +54,26 @@ describe("integration schema details", () => {
 		expect((describeConnection.mock.calls[1] as any[])[1]).toEqual(["users", "orders"]);
 	});
 
+	it("connects with the development config, never production's", async () => {
+		row = pg;
+		await getSchemaDetails(params);
+		expect((describeConnection.mock.calls.at(-1) as any[])[0].host).toBe("dev-host");
+	});
+
+	it("development with no value of its own is a clear 400, not production's", async () => {
+		row = { ...pg, devConfig: null };
+		await expect(getSchemaDetails(params)).rejects.toThrow("integration db_main has no development value");
+		expect(describeConnection).not.toHaveBeenCalled();
+	});
+
+	it("'Same as production' reads the production config", async () => {
+		row = { ...pg, devConfig: null, syncDev: true };
+		await getSchemaDetails(params);
+		expect((describeConnection.mock.calls.at(-1) as any[])[0].host).toBe("prod-host");
+	});
+
 	it("non-database groups get a clear 400", async () => {
-		row = { group: "ai", variant: "OpenAI", config: {} };
+		row = { group: "ai", variant: "OpenAI", config: {}, devConfig: {}, syncDev: false };
 		await expect(getSchemaDetails(params)).rejects.toThrow("Not supported for ai integrations");
 	});
 
@@ -76,7 +95,7 @@ describe("integration schema details", () => {
 
 describe("kv get", () => {
 	it("redis: value and TTL; no expiry is null", async () => {
-		row = { group: "kv", variant: "Redis", config: {} };
+		row = { group: "kv", variant: "Redis", config: {}, devConfig: {}, syncDev: false };
 		redis.get.mockImplementationOnce(async () => "v");
 		redis.ttl.mockImplementationOnce(async () => 42);
 		expect(await getKvValue(params, "k")).toEqual({ key: "k", found: true, value: "v", truncated: false, ttlSeconds: 42 });
@@ -86,7 +105,7 @@ describe("kv get", () => {
 	});
 
 	it("caps long values and says so", async () => {
-		row = { group: "kv", variant: "Redis", config: {} };
+		row = { group: "kv", variant: "Redis", config: {}, devConfig: {}, syncDev: false };
 		redis.get.mockImplementationOnce(async () => "x".repeat(KV_VALUE_CAP + 5));
 		const r = await getKvValue(params, "k");
 		expect(r.value!.length).toBe(KV_VALUE_CAP);
@@ -94,7 +113,7 @@ describe("kv get", () => {
 	});
 
 	it("memcached: value only, TTL unknown; missing key is found: false", async () => {
-		row = { group: "kv", variant: "Memcached", config: {} };
+		row = { group: "kv", variant: "Memcached", config: {}, devConfig: {}, syncDev: false };
 		memValue = "m";
 		expect(await getKvValue(params, "k")).toMatchObject({ found: true, value: "m", ttlSeconds: null, ttlNote: expect.stringContaining("unknown") });
 		memValue = null;

@@ -10,5 +10,7 @@ export const responseSchema = z.array(
 		name: z.string(),
 		group: z.string(),
 		variant: z.string(),
+		hasDevConfig: z.boolean(),
+		syncDev: z.boolean(),
 	}),
 );

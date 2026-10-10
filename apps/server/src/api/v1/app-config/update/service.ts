@@ -5,6 +5,7 @@ import { BadRequestError } from "../../../../errors/badRequestError";
 import { NotFoundError } from "../../../../errors/notFoundError";
 import { ServerError } from "../../../../errors/serverError";
 import { EncryptionService } from "../../../../lib/encryption";
+import { nextDevValue, shownValue } from "../storage";
 import type { requestBodySchema, responseSchema } from "./dto";
 import { getConfigById, updateAppConfig } from "./repository";
 
@@ -33,8 +34,9 @@ export default async function handleRequest(
 		} else if (body.value !== undefined) {
 			body.value = EncryptionService.encodeData(body.value.toString(), body.encodingType);
 		}
-		const { keyName: _keyName, ...updates } = body;
-		const cfg = { ...updates, value: updates.value?.toString() };
+		const devValue = nextDevValue(config, body);
+		const { keyName: _keyName, devValue: _devValue, ...updates } = body;
+		const cfg = { ...updates, value: updates.value?.toString(), devValue };
 		const updatedConfig = await updateAppConfig(id, projectId, cfg, tx);
 		return updatedConfig;
 	});
@@ -49,6 +51,8 @@ export default async function handleRequest(
 		value: result.isEncrypted
 			? EncryptionService.maskValue(result.value!).slice(0, 20)
 			: result.value!,
+		devValue: shownValue(result.devValue, result.isEncrypted!, result.encodingType!),
+		syncDev: result.syncDev,
 		isEncrypted: result.isEncrypted!,
 		encodingType: result.encodingType!,
 		createdAt: result.createdAt!.toISOString(),

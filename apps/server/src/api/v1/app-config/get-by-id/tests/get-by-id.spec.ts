@@ -23,6 +23,8 @@ describe("getAppConfigById service", () => {
     keyName: "test.key.1",
     description: "Test config",
     value: "test-value-1234",
+    devValue: null,
+    syncDev: false,
     isEncrypted: false,
     encodingType: "plaintext",
     createdAt: new Date("2023-01-01T00:00:00.000Z"),

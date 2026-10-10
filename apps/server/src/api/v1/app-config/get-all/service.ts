@@ -26,6 +26,8 @@ export default async function handleRequest(
 		isEncrypted: item.isEncrypted!,
 		encodingType: item.encodingType!,
 		dataType: item.dataType!,
+		hasDevValue: item.hasDevValue,
+		syncDev: item.syncDev,
 		createdAt: item.createdAt!.toISOString(),
 		updatedAt: item.updatedAt!.toISOString(),
 	}));

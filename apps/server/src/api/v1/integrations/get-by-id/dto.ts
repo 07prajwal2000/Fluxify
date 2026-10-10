@@ -11,4 +11,8 @@ export const responseSchema = z.object({
 	group: z.string(),
 	variant: z.string(),
 	config: z.object(),
+	/** development's own config; null while it has none */
+	devConfig: z.object().nullable(),
+	/** development reads `config` instead of `devConfig` */
+	syncDev: z.boolean(),
 });

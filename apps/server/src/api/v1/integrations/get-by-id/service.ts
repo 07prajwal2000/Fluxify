@@ -17,5 +17,7 @@ export default async function handleRequest(
 		group: integration.group!,
 		variant: integration.variant!,
 		config: integration.config as any,
+		devConfig: (integration.devConfig as any) ?? null,
+		syncDev: integration.syncDev,
 	};
 }

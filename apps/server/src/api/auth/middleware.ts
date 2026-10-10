@@ -68,3 +68,18 @@ export function requireProjectAccess(
 		return next();
 	};
 }
+
+/**
+ * Only a signed-in browser session: the portal. A bearer token — a personal
+ * access token, an OAuth token (MCP) or an agent run token — is refused, however
+ * much role its user has. Bearer sessions are built with an empty `token`
+ * (lib/bearerAuth.ts); a cookie session always carries one.
+ */
+export function requirePortalSession() {
+	return async (ctx: HonoContext, next: Next) => {
+		if (!ctx.get("session")?.token) {
+			throw new ForbiddenError("This action is only available from the Fluxify portal");
+		}
+		return next();
+	};
+}

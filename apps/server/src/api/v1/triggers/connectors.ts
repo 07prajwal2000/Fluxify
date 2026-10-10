@@ -86,9 +86,12 @@ export async function assertConnector(
 		);
 	if (!check.probe) return settingsWarnings(check);
 
+	// the production credentials a deployed trigger will read: saving a trigger
+	// asks the real broker whether its stream or queue exists
 	const config = await resolveQueueConfig(
 		check.projectId,
 		integration.config as Record<string, unknown>,
+		"production",
 	);
 	try {
 		return await probe(check, config);

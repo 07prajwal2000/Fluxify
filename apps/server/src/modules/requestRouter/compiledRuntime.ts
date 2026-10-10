@@ -19,6 +19,7 @@ import {
 	hydrateIntegrations,
 	kvIntegrationsCache,
 	queueIntegrationsCache,
+	unguarded,
 } from "../../loaders/integrationsLoader";
 import { hydrateProjectSettings } from "../../loaders/projectSettingsLoader";
 import type {
@@ -382,22 +383,31 @@ function removeCustomBlock(id: string) {
 /** already unsealed by the supervisor — the encryption key never enters this thread */
 function applyProjectConfig(artifact: UnsealedProjectConfig) {
 	const { payload } = artifact;
-	hydrateAppConfig(artifact.projectId, payload.appConfig);
-	hydrateIntegrations(artifact.projectId, {
-		db: payload.dbIntegrations,
-		kv: payload.kvIntegrations,
-		observability: payload.observabilityIntegrations,
-		ai: payload.aiIntegrations,
-		queue: payload.queueIntegrations,
-	});
+	// `missingValues` is what this environment has no value for (#733): reading
+	// one throws, so a development route fails at use and says why
+	hydrateAppConfig(artifact.projectId, payload.appConfig, payload.missingValues?.appConfig);
+	hydrateIntegrations(
+		artifact.projectId,
+		{
+			db: payload.dbIntegrations,
+			kv: payload.kvIntegrations,
+			observability: payload.observabilityIntegrations,
+			ai: payload.aiIntegrations,
+			queue: payload.queueIntegrations,
+		},
+		payload.missingValues?.integrations,
+	);
 	// The hydrated cache is the runtime's complete view. Swapping here makes
 	// changed credentials available to new requests before old clients drain.
-	dbConnectionManager?.synchronize(dbIntegrationsCache);
+	dbConnectionManager?.synchronize(unguarded(dbIntegrationsCache));
 	// same for KV clients: a rotated credential closes the old socket so the next
 	// request builds a client from the new config
-	KvFactory.synchronize(kvIntegrationsCache);
+	KvFactory.synchronize(unguarded(kvIntegrationsCache));
 	// and Send Message producers, which also publish over Redis KV integrations
-	QueueProducerFactory.synchronize(queueIntegrationsCache, kvIntegrationsCache);
+	QueueProducerFactory.synchronize(
+		unguarded(queueIntegrationsCache),
+		unguarded(kvIntegrationsCache),
+	);
 	// same for queue consumers: rotated credentials restart, deleted ones stop
 	void refreshQueueTriggers();
 	hydrateProjectSettings(artifact.projectId, payload.projectSettings);

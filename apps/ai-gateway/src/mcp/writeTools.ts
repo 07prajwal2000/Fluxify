@@ -144,7 +144,7 @@ export const writeTools: McpTool[] = [
 		name: "save_app_config",
 		title: "Save app config",
 		description:
-			"Create or update an app config entry (a setting or secret blocks read). To create pass keyName, value, description, isEncrypted and encodingType ('plaintext' unless the value is already base64 or hex). Encrypt secrets: an encrypted value is never shown again and cannot be decrypted back. On update, fields left out keep their value; keyName and dataType cannot change.",
+			"Create or update an app config entry (a setting or secret blocks read). To create pass keyName, value, description, isEncrypted and encodingType ('plaintext' unless the value is already base64 or hex). value is production's; devValue is development's own (null removes it), and syncDev true makes development read value instead. A development run with no devValue and syncDev off fails, naming the key. Encrypt secrets: an encrypted value is never shown again and cannot be decrypted back. On update, fields left out keep their value; keyName and dataType cannot change.",
 		role: "creator",
 		annotations: SAVE,
 		input: {
@@ -163,6 +163,8 @@ export const writeTools: McpTool[] = [
 				isEncrypted: a.isEncrypted ?? cur.isEncrypted,
 				encodingType: a.encodingType ?? cur.encodingType,
 				value: a.value,
+				devValue: a.devValue,
+				syncDev: a.syncDev,
 			};
 			return pickId(await send("PUT", `${base}/${appConfigId}`, defined(body)));
 		},
@@ -185,7 +187,7 @@ export const writeTools: McpTool[] = [
 	{
 		name: "save_integration",
 		title: "Save integration",
-		description: `Create or update an integration (a database, KV store, AI provider, queue, …). To create pass name, group, variant and config. Variants by group: ${VARIANTS}. config fields depend on the variant: call get_integration_schema first for the exact fields, and a wrong config returns the fields to fix. Put secrets in app config and reference them as "cfg:KEY_NAME". On update, group and variant cannot change and config replaces the whole config.`,
+		description: `Create or update an integration (a database, KV store, AI provider, queue, …). To create pass name, group, variant and config. Variants by group: ${VARIANTS}. config fields depend on the variant: call get_integration_schema first for the exact fields, and a wrong config returns the fields to fix. Put secrets in app config and reference them as "cfg:KEY_NAME". config is production's; devConfig is development's own, same fields (null removes it), and syncDev true makes development use config instead. Point devConfig at separate dev instances: a development run with no devConfig and syncDev off fails, naming the integration. On update, group and variant cannot change and config replaces the whole config.`,
 		role: "creator",
 		annotations: SAVE,
 		input: {
@@ -195,14 +197,21 @@ export const writeTools: McpTool[] = [
 			group: integrationsGroupSchema.optional(),
 			variant: z.string().optional(),
 			config: z.record(z.string(), z.unknown()).optional(),
+			devConfig: z.record(z.string(), z.unknown()).nullable().optional(),
+			syncDev: z.boolean().optional(),
 		},
 		call: async ({ get, send }, { projectId: p, integrationId, ...a }) => {
 			const base = `/v1/${p}/integrations`;
 			if (!integrationId) return pickId(await send("POST", base, a));
 			// the server's update replaces name and config together
 			const cur = a.name && a.config ? {} : await get(`${base}/${integrationId}`);
-			const body = { name: a.name ?? cur.name, config: a.config ?? cur.config };
-			return pickId(await send("PUT", `${base}/${integrationId}`, body));
+			const body = {
+				name: a.name ?? cur.name,
+				config: a.config ?? cur.config,
+				devConfig: a.devConfig,
+				syncDev: a.syncDev,
+			};
+			return pickId(await send("PUT", `${base}/${integrationId}`, defined(body)));
 		},
 	},
 	{
@@ -224,7 +233,7 @@ export const writeTools: McpTool[] = [
 		name: "test_integration_connection",
 		title: "Test integration connection",
 		description:
-			"Check that Fluxify can connect to an integration. Pass integrationId for a saved one, or group, variant and config to test before saving. Makes a real network call; changes nothing.",
+			"Check that Fluxify can connect to an integration, with its development credentials (the production ones when it is set to Same as production). Production credentials can only be tested by a person in the portal. Pass integrationId for a saved one, or group, variant and config to test before saving; cfg: references read development app config. Makes a real network call; changes nothing.",
 		role: "creator",
 		annotations: { readOnlyHint: true, openWorldHint: true },
 		input: {

@@ -16,6 +16,8 @@ export const responseSchema = z.array(
 		group: z.string(),
 		variant: z.string(),
 		config: z.object(),
+		devConfig: z.object().nullable(),
+		syncDev: z.boolean(),
 		tags: z.array(z.string()).optional(),
 		/** databases only: editor for custom conditions — SQL text or JS returning a filter */
 		conditionEditor: z.enum(["sql", "js"]).optional(),

@@ -56,14 +56,46 @@ You don't have to do this for the usual setups. Each of them starts one for you:
 | Running Fluxify from source (`bun run dev`) | A second worker on port `5602`, beside the production worker on `5600`. |
 
 ::: info
-Nothing is sent to the development environment yet, so a development worker
-starts, reports that it is online, and has no routes to serve for now.
+Every time you save, Fluxify publishes your routes, workflows, custom blocks,
+middlewares, triggers and packages to **both** environments. For now the
+development worker and the production worker run the same saved version. What
+differs between them is the [values](#values-per-environment) they run with.
 :::
 
 ::: warning
 Don't put `FLUXIFY_ENV=development` in a `.env` file that every Fluxify process
 reads. That turns your production worker into a development worker, and your
 live routes stop being served.
+:::
+
+## Values per environment
+
+Integrations and app config can hold two values: one for production and one for
+development. The development worker uses the development value, so it talks to
+your development database, queues and keys, never the production ones.
+
+For each integration and each app config entry you choose one of:
+
+| Setting | What the development worker does |
+| :--- | :--- |
+| **Its own value** (the default) | Uses the development value you set. If you have not set one, the run **fails** and says which value is missing. It never falls back to production. |
+| **Same as production** | Uses the production value. |
+
+See [App Config](/concepts/app-config#production-and-development-values) and
+[Integrations](/integrations/#production-and-development-values).
+
+::: danger Same as production means development writes to production
+With **Same as production** on, development runs, development triggers and the
+AI agent read and write your production database, queues and consumer groups.
+Use it only for things that are safe to share, such as a read-only public API.
+:::
+
+::: warning Use separate development instances
+Do what you would do when coding a backend by hand: point development at its
+own database, its own queues or topics and its own key-value store.
+
+Triggers have the same consumer group names in both environments. A development
+value that points at a **production** queue takes production's messages.
 :::
 
 ## Related

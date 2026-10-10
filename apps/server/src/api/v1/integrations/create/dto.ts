@@ -10,6 +10,10 @@ export const requestBodySchema = z.object({
 	group: integrationsGroupSchema,
 	variant: z.string(),
 	config: z.object({}),
+	/** development's own config, same shape as `config`; absent means none yet */
+	devConfig: z.object({}).nullish(),
+	/** development reads `config` instead of `devConfig` */
+	syncDev: z.boolean().optional(),
 });
 
 export const responseSchema = z.object({

@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, ilike } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, sql } from "drizzle-orm";
 import { type DbTransactionType, db } from "../../../../db";
 import { appConfigEntity } from "../../../../db/schema";
 
@@ -23,6 +23,8 @@ export async function getAppConfigList(
 			isEncrypted: appConfigEntity.isEncrypted,
 			dataType: appConfigEntity.dataType,
 			encodingType: appConfigEntity.encodingType,
+			hasDevValue: sql<boolean>`${appConfigEntity.devValue} is not null`,
+			syncDev: appConfigEntity.syncDev,
 			createdAt: appConfigEntity.createdAt,
 			updatedAt: appConfigEntity.updatedAt,
 		})

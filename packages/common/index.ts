@@ -1,4 +1,5 @@
 export * from "./env";
+export * from "./errors";
 export * from "./logging";
 // Tracing is intentionally NOT re-exported here: it eagerly loads
 // @opentelemetry/instrumentation (node:v8), which breaks every @fluxify/common

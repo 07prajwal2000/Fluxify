@@ -8,6 +8,9 @@ export const requestRouteSchema = z.object({
 export const requestBodySchema = z.object({
 	name: z.string().trim().min(1, "Name is required").max(255),
 	config: z.any(),
+	/** omit to keep the current one, null to remove it */
+	devConfig: z.any().optional(),
+	syncDev: z.boolean().optional(),
 });
 
 export const responseSchema = z.object({
@@ -16,4 +19,6 @@ export const responseSchema = z.object({
 	group: z.string(),
 	variant: z.string(),
 	config: z.any(),
+	devConfig: z.any().nullable(),
+	syncDev: z.boolean(),
 });

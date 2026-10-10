@@ -395,7 +395,7 @@ export const readTools: McpTool[] = [
 		name: "list_app_config",
 		title: "List app config",
 		description:
-			"A project's app config keys (settings and secrets blocks read). Values are not listed.",
+			"A project's app config keys (settings and secrets blocks read). Values are not listed; hasDevValue says whether development has its own, syncDev that it reads the production value instead.",
 		role: "creator",
 		input: { projectId, page, search },
 		call: async ({ get }, a) =>
@@ -405,13 +405,14 @@ export const readTools: McpTool[] = [
 					perPage: PER_PAGE,
 					search: a.search,
 				}),
-				["id", "keyName", "dataType", "isEncrypted"],
+				["id", "keyName", "dataType", "isEncrypted", "hasDevValue", "syncDev"],
 			),
 	},
 	{
 		name: "get_app_config",
 		title: "Get app config",
-		description: "One app config entry with its value. Encrypted values come back masked.",
+		description:
+			"One app config entry with its production value and its development value (devValue, null while it has none). syncDev true means development reads the production value. Encrypted values come back masked.",
 		role: "creator",
 		input: {
 			projectId,
@@ -423,6 +424,8 @@ export const readTools: McpTool[] = [
 				"keyName",
 				"description",
 				"value",
+				"devValue",
+				"syncDev",
 				"dataType",
 				"isEncrypted",
 				"encodingType",
@@ -431,7 +434,8 @@ export const readTools: McpTool[] = [
 	{
 		name: "list_integrations",
 		title: "List integrations",
-		description: "A project's integrations: databases, KV stores, AI providers and queues.",
+		description:
+			"A project's integrations: databases, KV stores, AI providers and queues. hasDevConfig says whether development has its own config, syncDev that it reads the production one instead.",
 		role: "creator",
 		input: { projectId },
 		call: async ({ get }, a) => get(`/v1/${a.projectId}/integrations/list-basic`),
@@ -439,7 +443,8 @@ export const readTools: McpTool[] = [
 	{
 		name: "get_integration",
 		title: "Get integration",
-		description: "One integration's settings.",
+		description:
+			"One integration's settings: config is production's, devConfig development's (null while it has none), syncDev true when development reads the production config.",
 		role: "creator",
 		input: {
 			projectId,

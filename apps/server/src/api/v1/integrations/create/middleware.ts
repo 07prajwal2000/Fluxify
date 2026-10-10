@@ -11,6 +11,10 @@ export async function requestBodyValidator(ctx: Context, next: Next) {
 	const jsonData = await ctx.req.json();
 	const data = integrationConfigValidator(jsonData);
 	ctx.set("config", data);
+	// development's config is the same shape, so it passes the same schema
+	if (jsonData.devConfig != null) {
+		ctx.set("devConfig", integrationConfigValidator({ ...jsonData, config: jsonData.devConfig }));
+	}
 	return next();
 }
 

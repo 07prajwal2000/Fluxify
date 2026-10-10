@@ -21,6 +21,8 @@ export default async function handleRequest(
 		group: item.group!,
 		variant: item.variant!,
 		config: item.config as any,
+		devConfig: (item.devConfig as any) ?? null,
+		syncDev: item.syncDev,
 		tags: item.tags ? item.tags.split(",") : undefined,
 		// static per variant, so it never waits on the database being reachable
 		conditionEditor:

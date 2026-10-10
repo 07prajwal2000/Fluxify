@@ -5,7 +5,7 @@ import {
 	QueueSourceGoneError,
 } from "@fluxify/adapters";
 import type { TriggerConnection, TriggerEvent, TriggerSource } from "@fluxify/blocks";
-import { logger } from "@fluxify/common";
+import { logger, MissingEnvValueError } from "@fluxify/common";
 import { backoffMs } from "@fluxify/common/nats";
 import { findIntegrationConfig, ownsIntegration } from "../../loaders/integrationsLoader";
 import type { TriggerArtifact } from "../compiler/artifacts";
@@ -76,7 +76,19 @@ export function hasQueueTrigger(triggerId: string) {
 }
 
 async function startTrigger(artifact: TriggerArtifact) {
-	const config = artifact.integrationId ? findIntegrationConfig(artifact.integrationId) : undefined;
+	let config: ReturnType<typeof findIntegrationConfig>;
+	try {
+		config = artifact.integrationId ? findIntegrationConfig(artifact.integrationId) : undefined;
+	} catch (error) {
+		// this environment has no value for the integration (#733): the trigger
+		// does not start, and says why, rather than taking the others with it
+		if (!(error instanceof MissingEnvValueError)) throw error;
+		logger.warn(
+			`[triggers] ${artifact.triggerId} not consuming: ${error.message}`,
+			"TRIGGERS.queue",
+		);
+		return manager.stop(artifact.triggerId);
+	}
 	// An id alone would let one project's trigger borrow another's credentials.
 	if (!ownsIntegration(config, artifact.projectId)) {
 		logger.warn(

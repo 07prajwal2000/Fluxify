@@ -11,11 +11,11 @@ An integration is a saved connection to a database, KV store, AI provider, queue
 
 | Tool | Role | What it does |
 | --- | --- | --- |
-| `list_integrations` | creator | Integrations of a project: id, name, group, variant. |
-| `get_integration` | creator | One integration with its config. |
+| `list_integrations` | creator | Integrations of a project: id, name, group, variant, hasDevConfig, syncDev. |
+| `get_integration` | creator | One integration with its production `config`, its development `devConfig` (null while it has none) and `syncDev`. |
 | `get_integration_schema` | viewer | The config fields of one `group` and `variant`, with blank defaults. Reads no project data. |
 | `save_integration` | creator | Create (no `integrationId`) or update (`integrationId`). |
-| `test_integration_connection` | creator | Tries the connection. Makes a real network call and changes nothing. |
+| `test_integration_connection` | creator | Tries the connection with the **development** credentials. Makes a real network call and changes nothing. |
 | `get_integration_schema_details` | creator | What is inside a saved database: table or collection names, or full detail for the ones you name. Never returns rows. |
 | `kv_get` | creator | Reads one key from a saved KV store: its value and how long until it expires. Changes nothing. |
 | `delete_integration` | creator | Deletes the integration. See [Delete](#delete). |
@@ -120,6 +120,24 @@ An AI provider:
 { "apiKey": "cfg:OPENAI_KEY", "model": "gpt-4o-mini" }
 ```
 
+## Production and development configs
+
+An integration has two configs under one id: `config` for production and `devConfig` for development. Same fields, same variant. The development worker uses `devConfig`, or `config` when `syncDev` is `true`.
+
+```json
+{
+  "projectId": "<project id>",
+  "integrationId": "<integration id>",
+  "devConfig": { "source": "url", "url": "cfg:MAIN_DB_URL" }
+}
+```
+
+- Point `devConfig` at separate development instances: its own database, queue or topic, and KV store. Triggers have the same consumer group names in both environments, so a development config that points at a production queue takes production's messages.
+- With `syncDev: false` (the default) and no `devConfig`, a development run that uses the integration fails with `integration <name> has no development value`. It never falls back to production.
+- `syncDev: true` makes development use `config`. Development runs, triggers and agents then read and write production. Ask the person before setting it.
+- `devConfig: null` on an update removes it. Leaving `devConfig` out keeps it.
+- `cfg:KEY` references in `devConfig` read the development value of the app config entry.
+
 ## Update an integration
 
 Pass `integrationId` and `name`, `config` or both. Whatever you leave out keeps its value.
@@ -129,10 +147,12 @@ Pass `integrationId` and `name`, `config` or both. Whatever you leave out keeps 
 ```
 
 - `group` and `variant` cannot change. Create a new integration instead.
-- `config` replaces the whole config. Send every field, not only the one that changes. Call `get_integration` first and edit its config.
+- `config` replaces the whole config. Send every field, not only the one that changes. Call `get_integration` first and edit its config. The same holds for `devConfig`.
 - The new config is checked against the variant. A wrong field returns a list of field errors.
 
 ## Test the connection
+
+Tests always use the **development** credentials: the `devConfig`, or `config` when `syncDev` is `true`, and the development app config values behind any `cfg:` reference. With no development config and `syncDev` off, the test fails with `integration <name> has no development value`. Testing production credentials is only possible by a signed-in person in the portal. There is no tool for it.
 
 Test a saved integration:
 

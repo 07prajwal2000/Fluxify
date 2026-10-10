@@ -7,6 +7,7 @@ import {
 import type { z } from "zod";
 import { BadRequestError } from "../../../../errors/badRequestError";
 import { NotFoundError } from "../../../../errors/notFoundError";
+import { ADMIN_CONNECTION_ENV, configForAdminEnv } from "../adminEnv";
 import { getAppConfigKeysFromData } from "../create/service";
 import { getIntegrationByID } from "../get-by-id/repository";
 import { buildConnection } from "../get-metadata/service";
@@ -24,11 +25,14 @@ async function load(params: Params, group: string) {
 	if (integration.group !== group) {
 		throw new BadRequestError(`Not supported for ${integration.group} integrations`);
 	}
+	// the development credentials: an agent or a stray click never reaches production
+	const config = configForAdminEnv(integration, ADMIN_CONNECTION_ENV);
 	const appConfigs = await decodeAppConfig(
-		getAppConfigKeysFromData(integration.config),
+		getAppConfigKeysFromData(config),
 		params.projectId,
+		ADMIN_CONNECTION_ENV,
 	);
-	return { integration, appConfigs };
+	return { integration, config, appConfigs };
 }
 
 /** Rejects with a readable 400 on failure or after INSPECT_TIMEOUT_MS. */
@@ -50,8 +54,8 @@ async function readable<T>(what: string, work: Promise<T>): Promise<T> {
 }
 
 export async function getSchemaDetails(params: Params, tables?: string): Promise<SchemaDetails> {
-	const { integration, appConfigs } = await load(params, "database");
-	const connection = buildConnection(integration.variant!, integration.config, appConfigs);
+	const { integration, config, appConfigs } = await load(params, "database");
+	const connection = buildConnection(integration.variant!, config, appConfigs);
 	const names = tables
 		?.split(",")
 		.map((t) => t.trim())
@@ -63,8 +67,8 @@ export async function getKvValue(
 	params: Params,
 	key: string,
 ): Promise<z.infer<typeof kvResponseSchema>> {
-	const { integration, appConfigs } = await load(params, "kv");
-	const config = integration.config as any;
+	const { integration, config: stored, appConfigs } = await load(params, "kv");
+	const config = stored as any;
 	if (integration.variant === "Redis") {
 		const kv = new RedisIntegration(
 			RedisIntegration.ExtractConnectionInfo(config, appConfigs),

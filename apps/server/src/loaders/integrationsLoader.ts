@@ -10,7 +10,7 @@ import {
 	OpenTelemetryLogs,
 	RedisIntegration,
 } from "@fluxify/adapters";
-import { logger } from "@fluxify/common";
+import { logger, MissingEnvValueError } from "@fluxify/common";
 import {
 	aiVariantSchema,
 	databaseVariantSchema,
@@ -26,6 +26,8 @@ import {
 	subscribeToChannel,
 } from "../db/redis";
 import { integrationsEntity } from "../db/schema";
+import type { FluxifyEnv } from "../lib/env";
+import { pickValue } from "../lib/envValues";
 import { parseMongoUrl } from "../lib/parsers/mongodb";
 import { parseMysqlUrl } from "../lib/parsers/mysql";
 import { parsePostgresUrl } from "../lib/parsers/postgres";
@@ -77,9 +79,46 @@ export function scopeToProject<T>(cache: Record<string, T>, projectId: string): 
 }
 
 /**
+ * Integrations this environment has no value for (#733), by id, with the
+ * reason. Only a development worker has any: the compiler leaves them out of the
+ * caches and names them here instead.
+ */
+const missingValues = new Map<string, { projectId: string; message: string }>();
+
+/**
+ * A cache whose lookup of a missing integration throws the reason. One place
+ * covers every reader — each factory, the trigger runtime, telemetry — where a
+ * check in each would miss the next one added. Only the `get` is trapped: the
+ * missing ids are not keys, so iteration, `in` and spreading see what is there.
+ */
+function guarded(cache: Record<string, any>) {
+	const proxy = new Proxy(cache, {
+		get(target, id, receiver) {
+			const missing = typeof id === "string" ? missingValues.get(id) : undefined;
+			if (missing) throw new MissingEnvValueError(missing.message);
+			return Reflect.get(target, id, receiver);
+		},
+	});
+	targets.set(proxy, cache);
+	return proxy;
+}
+
+const targets = new WeakMap<object, Record<string, any>>();
+
+/**
+ * The cache without the guard, for code that walks it by the ids of things it
+ * already holds (closing a connection whose integration is gone): that is a
+ * lookup of a stale id, not a use, and must not throw.
+ */
+export function unguarded(cache: Record<string, any>) {
+	return targets.get(cache) ?? cache;
+}
+
+/**
  * Fill the caches from an artifact instead of the database. Configs are already
  * resolved when the compiler publishes them (cfg: references expanded, urls
- * parsed), so there is nothing left to look up.
+ * parsed), so there is nothing left to look up. `missing` maps an integration
+ * id to why this environment cannot use it.
  *
  * Merged per project rather than replaced: a worker running with
  * WORKER_PROJECT_ID=* holds several projects at once, and each project's config
@@ -94,24 +133,31 @@ export function hydrateIntegrations(
 		ai?: Record<string, any>;
 		queue?: Record<string, any>;
 	},
+	missing: Record<string, string> = {},
 ) {
-	if (caches.db) dbIntegrationsCache = merge(dbIntegrationsCache, caches.db, projectId);
-	if (caches.kv) kvIntegrationsCache = merge(kvIntegrationsCache, caches.kv, projectId);
+	for (const [id, entry] of missingValues) {
+		if (entry.projectId === projectId) missingValues.delete(id);
+	}
+	for (const id in missing) missingValues.set(id, { projectId, message: missing[id]! });
+
+	if (caches.db) dbIntegrationsCache = guarded(merge(dbIntegrationsCache, caches.db, projectId));
+	if (caches.kv) kvIntegrationsCache = guarded(merge(kvIntegrationsCache, caches.kv, projectId));
 	if (caches.observability)
-		observabilityIntegrationsCache = merge(
-			observabilityIntegrationsCache,
-			caches.observability,
-			projectId,
+		observabilityIntegrationsCache = guarded(
+			merge(observabilityIntegrationsCache, caches.observability, projectId),
 		);
-	if (caches.ai) aiIntegrationsCache = merge(aiIntegrationsCache, caches.ai, projectId);
-	if (caches.queue) queueIntegrationsCache = merge(queueIntegrationsCache, caches.queue, projectId);
+	if (caches.ai) aiIntegrationsCache = guarded(merge(aiIntegrationsCache, caches.ai, projectId));
+	if (caches.queue)
+		queueIntegrationsCache = guarded(merge(queueIntegrationsCache, caches.queue, projectId));
 }
 
 /** drop what this project used to own, then take what it owns now */
 function merge(current: Record<string, any>, incoming: Record<string, any>, projectId: string) {
 	const next: Record<string, any> = {};
-	for (const id in current) {
-		if (current[id]?.[OWNER_KEY] !== projectId) next[id] = current[id];
+	// an entry from before this publish may be one it now names as missing
+	const held = unguarded(current);
+	for (const id in held) {
+		if (held[id]?.[OWNER_KEY] !== projectId) next[id] = held[id];
 	}
 	return Object.assign(next, incoming);
 }
@@ -135,8 +181,18 @@ export type IntegrationRow = {
 	group: string | null;
 	variant: string | null;
 	config: unknown;
+	devConfig?: unknown;
+	syncDev?: boolean | null;
 	projectId: string | null;
 };
+
+/**
+ * The config `env` runs on, or null when development has none (#733). Dev
+ * reads its own unless `syncDev`; production always reads `config`.
+ */
+export function configForEnv(integration: IntegrationRow, env: FluxifyEnv) {
+	return pickValue(env, integration.syncDev ?? false, integration.config, integration.devConfig);
+}
 
 /** the cache a group's resolved config belongs in, or undefined for an unknown group */
 export function cacheForGroup(group: string | null) {
@@ -162,15 +218,19 @@ export function cacheForGroup(group: string | null) {
  *
  * `appConfig` is a parameter, not a cache read, so a caller holding overridden
  * values (the test runner) resolves against those instead of the live ones.
+ * `env` picks which of the row's two configs is read; it is always the
+ * environment's own app config that `appConfig` must come from.
  */
 export function resolveIntegrationConfig(
 	integration: IntegrationRow,
 	appConfig: Record<string, any> | undefined,
+	env: FluxifyEnv,
 ): any {
 	const group = integration.group!;
 	const variant = integration.variant!;
-	const raw = integration.config as any;
+	const raw = configForEnv(integration, env) as any;
 	let config: any = null!;
+	if (!raw) return config;
 
 	if (group === integrationsGroupSchema.enum.database) {
 		if (variant === databaseVariantSchema.enum.PostgreSQL) {
@@ -244,9 +304,11 @@ async function loadFromDB() {
 	for (const integration of integrations) {
 		const cache = cacheForGroup(integration.group);
 		if (!cache) continue;
+		// this loader backs the production, database-connected process
 		cache[integration.id] = resolveIntegrationConfig(
 			integration,
 			getProjectAppConfig(integration.projectId!),
+			"production",
 		);
 	}
 }

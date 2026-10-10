@@ -20,6 +20,15 @@ export const requestBodySchema = z.object({
 		.or(z.boolean())
 		.or(z.number())
 		.transform((val) => val.toString()),
+	/** development's own value; absent means none yet (dev fails at use unless syncDev) */
+	devValue: z
+		.string()
+		.or(z.boolean())
+		.or(z.number())
+		.transform((val) => val.toString())
+		.nullish(),
+	/** development reads the production value instead of devValue */
+	syncDev: z.boolean().optional(),
 	dataType: z.enum(appConfigDataTypeEnum.enumValues).optional().default("string"),
 	isEncrypted: z.boolean(),
 	encodingType: z.enum(["plaintext", "base64", "hex"]),

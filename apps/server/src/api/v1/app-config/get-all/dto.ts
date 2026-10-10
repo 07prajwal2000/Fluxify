@@ -31,6 +31,9 @@ export const responseSchema = z.object({
 			isEncrypted: z.boolean(),
 			encodingType: z.enum(["plaintext", "base64", "hex"]),
 			dataType: z.enum(appConfigDataTypeEnum.enumValues),
+			/** whether development has its own value (the value itself is never listed) */
+			hasDevValue: z.boolean(),
+			syncDev: z.boolean(),
 			createdAt: z.string(),
 			updatedAt: z.string(),
 		}),
