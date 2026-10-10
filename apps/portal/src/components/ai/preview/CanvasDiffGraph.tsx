@@ -1,4 +1,3 @@
-import { layoutGraph } from "@fluxify/blocks/layout";
 import { type EdgeProps, type NodeProps, useOnSelectionChange, useReactFlow } from "@xyflow/react";
 import {
 	type ComponentType,
@@ -11,8 +10,9 @@ import {
 import { BlockCanvas } from "@/components/canvas/BlockCanvas";
 import { createBlockNodeTypes } from "@/components/canvas/blocks";
 import { FLOW_EDGE_TYPE, FlowEdge } from "@/components/canvas/edges";
-import type { BlockEdge, CanvasGraph } from "@/components/canvas/types";
+import type { BlockEdge } from "@/components/canvas/types";
 import type { BlockStatus, CanvasDiff, DiffEdge } from "./canvasDiff";
+import { toGraph } from "./diffGraph";
 import "./canvasDiff.css";
 
 type Statuses = { blocks: Map<string, BlockStatus>; edges: Map<string, DiffEdge["status"]> };
@@ -46,42 +46,6 @@ function DiffEdgeLine(props: EdgeProps<BlockEdge>) {
 	);
 }
 const edgeTypes = { [FLOW_EDGE_TYPE]: DiffEdgeLine };
-
-/** Positions from the canvas when every block has one, else laid out (a diff built from ops alone has none). */
-function positions(diff: CanvasDiff) {
-	if (diff.blocks.every((b) => b.position)) return undefined;
-	const keys = new Set(diff.blocks.map((b) => b.key));
-	return layoutGraph(
-		diff.blocks.map((b) => ({ id: b.key, type: b.type })),
-		diff.edges.filter((e) => keys.has(e.from) && keys.has(e.to)),
-	);
-}
-
-/** Blocks are named by key here; handle ids are `<block>-<handle>`, as the canvas stores them. */
-function toGraph(diff: CanvasDiff): CanvasGraph {
-	const laid = positions(diff);
-	const keys = new Set(diff.blocks.map((b) => b.key));
-	// ops alone do not know a block's real handles: let the canvas pick its first
-	const handles = !diff.partial;
-	return {
-		blocks: diff.blocks.map((b) => ({
-			id: b.key,
-			key: b.key,
-			type: b.type,
-			data: b.data,
-			position: laid?.[b.key] ?? b.position ?? { x: 0, y: 0 },
-		})),
-		edges: diff.edges
-			.filter((e) => keys.has(e.from) && keys.has(e.to))
-			.map((e) => ({
-				id: e.id,
-				from: e.from,
-				to: e.to,
-				fromHandle: handles ? `${e.from}-${e.handle}` : "",
-				toHandle: handles ? `${e.to}-target` : "",
-			})),
-	};
-}
 
 /** Clicking a block picks it; the picked one shows as selected. */
 function SelectionSync({
