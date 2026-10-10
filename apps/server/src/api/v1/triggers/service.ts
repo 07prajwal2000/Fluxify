@@ -4,7 +4,7 @@ import { generateID } from "@fluxify/lib";
 import { and, eq, ilike, inArray, type SQL, sql } from "drizzle-orm";
 import type { z } from "zod";
 import { type DbTransactionType, db } from "../../../db";
-import { deleteArtifact, putArtifact } from "../../../db/natsKv";
+import { deleteArtifactEverywhere, putArtifactEverywhere } from "../../../db/natsKv";
 import { type AuthACL, triggersEntity } from "../../../db/schema";
 import { BadRequestError } from "../../../errors/badRequestError";
 import { ConflictError } from "../../../errors/conflictError";
@@ -393,12 +393,12 @@ export async function republish(trigger: Trigger) {
 		retryDelayMs: trigger.retryDelayMs,
 		publishedAt: new Date().toISOString(),
 	};
-	await putArtifact(key, artifact, "production");
+	await putArtifactEverywhere(key, artifact);
 	logger.debug(`[triggers] published ${key}`, "TRIGGERS");
 }
 
 export async function withdraw(projectId: string, triggerId: string) {
-	await deleteArtifact(triggerKey(projectId, triggerId), "production");
+	await deleteArtifactEverywhere(triggerKey(projectId, triggerId));
 }
 
 /**

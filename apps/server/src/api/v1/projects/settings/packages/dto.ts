@@ -49,6 +49,8 @@ export const statusResponseSchema = z.object({
 		z.object({
 			nodeId: z.string(),
 			type: z.string(),
+			/** the environment the node serves */
+			env: z.enum(["production", "development"]),
 			status: z
 				.object({
 					version: z.number().int(),

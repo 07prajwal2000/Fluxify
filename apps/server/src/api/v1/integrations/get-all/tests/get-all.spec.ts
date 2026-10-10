@@ -25,6 +25,8 @@ describe("getAllIntegrations service", () => {
 				group: "database",
 				variant: "PostgreSQL",
 				config: { url: "postgres://prod" },
+				devConfig: { url: "postgres://dev-only" },
+				syncDev: false,
 			},
 			{
 				id: "2",
@@ -32,6 +34,8 @@ describe("getAllIntegrations service", () => {
 				group: "database",
 				variant: "PostgreSQL",
 				config: { url: "postgres://dev" },
+				devConfig: null,
+				syncDev: true,
 			},
 		];
 
@@ -56,6 +60,8 @@ describe("getAllIntegrations service", () => {
 			variant: "PostgreSQL",
 			// @ts-ignore
 			config: { url: "postgres://prod" },
+			devConfig: { url: "postgres://dev-only" },
+			syncDev: false,
 			conditionEditor: "sql",
 		});
 	});

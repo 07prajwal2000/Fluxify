@@ -1,5 +1,6 @@
 import { type KvBucket, openKvBucket } from "@fluxify/common/nats";
 import { FLUXIFY_ENV, type FluxifyEnv } from "../lib/env";
+import { ENVIRONMENTS } from "../lib/envValues";
 import { initializeNats, natsName } from "./nats";
 
 /**
@@ -37,6 +38,19 @@ export async function getArtifact<T>(key: string, env?: FluxifyEnv): Promise<T |
 
 export async function deleteArtifact(key: string, env?: FluxifyEnv) {
 	await (await artifactStore(env)).delete(key);
+}
+
+/**
+ * Publish to every environment's bucket (#733). Until versioning (#739),
+ * production serves the same working copy as development, so the compiler
+ * writes both and a delete or rename must hit both.
+ */
+export async function putArtifactEverywhere(key: string, value: unknown) {
+	await Promise.all(ENVIRONMENTS.map((env) => putArtifact(key, value, env)));
+}
+
+export async function deleteArtifactEverywhere(key: string) {
+	await Promise.all(ENVIRONMENTS.map((env) => deleteArtifact(key, env)));
 }
 
 /**

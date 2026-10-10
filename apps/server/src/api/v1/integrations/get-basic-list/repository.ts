@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "../../../../db";
 import { integrationsEntity } from "../../../../db/schema";
 
@@ -9,6 +9,8 @@ export const getBasicListRepository = async (projectId: string) => {
 			name: integrationsEntity.name,
 			group: integrationsEntity.group,
 			variant: integrationsEntity.variant,
+			hasDevConfig: sql<boolean>`${integrationsEntity.devConfig} is not null`,
+			syncDev: integrationsEntity.syncDev,
 		})
 		.from(integrationsEntity)
 		.where(eq(integrationsEntity.projectId, projectId));

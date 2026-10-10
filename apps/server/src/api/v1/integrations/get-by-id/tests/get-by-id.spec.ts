@@ -25,6 +25,8 @@ describe("getIntegrationByID service", () => {
 			group: "database",
 			variant: "PostgreSQL",
 			config: {},
+			devConfig: { host: "dev" },
+			syncDev: false,
 		};
 
 		(
@@ -42,6 +44,8 @@ describe("getIntegrationByID service", () => {
 			group: "database",
 			variant: "PostgreSQL",
 			config: {},
+			devConfig: { host: "dev" },
+			syncDev: false,
 		});
 	});
 

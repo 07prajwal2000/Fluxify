@@ -86,6 +86,29 @@ Once an entry has been stored as encrypted, it cannot be changed back to an unen
 
 :::
 
+## Production and development values
+
+Each entry has a **production value** and a **development value**. Production
+routes read the first, and the [development worker](/concepts/environments) reads
+the second, so development never has to touch your live credentials.
+
+| Setting | What development reads |
+| --- | --- |
+| **Its own value** (default) | The development value. With none set, anything that reads the key fails and names it. There is no fallback to production. |
+| **Same as production** | The production value. |
+
+An integration's `cfg:` references are read from the same environment: the
+development version of an integration reads the development values.
+
+Encryption, encoding and data type are shared. A development value is stored the
+same way as the production one, and is masked in the same way.
+
+::: danger Same as production means development uses production
+Development runs, development triggers and the AI agent then read and write your
+production database, queues and consumer groups. Turn it on only for values that
+are safe to share.
+:::
+
 ## Updating a value safely
 
 You can update an entry's value and supporting metadata without changing its key. App Config changes are published to the running application so route workers and integrations can receive the refreshed project configuration.

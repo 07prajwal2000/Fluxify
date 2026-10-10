@@ -72,7 +72,8 @@ export async function resolveSuiteConfig(
 	for (const row of rows) {
 		const bucket = byGroup[row.group ?? ""];
 		if (!bucket) continue;
-		const config = resolveIntegrationConfig(row, appConfig);
+		// suites run on the production worker for now (picked per run in #736)
+		const config = resolveIntegrationConfig(row, appConfig, "production");
 		if (config) bucket[row.id] = config;
 	}
 

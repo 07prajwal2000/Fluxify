@@ -28,6 +28,15 @@ export default async function handleRequest(
 			throw new ConflictError("Integration name already exists");
 		}
 		await validateAppConfig(projectId, body.config, integration.group!, integration.variant!, tx);
+		if (body.devConfig != null) {
+			await validateAppConfig(
+				projectId,
+				body.devConfig,
+				integration.group!,
+				integration.variant!,
+				tx,
+			);
+		}
 		const updatedIntegration = await updateIntegration(
 			projectId,
 			id,

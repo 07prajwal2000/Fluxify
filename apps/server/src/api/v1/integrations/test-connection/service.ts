@@ -18,10 +18,14 @@ import {
 	RedisIntegration,
 } from "@fluxify/adapters";
 import type { z } from "zod";
+import { BadRequestError } from "../../../../errors/badRequestError";
 import { EncryptionService } from "../../../../lib/encryption";
+import type { FluxifyEnv } from "../../../../lib/env";
+import { missingAppConfigMessage, pickValue } from "../../../../lib/envValues";
 import { parseMongoUrl } from "../../../../lib/parsers/mongodb";
 import { parseMysqlUrl } from "../../../../lib/parsers/mysql";
 import { parsePostgresUrl } from "../../../../lib/parsers/postgres";
+import { ADMIN_CONNECTION_ENV, SET_ONE } from "../adminEnv";
 import { getAppConfigKeysFromData } from "../create/service";
 import { getSchema } from "../helpers";
 import {
@@ -55,6 +59,8 @@ export async function testIntegrationConnection(
 	/** which signal to probe; observability only, defaults to logs */
 	signal: OtlpSignal = "logs",
 	timeoutMs = CONNECTION_TEST_TIMEOUT_MS,
+	/** whose app config values `cfg:` references read */
+	env: FluxifyEnv = ADMIN_CONNECTION_ENV,
 ): Promise<Result> {
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	const timeout = new Promise<Result>((resolve) => {
@@ -67,7 +73,7 @@ export async function testIntegrationConnection(
 			timeoutMs,
 		);
 	});
-	const probe = probeConnection(projectId, group, variant, config, signal).catch(
+	const probe = probeConnection(projectId, group, variant, config, signal, env).catch(
 		(error: unknown): Result => ({
 			success: false,
 			error: (error instanceof Error ? error.message : String(error)) || "Connection failed",
@@ -86,6 +92,7 @@ async function probeConnection(
 	variant: string,
 	config: any,
 	signal: OtlpSignal,
+	env: FluxifyEnv,
 ): Promise<Result> {
 	const schema = getSchema(group, variant);
 	if (!schema) {
@@ -102,7 +109,7 @@ async function probeConnection(
 	}
 	const integrationData = result.data;
 	const keys = getAppConfigKeysFromData(integrationData);
-	const appConfigs = await decodeAppConfig(keys, projectId);
+	const appConfigs = await decodeAppConfig(keys, projectId, env);
 
 	switch (group) {
 		case "database":
@@ -337,8 +344,12 @@ async function testQueueConnection(variant: string, config: any, appConfigs: Map
 }
 
 /** A stored queue integration's config with its `cfg:` references resolved. */
-export async function resolveQueueConfig(projectId: string, config: Record<string, unknown>) {
-	const appConfigs = await decodeAppConfig(getAppConfigKeysFromData(config), projectId);
+export async function resolveQueueConfig(
+	projectId: string,
+	config: Record<string, unknown>,
+	env: FluxifyEnv,
+) {
+	const appConfigs = await decodeAppConfig(getAppConfigKeysFromData(config), projectId, env);
 	return expandCfg(config, appConfigs);
 }
 
@@ -353,17 +364,18 @@ function expandCfg(config: Record<string, unknown>, appConfigs: Map<string, stri
 	);
 }
 
-export async function decodeAppConfig(keys: string[], projectId: string) {
+/** the referenced keys' values as `env` sees them; a key development has none for is a 400 */
+export async function decodeAppConfig(keys: string[], projectId: string, env: FluxifyEnv) {
 	const appConfigs = await getAppConfigs(keys, projectId);
 	const configMap = new Map<string, string>();
-	appConfigs.forEach((config) => {
-		if (config.isEncrypted) {
-			config.value = EncryptionService.decodeData(config.value!, config.encodingType!);
-			config.value = EncryptionService.decrypt(config.value);
-		} else {
-			config.value = EncryptionService.decodeData(config.value!, config.encodingType!);
+	for (const config of appConfigs) {
+		const stored = pickValue(env, config.syncDev, config.value, config.devValue);
+		if (stored === null) {
+			throw new BadRequestError(`${missingAppConfigMessage(config.key!)}. ${SET_ONE}`);
 		}
-		configMap.set(config.key!, config.value!);
-	});
+		let value = EncryptionService.decodeData(stored, config.encodingType!);
+		if (config.isEncrypted) value = EncryptionService.decrypt(value);
+		configMap.set(config.key!, value);
+	}
 	return configMap;
 }

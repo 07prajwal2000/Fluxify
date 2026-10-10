@@ -11,8 +11,8 @@ App config holds a project's settings and secrets as key and value pairs. Blocks
 
 | Tool | Role | What it does |
 | --- | --- | --- |
-| `list_app_config` | creator | Entries of a project: id, keyName, dataType, isEncrypted. Values are not listed. Args: `projectId`, `page`, `search`. |
-| `get_app_config` | creator | One entry with its value. An encrypted value comes back masked. |
+| `list_app_config` | creator | Entries of a project: id, keyName, dataType, isEncrypted, hasDevValue, syncDev. Values are not listed. Args: `projectId`, `page`, `search`. |
+| `get_app_config` | creator | One entry with its production `value` and its development `devValue` (null while it has none), and `syncDev`. An encrypted value comes back masked. |
 | `save_app_config` | creator | Create (no `appConfigId`) or update (`appConfigId`). |
 | `delete_app_config` | creator | Deletes the entry. |
 
@@ -61,13 +61,29 @@ Pass `projectId`, `appConfigId` and only the fields that change. Fields you leav
 
 `keyName` and `dataType` cannot change. To rename a key, create the new key, change every reference, then delete the old one.
 
+## Production and development values
+
+An entry has two values: `value` for production and `devValue` for development.
+The development worker reads `devValue`, or `value` when `syncDev` is `true`.
+
+- With `syncDev: false` (the default) and no `devValue`, anything on the development worker that reads the key fails with `app config key KEY has no development value`. It never falls back to production.
+- `syncDev: true` makes development read the production value. Development runs, triggers and agents then read and write production resources. Ask the person before setting it.
+- `devValue: null` on an update removes the development value. Leaving `devValue` out keeps it.
+- `devValue` is stored like `value`: same `isEncrypted`, `encodingType` and `dataType`. Encrypted ones come back masked too.
+
+```json
+{ "projectId": "<project id>", "appConfigId": 12, "devValue": "<the development secret>" }
+```
+
 ## Fields
 
 | Field | Type | Rule | Default |
 | --- | --- | --- | --- |
 | `projectId` | string | Project id from `list_projects`. | none |
 | `keyName` | string | 3 to 100 characters: letters, digits and `_`. Unique in the project. Create only. | none |
-| `value` | string, number or boolean | Stored as text. | none |
+| `value` | string, number or boolean | The production value. Stored as text. | none |
+| `devValue` | string, number, boolean or null | The development value. `null` on update removes it. | none |
+| `syncDev` | boolean | Development reads `value` instead of `devValue`. | `false` |
 | `description` | string | Up to 255 characters. Required on create. | none |
 | `dataType` | string | `string`, `number` or `boolean`. Create only. A `number` value must read as a number. | `string` |
 | `isEncrypted` | boolean | Required on create. See [Encryption](#encryption). | none |

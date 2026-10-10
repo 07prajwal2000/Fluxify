@@ -10,6 +10,8 @@ export async function getAppConfigs(keys: string[], projectId: string) {
 		.select({
 			key: appConfigEntity.keyName,
 			value: appConfigEntity.value,
+			devValue: appConfigEntity.devValue,
+			syncDev: appConfigEntity.syncDev,
 			isEncrypted: appConfigEntity.isEncrypted,
 			encodingType: appConfigEntity.encodingType,
 		})

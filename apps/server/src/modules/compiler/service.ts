@@ -10,7 +10,7 @@ import {
 import { logger } from "@fluxify/common";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { db } from "../../db";
-import { deleteArtifact, putArtifact } from "../../db/natsKv";
+import { deleteArtifactEverywhere, putArtifactEverywhere } from "../../db/natsKv";
 import {
 	blocksEntity,
 	customBlocksListEntity,
@@ -21,19 +21,8 @@ import {
 	routesEntity,
 	workflowsEntity,
 } from "../../db/schema";
-import { EncryptionService } from "../../lib/encryption";
 import { acceptedContentTypes } from "../../lib/routeConfig";
 import { systemLog } from "../../lib/systemLogs";
-import { getProjectAppConfig } from "../../loaders/appconfigLoader";
-import {
-	aiIntegrationsCache,
-	dbIntegrationsCache,
-	kvIntegrationsCache,
-	observabilityIntegrationsCache,
-	queueIntegrationsCache,
-	scopeToProject,
-} from "../../loaders/integrationsLoader";
-import { projectSettingsCache } from "../../loaders/projectSettingsLoader";
 import { parentColumn } from "../canvas/repository";
 import type { CanvasParent, CanvasParentType } from "../canvas/types";
 import { compileDependencies } from "../packages/service";
@@ -41,13 +30,14 @@ import { wantsSpans } from "../requestRouter/traceLifecycle";
 import type {
 	CustomBlockArtifact,
 	MiddlewareArtifact,
-	ProjectConfigArtifact,
-	ProjectConfigPayload,
 	RouteArtifact,
 	WorkflowArtifact,
 } from "./artifacts";
 import { loadMiddleware, loadRouteMiddlewareIds } from "./middlewares";
-import { customBlockKey, middlewareKey, projectConfigKey, routeKey, workflowKey } from "./subjects";
+import { publishProjectConfig } from "./projectConfig";
+import { customBlockKey, middlewareKey, routeKey, workflowKey } from "./subjects";
+
+export { publishProjectConfig };
 
 /**
  * The compiler is the only process that reads graphs from the database. It
@@ -180,7 +170,7 @@ export async function compileProjectMiddlewares(projectId: string) {
 export async function compileMiddleware(id: string, projectId?: string) {
 	const loaded = await loadMiddleware(id);
 	if (!loaded) {
-		if (projectId) await deleteArtifact(middlewareKey(projectId, id), "production");
+		if (projectId) await deleteArtifactEverywhere(middlewareKey(projectId, id));
 		return;
 	}
 	const artifact: MiddlewareArtifact = {
@@ -188,7 +178,7 @@ export async function compileMiddleware(id: string, projectId?: string) {
 		projectId: loaded.projectId,
 		compiledAt: new Date().toISOString(),
 	};
-	await putArtifact(middlewareKey(loaded.projectId, id), artifact, "production");
+	await putArtifactEverywhere(middlewareKey(loaded.projectId, id), artifact);
 	logger.info(`[compiler] published middleware ${artifact.name}`, "COMPILER");
 }
 
@@ -277,13 +267,13 @@ export async function compileRoute(routeId: string) {
 		middlewares: await loadRouteMiddlewareIds(routeId),
 		compiledAt,
 	};
-	await putArtifact(routeKey(route.projectId!, routeId), artifact, "production");
+	await putArtifactEverywhere(routeKey(route.projectId!, routeId), artifact);
 	await logCompiled(resource);
 	logger.info(`[compiler] compiled route ${route.method} ${route.path}`, "COMPILER");
 }
 
 export async function dropRoute(projectId: string, routeId: string) {
-	await deleteArtifact(routeKey(projectId, routeId), "production");
+	await deleteArtifactEverywhere(routeKey(projectId, routeId));
 }
 
 /**
@@ -361,13 +351,13 @@ export async function compileWorkflow(workflowId: string) {
 		source,
 		compiledAt,
 	};
-	await putArtifact(workflowKey(workflow.projectId!, workflowId), artifact, "production");
+	await putArtifactEverywhere(workflowKey(workflow.projectId!, workflowId), artifact);
 	await logCompiled(resource);
 	logger.info(`[compiler] compiled workflow ${workflow.name}`, "COMPILER");
 }
 
 export async function dropWorkflow(projectId: string, workflowId: string) {
-	await deleteArtifact(workflowKey(projectId, workflowId), "production");
+	await deleteArtifactEverywhere(workflowKey(projectId, workflowId));
 }
 
 /** custom blocks being compiled right now — see `ensureCustomBlocksRegistered` */
@@ -518,48 +508,20 @@ async function compileCustomBlockOrThrow(id: string) {
 		source,
 		compiledAt: new Date().toISOString(),
 	};
-	await putArtifact(customBlockKey(block.projectId!, block.id), artifact, "production");
+	await putArtifactEverywhere(customBlockKey(block.projectId!, block.id), artifact);
 	await logCompiled(resource);
 	logger.info(`[compiler] compiled custom block ${block.name}`, "COMPILER");
 }
 
 export async function dropCustomBlock(projectId: string, id: string) {
 	unregisterLocally(id);
-	await deleteArtifact(customBlockKey(projectId, id), "production");
+	await deleteArtifactEverywhere(customBlockKey(projectId, id));
 }
 
-/**
- * Publishes the resolved caches a worker would otherwise have built from the
- * database at boot. Values are already decrypted and integration configs are
- * already resolved, so the worker only has to hydrate them.
- */
 /** app config and integrations are global caches, so a change touches everyone */
 export async function publishAllProjectConfigs() {
 	const projects = await db.select({ id: projectsEntity.id }).from(projectsEntity);
 	for (const project of projects) await publishProjectConfig(project.id);
-}
-
-export async function publishProjectConfig(projectId: string) {
-	const payload: ProjectConfigPayload = {
-		appConfig: (getProjectAppConfig(projectId) ?? {}) as Record<string, string | number | boolean>,
-		// scoped, not the whole cache: an artifact is per project, so shipping the
-		// global cache would put every tenant's database password in every other
-		// tenant's worker
-		dbIntegrations: scopeToProject(dbIntegrationsCache, projectId),
-		kvIntegrations: scopeToProject(kvIntegrationsCache, projectId),
-		observabilityIntegrations: scopeToProject(observabilityIntegrationsCache, projectId),
-		aiIntegrations: scopeToProject(aiIntegrationsCache, projectId),
-		queueIntegrations: scopeToProject(queueIntegrationsCache, projectId),
-		projectSettings: (projectSettingsCache[projectId] ?? {}) as Record<string, string>,
-	};
-	// sealed, not plaintext: KV would otherwise hold every tenant's database
-	// password in the clear for anyone who can read the bucket
-	const artifact: ProjectConfigArtifact = {
-		projectId,
-		sealed: EncryptionService.encrypt(JSON.stringify(payload)),
-		compiledAt: new Date().toISOString(),
-	};
-	await putArtifact(projectConfigKey(projectId), artifact, "production");
 }
 
 /**

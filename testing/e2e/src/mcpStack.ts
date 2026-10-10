@@ -121,6 +121,9 @@ const integration = await insert<{ id: string }>(schema.integrationsEntity, {
 	variant: "Redis",
 	// the stack's own Redis, so a connection test really connects
 	config: { source: "credentials", host: "127.0.0.1", port: Number(process.env.REDIS_PORT) },
+	// connection tests and inspection use development's config (#733); this stack
+	// has one Redis, so development shares production's
+	syncDev: true,
 	projectId,
 });
 

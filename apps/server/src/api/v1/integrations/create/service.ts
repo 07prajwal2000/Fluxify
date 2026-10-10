@@ -19,7 +19,10 @@ export default async function handleRequest(
 			throw new ConflictError("Integration already exists");
 		}
 		const generatedID = generateID();
-		const appConfigKeysFromCfg = getAppConfigKeysFromData(data.config);
+		const appConfigKeysFromCfg = [
+			...getAppConfigKeysFromData(data.config),
+			...getAppConfigKeysFromData(data.devConfig),
+		];
 		if (appConfigKeysFromCfg.length > 0) {
 			// tiny optimization
 			const appConfigKeysFromDB = new Set(await getAppConfigKeys(projectId, tx));
@@ -36,6 +39,8 @@ export default async function handleRequest(
 				group: data.group,
 				variant: data.variant,
 				config: data.config,
+				devConfig: data.devConfig ?? null,
+				syncDev: data.syncDev ?? false,
 				projectId,
 				tags: getIntegrationTags(data.group, data.variant).join(","),
 			},
@@ -56,7 +61,7 @@ export default async function handleRequest(
 }
 
 export function getAppConfigKeysFromData(integrationConfig: any) {
-	if (typeof integrationConfig !== "object") return [];
+	if (typeof integrationConfig !== "object" || integrationConfig === null) return [];
 	const keys = [] as string[];
 	const q = [integrationConfig] as any[];
 

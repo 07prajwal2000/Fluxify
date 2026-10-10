@@ -174,6 +174,8 @@ async function externalTriggersByGroup(): Promise<Map<string, ExternalTrigger[]>
 			const config = await resolveQueueConfig(
 				row.projectId,
 				(row.config ?? {}) as Record<string, unknown>,
+				// scaling follows the production queue; dev workers are not scaled
+				"production",
 			);
 			const trigger = externalTrigger(row.id, row.type, row.source, config);
 			if (trigger) byGroup.set(row.groupId, [...(byGroup.get(row.groupId) ?? []), trigger]);

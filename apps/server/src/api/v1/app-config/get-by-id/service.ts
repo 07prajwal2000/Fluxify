@@ -2,6 +2,7 @@ import type { z } from "zod";
 import { BadRequestError } from "../../../../errors/badRequestError";
 import { NotFoundError } from "../../../../errors/notFoundError";
 import { EncryptionService } from "../../../../lib/encryption";
+import { shownValue } from "../storage";
 import type { responseSchema } from "./dto";
 import { getAppConfigById } from "./repository";
 
@@ -26,6 +27,8 @@ export default async function handleRequest(
 		keyName: result.keyName!,
 		description: result.description!,
 		value: result.value!,
+		devValue: shownValue(result.devValue, result.isEncrypted!, result.encodingType!),
+		syncDev: result.syncDev,
 		isEncrypted: result.isEncrypted!,
 		encodingType: result.encodingType!,
 		dataType: result.dataType!,

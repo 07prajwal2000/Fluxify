@@ -5,7 +5,7 @@ import type { AppConfigDataTypes } from "../../../../db/schema";
 import { BadRequestError } from "../../../../errors/badRequestError";
 import { ConflictError } from "../../../../errors/conflictError";
 import { ServerError } from "../../../../errors/serverError";
-import { EncryptionService } from "../../../../lib/encryption";
+import { storeValue } from "../storage";
 import type { requestBodySchema, responseSchema } from "./dto";
 import { createAppConfig, keyExists } from "./repository";
 
@@ -16,15 +16,16 @@ export default async function handleRequest(
 	const name = body.keyName;
 	const dataType = body.dataType;
 	handleValidation(dataType, body.value);
+	if (body.devValue != null) handleValidation(dataType, body.devValue);
 	const result = await db.transaction(async (tx) => {
 		const exist = await keyExists(name, projectId, tx);
 		if (exist) {
 			throw new ConflictError("Key already exists");
 		}
-		if (body.isEncrypted) {
-			body.value = EncryptionService.encrypt(body.value);
+		body.value = storeValue(body.value, body.isEncrypted, body.encodingType);
+		if (body.devValue != null) {
+			body.devValue = storeValue(body.devValue, body.isEncrypted, body.encodingType);
 		}
-		body.value = EncryptionService.encodeData(body.value, body.encodingType);
 		const dbResult = await createAppConfig({ ...body, projectId }, tx);
 		return dbResult;
 	});

@@ -12,6 +12,7 @@ import { NotFoundError } from "../../../../errors/notFoundError";
 import { parseMongoUrl } from "../../../../lib/parsers/mongodb";
 import { parseMysqlUrl } from "../../../../lib/parsers/mysql";
 import { parsePostgresUrl } from "../../../../lib/parsers/postgres";
+import { ADMIN_CONNECTION_ENV, configForAdminEnv } from "../adminEnv";
 import { getAppConfigKeysFromData } from "../create/service";
 import { getIntegrationByID } from "../get-by-id/repository";
 import { getSchema } from "../helpers";
@@ -31,14 +32,20 @@ export default async function handleRequest(
 		throw new BadRequestError("Metadata is only available for database integrations");
 	}
 
+	// the development credentials, as every admin-side connection (#733)
+	const config = configForAdminEnv(integration, ADMIN_CONNECTION_ENV);
 	const schema = getSchema("database", integration.variant!);
-	const parsed = schema?.safeParse(integration.config);
+	const parsed = schema?.safeParse(config);
 	if (!parsed?.success) {
 		throw new BadRequestError("Invalid configuration");
 	}
 
-	const appConfigs = await decodeAppConfig(getAppConfigKeysFromData(parsed.data), params.projectId);
-	const connection = buildConnection(integration.variant!, integration.config, appConfigs);
+	const appConfigs = await decodeAppConfig(
+		getAppConfigKeysFromData(parsed.data),
+		params.projectId,
+		ADMIN_CONNECTION_ENV,
+	);
+	const connection = buildConnection(integration.variant!, config, appConfigs);
 
 	const tables = await introspectConnection(connection).catch((error) => {
 		throw new BadRequestError(

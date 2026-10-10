@@ -169,6 +169,10 @@ export const appConfigEntity = pgTable(
 		keyName: varchar("key_name", { length: 100 }),
 		description: text(),
 		value: text(),
+		/** The development environment's value, stored exactly like `value` (#733). */
+		devValue: text("dev_value"),
+		/** Development reads `value` instead of `devValue`. Off by default: dev has its own. */
+		syncDev: boolean("sync_dev").default(false).notNull(),
 		projectId: varchar("project_id", { length: 50 }).references(() => projectsEntity.id, {
 			onDelete: "cascade",
 		}),
@@ -206,6 +210,10 @@ export const integrationsEntity = pgTable(
 		group: varchar({ length: 255 }),
 		variant: varchar({ length: 255 }),
 		config: jsonb(),
+		/** The development environment's config, same shape as `config` (#733). */
+		devConfig: jsonb("dev_config"),
+		/** Development reads `config` instead of `devConfig`. Off by default: dev has its own. */
+		syncDev: boolean("sync_dev").default(false).notNull(),
 		tags: varchar({ length: 255 }).default(""),
 		projectId: varchar("project_id", { length: 50 }).references(() => projectsEntity.id, {
 			onDelete: "cascade",

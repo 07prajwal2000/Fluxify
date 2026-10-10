@@ -135,6 +135,12 @@ export type ProjectConfigPayload = {
 	/** absent on configs published before queue integrations existed */
 	queueIntegrations?: Record<string, any>;
 	projectSettings: Record<string, string>;
+	/**
+	 * What this environment has no value for (#733); only ever set on the
+	 * development config. A worker fails at use, naming it, instead of running
+	 * on `undefined`. `integrations` maps an id to the reason.
+	 */
+	missingValues?: { integrations: Record<string, string>; appConfig: string[] };
 };
 
 /**

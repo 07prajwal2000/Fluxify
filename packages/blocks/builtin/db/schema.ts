@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import { MissingEnvValueError } from "@fluxify/common";
 import { DB_VALUELESS_OPERATORS, dbOperatorSchema } from "@fluxify/lib";
 import z from "zod";
 import type { Context } from "../../baseBlock";
@@ -143,6 +144,8 @@ export function adapterFor(context: Context, connection: string) {
 
 /** keeps the interpreted blocks' error text while preserving the real cause */
 export function dbFailure(block: string, error: unknown): never {
+	// a missing development value names itself; wrapping it hides which one
+	if (error instanceof MissingEnvValueError) throw error;
 	throw new Error(`failed to execute ${block} db block`, { cause: error });
 }
 

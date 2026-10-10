@@ -368,3 +368,15 @@ describe("a queue trigger whose source is gone", () => {
 		expect(hasQueueTrigger("t1")).toBe(false);
 	});
 });
+
+describe("an integration this environment has no value for (#733)", () => {
+	it("does not start the trigger, and does not throw", async () => {
+		hydrateIntegrations(PROJECT, { db: {} }, { "int-1": "integration orders_kafka has no development value" });
+		workflow("return { successful: true };");
+
+		await expect(applyQueueTrigger("t1", trigger())).resolves.toBeUndefined();
+
+		expect(FakeConnection.last).toBeUndefined();
+		expect(hasQueueTrigger("t1")).toBe(false);
+	});
+});

@@ -62,6 +62,7 @@ export default function (app: HonoServer) {
 			const data = c.req.valid("json");
 			const config = c.get("config" as never) as any;
 			data.config = config;
+			data.devConfig = c.get("devConfig" as never) as any;
 			const result = await handleRequest(projectId, data);
 			return c.json(result, 201);
 		},
