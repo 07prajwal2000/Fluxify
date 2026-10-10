@@ -13,6 +13,8 @@
 #   ai-gateway      :8001  AI assistant
 #   compiled worker :5600  serves your API traffic from compiled JavaScript
 #                   :5601  worker health/readiness
+#   dev worker      :5602  the same worker as the `development` environment
+#                   :5603  its health/readiness (no route to it yet)
 #
 # For anything with real traffic use docker/admin/Dockerfile plus
 # docker/worker-compiled/Dockerfile instead, so workers scale on their own.
@@ -203,7 +205,7 @@ VOLUME /data
 USER appuser
 
 # 8080 is the only port you need to publish; the rest are internal.
-EXPOSE 8080 5500 5600 5601 8001
+EXPOSE 8080 5500 5600 5601 5602 5603 8001
 
 ENV NODE_ENV=production \
     ENVIRONMENT=production \

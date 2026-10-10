@@ -26,7 +26,11 @@
 # resource, so ownership is split cleanly:
 #
 #   compose owns infra   — nats, postgres, valkey, traefik, admin, orchestrator
-#   orchestrator owns    — every worker node
+#   orchestrator owns    — every production worker node
+#
+# The one worker compose does run is `worker-dev`, the development
+# environment's worker (#732). Orchestrated dev workers are not built yet, and
+# a dev worker needs no claim: it serves every project on its own.
 #
 # A fresh stack still serves traffic: admin seeds one catch-all claim (one node,
 # type `both`, every project) when no claim exists, which is exactly what the
@@ -158,6 +162,41 @@ services:
       nats:
         condition: service_started
       admin:
+        condition: service_started
+    networks:
+      - fluxify_net
+
+  # ---------------------------------------------------------------------------
+  # Development worker — the same image as the production workers, started as
+  # the `development` environment.
+  #
+  # It serves every project in both modes and all trigger groups, takes no
+  # license slot and needs no claim. FLUXIFY_ENV is set on this service only:
+  # `.env` is shared with admin, and one worker has one environment.
+  #
+  # Traefik has no label for it, so it takes no traffic (routing comes later).
+  # Like the orchestrated workers it gets a fixed list of settings instead of
+  # the whole `.env`: a worker never opens a database connection, so PG_URL
+  # stays out.
+  # ---------------------------------------------------------------------------
+  worker-dev:
+    image: "${ORCHESTRATOR_WORKER_IMAGE:-ghcr.io/fluxify-rest/fluxify-worker:alpha}"
+    container_name: fluxify-dev-worker
+    restart: unless-stopped
+    environment:
+      FLUXIFY_ENV: development
+      NATS_URL: "${NATS_URL}"
+      NATS_TOKEN: "${NATS_TOKEN:-}"
+      REDIS_HOST: "${REDIS_HOST}"
+      REDIS_PORT: "${REDIS_PORT:-6379}"
+      REDIS_USER: "${REDIS_USER:-}"
+      REDIS_PASS: "${REDIS_PASS:-}"
+      MASTER_ENCRYPTION_KEY: "${MASTER_ENCRYPTION_KEY}"
+      TRUSTED_ORIGINS: "${TRUSTED_ORIGINS:-}"
+    depends_on:
+      valkey:
+        condition: service_started
+      nats:
         condition: service_started
     networks:
       - fluxify_net

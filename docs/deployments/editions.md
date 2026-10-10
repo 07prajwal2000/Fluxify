@@ -51,10 +51,12 @@ through the grace period, then drops to the Community limit.
 **Development workers are free.** A worker started with
 `FLUXIFY_ENV=development` is not counted against these limits, on any edition,
 so Community can run its one worker plus a development worker beside it. It
-never serves your production traffic or runs production work. See
+never serves your production traffic or runs production work. The Kit, the
+compose file and the Helm chart each start one for you. See
 [Environments](../concepts/environments).
 
-The Kit image has no workers to cap: it always runs its one built-in worker.
+The Kit image has no workers to cap: it always runs its one built-in worker,
+plus a development worker.
 
 ## Picking your edition
 

@@ -24,6 +24,7 @@ One container, one port, one command — for **prototypes and testing only**.
 | Item | Value |
 | :--- | :--- |
 | Containers to run | 1 (or 4, if you supply your own database, cache, and event bus) |
+| Workers | A production worker (once you set `WORKER_PROJECT_ID`) and a [development worker](#dev-worker), which always runs |
 | Public port | `8080` |
 | Best for | Prototypes and testing only. Not production. |
 | Scaling | Vertical only (bigger machine) |
@@ -235,6 +236,28 @@ immediately; no restart is required.
 > One kit serves one project (unless you use `*` above, with the caveat noted).
 > To serve several properly, move to the [Production Setup](./production), which
 > runs a worker group per project.
+
+### The development worker {#dev-worker}
+
+The kit also starts a second worker for the **development**
+[environment](/concepts/environments). It needs no setup: it serves every
+project, so it runs from the very first start, before you have created one.
+
+| | Production worker | Development worker |
+| :--- | :--- | :--- |
+| Serves | The project in `WORKER_PROJECT_ID` | Every project |
+| Port (inside the container) | `5600` | `5602` |
+| Health probe | `5601` | `5603` |
+| Reached through port `8080` | Yes | No |
+
+Nothing is sent to the development environment yet, so it has no routes to
+serve for now. It does not count against your [edition's](./editions#workers)
+worker limit.
+
+> [!WARNING]
+> Don't set `FLUXIFY_ENV` in the kit's `.env` or with `-e`. The kit sets it on
+> the second worker only. Setting it for the whole container would turn your
+> production worker into a development one.
 
 ---
 

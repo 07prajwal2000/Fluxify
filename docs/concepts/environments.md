@@ -46,6 +46,20 @@ development worker does not get its own copy or a renamed one.
 
 Start a worker as usual and set `FLUXIFY_ENV=development` on that worker only.
 
+You don't have to do this for the usual setups. Each of them starts one for you:
+
+| Setup | Its development worker |
+| :--- | :--- |
+| [Kit](/deployments/kit#dev-worker) | Runs inside the container, on port `5602`. |
+| [Production stack](/deployments/production#dev-workers) | The `worker-dev` service. |
+| [Kubernetes](/deployments/kubernetes/helm-values#dev-worker) | One pod, from the `devWorker` setting. On by default. |
+| Running Fluxify from source (`bun run dev`) | A second worker on port `5602`, beside the production worker on `5600`. |
+
+::: info
+Nothing is sent to the development environment yet, so a development worker
+starts, reports that it is online, and has no routes to serve for now.
+:::
+
 ::: warning
 Don't put `FLUXIFY_ENV=development` in a `.env` file that every Fluxify process
 reads. That turns your production worker into a development worker, and your

@@ -78,6 +78,7 @@ My setup:
 Rules:
 - This is not production. If I ask for production, stop and tell me to use
   Admin + Workers instead.
+- The kit starts a development worker of its own. Don't set FLUXIFY_ENV.
 - Follow the safety rules and the checklist on the coding-agent page.
 - Never print a secret or password in the chat.
 - Ask before you touch anything that already exists (containers, volumes,
@@ -116,6 +117,8 @@ My setup:
 Rules:
 - Follow the safety rules and the checklist on the coding-agent page.
 - Replace every sample key and password from env.example.
+- The compose file starts one development worker (worker-dev). Leave it, and
+  never set FLUXIFY_ENV in .env.
 - Never print a secret or password in the chat.
 - Ask before you touch anything that already exists, and before you open any
   port to the internet.
@@ -154,6 +157,8 @@ Rules:
 - Follow the safety rules and the checklist on the coding-agent page.
 - Run step 1 of the install page before installing anything, and tell me
   what is already there.
+- The chart starts one development worker (devWorker). Leave it on, and never
+  set FLUXIFY_ENV in the values.
 - Never print a secret or password in the chat.
 - Ask before you create or change anything outside the namespace above.
 
@@ -186,7 +191,7 @@ Tell the agent to check each point, or check them yourself after it is done.
 | `LLM_OTLP_TRACES_HEADERS` | No | Headers for that endpoint as `key:value` pairs split by `;`, e.g. `Authorization:Bearer abc`. |
 | `LLM_TRACING_SAMPLE_RATE` | No | Share of runs traced, 0 to 1. Default `1`. |
 | `LLM_TRACING_RECORD_CONTENT` | No | `true` also sends prompts, messages and tool inputs/outputs, which can hold user data and secrets. Default `false`: only names, timings and token counts are sent. |
-| `FLUXIFY_ENV` | No | On one worker only, never in a `.env` every process shares. `production` (default) or `development`. A development worker runs only development work, holds no license slot, and serves every project in both modes, so it ignores `WORKER_PROJECT_ID`, `WORKER_MODE` and `WORKER_GROUP_ID`. See [Environments](../concepts/environments). |
+| `FLUXIFY_ENV` | No | On one worker only, never in a `.env` every process shares. `production` (default) or `development`. A development worker runs only development work, holds no license slot, and serves every project in both modes, so it ignores `WORKER_PROJECT_ID`, `WORKER_MODE` and `WORKER_GROUP_ID`. The Kit, the compose file and the Helm chart each start one development worker with it set, so you don't set it yourself. See [Environments](../concepts/environments). |
 | `RECORDING_MAX_AGE_DAYS` | No | Days a recorded run (Execution history) is kept before it is deleted. Default `30`. Read by the admin (or Kit) only. |
 | `HOSTNAME` | No | The address processes listen on inside the container. Leave `0.0.0.0`. It is **not** your domain. |
 
@@ -225,8 +230,9 @@ them in the `fluxify-env` Secret.
 
 - [ ] Only the web port is open to the internet: `8080` on the Kit, Traefik's
   port on Admin + Workers.
-- [ ] Postgres, NATS, Valkey, the worker health port `5601`, and Traefik's
-  dashboard (`8081` in the compose file) are **not** open to the internet.
+- [ ] Postgres, NATS, Valkey, the worker health ports (`5601`, and `5603` on
+  the Kit's development worker), and Traefik's dashboard (`8081` in the compose
+  file) are **not** open to the internet.
 - [ ] HTTPS ends in front of Fluxify, and the public URL uses `https://`.
 - [ ] `/_/admin/*` and `/.well-known/oauth-*` both reach the admin. Other
   `/.well-known/...` paths stay with the workers. The bundled Caddy, compose and
@@ -239,8 +245,12 @@ them in the `fluxify-env` Secret.
 
 - [ ] Kit: `WORKER_PROJECT_ID` is set, to a project id or `*` for every
   project. Empty means no worker, and your APIs answer `502`.
-- [ ] Admin + Workers: at least one `fluxify-worker…` container or pod runs.
+- [ ] Admin + Workers: at least one `fluxify-worker-…` container or pod runs.
   A fresh install starts one worker for every project on its own.
+- [ ] Admin + Workers: one development worker runs too, `fluxify-dev-worker`
+  (the `worker-dev` compose service, or the Helm `devWorker` setting). It is
+  not one of the production workers, and nothing routes web traffic to it.
+  Kit: it runs inside the container on port `5602`, with no setup.
 - [ ] The number of workers fits the edition: 1 on Community, 2 on
   non-commercial, no limit on Enterprise. The node pool (starts at 2) caps it
   too. Development workers (`FLUXIFY_ENV=development`) are not counted. See
@@ -257,7 +267,7 @@ The agent runs these and reports each result. `<url>` is your public address.
 
 | Check | Command | Expected |
 | :--- | :--- | :--- |
-| Containers or pods are up | `docker ps` or `kubectl get pods -n <namespace>` | Every one `Up`/`healthy` or `Running` and ready, with a `fluxify-worker…` among them (Admin + Workers). |
+| Containers or pods are up | `docker ps` or `kubectl get pods -n <namespace>` | Every one `Up`/`healthy` or `Running` and ready, with a `fluxify-worker-…` among them (Admin + Workers), beside `fluxify-dev-worker`. |
 | Admin answers | `curl -s -o /dev/null -w '%{http_code}' <url>/_/admin/api/public-settings` | `200` |
 | A worker answers | `curl -s <url>/fluxify-agent-check` | `{"message":"Route not found"}`. That is the worker. A `502`, or Traefik's plain `404 page not found`, means no worker is serving. |
 | MCP server answers | `curl -i -X POST <url>/_/admin/mcp` | `401` with a `WWW-Authenticate` header. |
