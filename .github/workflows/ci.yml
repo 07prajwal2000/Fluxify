@@ -2,6 +2,10 @@ name: CI/CD
 
 on:
   workflow_dispatch:
+  # The Kit image is built once a night, not on every merge. Tests still run on
+  # every push and PR; only the build moved here.
+  schedule:
+    - cron: "0 0 * * *"
   push:
     branches: ["main"]
     # A version tag (v0.1.0-alpha.1, v1.2.3) is the whole release trigger: it
@@ -11,36 +15,65 @@ on:
   pull_request:
 
 # A superseded PR run is wasted minutes. Releases and main are never cancelled:
-# a half-pushed image set is worse than a slow one.
+# a half-pushed image set is worse than a slow one. The nightly has its own
+# group: it runs on main's ref, and a merge must not replace it while queued.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'schedule' && 'nightly' || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   BUN_VERSION: "1.4.2"
 
 jobs:
+  # Every root job is skipped on a fork: a fork's own runs are wasted minutes.
   detect-changes:
+    if: github.repository_owner == 'Fluxify-rest'
     runs-on: ubuntu-latest
     outputs:
-      # On a tag push there is no "before" commit to diff against, so the
-      # filters would come back false and a release would skip most of its
-      # tests. A release tests everything, always.
-      lib: ${{ steps.filter.outputs.lib == 'true' || startsWith(github.ref, 'refs/tags/v') }}
-      blocks: ${{ steps.filter.outputs.blocks == 'true' || startsWith(github.ref, 'refs/tags/v') }}
-      adapters: ${{ steps.filter.outputs.adapters == 'true' || startsWith(github.ref, 'refs/tags/v') }}
-      server: ${{ steps.filter.outputs.server == 'true' || startsWith(github.ref, 'refs/tags/v') }}
-      e2e: ${{ steps.filter.outputs.e2e == 'true' || startsWith(github.ref, 'refs/tags/v') }}
-      ai-gateway: ${{ steps.filter.outputs.ai-gateway == 'true' || startsWith(github.ref, 'refs/tags/v') }}
-      portal: ${{ steps.filter.outputs.portal == 'true' || startsWith(github.ref, 'refs/tags/v') }}
+      # `full` means "test everything, no path filter": a release tag, a manual
+      # run, or a nightly where main moved. There is no "before" commit to diff
+      # against on a tag, and a deployment never skips a test.
+      full: ${{ steps.mode.outputs.full }}
+      lib: ${{ steps.filter.outputs.lib == 'true' || steps.mode.outputs.full == 'true' }}
+      blocks: ${{ steps.filter.outputs.blocks == 'true' || steps.mode.outputs.full == 'true' }}
+      adapters: ${{ steps.filter.outputs.adapters == 'true' || steps.mode.outputs.full == 'true' }}
+      server: ${{ steps.filter.outputs.server == 'true' || steps.mode.outputs.full == 'true' }}
+      e2e: ${{ steps.filter.outputs.e2e == 'true' || steps.mode.outputs.full == 'true' }}
+      ai-gateway: ${{ steps.filter.outputs.ai-gateway == 'true' || steps.mode.outputs.full == 'true' }}
+      portal: ${{ steps.filter.outputs.portal == 'true' || steps.mode.outputs.full == 'true' }}
     steps:
       - uses: actions/checkout@v4
+      - name: Decide whether this run tests everything
+        id: mode
+        env:
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          SHA: ${{ github.sha }}
+          IMAGE: ghcr.io/fluxify-rest/fluxify-kit:nightly
+        run: |
+          set -euo pipefail
+          full=false
+          case "$EVENT:$REF" in
+            *:refs/tags/v*|workflow_dispatch:*) full=true ;;
+            schedule:*)
+              # The image records the commit it was built from. A missing tag or
+              # a failed pull reads as "unknown", which builds.
+              built=$(docker pull -q "$IMAGE" >/dev/null 2>&1 && docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$IMAGE" || true)
+              if [ "$built" = "$SHA" ]; then
+                echo "No change on main since the last nightly ($SHA)." >> "$GITHUB_STEP_SUMMARY"
+              else
+                echo "Building the nightly: main is at $SHA, the last nightly was ${built:-missing}." >> "$GITHUB_STEP_SUMMARY"
+                full=true
+              fi
+              ;;
+          esac
+          echo "full=$full" >> "$GITHUB_OUTPUT"
       - uses: dorny/paths-filter@v3
         id: filter
-        # Not run on a tag at all: there is nothing to diff against, and a
-        # release does not read the answer. Skipped leaves the outputs empty,
-        # which the tag clause below already resolves to true.
-        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        # Not run when everything is tested (nothing to diff against, and the
+        # answer is not read), nor on a quiet night (the nightly runs on main
+        # itself, so the diff would be against the previous commit).
+        if: ${{ steps.mode.outputs.full != 'true' && github.event_name != 'schedule' }}
         with:
           # Each filter is the job's closure over the @fluxify/* dependencies in
           # the package.json files, and scripts/check-ci-gates.ts fails the lint
@@ -97,6 +130,7 @@ jobs:
               - '.github/workflows/ci.yml'
 
   lint:
+    if: github.repository_owner == 'Fluxify-rest'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -131,6 +165,7 @@ jobs:
   # The chart is the one source of every Kubernetes default, and a release
   # renders fluxify.yaml from it: both ways of installing must render.
   helm-chart:
+    if: github.repository_owner == 'Fluxify-rest'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -156,7 +191,7 @@ jobs:
   # adds, so a secret already in history does not fail every later PR. A tag is
   # not scanned: it points at a commit main already checked.
   secret-scan:
-    if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+    if: ${{ github.repository_owner == 'Fluxify-rest' && !startsWith(github.ref, 'refs/tags/v') }}
     runs-on: ubuntu-latest
     env:
       GITLEAKS_VERSION: "8.30.1"
@@ -316,17 +351,23 @@ jobs:
         run: bun run test:ai-gateway
 
   # Kit — the single-container evaluation build — is the only image published
-  # from main, as a rolling `nightly`. It carries no version tags: the release
-  # job below ships the three images a real deployment runs.
+  # from main, as a rolling `nightly`, once a night at 00:00 UTC and only if main
+  # moved since the last one. It carries no version tags: the release job below
+  # ships the three images a real deployment runs.
   build-and-push:
-    needs: [lint, secret-scan, test-packages-lib, test-packages-blocks, test-packages-adapters, test-e2e-graphs, test-apps-server-unit, test-apps-server-integration, test-apps-portal, test-apps-ai-gateway]
+    needs: [detect-changes, lint, secret-scan, test-packages-lib, test-packages-blocks, test-packages-adapters, test-e2e-graphs, test-apps-server-unit, test-apps-server-integration, test-apps-portal, test-apps-ai-gateway]
+    # No `always()`, and no `!contains(... 'failure')`: that form counts a SKIPPED
+    # job as fine. A deployment runs the whole suite, so every job above must
+    # have succeeded (`full` guarantees none was filtered out).
     if: |
-      always() &&
-      !contains(needs.*.result, 'failure') &&
-      !contains(needs.*.result, 'cancelled') &&
-      github.event_name == 'push' &&
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') &&
       github.ref == 'refs/heads/main' &&
-      github.repository_owner == 'Fluxify-rest'
+      github.repository_owner == 'Fluxify-rest' &&
+      needs.detect-changes.outputs.full == 'true'
+    # A manual run and the scheduled one must not push over each other.
+    concurrency:
+      group: kit-nightly
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -372,6 +413,66 @@ jobs:
           cache-from: type=gha,scope=fluxify-kit
           cache-to: type=gha,scope=fluxify-kit,mode=max
 
+      # Dated tags older than a week are useless: the repo ships fast. Only
+      # versions whose every tag is `nightly-*` go, so the moving `nightly` and
+      # whatever it points at stay. A failure here never fails the nightly.
+      - name: Delete dated nightly tags older than 7 days
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: ${{ steps.owner.outputs.owner }}
+        run: |
+          set -euo pipefail
+          cutoff=$(date -u -d '7 days ago' +%Y-%m-%dT%H:%M:%SZ)
+          gh api --paginate "/orgs/$OWNER/packages/container/fluxify-kit/versions?per_page=100" \
+            | jq -r --arg cutoff "$cutoff" '.[] | select((.metadata.container.tags | length) > 0 and all(.metadata.container.tags[]; startswith("nightly-")) and .created_at < $cutoff) | .id' \
+            | while read -r id; do
+                echo "Deleting package version $id"
+                gh api -X DELETE "/orgs/$OWNER/packages/container/fluxify-kit/versions/$id"
+              done
+
+  # One open issue per streak of failed nightlies: the first failure opens it,
+  # later ones comment on it, and the next successful build closes it.
+  nightly-report:
+    needs: [detect-changes, lint, helm-chart, secret-scan, test-packages-lib, test-packages-blocks, test-packages-adapters, test-e2e-graphs, test-apps-server-unit, test-apps-server-integration, test-apps-portal, test-apps-ai-gateway, build-and-push]
+    if: |
+      always() &&
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') &&
+      github.ref == 'refs/heads/main' &&
+      github.repository_owner == 'Fluxify-rest'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Open, update or close the nightly-failed issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          SHA: ${{ github.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          BUILD: ${{ needs.build-and-push.result }}
+        run: |
+          set -euo pipefail
+          open=$(gh issue list --repo "$REPO" --label nightly-failed --state open --json number --jq '.[0].number // empty')
+          if [ "$FAILED" = "true" ]; then
+            # A manual run is watched by whoever started it.
+            [ "$EVENT" = "schedule" ] || exit 0
+            if [ -n "$open" ]; then
+              gh issue comment "$open" --repo "$REPO" --body "Failed again on $SHA: $RUN_URL"
+            else
+              gh label create nightly-failed --repo "$REPO" --color d93f0b --description "The nightly Kit build failed" 2>/dev/null || true
+              gh issue create --repo "$REPO" --label nightly-failed \
+                --title "Nightly Kit build failed" \
+                --body "The nightly build of main ($SHA) failed: $RUN_URL. fluxify-kit:nightly was not updated. This issue closes itself when a nightly build succeeds."
+            fi
+          elif [ "$BUILD" = "success" ] && [ -n "$open" ]; then
+            gh issue comment "$open" --repo "$REPO" --body "Fixed by $SHA: $RUN_URL"
+            gh issue close "$open" --repo "$REPO"
+          fi
+
   # ============================================================================
   # RELEASE — version tags only (v0.1.0-alpha.1, v1.2.3).
   #
@@ -382,7 +483,8 @@ jobs:
   build-and-push-release:
     # `detect-changes` is a dependency even though a release ignores its answer:
     # it decides whether the test jobs run at all, so a release that did not
-    # wait for it could publish behind a filter that errored.
+    # wait for it could publish behind a filter that errored. `full` is true on a
+    # tag, so none of the test jobs is filtered out.
     needs: [detect-changes, lint, helm-chart, test-packages-lib, test-packages-blocks, test-packages-adapters, test-e2e-graphs, test-apps-server-unit, test-apps-server-integration, test-apps-portal, test-apps-ai-gateway]
     # No `always()`, and deliberately not the `!contains(needs.*.result, 'failure')`
     # form the nightly job uses: that one counts a SKIPPED job as fine, which is

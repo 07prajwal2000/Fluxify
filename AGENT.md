@@ -169,6 +169,7 @@ The pre-commit hook runs `fta-cli --score-cap 70`, which **fails the commit** fo
 2. **Added or removed `@fluxify/*` dependency**: update the filters of every job that depends on that package.
 3. **Renamed or moved workspace dir**: update the filters and `GATES`.
 Never edit a filter to silence the check without confirming the dependency really changed.
+**Other `ci.yml` rules:** every job with no `needs` carries `if: github.repository_owner == 'Fluxify-rest'`, so forks never run CI (jobs that `need` it skip with it). A deployment (release tag, nightly Kit build) must see every test job `success`: never use `always()` or `!contains(needs.*.result, 'failure')` on it, because those let a skipped job pass.
 
 ---
 
