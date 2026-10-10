@@ -248,7 +248,7 @@ test("get_canvas draws the canvas read-only; a compact read stays a plain list",
 	await until(() =>
 		expect(view.container.querySelector('[data-block-key="response_1"]')).not.toBeNull(),
 	);
-	expect(view.container.textContent).toContain("Double-click a block for its settings");
+	expect(view.container.textContent).not.toContain("Double-click");
 	view.unmount();
 
 	const compact = show({

@@ -88,7 +88,7 @@ export default function CanvasDiffGraph({
 	diff: CanvasDiff;
 	selected?: string;
 	onSelect: (key: string) => void;
-	/** Room for the block settings panel, opened by a double click. */
+	/** The block settings panel, opened from a block's hover menu; the canvas is taller to fit it. */
 	panel?: boolean;
 }) {
 	const graph = useMemo(() => toGraph(diff), [diff]);

@@ -159,3 +159,16 @@ test("the touched blocks sit in a fold and there is no zoom bar", async () => {
 	fireEvent.click(view.container.querySelector('[data-block-key="db_insert_1"]') as Element);
 	await until(() => expect(fold.open).toBe(true));
 });
+
+test("a canvas read in full has the block settings panel; one built from ops alone has none", async () => {
+	const whole = show(diff);
+	await until(() =>
+		expect(whole.container.querySelector('aside[aria-label="Block settings"]')).not.toBeNull(),
+	);
+	whole.unmount();
+	const ops = show({ ...diff, partial: true });
+	await until(() =>
+		expect(ops.container.querySelector('[data-block-key="response_1"]')).not.toBeNull(),
+	);
+	expect(ops.container.querySelector('aside[aria-label="Block settings"]')).toBeNull();
+});
