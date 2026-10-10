@@ -109,6 +109,14 @@ production database, queues and consumer groups. Turn it on only for values that
 are safe to share.
 :::
 
+### In the portal
+
+In the portal's App Config modals (both create and edit):
+- **Production value**: The configuration value applied to production workers.
+- **Same as production**: A checkbox toggle. When checked, the development value field is hidden and replaced with the red danger warning reminding you that dev runs and agents will use production resources.
+- **Missing development value hint**: When "Same as production" is unchecked and development value is empty, an inline hint warns: *Dev workers will fail until you set a development value or turn on Same as production.*
+- **Secret masking**: Encrypted keys display masked asterisks in both production and development fields.
+
 ## Updating a value safely
 
 You can update an entry's value and supporting metadata without changing its key. App Config changes are published to the running application so route workers and integrations can receive the refreshed project configuration.

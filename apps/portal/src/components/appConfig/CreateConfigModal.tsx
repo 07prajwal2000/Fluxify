@@ -10,7 +10,7 @@ import {
 	toast,
 } from "@fluxify/components";
 import { useState } from "react";
-import { TbBraces, TbPlus } from "react-icons/tb";
+import { TbAlertTriangle, TbBraces, TbPlus } from "react-icons/tb";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { appConfigQuery } from "@/query/appConfigQuery";
 
@@ -50,6 +50,9 @@ export function CreateConfigButton({
 	const [description, setDescription] = useState("");
 	const [value, setValue] = useState("");
 	const [booleanValue, setBooleanValue] = useState(false);
+	const [devValue, setDevValue] = useState("");
+	const [devBooleanValue, setDevBooleanValue] = useState<boolean | null>(null);
+	const [syncDev, setSyncDev] = useState(false);
 	const [dataType, setDataType] = useState<(typeof DATA_TYPES)[number]>("string");
 	const [isEncrypted, setIsEncrypted] = useState(false);
 	const [encoding, setEncoding] = useState<(typeof ENCODINGS)[number]>("plaintext");
@@ -59,6 +62,9 @@ export function CreateConfigButton({
 		setDescription("");
 		setValue("");
 		setBooleanValue(false);
+		setDevValue("");
+		setDevBooleanValue(null);
+		setSyncDev(false);
 		setDataType("string");
 		setIsEncrypted(false);
 		setEncoding("plaintext");
@@ -67,12 +73,22 @@ export function CreateConfigButton({
 	function submit(e: React.FormEvent) {
 		e.preventDefault();
 		const finalValue = dataType === "boolean" ? String(booleanValue) : String(value);
+		let finalDevValue: string | null = null;
+		if (!syncDev) {
+			if (dataType === "boolean") {
+				finalDevValue = devBooleanValue !== null ? String(devBooleanValue) : null;
+			} else {
+				finalDevValue = devValue.trim() !== "" ? devValue : null;
+			}
+		}
 
 		create.mutate(
 			{
 				keyName,
 				description,
 				value: finalValue,
+				devValue: syncDev ? null : finalDevValue,
+				syncDev,
 				isEncrypted,
 				encodingType: encoding,
 				dataType,
@@ -88,6 +104,8 @@ export function CreateConfigButton({
 		);
 	}
 
+	const devEmpty = dataType === "boolean" ? devBooleanValue === null : devValue.trim() === "";
+
 	return (
 		<Modal isOpen={open} onOpenChange={setOpen}>
 			{!controlled && (
@@ -99,13 +117,13 @@ export function CreateConfigButton({
 			)}
 			<Modal.Backdrop>
 				<Modal.Container placement="center" scroll="inside" size="lg">
-					<Modal.Dialog>
-						<Modal.Header className="flex flex-row items-center justify-between">
+					<Modal.Dialog className="max-h-[90vh] sm:max-h-[85vh]">
+						<Modal.Header className="flex flex-row items-center justify-between shrink-0">
 							<Modal.Heading>Add a config key</Modal.Heading>
 							<CloseButton />
 						</Modal.Header>
-						<form onSubmit={submit}>
-							<Modal.Body>
+						<form onSubmit={submit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+							<Modal.Body className="overflow-y-auto pr-1">
 								<div className="flex flex-col gap-4 pt-2">
 									<div className="flex flex-col gap-1">
 										<TextField isRequired value={keyName} onChange={setKeyName}>
@@ -131,8 +149,13 @@ export function CreateConfigButton({
 											value={dataType}
 											onChange={(dt) => {
 												setDataType(dt as any);
-												if (dt === "boolean") setBooleanValue(false);
-												else setValue("");
+												if (dt === "boolean") {
+													setBooleanValue(false);
+													setDevBooleanValue(null);
+												} else {
+													setValue("");
+													setDevValue("");
+												}
 											}}
 										/>
 
@@ -149,8 +172,10 @@ export function CreateConfigButton({
 
 									{dataType === "boolean" ? (
 										<div className="flex flex-col gap-1 mt-2">
-											<Label className="text-sm font-medium text-foreground">Value</Label>
-											<div className="rounded-lg border border-border p-2 bg-surface-50/50">
+											<Label className="text-sm font-medium text-foreground">
+												Production value
+											</Label>
+											<div className="rounded-lg border border-border p-2 bg-surface">
 												<Checkbox isSelected={booleanValue} onChange={setBooleanValue}>
 													<Checkbox.Content>
 														<Checkbox.Control>
@@ -164,7 +189,7 @@ export function CreateConfigButton({
 									) : (
 										<div className="mt-2">
 											<TextField isRequired value={value} onChange={setValue}>
-												<Label>Value</Label>
+												<Label>Production value</Label>
 												<Input
 													type={dataType === "number" ? "number" : "text"}
 													placeholder={dataType === "number" ? "3000" : "Value"}
@@ -174,6 +199,81 @@ export function CreateConfigButton({
 										</div>
 									)}
 
+									<div className="flex flex-col gap-3 mt-2 rounded-lg border border-border p-3 bg-surface">
+										<Checkbox
+											isSelected={syncDev}
+											onChange={setSyncDev}
+											aria-label="Same as production"
+										>
+											<Checkbox.Content>
+												<Checkbox.Control>
+													<Checkbox.Indicator />
+												</Checkbox.Control>
+												<Label className="text-sm font-medium text-foreground cursor-pointer">
+													Same as production
+												</Label>
+											</Checkbox.Content>
+										</Checkbox>
+
+										{syncDev ? (
+											<div
+												role="alert"
+												className="rounded-xl border border-danger/30 bg-danger/10 p-4 text-danger"
+											>
+												<div className="flex items-start gap-3">
+													<TbAlertTriangle size={20} className="shrink-0 mt-0.5 text-danger" />
+													<div className="text-sm">
+														<p className="font-semibold text-danger">Same as production</p>
+														<p className="mt-1 text-xs text-danger/90">
+															Dev runs, dev triggers and AI agents will read and write production —
+															same database, same queues, same consumer groups. Use separate dev
+															instances instead.
+														</p>
+													</div>
+												</div>
+											</div>
+										) : (
+											<div className="flex flex-col gap-2 pt-1">
+												{devEmpty && (
+													<p className="text-xs text-warning">
+														Dev workers will fail until you set a development value or turn on Same
+														as production.
+													</p>
+												)}
+												{dataType === "boolean" ? (
+													<CustomSelect
+														label={
+															<span className="text-sm font-medium text-foreground">
+																Development value
+															</span>
+														}
+														options={[
+															{ value: "", label: "Unset" },
+															{ value: "true", label: "True" },
+															{ value: "false", label: "False" },
+														]}
+														value={
+															devBooleanValue === null ? "" : devBooleanValue ? "true" : "false"
+														}
+														onChange={(v) => {
+															if (v === "") setDevBooleanValue(null);
+															else setDevBooleanValue(v === "true");
+														}}
+													/>
+												) : (
+													<TextField value={devValue} onChange={setDevValue}>
+														<Label>Development value</Label>
+														<Input
+															type={dataType === "number" ? "number" : "text"}
+															placeholder={dataType === "number" ? "3000" : "Development value"}
+															className="font-mono"
+														/>
+													</TextField>
+												)}
+											</div>
+										)}
+									</div>
+
 									<div className="mt-2">
 										<TextField value={description} onChange={setDescription}>
 											<Label>Description</Label>
@@ -181,7 +281,7 @@ export function CreateConfigButton({
 										</TextField>
 									</div>
 
-									<div className="mt-2 rounded-lg border border-border p-3 bg-surface-50/50">
+									<div className="mt-2 rounded-lg border border-border p-3 bg-surface">
 										<Checkbox isSelected={isEncrypted} onChange={setIsEncrypted}>
 											<Checkbox.Content>
 												<Checkbox.Control>
@@ -193,7 +293,7 @@ export function CreateConfigButton({
 									</div>
 								</div>
 							</Modal.Body>
-							<Modal.Footer>
+							<Modal.Footer className="shrink-0 pt-4">
 								<Button variant="ghost" onPress={() => setOpen(false)}>
 									Cancel
 								</Button>

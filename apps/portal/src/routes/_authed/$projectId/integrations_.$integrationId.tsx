@@ -7,12 +7,17 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { TbArrowLeft, TbBolt, TbCloudCog } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
-import { ConnectorFields, setPath } from "@/components/integrations/ConnectorFields";
+import { setPath } from "@/components/integrations/ConnectorFields";
+import {
+	EnvironmentIntegrationFields,
+	isConfigEmpty,
+} from "@/components/integrations/EnvironmentIntegrationFields";
 import { showTestResult } from "@/components/integrations/showTestResult";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
 import { integrationsQuery } from "@/query/integrationsQuery";
 import { projectsQuery } from "@/query/projectsQuery";
+import { useCanEditProject } from "@/store/auth";
 
 export const Route = createFileRoute("/_authed/$projectId/integrations_/$integrationId")({
 	head: createRouteHead("Integration", "View and edit an integration's connection details."),
@@ -25,20 +30,26 @@ function IntegrationDetailsPage() {
 	const loaded = integrationsQuery.getById.useQuery(projectId, integrationId);
 	usePageTitle(formatProjectTitle(project?.name, loaded.data?.name ?? "Integration"));
 	const navigate = useNavigate();
+	const canEdit = useCanEditProject(projectId);
 	const update = integrationsQuery.update.mutation(projectId);
 	const test = integrationsQuery.testConnection.mutation(projectId);
+	const testProd = integrationsQuery.testProductionConnection.mutation(projectId);
 	const remove = integrationsQuery.remove.mutation(projectId);
 
 	const [name, setName] = useState("");
 	// null until the saved config is in: a form mounted on an empty config would
 	// seed its tabs and modes from nothing (URL vs credentials, NATS login)
 	const [config, setConfig] = useState<Record<string, unknown> | null>(null);
+	const [devConfig, setDevConfig] = useState<Record<string, unknown> | null>(null);
+	const [syncDev, setSyncDev] = useState(false);
 	const [confirmDelete, setConfirmDelete] = useState(false);
 
 	useEffect(() => {
 		if (!loaded.data) return;
 		setName(loaded.data.name);
 		setConfig(loaded.data.config as Record<string, unknown>);
+		setDevConfig((loaded.data.devConfig as Record<string, unknown>) ?? null);
+		setSyncDev(Boolean(loaded.data.syncDev));
 	}, [loaded.data]);
 
 	const group = loaded.data?.group ?? "";
@@ -55,8 +66,8 @@ function IntegrationDetailsPage() {
 	if (!loaded.data || !config)
 		return <p className="py-16 text-center text-muted">Couldn't load this integration.</p>;
 
-	function parseConfig() {
-		const parsed = getSchema(group as never, variant as never)?.safeParse(config);
+	function parseConfig(cfg: Record<string, unknown> | null) {
+		const parsed = getSchema(group as never, variant as never)?.safeParse(cfg);
 		if (!parsed) toast.danger("Invalid connector selection");
 		else if (!parsed.success)
 			toast.danger(parsed.error.issues[0]?.message ?? "Invalid configuration");
@@ -65,10 +76,23 @@ function IntegrationDetailsPage() {
 
 	function save() {
 		if (!name.trim()) return toast.danger("Name is required");
-		const parsed = parseConfig();
+		const parsed = parseConfig(config);
 		if (!parsed) return;
+		let parsedDev: unknown = null;
+		if (!syncDev && devConfig && !isConfigEmpty(devConfig)) {
+			parsedDev = parseConfig(devConfig);
+			if (!parsedDev) return;
+		}
 		update.mutate(
-			{ id: integrationId, data: { name, config: parsed } as never },
+			{
+				id: integrationId,
+				data: {
+					name,
+					config: parsed,
+					devConfig: syncDev ? null : parsedDev,
+					syncDev,
+				} as never,
+			},
 			{
 				onSuccess: () => toast.success("Integration updated"),
 				onError: (e) => showErrorNotification(e as Error),
@@ -77,12 +101,26 @@ function IntegrationDetailsPage() {
 	}
 
 	function testConnection() {
-		const parsed = parseConfig();
+		const toTest = syncDev ? config : devConfig;
+		if (!syncDev && isConfigEmpty(toTest)) {
+			toast.danger(
+				"Dev workers will fail until you set a development value or turn on Same as production.",
+			);
+			return;
+		}
+		const parsed = parseConfig(toTest);
 		if (!parsed) return;
 		test.mutate(
 			{ group, variant, config: parsed },
 			{ onSuccess: showTestResult, onError: (e) => showErrorNotification(e as Error) },
 		);
+	}
+
+	function testProduction() {
+		testProd.mutate(integrationId, {
+			onSuccess: showTestResult,
+			onError: (e) => showErrorNotification(e as Error),
+		});
 	}
 
 	return (
@@ -105,12 +143,16 @@ function IntegrationDetailsPage() {
 			</div>
 
 			<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain border-t border-border pt-4 pr-1">
-				<ConnectorFields
+				<EnvironmentIntegrationFields
 					projectId={projectId}
 					name={name}
 					onName={setName}
 					config={config}
 					setField={(path, value) => setConfig((c) => c && setPath(c, path, value))}
+					devConfig={devConfig}
+					setDevField={(path, value) => setDevConfig((c) => setPath(c ?? {}, path, value))}
+					syncDev={syncDev}
+					onSyncDevChange={setSyncDev}
 					group={group}
 					variant={variant}
 				/>
@@ -131,6 +173,18 @@ function IntegrationDetailsPage() {
 						<TbBolt size={14} className="text-accent" />
 						<span>Test connection</span>
 					</Button>
+					{canEdit && (
+						<Button
+							variant="outline"
+							size="sm"
+							isPending={testProd.isPending}
+							onPress={testProduction}
+							className="whitespace-nowrap"
+						>
+							<TbBolt size={14} className="text-accent" />
+							<span>Test production credentials</span>
+						</Button>
+					)}
 					<Button variant="primary" size="sm" isPending={update.isPending} onPress={save}>
 						Save changes
 					</Button>

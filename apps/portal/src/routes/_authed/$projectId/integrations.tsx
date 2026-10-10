@@ -5,7 +5,6 @@ import { FaRobot, FaTableList } from "react-icons/fa6";
 import { LuServerCrash } from "react-icons/lu";
 import {
 	TbArrowsExchange,
-	TbBolt,
 	TbBook,
 	TbCloudCog,
 	TbDatabase,
@@ -15,8 +14,7 @@ import {
 	TbPlugConnected,
 } from "react-icons/tb";
 import { z } from "zod";
-import { showTestResult } from "@/components/integrations/showTestResult";
-import { showErrorNotification } from "@/lib/errorNotifier";
+import { IntegrationTestButtons } from "@/components/integrations/IntegrationTestButtons";
 import { createDynamicRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
 import { integrationsQuery } from "@/query/integrationsQuery";
 import { projectsQuery } from "@/query/projectsQuery";
@@ -172,7 +170,6 @@ function IntegrationsPage() {
 function IntegrationsList({ projectId, group }: { projectId: string; group: string }) {
 	const navigate = useNavigate();
 	const { data, isLoading, isError } = integrationsQuery.getAll.useQuery(projectId, group);
-	const test = integrationsQuery.testExistingConnection.mutation(projectId);
 	const openIntegration = (integrationId: string) =>
 		navigate({
 			to: "/$projectId/integrations/$integrationId",
@@ -232,21 +229,7 @@ function IntegrationsList({ projectId, group }: { projectId: string; group: stri
 						<span className="rounded-full border border-border bg-surface-secondary px-2.5 py-1 text-[11px] font-mono text-muted">
 							ID: {integration.id.slice(0, 8)}
 						</span>
-						<Button
-							variant="outline"
-							size="sm"
-							isPending={test.isPending && test.variables === integration.id}
-							onPress={() =>
-								test.mutate(integration.id, {
-									onSuccess: showTestResult,
-									onError: (e) => showErrorNotification(e as Error),
-								})
-							}
-							className="whitespace-nowrap"
-						>
-							<TbBolt size={14} className="text-accent" />
-							<span>Test connection</span>
-						</Button>
+						<IntegrationTestButtons projectId={projectId} integrationId={integration.id} />
 					</div>
 				</div>
 			))}

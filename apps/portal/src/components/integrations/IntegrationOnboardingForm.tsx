@@ -22,7 +22,8 @@ import {
 import { EnterpriseGate, useEnterprise } from "@/components/common/Enterprise";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { integrationsQuery } from "@/query/integrationsQuery";
-import { ConnectorFields, setPath } from "./ConnectorFields";
+import { setPath } from "./ConnectorFields";
+import { EnvironmentIntegrationFields, isConfigEmpty } from "./EnvironmentIntegrationFields";
 import { showTestResult } from "./showTestResult";
 
 type Step = 1 | 2 | 3;
@@ -92,10 +93,17 @@ export function IntegrationOnboardingForm({
 	);
 	const [name, setName] = useState("");
 	const [config, setConfig] = useState(defaults);
+	const [devConfig, setDevConfig] = useState<Record<string, unknown> | null>(null);
+	const [syncDev, setSyncDev] = useState(false);
 	const [query, setQuery] = useState("");
 	const saved = useRef(false);
 
-	const dirty = step === 3 && (name !== "" || JSON.stringify(config) !== JSON.stringify(defaults));
+	const dirty =
+		step === 3 &&
+		(name !== "" ||
+			JSON.stringify(config) !== JSON.stringify(defaults) ||
+			devConfig !== null ||
+			syncDev !== false);
 	// Any navigation from a dirty step 3 drops the typed fields: leaving the
 	// page, or stepping back (which changes the search params and remounts).
 	useBlocker({
@@ -152,12 +160,19 @@ export function IntegrationOnboardingForm({
 	}
 
 	function testIntegration() {
+		const toTest = syncDev ? config : devConfig;
+		if (!syncDev && isConfigEmpty(toTest)) {
+			toast.danger(
+				"Dev workers will fail until you set a development value or turn on Same as production.",
+			);
+			return;
+		}
 		const schema = getSchema(group as never, variant as never);
 		if (!schema) {
 			toast.danger("Invalid connector selection");
 			return;
 		}
-		const parsed = schema.safeParse(config);
+		const parsed = schema.safeParse(toTest);
 		if (!parsed.success) {
 			toast.danger(parsed.error.issues[0]?.message ?? "Invalid configuration");
 			return;
@@ -183,18 +198,38 @@ export function IntegrationOnboardingForm({
 			toast.danger(parsed.error.issues[0]?.message ?? "Invalid configuration");
 			return;
 		}
+		let parsedDev: unknown = null;
+		if (!syncDev && devConfig && !isConfigEmpty(devConfig)) {
+			const parsedDevResult = schema.safeParse(devConfig);
+			if (!parsedDevResult.success) {
+				toast.danger(
+					parsedDevResult.error.issues[0]?.message ?? "Invalid development configuration",
+				);
+				return;
+			}
+			parsedDev = parsedDevResult.data;
+		}
 
-		create.mutate({ name, group, variant, config: parsed.data } as never, {
-			onSuccess: ({ id }) => {
-				toast.success("Integration connected");
-				saved.current = true;
-				onSaved({ id, group });
+		create.mutate(
+			{
+				name,
+				group,
+				variant,
+				config: parsed.data,
+				devConfig: syncDev ? null : parsedDev,
+				syncDev,
+			} as never,
+			{
+				onSuccess: ({ id }) => {
+					toast.success("Integration connected");
+					saved.current = true;
+					onSaved({ id, group });
+				},
+				onError: (error) => showErrorNotification(error as Error),
 			},
-			onError: (error) => showErrorNotification(error as Error),
-		});
+		);
 	}
 
-	const formProps = { projectId, name, onName: setName, config, setField };
 	const groupName = group
 		? humanReadableConnectorNames[group as keyof typeof humanReadableConnectorNames]
 		: "";
@@ -384,7 +419,19 @@ export function IntegrationOnboardingForm({
 						</p>
 
 						<div className={cn("mt-4", locked && "hidden")}>
-							<ConnectorFields {...formProps} group={group} variant={variant} />
+							<EnvironmentIntegrationFields
+								projectId={projectId}
+								group={group}
+								variant={variant}
+								name={name}
+								onName={setName}
+								config={config}
+								setField={setField}
+								devConfig={devConfig}
+								setDevField={(path, value) => setDevConfig((c) => setPath(c ?? {}, path, value))}
+								syncDev={syncDev}
+								onSyncDevChange={setSyncDev}
+							/>
 						</div>
 						{locked && (
 							<EnterpriseGate className="mt-4">

@@ -41,6 +41,7 @@ export function ObservabilityForm({
 	onName,
 	config,
 	setField,
+	hideName = false,
 	namePlaceholder,
 	baseUrlPlaceholder,
 	baseUrlDescription,
@@ -62,20 +63,22 @@ export function ObservabilityForm({
 
 	return (
 		<div className="flex flex-col gap-3.5">
-			<div className="flex flex-col gap-1">
-				<label
-					htmlFor="observability-integration-name"
-					className="text-xs font-medium text-foreground"
-				>
-					Integration Name <span className="text-danger">*</span>
-				</label>
-				<Input
-					id="observability-integration-name"
-					value={name}
-					onChange={(e) => onName(e.currentTarget.value)}
-					placeholder={namePlaceholder}
-				/>
-			</div>
+			{!hideName && (
+				<div className="flex flex-col gap-1">
+					<label
+						htmlFor="observability-integration-name"
+						className="text-xs font-medium text-foreground"
+					>
+						Integration Name <span className="text-danger">*</span>
+					</label>
+					<Input
+						id="observability-integration-name"
+						value={name}
+						onChange={(e) => onName(e.currentTarget.value)}
+						placeholder={namePlaceholder}
+					/>
+				</div>
+			)}
 
 			{supportsGrpc && (
 				<div className="flex flex-col gap-1">

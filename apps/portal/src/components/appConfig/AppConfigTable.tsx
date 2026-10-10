@@ -85,6 +85,7 @@ export function AppConfigTable({
 								(sortOrder === "asc" ? <TbArrowUp size={14} /> : <TbArrowDown size={14} />)}
 						</div>
 					</Table.Column>
+					<Table.Column id="development">Development</Table.Column>
 					<Table.Column id="updatedAt">
 						<div
 							role="button"
@@ -135,6 +136,21 @@ export function AppConfigTable({
 								<Chip size="sm" className="uppercase font-mono text-xs">
 									{row.encodingType}
 								</Chip>
+							</Table.Cell>
+							<Table.Cell>
+								{row.syncDev ? (
+									<Chip size="sm" color="danger">
+										Same as prod
+									</Chip>
+								) : row.hasDevValue ? (
+									<Chip size="sm" color="success">
+										Dev value
+									</Chip>
+								) : (
+									<Chip size="sm" color="warning">
+										Missing
+									</Chip>
+								)}
 							</Table.Cell>
 							<Table.Cell>
 								<span className="text-xs text-muted">

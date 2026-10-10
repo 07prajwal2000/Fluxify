@@ -4,6 +4,8 @@ export type ConfigRow = {
 	isEncrypted: boolean;
 	encodingType: "plaintext" | "base64" | "hex";
 	dataType: "string" | "number" | "boolean";
+	hasDevValue?: boolean;
+	syncDev?: boolean;
 	createdAt: string;
 	updatedAt: string;
 };

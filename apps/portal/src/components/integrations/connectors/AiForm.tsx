@@ -9,21 +9,24 @@ export function AiForm({
 	onName,
 	config,
 	setField,
+	hideName = false,
 	showBaseUrl = false,
 }: ConnectorFormProps & { showBaseUrl?: boolean }) {
 	return (
 		<div className="flex flex-col gap-3.5">
-			<div className="flex flex-col gap-1">
-				<label htmlFor="ai-integration-name" className="text-xs font-medium text-foreground">
-					Integration Name <span className="text-danger">*</span>
-				</label>
-				<Input
-					id="ai-integration-name"
-					value={name}
-					onChange={(e) => onName(e.currentTarget.value)}
-					placeholder="e.g. Production OpenAI"
-				/>
-			</div>
+			{!hideName && (
+				<div className="flex flex-col gap-1">
+					<label htmlFor="ai-integration-name" className="text-xs font-medium text-foreground">
+						Integration Name <span className="text-danger">*</span>
+					</label>
+					<Input
+						id="ai-integration-name"
+						value={name}
+						onChange={(e) => onName(e.currentTarget.value)}
+						placeholder="e.g. Production OpenAI"
+					/>
+				</div>
+			)}
 
 			{showBaseUrl && (
 				<AppConfigSelector

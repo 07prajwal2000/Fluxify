@@ -11,7 +11,7 @@ import {
 	toast,
 } from "@fluxify/components";
 import { useEffect, useState } from "react";
-import { TbBraces, TbLock } from "react-icons/tb";
+import { TbAlertTriangle, TbBraces, TbLock } from "react-icons/tb";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { appConfigQuery } from "@/query/appConfigQuery";
 import type { ConfigRow } from "./types";
@@ -39,6 +39,9 @@ export function EditConfigModal({
 	const [description, setDescription] = useState("");
 	const [value, setValue] = useState("");
 	const [booleanValue, setBooleanValue] = useState(false);
+	const [devValue, setDevValue] = useState("");
+	const [devBooleanValue, setDevBooleanValue] = useState<boolean | null>(null);
+	const [syncDev, setSyncDev] = useState(false);
 	const [isEncrypted, setIsEncrypted] = useState(config.isEncrypted);
 	const [encoding, setEncoding] = useState<(typeof ENCODINGS)[number]>(config.encodingType);
 
@@ -47,10 +50,17 @@ export function EditConfigModal({
 			setDescription(detail.description || "");
 			setIsEncrypted(detail.isEncrypted);
 			setEncoding(detail.encodingType);
+			setSyncDev(Boolean(detail.syncDev));
 			if (detail.dataType === "boolean") {
 				setBooleanValue(detail.value === "true");
+				if (detail.devValue !== null && detail.devValue !== undefined) {
+					setDevBooleanValue(detail.devValue === "true");
+				} else {
+					setDevBooleanValue(null);
+				}
 			} else {
 				setValue(String(detail.value ?? ""));
+				setDevValue(detail.devValue ?? "");
 			}
 		}
 	}, [detail]);
@@ -59,11 +69,32 @@ export function EditConfigModal({
 		e.preventDefault();
 		const finalValue = config.dataType === "boolean" ? String(booleanValue) : String(value);
 
+		// If encrypted and unchanged, omit value so the server preserves the stored ciphertext
+		const valueUnchanged = detail?.isEncrypted && finalValue === detail?.value;
+
+		let finalDevValue: string | null | undefined;
+		if (syncDev) {
+			finalDevValue = null;
+		} else if (config.dataType === "boolean") {
+			finalDevValue = devBooleanValue !== null ? String(devBooleanValue) : null;
+		} else {
+			if (devValue.trim() === "") {
+				finalDevValue = null;
+			} else if (detail?.isEncrypted && devValue === detail?.devValue) {
+				// Encrypted dev secret unchanged -> omit devValue
+				finalDevValue = undefined;
+			} else {
+				finalDevValue = devValue;
+			}
+		}
+
 		update.mutate(
 			{
 				keyName: config.keyName,
 				description,
-				value: finalValue,
+				value: valueUnchanged ? undefined : finalValue,
+				devValue: finalDevValue,
+				syncDev,
 				isEncrypted,
 				encodingType: encoding,
 			},
@@ -77,12 +108,15 @@ export function EditConfigModal({
 		);
 	}
 
+	const devEmpty =
+		config.dataType === "boolean" ? devBooleanValue === null : devValue.trim() === "";
+
 	return (
 		<Modal isOpen onOpenChange={(o) => !o && onClose()}>
 			<Modal.Backdrop>
 				<Modal.Container placement="center" scroll="inside" size="lg">
-					<Modal.Dialog>
-						<Modal.Header className="flex flex-row items-center justify-between">
+					<Modal.Dialog className="max-h-[90vh] sm:max-h-[85vh]">
+						<Modal.Header className="flex flex-row items-center justify-between shrink-0">
 							<Modal.Heading>Edit config key</Modal.Heading>
 							<CloseButton onPress={onClose} />
 						</Modal.Header>
@@ -91,8 +125,8 @@ export function EditConfigModal({
 								<Spinner />
 							</div>
 						) : (
-							<form onSubmit={submit}>
-								<Modal.Body>
+							<form onSubmit={submit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+								<Modal.Body className="overflow-y-auto pr-1">
 									<div className="flex flex-col gap-4 pt-2">
 										<div className="flex flex-col gap-1">
 											<TextField value={config.keyName} isDisabled>
@@ -135,8 +169,10 @@ export function EditConfigModal({
 
 										{config.dataType === "boolean" ? (
 											<div className="flex flex-col gap-1 mt-2">
-												<Label className="text-sm font-medium text-foreground">Value</Label>
-												<div className="rounded-lg border border-border p-2 bg-surface-50/50">
+												<Label className="text-sm font-medium text-foreground">
+													Production value
+												</Label>
+												<div className="rounded-lg border border-border p-2 bg-surface">
 													<Checkbox isSelected={booleanValue} onChange={setBooleanValue}>
 														<Checkbox.Content>
 															<Checkbox.Control>
@@ -150,7 +186,7 @@ export function EditConfigModal({
 										) : (
 											<div className="mt-2">
 												<TextField isRequired value={value} onChange={setValue}>
-													<Label>Value</Label>
+													<Label>Production value</Label>
 													<Input
 														type={config.dataType === "number" ? "number" : "text"}
 														className="font-mono"
@@ -159,6 +195,80 @@ export function EditConfigModal({
 											</div>
 										)}
 
+										<div className="flex flex-col gap-3 mt-2 rounded-lg border border-border p-3 bg-surface">
+											<Checkbox
+												isSelected={syncDev}
+												onChange={setSyncDev}
+												aria-label="Same as production"
+											>
+												<Checkbox.Content>
+													<Checkbox.Control>
+														<Checkbox.Indicator />
+													</Checkbox.Control>
+													<Label className="text-sm font-medium text-foreground cursor-pointer">
+														Same as production
+													</Label>
+												</Checkbox.Content>
+											</Checkbox>
+
+											{syncDev ? (
+												<div
+													role="alert"
+													className="rounded-xl border border-danger/30 bg-danger/10 p-4 text-danger"
+												>
+													<div className="flex items-start gap-3">
+														<TbAlertTriangle size={20} className="shrink-0 mt-0.5 text-danger" />
+														<div className="text-sm">
+															<p className="font-semibold text-danger">Same as production</p>
+															<p className="mt-1 text-xs text-danger/90">
+																Dev runs, dev triggers and AI agents will read and write production
+																— same database, same queues, same consumer groups. Use separate dev
+																instances instead.
+															</p>
+														</div>
+													</div>
+												</div>
+											) : (
+												<div className="flex flex-col gap-2 pt-1">
+													{devEmpty && (
+														<p className="text-xs text-warning">
+															Dev workers will fail until you set a development value or turn on
+															Same as production.
+														</p>
+													)}
+													{config.dataType === "boolean" ? (
+														<CustomSelect
+															label={
+																<span className="text-sm font-medium text-foreground">
+																	Development value
+																</span>
+															}
+															options={[
+																{ value: "", label: "Unset" },
+																{ value: "true", label: "True" },
+																{ value: "false", label: "False" },
+															]}
+															value={
+																devBooleanValue === null ? "" : devBooleanValue ? "true" : "false"
+															}
+															onChange={(v) => {
+																if (v === "") setDevBooleanValue(null);
+																else setDevBooleanValue(v === "true");
+															}}
+														/>
+													) : (
+														<TextField value={devValue} onChange={setDevValue}>
+															<Label>Development value</Label>
+															<Input
+																type={config.dataType === "number" ? "number" : "text"}
+																className="font-mono"
+															/>
+														</TextField>
+													)}
+												</div>
+											)}
+										</div>
+
 										<div className="mt-2">
 											<TextField value={description} onChange={setDescription}>
 												<Label>Description</Label>
@@ -166,7 +276,7 @@ export function EditConfigModal({
 											</TextField>
 										</div>
 
-										<div className="mt-2 rounded-lg border border-border p-3 bg-surface-50/50">
+										<div className="mt-2 rounded-lg border border-border p-3 bg-surface">
 											<Checkbox
 												isSelected={isEncrypted}
 												onChange={setIsEncrypted}
@@ -186,7 +296,7 @@ export function EditConfigModal({
 										</div>
 									</div>
 								</Modal.Body>
-								<Modal.Footer>
+								<Modal.Footer className="shrink-0 pt-4">
 									<Button variant="ghost" onPress={onClose}>
 										Cancel
 									</Button>
