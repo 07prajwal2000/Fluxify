@@ -247,7 +247,11 @@ export async function compileRoute(routeId: string) {
 	let source: string;
 	try {
 		({ source } = compileOrThrow(resource, () =>
-			compileGraph(blocks, edges, { dependencies, tracing: wantsSpans(route) }),
+			compileGraph(blocks, edges, {
+				projectId: route.projectId!,
+				dependencies,
+				tracing: wantsSpans(route),
+			}),
 		));
 	} catch (error) {
 		return recordFailure(error);
@@ -335,6 +339,7 @@ export async function compileWorkflow(workflowId: string) {
 		({ source } = compileOrThrow(resource, () =>
 			compileGraph(blocks, edges, {
 				asWorkflow: true,
+				projectId: workflow.projectId!,
 				dependencies,
 				tracing: wantsSpans(workflow),
 			}),
@@ -368,20 +373,20 @@ export async function dropWorkflow(projectId: string, workflowId: string) {
 /** custom blocks being compiled right now — see `ensureCustomBlocksRegistered` */
 const inFlight = new Set<string>();
 /** what each custom block id is registered as, so a rename or delete can undo it */
-const registeredNames = new Map<string, string>();
+const registeredNames = new Map<string, { projectId: string; name: string }>();
 
-function registerLocally(id: string, name: string, source: string) {
+function registerLocally(id: string, projectId: string, name: string, source: string) {
 	const previous = registeredNames.get(id);
 	// a rename would otherwise leave the old name resolving to this block forever
-	if (previous && previous !== name) unregisterCustomBlock(previous);
-	registerCompiledCustomBlock(name, source);
-	registeredNames.set(id, name);
+	if (previous && previous.name !== name) unregisterCustomBlock(projectId, previous.name);
+	registerCompiledCustomBlock(projectId, name, source);
+	registeredNames.set(id, { projectId, name });
 }
 
 function unregisterLocally(id: string) {
-	const name = registeredNames.get(id);
-	if (!name) return;
-	unregisterCustomBlock(name);
+	const registered = registeredNames.get(id);
+	if (!registered) return;
+	unregisterCustomBlock(registered.projectId, registered.name);
 	registeredNames.delete(id);
 }
 
@@ -411,7 +416,7 @@ async function ensureCustomBlocksRegistered(projectId: string) {
 			),
 		);
 
-	let pending = rows.filter((row) => !hasCustomBlock(row.name) && !inFlight.has(row.id));
+	let pending = rows.filter((row) => !hasCustomBlock(projectId, row.name) && !inFlight.has(row.id));
 	while (pending.length > 0) {
 		const failed: typeof pending = [];
 		const errors = new Map<string, unknown>();
@@ -493,14 +498,18 @@ async function compileCustomBlockOrThrow(id: string) {
 		const dependencies = await compileDependencies(block.projectId!);
 		// `param:` placeholders resolve from the invocation, not from a caller's data
 		({ source } = compileOrThrow(resource, () =>
-			compileGraph(blocks, edges, { asCustomBlock: true, dependencies }),
+			compileGraph(blocks, edges, {
+				asCustomBlock: true,
+				projectId: block.projectId!,
+				dependencies,
+			}),
 		));
 	} finally {
 		inFlight.delete(id);
 	}
 	// the compiler is also a consumer of its own output: the next route to call
 	// this block resolves it from here
-	registerLocally(block.id, block.name, source);
+	registerLocally(block.id, block.projectId!, block.name, source);
 
 	const artifact: CustomBlockArtifact = {
 		id: block.id,

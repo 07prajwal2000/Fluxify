@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from "bun:test";
-import { compileGraph, instantiateCompiled } from "../../compiler";
+import { compileGraph as compileUnscoped, instantiateCompiled } from "../../compiler";
 import {
 	customBlockNames,
 	hasCustomBlock,
@@ -44,7 +44,8 @@ function createContext() {
  */
 function registerDoubler(name = "double_it") {
 	return registerCustomBlock(
-		name,
+		PROJECT,
+			name,
 		[
 			block("c1", BlockTypes.entrypoint),
 			block("c2", BlockTypes.jsrunner, {
@@ -56,16 +57,22 @@ function registerDoubler(name = "double_it") {
 	);
 }
 
+/** the project `createContext` runs in, which is where a caller resolves its blocks */
+const PROJECT = "proj-1";
+
+const compileGraph = (...[blocks, edges, options]: Parameters<typeof compileUnscoped>) =>
+	compileUnscoped(blocks, edges, { projectId: PROJECT, ...options });
+
 afterEach(() => {
-	for (const name of customBlockNames()) unregisterCustomBlock(name);
+	for (const name of customBlockNames(PROJECT)) unregisterCustomBlock(PROJECT, name);
 	setJobEnqueuer();
 });
 
 describe("compiled custom blocks", () => {
 	it("registers into the worker library and compiles callers to an invoke", () => {
-		expect(hasCustomBlock("double_it")).toBe(false);
+		expect(hasCustomBlock(PROJECT, "double_it")).toBe(false);
 		const source = registerDoubler();
-		expect(hasCustomBlock("double_it")).toBe(true);
+		expect(hasCustomBlock(PROJECT, "double_it")).toBe(true);
 		expect(source).toContain("calls");
 
 		const { source: callerSource } = compileGraph(
@@ -102,6 +109,7 @@ describe("compiled custom blocks", () => {
 
 	it("async invoke fires and moves on without taking the output", async () => {
 		registerCustomBlock(
+			PROJECT,
 			"slow_side_effect",
 			[
 				block("c1", BlockTypes.entrypoint),
@@ -139,6 +147,7 @@ describe("compiled custom blocks", () => {
 	// custom block vanish, and the route answered 200 with an undefined body.
 	it("propagates a sync invoke's failure to the caller's error handler", async () => {
 		registerCustomBlock(
+			PROJECT,
 			"rejects_token",
 			[
 				block("c1", BlockTypes.entrypoint),
@@ -171,6 +180,7 @@ describe("compiled custom blocks", () => {
 
 	it("a failing async invoke does not reject into the caller", async () => {
 		registerCustomBlock(
+			PROJECT,
 			"explodes",
 			[
 				block("c1", BlockTypes.entrypoint),
@@ -195,6 +205,7 @@ describe("compiled custom blocks", () => {
 
 	it("separates the configured params from the flowing input", async () => {
 		registerCustomBlock(
+			PROJECT,
 			"echo_params",
 			[
 				block("c1", BlockTypes.entrypoint),
@@ -225,6 +236,7 @@ describe("compiled custom blocks", () => {
 	it("keeps params visible further down the callee's graph", async () => {
 		// `input` becomes the previous block's output; `params` does not move
 		registerCustomBlock(
+			PROJECT,
 			"two_steps",
 			[
 				block("c1", BlockTypes.entrypoint),
@@ -252,6 +264,7 @@ describe("compiled custom blocks", () => {
 	it("resolves param: placeholders from the invocation, not the caller", async () => {
 		// compiled once for the whole worker, so a placeholder cannot be baked in
 		registerCustomBlock(
+			PROJECT,
 			"greet",
 			[
 				block("c1", BlockTypes.entrypoint),
@@ -333,11 +346,11 @@ describe("compiled custom blocks", () => {
 	it("registers already-compiled source without running the compiler", async () => {
 		// what a worker does: it receives JS from the artifact store, never a graph
 		const source = registerDoubler("shipped");
-		unregisterCustomBlock("shipped");
-		expect(hasCustomBlock("shipped")).toBe(false);
+		unregisterCustomBlock(PROJECT, "shipped");
+		expect(hasCustomBlock(PROJECT, "shipped")).toBe(false);
 
-		registerCompiledCustomBlock("shipped", source);
-		expect(hasCustomBlock("shipped")).toBe(true);
+		registerCompiledCustomBlock(PROJECT, "shipped", source);
+		expect(hasCustomBlock(PROJECT, "shipped")).toBe(true);
 
 		const { run } = compileGraph(
 			[
@@ -419,6 +432,7 @@ describe("compiled cloud logs", () => {
 		// the integration selector input param: the block picks `param:obs`, the
 		// caller picks the concrete integration id
 		registerCustomBlock(
+			PROJECT,
 			"audit",
 			[
 				block("c1", BlockTypes.entrypoint),
@@ -457,6 +471,7 @@ describe("compiled cloud logs", () => {
 		// the app config selector param carries the *key*: `authz` hands its own
 		// key to the `jwt` block it calls, and only the callee resolves it
 		registerCustomBlock(
+			PROJECT,
 			"jwt",
 			[
 				block("c1", BlockTypes.entrypoint),
@@ -467,6 +482,7 @@ describe("compiled cloud logs", () => {
 			[edge("c1", "c2")],
 		);
 		registerCustomBlock(
+			PROJECT,
 			"authz",
 			[
 				block("d1", BlockTypes.entrypoint),

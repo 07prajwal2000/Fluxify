@@ -1,0 +1,36 @@
+{
+	"name": "greeting",
+	"description": "Project A's 'greeting' block. Same name as the other project's, a different answer \u2014 and it records that it ran, so a call nobody awaits (async, queued) still leaves evidence of which block served it.",
+	"blocks": [
+		{
+			"id": "sca-entry",
+			"type": "entrypoint",
+			"position": {
+				"x": 0,
+				"y": 0
+			},
+			"data": {}
+		},
+		{
+			"id": "sca-say",
+			"type": "jsrunner",
+			"position": {
+				"x": 240,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Greet",
+				"value": "(globalThis.__scopedRuns ??= []).push(\"a\"); return \"from-a\";"
+			}
+		}
+	],
+	"edges": [
+		{
+			"id": "e1",
+			"from": "sca-entry",
+			"to": "sca-say",
+			"fromHandle": "source",
+			"toHandle": "source"
+		}
+	]
+}

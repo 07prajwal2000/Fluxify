@@ -3,6 +3,7 @@ import { loadCustomBlock, type GraphFixture } from "./graph";
 
 /**
  * Puts a fixture's custom blocks in the library before its route is compiled.
+ * They are the project's own: `projectId` is the one the route runs under.
  *
  * This is the same two-step the real compiler does — compile the blocks, then
  * the routes — because a route that calls a custom block only emits if the
@@ -12,12 +13,12 @@ import { loadCustomBlock, type GraphFixture } from "./graph";
  * Middleware blocks go in the same library: the worker looks them up by name
  * there too. `middlewares` is what the route artifact would carry.
  */
-export async function registerFixtureBlocks(fixture: GraphFixture) {
+export async function registerFixtureBlocks(fixture: GraphFixture, projectId: string) {
 	const registered: string[] = [];
 	const register = async (file: string) => {
 		const block = await loadCustomBlock(file);
 		// the file name stands in for the block's id, which a fixture does not have
-		registerCustomBlock(block.name, block.blocks, block.edges, file);
+		registerCustomBlock(projectId, block.name, block.blocks, block.edges, file);
 		registered.push(block.name);
 		// one middleware per file, its chain that one block
 		return { id: file, name: file, blocks: [block.name] };
@@ -33,7 +34,7 @@ export async function registerFixtureBlocks(fixture: GraphFixture) {
 	return {
 		middlewares,
 		dispose() {
-			for (const name of registered) unregisterCustomBlock(name);
+			for (const name of registered) unregisterCustomBlock(projectId, name);
 		},
 	};
 }

@@ -136,6 +136,7 @@ describe("compileGraph tracing and edge validation", () => {
 
 	it("scopes a custom block's spans to the block that invoked it", async () => {
 		registerCustomBlock(
+			"proj-1",
 			"scoped_block",
 			[
 				block("inner-entry", BlockTypes.entrypoint),
@@ -154,6 +155,7 @@ describe("compileGraph tracing and edge validation", () => {
 				block("invoke", "scoped_block" as BlockTypes, { value: 21, invoke: "sync" }),
 			],
 			[edge("entry", "invoke")],
+			{ projectId: "proj-1" },
 		);
 
 		await run(ctx, null);
@@ -163,7 +165,7 @@ describe("compileGraph tracing and edge validation", () => {
 		]);
 		// the nested graph's own blocks report too, so a trace can rebuild the tree
 		expect(spans.map((span) => span.blockId)).toContain("inner-double");
-		unregisterCustomBlock("scoped_block");
+		unregisterCustomBlock("proj-1", "scoped_block");
 	});
 
 	it("names spans after the block, ignoring the placeholder name", async () => {

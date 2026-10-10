@@ -13,6 +13,12 @@ export type GraphFixture = {
 	description: string;
 	/** which database the fixture's db blocks run against; defaults to Postgres */
 	engine?: Engine;
+	/**
+	 * The project the route belongs to; `e2e-project` when left out. Custom
+	 * blocks resolve per project, so a fixture that is one of two projects on the
+	 * same worker names its own.
+	 */
+	projectId?: string;
 	/** the `primary` connection's query timeout; the runtime default (30s) when left out */
 	queryTimeoutMs?: number;
 	/** the `primary` connection's pool size; the runtime default when left out */

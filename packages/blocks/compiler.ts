@@ -119,6 +119,11 @@ function buildEdgeMap(edges: EdgeDTOSchemaType): EdgesType {
 
 export type CompileOptions = {
 	/**
+	 * The project the graph belongs to. A block type that is not built in is a
+	 * custom block only if this project has one by that name; unset, none is.
+	 */
+	projectId?: string;
+	/**
 	 * The project's npm packages (#477). When set, a package import must be one
 	 * of them, and it resolves from the project's deps directory. Unset keeps the
 	 * old behaviour — plain `import(spec)` — for callers with no project.
@@ -192,6 +197,7 @@ export function compileGraph(
 		asWorkflow = false,
 		dependencies,
 		hooks = false,
+		projectId,
 		tracing = true,
 	}: CompileOptions = {},
 ) {
@@ -366,11 +372,12 @@ export function compileGraph(
 		if (!block) throw new Error(`Block not found: ${id}`);
 		// anything not built in is a custom block, resolved from the worker-global
 		// library it was compiled into rather than being inlined here
-		const emitter = hasCustomBlock(block.type)
-			? emitCustomBlock
-			: asWorkflow && block.type === BlockTypes.response
-				? emitWorkflowEnd
-				: emitters[block.type as BlockTypes];
+		const emitter =
+			projectId && hasCustomBlock(projectId, block.type)
+				? emitCustomBlock
+				: asWorkflow && block.type === BlockTypes.response
+					? emitWorkflowEnd
+					: emitters[block.type as BlockTypes];
 		if (!emitter) throw new Error(`No codegen for block type: ${block.type}`);
 		const blockId = JSON.stringify(block.id);
 		const support = hooks ? hookSupport(block.type) : "none";

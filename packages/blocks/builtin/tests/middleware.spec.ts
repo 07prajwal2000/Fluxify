@@ -1,9 +1,15 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { BlockTypes } from "../../blockTypes";
-import { compileGraph } from "../../compiler";
+import { compileGraph as compileUnscoped } from "../../compiler";
 import { runWithMiddlewares } from "../../middleware";
 import { customBlockNames, registerCustomBlock, unregisterCustomBlock } from "../customBlock";
 import { block, createContext, edge } from "./compilerTestHelpers";
+
+/** the project `createContext` runs in, which is where a middleware step resolves its block */
+const PROJECT = "proj-1";
+
+const compileGraph = (...[blocks, edges, options]: Parameters<typeof compileUnscoped>) =>
+	compileUnscoped(blocks, edges, { projectId: PROJECT, ...options });
 
 /** a middleware custom block: entrypoint -> js -> optional response */
 function register(name: string, js: string, httpCode?: string) {
@@ -13,7 +19,7 @@ function register(name: string, js: string, httpCode?: string) {
 		blocks.push(block("m3", BlockTypes.response, { httpCode }));
 		edges.push(edge("m2", "m3"));
 	}
-	registerCustomBlock(name, blocks, edges);
+	registerCustomBlock(PROJECT, name, blocks, edges);
 }
 
 /** the route: records its input and returns 201 with it */
@@ -29,7 +35,7 @@ const route = compileGraph(
 const step = (name: string) => ({ id: `mw-${name}`, name, blocks: [name] });
 
 afterEach(() => {
-	for (const name of customBlockNames()) unregisterCustomBlock(name);
+	for (const name of customBlockNames(PROJECT)) unregisterCustomBlock(PROJECT, name);
 });
 
 describe("route middlewares", () => {
@@ -100,6 +106,7 @@ describe("route middlewares", () => {
 
 	it("a step's own error handler can answer for it", async () => {
 		registerCustomBlock(
+			PROJECT,
 			"guarded",
 			[
 				block("g1", BlockTypes.entrypoint),

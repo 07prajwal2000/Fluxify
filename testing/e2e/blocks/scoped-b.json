@@ -1,0 +1,36 @@
+{
+	"name": "greeting",
+	"description": "Project B's 'greeting' block. Same name as the other project's, a different answer \u2014 and it records that it ran, so a call nobody awaits (async, queued) still leaves evidence of which block served it.",
+	"blocks": [
+		{
+			"id": "scb-entry",
+			"type": "entrypoint",
+			"position": {
+				"x": 0,
+				"y": 0
+			},
+			"data": {}
+		},
+		{
+			"id": "scb-say",
+			"type": "jsrunner",
+			"position": {
+				"x": 240,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Greet",
+				"value": "(globalThis.__scopedRuns ??= []).push(\"b\"); return \"from-b\";"
+			}
+		}
+	],
+	"edges": [
+		{
+			"id": "e1",
+			"from": "scb-entry",
+			"to": "scb-say",
+			"fromHandle": "source",
+			"toHandle": "source"
+		}
+	]
+}

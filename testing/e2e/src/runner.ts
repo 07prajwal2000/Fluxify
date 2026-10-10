@@ -79,19 +79,22 @@ export type GraphRun = {
 	recorded: TraceRunPayload[];
 };
 
+const projectOf = (fixture: GraphFixture) => fixture.projectId ?? PROJECT_ID;
+
 /** Points the project's `primary` db integration at the fixture's engine. */
 async function hydrateDatabase(fixture: GraphFixture) {
 	const engine = fixture.engine ?? "pg";
 	// a graph that touches no database should not start a container for it
 	if (engine === "none") return;
 	const connection = await connectionFor(engine);
-	hydrateIntegrations(PROJECT_ID, {
+	const projectId = projectOf(fixture);
+	hydrateIntegrations(projectId, {
 		db: {
 			[DB_CONNECTION]: {
 				...connection,
 				queryTimeoutMs: fixture.queryTimeoutMs,
 				maxConnections: fixture.maxConnections,
-				[OWNER_KEY]: PROJECT_ID,
+				[OWNER_KEY]: projectId,
 			},
 		},
 	});
@@ -103,9 +106,9 @@ export async function runGraph(
 	/** the route's tracing and recording switches; left out, every span is collected flat */
 	sinks?: TraceSinks,
 ): Promise<GraphRun> {
-	hydrateAppConfig(PROJECT_ID, APP_CONFIG);
+	hydrateAppConfig(projectOf(fixture), APP_CONFIG);
 	await hydrateDatabase(fixture);
-	const { middlewares, dispose } = await registerFixtureBlocks(fixture);
+	const { middlewares, dispose } = await registerFixtureBlocks(fixture, projectOf(fixture));
 
 	try {
 		return await execute(fixture, request, middlewares, sinks);
@@ -124,7 +127,7 @@ async function execute(
 	const { run, source } = compileGraph(
 		fixture.blocks,
 		fixture.edges,
-		sinks ? { tracing: wantsSpans(sinks) } : {},
+		{ projectId: projectOf(fixture), ...(sinks ? { tracing: wantsSpans(sinks) } : {}) },
 	);
 	const spans: BlockTraceSpan[] = [];
 	const recorded: TraceRunPayload[] = [];
@@ -142,7 +145,7 @@ async function execute(
 
 	const route = {
 			id: `${fixture.name}-route`,
-			projectId: PROJECT_ID,
+			projectId: projectOf(fixture),
 			projectName: "E2E",
 			bodySchema: fixture.schemas?.body,
 			querySchema: fixture.schemas?.query,
