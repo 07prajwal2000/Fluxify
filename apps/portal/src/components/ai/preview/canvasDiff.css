@@ -33,8 +33,3 @@
 	stroke-dasharray: 3 5;
 	animation: none;
 }
-
-/* still lines: a flowing dash repaints every edge on every frame, which a big canvas pays for */
-.fx-diff-canvas .fx-edge {
-	animation: none;
-}

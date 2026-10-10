@@ -33,7 +33,7 @@ mock.module("@tanstack/react-router", () => ({
 	),
 }));
 
-const { act, cleanup, fireEvent, render, within } = await import("@testing-library/react");
+const { act, cleanup, fireEvent, render } = await import("@testing-library/react");
 const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query");
 const { CanvasDiffView } = await import("./CanvasDiffView");
 
@@ -143,7 +143,7 @@ test("clicking a block's chip, or the block itself, shows what happened to it", 
 	);
 });
 
-test("the touched blocks sit in a fold, there is no zoom bar, and the canvas can be expanded", async () => {
+test("the touched blocks sit in a fold and there is no zoom bar", async () => {
 	const view = show(diff);
 	await until(() =>
 		expect(view.container.querySelector('[data-block-key="response_1"]')).not.toBeNull(),
@@ -158,18 +158,4 @@ test("the touched blocks sit in a fold, there is no zoom bar, and the canvas can
 	// picking a block on the canvas opens the fold
 	fireEvent.click(view.container.querySelector('[data-block-key="db_insert_1"]') as Element);
 	await until(() => expect(fold.open).toBe(true));
-
-	fireEvent.click(view.getByRole("button", { name: "Expand canvas" }));
-	const dialog = await until(() => within(document.body).getByRole("dialog"));
-	await until(() => expect(dialog.querySelector('[data-block-key="consolelog_1"]')).not.toBeNull());
-	expect(dialog.textContent).toContain("Double-click a block for its settings");
-	// one canvas at a time while it is open
-	expect(document.querySelectorAll('[data-block-key="response_1"]')).toHaveLength(1);
-});
-
-test("a diff built from ops alone cannot open block settings", async () => {
-	const view = show({ ...diff, partial: true });
-	fireEvent.click(await until(() => view.getByRole("button", { name: "Expand canvas" })));
-	const dialog = await until(() => within(document.body).getByRole("dialog"));
-	expect(dialog.textContent).not.toContain("Double-click");
 });

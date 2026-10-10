@@ -1,6 +1,4 @@
-import { Button, CloseButton, Modal } from "@fluxify/components";
 import { lazy, Suspense, useState } from "react";
-import { TbArrowsMaximize } from "react-icons/tb";
 import { Fold } from "./Collapsible";
 import { type CanvasDiff, countBy } from "./canvasDiff";
 import { FieldDiff } from "./FieldDiff";
@@ -35,48 +33,8 @@ function Legend({ diff }: { diff: CanvasDiff }) {
 
 const Loading = () => <div className="h-64 animate-pulse rounded-lg bg-surface-secondary" />;
 
-/** The canvas at full size, with the block settings panel (a double click on a block). */
-function ExpandedCanvas({
-	diff,
-	selected,
-	onSelect,
-	onClose,
-}: {
-	diff: CanvasDiff;
-	selected?: string;
-	onSelect: (key: string) => void;
-	onClose: (open: boolean) => void;
-}) {
-	return (
-		<Modal isOpen onOpenChange={onClose}>
-			<Modal.Backdrop>
-				<Modal.Container placement="center" size="cover" className="p-0">
-					<Modal.Dialog
-						aria-label="Canvas changes"
-						className="flex h-[min(820px,90vh)] w-[min(1600px,96vw)] !max-w-none flex-col overflow-hidden border border-border bg-background p-0 shadow-2xl shadow-black/50"
-					>
-						<Modal.Header className="flex h-11 shrink-0 flex-row items-center gap-4 border-b border-border px-4 py-0">
-							<Modal.Heading className="text-sm font-semibold">Canvas changes</Modal.Heading>
-							<Legend diff={diff} />
-							{!diff.partial && (
-								<span className="text-xs text-muted">Double-click a block for its settings</span>
-							)}
-							<CloseButton aria-label="Close" className="ml-auto" />
-						</Modal.Header>
-						<Modal.Body className="min-h-0 flex-1 p-0">
-							<Suspense fallback={<Loading />}>
-								<CanvasDiffGraph expanded diff={diff} selected={selected} onSelect={onSelect} />
-							</Suspense>
-						</Modal.Body>
-					</Modal.Dialog>
-				</Modal.Container>
-			</Modal.Backdrop>
-		</Modal>
-	);
-}
-
 /**
- * What an edit does to a canvas: the canvas itself (expandable), and under a
+ * What an edit does to a canvas: the canvas itself, and under a
  * fold a chip per touched block with the field-level before/after of the one
  * you pick (a changed one first).
  */
@@ -84,7 +42,6 @@ export function CanvasDiffView({ diff }: { diff: CanvasDiff }) {
 	const touched = diff.blocks.filter((b) => b.status !== "same");
 	const [picked, setPicked] = useState<string>();
 	const [listed, setListed] = useState(false);
-	const [big, setBig] = useState(false);
 	const open = diff.blocks.find((b) => b.key === (picked ?? touched[0]?.key));
 	// a block picked on the canvas opens the fold, so what happened to it is in view
 	const pick = (key: string) => {
@@ -94,27 +51,9 @@ export function CanvasDiffView({ diff }: { diff: CanvasDiff }) {
 	return (
 		<div className="flex flex-col gap-2">
 			<Legend diff={diff} />
-			<div className="relative">
-				{/* one canvas at a time: the expanded one replaces this while it is open */}
-				{big ? (
-					<div className="h-64 rounded-lg border border-border bg-surface-secondary" />
-				) : (
-					<Suspense fallback={<Loading />}>
-						<CanvasDiffGraph diff={diff} selected={open?.key} onSelect={pick} />
-					</Suspense>
-				)}
-				<Button
-					isIconOnly
-					size="sm"
-					variant="secondary"
-					aria-label="Expand canvas"
-					className="absolute top-2 right-2 z-10"
-					onPress={() => setBig(true)}
-				>
-					<TbArrowsMaximize size={14} />
-				</Button>
-			</div>
-			{big && <ExpandedCanvas diff={diff} selected={open?.key} onSelect={pick} onClose={setBig} />}
+			<Suspense fallback={<Loading />}>
+				<CanvasDiffGraph diff={diff} selected={open?.key} onSelect={pick} />
+			</Suspense>
 			{touched.length > 0 && (
 				<Fold label={`Changed blocks (${touched.length})`} open={listed} onToggle={setListed}>
 					<div className="flex flex-col gap-2">

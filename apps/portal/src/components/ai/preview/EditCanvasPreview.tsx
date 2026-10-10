@@ -1,5 +1,4 @@
 import { useParams } from "@tanstack/react-router";
-import { useMemo } from "react";
 import { agentConversationsQuery } from "@/query/agentConversationsQuery";
 import type { ToolPart } from "../agentMessages";
 import { CanvasDiffView } from "./CanvasDiffView";
@@ -25,7 +24,7 @@ function Issues({ issues }: { issues?: Issue[] }) {
 /** A waiting edit: the server works out the canvas as it would be after the ops, without saving. */
 function PendingEdit({ input }: { input: Record<string, unknown> }) {
 	const { projectId = "" } = useParams({ strict: false }) as { projectId?: string };
-	const ops = useMemo(() => (Array.isArray(input.ops) ? input.ops : []), [input.ops]);
+	const ops = Array.isArray(input.ops) ? input.ops : [];
 	const ready = Boolean(projectId) && isRec(input.target);
 	const preview = agentConversationsQuery.preview.canvas.useQuery(
 		projectId,
@@ -36,14 +35,9 @@ function PendingEdit({ input }: { input: Record<string, unknown> }) {
 		},
 		ready,
 	);
-	const data = preview.data;
-	// one diff per answer: a new object would rebuild the whole canvas
-	const diff = useMemo(
-		() => (data?.after ? diffCanvases(data.before, data.after) : diffFromOps(ops)),
-		[data, ops],
-	);
 	if (preview.isLoading)
 		return <div className="h-64 animate-pulse rounded-lg bg-surface-secondary" aria-busy />;
+	const data = preview.data;
 	if (!data?.after) {
 		// refused ops or an unreachable server: still show what the ops say
 		const reason = data?.error ?? (preview.error as Error | null)?.message;
@@ -54,7 +48,7 @@ function PendingEdit({ input }: { input: Record<string, unknown> }) {
 						? `This edit would be refused: ${reason}`
 						: `Could not preview this edit: ${reason}`}
 				</Notice>
-				<CanvasDiffView diff={diff} />
+				<CanvasDiffView diff={diffFromOps(ops)} />
 			</div>
 		);
 	}
@@ -62,24 +56,19 @@ function PendingEdit({ input }: { input: Record<string, unknown> }) {
 		<div className="flex flex-col gap-2">
 			{data.error && <Notice tone="danger">This edit would be refused: {data.error}</Notice>}
 			<Issues issues={data.issues} />
-			<CanvasDiffView diff={diff} />
+			<CanvasDiffView diff={diffCanvases(data.before, data.after)} />
 		</div>
 	);
 }
 
 /** An edit that ran: the canvas it changed is not kept, so the diff is the blocks the ops touched. */
 function AppliedEdit({ tool }: { tool: ToolPart }) {
+	const input = rec(tool.input);
 	const out = rec(tool.output);
-	const diff = useMemo(() => {
-		const input = rec(tool.input);
-		const refs = Object.fromEntries(
-			Object.entries(rec(rec(tool.output).refs)).map(([k, v]) => [k, str(v)]),
-		);
-		return diffFromOps(Array.isArray(input.ops) ? input.ops : [], refs);
-	}, [tool.input, tool.output]);
+	const refs = Object.fromEntries(Object.entries(rec(out.refs)).map(([k, v]) => [k, str(v)]));
 	return (
 		<div className="flex flex-col gap-2">
-			<CanvasDiffView diff={diff} />
+			<CanvasDiffView diff={diffFromOps(Array.isArray(input.ops) ? input.ops : [], refs)} />
 			<Issues issues={Array.isArray(out.issues) ? (out.issues as Issue[]) : undefined} />
 		</div>
 	);

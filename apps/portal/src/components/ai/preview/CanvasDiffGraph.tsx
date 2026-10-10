@@ -76,20 +76,17 @@ function SelectionSync({
 
 /**
  * The diff on the canvas's own read-only view: its blocks and edges, green for
- * added, amber for changed, red for removed. Inline it does not take the scroll
- * wheel (the chat scrolls past it; drag pans); `expanded` is the full-size view,
- * which opens a block's settings on a double click.
+ * added, amber for changed, red for removed. It does not take the scroll wheel
+ * (the chat scrolls past it); drag pans.
  */
 export default function CanvasDiffGraph({
 	diff,
 	selected,
 	onSelect,
-	expanded = false,
 }: {
 	diff: CanvasDiff;
 	selected?: string;
 	onSelect: (key: string) => void;
-	expanded?: boolean;
 }) {
 	const graph = useMemo(() => toGraph(diff), [diff]);
 	const statuses = useMemo<Statuses>(
@@ -101,23 +98,20 @@ export default function CanvasDiffGraph({
 	);
 	return (
 		<StatusContext.Provider value={statuses}>
-			<div
-				className={`overflow-hidden rounded-lg border border-border ${expanded ? "h-full" : "h-64"}`}
-			>
+			<div className="h-64 overflow-hidden rounded-lg border border-border">
 				<BlockCanvas
 					graph={graph}
 					mode="readonly"
 					nodeTypes={nodeTypes}
 					edgeTypes={edgeTypes}
-					enablePanel={expanded && !diff.partial}
+					enablePanel={false}
 					enableHistory={false}
 					enableFormat={false}
 					enableClipboard={false}
 					enableContextMenu={false}
 					enableKeyboard={false}
 					showToolbar={false}
-					className="fx-diff-canvas"
-					captureScroll={expanded}
+					captureScroll={false}
 				>
 					<SelectionSync selected={selected} onSelect={onSelect} />
 				</BlockCanvas>
