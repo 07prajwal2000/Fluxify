@@ -4,7 +4,7 @@ import type { ToolPart } from "../agentMessages";
 import type { RefType } from "../agentRefs";
 import { type Data, isRec, oneLine, rec, str } from "./data";
 import { ResourceHeader } from "./ResourceHeader";
-import { META, nameOf, readOf, routeLine } from "./resourceMeta";
+import { LISTED, META, nameOf, readOf, routeLine } from "./resourceMeta";
 
 const MAX_COLS = 5;
 const MAX_ROWS = 20;
@@ -102,6 +102,29 @@ function Fields({ value, depth = 0 }: { value: Data; depth?: number }) {
 	);
 }
 
+/** The agent's `list`: one list per type asked for, each row with a link that opens it. */
+function Lists({ value }: { value: Data }) {
+	return (
+		<div className="flex flex-col gap-2">
+			{Object.entries(value).map(([key, v]) => {
+				const rows = isRec(v) && "items" in v ? v.items : v;
+				return (
+					<section key={key} className="flex flex-col gap-1">
+						<h4 className="text-xs font-medium text-muted">{key}</h4>
+						{isRows(rows) ? (
+							<Table rows={rows} type={LISTED[key]} />
+						) : isRec(v) ? (
+							<Fields value={v} />
+						) : (
+							<p className="text-xs text-muted">None.</p>
+						)}
+					</section>
+				);
+			})}
+		</div>
+	);
+}
+
 /** Something a table or a field list can show; a text answer (docs, schemas) is better as Raw. */
 export const hasData = (output: unknown) =>
 	isRows(output) || (isRec(output) && Object.keys(output).length > 0);
@@ -109,9 +132,10 @@ export const hasData = (output: unknown) =>
 /** get_* / list_*: a compact table or field list instead of JSON; a resource gets a link that opens it. */
 export function DataPreview({ tool }: { tool: ToolPart }) {
 	const out = tool.output;
-	const read = readOf(tool.name);
+	const read = readOf(tool.name, rec(tool.input));
 	if (isRows(out)) return <Table rows={out} type={read?.many ? read.type : undefined} />;
 	if (!isRec(out)) return null;
+	if (tool.name === "list") return <Lists value={out} />;
 	if (read?.many && isRows(out.items))
 		return (
 			<div className="flex flex-col gap-1">
@@ -119,7 +143,9 @@ export function DataPreview({ tool }: { tool: ToolPart }) {
 				{out.hasNext === true && <p className="text-xs text-muted">More on the next page.</p>}
 			</div>
 		);
-	const id = read && !read.many ? str(rec(tool.input)[META[read.type].idKey]) || str(out.id) : "";
+	const input = rec(tool.input);
+	const id =
+		read && !read.many ? str(input[META[read.type].idKey]) || str(input.id) || str(out.id) : "";
 	return (
 		<div className="flex flex-col gap-2">
 			{read && id && (

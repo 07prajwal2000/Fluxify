@@ -21,7 +21,7 @@ export function CompactionLine({ message }: { message: ChatMessage }) {
 				{text}
 				{rule}
 			</summary>
-			<p className="mt-2 whitespace-pre-wrap rounded-lg border border-border bg-surface px-3 py-2">
+			<p className="mt-2 whitespace-pre-wrap break-words rounded-lg border border-border bg-surface px-3 py-2">
 				{message.summary}
 			</p>
 		</details>

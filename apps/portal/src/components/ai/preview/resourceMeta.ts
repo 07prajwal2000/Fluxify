@@ -53,8 +53,8 @@ export const routeLine = (d: Data) => [str(d.method), str(d.path)].filter(Boolea
 export const secretFields = (type: RefType, ...sources: Data[]) =>
 	new Set(type === "app_config" && sources.some((s) => s.isEncrypted === true) ? ["value"] : []);
 
-/** `get_route` → route, one; `list_routes` → route, many. Any other read has no resource page. */
-const READS: Record<string, RefType> = {
+/** What `list_routes` (and the agent's `list` under the key `routes`) lists. */
+export const LISTED: Record<string, RefType> = {
 	routes: "route",
 	workflows: "workflow",
 	triggers: "trigger",
@@ -64,10 +64,19 @@ const READS: Record<string, RefType> = {
 	app_config: "app_config",
 	test_suites: "test_suite",
 };
-export function readOf(tool: string) {
+
+/**
+ * `get_route` and the agent's `get {type: "route"}` → route, one; `list_routes` → route, many.
+ * The agent's `list` has one list per key, so it has no single type. Any other read has no resource page.
+ */
+export function readOf(tool: string, input?: Data) {
+	if (tool === "get") {
+		const type = str(input?.type);
+		return isRefType(type) ? { type, many: false } : undefined;
+	}
 	const m = /^(get|list)_(.+)$/.exec(tool);
 	if (!m) return undefined;
-	if (m[1] === "list") return READS[m[2]] && { type: READS[m[2]], many: true };
-	const type = Object.values(READS).find((t) => t === m[2]);
+	if (m[1] === "list") return LISTED[m[2]] && { type: LISTED[m[2]], many: true };
+	const type = Object.values(LISTED).find((t) => t === m[2]);
 	return type && { type, many: false };
 }

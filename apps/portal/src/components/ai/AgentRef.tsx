@@ -88,7 +88,13 @@ export function AgentRef({
 	return (
 		<Link
 			to={path}
-			search={type === "app_config" ? ({ q: query ?? label } as never) : undefined}
+			search={
+				type === "app_config"
+					? ({ q: query ?? label } as never)
+					: type === "test_suite"
+						? ({ open: String(id) } as never)
+						: undefined
+			}
 			target="_blank"
 			rel="noopener noreferrer"
 			className={`${CHIP} no-underline transition-colors hover:bg-accent/20`}

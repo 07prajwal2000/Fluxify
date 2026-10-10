@@ -1,5 +1,5 @@
 import { Input, integrationIcons, Spinner } from "@fluxify/components";
-import { forwardRef, useEffect, useState } from "react";
+import { forwardRef, useEffect, useRef, useState } from "react";
 import { useDebounce } from "@/hooks/useDebounce";
 import { type Mention, useResourceSearch } from "@/query/resourceSearchQuery";
 import { REF_ICONS } from "./AgentRef";
@@ -32,6 +32,13 @@ export const MentionPopover = forwardRef<HTMLDivElement, Props>(function Mention
 	const debounced = useDebounce(searchQuery, 300);
 	const { results, isLoading, isFetching } = useResourceSearch(projectId, debounced);
 	const searching = searchQuery !== debounced || isLoading || isFetching;
+	const list = useRef<HTMLDivElement>(null);
+
+	// the arrow keys move past the visible rows: bring the highlighted one into view
+	// biome-ignore lint/correctness/useExhaustiveDependencies: only the highlight moving matters
+	useEffect(() => {
+		list.current?.querySelector('[aria-current="true"]')?.scrollIntoView?.({ block: "nearest" });
+	}, [selectedIndex]);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: the highlight starts over on a new result list
 	useEffect(() => setSelectedIndex(0), [results.length, debounced]);
@@ -78,7 +85,7 @@ export const MentionPopover = forwardRef<HTMLDivElement, Props>(function Mention
 				/>
 				{searching && <Spinner size="sm" color="current" />}
 			</div>
-			<div className="mt-2 h-[150px] w-full overflow-y-auto">
+			<div ref={list} className="mt-2 h-[150px] w-full overflow-y-auto">
 				{results.length > 0 ? (
 					<div className="flex flex-col gap-1">
 						{results.map((res, i) => (
@@ -86,6 +93,7 @@ export const MentionPopover = forwardRef<HTMLDivElement, Props>(function Mention
 								type="button"
 								key={`${res.type}:${res.id}`}
 								onClick={() => pick(res)}
+								aria-current={i === selectedIndex}
 								// the arrow-key selection used to be the same wash as hover, so there was no telling where the cursor was
 								className={`flex items-center gap-3 rounded-lg p-2 text-left transition-colors ${
 									i === selectedIndex

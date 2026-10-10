@@ -1,5 +1,6 @@
 import { toast } from "@fluxify/components";
 import { createFileRoute, isRedirect, redirect } from "@tanstack/react-router";
+import { z } from "zod";
 import { RouteSwitcher } from "@/components/routes/RouteSwitcher";
 import { RouteWorkbenchTabs } from "@/components/routes/RouteWorkbenchTabs";
 import { TestSuitesWorkbench } from "@/components/testSuites/TestSuitesWorkbench";
@@ -36,9 +37,12 @@ export const Route = createFileRoute("/_authed/$projectId_/canvas/$routeId_/test
 		}
 	},
 	// "From test" on a test trace links back to its run's results (#627)
-	validateSearch: (search: Record<string, unknown>) => ({
-		runId: typeof search.runId === "string" ? search.runId : undefined,
+	validateSearch: z.object({
+		runId: z.string().optional().catch(undefined),
+		// a link from the agent chat opens this suite
+		open: z.string().optional().catch(undefined),
 	}),
+
 	component: TestSuitesPage,
 });
 
@@ -56,6 +60,7 @@ function TestSuitesPage() {
 			<TestSuitesWorkbench
 				projectId={projectId}
 				initialRunId={Route.useSearch().runId}
+				initialSuiteId={Route.useSearch().open}
 				target={{ type: "route", id: routeId }}
 				headerLeft={
 					<>

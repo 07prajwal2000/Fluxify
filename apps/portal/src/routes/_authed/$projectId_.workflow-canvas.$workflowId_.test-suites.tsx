@@ -1,5 +1,6 @@
 import { toast } from "@fluxify/components";
 import { createFileRoute, isRedirect, redirect } from "@tanstack/react-router";
+import { z } from "zod";
 import { WorkflowWorkbenchTabs } from "@/components/routes/RouteWorkbenchTabs";
 import { TestSuitesWorkbench } from "@/components/testSuites/TestSuitesWorkbench";
 import { TestsSpotlight } from "@/components/testSuites/TestsSpotlight";
@@ -32,9 +33,12 @@ export const Route = createFileRoute(
 		}
 	},
 	// "From test" on a test trace links back to its run's results (#627)
-	validateSearch: (search: Record<string, unknown>) => ({
-		runId: typeof search.runId === "string" ? search.runId : undefined,
+	validateSearch: z.object({
+		runId: z.string().optional().catch(undefined),
+		// a link from the agent chat opens this suite
+		open: z.string().optional().catch(undefined),
 	}),
+
 	component: WorkflowTestSuitesPage,
 });
 
@@ -49,6 +53,7 @@ function WorkflowTestSuitesPage() {
 			<TestSuitesWorkbench
 				projectId={projectId}
 				initialRunId={Route.useSearch().runId}
+				initialSuiteId={Route.useSearch().open}
 				target={{ type: "workflow", id: workflowId }}
 				headerLeft={
 					<>
