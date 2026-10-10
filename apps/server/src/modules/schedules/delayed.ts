@@ -1,7 +1,8 @@
 import { isScheduleId } from "@fluxify/blocks";
 import { logger } from "@fluxify/common";
 import { publishSchedule, purgeSchedule } from "@fluxify/common/nats";
-import { natsConnection } from "../../db/nats";
+import { natsConnection, natsName } from "../../db/nats";
+import type { FluxifyEnv } from "../../lib/env";
 import type { JobEnvelope } from "../jobs/types";
 import { fireInternalTrigger } from "../triggers/publisher";
 import { ensureSchedulesStream } from "./reconciler";
@@ -32,9 +33,9 @@ export async function scheduleWorkflowRun(job: JobEnvelope) {
 		origin: job.origin,
 		retry: job.retry,
 	};
-	await publishSchedule(natsConnection(), delayedSubject(job.projectId, job.id), body, {
+	await publishSchedule(natsConnection(), natsName(delayedSubject(job.projectId, job.id)), body, {
 		specification: `@at ${job.runAt}`,
-		target: fireSubject(job.projectId, job.id),
+		target: natsName(fireSubject(job.projectId, job.id)),
 	});
 	logger.debug(`[schedules] run ${job.id} -> ${job.target} at ${job.runAt}`, "SCHEDULES");
 }
@@ -43,9 +44,10 @@ export async function scheduleWorkflowRun(job: JobEnvelope) {
 export async function cancelScheduledRun(projectId: string, runId: string) {
 	assertRunId(runId);
 	const nc = natsConnection();
-	await purgeSchedule(nc, SCHEDULES_STREAM, delayedSubject(projectId, runId));
+	const stream = natsName(SCHEDULES_STREAM);
+	await purgeSchedule(nc, stream, natsName(delayedSubject(projectId, runId)));
 	// A fire generated but not yet picked up would otherwise still start the run.
-	await purgeSchedule(nc, SCHEDULES_STREAM, fireSubject(projectId, runId));
+	await purgeSchedule(nc, stream, natsName(fireSubject(projectId, runId)));
 	logger.debug(`[schedules] cancelled run ${runId}`, "SCHEDULES");
 }
 
@@ -53,8 +55,8 @@ export async function cancelScheduledRun(projectId: string, runId: string) {
  * The fire: exactly what running now would have published. The run id is the
  * message id, so a redelivered fire still starts one run.
  */
-export function fireDelayedRun({ runId, ...message }: DelayedRunBody) {
-	return fireInternalTrigger({ id: runId, ...message });
+export function fireDelayedRun({ runId, ...message }: DelayedRunBody, env?: FluxifyEnv) {
+	return fireInternalTrigger({ id: runId, ...message }, env);
 }
 
 function assertRunId(id: string) {

@@ -180,7 +180,7 @@ export async function compileProjectMiddlewares(projectId: string) {
 export async function compileMiddleware(id: string, projectId?: string) {
 	const loaded = await loadMiddleware(id);
 	if (!loaded) {
-		if (projectId) await deleteArtifact(middlewareKey(projectId, id));
+		if (projectId) await deleteArtifact(middlewareKey(projectId, id), "production");
 		return;
 	}
 	const artifact: MiddlewareArtifact = {
@@ -188,7 +188,7 @@ export async function compileMiddleware(id: string, projectId?: string) {
 		projectId: loaded.projectId,
 		compiledAt: new Date().toISOString(),
 	};
-	await putArtifact(middlewareKey(loaded.projectId, id), artifact);
+	await putArtifact(middlewareKey(loaded.projectId, id), artifact, "production");
 	logger.info(`[compiler] published middleware ${artifact.name}`, "COMPILER");
 }
 
@@ -273,13 +273,13 @@ export async function compileRoute(routeId: string) {
 		middlewares: await loadRouteMiddlewareIds(routeId),
 		compiledAt,
 	};
-	await putArtifact(routeKey(route.projectId!, routeId), artifact);
+	await putArtifact(routeKey(route.projectId!, routeId), artifact, "production");
 	await logCompiled(resource);
 	logger.info(`[compiler] compiled route ${route.method} ${route.path}`, "COMPILER");
 }
 
 export async function dropRoute(projectId: string, routeId: string) {
-	await deleteArtifact(routeKey(projectId, routeId));
+	await deleteArtifact(routeKey(projectId, routeId), "production");
 }
 
 /**
@@ -356,13 +356,13 @@ export async function compileWorkflow(workflowId: string) {
 		source,
 		compiledAt,
 	};
-	await putArtifact(workflowKey(workflow.projectId!, workflowId), artifact);
+	await putArtifact(workflowKey(workflow.projectId!, workflowId), artifact, "production");
 	await logCompiled(resource);
 	logger.info(`[compiler] compiled workflow ${workflow.name}`, "COMPILER");
 }
 
 export async function dropWorkflow(projectId: string, workflowId: string) {
-	await deleteArtifact(workflowKey(projectId, workflowId));
+	await deleteArtifact(workflowKey(projectId, workflowId), "production");
 }
 
 /** custom blocks being compiled right now — see `ensureCustomBlocksRegistered` */
@@ -509,14 +509,14 @@ async function compileCustomBlockOrThrow(id: string) {
 		source,
 		compiledAt: new Date().toISOString(),
 	};
-	await putArtifact(customBlockKey(block.projectId!, block.id), artifact);
+	await putArtifact(customBlockKey(block.projectId!, block.id), artifact, "production");
 	await logCompiled(resource);
 	logger.info(`[compiler] compiled custom block ${block.name}`, "COMPILER");
 }
 
 export async function dropCustomBlock(projectId: string, id: string) {
 	unregisterLocally(id);
-	await deleteArtifact(customBlockKey(projectId, id));
+	await deleteArtifact(customBlockKey(projectId, id), "production");
 }
 
 /**
@@ -550,7 +550,7 @@ export async function publishProjectConfig(projectId: string) {
 		sealed: EncryptionService.encrypt(JSON.stringify(payload)),
 		compiledAt: new Date().toISOString(),
 	};
-	await putArtifact(projectConfigKey(projectId), artifact);
+	await putArtifact(projectConfigKey(projectId), artifact, "production");
 }
 
 /**

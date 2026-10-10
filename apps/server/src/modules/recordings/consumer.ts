@@ -64,6 +64,7 @@ const runSchema = z
 		parentRunId: z.uuid().optional(),
 		parentSeq: z.number().int().optional(),
 		metadata: metadataSchema.optional(),
+		env: z.enum(["production", "development"]).optional(),
 		spans: z
 			.array(
 				z.looseObject({
@@ -214,6 +215,7 @@ async function logFailedRun(run: z.infer<typeof runSchema>) {
 		runId: run.runId,
 		detail: {
 			runId: run.runId,
+			env: run.env ?? "production",
 			...(span && {
 				block: { id: span.blockId, type: span.blockType, name: span.blockName },
 				...(span.stack && { stack: span.stack }),

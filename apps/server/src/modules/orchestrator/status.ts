@@ -1,6 +1,7 @@
 import { logger } from "@fluxify/common";
 import { openKvBucket } from "@fluxify/common/nats";
 import {
+	CATCH_ALL,
 	type InfraProvider,
 	NODE_LIVENESS_BUCKET,
 	NODE_LIVENESS_TTL_MS,
@@ -140,6 +141,17 @@ export async function readLiveNodes(): Promise<NodeHeartbeat[]> {
 		logger.warn(`could not read node liveness: ${String(error)}`, "ORCHESTRATOR.status");
 	}
 	return beats;
+}
+
+/**
+ * Whether a development worker serves this project right now (#732): one of
+ * its own or a catch-all one. Dev features say "start one" when there is none.
+ */
+export async function devWorkerOnline(projectId: string) {
+	return (await readLiveNodes()).some(
+		(node) =>
+			node.env === "development" && (node.projectId === projectId || node.projectId === CATCH_ALL),
+	);
 }
 
 /** Who is reconciling, and what they are driving. Absent means nobody. */

@@ -28,11 +28,15 @@ export default async function runWorkflow(
 	// The same subject the Trigger Workflow block uses. A test run and a fired
 	// trigger must take one path, or the thing the user tests is not the thing
 	// that later runs.
-	const fired = await fireInternalTrigger({
-		projectId: workflow.projectId!,
-		workflowId: id,
-		data: body.payload,
-		origin: { via: "manual", userId },
-	});
+	const fired = await fireInternalTrigger(
+		{
+			projectId: workflow.projectId!,
+			workflowId: id,
+			data: body.payload,
+			origin: { via: "manual", userId },
+		},
+		// the Run button moves to development in #736
+		"production",
+	);
 	return { id: fired.id, accepted: true };
 }

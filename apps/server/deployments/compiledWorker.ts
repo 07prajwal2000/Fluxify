@@ -7,6 +7,7 @@ import { closeNats } from "../src/db/nats";
 import { canRunConnectors, nodeEntitlement, watchLicense } from "../src/lib/edition";
 import {
 	FLUXIFY_CLAIM_ID,
+	FLUXIFY_ENV,
 	FLUXIFY_NODE_ID,
 	getEnv,
 	MAX_REQUEST_BODY_BYTES,
@@ -320,6 +321,7 @@ const attached = await attachNode({
 	projectId: WORKER_PROJECT_ID,
 	envType: WORKER_MODE as NodeType,
 	envGroupIds: WORKER_GROUP_IDS,
+	env: FLUXIFY_ENV,
 	entitlement: () => nodeEntitlement(),
 	onGroupsChanged: () => replaceTriggers(),
 	onStop: (reason, code) => {
@@ -341,7 +343,12 @@ const deps = createDepsInstaller({
 	onStatus: (statuses) => node.slot.report({ deps: statuses }),
 	onInstalled: () => (supervisor.child() ? supervisor.replace() : Promise.resolve()),
 });
-logger.info(`node ${node.slot.nodeId} holds a license slot — type ${node.type}`, "WORKER.node");
+logger.info(
+	FLUXIFY_ENV === "development"
+		? `node ${node.slot.nodeId} is a development worker — no license slot, serves every project`
+		: `node ${node.slot.nodeId} holds a license slot — type ${node.type}`,
+	"WORKER.node",
+);
 
 /**
  * Built here, before the artifact watch: the watch is what tells it which

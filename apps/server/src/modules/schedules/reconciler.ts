@@ -7,7 +7,8 @@ import {
 	scheduleSubjects,
 } from "@fluxify/common/nats";
 import { applyJitter, assertSchedule, intervalMs } from "@fluxify/common/schedule";
-import { natsConnection } from "../../db/nats";
+import { natsConnection, natsName, natsStreamSpec } from "../../db/nats";
+import type { FluxifyEnv } from "../../lib/env";
 import {
 	ALL_PROJECTS,
 	fireSubject,
@@ -41,16 +42,25 @@ import type { ScheduledTrigger, ScheduleFireBody } from "./types";
  * work-queue stream the first consumer to ack would delete it. No `maxAge`
  * either, for the same reason — a `@daily` schedule that aged out of its own
  * stream would stop firing a week in with nothing to show why.
+ *
+ * `env` defaults to this process's own (#732). The trigger schedules below are
+ * admin's and default to production: admin publishes nothing to dev yet (#736).
  */
-export async function ensureSchedulesStream() {
-	await ensureStream(natsConnection(), {
-		name: SCHEDULES_STREAM,
-		subjects: [SCHEDULES_SUBJECTS],
-		retention: "limits",
-		discard: "old",
-		allowMsgSchedules: true,
-		allowMsgTtl: true,
-	});
+export async function ensureSchedulesStream(env?: FluxifyEnv) {
+	await ensureStream(
+		natsConnection(),
+		natsStreamSpec(
+			{
+				name: SCHEDULES_STREAM,
+				subjects: [SCHEDULES_SUBJECTS],
+				retention: "limits",
+				discard: "old",
+				allowMsgSchedules: true,
+				allowMsgTtl: true,
+			},
+			env,
+		),
+	);
 }
 
 /**
@@ -60,13 +70,13 @@ export async function ensureSchedulesStream() {
  * settings. Both exist to protect the instance from the shape of the schedules
  * on it, which is not something the person writing one trigger can see.
  */
-export async function upsertSchedule(trigger: ScheduledTrigger) {
+export async function upsertSchedule(trigger: ScheduledTrigger, env: FluxifyEnv = "production") {
 	// A schedule linked to nothing would fire into an empty loop forever. The
 	// row stays active; there is simply nothing to publish until a workflow is
 	// attached, and attaching one republishes.
-	if (!trigger.workflowId) return removeSchedule(trigger.projectId, trigger.id);
+	if (!trigger.workflowId) return removeSchedule(trigger.projectId, trigger.id, env);
 	const parsed = assertSchedule(trigger.schedule, trigger.timezone);
-	await ensureSchedulesStream();
+	await ensureSchedulesStream(env);
 
 	const specification = applyJitter(trigger.schedule, trigger.id);
 	const body: ScheduleFireBody = {
@@ -76,9 +86,10 @@ export async function upsertSchedule(trigger: ScheduledTrigger) {
 		payload: trigger.payload ?? null,
 	};
 
-	await publishSchedule(natsConnection(), scheduleSubject(trigger.projectId, trigger.id), body, {
+	const subject = natsName(scheduleSubject(trigger.projectId, trigger.id), env);
+	await publishSchedule(natsConnection(), subject, body, {
 		specification,
-		target: fireSubject(trigger.projectId, trigger.id),
+		target: natsName(fireSubject(trigger.projectId, trigger.id), env),
 		// Cron only, and not merely because it would be ignored elsewhere: the
 		// server REJECTS a timezone sent with `@every` or `@at` outright
 		// ("message schedules pattern is invalid"). An interval has no wall
@@ -97,8 +108,16 @@ export async function upsertSchedule(trigger: ScheduledTrigger) {
  * row's `active` flag is what tells them apart, and NATS does not need to know
  * the difference.
  */
-export async function removeSchedule(projectId: string, triggerId: string) {
-	await purgeSchedule(natsConnection(), SCHEDULES_STREAM, scheduleSubject(projectId, triggerId));
+export async function removeSchedule(
+	projectId: string,
+	triggerId: string,
+	env: FluxifyEnv = "production",
+) {
+	await purgeSchedule(
+		natsConnection(),
+		natsName(SCHEDULES_STREAM, env),
+		natsName(scheduleSubject(projectId, triggerId), env),
+	);
 }
 
 /**
@@ -109,14 +128,18 @@ export async function removeSchedule(projectId: string, triggerId: string) {
  * that changes nothing writes the same schedule back rather than shifting every
  * trigger's fire time.
  */
-export async function reconcileSchedules(triggers: ScheduledTrigger[]) {
-	await ensureSchedulesStream();
+export async function reconcileSchedules(
+	triggers: ScheduledTrigger[],
+	env: FluxifyEnv = "production",
+) {
+	const stream = natsName(SCHEDULES_STREAM, env);
+	await ensureSchedulesStream(env);
 
 	const wanted = new Set<string>();
 	for (const trigger of triggers) {
-		wanted.add(scheduleSubject(trigger.projectId, trigger.id));
+		wanted.add(natsName(scheduleSubject(trigger.projectId, trigger.id), env));
 		try {
-			await upsertSchedule(trigger);
+			await upsertSchedule(trigger, env);
 		} catch (error) {
 			// One bad row must not stop the rest converging — and a schedule the
 			// server rejects is exactly the kind of thing that would otherwise be
@@ -127,13 +150,13 @@ export async function reconcileSchedules(triggers: ScheduledTrigger[]) {
 
 	const live = await scheduleSubjects(
 		natsConnection(),
-		SCHEDULES_STREAM,
-		projectScheduleFilter(ALL_PROJECTS),
+		stream,
+		natsName(projectScheduleFilter(ALL_PROJECTS), env),
 	);
 	let orphans = 0;
 	for (const subject of live) {
 		if (wanted.has(subject)) continue;
-		await purgeSchedule(natsConnection(), SCHEDULES_STREAM, subject);
+		await purgeSchedule(natsConnection(), stream, subject);
 		orphans++;
 		logger.warn(
 			`[schedules] purged orphan schedule for trigger ${triggerIdFromSubject(subject) ?? subject}`,

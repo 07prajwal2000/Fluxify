@@ -14,6 +14,7 @@ import {
 	orchestratorKeys,
 } from "@fluxify/common/orchestrator";
 import { initializeNats } from "../../db/nats";
+import type { FluxifyEnv } from "../../lib/env";
 
 /**
  * The worker's side of the control plane: it takes a license slot, keeps it
@@ -94,12 +95,20 @@ export function losesClaimRace(
 	return order.findIndex((node) => node.nodeId === mine.nodeId) >= cap;
 }
 
+/**
+ * Whether a node holds a license slot. A development node does not (#732): it
+ * never serves production traffic, so community's one slot still runs one
+ * production worker beside it. It heartbeats all the same.
+ */
+export const holdsSlot = (node: Pick<NodeHeartbeat, "env">) => node.env !== "development";
+
 export interface NodeSlotOptions {
 	nodeId: string;
 	projectId: string;
 	type: NodeType;
 	groupIds: string[];
 	claimId?: string;
+	env: FluxifyEnv;
 	/**
 	 * The id came from the environment, so the orchestrator may have reserved
 	 * this node's key already and an existing value is ours to take over. A
@@ -152,9 +161,12 @@ export async function claimNodeSlot(
 	}
 
 	let nodeId = options.nodeId;
-	const others = (await liveNodes()).filter((node) => node.nodeId !== nodeId);
+	const licensed = holdsSlot(options);
+	const others = (await liveNodes()).filter((node) => node.nodeId !== nodeId && holdsSlot(node));
 	const entitlement = options.entitlement();
-	const refusal = refuseSlot({ type: options.type, entitlement, liveNodes: others.length });
+	const refusal = licensed
+		? refuseSlot({ type: options.type, entitlement, liveNodes: others.length })
+		: null;
 	if (refusal) return { ok: false, refusal };
 
 	function heartbeat(): NodeHeartbeat {
@@ -166,6 +178,7 @@ export async function claimNodeSlot(
 			groupIds: options.groupIds,
 			ready: false,
 			at: new Date().toISOString(),
+			env: options.env,
 		};
 	}
 
@@ -196,7 +209,7 @@ export async function claimNodeSlot(
 		};
 	}
 
-	if (losesClaimRace(record, [...others, record], entitlement.maxReplicas)) {
+	if (licensed && losesClaimRace(record, [...others, record], entitlement.maxReplicas)) {
 		await bucket.delete(key);
 		return {
 			ok: false,
@@ -323,6 +336,8 @@ export interface AttachOptions {
 	projectId: string;
 	envType: NodeType;
 	envGroupIds: string[];
+	/** `FLUXIFY_ENV`: a development node heartbeats but takes no license slot */
+	env: FluxifyEnv;
 	entitlement: () => NodeEntitlement;
 	/** This node's groups changed — re-decide what runs here. */
 	onGroupsChanged: () => void;
@@ -393,6 +408,7 @@ export async function attachNode(
 		projectId: options.projectId,
 		type: state.type,
 		groupIds: state.groupIds,
+		env: options.env,
 		entitlement: options.entitlement,
 		onLost: (refusal) => options.onStop(`license slot lost — ${refusal.message}`, 1),
 	});

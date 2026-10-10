@@ -615,6 +615,16 @@ one at a time. See [Sizing a worker](./kubernetes/#sizing) for the full ranges.
 > Scale **workers**, not the admin. Keep a single admin container so database
 > updates and the seed step run exactly once.
 
+### Development workers {#dev-workers}
+
+A worker started with `FLUXIFY_ENV=development` is a **development worker**.
+It runs only development work, never production's, and it serves every project
+in both modes, so `WORKER_PROJECT_ID`, `WORKER_MODE` and `WORKER_GROUP_ID` are
+ignored on it. It does not use a license slot (see
+[Workers per edition](./editions#workers)), and it needs no claim. Set the
+variable on that one worker only: in the shared `.env` it would turn every
+worker into a development one. See [Environments](../concepts/environments).
+
 ---
 
 ## Database integration idle timeout

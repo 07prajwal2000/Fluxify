@@ -222,6 +222,9 @@ export const claimParamSchema = z.object({ claimId: z.string() });
  */
 export const claimAckSchema = z.object({ id: z.string(), message: z.string() });
 
+/** Whether a development worker serves the project (#732): its own or a catch-all one. */
+export const devWorkerSchema = z.object({ online: z.boolean() });
+
 export type NodeViewDto = z.infer<typeof nodeViewSchema>;
 export type HostNodeDto = z.infer<typeof hostNodeSchema>;
 export type ClaimViewDto = z.infer<typeof claimViewSchema>;
