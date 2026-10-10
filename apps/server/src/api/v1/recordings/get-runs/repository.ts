@@ -5,6 +5,14 @@ import { traceRunsEntity } from "../../../../db/schema";
 import { type SuiteTarget, targetColumn } from "../../../../modules/testRunner/target";
 import type { requestQuerySchema } from "./dto";
 
+/** whose runs: a route or workflow, or a sandbox (#735), which only its owner's endpoints read */
+export type RunTarget = SuiteTarget | { type: "sandbox"; id: string };
+
+export const runTargetColumn = (target: RunTarget) =>
+	target.type === "sandbox"
+		? traceRunsEntity.sandboxId
+		: targetColumn(traceRunsEntity, target.type);
+
 /**
  * Recorded runs for one route or workflow, newest first. Headers only — the
  * portal polls this, so it never touches spans and rides the
@@ -12,7 +20,7 @@ import type { requestQuerySchema } from "./dto";
  */
 export async function getRecordedRuns(
 	projectId: string,
-	target: SuiteTarget,
+	target: RunTarget,
 	{
 		outcome,
 		from,
@@ -25,7 +33,7 @@ export async function getRecordedRuns(
 ) {
 	const where = and(
 		eq(traceRunsEntity.projectId, projectId),
-		eq(targetColumn(traceRunsEntity, target.type), target.id),
+		eq(runTargetColumn(target), target.id),
 		outcome ? eq(traceRunsEntity.outcome, outcome) : undefined,
 		from ? gte(traceRunsEntity.startedAt, from) : undefined,
 		to ? lt(traceRunsEntity.startedAt, to) : undefined,

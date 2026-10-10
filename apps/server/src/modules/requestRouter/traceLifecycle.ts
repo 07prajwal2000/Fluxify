@@ -23,6 +23,7 @@ export type RouteTraceFactory = {
 			routeVersion: string;
 			method: string;
 			path: string;
+			sandbox?: boolean;
 		} & TraceSinks,
 	): RouteTrace;
 };
@@ -33,6 +34,8 @@ type TraceableRoute = {
 	id: string;
 	projectId?: string;
 	routeVersion?: string;
+	/** `id` is a sandbox's (#735) */
+	sandbox?: boolean;
 };
 
 /** Keep recorder failures isolated from the route response path. */
@@ -51,6 +54,7 @@ export function startRouteTrace(
 			path: payload.path,
 			tracingEnabled: Boolean(route.tracingEnabled),
 			recordExecution: Boolean(route.recordExecution),
+			...(route.sandbox ? { sandbox: true } : {}),
 		});
 	} catch {
 		// Tracing is diagnostic data; a recorder bug must not fail traffic.

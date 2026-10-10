@@ -9,6 +9,7 @@ import {
 	customBlocksListEntity,
 	edgesEntity,
 	routesEntity,
+	sandboxesEntity,
 	workflowsEntity,
 } from "../../db/schema";
 import type { CanvasParent } from "./types";
@@ -24,6 +25,7 @@ const parentTables = {
 	route: { table: routesEntity, column: "routeId" },
 	custom_block: { table: customBlocksListEntity, column: "customBlockId" },
 	workflow: { table: workflowsEntity, column: "workflowId" },
+	sandbox: { table: sandboxesEntity, column: "sandboxId" },
 } as const satisfies Record<
 	CanvasParent["type"],
 	{
@@ -49,7 +51,7 @@ export function parentTable(type: CanvasParent["type"]) {
  * schema that is a column behind cannot quietly hide a canvas.
  */
 export function parentKeys(parent: CanvasParent) {
-	const keys = { routeId: null, customBlockId: null, workflowId: null } as Record<
+	const keys = { routeId: null, customBlockId: null, workflowId: null, sandboxId: null } as Record<
 		string,
 		string | null
 	>;
@@ -58,6 +60,7 @@ export function parentKeys(parent: CanvasParent) {
 		routeId: string | null;
 		customBlockId: string | null;
 		workflowId: string | null;
+		sandboxId: string | null;
 	};
 }
 
@@ -88,6 +91,7 @@ export async function upsertBlocks(blocks: BlockRow[], tx?: DbTransactionType) {
 				routeId: sql`excluded.route_id`,
 				customBlockId: sql`excluded.custom_block_id`,
 				workflowId: sql`excluded.workflow_id`,
+				sandboxId: sql`excluded.sandbox_id`,
 			},
 		});
 }
@@ -107,6 +111,7 @@ export async function upsertEdges(edges: EdgeRow[], tx?: DbTransactionType) {
 				routeId: sql`excluded.route_id`,
 				customBlockId: sql`excluded.custom_block_id`,
 				workflowId: sql`excluded.workflow_id`,
+				sandboxId: sql`excluded.sandbox_id`,
 			},
 		});
 }

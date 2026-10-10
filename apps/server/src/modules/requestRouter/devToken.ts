@@ -15,9 +15,7 @@ export function hashDevToken(token: string) {
 
 /**
  * Does `header` carry this project's dev token? A production config has no
- * hash, so it always refuses.
- *
- * Not wired into routing yet: the dev routes (#735) and sandboxes (#736) call it.
+ * hash, so it always refuses. Sandboxes (#735) call it; dev routes (#736) will.
  */
 export function verifyDevToken(
 	payload: Pick<ProjectConfigPayload, "devTokenHash"> | null | undefined,

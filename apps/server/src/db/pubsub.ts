@@ -11,6 +11,7 @@ export const CHAN_ON_INTEGRATION_CHANGE = "chan:on-integration-change";
 export const CHAN_ON_PROJECT_SETTING_CHANGE = "chan:on-project-setting-change";
 export const CHAN_ON_CUSTOM_BLOCK_CHANGE = "chan:on-custom-block-change";
 export const CHAN_ON_WORKFLOW_CHANGE = "chan:on-workflow-change";
+export const CHAN_ON_SANDBOX_CHANGE = "chan:on-sandbox-change";
 
 /** Connect the pub/sub backend (NATS). Call once at startup before publishing/subscribing. */
 export async function initializePubSub() {

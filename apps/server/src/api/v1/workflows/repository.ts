@@ -4,7 +4,7 @@ import { generateID } from "@fluxify/lib";
 import { and, count, desc, eq, ilike, type SQL } from "drizzle-orm";
 import { type DbTransactionType, db } from "../../../db";
 import { blocksEntity, projectsEntity, workflowsEntity } from "../../../db/schema";
-import { reserveBlockKeys } from "../../../modules/canvas/repository";
+import { parentKeys, reserveBlockKeys } from "../../../modules/canvas/repository";
 
 type WorkflowInsert = typeof workflowsEntity.$inferInsert;
 
@@ -18,11 +18,17 @@ export async function insertWorkflow(data: WorkflowInsert, tx?: DbTransactionTyp
 
 /**
  * The two blocks every canvas must have exactly one of. A workflow gets no
- * `response` block — nothing is waiting on an answer.
+ * `response` block — nothing is waiting on an answer. A sandbox (#735) starts
+ * the same way.
  */
-export async function seedDefaultBlocks(workflowId: string, tx?: DbTransactionType) {
+export async function seedDefaultBlocks(
+	id: string,
+	tx?: DbTransactionType,
+	type: "workflow" | "sandbox" = "workflow",
+) {
+	const parent = { type, id };
 	const [entryKey, errorKey] = await reserveBlockKeys(
-		{ type: "workflow", id: workflowId },
+		parent,
 		[BlockTypes.entrypoint, BlockTypes.errorHandler],
 		tx,
 	);
@@ -30,7 +36,7 @@ export async function seedDefaultBlocks(workflowId: string, tx?: DbTransactionTy
 		{
 			id: generateID(),
 			key: entryKey,
-			workflowId,
+			...parentKeys(parent),
 			type: BlockTypes.entrypoint,
 			position: STARTER_POSITIONS.entrypoint,
 			data: {},
@@ -38,7 +44,7 @@ export async function seedDefaultBlocks(workflowId: string, tx?: DbTransactionTy
 		{
 			id: generateID(),
 			key: errorKey,
-			workflowId,
+			...parentKeys(parent),
 			type: BlockTypes.errorHandler,
 			position: STARTER_POSITIONS.errorHandler,
 			data: {},

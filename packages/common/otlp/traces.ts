@@ -190,6 +190,7 @@ export function exportRun(provider: BasicTracerProvider, run: TraceRunPayload): 
 		if (run.workflowVersion) rootAttributes["fluxify.workflow.version"] = run.workflowVersion;
 		if (run.workflowName) rootAttributes["fluxify.workflow.name"] = run.workflowName;
 	}
+	if (run.sandboxId) rootAttributes["fluxify.sandbox.id"] = run.sandboxId;
 	if (run.statusCode) rootAttributes["http.response.status_code"] = run.statusCode;
 	if (run.truncated) rootAttributes["fluxify.truncated"] = true;
 	if (run.droppedSpans) rootAttributes["fluxify.dropped_spans"] = run.droppedSpans;

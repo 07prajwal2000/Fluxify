@@ -56,9 +56,19 @@ const KINDS_BY_MODE: Record<WorkerMode, readonly string[]> = {
 
 /** Artifact kinds a mode loads. A workflow worker holds no HTTP route table, so no middlewares. */
 const ARTIFACTS_BY_MODE: Record<WorkerMode, readonly string[]> = {
-	route: ["route", "custom-block", "middleware", "project-config", "deps"],
-	workflow: ["workflow", "custom-block", "project-config", "trigger", "deps"],
-	both: ["route", "workflow", "custom-block", "middleware", "project-config", "trigger", "deps"],
+	route: ["route", "custom-block", "middleware", "project-config", "deps", "sandbox"],
+	workflow: ["workflow", "custom-block", "project-config", "trigger", "deps", "sandbox-workflow"],
+	both: [
+		"route",
+		"workflow",
+		"custom-block",
+		"middleware",
+		"project-config",
+		"trigger",
+		"deps",
+		"sandbox",
+		"sandbox-workflow",
+	],
 };
 
 /** Rejects an unknown mode loudly — a typo must not silently become `both`. */

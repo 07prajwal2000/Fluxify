@@ -10,7 +10,8 @@ import { canvasChangesSchema, canvasParentTypeSchema } from "./types";
  * All persistence lives in the canvas service, shared with the HTTP endpoints.
  */
 const requestSchema = z.object({
-	source: canvasParentTypeSchema,
+	// a sandbox is private to its owner, and this bus only checks the project (#735)
+	source: canvasParentTypeSchema.exclude(["sandbox"]),
 	sourceId: z.string(),
 	/** omit to read the canvas back instead of writing it */
 	actionsToPerform: canvasChangesSchema.shape.actionsToPerform.nullish(),

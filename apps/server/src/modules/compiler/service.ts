@@ -51,7 +51,7 @@ export { publishProjectConfig };
 /** `type` of every system log the compiler writes; the canvas reads the latest */
 export const COMPILE_LOG_TYPE = "compile";
 
-type CompiledResource = {
+export type CompiledResource = {
 	projectId: string;
 	resourceType: CanvasParentType;
 	resourceId: string;
@@ -71,7 +71,7 @@ class StaticCompileError extends Error {
 	}
 }
 
-function compileOrThrow<T>(resource: CompiledResource, compile: () => T): T {
+export function compileOrThrow<T>(resource: CompiledResource, compile: () => T): T {
 	try {
 		return compile();
 	} catch (error) {
@@ -82,7 +82,7 @@ function compileOrThrow<T>(resource: CompiledResource, compile: () => T): T {
 /** `detail.status` of a compile log — what the canvas keys on, never the message */
 export type CompileStatus = "compiled" | "inactive" | "failed";
 
-const logCompiled = (resource: CompiledResource) =>
+export const logCompiled = (resource: CompiledResource) =>
 	systemLog.info({
 		...resource,
 		type: COMPILE_LOG_TYPE,
@@ -107,34 +107,9 @@ const logCompileFailed = (error: StaticCompileError) =>
 	});
 
 /** records a static failure; anything else goes back to the queue for a retry */
-async function recordFailure(error: unknown) {
+export async function recordFailure(error: unknown) {
 	if (!(error instanceof StaticCompileError)) throw error;
 	await logCompileFailed(error);
-}
-
-/**
- * Cold start: compile every project once. The KV bucket can legitimately be
- * empty (fresh deployment, purged bucket, new NATS cluster) and nothing else
- * would ever refill it — the change signals only fire on an edit, so without
- * this a worker booting against an empty bucket serves nothing until somebody
- * happens to save a route. Idempotent: recompiling just overwrites the key.
- */
-export async function compileAllProjects() {
-	const projects = await db.select({ id: projectsEntity.id }).from(projectsEntity);
-	for (const project of projects) await compileProject(project.id);
-	return projects.length;
-}
-
-export async function compileProject(projectId: string) {
-	await publishProjectConfig(projectId);
-	const blocks = await compileProjectCustomBlocks(projectId);
-	await compileProjectMiddlewares(projectId);
-	const routes = await compileProjectRoutes(projectId);
-	const workflows = await compileProjectWorkflows(projectId);
-	logger.info(
-		`[compiler] project ${projectId}: ${routes} routes, ${workflows} workflows, ${blocks} custom blocks`,
-		"COMPILER",
-	);
 }
 
 export async function compileProjectRoutes(projectId: string) {
@@ -394,7 +369,7 @@ function unregisterLocally(id: string) {
  * retried once its callee lands. Cycles are impossible (the canvas save
  * refuses them), so the fixpoint always terminates.
  */
-async function ensureCustomBlocksRegistered(projectId: string) {
+export async function ensureCustomBlocksRegistered(projectId: string) {
 	const rows = await db
 		.select({ id: customBlocksListEntity.id, name: customBlocksListEntity.name })
 		.from(customBlocksListEntity)

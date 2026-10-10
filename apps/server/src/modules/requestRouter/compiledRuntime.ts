@@ -37,6 +37,7 @@ import {
 	refreshQueueTriggers,
 	shutdownQueueTriggers,
 } from "../triggers/queueRuntime";
+import { verifyDevToken } from "./devToken";
 import { setBlocksExecutor } from "./executor";
 import { setDbConnectionManager } from "./service";
 
@@ -81,6 +82,13 @@ const routes = new Map<string, CompiledRoute>();
  * not be — a background job is not an endpoint somebody can curl.
  */
 const workflows = new Map<string, CompiledWorkflow>();
+/**
+ * Sandboxes (#735) as routes, by sandbox id. Never in a trie: they answer at
+ * `/_sandbox/<id>/*` with any method. Their workflow half lives in `workflows`.
+ */
+const sandboxes = new Map<string, CompiledRoute>();
+/** each project's development token hash; only a development config carries one */
+const devTokenHashes = new Map<string, string | undefined>();
 /** custom block artifact id -> where it is registered, so a delete can unregister it */
 const customBlockNamesById = new Map<string, { projectId: string; name: string }>();
 /** middleware id -> its chain (#579); a route artifact names them by id */
@@ -134,6 +142,33 @@ export function compiledWorkflow(workflowId: string): CompiledWorkflow | undefin
 	return workflows.get(workflowId);
 }
 
+const SANDBOX_PREFIX = "/_sandbox/";
+
+/**
+ * `/_sandbox/<id>/*` (#735): undefined for any other path. A sandbox nobody
+ * published here is a 404 like any unknown path, and only the development
+ * bucket holds them, so a production worker never serves one. A known sandbox
+ * needs its project's development token, or it is a 401. Otherwise a one-route
+ * parser matching any method, and the rest of the path, which is what the
+ * sandbox's blocks see as the request path.
+ */
+export function sandboxRequest(
+	path: string,
+	devToken: string | null,
+):
+	| { status: 401 | 404 }
+	| { status: 200; path: string; parser: Pick<HttpRouteParser, "getRouteId"> }
+	| undefined {
+	if (!path.startsWith(SANDBOX_PREFIX)) return;
+	const [id = "", ...rest] = path.slice(SANDBOX_PREFIX.length).split("/");
+	const compiled = sandboxes.get(id);
+	if (!compiled) return { status: 404 };
+	const devTokenHash = devTokenHashes.get(compiled.artifact.projectId);
+	if (!verifyDevToken({ devTokenHash }, devToken)) return { status: 401 };
+	const match = { ...routeDefinition(compiled.artifact), id, sandbox: true as const };
+	return { status: 200, path: `/${rest.join("/")}`, parser: { getRouteId: () => match } };
+}
+
 /** Cached alongside the compiled graph; no Zod tree is rebuilt per request. */
 export function compiledRouteValidators(routeId: string): RouteValidators | undefined {
 	return routes.get(routeId)?.validators;
@@ -151,7 +186,7 @@ export function initCompiledRuntime(entries: ArtifactEntry[], databaseIdleTimeou
 	const phase = (key: string) => {
 		const kind = artifactKind(key);
 		if (kind === "trigger") return 2;
-		return kind === "route" || kind === "workflow" ? 1 : 0;
+		return kind === "route" || kind === "workflow" || kind?.startsWith("sandbox") ? 1 : 0;
 	};
 	for (const current of [0, 1, 2]) {
 		for (const { key, value } of entries) {
@@ -160,7 +195,7 @@ export function initCompiledRuntime(entries: ArtifactEntry[], databaseIdleTimeou
 	}
 
 	setBlocksExecutor(async (target, context) => {
-		const compiled = routes.get(target.routeId);
+		const compiled = routes.get(target.routeId) ?? sandboxes.get(target.routeId);
 		if (!compiled) {
 			throw new Error(`No compiled graph for route ${target.routeId}`);
 		}
@@ -206,13 +241,16 @@ function applyArtifact(key: string, value: any | null) {
 				? addMiddleware(value as MiddlewareArtifact)
 				: void middlewares.delete(artifactId(key));
 		case "workflow":
+		case "sandbox-workflow":
 			return value
 				? addWorkflow(value as WorkflowArtifact)
 				: void workflows.delete(artifactId(key));
+		case "sandbox":
+			return value ? addSandbox(value as RouteArtifact) : void sandboxes.delete(artifactId(key));
 		case "project-config":
-			return value
-				? applyProjectConfig(value as UnsealedProjectConfig)
-				: setProjectSubdomain(key.split(".")[1]!, "");
+			if (value) return applyProjectConfig(value as UnsealedProjectConfig);
+			devTokenHashes.delete(key.split(".")[1]!);
+			return setProjectSubdomain(key.split(".")[1]!, "");
 		case "trigger":
 			return void applyQueueTrigger(artifactId(key), value as TriggerArtifact | null).catch(
 				(error) =>
@@ -241,6 +279,23 @@ function addRoute(artifact: RouteArtifact) {
 		// a graph that will not instantiate must not take the other routes down
 		logger.error(
 			`[worker] failed to load route ${artifact.routeId}: ${String(error)}`,
+			"WORKER.compiled",
+		);
+	}
+}
+
+function addSandbox(artifact: RouteArtifact) {
+	try {
+		// no request schemas: a sandbox takes whatever it is sent
+		sandboxes.set(artifact.routeId, {
+			artifact,
+			run: instantiateCompiled(artifact.source),
+			validators: {},
+		});
+		logger.info(`[worker] loaded sandbox ${artifact.routeId}`, "WORKER.compiled");
+	} catch (error) {
+		logger.error(
+			`[worker] failed to load sandbox ${artifact.routeId}: ${String(error)}`,
 			"WORKER.compiled",
 		);
 	}
@@ -410,6 +465,7 @@ function applyProjectConfig(artifact: UnsealedProjectConfig) {
 	);
 	// same for queue consumers: rotated credentials restart, deleted ones stop
 	void refreshQueueTriggers();
+	devTokenHashes.set(artifact.projectId, payload.devTokenHash);
 	hydrateProjectSettings(artifact.projectId, payload.projectSettings);
 	setProjectSubdomain(
 		artifact.projectId,

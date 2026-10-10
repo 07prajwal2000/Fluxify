@@ -3,6 +3,7 @@ import { type DbTransactionType, db } from "../../db";
 import {
 	CHAN_ON_CUSTOM_BLOCK_CHANGE,
 	CHAN_ON_ROUTE_CHANGE,
+	CHAN_ON_SANDBOX_CHANGE,
 	CHAN_ON_WORKFLOW_CHANGE,
 	publishMessage,
 } from "../../db/redis";
@@ -45,12 +46,14 @@ const CHANGE_CHANNEL = {
 	route: CHAN_ON_ROUTE_CHANGE,
 	custom_block: CHAN_ON_CUSTOM_BLOCK_CHANGE,
 	workflow: CHAN_ON_WORKFLOW_CHANGE,
+	sandbox: CHAN_ON_SANDBOX_CHANGE,
 } as const satisfies Record<CanvasParentType, string>;
 
 const NOT_FOUND = {
 	route: "Route not found",
 	custom_block: "Custom Block not found",
 	workflow: "Workflow not found",
+	sandbox: "Sandbox not found",
 } as const satisfies Record<CanvasParentType, string>;
 
 /**

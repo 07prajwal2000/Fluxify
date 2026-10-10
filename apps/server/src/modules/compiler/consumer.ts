@@ -7,21 +7,23 @@ import {
 	CHAN_ON_INTEGRATION_CHANGE,
 	CHAN_ON_PROJECT_SETTING_CHANGE,
 	CHAN_ON_ROUTE_CHANGE,
+	CHAN_ON_SANDBOX_CHANGE,
 	CHAN_ON_WORKFLOW_CHANGE,
 	subscribeToChannel,
 } from "../../db/pubsub";
 import type { CompileRequest } from "./artifacts";
+import { compileAllProjects, compileProject } from "./project";
 import {
 	requestCustomBlockCompile,
 	requestProjectConfigPublish,
 	requestRouteCompile,
+	requestSandboxCompile,
 	requestWorkflowCompile,
 } from "./publisher";
+import { compileSandbox } from "./sandbox";
 import {
-	compileAllProjects,
 	compileCustomBlock,
 	compileMiddleware,
-	compileProject,
 	compileRoute,
 	compileWorkflow,
 	publishAllProjectConfigs,
@@ -97,6 +99,8 @@ async function handle(subject: string, request: CompileRequest) {
 			return compileMiddleware(request.id ?? id, request.projectId);
 		case "workflow":
 			return compileWorkflow(request.id ?? id);
+		case "sandbox":
+			return compileSandbox(request.id ?? id);
 		case "project-config": {
 			const projectId = request.projectId ?? id;
 			return projectId === ALL_PROJECTS
@@ -124,6 +128,9 @@ async function bridgeChangeSignals() {
 	});
 	await subscribeToChannel(CHAN_ON_WORKFLOW_CHANGE, async (id) => {
 		if (id) await requestWorkflowCompile(id, "workflow changed");
+	});
+	await subscribeToChannel(CHAN_ON_SANDBOX_CHANGE, async (id) => {
+		if (id) await requestSandboxCompile(id, "sandbox changed");
 	});
 	// config feeds integration connection details, so both republish everything
 	await subscribeToChannel(CHAN_ON_APPCONFIG_CHANGE, () =>

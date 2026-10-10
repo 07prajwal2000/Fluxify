@@ -240,6 +240,56 @@ describe("migrateDB", () => {
 		});
 	});
 
+	test("a canvas row, a recorded run and a trigger each have one owner (#735)", async () => {
+		const { url, client } = await newDatabase();
+		await migrateDB(url);
+		await client`INSERT INTO projects (id, name, slug) VALUES ('p1', 'Shop', 'shop')`;
+		await client`INSERT INTO system_users (id, email, name) VALUES ('u1', 'ada@example.com', 'Ada')`;
+		await client`INSERT INTO routes (id, name, path, method, project_id) VALUES ('r1', 'one', '/one', 'GET', 'p1')`;
+		await client`INSERT INTO workflows (id, name, project_id) VALUES ('w1', 'nightly', 'p1')`;
+		await client`INSERT INTO sandboxes (id, project_id, user_id, name) VALUES ('s1', 'p1', 'u1', 'scratch')`;
+		await client`INSERT INTO trigger_groups (id, name, project_id) VALUES ('g1', 'default', 'p1')`;
+		const refused = (query: Promise<unknown>, check: string) => expect(query).rejects.toThrow(check);
+
+		// blocks and edges: exactly one of route, custom block, workflow, sandbox
+		await client`INSERT INTO blocks (id, key, type, sandbox_id) VALUES ('b1', 'entrypoint_1', 'entrypoint', 's1')`;
+		await refused(client`INSERT INTO blocks (id, key, type) VALUES ('b0', 'x_1', 'response')`.execute(), "blocks_one_parent");
+		await refused(
+			client`INSERT INTO blocks (id, key, type, route_id, sandbox_id) VALUES ('b2', 'x_1', 'response', 'r1', 's1')`.execute(),
+			"blocks_one_parent",
+		);
+		await client`INSERT INTO edges (id, "from", "to", sandbox_id) VALUES ('e1', 'b1', 'b1', 's1')`;
+		await refused(client`INSERT INTO edges (id, "from", "to") VALUES ('e0', 'b1', 'b1')`.execute(), "edges_one_parent");
+		await refused(
+			client`INSERT INTO edges (id, "from", "to", workflow_id, sandbox_id) VALUES ('e2', 'b1', 'b1', 'w1', 's1')`.execute(),
+			"edges_one_parent",
+		);
+
+		// a recorded run: exactly one of route, workflow, sandbox
+		const run = (route: string | null, sandbox: string | null) =>
+			client`INSERT INTO trace_runs (id, project_id, route_id, sandbox_id, started_at, outcome, span_count)
+				VALUES (${crypto.randomUUID()}, 'p1', ${route}, ${sandbox}, now(), 'success', 0)`.execute();
+		await run(null, "s1");
+		await refused(run("r1", "s1"), "trace_runs_one_target");
+
+		// a trigger: at most one of workflow, sandbox — neither is a saved, idle one
+		const trigger = (id: string, workflow: string | null, sandbox: string | null) =>
+			client`INSERT INTO triggers (id, name, type, project_id, group_id, workflow_id, sandbox_id)
+				VALUES (${id}, ${id}, 'internal', 'p1', 'g1', ${workflow}, ${sandbox})`.execute();
+		await trigger("t0", null, null);
+		await trigger("t1", null, "s1");
+		await refused(trigger("t2", "w1", "s1"), "triggers_one_target");
+
+		// deleting the sandbox takes its canvas, runs and triggers with it
+		await client`DELETE FROM sandboxes WHERE id = 's1'`;
+		const [left] = await client`SELECT
+			(SELECT count(*) FROM blocks WHERE sandbox_id = 's1')::int
+			+ (SELECT count(*) FROM edges WHERE sandbox_id = 's1')::int
+			+ (SELECT count(*) FROM trace_runs WHERE sandbox_id = 's1')::int
+			+ (SELECT count(*) FROM triggers WHERE sandbox_id = 's1')::int AS n`;
+		expect(left.n).toBe(0);
+	});
+
 	test("two migrators at once: one applies, the other waits and finds nothing to do", async () => {
 		const { url, client } = await newDatabase();
 		await Promise.all([migrateDB(url), migrateDB(url)]);
