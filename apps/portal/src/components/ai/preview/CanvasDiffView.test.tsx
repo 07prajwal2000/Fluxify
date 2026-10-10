@@ -163,6 +163,8 @@ test("the touched blocks sit in a fold, there is no zoom bar, and the canvas can
 	const dialog = await until(() => within(document.body).getByRole("dialog"));
 	await until(() => expect(dialog.querySelector('[data-block-key="consolelog_1"]')).not.toBeNull());
 	expect(dialog.textContent).toContain("Double-click a block for its settings");
+	// one canvas at a time while it is open
+	expect(document.querySelectorAll('[data-block-key="response_1"]')).toHaveLength(1);
 });
 
 test("a diff built from ops alone cannot open block settings", async () => {

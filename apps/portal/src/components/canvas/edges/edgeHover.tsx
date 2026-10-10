@@ -53,13 +53,16 @@ export const useHoveredEdge = () => useContext(HoveredEdge);
  * Which edge's box the pointer is in. Tracked from pointer moves rather than an
  * invisible box on the canvas, which would swallow clicks and drags on the pane.
  */
-export function useEdgeHover(rootRef: RefObject<HTMLElement | null>): string | null {
+export function useEdgeHover(
+	rootRef: RefObject<HTMLElement | null>,
+	enabled = true,
+): string | null {
 	const { getEdges, getInternalNode, screenToFlowPosition } = useReactFlow();
 	const [hovered, setHovered] = useState<string | null>(null);
 
 	useEffect(() => {
 		const root = rootRef.current;
-		if (!root) return;
+		if (!root || !enabled) return;
 		// Handle to handle, padded: the space the curve runs through, whichever
 		// sides the handles sit on.
 		const boxOf = (edge: {
@@ -90,17 +93,22 @@ export function useEdgeHover(rootRef: RefObject<HTMLElement | null>): string | n
 			root.removeEventListener("pointermove", onMove);
 			root.removeEventListener("pointerleave", onLeave);
 		};
-	}, [rootRef, getEdges, getInternalNode, screenToFlowPosition]);
+	}, [rootRef, enabled, getEdges, getInternalNode, screenToFlowPosition]);
 
 	return hovered;
 }
 
+/** `enabled` off: nothing to hover (a read-only canvas has no edge buttons), so no pointer tracking. */
 export function EdgeHoverProvider({
 	rootRef,
+	enabled,
 	children,
 }: {
 	rootRef: RefObject<HTMLElement | null>;
+	enabled?: boolean;
 	children: ReactNode;
 }) {
-	return <HoveredEdge.Provider value={useEdgeHover(rootRef)}>{children}</HoveredEdge.Provider>;
+	return (
+		<HoveredEdge.Provider value={useEdgeHover(rootRef, enabled)}>{children}</HoveredEdge.Provider>
+	);
 }

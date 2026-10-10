@@ -116,6 +116,7 @@ export default function CanvasDiffGraph({
 					enableContextMenu={false}
 					enableKeyboard={false}
 					showToolbar={false}
+					className="fx-diff-canvas"
 					captureScroll={expanded}
 				>
 					<SelectionSync selected={selected} onSelect={onSelect} />

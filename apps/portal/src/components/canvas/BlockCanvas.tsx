@@ -371,7 +371,7 @@ function CanvasInner({
 							<CanvasReadOnlyProvider readOnly={readOnly}>
 								<CanvasPanelProvider value={wrappedPanel}>
 									<QuickAddProvider value={quickAddEnabled ? openPickerFor : null}>
-										<EdgeHoverProvider rootRef={canvasRef}>
+										<EdgeHoverProvider rootRef={canvasRef} enabled={canEditLayout}>
 											<div className="fx-canvas-shell" ref={shellRef}>
 												<CanvasCommands
 													readOnly={readOnly}

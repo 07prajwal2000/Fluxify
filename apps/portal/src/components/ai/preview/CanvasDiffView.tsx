@@ -95,9 +95,14 @@ export function CanvasDiffView({ diff }: { diff: CanvasDiff }) {
 		<div className="flex flex-col gap-2">
 			<Legend diff={diff} />
 			<div className="relative">
-				<Suspense fallback={<Loading />}>
-					<CanvasDiffGraph diff={diff} selected={open?.key} onSelect={pick} />
-				</Suspense>
+				{/* one canvas at a time: the expanded one replaces this while it is open */}
+				{big ? (
+					<div className="h-64 rounded-lg border border-border bg-surface-secondary" />
+				) : (
+					<Suspense fallback={<Loading />}>
+						<CanvasDiffGraph diff={diff} selected={open?.key} onSelect={pick} />
+					</Suspense>
+				)}
 				<Button
 					isIconOnly
 					size="sm"
