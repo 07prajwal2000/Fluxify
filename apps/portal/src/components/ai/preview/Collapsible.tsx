@@ -30,14 +30,21 @@ export function JsonBlock({ label, value }: { label: string; value: unknown }) {
 export function Fold({
 	label,
 	open,
+	onToggle,
 	children,
 }: {
 	label: string;
 	open?: boolean;
+	/** Told when the reader opens or closes it. */
+	onToggle?: (open: boolean) => void;
 	children: ReactNode;
 }) {
 	return (
-		<details open={open} className="group text-xs">
+		<details
+			open={open}
+			onToggle={onToggle && ((e) => onToggle(e.currentTarget.open))}
+			className="group text-xs"
+		>
 			<summary className="cursor-pointer list-none font-medium text-muted hover:text-foreground">
 				<span className="mr-1 inline-block transition-transform group-open:rotate-90">›</span>
 				{label}

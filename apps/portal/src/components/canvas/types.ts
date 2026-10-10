@@ -85,6 +85,10 @@ export type BlockCanvasProps = {
 	/** Save handler for `Ctrl/Cmd+S` and the menu's Save entry. Without it the
 	 *  canvas offers no save — an embedded or preview canvas has none. */
 	onSave?: () => void;
+	/** The zoom / fit / lock bar. Default `true`; an embed that only shows the graph turns it off. */
+	showToolbar?: boolean;
+	/** Zoom on the scroll wheel, and keep the wheel from scrolling the page. Default `true`; a canvas inside a scrolling page turns it off (drag still pans). */
+	captureScroll?: boolean;
 	/** Fit the graph into view on first render. Default `true`. */
 	fitViewOnInit?: boolean;
 	defaultViewport?: Viewport;

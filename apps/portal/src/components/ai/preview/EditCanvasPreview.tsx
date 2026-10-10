@@ -8,17 +8,6 @@ import { Notice } from "./Notice";
 
 type Issue = { severity?: string; message?: string; block?: string };
 
-function Lines({ lines }: { lines?: string[] }) {
-	if (!lines?.length) return null;
-	return (
-		<ul className="flex flex-col gap-0.5 font-mono text-xs text-muted">
-			{lines.map((l) => (
-				<li key={l}>{l}</li>
-			))}
-		</ul>
-	);
-}
-
 function Issues({ issues }: { issues?: Issue[] }) {
 	return (
 		<>
@@ -68,7 +57,6 @@ function PendingEdit({ input }: { input: Record<string, unknown> }) {
 			{data.error && <Notice tone="danger">This edit would be refused: {data.error}</Notice>}
 			<Issues issues={data.issues} />
 			<CanvasDiffView diff={diffCanvases(data.before, data.after)} />
-			<Lines lines={data.changes} />
 		</div>
 	);
 }
@@ -81,7 +69,6 @@ function AppliedEdit({ tool }: { tool: ToolPart }) {
 	return (
 		<div className="flex flex-col gap-2">
 			<CanvasDiffView diff={diffFromOps(Array.isArray(input.ops) ? input.ops : [], refs)} />
-			<Lines lines={Array.isArray(out.changes) ? (out.changes as string[]) : undefined} />
 			<Issues issues={Array.isArray(out.issues) ? (out.issues as Issue[]) : undefined} />
 		</div>
 	);

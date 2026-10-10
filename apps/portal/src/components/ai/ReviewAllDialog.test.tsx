@@ -9,8 +9,14 @@ class Observer {
 	disconnect() {}
 }
 Object.assign(globalThis, { ResizeObserver: Observer });
+// the real canvas reads the route it sits on
+const router = await import("@tanstack/react-router");
 mock.module("@tanstack/react-router", () => ({
+	...router,
 	useParams: () => ({ projectId: "p1" }),
+	useMatch: () => undefined,
+	useNavigate: () => () => {},
+	useRouter: () => ({}),
 	Link: ({ to, children, ...rest }: any) => (
 		<a href={to} {...rest}>
 			{children}

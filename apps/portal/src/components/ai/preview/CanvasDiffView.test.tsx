@@ -1,4 +1,4 @@
-import { afterAll, afterEach, expect, test } from "bun:test";
+import { afterAll, afterEach, expect, mock, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { CanvasDiff } from "./canvasDiff";
 
@@ -18,7 +18,23 @@ Object.assign(globalThis, {
 	},
 });
 
-const { act, cleanup, fireEvent, render } = await import("@testing-library/react");
+// the real canvas reads the route it sits on
+const router = await import("@tanstack/react-router");
+mock.module("@tanstack/react-router", () => ({
+	...router,
+	useParams: () => ({ projectId: "p1" }),
+	useMatch: () => undefined,
+	useNavigate: () => () => {},
+	useRouter: () => ({}),
+	Link: ({ to, children, ...rest }: any) => (
+		<a href={to} {...rest}>
+			{children}
+		</a>
+	),
+}));
+
+const { act, cleanup, fireEvent, render, within } = await import("@testing-library/react");
+const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query");
 const { CanvasDiffView } = await import("./CanvasDiffView");
 
 afterEach(cleanup);
@@ -70,6 +86,15 @@ const diff: CanvasDiff = {
 	],
 };
 
+const show = (d: CanvasDiff) =>
+	render(
+		<QueryClientProvider
+			client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+		>
+			<CanvasDiffView diff={d} />
+		</QueryClientProvider>,
+	);
+
 /** Not RTL's waitFor/screen: they stay bound to the DOM of whichever test file loaded RTL first. */
 async function until<T>(check: () => T, timeout = 2000): Promise<T> {
 	const end = Date.now() + timeout;
@@ -84,7 +109,7 @@ async function until<T>(check: () => T, timeout = 2000): Promise<T> {
 }
 
 test("added, changed and removed blocks are told apart on the mini canvas, by key", async () => {
-	const view = render(<CanvasDiffView diff={diff} />);
+	const view = show(diff);
 	const node = (key: string) => view.container.querySelector(`[data-block-key="${key}"]`);
 	await until(() => expect(node("response_1")).not.toBeNull());
 	expect(node("entrypoint_1")?.getAttribute("data-status")).toBe("same");
@@ -97,7 +122,7 @@ test("added, changed and removed blocks are told apart on the mini canvas, by ke
 });
 
 test("a changed block opens on its field-level before and after, code as a text diff", async () => {
-	const view = render(<CanvasDiffView diff={diff} />);
+	const view = show(diff);
 	// the first touched block is open already
 	const section = await until(() => view.getByLabelText("response_1 changed"));
 	expect(section.querySelector("del")?.textContent).toBe("200");
@@ -108,7 +133,7 @@ test("a changed block opens on its field-level before and after, code as a text 
 });
 
 test("clicking a block's chip, or the block itself, shows what happened to it", async () => {
-	const view = render(<CanvasDiffView diff={diff} />);
+	const view = show(diff);
 	fireEvent.click(await until(() => view.getByRole("button", { name: "db_insert_1" })));
 	expect(view.getByLabelText("db_insert_1 added").textContent).toContain("users");
 	const gone = await until(() => view.container.querySelector('[data-block-key="consolelog_1"]'));
@@ -116,4 +141,33 @@ test("clicking a block's chip, or the block itself, shows what happened to it", 
 	await until(() =>
 		expect(view.getByLabelText("consolelog_1 removed").textContent).toContain("value"),
 	);
+});
+
+test("the touched blocks sit in a fold, there is no zoom bar, and the canvas can be expanded", async () => {
+	const view = show(diff);
+	await until(() =>
+		expect(view.container.querySelector('[data-block-key="response_1"]')).not.toBeNull(),
+	);
+	const fold = view.container.querySelector("details") as HTMLDetailsElement;
+	expect(fold.open).toBe(false);
+	expect(fold.textContent).toContain("Changed blocks (3)");
+	// the canvas's own blocks, tinted by class; unchanged ones are left as they are
+	expect(view.container.querySelector(".fx-diff--added .fx-block")).not.toBeNull();
+	expect(view.container.querySelector(".fx-diff--same .fx-block")).not.toBeNull();
+	expect(view.queryByLabelText("Zoom in")).toBeNull();
+	// picking a block on the canvas opens the fold
+	fireEvent.click(view.container.querySelector('[data-block-key="db_insert_1"]') as Element);
+	await until(() => expect(fold.open).toBe(true));
+
+	fireEvent.click(view.getByRole("button", { name: "Expand canvas" }));
+	const dialog = await until(() => within(document.body).getByRole("dialog"));
+	await until(() => expect(dialog.querySelector('[data-block-key="consolelog_1"]')).not.toBeNull());
+	expect(dialog.textContent).toContain("Double-click a block for its settings");
+});
+
+test("a diff built from ops alone cannot open block settings", async () => {
+	const view = show({ ...diff, partial: true });
+	fireEvent.click(await until(() => view.getByRole("button", { name: "Expand canvas" })));
+	const dialog = await until(() => within(document.body).getByRole("dialog"));
+	expect(dialog.textContent).not.toContain("Double-click");
 });

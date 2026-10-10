@@ -16,8 +16,14 @@ Object.assign(globalThis, {
 		constructor() {}
 	},
 });
+// the real canvas reads the route it sits on
+const router = await import("@tanstack/react-router");
 mock.module("@tanstack/react-router", () => ({
+	...router,
 	useParams: () => ({ projectId: "p1" }),
+	useMatch: () => undefined,
+	useNavigate: () => () => {},
+	useRouter: () => ({}),
 	Link: ({ to, children, ...rest }: any) => (
 		<a href={to} {...rest}>
 			{children}
@@ -117,7 +123,8 @@ test("a waiting edit_canvas opens by itself on the canvas diff, computed before 
 	const detail = await until(() => view.getByLabelText("response_1 changed"));
 	expect(detail.querySelector("del")?.textContent).toBe("200");
 	expect(detail.querySelector("ins")?.textContent).toBe("201");
-	expect(view.getByText("updated response_1 (httpCode)")).toBeTruthy();
+	// the change lines are in Raw, not in the preview
+	expect(view.queryByText("updated response_1 (httpCode)")).toBeNull();
 	expect(view.getByText(/not connected/)).toBeTruthy();
 	ask.mockRestore();
 });
@@ -171,7 +178,7 @@ test("an edit that ran shows the blocks its ops touched, added ones by the key t
 			view.container.querySelector('[data-block-key="consolelog_2"]')?.getAttribute("data-status"),
 		).toBe("added"),
 	);
-	expect(view.getByText("added consolelog_2 (b1)")).toBeTruthy();
+	expect(view.queryByText("added consolelog_2 (b1)")).toBeNull();
 	// no "after" to compute for a finished edit
 	expect(ask).not.toHaveBeenCalled();
 	ask.mockRestore();

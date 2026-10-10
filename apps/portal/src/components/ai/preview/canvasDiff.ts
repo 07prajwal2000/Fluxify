@@ -20,7 +20,12 @@ export type DiffEdge = {
 	handle: string;
 	status: "same" | "added" | "removed";
 };
-export type CanvasDiff = { blocks: DiffBlock[]; edges: DiffEdge[] };
+export type CanvasDiff = {
+	blocks: DiffBlock[];
+	edges: DiffEdge[];
+	/** Built from ops alone: blocks the ops only name have no data, so there is nothing real to open. */
+	partial?: boolean;
+};
 
 /** What differs between two block data records, field by field. */
 export function fieldChanges(before: Data, after: Data): FieldChange[] {
@@ -152,7 +157,7 @@ export function diffFromOps(ops: unknown[], refs: Record<string, string> = {}): 
 				break;
 		}
 	}
-	return { blocks: [...blocks.values()], edges };
+	return { blocks: [...blocks.values()], edges, partial: true };
 }
 
 export const countBy = (diff: CanvasDiff) => ({
