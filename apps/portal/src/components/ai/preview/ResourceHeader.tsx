@@ -20,7 +20,7 @@ export function ResourceHeader({
 	type: RefType;
 	name: string;
 	id?: string;
-	badge: keyof typeof BADGE;
+	badge?: keyof typeof BADGE;
 	/** Method and path, a schedule…: what identifies it at a glance. */
 	detail?: string;
 }) {
@@ -30,13 +30,15 @@ export function ResourceHeader({
 			<Icon size={16} className="shrink-0 text-muted" />
 			<span className="font-medium text-foreground">{name || type.replace("_", " ")}</span>
 			{detail && <code className="rounded bg-surface-secondary px-1.5 text-xs">{detail}</code>}
-			<span className={`rounded-full border px-2 text-xs ${BADGE[badge]}`}>
-				{badge === "new" && <TbPlus size={10} className="mr-0.5 inline" />}
-				{badge === "new" ? "New" : badge[0].toUpperCase() + badge.slice(1)}
-			</span>
+			{badge && (
+				<span className={`rounded-full border px-2 text-xs ${BADGE[badge]}`}>
+					{badge === "new" && <TbPlus size={10} className="mr-0.5 inline" />}
+					{badge === "new" ? "New" : badge[0].toUpperCase() + badge.slice(1)}
+				</span>
+			)}
 			{id && badge !== "delete" && (
 				<span className="ml-auto">
-					<AgentRef type={type} id={id}>
+					<AgentRef type={type} id={id} query={name}>
 						Open
 					</AgentRef>
 				</span>

@@ -1,14 +1,15 @@
 import { TbCheck, TbX } from "react-icons/tb";
-import { AgentRef } from "../AgentRef";
+import { AgentRef, useSuiteTarget } from "../AgentRef";
 import type { ToolPart } from "../agentMessages";
 import { fmtDuration } from "../runChanges";
 import { type Data, isRec, rec, str } from "./data";
 import { Notice } from "./Notice";
+import { OpenRecording } from "./RecordingPreview";
 
 const list = (v: unknown) => (Array.isArray(v) ? v : []);
 
-/** One case: passed or failed, and for a failure each check that did not hold with the value it got. */
-function Case({ c }: { c: Data }) {
+/** One case: passed or failed, and for a failure each check that did not hold with the value it got. `target`: where its recording opens. */
+function Case({ c, target }: { c: Data; target?: { kind: string; id: string } }) {
 	const passed = c.status === "passed";
 	const checks = list(c.failedChecks).map(str);
 	return (
@@ -22,6 +23,11 @@ function Case({ c }: { c: Data }) {
 				<span className="font-medium text-foreground">{str(c.name) || "request"}</span>
 				{c.statusCode !== undefined && <span className="text-muted">{str(c.statusCode)}</span>}
 				{passed && <span className="text-muted">all checks passed</span>}
+				{target && c.traceRunId ? (
+					<span className="ml-auto">
+						<OpenRecording kind={target.kind} targetId={target.id} runId={str(c.traceRunId)} />
+					</span>
+				) : null}
 			</div>
 			{c.error ? (
 				<Notice tone="danger">{isRec(c.error) ? str(rec(c.error).message) : str(c.error)}</Notice>
@@ -39,6 +45,13 @@ function Case({ c }: { c: Data }) {
 }
 
 function Suite({ s }: { s: Data }) {
+	// a recording opens on its route's or workflow's page, known once the suite is read
+	const found = useSuiteTarget(str(s.testSuiteId), Boolean(str(s.testSuiteId))).data;
+	const target = found?.routeId
+		? { kind: "route", id: found.routeId }
+		: found?.workflowId
+			? { kind: "workflow", id: found.workflowId }
+			: undefined;
 	return (
 		<section className="flex flex-col gap-1 rounded-lg border border-border p-2">
 			<header className="flex items-center gap-2">
@@ -53,7 +66,7 @@ function Suite({ s }: { s: Data }) {
 			<ul className="flex flex-col divide-y divide-border">
 				{list(s.cases).map((c, i) => (
 					// biome-ignore lint/suspicious/noArrayIndexKey: cases keep their order
-					<Case key={i} c={rec(c)} />
+					<Case key={i} c={rec(c)} target={target} />
 				))}
 			</ul>
 			{s.teardownError ? (

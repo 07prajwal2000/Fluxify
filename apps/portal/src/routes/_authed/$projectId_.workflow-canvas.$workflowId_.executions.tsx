@@ -2,6 +2,7 @@ import { Button, toast } from "@fluxify/components";
 import { createFileRoute, isRedirect, redirect } from "@tanstack/react-router";
 import { useState } from "react";
 import { TbSettings } from "react-icons/tb";
+import { z } from "zod";
 import { ExecutionRecordings } from "@/components/recordings/ExecutionRecordings";
 import {
 	RouteWorkbenchHeader,
@@ -22,6 +23,7 @@ export const Route = createFileRoute(
 		"Workflow Executions | Workflows",
 		"Inspect and debug recorded executions for a workflow.",
 	),
+	validateSearch: z.object({ open: z.string().optional() }),
 	beforeLoad: async ({ params, context }) => {
 		try {
 			const workflow = await context.queryClient.ensureQueryData({
@@ -49,6 +51,8 @@ export const Route = createFileRoute(
 
 function WorkflowExecutionsPage() {
 	const { projectId, workflowId } = Route.useParams();
+	const { open } = Route.useSearch();
+	const navigate = Route.useNavigate();
 	const { data: workflow } = workflowsQuery.byId.useQuery(workflowId);
 	const canEdit = useCanEditProject(projectId);
 	const [runOpen, setRunOpen] = useState(false);
@@ -79,6 +83,8 @@ function WorkflowExecutionsPage() {
 			<main className="min-h-0 flex-1">
 				<ExecutionRecordings
 					key={workflowId}
+					initialRunId={open}
+					onClosed={() => navigate({ search: {}, replace: true })}
 					projectId={projectId}
 					target={{ type: "workflow", id: workflowId }}
 					emptyHint="run the workflow with the Run button or its trigger"

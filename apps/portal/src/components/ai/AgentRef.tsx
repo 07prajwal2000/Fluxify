@@ -25,7 +25,7 @@ export const REF_ICONS: Record<RefType, typeof TbBox> = {
 	test_suite: TbFlask,
 };
 
-const CHIP =
+export const CHIP =
 	"mx-0.5 inline-flex items-center gap-1 rounded-md border border-accent/20 bg-accent/10 px-2 py-0.5 align-baseline text-xs font-medium text-accent";
 
 /** Text of directive children (the label), whatever markdown wrapped it. */
@@ -41,7 +41,7 @@ const textOf = (node: ReactNode): string =>
 		.join("");
 
 /** The tests page a suite belongs to is only known once the suite is read. */
-function useSuiteTarget(id: string, enabled: boolean) {
+export function useSuiteTarget(id: string, enabled: boolean) {
 	return useQuery({
 		queryKey: ["agent-ref", "test_suite", id],
 		queryFn: () => testSuitesService.getById(id),
@@ -60,10 +60,13 @@ function useSuiteTarget(id: string, enabled: boolean) {
 export function AgentRef({
 	type,
 	id,
+	query,
 	children,
 }: {
 	type?: string;
 	id?: string | number;
+	/** What an app config link searches for; its label by default. */
+	query?: string;
 	children?: ReactNode;
 }) {
 	const { projectId } = useParams({ strict: false }) as { projectId?: string };
@@ -85,7 +88,7 @@ export function AgentRef({
 	return (
 		<Link
 			to={path}
-			search={type === "app_config" ? ({ q: label } as never) : undefined}
+			search={type === "app_config" ? ({ q: query ?? label } as never) : undefined}
 			target="_blank"
 			rel="noopener noreferrer"
 			className={`${CHIP} no-underline transition-colors hover:bg-accent/20`}

@@ -1,6 +1,10 @@
 import { useState } from "react";
+import { AgentRef } from "../AgentRef";
 import type { ToolPart } from "../agentMessages";
-import { type Data, isRec, oneLine } from "./data";
+import type { RefType } from "../agentRefs";
+import { type Data, isRec, oneLine, rec, str } from "./data";
+import { ResourceHeader } from "./ResourceHeader";
+import { META, nameOf, readOf, routeLine } from "./resourceMeta";
 
 const MAX_COLS = 5;
 const MAX_ROWS = 20;
@@ -19,8 +23,8 @@ function columns(rows: Data[]) {
 	return keys.sort((a, b) => rank(a) - rank(b)).slice(0, MAX_COLS);
 }
 
-/** Rows as a table; the first 20, then a button for the rest. */
-function Table({ rows }: { rows: Data[] }) {
+/** Rows as a table; the first 20, then a button for the rest. `type`: each row with an id gets a link that opens it. */
+function Table({ rows, type }: { rows: Data[]; type?: RefType }) {
 	const [all, setAll] = useState(false);
 	const cols = columns(rows);
 	const shown = all ? rows : rows.slice(0, MAX_ROWS);
@@ -34,6 +38,7 @@ function Table({ rows }: { rows: Data[] }) {
 								{c}
 							</th>
 						))}
+						{type && <th aria-label="Open" />}
 					</tr>
 				</thead>
 				<tbody className="divide-y divide-border">
@@ -45,6 +50,15 @@ function Table({ rows }: { rows: Data[] }) {
 									{isScalar(r[c]) ? String(r[c] ?? "") : oneLine(r[c], 60)}
 								</td>
 							))}
+							{type && (
+								<td className="px-2 py-1 text-right">
+									{r.id !== undefined && (
+										<AgentRef type={type} id={str(r.id)} query={nameOf(type, r)}>
+											Open
+										</AgentRef>
+									)}
+								</td>
+							)}
 						</tr>
 					))}
 				</tbody>
@@ -92,9 +106,31 @@ function Fields({ value, depth = 0 }: { value: Data; depth?: number }) {
 export const hasData = (output: unknown) =>
 	isRows(output) || (isRec(output) && Object.keys(output).length > 0);
 
-/** get_* / list_*: a compact table or field list instead of JSON. */
+/** get_* / list_*: a compact table or field list instead of JSON; a resource gets a link that opens it. */
 export function DataPreview({ tool }: { tool: ToolPart }) {
 	const out = tool.output;
-	if (isRows(out)) return <Table rows={out} />;
-	return isRec(out) ? <Fields value={out} /> : null;
+	const read = readOf(tool.name);
+	if (isRows(out)) return <Table rows={out} type={read?.many ? read.type : undefined} />;
+	if (!isRec(out)) return null;
+	if (read?.many && isRows(out.items))
+		return (
+			<div className="flex flex-col gap-1">
+				<Table rows={out.items} type={read.type} />
+				{out.hasNext === true && <p className="text-xs text-muted">More on the next page.</p>}
+			</div>
+		);
+	const id = read && !read.many ? str(rec(tool.input)[META[read.type].idKey]) || str(out.id) : "";
+	return (
+		<div className="flex flex-col gap-2">
+			{read && id && (
+				<ResourceHeader
+					type={read.type}
+					id={id}
+					name={nameOf(read.type, out)}
+					detail={read.type === "route" ? routeLine(out) : undefined}
+				/>
+			)}
+			<Fields value={out} />
+		</div>
+	);
 }

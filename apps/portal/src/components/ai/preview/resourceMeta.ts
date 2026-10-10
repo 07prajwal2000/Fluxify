@@ -52,3 +52,22 @@ export const routeLine = (d: Data) => [str(d.method), str(d.path)].filter(Boolea
 /** An encrypted app config entry's value is a secret whatever the field is called. */
 export const secretFields = (type: RefType, ...sources: Data[]) =>
 	new Set(type === "app_config" && sources.some((s) => s.isEncrypted === true) ? ["value"] : []);
+
+/** `get_route` → route, one; `list_routes` → route, many. Any other read has no resource page. */
+const READS: Record<string, RefType> = {
+	routes: "route",
+	workflows: "workflow",
+	triggers: "trigger",
+	custom_blocks: "custom_block",
+	middlewares: "middleware",
+	integrations: "integration",
+	app_config: "app_config",
+	test_suites: "test_suite",
+};
+export function readOf(tool: string) {
+	const m = /^(get|list)_(.+)$/.exec(tool);
+	if (!m) return undefined;
+	if (m[1] === "list") return READS[m[2]] && { type: READS[m[2]], many: true };
+	const type = Object.values(READS).find((t) => t === m[2]);
+	return type && { type, many: false };
+}
