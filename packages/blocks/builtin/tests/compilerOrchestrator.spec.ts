@@ -31,13 +31,14 @@ describe("orchestrator", () => {
 		const { run } = orchestrate(
 			{ order: ["b", "a"] },
 			{
-				a: `${sleep(60)} return "a" + input;`,
-				b: `${sleep(60)} return "b" + input;`,
+				a: `${sleep(200)} return "a" + input;`,
+				b: `${sleep(200)} return "b" + input;`,
 			},
 		);
 		const started = performance.now();
 		const result = await run(createContext(), 1);
-		expect(performance.now() - started).toBeLessThan(110);
+		// one after the other is 400ms; the slack is for a slow CI runner
+		expect(performance.now() - started).toBeLessThan(350);
 		expect(result.output.body).toEqual(["b1", "a1"]);
 	});
 
