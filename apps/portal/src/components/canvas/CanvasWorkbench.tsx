@@ -44,6 +44,8 @@ export type CanvasWorkbenchProps = {
 	trackExecutionContent?: ReactNode;
 	/** Extra header controls owned by the caller — route settings, for one. */
 	headerActions?: ReactNode;
+	/** A notice under the header, above the canvas — a sandbox with no worker to run on, for one. */
+	banner?: ReactNode;
 	/** Replaces the plain title on the left — the route switcher, for one. */
 	headerLeft?: ReactNode;
 	/** re-read from the server, for diagnosing a rejected save */
@@ -97,6 +99,7 @@ function CanvasWorkbenchInner({
 	trackExecutionContent,
 	headerActions,
 	headerLeft,
+	banner,
 	readOnly = false,
 	focusBlock,
 }: CanvasWorkbenchProps) {
@@ -201,6 +204,8 @@ function CanvasWorkbenchInner({
 					</Button>
 				)}
 			</header>
+
+			{banner}
 
 			{stale && (
 				<Alert status="warning" className="rounded-none">

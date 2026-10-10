@@ -1,7 +1,7 @@
 import { Alert, Button, CloseButton, Label, Modal, TextArea, toast } from "@fluxify/components";
 import { useState } from "react";
 import { TbInfoCircle, TbPlayerPlay } from "react-icons/tb";
-import { showErrorNotification } from "@/lib/errorNotifier";
+import { parseApiError } from "@/lib/errorNotifier";
 import { workflowsQuery } from "@/query/workflowsQuery";
 import { useCanEditProject } from "@/store/auth";
 
@@ -50,30 +50,47 @@ export function WorkflowRunButton({
 	);
 }
 
-export function WorkflowRunModal({
-	workflowId,
+/**
+ * The Run form, shared by whatever can be run with a payload: a workflow, or a
+ * sandbox. What differs is only the call, so that arrives as `run`; a refusal
+ * (no development worker, a missing role) stays in the dialog as text.
+ */
+export function RunPayloadModal({
+	heading,
 	name,
 	isOpen,
 	onOpenChange,
+	run,
+	isDisabled = false,
+	disabledReason,
 }: {
-	workflowId: string;
+	heading: string;
 	name: string;
 	isOpen: boolean;
 	onOpenChange: (open: boolean) => void;
+	run: (payload: unknown) => Promise<{ id: string }>;
+	/** Run is off, with `disabledReason` saying why */
+	isDisabled?: boolean;
+	disabledReason?: string;
 }) {
 	const [payload, setPayload] = useState("");
-	const run = workflowsQuery.run.mutation(workflowId);
+	const [isPending, setIsPending] = useState(false);
+	const [error, setError] = useState<string | null>(null);
 	const parsed = parsePayload(payload);
 	const isJson = typeof parsed === "object" && parsed !== null;
 
-	function start() {
-		run.mutate(parsed, {
-			onSuccess: (result) => {
-				toast.success(`Run queued — ${result.id}`);
-				onOpenChange(false);
-			},
-			onError: (error) => showErrorNotification(error as Error),
-		});
+	async function start() {
+		setIsPending(true);
+		setError(null);
+		try {
+			const result = await run(parsed);
+			toast.success(`Run queued — ${result.id}`);
+			onOpenChange(false);
+		} catch (caught) {
+			setError(parseApiError(caught).message);
+		} finally {
+			setIsPending(false);
+		}
 	}
 
 	return (
@@ -83,7 +100,7 @@ export function WorkflowRunModal({
 					<Modal.Dialog className="w-[38rem] max-w-[92vw]">
 						<Modal.Header className="flex flex-row items-center gap-3">
 							<div className="min-w-0">
-								<Modal.Heading className="text-sm font-semibold">Run workflow</Modal.Heading>
+								<Modal.Heading className="text-sm font-semibold">{heading}</Modal.Heading>
 								<p className="truncate text-xs text-muted">{name}</p>
 							</div>
 							<CloseButton aria-label="Close run dialog" className="ml-auto" />
@@ -120,6 +137,17 @@ export function WorkflowRunModal({
 									</Alert.Content>
 								</Alert>
 							)}
+
+							{(error ?? (isDisabled ? disabledReason : null)) && (
+								<Alert status={error ? "danger" : "warning"}>
+									<Alert.Indicator>
+										<TbInfoCircle size={16} />
+									</Alert.Indicator>
+									<Alert.Content>
+										<Alert.Description>{error ?? disabledReason}</Alert.Description>
+									</Alert.Content>
+								</Alert>
+							)}
 						</Modal.Body>
 
 						<Modal.Footer className="flex flex-row items-center gap-2">
@@ -128,7 +156,12 @@ export function WorkflowRunModal({
 								<Button variant="ghost" onPress={() => onOpenChange(false)}>
 									Cancel
 								</Button>
-								<Button variant="primary" isPending={run.isPending} onPress={start}>
+								<Button
+									variant="primary"
+									isDisabled={isDisabled}
+									isPending={isPending}
+									onPress={() => void start()}
+								>
 									<TbPlayerPlay size={16} /> Run
 								</Button>
 							</div>
@@ -137,5 +170,28 @@ export function WorkflowRunModal({
 				</Modal.Container>
 			</Modal.Backdrop>
 		</Modal>
+	);
+}
+
+export function WorkflowRunModal({
+	workflowId,
+	name,
+	isOpen,
+	onOpenChange,
+}: {
+	workflowId: string;
+	name: string;
+	isOpen: boolean;
+	onOpenChange: (open: boolean) => void;
+}) {
+	const run = workflowsQuery.run.mutation(workflowId);
+	return (
+		<RunPayloadModal
+			heading="Run workflow"
+			name={name}
+			isOpen={isOpen}
+			onOpenChange={onOpenChange}
+			run={(payload) => run.mutateAsync(payload)}
+		/>
 	);
 }

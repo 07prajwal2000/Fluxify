@@ -14,6 +14,7 @@
 # Routing (Traefik):
 #   /_/admin*, /.well-known/oauth-* -> admin (its internal proxy splits
 #                                      ui / api / ai / mcp)
+#   /_sandbox*                      -> worker-dev (the development worker)
 #   everything else -> the worker nodes the orchestrator created
 #
 # ------------------------------------------------------------------------------
@@ -174,7 +175,9 @@ services:
   # license slot and needs no claim. FLUXIFY_ENV is set on this service only:
   # `.env` is shared with admin, and one worker has one environment.
   #
-  # Traefik has no label for it, so it takes no traffic (routing comes later).
+  # Traefik sends it `/_sandbox` and nothing else, above the production
+  # workers' routes (a project host is 50, the catch-all 1) so a sandbox call
+  # never reaches a production worker. `/_/dev` joins the rule in #736.
   # Like the orchestrated workers it gets a fixed list of settings instead of
   # the whole `.env`: a worker never opens a database connection, so PG_URL
   # stays out.
@@ -193,6 +196,17 @@ services:
       REDIS_PASS: "${REDIS_PASS:-}"
       MASTER_ENCRYPTION_KEY: "${MASTER_ENCRYPTION_KEY}"
       TRUSTED_ORIGINS: "${TRUSTED_ORIGINS:-}"
+    labels:
+      - traefik.enable=true
+      - "traefik.http.routers.worker-dev.rule=PathPrefix(`/_sandbox`)"
+      - traefik.http.routers.worker-dev.priority=100
+      - traefik.http.routers.worker-dev.entrypoints=web
+      - traefik.http.routers.worker-dev.service=worker-dev
+      # The worker's default ports: traffic on 5600, health on 5601.
+      - traefik.http.services.worker-dev.loadbalancer.server.port=5600
+      - traefik.http.services.worker-dev.loadbalancer.healthcheck.path=/_/admin/api/healthchecks/ready
+      - traefik.http.services.worker-dev.loadbalancer.healthcheck.port=5601
+      - traefik.http.services.worker-dev.loadbalancer.healthcheck.interval=10s
     depends_on:
       valkey:
         condition: service_started

@@ -157,8 +157,9 @@ export function useRecordingSwitch(projectId: string, target: RecordingTarget) {
 	});
 
 	return {
-		isOn: Boolean(data?.recordExecution),
-		isLoading: !data,
+		// a sandbox is always recorded: there is no switch to wait for
+		isOn: target.type === "sandbox" || Boolean(data?.recordExecution),
+		isLoading: target.type !== "sandbox" && !data,
 		isApplying: set.isPending,
 		set: set.mutate,
 	};

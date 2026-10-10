@@ -6,7 +6,7 @@ import { useBlockDiagnostics } from "./DiagnosticsContext";
 
 export type CompileTarget = {
 	projectId: string;
-	resourceType: "route" | "workflow" | "custom_block";
+	resourceType: "route" | "workflow" | "custom_block" | "sandbox";
 	resourceId: string;
 };
 

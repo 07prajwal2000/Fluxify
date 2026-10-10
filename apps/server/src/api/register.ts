@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { currentEntitlement } from "../lib/edition";
-import { RECORDING_MAX_AGE_DAYS } from "../lib/env";
+import { DEV_WORKER_URL, RECORDING_MAX_AGE_DAYS } from "../lib/env";
 import { getPublicSettings } from "../loaders/instanceSettingsLoader";
 import { orchestrationEnabled } from "../modules/orchestrator/gate";
 import type { HonoServer } from "../types";
@@ -21,6 +21,8 @@ export function mapVersionedAdminRoutes(app: HonoServer) {
 			license: currentEntitlement(),
 			orchestration: { enabled: orchestrationEnabled() },
 			recordingMaxAgeDays: RECORDING_MAX_AGE_DAYS,
+			// absent when unset: the portal then uses the project's own API address
+			devWorkerUrl: DEV_WORKER_URL,
 			// the editor loads `@types/bun` at this version
 			bunVersion: Bun.version,
 		}),

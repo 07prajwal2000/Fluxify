@@ -50,10 +50,10 @@ You don't have to do this for the usual setups. Each of them starts one for you:
 
 | Setup | Its development worker |
 | :--- | :--- |
-| [Kit](/deployments/kit#dev-worker) | Runs inside the container, on port `5602`. |
+| [Kit](/deployments/kit#dev-worker) | Runs inside the container, on port `5602`. Port `8080` sends `/_sandbox` to it. |
 | [Production stack](/deployments/production#dev-workers) | The `worker-dev` service. |
 | [Kubernetes](/deployments/kubernetes/helm-values#dev-worker) | One pod, from the `devWorker` setting. On by default. |
-| Running Fluxify from source (`bun run dev`) | A second worker on port `5602`, beside the production worker on `5600`. |
+| Running Fluxify from source (`bun run dev`) | A second worker on port `5602`, beside the production worker on `5600`. Set `DEV_WORKER_URL=http://localhost:5602` so the portal's sandbox playground finds it. |
 
 ::: info
 Every time you save, Fluxify publishes your routes, workflows, custom blocks,
@@ -127,8 +127,9 @@ routes, whatever you send.
 :::
 
 ::: tip Sandboxes take it today
-[Sandboxes](/concepts/sandbox) already accept this token. Development routes
-arrive with the development routing work.
+[Sandboxes](/concepts/sandbox) already accept this token, at `/_sandbox/<id>/…`
+on your normal address. Development routes arrive with the development routing
+work.
 :::
 
 ## Related
