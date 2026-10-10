@@ -39,7 +39,8 @@ const TICKS: Record<SystemTick, { specification: string; intervalMs: number }> =
 
 /** Writes both tick schedules. Republishing replaces, so every boot can call it. */
 export async function publishSystemTicks() {
-	await ensureSchedulesStream();
+	// platform ticks are admin's own and stay on production (#732)
+	await ensureSchedulesStream("production");
 	for (const [tick, { specification, intervalMs }] of Object.entries(TICKS)) {
 		await publishSchedule(
 			natsConnection(),
@@ -68,7 +69,7 @@ export async function onSystemTick(
 	handler: () => Promise<void>,
 ): Promise<QueueConsumer> {
 	const nc = natsConnection();
-	await ensureSchedulesStream();
+	await ensureSchedulesStream("production");
 	const durable = systemJobConsumerName(job);
 	await ensureConsumer(nc, SCHEDULES_STREAM, {
 		durable,

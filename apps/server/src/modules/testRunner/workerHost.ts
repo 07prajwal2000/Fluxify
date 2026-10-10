@@ -1,6 +1,7 @@
 import { RpcError, type RpcResponder, rpcRespond } from "@fluxify/common/nats";
-import { natsConnection } from "../../db/nats";
+import { natsConnection, natsName } from "../../db/nats";
 import { EncryptionService } from "../../lib/encryption";
+import type { FluxifyEnv } from "../../lib/env";
 import { testWorkerPool } from "./pool";
 import { runSuiteInChild } from "./spawn";
 import {
@@ -19,10 +20,10 @@ import {
  * The child gets the same environment as the execution process, so it resolves
  * the project's installed npm packages exactly as live routes do.
  */
-export function serveTestRuns(projectId: string, entry: string): RpcResponder {
+export function serveTestRuns(projectId: string, entry: string, env?: FluxifyEnv): RpcResponder {
 	return rpcRespond<TestRunRequest, TestResult>(
 		natsConnection(),
-		testRunSubject(projectId),
+		natsName(testRunSubject(projectId), env),
 		async ({ sealed }) => {
 			const bootstrap: TestBootstrap = JSON.parse(EncryptionService.decrypt(sealed));
 			// the subject already scopes it; a mismatch means a bug, not a request to honour

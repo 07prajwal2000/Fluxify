@@ -96,6 +96,8 @@ export type TraceRunPayload = {
 	parentSeq?: number;
 	/** set on a test run's trace (#627); the worker supervisor fills it, never the child */
 	metadata?: TraceRunMetadata;
+	/** the worker's environment (#732); the supervisor stamps it on publish, absent reads as production */
+	env?: "production" | "development";
 	spans: TraceSpanRecord[];
 };
 

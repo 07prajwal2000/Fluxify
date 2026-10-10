@@ -6,7 +6,8 @@ import {
 	ensureStream,
 	type QueueConsumer,
 } from "@fluxify/common/nats";
-import { natsConnection } from "../../db/nats";
+import { natsConnection, natsName, natsStreamSpec } from "../../db/nats";
+import type { FluxifyEnv } from "../../lib/env";
 import {
 	ALL_PROJECTS,
 	JOBS_STREAM,
@@ -49,6 +50,8 @@ export type JobWorkerOptions = {
 	retryDelayMs?: number;
 	/** How long an unclaimed job stays on the stream. */
 	maxAgeMs?: number;
+	/** Whose jobs (#732); this process's environment unless a test says otherwise. */
+	env?: FluxifyEnv;
 };
 
 export interface JobWorker {
@@ -70,13 +73,14 @@ const DEFAULTS = {
 };
 
 export function createJobWorker(options: JobWorkerOptions): JobWorker {
-	const config: Required<JobWorkerOptions> = {
+	const config: Required<Omit<JobWorkerOptions, "env">> = {
 		...DEFAULTS,
 		...stripUndefined(options),
 		mode: options.mode,
 		handle: options.handle,
 	};
 	const kinds = jobKindsForMode(config.mode);
+	const streamName = natsName(JOBS_STREAM, options.env);
 	const served = new Map<string, QueueConsumer[]>();
 	let stream: Promise<void> | undefined;
 
@@ -88,8 +92,11 @@ export function createJobWorker(options: JobWorkerOptions): JobWorker {
 	function ensureJobsStream() {
 		stream ??= (async () => {
 			const nc = natsConnection();
-			await ensureStream(nc, { ...JOBS_STREAM_SPEC, maxAgeMs: config.maxAgeMs });
-			await dropWildcardConsumers(nc, JOBS_STREAM);
+			await ensureStream(nc, {
+				...natsStreamSpec(JOBS_STREAM_SPEC, options.env),
+				maxAgeMs: config.maxAgeMs,
+			});
+			await dropWildcardConsumers(nc, streamName);
 		})();
 		return stream;
 	}
@@ -97,16 +104,16 @@ export function createJobWorker(options: JobWorkerOptions): JobWorker {
 	async function consume(projectId: string, kind: string) {
 		const nc = natsConnection();
 		const durable = jobConsumerName(projectId, kind);
-		await ensureConsumer(nc, JOBS_STREAM, {
+		await ensureConsumer(nc, streamName, {
 			durable,
-			filterSubjects: [jobFilter(projectId, kind)],
+			filterSubjects: [natsName(jobFilter(projectId, kind), options.env)],
 			ackWaitMs: config.ackWaitMs,
 			maxDeliver: config.maxDeliver,
 			maxAckPending: config.concurrency,
 		});
 		return consumeQueue<JobEnvelope>(
 			nc,
-			JOBS_STREAM,
+			streamName,
 			durable,
 			async (message) => {
 				message.data.attempt = message.attempt;

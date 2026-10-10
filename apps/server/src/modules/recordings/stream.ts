@@ -2,6 +2,7 @@ import { logger } from "@fluxify/common";
 import { ensureStreamOnce, publishToStream, type StreamSpec } from "@fluxify/common/nats";
 import type { TraceRunPayload } from "@fluxify/common/otlp";
 import { natsConnection } from "../../db/nats";
+import { FLUXIFY_ENV } from "../../lib/env";
 
 /**
  * Execution recordings (#254) travel on a stream of their own: the worker's
@@ -44,7 +45,13 @@ export async function publishRecording(run: TraceRunPayload): Promise<void> {
 	try {
 		const nc = natsConnection();
 		await ensureStreamOnce(nc, RECORDINGS_STREAM_SPEC);
-		await publishToStream(nc, RECORDINGS_SUBJECT, run, { msgId: run.runId });
+		// one stream for both environments (#732): the run says which it came from
+		await publishToStream(
+			nc,
+			RECORDINGS_SUBJECT,
+			{ ...run, env: FLUXIFY_ENV },
+			{ msgId: run.runId },
+		);
 	} catch (error) {
 		dropped++;
 		logger.warn(

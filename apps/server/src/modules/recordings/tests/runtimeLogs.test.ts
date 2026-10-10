@@ -98,7 +98,7 @@ const runtimeLogs = (resourceId: string) =>
 describe("runtime system logs", () => {
 	it("appends one row per failed run, with the failing block, stack and run id", async () => {
 		const first = failedRun();
-		const second = failedRun();
+		const second = failedRun({ env: "development" });
 		await recordings.persistRecording(first);
 		await recordings.persistRecording(second);
 
@@ -113,12 +113,15 @@ describe("runtime system logs", () => {
 			run_id: first.runId,
 			detail: {
 				runId: first.runId,
+				// a run published by an older worker carries no env
+				env: "production",
 				block: { id: "js-1", type: "jsrunner", name: "Compute" },
 				stack: "at run (fluxify-graph:3:9)",
 				statusCode: 500,
 			},
 		});
 		expect(rows[1]!.run_id).toBe(second.runId);
+		expect(rows[1]!.detail.env).toBe("development");
 	});
 
 	it("writes a redelivered run's log once", async () => {

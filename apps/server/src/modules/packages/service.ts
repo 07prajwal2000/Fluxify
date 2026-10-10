@@ -98,7 +98,7 @@ export async function changePackages(projectId: string, change: ResolveChange, u
 		...resolved,
 		updatedAt: saved[0]!.updatedAt.toISOString(),
 	};
-	await putArtifact(depsKey(projectId), artifact);
+	await putArtifact(depsKey(projectId), artifact, "production");
 	// a route that failed on a missing import compiles now
 	await requestProjectCompile(projectId, "npm packages changed");
 	return listPackages(projectId);
@@ -109,6 +109,8 @@ export async function installStatus(projectId: string) {
 	const row = await readRow(projectId);
 	const version = row?.version ?? 0;
 	const nodes = (await readLiveNodes())
+		// a dev worker installs from the dev bucket, which admin does not publish to yet (#736)
+		.filter((node) => node.env !== "development")
 		.filter((node) => node.projectId === projectId || node.projectId === "*")
 		.map((node) => ({
 			nodeId: node.nodeId,

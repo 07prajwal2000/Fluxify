@@ -98,6 +98,13 @@ export const serverEnvSchema = baseEnvSchema.extend({
 			"What this worker runs: route serves HTTP routes, workflow runs background workflows, both does either. Defaults to both. One mode per project — two workers on the same project in different modes is refused at boot",
 		),
 
+	FLUXIFY_ENV: z
+		.enum(["production", "development"])
+		.optional()
+		.describe(
+			"Which environment this worker serves (default production). A development worker reads and runs only development work, never production's, takes no license slot, and serves every project (WORKER_PROJECT_ID, WORKER_MODE and WORKER_GROUP_ID are ignored)",
+		),
+
 	WORKER_GROUP_ID: z
 		.string()
 		.optional()
@@ -376,23 +383,30 @@ export const NATS_TOKEN = getEnv("NATS_TOKEN")!;
 export const ENABLE_BUILTIN_WORKER = getEnv("ENABLE_BUILTIN_WORKER")!;
 // whether node claiming exists on this deployment at all — see orchestrator/gate.ts
 export const ENABLE_ORCHESTRATION = getEnv("ENABLE_ORCHESTRATION")!;
+export type FluxifyEnv = "production" | "development";
+/** the environment this worker serves (#732); admin always works on production for now */
+export const FLUXIFY_ENV = (getEnv("FLUXIFY_ENV") || "production") as FluxifyEnv;
+/** a dev worker runs the whole app: every project, both modes, every group, no claim */
+const DEV_WORKER = FLUXIFY_ENV === "development";
 // which project's compiled artifacts this worker pulls and serves
-export const WORKER_PROJECT_ID = getEnv("WORKER_PROJECT_ID")!;
+export const WORKER_PROJECT_ID = DEV_WORKER ? "*" : getEnv("WORKER_PROJECT_ID")!;
 /** what kind of work this worker takes on — see `jobs/subjects.ts` */
-export const WORKER_MODE = getEnv("WORKER_MODE") || "both";
+export const WORKER_MODE = DEV_WORKER ? "both" : getEnv("WORKER_MODE") || "both";
 /**
  * The trigger groups this worker runs, empty meaning every group. A claim
  * enumerates several groups, and several nodes on one group is already fine —
  * a NATS consumer group shares the work rather than fanning it out.
  */
-export const WORKER_GROUP_IDS = (getEnv("WORKER_GROUP_ID") || "")
-	.split(",")
-	.map((id) => id.trim())
-	.filter(Boolean);
+export const WORKER_GROUP_IDS = DEV_WORKER
+	? []
+	: (getEnv("WORKER_GROUP_ID") || "")
+			.split(",")
+			.map((id) => id.trim())
+			.filter(Boolean);
 /** identity of this node; the orchestrator sets it, a hand-started worker does not */
 export const FLUXIFY_NODE_ID = getEnv("FLUXIFY_NODE_ID") || undefined;
 /** the claim this node belongs to, which its assignment record is keyed by (#426) */
-export const FLUXIFY_CLAIM_ID = getEnv("FLUXIFY_CLAIM_ID") || undefined;
+export const FLUXIFY_CLAIM_ID = DEV_WORKER ? undefined : getEnv("FLUXIFY_CLAIM_ID") || undefined;
 
 /** hard body-size ceiling for user-facing routes, in bytes (env is in KB) */
 export const MAX_REQUEST_BODY_BYTES = (Number(getEnv("WORKER_MAX_STREAM_SIZE")) || 8192) * 1024;

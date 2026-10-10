@@ -1,7 +1,8 @@
 import type { TriggerEvent } from "@fluxify/blocks";
 import { logger } from "@fluxify/common";
 import { consumeQueue, ensureConsumer, type QueueConsumer } from "@fluxify/common/nats";
-import { natsConnection } from "../../db/nats";
+import { natsConnection, natsName } from "../../db/nats";
+import type { FluxifyEnv } from "../../lib/env";
 import { enqueueJob } from "../jobs/publisher";
 import { WORKFLOW_JOB } from "../jobs/subjects";
 import type { TriggerBatch } from "../triggers/types";
@@ -35,16 +36,21 @@ export type FireConsumerOptions = {
 	maxDeliver?: number;
 	/** Wait before a failed fire is redelivered. */
 	retryDelayMs?: number;
+	/** Whose fires (#732); this process's environment unless a test says otherwise. */
+	env?: FluxifyEnv;
 };
 
 export async function startFireConsumer(options: FireConsumerOptions): Promise<QueueConsumer> {
 	const nc = natsConnection();
-	await ensureSchedulesStream();
+	const { env } = options;
+	await ensureSchedulesStream(env);
 
+	const stream = natsName(SCHEDULES_STREAM, env);
+	const filter = natsName(projectFireFilter(options.projectId), env);
 	const durable = fireConsumerName(options.projectId);
-	await ensureConsumer(nc, SCHEDULES_STREAM, {
+	await ensureConsumer(nc, stream, {
 		durable,
-		filterSubjects: [projectFireFilter(options.projectId)],
+		filterSubjects: [filter],
 		// Enqueueing is a publish and an ack; nothing here waits on the workflow.
 		ackWaitMs: 30_000,
 		maxDeliver: options.maxDeliver ?? 5,
@@ -53,17 +59,17 @@ export async function startFireConsumer(options: FireConsumerOptions): Promise<Q
 
 	const consumer = await consumeQueue<ScheduleFireBody | DelayedRunBody>(
 		nc,
-		SCHEDULES_STREAM,
+		stream,
 		durable,
 		async (message) => {
 			// A Trigger Workflow block's delayed run carries its whole message.
-			if (isDelayedRunBody(message.data)) return void (await fireDelayedRun(message.data));
+			if (isDelayedRunBody(message.data)) return void (await fireDelayedRun(message.data, env));
 			if (!isScheduleFireBody(message.data))
 				throw new Error(`malformed schedule fire on ${message.subject}`);
 			// The stream's own timestamp, not `new Date()`: it is the same value on
 			// every redelivery, which is what makes the job id below collapse a
 			// redelivered fire into one run instead of one run per attempt.
-			await enqueueFire(message.data, message.msg.timestamp);
+			await enqueueFire(message.data, message.msg.timestamp, env);
 		},
 		{
 			maxAttempts: options.maxDeliver ?? 5,
@@ -73,10 +79,7 @@ export async function startFireConsumer(options: FireConsumerOptions): Promise<Q
 		},
 	);
 
-	logger.info(
-		`[schedules] fire consumer listening on ${projectFireFilter(options.projectId)}`,
-		"SCHEDULES",
-	);
+	logger.info(`[schedules] fire consumer listening on ${filter}`, "SCHEDULES");
 	return consumer;
 }
 
@@ -91,7 +94,7 @@ export async function startFireConsumer(options: FireConsumerOptions): Promise<Q
  * A cron is a single event and never batches. There is no stream to accumulate
  * from, so a workflow that has 500 rows to process queries 500 rows itself.
  */
-export async function enqueueFire(body: ScheduleFireBody, firedAt: string) {
+export async function enqueueFire(body: ScheduleFireBody, firedAt: string, env?: FluxifyEnv) {
 	const batch: TriggerBatch = {
 		triggerId: body.triggerId,
 		source: "schedule",
@@ -107,14 +110,17 @@ export async function enqueueFire(body: ScheduleFireBody, firedAt: string) {
 		],
 	};
 
-	const job = await enqueueJob({
-		id: `${body.triggerId}:${firedAt}:${body.workflowId}`,
-		kind: WORKFLOW_JOB,
-		projectId: body.projectId,
-		target: body.workflowId,
-		payload: batch,
-		origin: { triggerId: body.triggerId, source: "schedule", firedAt },
-	});
+	const job = await enqueueJob(
+		{
+			id: `${body.triggerId}:${firedAt}:${body.workflowId}`,
+			kind: WORKFLOW_JOB,
+			projectId: body.projectId,
+			target: body.workflowId,
+			payload: batch,
+			origin: { triggerId: body.triggerId, source: "schedule", firedAt },
+		},
+		env,
+	);
 	logger.debug(`[schedules] fire ${body.triggerId} -> ${body.workflowId}`, "SCHEDULES");
 	return job;
 }

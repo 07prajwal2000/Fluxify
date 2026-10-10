@@ -7,7 +7,8 @@ import {
 	ensureStream,
 	type QueueConsumer,
 } from "@fluxify/common/nats";
-import { natsConnection } from "../../db/nats";
+import { natsConnection, natsName, natsStreamSpec } from "../../db/nats";
+import type { FluxifyEnv } from "../../lib/env";
 import type { TriggerArtifact } from "../compiler/artifacts";
 import { WORKFLOW_JOB } from "../jobs/subjects";
 import type { JobEnvelope } from "../jobs/types";
@@ -63,6 +64,11 @@ export type TriggerWorkerOptions = {
 	workflowTimeoutSeconds?: (workflowId: string) => number | undefined;
 	/** Ack wait when the workflow's timeout is not known yet. */
 	defaultAckWaitMs?: number;
+	/**
+	 * Whose events (#732); this process's environment unless a test says
+	 * otherwise. Consumer names are the same in both: they live in the stream.
+	 */
+	env?: FluxifyEnv;
 };
 
 const DEFAULTS = {
@@ -80,9 +86,14 @@ export class TriggerWorker {
 	/** Project id → its internal-subject consumer. */
 	private readonly internal = new Map<string, QueueConsumer>();
 	private started = false;
+	private readonly stream: string;
+	/** A subject in this worker's environment. */
+	private readonly subject: (name: string) => string;
 
 	constructor(options: TriggerWorkerOptions) {
 		this.options = { ...DEFAULTS, ...stripUndefined(options) } as Required<TriggerWorkerOptions>;
+		this.subject = (name) => natsName(name, options.env);
+		this.stream = this.subject(TRIGGERS_STREAM);
 	}
 
 	/**
@@ -97,8 +108,11 @@ export class TriggerWorker {
 		if (this.started) return;
 		this.started = true;
 		const nc = natsConnection();
-		await ensureStream(nc, { ...TRIGGERS_STREAM_SPEC, maxAgeMs: this.options.maxAgeMs });
-		await dropWildcardConsumers(nc, TRIGGERS_STREAM);
+		await ensureStream(nc, {
+			...natsStreamSpec(TRIGGERS_STREAM_SPEC, this.options.env),
+			maxAgeMs: this.options.maxAgeMs,
+		});
+		await dropWildcardConsumers(nc, this.stream);
 
 		if (this.options.projectId !== ALL_PROJECTS) await this.serveInternal(this.options.projectId);
 	}
@@ -111,9 +125,10 @@ export class TriggerWorker {
 		if (this.internal.has(projectId)) return;
 		const nc = natsConnection();
 		const durable = internalConsumerName(projectId);
-		await ensureConsumer(nc, TRIGGERS_STREAM, {
+		const subject = this.subject(internalSubject(projectId));
+		await ensureConsumer(nc, this.stream, {
 			durable,
-			filterSubjects: [internalSubject(projectId)],
+			filterSubjects: [subject],
 			ackWaitMs: this.options.defaultAckWaitMs,
 			maxDeliver: this.options.maxDeliver,
 			maxAckPending: 1,
@@ -123,7 +138,7 @@ export class TriggerWorker {
 		// aimed at different workflows would mean splitting them apart again.
 		const consumer = await consumeBatches<InternalTriggerMessage>(
 			nc,
-			TRIGGERS_STREAM,
+			this.stream,
 			durable,
 			async (batch) => {
 				for (const message of batch) await this.runInternal(projectId, message.data);
@@ -137,10 +152,7 @@ export class TriggerWorker {
 			},
 		);
 		this.internal.set(projectId, consumer);
-		logger.info(
-			`[triggers] internal consumer listening on ${internalSubject(projectId)}`,
-			"TRIGGERS",
-		);
+		logger.info(`[triggers] internal consumer listening on ${subject}`, "TRIGGERS");
 	}
 
 	/** Stops one project's internal subject — it was deleted, or moved away. */
@@ -198,9 +210,9 @@ export class TriggerWorker {
 	private async startTrigger(artifact: TriggerArtifact) {
 		const nc = natsConnection();
 		const durable = triggerConsumerName(artifact.triggerId);
-		await ensureConsumer(nc, TRIGGERS_STREAM, {
+		await ensureConsumer(nc, this.stream, {
 			durable,
-			filterSubjects: [triggerSubject(artifact.projectId, artifact.triggerId)],
+			filterSubjects: [this.subject(triggerSubject(artifact.projectId, artifact.triggerId))],
 			ackWaitMs: this.ackWaitFor(artifact),
 			maxDeliver: this.attemptsFor(artifact),
 			maxAckPending: artifact.batchSize * artifact.concurrency,
@@ -208,7 +220,7 @@ export class TriggerWorker {
 
 		const consumer = await consumeBatches<unknown>(
 			nc,
-			TRIGGERS_STREAM,
+			this.stream,
 			durable,
 			(batch) =>
 				this.runBatch(

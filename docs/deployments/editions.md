@@ -48,6 +48,12 @@ until room frees up. A new instance runs **non-commercial**, so it can run two
 workers from the start. An Enterprise license that expires keeps its workers
 through the grace period, then drops to the Community limit.
 
+**Development workers are free.** A worker started with
+`FLUXIFY_ENV=development` is not counted against these limits, on any edition,
+so Community can run its one worker plus a development worker beside it. It
+never serves your production traffic or runs production work. See
+[Environments](../concepts/environments).
+
 The Kit image has no workers to cap: it always runs its one built-in worker.
 
 ## Picking your edition

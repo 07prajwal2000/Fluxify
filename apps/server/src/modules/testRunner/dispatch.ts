@@ -1,6 +1,7 @@
 import { RpcError, rpcRequest } from "@fluxify/common/nats";
-import { natsConnection } from "../../db/nats";
+import { natsConnection, natsName } from "../../db/nats";
 import { EncryptionService } from "../../lib/encryption";
+import type { FluxifyEnv } from "../../lib/env";
 import { maxRuns } from "./cases";
 import { type TestBootstrap, type TestResult, type TestRunRequest, testRunSubject } from "./types";
 
@@ -16,9 +17,12 @@ const DISPATCH_GRACE_MS = 10_000;
 /**
  * Admin's half of a test run (#478): send one suite to a worker serving the
  * project and wait for its verdict. The bootstrap carries resolved integration
- * credentials, so it crosses the bus sealed.
+ * credentials, so it crosses the bus sealed. Production only until #736 picks per run.
  */
-export async function runSuiteOnWorker(bootstrap: TestBootstrap): Promise<TestResult> {
+export async function runSuiteOnWorker(
+	bootstrap: TestBootstrap,
+	env: FluxifyEnv = "production",
+): Promise<TestResult> {
 	const startedAt = Date.now();
 	// every phase's own budget (#483): the worker times each, this waits for all
 	const waitMs =
@@ -30,7 +34,7 @@ export async function runSuiteOnWorker(bootstrap: TestBootstrap): Promise<TestRe
 	try {
 		return await rpcRequest<TestRunRequest, TestResult>(
 			natsConnection(),
-			testRunSubject(bootstrap.projectId),
+			natsName(testRunSubject(bootstrap.projectId), env),
 			{ sealed: EncryptionService.encrypt(JSON.stringify(bootstrap)) },
 			{ meta: undefined, timeoutMs: waitMs },
 		);

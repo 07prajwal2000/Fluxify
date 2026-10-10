@@ -167,6 +167,11 @@ export interface NodeHeartbeat {
 	at: string;
 	/** Per project, how far this node got installing its npm packages (#477). */
 	deps?: Record<string, DepsInstallStatus>;
+	/**
+	 * The environment this node serves (#732). A development node holds no
+	 * license slot. Absent on a node from before environments: production.
+	 */
+	env?: "production" | "development";
 }
 
 export interface DepsInstallStatus {

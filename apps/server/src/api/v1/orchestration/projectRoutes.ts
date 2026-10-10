@@ -5,6 +5,7 @@ import zodErrorCallbackParser from "../../../middlewares/zodErrorCallbackParser"
 import { createClaim, releaseClaim, updateClaim } from "../../../modules/orchestrator/claims";
 import { requireOrchestration } from "../../../modules/orchestrator/gate";
 import {
+	devWorkerOnline,
 	readOrchestrationEvents,
 	readOrchestrationStatus,
 } from "../../../modules/orchestrator/status";
@@ -13,6 +14,7 @@ import { requireProjectAccess } from "../../auth/middleware";
 import {
 	claimAckSchema,
 	createClaimBodySchema,
+	devWorkerSchema,
 	eventsQuerySchema,
 	eventsResponseSchema,
 	orchestrationStatusSchema,
@@ -62,6 +64,20 @@ export default function registerProjectNodes(app: HonoServer) {
 		requireOrchestration,
 		requireProjectAccess("viewer", project),
 		async (c) => c.json(await readOrchestrationStatus(c.req.param("id")!)),
+	);
+
+	// Not behind the orchestration gate: Kit has no orchestrator, but it runs a dev worker.
+	router.get(
+		"/dev-worker",
+		describeRoute({
+			description:
+				"Whether a development worker (FLUXIFY_ENV=development) is serving this project right now.",
+			operationId: "get-project-dev-worker",
+			tags,
+			responses: { 200: { description: "Successful", ...json(devWorkerSchema) }, ...errors },
+		}),
+		requireProjectAccess("viewer", project),
+		async (c) => c.json({ online: await devWorkerOnline(c.req.param("id")!) }),
 	);
 
 	router.get(

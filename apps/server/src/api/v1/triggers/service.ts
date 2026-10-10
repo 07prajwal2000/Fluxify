@@ -393,12 +393,12 @@ export async function republish(trigger: Trigger) {
 		retryDelayMs: trigger.retryDelayMs,
 		publishedAt: new Date().toISOString(),
 	};
-	await putArtifact(key, artifact);
+	await putArtifact(key, artifact, "production");
 	logger.debug(`[triggers] published ${key}`, "TRIGGERS");
 }
 
 export async function withdraw(projectId: string, triggerId: string) {
-	await deleteArtifact(triggerKey(projectId, triggerId));
+	await deleteArtifact(triggerKey(projectId, triggerId), "production");
 }
 
 /**

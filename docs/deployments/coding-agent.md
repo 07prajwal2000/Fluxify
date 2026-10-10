@@ -186,6 +186,7 @@ Tell the agent to check each point, or check them yourself after it is done.
 | `LLM_OTLP_TRACES_HEADERS` | No | Headers for that endpoint as `key:value` pairs split by `;`, e.g. `Authorization:Bearer abc`. |
 | `LLM_TRACING_SAMPLE_RATE` | No | Share of runs traced, 0 to 1. Default `1`. |
 | `LLM_TRACING_RECORD_CONTENT` | No | `true` also sends prompts, messages and tool inputs/outputs, which can hold user data and secrets. Default `false`: only names, timings and token counts are sent. |
+| `FLUXIFY_ENV` | No | On one worker only, never in a `.env` every process shares. `production` (default) or `development`. A development worker runs only development work, holds no license slot, and serves every project in both modes, so it ignores `WORKER_PROJECT_ID`, `WORKER_MODE` and `WORKER_GROUP_ID`. See [Environments](../concepts/environments). |
 | `RECORDING_MAX_AGE_DAYS` | No | Days a recorded run (Execution history) is kept before it is deleted. Default `30`. Read by the admin (or Kit) only. |
 | `HOSTNAME` | No | The address processes listen on inside the container. Leave `0.0.0.0`. It is **not** your domain. |
 
@@ -242,7 +243,8 @@ them in the `fluxify-env` Secret.
   A fresh install starts one worker for every project on its own.
 - [ ] The number of workers fits the edition: 1 on Community, 2 on
   non-commercial, no limit on Enterprise. The node pool (starts at 2) caps it
-  too. See [Workers per edition](./editions#workers).
+  too. Development workers (`FLUXIFY_ENV=development`) are not counted. See
+  [Workers per edition](./editions#workers).
 - [ ] A project with its own workers has a subdomain, the base domain is set in
   **Instance settings → Hosting**, and DNS for that subdomain points at the
   server.
