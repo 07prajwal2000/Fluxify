@@ -6,9 +6,9 @@
 import { readFileSync } from "node:fs";
 import { Glob } from "bun";
 
-// The gate is tests.yml; ci.yml calls it. A change to either runs everything.
+// The gate is tests.yml: a change to it runs everything. The workflows that call
+// it cannot change how a test job runs, so they are not in any filter.
 const GATE_FILE = ".github/workflows/tests.yml";
-const GATE_PATHS = [".github/workflows/ci.yml", GATE_FILE];
 
 // filter name -> workspace dir -> the test jobs that read it.
 const GATES: Record<string, { dir: string; jobs: string[] }> = {
@@ -64,7 +64,7 @@ for (const [filter, { dir, jobs }] of Object.entries(GATES)) {
 		continue;
 	}
 	const expected = new Set([...closure(root)].map((n) => `${workspaces.get(n)!.dir}/**`));
-	for (const path of GATE_PATHS) expected.add(path);
+	expected.add(GATE_FILE);
 	const actual = new Set((filters[filter] ?? []).flat(Infinity) as string[]);
 	const missing = [...expected].filter((p) => !actual.has(p));
 	const extra = [...actual].filter((p) => !expected.has(p));
