@@ -36,6 +36,11 @@ export type RouteArtifact = {
 	 */
 	middlewares?: RouteMiddlewareIds;
 	compiledAt: string;
+	/**
+	 * A sandbox (#735) compiled as a route: `routeId` is the sandbox id. Served
+	 * at `/_sandbox/<id>/*` with any method, never through the route table.
+	 */
+	sandbox?: true;
 };
 
 /**
@@ -57,6 +62,8 @@ export type WorkflowArtifact = {
 	workflowVersion: string;
 	source: string;
 	compiledAt: string;
+	/** A sandbox (#735) compiled as a workflow: `workflowId` is the sandbox id. */
+	sandbox?: true;
 };
 
 /** a route's middleware ids, per phase, in run order */

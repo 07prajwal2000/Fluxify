@@ -16,6 +16,7 @@ export type WorkflowTraceFactory = {
 			projectId: string;
 			workflowVersion: string;
 			workflowName: string;
+			sandbox?: boolean;
 		} & TraceSinks,
 	): WorkflowTrace;
 };
@@ -66,6 +67,7 @@ export async function runWorkflowJob(job: JobEnvelope, extras?: QueueRunExtras) 
 				workflowName: workflow.artifact.name,
 				tracingEnabled: workflow.artifact.tracingEnabled,
 				recordExecution: workflow.artifact.recordExecution,
+				...(workflow.artifact.sandbox ? { sandbox: true } : {}),
 			});
 		} catch {
 			// Tracing is diagnostic data; a recorder bug must not fail job execution.

@@ -361,6 +361,43 @@ export const workflowsEntity = pgTable(
 	],
 );
 
+/** What a sandbox's owner can switch; recording is always on, so it is not here. */
+export type SandboxSettings = {
+	/** spans exported to the project's OTEL destination, as on a route */
+	tracingEnabled: boolean;
+};
+
+/**
+ * A throwaway canvas (#735), private to the user who made it. One graph,
+ * compiled twice — as a route served at `/_sandbox/<id>/*` and as a workflow —
+ * and only ever published to development. Any number per user, never expires.
+ */
+export const sandboxesEntity = pgTable(
+	"sandboxes",
+	{
+		id: varchar({ length: 50 })
+			.primaryKey()
+			.$defaultFn(() => generateID()),
+		projectId: varchar("project_id", { length: 50 })
+			.references(() => projectsEntity.id, { onDelete: "cascade" })
+			.notNull(),
+		userId: varchar("user_id", { length: 50 })
+			.references(() => systemUsers.id, { onDelete: "cascade" })
+			.notNull(),
+		name: varchar({ length: 255 }).notNull(),
+		settings: jsonb().$type<SandboxSettings>().default({ tracingEnabled: false }).notNull(),
+		/** #597: +1 on every canvas save, in the same transaction. A save naming an older one is refused. */
+		canvasVersion: integer("canvas_version").default(0).notNull(),
+		blockKeyCounters: blockKeyCounters(),
+		createdAt: timestamp("created_at").defaultNow().notNull(),
+		updatedAt: timestamp("updated_at")
+			.defaultNow()
+			.notNull()
+			.$onUpdate(() => new Date()),
+	},
+	(table) => [index("idx_sandboxes_project_user").on(table.projectId, table.userId)],
+);
+
 /**
  * Where a trigger runs. A worker node serves exactly one group and loads only
  * the artifacts that group's triggers need, so memory is something the operator
@@ -436,6 +473,10 @@ export const triggersEntity = pgTable(
 		workflowId: varchar("workflow_id", { length: 50 }).references(() => workflowsEntity.id, {
 			onDelete: "set null",
 		}),
+		/** Or the sandbox it starts (#735); never both. Runs on development only. */
+		sandboxId: varchar("sandbox_id", { length: 50 }).references(() => sandboxesEntity.id, {
+			onDelete: "cascade",
+		}),
 		/** Which node runs it. Restricted on delete — a group holding triggers
 		 *  cannot vanish and leave them unrunnable. */
 		groupId: varchar("group_id", { length: 50 })
@@ -484,10 +525,22 @@ export const triggersEntity = pgTable(
 	(table) => [
 		index("idx_triggers_project_id").on(table.projectId),
 		index("idx_triggers_workflow_id").on(table.workflowId),
+		index("idx_triggers_sandbox_id").on(table.sandboxId),
 		index("idx_triggers_group_id").on(table.groupId),
 		index("idx_triggers_integration_id").on(table.integrationId),
+		// at most, not exactly: a trigger with neither is a saved, idle one
+		check("triggers_one_target", sql`num_nonnulls(${table.workflowId}, ${table.sandboxId}) <= 1`),
 	],
 );
+
+/** a canvas row hangs off exactly one parent */
+const oneParent = (table: {
+	routeId: AnyPgColumn;
+	customBlockId: AnyPgColumn;
+	workflowId: AnyPgColumn;
+	sandboxId: AnyPgColumn;
+}) =>
+	sql`num_nonnulls(${table.routeId}, ${table.customBlockId}, ${table.workflowId}, ${table.sandboxId}) = 1`;
 
 export const blocksEntity = pgTable(
 	"blocks",
@@ -517,15 +570,21 @@ export const blocksEntity = pgTable(
 		workflowId: varchar("workflow_id", { length: 50 }).references(() => workflowsEntity.id, {
 			onDelete: "cascade",
 		}),
+		sandboxId: varchar("sandbox_id", { length: 50 }).references(() => sandboxesEntity.id, {
+			onDelete: "cascade",
+		}),
 	},
 	(table) => [
 		index("idx_blocks_route_id").on(table.routeId),
 		index("idx_blocks_custom_block_id").on(table.customBlockId),
 		index("idx_blocks_workflow_id").on(table.workflowId),
-		// a canvas has one parent, so the other two columns are NULL there and never clash
+		index("idx_blocks_sandbox_id").on(table.sandboxId),
+		// a canvas has one parent, so the other columns are NULL there and never clash
 		uniqueIndex("uq_blocks_route_key").on(table.routeId, table.key),
 		uniqueIndex("uq_blocks_custom_block_key").on(table.customBlockId, table.key),
 		uniqueIndex("uq_blocks_workflow_key").on(table.workflowId, table.key),
+		uniqueIndex("uq_blocks_sandbox_key").on(table.sandboxId, table.key),
+		check("blocks_one_parent", oneParent(table)),
 	],
 );
 
@@ -555,6 +614,9 @@ export const edgesEntity = pgTable(
 		workflowId: varchar("workflow_id", { length: 50 }).references(() => workflowsEntity.id, {
 			onDelete: "cascade",
 		}),
+		sandboxId: varchar("sandbox_id", { length: 50 }).references(() => sandboxesEntity.id, {
+			onDelete: "cascade",
+		}),
 	},
 	(table) => [
 		index("idx_edges_from").on(table.from),
@@ -562,6 +624,8 @@ export const edgesEntity = pgTable(
 		index("idx_edges_route_id").on(table.routeId),
 		index("idx_edges_custom_block_id").on(table.customBlockId),
 		index("idx_edges_workflow_id").on(table.workflowId),
+		index("idx_edges_sandbox_id").on(table.sandboxId),
+		check("edges_one_parent", oneParent(table)),
 	],
 );
 
@@ -1298,6 +1362,10 @@ export const traceRunsEntity = pgTable(
 		workflowId: varchar("workflow_id", { length: 50 }).references(() => workflowsEntity.id, {
 			onDelete: "cascade",
 		}),
+		/** a sandbox's run (#735), over HTTP or as a workflow; always recorded */
+		sandboxId: varchar("sandbox_id", { length: 50 }).references(() => sandboxesEntity.id, {
+			onDelete: "cascade",
+		}),
 		routeVersion: varchar("route_version", { length: 50 }),
 		workflowVersion: varchar("workflow_version", { length: 50 }),
 		startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
@@ -1335,7 +1403,15 @@ export const traceRunsEntity = pgTable(
 		index("idx_trace_runs_test_run_id")
 			.on(sql`(${table.metadata}->>'testRunId')`)
 			.where(sql`${table.metadata} is not null`),
-		check("trace_runs_one_target", oneTarget(table)),
+		index("idx_trace_runs_project_sandbox").on(
+			table.projectId,
+			table.sandboxId,
+			table.startedAt.desc(),
+		),
+		check(
+			"trace_runs_one_target",
+			sql`num_nonnulls(${table.routeId}, ${table.workflowId}, ${table.sandboxId}) = 1`,
+		),
 	],
 );
 

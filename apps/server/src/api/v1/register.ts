@@ -8,6 +8,7 @@ import middlewares from "./middlewares/register";
 import projects from "./projects/register";
 import recordings from "./recordings/register";
 import routes from "./routes/register";
+import sandboxes from "./sandboxes/register";
 import testSuites from "./test-suites/register";
 import triggers from "./triggers/register";
 import workflows from "./workflows/register";
@@ -31,6 +32,7 @@ export default {
 		);
 		routes.registerHandler(router);
 		workflows.registerHandler(router);
+		sandboxes.registerHandler(router);
 		triggers.registerHandler(router);
 		projects.registerHandler(router);
 		appConfig.registerHandler(router);

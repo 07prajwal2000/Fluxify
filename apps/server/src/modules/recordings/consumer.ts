@@ -5,7 +5,13 @@ import { and, eq, inArray, lt, sql } from "drizzle-orm";
 import z from "zod";
 import { db } from "../../db";
 import { natsConnection } from "../../db/nats";
-import { routesEntity, traceRunsEntity, traceSpansEntity, workflowsEntity } from "../../db/schema";
+import {
+	routesEntity,
+	sandboxesEntity,
+	traceRunsEntity,
+	traceSpansEntity,
+	workflowsEntity,
+} from "../../db/schema";
 import { RECORDING_MAX_AGE_DAYS } from "../../lib/env";
 import { RUNTIME_LOG_TYPE, systemLog } from "../../lib/systemLogs";
 import { onSystemTick } from "../schedules/system";
@@ -52,6 +58,7 @@ const runSchema = z
 		projectId: z.string().min(1).max(50),
 		routeId: z.string().min(1).max(50).optional(),
 		workflowId: z.string().min(1).max(50).optional(),
+		sandboxId: z.string().min(1).max(50).optional(),
 		routeVersion: z.string().max(50).optional(),
 		workflowVersion: z.string().max(50).optional(),
 		startedAtWallMs: time,
@@ -86,8 +93,8 @@ const runSchema = z
 			)
 			.max(MAX_SPANS_PER_RUN),
 	})
-	.refine((run) => Boolean(run.routeId) !== Boolean(run.workflowId), {
-		message: "a run belongs to exactly one route or workflow",
+	.refine((run) => [run.routeId, run.workflowId, run.sandboxId].filter(Boolean).length === 1, {
+		message: "a run belongs to exactly one route, workflow or sandbox",
 	});
 
 /**
@@ -151,6 +158,7 @@ export async function persistRecording(payload: unknown): Promise<"stored" | "dr
 				projectId: run.projectId,
 				routeId: run.routeId,
 				workflowId: run.workflowId,
+				sandboxId: run.sandboxId,
 				routeVersion: run.routeVersion,
 				workflowVersion: run.workflowVersion,
 				startedAt: new Date(run.startedAtWallMs),
@@ -208,8 +216,8 @@ async function logFailedRun(run: z.infer<typeof runSchema>) {
 	const span = run.spans.find((s) => s.outcome === "failure");
 	await systemLog.error({
 		projectId: run.projectId,
-		resourceType: run.routeId ? "route" : "workflow",
-		resourceId: (run.routeId ?? run.workflowId)!,
+		resourceType: run.routeId ? "route" : run.workflowId ? "workflow" : "sandbox",
+		resourceId: (run.routeId ?? run.workflowId ?? run.sandboxId)!,
 		type: RUNTIME_LOG_TYPE,
 		message: span?.error ?? "The run failed",
 		runId: run.runId,
@@ -226,16 +234,27 @@ async function logFailedRun(run: z.infer<typeof runSchema>) {
 }
 
 /**
- * The run's route or workflow must belong to its project, always. A test run
- * (#627) is stored whatever `recordExecution` says; any other run only while
- * recording is still on — it may have been switched off since the run.
+ * The run's route, workflow or sandbox must belong to its project, always. A
+ * test run (#627) is stored whatever `recordExecution` says; any other run only
+ * while recording is still on — it may have been switched off since the run. A
+ * sandbox always records (#735).
  */
 async function shouldStore(run: {
 	projectId: string;
 	routeId?: string;
 	workflowId?: string;
+	sandboxId?: string;
 	metadata?: { source: "test" };
 }) {
+	if (run.sandboxId) {
+		const [sandbox] = await db
+			.select({ id: sandboxesEntity.id })
+			.from(sandboxesEntity)
+			.where(
+				and(eq(sandboxesEntity.id, run.sandboxId), eq(sandboxesEntity.projectId, run.projectId)),
+			);
+		return Boolean(sandbox);
+	}
 	const [row] = run.routeId
 		? await db
 				.select({ on: routesEntity.recordExecution })

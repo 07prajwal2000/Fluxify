@@ -26,6 +26,7 @@ export const compileCustomBlockSubject = (id: string) => `${SUBJECT_ROOT}.custom
 export const compileMiddlewareSubject = (id: string) => `${SUBJECT_ROOT}.middleware.${id}`;
 export const compileWorkflowSubject = (workflowId: string) =>
 	`${SUBJECT_ROOT}.workflow.${workflowId}`;
+export const compileSandboxSubject = (sandboxId: string) => `${SUBJECT_ROOT}.sandbox.${sandboxId}`;
 /** `all` republishes config for every project */
 export const compileProjectConfigSubject = (projectId: string) =>
 	`${SUBJECT_ROOT}.project-config.${projectId}`;
@@ -45,6 +46,15 @@ export const middlewareKey = (projectId: string, id: string) => `middleware.${pr
 export const workflowKey = (projectId: string, workflowId: string) =>
 	`workflow.${projectId}.${workflowId}`;
 export const projectConfigKey = (projectId: string) => `project-config.${projectId}.current`;
+/**
+ * A sandbox (#735) is one graph published twice, to the development bucket
+ * only: as a route (`/_sandbox/<id>/*`) and as a workflow (Run). Kinds of their
+ * own, so a sandbox never lands in the route table or the workflow list.
+ */
+export const sandboxKey = (projectId: string, sandboxId: string) =>
+	`sandbox.${projectId}.${sandboxId}`;
+export const sandboxWorkflowKey = (projectId: string, sandboxId: string) =>
+	`sandbox-workflow.${projectId}.${sandboxId}`;
 /**
  * A trigger is not compiled — it has no graph of its own. It rides this bucket
  * anyway because the worker already watches it, so a trigger reaches every node
@@ -77,6 +87,8 @@ const ARTIFACT_KINDS = [
 	"project-config",
 	"trigger",
 	"deps",
+	"sandbox",
+	"sandbox-workflow",
 ] as const;
 
 export type ArtifactKind = (typeof ARTIFACT_KINDS)[number];

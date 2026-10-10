@@ -12,6 +12,8 @@ export type RecordedRoute = {
 	routeVersion: string;
 	method: string;
 	path: string;
+	/** `routeId` is a sandbox's id (#735) */
+	sandbox?: boolean;
 };
 
 export type RecordedWorkflow = {
@@ -19,6 +21,8 @@ export type RecordedWorkflow = {
 	workflowId: string;
 	workflowVersion: string;
 	workflowName?: string;
+	/** `workflowId` is a sandbox's id (#735) */
+	sandbox?: boolean;
 };
 
 export type TraceOutcome = "success" | "failure";
@@ -233,7 +237,7 @@ export class RouteTraceRecorder extends BaseTraceRecorder implements RequestTrac
 	protected targetAttributes(): Partial<TraceRunPayload> {
 		return {
 			projectId: this.route.projectId,
-			routeId: this.route.routeId,
+			...(this.route.sandbox ? { sandboxId: this.route.routeId } : { routeId: this.route.routeId }),
 			routeVersion: this.route.routeVersion,
 			method: this.route.method,
 			path: this.route.path,
@@ -264,7 +268,9 @@ export class WorkflowTraceRecorder extends BaseTraceRecorder implements Workflow
 	protected targetAttributes(): Partial<TraceRunPayload> {
 		return {
 			projectId: this.workflow.projectId,
-			workflowId: this.workflow.workflowId,
+			...(this.workflow.sandbox
+				? { sandboxId: this.workflow.workflowId }
+				: { workflowId: this.workflow.workflowId }),
 			workflowVersion: this.workflow.workflowVersion,
 			...(this.workflow.workflowName ? { workflowName: this.workflow.workflowName } : {}),
 		};

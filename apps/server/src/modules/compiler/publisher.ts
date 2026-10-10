@@ -9,6 +9,7 @@ import {
 	compileProjectConfigSubject,
 	compileProjectSubject,
 	compileRouteSubject,
+	compileSandboxSubject,
 	compileWorkflowSubject,
 } from "./subjects";
 
@@ -41,6 +42,10 @@ export function requestMiddlewareCompile(id: string, projectId: string, reason?:
 
 export function requestWorkflowCompile(workflowId: string, reason?: string) {
 	return request(compileWorkflowSubject(workflowId), { id: workflowId, reason });
+}
+
+export function requestSandboxCompile(sandboxId: string, reason?: string) {
+	return request(compileSandboxSubject(sandboxId), { id: sandboxId, reason });
 }
 
 export function requestProjectConfigPublish(projectId = ALL_PROJECTS, reason?: string) {

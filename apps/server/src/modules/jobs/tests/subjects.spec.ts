@@ -59,7 +59,14 @@ describe("worker modes", () => {
 			"project-config",
 			"trigger",
 			"deps",
+			"sandbox",
+			"sandbox-workflow",
 		]);
+		// a sandbox's route half serves HTTP, its workflow half runs jobs (#735)
+		expect(artifactKindsForMode("route")).toContain("sandbox");
+		expect(artifactKindsForMode("route")).not.toContain("sandbox-workflow");
+		expect(artifactKindsForMode("workflow")).toContain("sandbox-workflow");
+		expect(artifactKindsForMode("workflow")).not.toContain("sandbox");
 		// every mode runs user code, so every mode installs its packages
 		for (const mode of ["route", "workflow", "both"]) {
 			expect(artifactKindsForMode(mode)).toContain("deps");

@@ -1,7 +1,7 @@
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "../../../../db";
 import { traceRunsEntity, traceSpansEntity } from "../../../../db/schema";
-import { type SuiteTarget, targetColumn } from "../../../../modules/testRunner/target";
+import { type RunTarget, runTargetColumn } from "../get-runs/repository";
 
 /**
  * One recorded run, every span it holds and the async runs it forked.
@@ -9,7 +9,7 @@ import { type SuiteTarget, targetColumn } from "../../../../modules/testRunner/t
  * The run lookup carries the project and target from the path, so a run id from
  * another project or target reads as one that does not exist.
  */
-export async function getRecordedRunById(projectId: string, target: SuiteTarget, runId: string) {
+export async function getRecordedRunById(projectId: string, target: RunTarget, runId: string) {
 	const [run] = await db
 		.select({
 			id: traceRunsEntity.id,
@@ -31,7 +31,7 @@ export async function getRecordedRunById(projectId: string, target: SuiteTarget,
 			and(
 				eq(traceRunsEntity.id, runId),
 				eq(traceRunsEntity.projectId, projectId),
-				eq(targetColumn(traceRunsEntity, target.type), target.id),
+				eq(runTargetColumn(target), target.id),
 			),
 		);
 	if (!run) return null;

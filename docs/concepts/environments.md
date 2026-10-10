@@ -126,9 +126,9 @@ A production worker ignores this header. The token cannot reach your live
 routes, whatever you send.
 :::
 
-::: tip Coming with the development routes
-The development routes and sandboxes that accept this token arrive with the
-development routing work. You can already copy and rotate the token.
+::: tip Sandboxes take it today
+[Sandboxes](/concepts/sandbox) already accept this token. Development routes
+arrive with the development routing work.
 :::
 
 ## Related

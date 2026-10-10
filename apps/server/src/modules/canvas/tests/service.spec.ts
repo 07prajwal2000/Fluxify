@@ -11,6 +11,8 @@ mock.module("../../../db/redis", () => ({
 	},
 	CHAN_ON_ROUTE_CHANGE: "chan:on-route-change",
 	CHAN_ON_CUSTOM_BLOCK_CHANGE: "chan:on-custom-block-change",
+	CHAN_ON_WORKFLOW_CHANGE: "chan:on-workflow-change",
+	CHAN_ON_SANDBOX_CHANGE: "chan:on-sandbox-change",
 }));
 
 import * as repository from "../repository";
@@ -161,6 +163,7 @@ describe("canvas saveCanvas", () => {
 				routeId: null,
 				customBlockId: "cb-1",
 				workflowId: null,
+				sandboxId: null,
 			},
 		]);
 		expect(upsertEdges.mock.calls[0][0][0]).toMatchObject({
@@ -192,6 +195,18 @@ describe("canvas saveCanvas", () => {
 			workflowId: "wf-1",
 		});
 		expect(published).toEqual(["chan:on-workflow-change"]);
+	});
+
+	it("writes a sandbox canvas through the sandbox foreign key", async () => {
+		await saveCanvas({ type: "sandbox", id: "sb-1" }, changes, ["p1"]);
+
+		expect(upsertBlocks.mock.calls[0][0][0]).toMatchObject({
+			routeId: null,
+			customBlockId: null,
+			workflowId: null,
+			sandboxId: "sb-1",
+		});
+		expect(published).toEqual(["chan:on-sandbox-change"]);
 	});
 
 	it("refuses to touch a canvas whose parent is not visible", async () => {

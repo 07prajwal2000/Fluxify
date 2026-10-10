@@ -96,7 +96,7 @@ const DEFAULT_TRIGGER: TriggerContext = {
  */
 export async function dispatch(
 	env: RequestEnvelope,
-	parser: HttpRouteParser,
+	parser: Pick<HttpRouteParser, "getRouteId">,
 	httpCtx?: Context,
 	observer?: RouteExecutionObserver,
 	resolveValidators?: RouteValidatorResolver,

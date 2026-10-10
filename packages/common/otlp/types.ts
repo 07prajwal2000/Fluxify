@@ -71,6 +71,8 @@ export type TraceRunPayload = {
 	workflowId?: string;
 	workflowVersion?: string;
 	workflowName?: string;
+	/** A sandbox's run (#735), over HTTP or as a workflow: set instead of `routeId` / `workflowId`. */
+	sandboxId?: string;
 	/**
 	 * `Date.now()` and `performance.now()` sampled at the same instant.
 	 *

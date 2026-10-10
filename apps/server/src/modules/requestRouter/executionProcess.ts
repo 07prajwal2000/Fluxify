@@ -19,12 +19,14 @@ import {
 	fromPortal,
 	initCompiledRuntime,
 	routeParserFor,
+	sandboxRequest,
 	setBaseDomain,
 	setTrustedOrigins,
 	shutdownCompiledRuntime,
 } from "./compiledRuntime";
 import { DEBUG_ERROR_HEADER, debugError, debugRequested, encodeDebugError } from "./debugError";
 import { DEBUG_TRACE_HEADER, encodeDebugTrace } from "./debugTrace";
+import { DEV_TOKEN_HEADER } from "./devToken";
 import { executionRuntimeEnvironment } from "./executionEnvironment";
 import { createHttpContext } from "./httpContext";
 import {
@@ -164,10 +166,21 @@ async function handle(request: Request): Promise<Response> {
 
 async function serveRoute(request: Request): Promise<Response> {
 	if (!ready) return new Response("Execution process is not ready", { status: 503 });
-	// resolved before anything else: the host decides which project's routes exist
-	const parser = routeParserFor(request.headers.get("host") ?? undefined);
 	const ctx = createHttpContext(request);
+	const sandbox = sandboxRequest(ctx.req.path, request.headers.get(DEV_TOKEN_HEADER));
+	if (sandbox && sandbox.status !== 200) {
+		const message =
+			sandbox.status === 404 ? "Route not found" : "Missing or wrong development token";
+		return json({ message }, sandbox.status, ctx.responseHeaders);
+	}
+	// resolved before anything else: the host decides which project's routes exist
+	const parser = sandbox?.parser ?? routeParserFor(request.headers.get("host") ?? undefined);
 	const env = await envelopeFromHttp(ctx as any);
+	if (sandbox) {
+		// blocks see the path after the sandbox id, and never the token
+		env.payload.path = sandbox.path;
+		delete env.payload.headers[DEV_TOKEN_HEADER];
+	}
 	const debug = debugRequested(env, parser, boot?.debugKey);
 	const observer = createObserver();
 	// an admin debug call also keeps the run, to answer with a short trace

@@ -52,7 +52,8 @@ import {
  * never saw the row cannot be left consuming a trigger that no longer exists.
  */
 
-type Trigger = Omit<typeof triggersEntity.$inferSelect, "createdBy">;
+/** `sandboxId` is unused until sandbox triggers land (#735 part 3) */
+type Trigger = Omit<typeof triggersEntity.$inferSelect, "createdBy" | "sandboxId">;
 
 export async function createTrigger(
 	userId: string,

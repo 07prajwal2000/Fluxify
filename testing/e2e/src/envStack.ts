@@ -82,6 +82,17 @@ const devData = await dataPostgres("fluxify-env-data-dev", "dev-secret");
 await seed(devData.url, "devdata", "development");
 
 const s = await startAuthServer();
+// what a real admin also runs (#735): it writes the runs workers publish, and
+// knows the custom blocks a canvas save may name
+const { startRecordingConsumer } = await import(
+	"@fluxify/server/src/modules/recordings/consumer"
+);
+await startRecordingConsumer();
+const { initializeCustomBlocksSubscription, loadCustomBlocks } = await import(
+	"@fluxify/server/src/loaders/customBlocksLoader"
+);
+await loadCustomBlocks();
+initializeCustomBlocksSubscription();
 const projectId = await createProject(s);
 const creator = await createUser(s, "creator", projectId);
 const viewer = await createUser(s, "viewer", projectId);

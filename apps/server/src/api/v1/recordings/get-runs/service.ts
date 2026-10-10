@@ -1,7 +1,6 @@
 import type { z } from "zod";
-import type { SuiteTarget } from "../../../../modules/testRunner/target";
 import type { requestQuerySchema } from "./dto";
-import { getRecordedRuns } from "./repository";
+import { getRecordedRuns, type RunTarget } from "./repository";
 
 export const withDuration = <R extends { startedAt: Date; endedAt: Date | null }>(run: R) => ({
 	...run,
@@ -10,7 +9,7 @@ export const withDuration = <R extends { startedAt: Date; endedAt: Date | null }
 
 export default async function handleRequest(
 	projectId: string,
-	target: SuiteTarget,
+	target: RunTarget,
 	query: z.infer<typeof requestQuerySchema>,
 ) {
 	const { page, perPage } = query;
