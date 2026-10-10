@@ -2,6 +2,7 @@ import { Button, CloseButton, Modal, toast } from "@fluxify/components";
 import { createFileRoute, isRedirect, redirect } from "@tanstack/react-router";
 import { useState } from "react";
 import { TbPlayerPlay, TbSettings } from "react-icons/tb";
+import { z } from "zod";
 import { RouteApiPlayground } from "@/components/RouteApiPlayground";
 import { ExecutionRecordings } from "@/components/recordings/ExecutionRecordings";
 import { RouteSettingsModal } from "@/components/routes/RouteSettingsModal";
@@ -18,6 +19,7 @@ export const Route = createFileRoute("/_authed/$projectId_/canvas/$routeId_/exec
 		"Route Executions | Routes",
 		"Inspect and debug recorded executions for an API route.",
 	),
+	validateSearch: z.object({ open: z.string().optional() }),
 	beforeLoad: async ({ params, context }) => {
 		try {
 			const route = await context.queryClient.ensureQueryData({
@@ -45,6 +47,8 @@ export const Route = createFileRoute("/_authed/$projectId_/canvas/$routeId_/exec
 
 function RouteExecutionsPage() {
 	const { projectId, routeId } = Route.useParams();
+	const { open } = Route.useSearch();
+	const navigate = Route.useNavigate();
 	const { data: route } = routesQuery.byId.useQuery(routeId);
 	const canEdit = useCanEditProject(projectId);
 	const apiBaseUrl = useProjectApiBaseUrl(projectId);
@@ -74,6 +78,8 @@ function RouteExecutionsPage() {
 			<main className="min-h-0 flex-1">
 				<ExecutionRecordings
 					key={routeId}
+					initialRunId={open}
+					onClosed={() => navigate({ search: {}, replace: true })}
 					projectId={projectId}
 					target={{ type: "route", id: routeId }}
 					emptyHint="send a request in the API Playground or your HTTP client"

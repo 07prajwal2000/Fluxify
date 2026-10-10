@@ -4,6 +4,8 @@ import { Hono } from "hono";
 import * as integration from "../../../agent/runner/integration";
 import * as orphans from "../../../agent/runner/orphans";
 import * as repo from "../../../agent/runner/repository";
+import * as preview from "../../../mcp/canvasPreview";
+import * as resources from "../../../mcp/resourcePreview";
 import type { AgentEvent } from "../../../agent/runner/events";
 import { registerAgentRoutes } from "./register";
 import * as service from "./service";
@@ -26,6 +28,8 @@ const spies = [
 	spyOn(repo, "createConversation").mockResolvedValue(conv()),
 	spyOn(repo, "listConversations").mockResolvedValue([]),
 	spyOn(integration, "projectSupportsThinking").mockResolvedValue(true),
+	spyOn(resources, "currentResource").mockResolvedValue({ name: "Users" }),
+	spyOn(preview, "previewEdit").mockResolvedValue({ version: 3, before: { blocks: [], edges: [] } }),
 	spyOn(service, "getConversationDetail").mockResolvedValue({} as any),
 	spyOn(service, "getOlderMessages").mockResolvedValue({ messages: [], nextBeforeSeq: null }),
 	spyOn(service, "sendMessage").mockResolvedValue({ runId: "r1" }),
@@ -113,6 +117,31 @@ describe("agent API auth", () => {
 		const res = await call("GET", "/agent/p1/model");
 		expect(res.status).toBe(200);
 		expect(await res.json()).toEqual({ supportsThinking: true });
+	});
+
+	it("the canvas preview needs the creator role and checks the ops like edit_canvas", async () => {
+		const body = { target: { kind: "route", id: "r1" }, ops: [{ op: "remove_block", id: "log_1" }] };
+		who = null;
+		expect((await call("POST", "/agent/p1/canvas-preview", body)).status).toBe(403);
+		who = { id: "owner", role: "viewer" };
+		expect((await call("POST", "/agent/p1/canvas-preview", body)).status).toBe(403);
+		who = owner;
+		const res = await call("POST", "/agent/p1/canvas-preview", body);
+		expect(res.status).toBe(200);
+		expect(await res.json()).toEqual({ version: 3, before: { blocks: [], edges: [] } });
+		expect((preview.previewEdit as any).mock.calls.at(-1).slice(1)).toEqual([body.target, body.ops, undefined]);
+		expect((await call("POST", "/agent/p1/canvas-preview", { target: body.target, ops: "x" })).status).toBe(400);
+	});
+
+	it("the resource preview needs the creator role and a known tool", async () => {
+		const body = { tool: "save_route", input: { routeId: "r1" } };
+		who = { id: "owner", role: "viewer" };
+		expect((await call("POST", "/agent/p1/resource-preview", body)).status).toBe(403);
+		who = owner;
+		const res = await call("POST", "/agent/p1/resource-preview", body);
+		expect(await res.json()).toEqual({ current: { name: "Users" } });
+		expect((resources.currentResource as any).mock.calls.at(-1).slice(1)).toEqual(["p1", "save_route", body.input]);
+		expect((await call("POST", "/agent/p1/resource-preview", { tool: "get_route", input: {} })).status).toBe(400);
 	});
 
 	it("a message carries its mode and effort; an approval can pick both", async () => {

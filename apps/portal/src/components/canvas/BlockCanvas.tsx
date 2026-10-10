@@ -74,6 +74,8 @@ function CanvasInner({
 	enableSpotlight = false,
 	playgroundContent,
 	trackExecutionContent,
+	showToolbar = true,
+	captureScroll = true,
 	fitViewOnInit = true,
 	defaultViewport,
 	className,
@@ -426,6 +428,8 @@ function CanvasInner({
 														deleteKeyCode={readOnly ? null : ["Backspace", "Delete"]}
 														elevateNodesOnSelect={false}
 														zIndexMode="manual"
+														zoomOnScroll={captureScroll}
+														preventScrolling={captureScroll}
 														fitView={fitViewOnInit}
 														defaultViewport={defaultViewport}
 														proOptions={{ hideAttribution: true }}
@@ -434,11 +438,13 @@ function CanvasInner({
 															variant={BackgroundVariant.Dots}
 															color="var(--fx-canvas-dot)"
 														/>
-														<CanvasToolbar
-															readOnly={readOnly}
-															layoutLocked={layoutLocked}
-															onToggleLayoutLock={() => setLayoutLocked((locked) => !locked)}
-														/>
+														{showToolbar && (
+															<CanvasToolbar
+																readOnly={readOnly}
+																layoutLocked={layoutLocked}
+																onToggleLayoutLock={() => setLayoutLocked((locked) => !locked)}
+															/>
+														)}
 														{children}
 													</ReactFlow>
 													{/* the AI edits the graph — nothing to offer on a readonly view */}

@@ -24,11 +24,13 @@ import { ResourcePlugin } from "./lexical/ResourcePlugin";
 import { MentionPopover } from "./MentionPopover";
 import { SlashPopover } from "./SlashPopover";
 import { type SlashCommand, slashSuggestions } from "./slashCommands";
-import { STARTERS } from "./starters";
 
+/** Example prompts the empty editor types out as its placeholder. */
 const PLACEHOLDERS = [
-	"Generate a blog API with rate limiting, Redis cache...",
-	...STARTERS.map((s) => s.prompt),
+	"Generate a blog API with rate limiting, Redis cache and JWT auth.",
+	"Build a Stripe webhook handler that processes subscription lifecycle events securely.",
+	"Implement a global rate limiting middleware using Redis and returning proper 429 headers.",
+	"Create a scheduled background task that cleans up soft-deleted records older than 30 days.",
 ];
 
 function EditorLogicPlugin({

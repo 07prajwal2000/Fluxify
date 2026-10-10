@@ -2,6 +2,7 @@ import { Button, Chip, CloseButton, Modal } from "@fluxify/components";
 import { useState } from "react";
 import type { Decision } from "@/services/agentConversations";
 import { summarizeInput, type ToolRequest } from "./agentApproval";
+import { RowPreview } from "./RowPreview";
 
 type Props = {
 	calls: ToolRequest[];
@@ -61,42 +62,45 @@ export function ReviewAllDialog({ calls, open, onOpenChange, onConfirm }: Props)
 							</div>
 							<ul className="flex flex-col divide-y divide-border">
 								{rows.map((c) => (
-									<li key={c.id} className="flex items-center gap-3 py-2">
-										<div className="flex min-w-0 flex-1 flex-col gap-0.5">
-											<span className="flex items-center gap-2 text-sm text-foreground">
-												<span className="font-medium">{c.title}</span>
-												{c.isDelete && (
-													<Chip size="sm" color="danger">
-														Deletes
-													</Chip>
-												)}
-											</span>
-											<span className="truncate font-mono text-xs text-muted">
-												{summarizeInput(c.name, c.input)}
-											</span>
+									<li key={c.id} className="flex flex-col gap-2 py-2">
+										<div className="flex items-center gap-3">
+											<div className="flex min-w-0 flex-1 flex-col gap-0.5">
+												<span className="flex items-center gap-2 text-sm text-foreground">
+													<span className="font-medium">{c.title}</span>
+													{c.isDelete && (
+														<Chip size="sm" color="danger">
+															Deletes
+														</Chip>
+													)}
+												</span>
+												<span className="truncate font-mono text-xs text-muted">
+													{summarizeInput(c.name, c.input)}
+												</span>
+											</div>
+											<div className="flex shrink-0 gap-1">
+												<Button
+													size="sm"
+													variant={picks[c.id] === true ? "primary" : "ghost"}
+													className={`w-[5.5rem] whitespace-nowrap h-7 min-h-7 px-2 text-xs ${picks[c.id] === true ? "" : "text-success"}`}
+													aria-label={`Approve ${c.title}`}
+													aria-pressed={picks[c.id] === true}
+													onPress={() => set([c.id], true)}
+												>
+													Approve
+												</Button>
+												<Button
+													size="sm"
+													variant={picks[c.id] === false ? "danger-soft" : "ghost"}
+													className={`w-[5.5rem] whitespace-nowrap h-7 min-h-7 px-2 text-xs ${picks[c.id] === false ? "" : "text-danger"}`}
+													aria-label={`Reject ${c.title}`}
+													aria-pressed={picks[c.id] === false}
+													onPress={() => set([c.id], false)}
+												>
+													Reject
+												</Button>
+											</div>
 										</div>
-										<div className="flex shrink-0 gap-1">
-											<Button
-												size="sm"
-												variant={picks[c.id] === true ? "primary" : "ghost"}
-												className={`w-[5.5rem] whitespace-nowrap h-7 min-h-7 px-2 text-xs ${picks[c.id] === true ? "" : "text-success"}`}
-												aria-label={`Approve ${c.title}`}
-												aria-pressed={picks[c.id] === true}
-												onPress={() => set([c.id], true)}
-											>
-												Approve
-											</Button>
-											<Button
-												size="sm"
-												variant={picks[c.id] === false ? "danger-soft" : "ghost"}
-												className={`w-[5.5rem] whitespace-nowrap h-7 min-h-7 px-2 text-xs ${picks[c.id] === false ? "" : "text-danger"}`}
-												aria-label={`Reject ${c.title}`}
-												aria-pressed={picks[c.id] === false}
-												onPress={() => set([c.id], false)}
-											>
-												Reject
-											</Button>
-										</div>
+										<RowPreview call={c} />
 									</li>
 								))}
 							</ul>

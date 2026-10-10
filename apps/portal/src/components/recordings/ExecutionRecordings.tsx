@@ -17,12 +17,18 @@ export function ExecutionRecordings({
 	projectId,
 	target,
 	emptyHint,
+	initialRunId,
+	onClosed,
 }: {
 	projectId: string;
 	target: RecordingTarget;
 	emptyHint: string;
+	/** Start on this run (a link from the agent chat). */
+	initialRunId?: string;
+	/** The run was closed with Back: drop it from the link. */
+	onClosed?: () => void;
 }) {
-	const [runId, setRunId] = useState<string | null>(null);
+	const [runId, setRunId] = useState<string | null>(initialRunId ?? null);
 	const [confirmClear, setConfirmClear] = useState(false);
 	const clear = recordingsQuery.clearRuns.useMutation(projectId, target);
 
@@ -33,7 +39,10 @@ export function ExecutionRecordings({
 				projectId={projectId}
 				target={target}
 				runId={runId}
-				onBack={() => setRunId(null)}
+				onBack={() => {
+					setRunId(null);
+					onClosed?.();
+				}}
 			/>
 		);
 	}

@@ -150,12 +150,15 @@ export function TestSuitesWorkbench({
 	target,
 	headerLeft,
 	initialRunId,
+	initialSuiteId,
 }: {
 	projectId: string;
 	target: SuiteTarget;
 	headerLeft: ReactNode;
 	/** a test trace's "From test" link opens its run's results (#627) */
 	initialRunId?: string;
+	/** a link from the agent chat opens this suite instead of the first */
+	initialSuiteId?: string;
 }) {
 	// npm package types, so imports in scripts and hooks autocomplete (faker…)
 	useProjectPackageTypes(projectId);
@@ -220,8 +223,9 @@ export function TestSuitesWorkbench({
 	// Open the first suite once the list arrives, so the editor is never blank
 	// when there is something to show.
 	useEffect(() => {
-		if (!selectedId && list.length > 0) setSelectedId(list[0].id);
-	}, [list, selectedId]);
+		if (!selectedId && list.length > 0)
+			setSelectedId(list.find((s) => s.id === initialSuiteId)?.id ?? list[0].id);
+	}, [list, selectedId, initialSuiteId]);
 
 	// Seed the form from the loaded suite. Keyed on the suite id, not the query
 	// data, so a background refetch cannot wipe unsaved edits.

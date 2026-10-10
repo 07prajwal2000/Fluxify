@@ -1,4 +1,4 @@
-import { Button, Spinner } from "@fluxify/components";
+import { Spinner } from "@fluxify/components";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useState } from "react";
 import { TbAlertTriangle, TbPlugConnected } from "react-icons/tb";
@@ -8,7 +8,7 @@ import type { Effort, Mode } from "@/services/agentConversations";
 import { useAgentModel } from "./AgentModel";
 import { AgentPickers } from "./AgentPickers";
 import { PromptEditor } from "./PromptEditor";
-import { STARTERS } from "./starters";
+import { RecentChats } from "./RecentChats";
 import { queueMessage } from "./useAgentConversation";
 
 const logo = `${import.meta.env.BASE_URL}icons/logo.webp`;
@@ -107,19 +107,16 @@ export function AiHome() {
 					}
 				/>
 
-				<div className="flex flex-wrap justify-center gap-2">
-					{STARTERS.map((s) => (
-						<Button
-							key={s.label}
-							size="sm"
-							variant="outline"
-							className="rounded-full border-border bg-surface px-4 py-2 text-muted hover:bg-surface-secondary hover:text-foreground"
-							onPress={() => setQuery(s.prompt)}
-						>
-							{s.label}
-						</Button>
-					))}
-				</div>
+				<RecentChats
+					projectId={projectId}
+					onOpen={(conversationId) =>
+						navigate({
+							to: "/$projectId/ai/$conversationId",
+							params: { projectId, conversationId },
+							viewTransition: true,
+						})
+					}
+				/>
 			</div>
 		</div>
 	);

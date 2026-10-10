@@ -5,7 +5,11 @@ import { type CanvasOp, canvasOpSchema, opsToChanges, trimCanvas } from "./canva
 import type { McpTool } from "./tools";
 
 /** Where each canvas kind lives in the admin API. Middlewares have no canvas. */
-const BASE = { route: "/v1/routes", workflow: "/v1/workflows", custom_block: "/v1/custom-blocks" };
+export const BASE = {
+	route: "/v1/routes",
+	workflow: "/v1/workflows",
+	custom_block: "/v1/custom-blocks",
+};
 
 const target = z
 	.object({
@@ -14,9 +18,10 @@ const target = z
 	})
 	.describe("Whose canvas. Middlewares have none: use save_middleware.");
 
-type Target = z.infer<typeof target>;
+export type Target = z.infer<typeof target>;
 
-const read = (get: AdminApi["get"], t: Target) => get(`${BASE[t.kind]}/${t.id}/canvas-items`);
+export const read = (get: AdminApi["get"], t: Target) =>
+	get(`${BASE[t.kind]}/${t.id}/canvas-items`);
 
 const STALE = "Canvas changed since you read it. Read it again with get_canvas and redo the edit.";
 

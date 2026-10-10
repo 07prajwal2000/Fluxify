@@ -7,7 +7,16 @@ GlobalRegistrator.register();
 mock.module("@tanstack/react-router", () => ({
 	useParams: () => ({ projectId: "p1" }),
 	Link: ({ to, search, children, ...rest }: any) => (
-		<a href={search ? `${to}?q=${encodeURIComponent(search.q)}` : to} {...rest}>
+		<a
+			href={
+				search
+					? `${to}?${Object.entries(search)
+							.map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`)
+							.join("&")}`
+					: to
+			}
+			{...rest}
+		>
 			{children}
 		</a>
 	),
@@ -66,11 +75,13 @@ test.each([
 test("a test suite opens the tests page of the route it belongs to", async () => {
 	const get = spyOn(testSuitesService, "getById").mockResolvedValue({ routeId: "r9" } as never);
 	view(<MarkdownViewer content=":ref[Smoke]{type=test_suite id=s1}" />);
-	await until(() => expect(links()[0]?.getAttribute("href")).toBe("/p1/canvas/r9/test-suites"));
+	await until(() =>
+		expect(links()[0]?.getAttribute("href")).toBe("/p1/canvas/r9/test-suites?open=s1"),
+	);
 	get.mockResolvedValue({ workflowId: "w9" } as never);
 	view(<MarkdownViewer content=":ref[Nightly]{type=test_suite id=s2}" />);
 	await until(() =>
-		expect(links()[1]?.getAttribute("href")).toBe("/p1/workflow-canvas/w9/test-suites"),
+		expect(links()[1]?.getAttribute("href")).toBe("/p1/workflow-canvas/w9/test-suites?open=s2"),
 	);
 	get.mockRestore();
 });

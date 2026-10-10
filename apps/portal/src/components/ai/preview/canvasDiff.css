@@ -1,0 +1,35 @@
+/*
+ * What an edit did to a canvas, drawn on the real blocks. Each colour is mixed
+ * into the block's own (opaque) background, so the text keeps the contrast the
+ * canvas gives it and an unchanged block looks exactly as on the canvas.
+ */
+.fx-diff--added .fx-block,
+.fx-diff--added .fx-block:hover {
+	background: color-mix(in oklab, var(--success) 26%, var(--fx-block-bg));
+	border-color: var(--success);
+}
+
+.fx-diff--changed .fx-block,
+.fx-diff--changed .fx-block:hover {
+	background: color-mix(in oklab, var(--warning) 26%, var(--fx-block-bg));
+	border-color: var(--warning);
+}
+
+.fx-diff--removed .fx-block,
+.fx-diff--removed .fx-block:hover {
+	background: color-mix(in oklab, var(--danger) 26%, var(--fx-block-bg));
+	border-color: var(--danger);
+	border-style: dashed;
+}
+
+.fx-diff-edge--added .fx-edge {
+	stroke: var(--success);
+	stroke-width: 2.5;
+}
+
+.fx-diff-edge--removed .fx-edge {
+	stroke: var(--danger);
+	stroke-width: 2.5;
+	stroke-dasharray: 3 5;
+	animation: none;
+}
