@@ -163,12 +163,14 @@ The pre-commit hook runs `fta-cli --score-cap 70`, which **fails the commit** fo
 **Remember `*.test.ts` only runs in CI**, so it will not slow the pre-commit hook — but it also will not catch your mistake before you push. Run the file directly while developing: `bun test packages/blocks/kvMysqlCache.test.ts`.
 
 ### CI Test Gates Follow the Monorepo — Keep `scripts/check-ci-gates.ts` Current
-**Rule:** each test job in `.github/workflows/ci.yml` runs only when its package, or a package it depends on, changes. The filters in `detect-changes` must equal the closure of `@fluxify/*` dependencies in the `package.json` files, plus `.github/workflows/ci.yml`. `bun run check:ci-gates` (the `lint` job) fails when they drift, or when a test file imports a `@fluxify/*` package its `package.json` does not declare.
+**Rule:** each test job in `.github/workflows/tests.yml` runs only when its package, or a package it depends on, changes. The filters in `detect-changes` must equal the closure of `@fluxify/*` dependencies in the `package.json` files, plus `.github/workflows/ci.yml` and `tests.yml`. `bun run check:ci-gates` (the `lint` job) fails when they drift, or when a test file imports a `@fluxify/*` package its `package.json` does not declare.
 **When you must update it:**
-1. **New workspace** (app, package, test project) or a **new test job**: add its filter, its `detect-changes` output and its job `if:` in `ci.yml`, and add it to `GATES` in `scripts/check-ci-gates.ts`. Anything the script does not track (a new kind of gate, a new workspace glob, a new test location) means updating the script itself in the same PR.
+1. **New workspace** (app, package, test project) or a **new test job**: add its filter, its `detect-changes` output and its job `if:` in `tests.yml`, and add it to `GATES` in `scripts/check-ci-gates.ts`. Anything the script does not track (a new kind of gate, a new workspace glob, a new test location) means updating the script itself in the same PR.
 2. **Added or removed `@fluxify/*` dependency**: update the filters of every job that depends on that package.
 3. **Renamed or moved workspace dir**: update the filters and `GATES`.
 Never edit a filter to silence the check without confirming the dependency really changed.
+**Workflow layout (`.github/workflows`):** `ci.yml` (PRs, pushes to main) calls `checks.yml` (lint, helm, secret scan) and `tests.yml` (path-filtered tests; `full: true` disables the filter). `nightly.yml` (Kit image) and `release.yml` (version tags) call both with `full: true`, then build. Nothing but those two builds or publishes.
+**Rules:** every workflow's top-level jobs carry `if: github.repository_owner == 'Fluxify-rest'`, so forks never run CI. A deployment (nightly, release) must see every job `success`: never use `always()` or `!contains(needs.*.result, 'failure')` on it, because those let a skipped job pass. `tests.yml`'s `require-all` job fails a `full` run if any test job was skipped, so keep every new test job in its `needs`.
 
 ---
 

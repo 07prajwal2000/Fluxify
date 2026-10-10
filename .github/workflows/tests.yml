@@ -1,0 +1,237 @@
+# The test jobs, shared by CI (path-filtered), the nightly Kit build and a
+# release (both run everything).
+name: Tests
+
+on:
+  workflow_call:
+    inputs:
+      full:
+        description: "Run every test job with no path filter. A deployment sets it."
+        type: boolean
+        default: false
+
+env:
+  BUN_VERSION: "1.4.2"
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      lib: ${{ steps.filter.outputs.lib == 'true' || inputs.full }}
+      blocks: ${{ steps.filter.outputs.blocks == 'true' || inputs.full }}
+      adapters: ${{ steps.filter.outputs.adapters == 'true' || inputs.full }}
+      server: ${{ steps.filter.outputs.server == 'true' || inputs.full }}
+      e2e: ${{ steps.filter.outputs.e2e == 'true' || inputs.full }}
+      ai-gateway: ${{ steps.filter.outputs.ai-gateway == 'true' || inputs.full }}
+      portal: ${{ steps.filter.outputs.portal == 'true' || inputs.full }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        # Not run when everything is tested: nothing to diff against, and the
+        # answer is not read.
+        if: ${{ !inputs.full }}
+        with:
+          # Each filter is the job's closure over the @fluxify/* dependencies in
+          # the package.json files, and scripts/check-ci-gates.ts fails the lint
+          # job when one drifts: add a dependency, update its gate. ci.yml and
+          # tests.yml are the gate itself, so a change to either runs everything.
+          filters: |
+            lib:
+              - 'packages/common/**'
+              - 'packages/lib/**'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/tests.yml'
+            blocks:
+              - 'packages/blocks/**'
+              - 'packages/adapters/**'
+              - 'packages/common/**'
+              - 'packages/lib/**'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/tests.yml'
+            adapters:
+              - 'packages/adapters/**'
+              - 'packages/common/**'
+              - 'packages/lib/**'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/tests.yml'
+            server:
+              - 'apps/server/**'
+              - 'packages/adapters/**'
+              - 'packages/blocks/**'
+              - 'packages/common/**'
+              - 'packages/lib/**'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/tests.yml'
+            ai-gateway:
+              - 'apps/ai-gateway/**'
+              - 'apps/server/**'
+              - 'packages/adapters/**'
+              - 'packages/blocks/**'
+              - 'packages/common/**'
+              - 'packages/lib/**'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/tests.yml'
+            e2e:
+              - 'testing/e2e/**'
+              - 'apps/ai-gateway/**'
+              - 'apps/server/**'
+              - 'packages/adapters/**'
+              - 'packages/blocks/**'
+              - 'packages/common/**'
+              - 'packages/lib/**'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/tests.yml'
+            portal:
+              - 'apps/portal/**'
+              - 'packages/components/**'
+              - 'apps/ai-gateway/**'
+              - 'apps/server/**'
+              - 'packages/adapters/**'
+              - 'packages/blocks/**'
+              - 'packages/common/**'
+              - 'packages/lib/**'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/tests.yml'
+
+  test-packages-lib:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.lib == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Install Dependencies
+        run: bun install
+      - name: Run Lib Tests
+        run: bun run test:lib
+
+  test-packages-blocks:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.blocks == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Install Dependencies
+        run: bun install
+      - name: Generate MASTER_ENCRYPTION_KEY
+        run: echo "MASTER_ENCRYPTION_KEY=$(openssl rand -base64 32)" >> $GITHUB_ENV
+      - name: Run Blocks Tests
+        run: bun run test:blocks
+
+  test-packages-adapters:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.adapters == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Install Dependencies
+        run: bun install
+      - name: Generate MASTER_ENCRYPTION_KEY
+        run: echo "MASTER_ENCRYPTION_KEY=$(openssl rand -base64 32)" >> $GITHUB_ENV
+      - name: Run Adapters Tests
+        run: bun run test:adapters
+
+  test-e2e-graphs:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.e2e == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Install Dependencies
+        run: bun install
+      - name: Generate MASTER_ENCRYPTION_KEY
+        run: echo "MASTER_ENCRYPTION_KEY=$(openssl rand -base64 32)" >> $GITHUB_ENV
+      - name: Run Graph E2E Tests
+        run: bun run test:e2e
+        env:
+          CI: "true"
+
+  test-apps-server-unit:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.server == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Install Dependencies
+        run: bun install
+      - name: Generate MASTER_ENCRYPTION_KEY
+        run: echo "MASTER_ENCRYPTION_KEY=$(openssl rand -base64 32)" >> $GITHUB_ENV
+      - name: Run Server Unit Tests
+        run: bun run test:server:unit
+
+  test-apps-server-integration:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.server == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Install Dependencies
+        run: bun install
+      - name: Generate MASTER_ENCRYPTION_KEY
+        run: echo "MASTER_ENCRYPTION_KEY=$(openssl rand -base64 32)" >> $GITHUB_ENV
+      - name: Run Server Integration Tests
+        run: bun run test:server:integration
+
+  test-apps-portal:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.portal == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Install Dependencies
+        run: bun install
+      - name: Run Portal Tests
+        run: bun run test:portal
+
+  test-apps-ai-gateway:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.ai-gateway == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Install Dependencies
+        run: bun install
+      - name: Generate MASTER_ENCRYPTION_KEY
+        run: echo "MASTER_ENCRYPTION_KEY=$(openssl rand -base64 32)" >> $GITHUB_ENV
+      - name: Run AI Gateway Tests
+        run: bun run test:ai-gateway
+
+  # A reusable workflow counts as passed when its jobs succeeded OR were skipped.
+  # A deployment must not pass on a skipped test, so with `full` every job has
+  # to be `success`.
+  require-all:
+    if: ${{ always() && inputs.full }}
+    needs: [detect-changes, test-packages-lib, test-packages-blocks, test-packages-adapters, test-e2e-graphs, test-apps-server-unit, test-apps-server-integration, test-apps-portal, test-apps-ai-gateway]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every test job must have succeeded
+        env:
+          RESULTS: ${{ toJSON(needs.*.result) }}
+        run: |
+          echo "$RESULTS"
+          echo "$RESULTS" | jq -e 'all(. == "success")' > /dev/null

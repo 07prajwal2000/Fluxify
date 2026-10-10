@@ -1,0 +1,168 @@
+name: Nightly Kit
+
+# The Kit image is built once a night at 00:00 UTC, and only if main moved since
+# the last one. It carries no version tags: release.yml ships the three images a
+# real deployment runs. A manual run always builds.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * *"
+
+# A manual run and the scheduled one must not push over each other.
+concurrency:
+  group: kit-nightly
+  cancel-in-progress: false
+
+env:
+  BUN_VERSION: "1.4.2"
+
+jobs:
+  # Everything is skipped on a fork, and off main.
+  plan:
+    if: github.repository_owner == 'Fluxify-rest' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.mode.outputs.build }}
+    steps:
+      - name: Has main changed since the last nightly?
+        id: mode
+        env:
+          EVENT: ${{ github.event_name }}
+          SHA: ${{ github.sha }}
+          IMAGE: ghcr.io/fluxify-rest/fluxify-kit:nightly
+        run: |
+          set -euo pipefail
+          build=true
+          if [ "$EVENT" = "schedule" ]; then
+            # The image records the commit it was built from. A missing tag or
+            # a failed pull reads as "unknown", which builds.
+            built=$(docker pull -q "$IMAGE" >/dev/null 2>&1 && docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$IMAGE" || true)
+            if [ "$built" = "$SHA" ]; then
+              echo "No change on main since the last nightly ($SHA)." >> "$GITHUB_STEP_SUMMARY"
+              build=false
+            else
+              echo "Building the nightly: main is at $SHA, the last nightly was ${built:-missing}." >> "$GITHUB_STEP_SUMMARY"
+            fi
+          fi
+          echo "build=$build" >> "$GITHUB_OUTPUT"
+
+  checks:
+    needs: plan
+    if: needs.plan.outputs.build == 'true'
+    uses: ./.github/workflows/checks.yml
+
+  tests:
+    needs: plan
+    if: needs.plan.outputs.build == 'true'
+    uses: ./.github/workflows/tests.yml
+    with:
+      full: true
+
+  build-and-push:
+    needs: [plan, checks, tests]
+    # The default success rule, deliberately: no `always()` and no
+    # `!contains(... 'failure')`, which count a SKIPPED job as fine. A deployment
+    # runs the whole suite, so every job above must have succeeded.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute nightly timestamp (UTC, YY-MM-DD-HHMM)
+        id: ts
+        run: |
+          echo "stamp=$(date -u +'%y-%m-%d-%H%M')" >> $GITHUB_OUTPUT
+          echo "iso=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+
+      - name: Lowercase Repo Owner
+        id: owner
+        run: echo "owner=$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
+      - name: Build and push Kit (nightly)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/kit/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ steps.owner.outputs.owner }}/fluxify-kit:nightly
+            ghcr.io/${{ steps.owner.outputs.owner }}/fluxify-kit:nightly-${{ steps.ts.outputs.stamp }}
+          build-args: |
+            BUN_VERSION=${{ env.BUN_VERSION }}
+            VERSION=nightly-${{ steps.ts.outputs.stamp }}
+            VCS_REF=${{ github.sha }}
+            BUILD_DATE=${{ steps.ts.outputs.iso }}
+          cache-from: type=gha,scope=fluxify-kit
+          cache-to: type=gha,scope=fluxify-kit,mode=max
+
+      # Dated tags older than a week are useless: the repo ships fast. Only
+      # versions whose every tag is `nightly-*` go, so the moving `nightly` and
+      # whatever it points at stay. A failure here never fails the nightly.
+      - name: Delete dated nightly tags older than 7 days
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: ${{ steps.owner.outputs.owner }}
+        run: |
+          set -euo pipefail
+          cutoff=$(date -u -d '7 days ago' +%Y-%m-%dT%H:%M:%SZ)
+          gh api --paginate "/orgs/$OWNER/packages/container/fluxify-kit/versions?per_page=100" \
+            | jq -r --arg cutoff "$cutoff" '.[] | select((.metadata.container.tags | length) > 0 and all(.metadata.container.tags[]; startswith("nightly-")) and .created_at < $cutoff) | .id' \
+            | while read -r id; do
+                echo "Deleting package version $id"
+                gh api -X DELETE "/orgs/$OWNER/packages/container/fluxify-kit/versions/$id"
+              done
+
+  # One open issue per streak of failed nightlies: the first failure opens it,
+  # later ones comment on it, and the next successful build closes it.
+  nightly-report:
+    needs: [plan, checks, tests, build-and-push]
+    if: |
+      always() &&
+      github.ref == 'refs/heads/main' &&
+      github.repository_owner == 'Fluxify-rest'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Open, update or close the nightly-failed issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          SHA: ${{ github.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          BUILD: ${{ needs.build-and-push.result }}
+        run: |
+          set -euo pipefail
+          open=$(gh issue list --repo "$REPO" --label nightly-failed --state open --json number --jq '.[0].number // empty')
+          if [ "$FAILED" = "true" ]; then
+            # A manual run is watched by whoever started it.
+            [ "$EVENT" = "schedule" ] || exit 0
+            if [ -n "$open" ]; then
+              gh issue comment "$open" --repo "$REPO" --body "Failed again on $SHA: $RUN_URL"
+            else
+              gh label create nightly-failed --repo "$REPO" --color d93f0b --description "The nightly Kit build failed" 2>/dev/null || true
+              gh issue create --repo "$REPO" --label nightly-failed \
+                --title "Nightly Kit build failed" \
+                --body "The nightly build of main ($SHA) failed: $RUN_URL. fluxify-kit:nightly was not updated. This issue closes itself when a nightly build succeeds."
+            fi
+          elif [ "$BUILD" = "success" ] && [ -n "$open" ]; then
+            gh issue comment "$open" --repo "$REPO" --body "Fixed by $SHA: $RUN_URL"
+            gh issue close "$open" --repo "$REPO"
+          fi

@@ -6,7 +6,9 @@
 import { readFileSync } from "node:fs";
 import { Glob } from "bun";
 
-const WORKFLOW = ".github/workflows/ci.yml";
+// The gate is tests.yml; ci.yml calls it. A change to either runs everything.
+const GATE_FILE = ".github/workflows/tests.yml";
+const GATE_PATHS = [".github/workflows/ci.yml", GATE_FILE];
 
 // filter name -> workspace dir -> the test jobs that read it.
 const GATES: Record<string, { dir: string; jobs: string[] }> = {
@@ -49,7 +51,7 @@ function closure(name: string, seen = new Set<string>()) {
 }
 
 // ---- 1. gates match the closure ----
-const workflow = Bun.YAML.parse(readFileSync(WORKFLOW, "utf8")) as any;
+const workflow = Bun.YAML.parse(readFileSync(GATE_FILE, "utf8")) as any;
 const detect = workflow.jobs["detect-changes"];
 const filterText = detect.steps.find((s: any) => s.id === "filter").with.filters;
 // paths-filter allows anchors, which parse into nested arrays: flatten them.
@@ -62,7 +64,7 @@ for (const [filter, { dir, jobs }] of Object.entries(GATES)) {
 		continue;
 	}
 	const expected = new Set([...closure(root)].map((n) => `${workspaces.get(n)!.dir}/**`));
-	expected.add(WORKFLOW);
+	for (const path of GATE_PATHS) expected.add(path);
 	const actual = new Set((filters[filter] ?? []).flat(Infinity) as string[]);
 	const missing = [...expected].filter((p) => !actual.has(p));
 	const extra = [...actual].filter((p) => !expected.has(p));
