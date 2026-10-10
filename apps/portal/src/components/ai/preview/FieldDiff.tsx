@@ -2,12 +2,33 @@ import type { FieldChange } from "./canvasDiff";
 import { fmt, isSecretKey, MASK, mask, oneLine } from "./data";
 import { TextDiff } from "./TextDiff";
 
-/** Code, scripts and anything long reads better as a text diff than as one line. */
-const isLong = (v: unknown) =>
-	typeof v === "string" && (v.includes("\n") || v.length > 60 || v.startsWith("js:"));
+/** An object or array, or JSON text holding one; anything else is not JSON here. */
+function jsonOf(v: unknown): object | undefined {
+	if (typeof v === "string") {
+		if (!/^\s*[[{]/.test(v)) return undefined;
+		try {
+			return jsonOf(JSON.parse(v));
+		} catch {
+			return undefined;
+		}
+	}
+	return typeof v === "object" && v !== null ? v : undefined;
+}
+const asJson = (v: unknown) => {
+	const json = jsonOf(v);
+	return json && JSON.stringify(json, null, 2);
+};
 
-/** A value as text, secrets inside it hidden. */
-const show = (field: string, v: unknown) => fmt(mask(v, field));
+/** Code, scripts, JSON and anything long reads better as a text diff than as one line. */
+const isLong = (v: unknown) =>
+	asJson(v)?.includes("\n") ||
+	(typeof v === "string" && (v.includes("\n") || v.length > 60 || v.startsWith("js:")));
+
+/** A value as text, secrets inside it hidden; JSON indented, so a body is not one long line. */
+const show = (field: string, v: unknown) => {
+	const hidden = mask(jsonOf(v) ?? v, field);
+	return asJson(hidden) ?? fmt(hidden);
+};
 
 function Value({ field, change, hidden }: { field: string; change: FieldChange; hidden: boolean }) {
 	const { before, after } = change;

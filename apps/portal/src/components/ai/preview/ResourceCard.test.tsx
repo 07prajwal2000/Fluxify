@@ -112,7 +112,8 @@ test("secrets are masked: a password in a config, and the value of an encrypted 
 			})}
 		/>,
 	);
-	await until(() => expect(a.container.querySelector("ins")).not.toBeNull());
+	// the config object is an indented diff now, not one line
+	await until(() => expect(a.container.textContent).toContain("host"));
 	expect(a.container.textContent).not.toContain("new-pass");
 	expect(a.container.textContent).not.toContain("old-pass");
 	expect(a.container.textContent).toContain("••••••••");

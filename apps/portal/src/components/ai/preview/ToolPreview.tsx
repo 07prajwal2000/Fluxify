@@ -9,7 +9,19 @@ import { canDraw, GetCanvasPreview } from "./GetCanvasPreview";
 import { isRun, RecordingList, RecordingSummary } from "./RecordingPreview";
 import { ResourceCard } from "./ResourceCard";
 import { resourceOf } from "./resourceMeta";
+import {
+	hasConfigFields,
+	IntegrationSchemaPreview,
+	isSchemaDetails,
+	SchemaDetailsPreview,
+} from "./SchemaPreview";
 import { TestRunPreview } from "./TestRunPreview";
+import {
+	AdvancedToolsPreview,
+	isLoadResult,
+	isToolLines,
+	LoadedToolsPreview,
+} from "./ToolListPreview";
 
 /** Reads: the agent's `list` / `get`, and every get_* / list_* tool. */
 const isRead = (name: string) => /^(get|list)(_|$)/.test(name);
@@ -24,6 +36,13 @@ export function previewOf(tool: ToolPart, asking: boolean): ReactNode | null {
 	if (name === "get_canvas" && canDraw(tool)) return <GetCanvasPreview tool={tool} />;
 	if (name === "list_recordings" && isRec(tool.output)) return <RecordingList tool={tool} />;
 	if (name === "get_recording" && isRun(tool.output)) return <RecordingSummary tool={tool} />;
+	if (name === "list_advanced_tools" && isToolLines(tool.output))
+		return <AdvancedToolsPreview tool={tool} />;
+	if (name === "load_tools" && isLoadResult(tool.output)) return <LoadedToolsPreview tool={tool} />;
+	if (name === "get_integration_schema_details" && isSchemaDetails(tool.output))
+		return <SchemaDetailsPreview tool={tool} />;
+	if (name === "get_integration_schema" && hasConfigFields(tool.output))
+		return <IntegrationSchemaPreview tool={tool} />;
 	if (name === "call_route") return <CallRoutePreview tool={tool} />;
 	if (name === "run_test_suite" || name === "get_test_runs") return <TestRunPreview tool={tool} />;
 	const res = resourceOf(name);
