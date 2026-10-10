@@ -34,26 +34,24 @@ jobs:
         with:
           # Each filter is the job's closure over the @fluxify/* dependencies in
           # the package.json files, and scripts/check-ci-gates.ts fails the lint
-          # job when one drifts: add a dependency, update its gate. ci.yml and
-          # tests.yml are the gate itself, so a change to either runs everything.
+          # job when one drifts: add a dependency, update its gate. tests.yml is
+          # the gate itself, so a change to it runs everything. The workflows that
+          # call it cannot change how a test job runs, so they run no tests.
           filters: |
             lib:
               - 'packages/common/**'
               - 'packages/lib/**'
-              - '.github/workflows/ci.yml'
               - '.github/workflows/tests.yml'
             blocks:
               - 'packages/blocks/**'
               - 'packages/adapters/**'
               - 'packages/common/**'
               - 'packages/lib/**'
-              - '.github/workflows/ci.yml'
               - '.github/workflows/tests.yml'
             adapters:
               - 'packages/adapters/**'
               - 'packages/common/**'
               - 'packages/lib/**'
-              - '.github/workflows/ci.yml'
               - '.github/workflows/tests.yml'
             server:
               - 'apps/server/**'
@@ -61,7 +59,6 @@ jobs:
               - 'packages/blocks/**'
               - 'packages/common/**'
               - 'packages/lib/**'
-              - '.github/workflows/ci.yml'
               - '.github/workflows/tests.yml'
             ai-gateway:
               - 'apps/ai-gateway/**'
@@ -70,7 +67,6 @@ jobs:
               - 'packages/blocks/**'
               - 'packages/common/**'
               - 'packages/lib/**'
-              - '.github/workflows/ci.yml'
               - '.github/workflows/tests.yml'
             e2e:
               - 'testing/e2e/**'
@@ -80,7 +76,6 @@ jobs:
               - 'packages/blocks/**'
               - 'packages/common/**'
               - 'packages/lib/**'
-              - '.github/workflows/ci.yml'
               - '.github/workflows/tests.yml'
             portal:
               - 'apps/portal/**'
@@ -91,7 +86,6 @@ jobs:
               - 'packages/blocks/**'
               - 'packages/common/**'
               - 'packages/lib/**'
-              - '.github/workflows/ci.yml'
               - '.github/workflows/tests.yml'
 
   test-packages-lib:
