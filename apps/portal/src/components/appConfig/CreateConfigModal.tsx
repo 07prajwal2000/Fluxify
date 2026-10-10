@@ -117,13 +117,13 @@ export function CreateConfigButton({
 			)}
 			<Modal.Backdrop>
 				<Modal.Container placement="center" scroll="inside" size="lg">
-					<Modal.Dialog>
-						<Modal.Header className="flex flex-row items-center justify-between">
+					<Modal.Dialog className="max-h-[90vh] sm:max-h-[85vh]">
+						<Modal.Header className="flex flex-row items-center justify-between shrink-0">
 							<Modal.Heading>Add a config key</Modal.Heading>
 							<CloseButton />
 						</Modal.Header>
-						<form onSubmit={submit}>
-							<Modal.Body>
+						<form onSubmit={submit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+							<Modal.Body className="overflow-y-auto pr-1">
 								<div className="flex flex-col gap-4 pt-2">
 									<div className="flex flex-col gap-1">
 										<TextField isRequired value={keyName} onChange={setKeyName}>
@@ -293,7 +293,7 @@ export function CreateConfigButton({
 									</div>
 								</div>
 							</Modal.Body>
-							<Modal.Footer>
+							<Modal.Footer className="shrink-0 pt-4">
 								<Button variant="ghost" onPress={() => setOpen(false)}>
 									Cancel
 								</Button>
