@@ -2,6 +2,7 @@ import { logger } from "@fluxify/common";
 import { eq, isNull, or } from "drizzle-orm";
 import { getAppConfigKeysFromData } from "../../api/v1/integrations/create/service";
 import { integrationsGroupSchema } from "../../api/v1/integrations/schemas";
+import { getDevTokenHash } from "../../api/v1/projects/settings/dev-token/service";
 import { db } from "../../db";
 import { putArtifact } from "../../db/natsKv";
 import { integrationsEntity } from "../../db/schema";
@@ -95,6 +96,8 @@ export async function buildProjectConfig(
 	if (missingKeys.size || Object.keys(missingIntegrations).length) {
 		payload.missingValues = { integrations: missingIntegrations, appConfig: [...missingKeys] };
 	}
+	// development only: production has no hash, so it refuses every token (#734)
+	if (env === "development") payload.devTokenHash = await getDevTokenHash(projectId);
 	return payload;
 }
 

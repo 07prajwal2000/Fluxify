@@ -3,6 +3,7 @@ import registerProjectNodes from "../orchestration/projectRoutes";
 import createProjectRoute from "./create/route";
 import getAllProjectRoute from "./get-all/route";
 import getByIdProjectRoute from "./get-by-id/route";
+import registerProjectDevToken from "./settings/dev-token/route";
 import registerProjectSettingsKeys from "./settings/keys/register";
 import registerProjectMembers from "./settings/members/register";
 import registerProjectPackages from "./settings/packages/register";
@@ -19,6 +20,7 @@ export default {
 		updateProjectRoute(router);
 		registerProjectMembers(router);
 		registerProjectSettingsKeys(router);
+		registerProjectDevToken(router);
 		registerProjectPackages(router);
 		registerProjectNodes(router);
 		systemLogsRoute(router);

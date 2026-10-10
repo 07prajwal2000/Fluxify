@@ -104,6 +104,27 @@ export const projectSettingsEntity = pgTable(
 	],
 );
 
+/**
+ * The project's development access token (#734), one row per project.
+ *
+ * A table of its own, not a `project_settings` key: every reader of that table
+ * builds a map of the whole project (the settings cache, the config payload, the
+ * get-all endpoint), so a secret in it would leak the day one of them forgot a
+ * filter. Nothing else selects from here.
+ */
+export const projectDevTokensEntity = pgTable("project_dev_tokens", {
+	projectId: varchar("project_id", { length: 50 })
+		.primaryKey()
+		.references(() => projectsEntity.id, { onDelete: "cascade" }),
+	/** Sealed with EncryptionService, not hashed: a creator must be able to copy it. */
+	token: text().notNull(),
+	createdAt: timestamp("created_at").defaultNow().notNull(),
+	updatedAt: timestamp("updated_at")
+		.defaultNow()
+		.notNull()
+		.$onUpdate(() => new Date()),
+});
+
 /* ============================================================================
  * 3. ACCESS CONTROL & PERMISSIONS
  * ============================================================================ */

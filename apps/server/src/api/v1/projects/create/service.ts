@@ -5,6 +5,8 @@ import { CHAN_ON_PROJECT_SETTING_CHANGE, publishMessage } from "../../../../db/r
 import { BadRequestError } from "../../../../errors/badRequestError";
 import { ConflictError } from "../../../../errors/conflictError";
 import { ServerError } from "../../../../errors/serverError";
+import { requestProjectConfigPublish } from "../../../../modules/compiler/publisher";
+import { createDevToken } from "../settings/dev-token/create";
 import { upsertProjectSettingKey } from "../settings/keys/upsert/repository";
 import { addProjectMember } from "../settings/members/repository";
 import type { requestBodySchema, responseSchema } from "./dto";
@@ -30,6 +32,8 @@ export default async function handleRequest(
 		const projectId = await createProject({ ...project, slug, id: generateID() }, tx);
 		if (!projectId) return "";
 
+		await createDevToken(projectId, tx);
+
 		for (const member of members ?? []) {
 			await addProjectMember(projectId, member.userId, member.role, tx);
 		}
@@ -43,6 +47,8 @@ export default async function handleRequest(
 	});
 
 	if (!id) throw new ServerError("Something went wrong while creating project");
+	// the dev config carries the token's hash, and none exists for a new project yet
+	await requestProjectConfigPublish(id, "project created");
 	// The compiler holds settings in memory; without this a subdomain given at
 	// creation never reaches the workers until the next settings save.
 	if (settings && Object.keys(settings).length)
