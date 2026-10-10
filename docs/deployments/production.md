@@ -77,8 +77,9 @@ old `worker` service was. Set `ORCHESTRATOR_SEED_DEFAULT_CLAIM=false` in your
 Ownership is split cleanly, because two things managing the same container will
 fight over it:
 
-- **compose owns** nats, postgres, valkey, traefik, admin, orchestrator
-- **the orchestrator owns** every worker
+- **compose owns** nats, postgres, valkey, traefik, admin, orchestrator, and
+  the one [development worker](#dev-workers)
+- **the orchestrator owns** every production worker
 
 > [!WARNING]
 > `docker compose ... --remove-orphans` deletes the orchestrator's workers.
@@ -514,9 +515,10 @@ Valkey / NATS dependencies. The admin container applies database updates on
 startup, creates the seed admin, and adds the default claim: one worker that
 serves every project. Within a few seconds the orchestrator starts that worker.
 
-**Check:** `docker ps` shows a container named `fluxify-worker…` next to the
-compose services, and `curl http://localhost:8080/_/admin/api/public-settings`
-returns `200`.
+**Check:** `docker ps` shows a container named `fluxify-worker-…` next to the
+compose services (plus `fluxify-dev-worker`, the
+[development worker](#dev-workers)), and
+`curl http://localhost:8080/_/admin/api/public-settings` returns `200`.
 
 ---
 
@@ -621,9 +623,25 @@ A worker started with `FLUXIFY_ENV=development` is a **development worker**.
 It runs only development work, never production's, and it serves every project
 in both modes, so `WORKER_PROJECT_ID`, `WORKER_MODE` and `WORKER_GROUP_ID` are
 ignored on it. It does not use a license slot (see
-[Workers per edition](./editions#workers)), and it needs no claim. Set the
-variable on that one worker only: in the shared `.env` it would turn every
-worker into a development one. See [Environments](../concepts/environments).
+[Workers per edition](./editions#workers)), and it needs no claim. See
+[Environments](../concepts/environments).
+
+The compose file starts one for you, as the `worker-dev` service
+(container `fluxify-dev-worker`). It uses the same image as the production
+workers, `ORCHESTRATOR_WORKER_IMAGE`, and is not an orchestrator claim: the
+orchestrator does not create, resize or remove it. It is also the only worker
+that is a compose service, so `--remove-orphans` leaves it alone.
+
+- **No route to it yet.** Traefik has no rule for it, so it takes no web
+  traffic. Nothing is sent to the development environment yet, so it has no
+  routes to serve for now.
+- **Its settings are fixed.** It gets the NATS, Valkey and encryption-key
+  settings from your `.env`, and nothing else; in particular no database
+  address.
+- **Don't put `FLUXIFY_ENV=development` in `.env`.** Admin and every production
+  worker read that file, so it would turn them all into development workers.
+  Leave the setting where the compose file puts it, on `worker-dev` only.
+- **Don't want it?** Delete the `worker-dev` service from the compose file.
 
 ---
 

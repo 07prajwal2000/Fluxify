@@ -1,0 +1,48 @@
+{{- if .Values.devWorker.enabled }}
+# The development environment's worker (#732): the worker image the
+# orchestrator uses for production workers, started with FLUXIFY_ENV=development.
+# It serves every project in both modes and all trigger groups, so it needs no
+# claim, and it takes no license slot. FLUXIFY_ENV is set on this Deployment
+# only; the orchestrator hands production workers a fixed list of settings, so
+# it never reaches them.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fluxify-dev-worker
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "fluxify.labels" . | nindent 4 }}
+spec:
+  # One serves every project; a second would only stand idle beside it.
+  replicas: 1
+  selector:
+    matchLabels: { app: fluxify-dev-worker }
+  template:
+    metadata:
+      labels: { app: fluxify-dev-worker }
+      annotations: {{- include "fluxify.checksum" . | nindent 8 }}
+    spec:
+      # The worker drains on SIGTERM, for as long as ASYNC_EXECUTOR_DRAIN_TIMEOUT_MS.
+      terminationGracePeriodSeconds: 40
+      # Workers talk to NATS, not to the API server.
+      automountServiceAccountToken: false
+      containers:
+        - name: worker
+          image: {{ include "fluxify.image" (dict "root" . "name" "fluxify-worker") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # The settings the orchestrator copies to every worker: NATS, Valkey
+          # and the encryption key, and no database. The orchestrator writes the
+          # Secret on its first pass, so this pod starts once it has.
+          envFrom:
+            - secretRef: { name: fluxify-worker-env }
+          env:
+            - { name: FLUXIFY_ENV, value: development }
+            # The pod's own name is its node id, as for the orchestrated workers.
+            - name: FLUXIFY_NODE_ID
+              valueFrom: { fieldRef: { fieldPath: metadata.name } }
+          ports:
+            - { name: health, containerPort: 5601 }
+          readinessProbe:
+            httpGet: { path: /_/admin/api/healthchecks/ready, port: health }
+            periodSeconds: 10
+          resources: {{- toYaml .Values.devWorker.resources | nindent 12 }}
+{{- end }}

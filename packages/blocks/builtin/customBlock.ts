@@ -18,32 +18,42 @@ export const CUSTOM_BLOCK_JOB = "custom-block";
 export type CompiledCustomBlock = (ctx: Context, input?: any) => Promise<any>;
 
 /**
- * Worker-global library of compiled custom blocks, keyed by block type name.
+ * Worker-global library of compiled custom blocks, keyed `projectId:name`.
  *
  * Custom blocks are reusable across every route in the worker, so they are
  * compiled once at worker start (or on a reload signal) rather than re-emitted
  * into each graph that calls them. A graph that uses one emits `lib.invoke`
- * against this map, so recompiling a route never recompiles its dependencies.
+ * against this map, so recompiling a route never recompiling its dependencies.
+ *
+ * A name is only unique inside its project, and a `*` worker serves many, so
+ * the project is part of the key. A call site resolves it from `ctx.projectId`
+ * at lookup rather than carrying it in the emitted code: published artifacts
+ * keep working unchanged, and a nested block shares its caller's context, so it
+ * stays in the caller's project.
  */
 const customBlockLibrary = new Map<string, CompiledCustomBlock>();
-/** name -> the block's own id, so a trace can say which canvas a nested span belongs to (#254) */
+/** key -> the block's own id, so a trace can say which canvas a nested span belongs to (#254) */
 const customBlockIds = new Map<string, string>();
 
-function publish(name: string, run: CompiledCustomBlock, id?: string) {
-	customBlockLibrary.set(name, run);
-	if (id) customBlockIds.set(name, id);
-	else customBlockIds.delete(name);
+const customBlockKey = (projectId: string, name: string) => `${projectId}:${name}`;
+
+function publish(projectId: string, name: string, run: CompiledCustomBlock, id?: string) {
+	const key = customBlockKey(projectId, name);
+	customBlockLibrary.set(key, run);
+	if (id) customBlockIds.set(key, id);
+	else customBlockIds.delete(key);
 }
 
 /** compile a custom block's graph once and publish it to the worker */
 export function registerCustomBlock(
+	projectId: string,
 	name: string,
 	blocks: BlockDTOType[],
 	edges: EdgeDTOSchemaType,
 	id?: string,
 ) {
-	const { run, source } = compileGraph(blocks, edges, { asCustomBlock: true });
-	publish(name, run, id);
+	const { run, source } = compileGraph(blocks, edges, { asCustomBlock: true, projectId });
+	publish(projectId, name, run, id);
 	return source;
 }
 
@@ -51,25 +61,35 @@ export function registerCustomBlock(
  * Publish already-compiled source. This is the path workers take: they receive
  * the JS from the artifact store and never run the compiler themselves.
  */
-export function registerCompiledCustomBlock(name: string, source: string, id?: string) {
-	publish(name, instantiateCompiled(source), id);
+export function registerCompiledCustomBlock(
+	projectId: string,
+	name: string,
+	source: string,
+	id?: string,
+) {
+	publish(projectId, name, instantiateCompiled(source), id);
 }
 
-export function unregisterCustomBlock(name: string) {
-	customBlockLibrary.delete(name);
-	customBlockIds.delete(name);
+export function unregisterCustomBlock(projectId: string, name: string) {
+	const key = customBlockKey(projectId, name);
+	customBlockLibrary.delete(key);
+	customBlockIds.delete(key);
 }
 
-export function hasCustomBlock(name: string) {
-	return customBlockLibrary.has(name);
+export function hasCustomBlock(projectId: string, name: string) {
+	return customBlockLibrary.has(customBlockKey(projectId, name));
 }
 
-export function customBlockNames() {
-	return [...customBlockLibrary.keys()];
+/** the names one project has loaded */
+export function customBlockNames(projectId: string) {
+	const prefix = customBlockKey(projectId, "");
+	return [...customBlockLibrary.keys()]
+		.filter((key) => key.startsWith(prefix))
+		.map((key) => key.slice(prefix.length));
 }
 
-function lookup(name: string): CompiledCustomBlock {
-	const compiled = customBlockLibrary.get(name);
+function lookup(context: Context, name: string): CompiledCustomBlock {
+	const compiled = customBlockLibrary.get(customBlockKey(context.projectId, name));
 	if (!compiled) throw new Error(`Custom block not loaded: ${name}`);
 	return compiled;
 }
@@ -85,7 +105,7 @@ function traced(context: Context, name: string, blockId: string | undefined, det
 		blockId,
 		name,
 		detached,
-		customBlockId: customBlockIds.get(name),
+		customBlockId: customBlockIds.get(customBlockKey(context.projectId, name)),
 	});
 	// a detached invocation records into its own trace, so it needs its own
 	// context — mutating the caller's would follow the request back out
@@ -116,7 +136,7 @@ export async function runCustomBlock(
 ): Promise<BlockOutput> {
 	const scope = traced(context, name, blockId, false);
 	try {
-		return await lookup(name)(scope.context, { params: {}, input });
+		return await lookup(context, name)(scope.context, { params: {}, input });
 	} catch (error) {
 		// only an unloaded block throws here; its graph catches its own failures
 		return { successful: false, continueIfFail: false, error: String(error) };
@@ -134,7 +154,7 @@ export async function invokeCustomBlock(
 ) {
 	const scope = traced(context, name, blockId, false);
 	try {
-		const result = await lookup(name)(scope.context, args);
+		const result = await lookup(context, name)(scope.context, args);
 		// The callee catches its own failures rather than throwing: its graph ends
 		// in `$endFailure`, which returns `{ successful: false, error }`. Reading
 		// only `output` swallowed that — a throw inside a sync custom block became
@@ -161,7 +181,7 @@ export function invokeCustomBlockAsync(
 	blockId?: string,
 ) {
 	const scope = traced(context, name, blockId, true);
-	lookup(name)(scope.context, args).then(
+	lookup(context, name)(scope.context, args).then(
 		() => scope.close("success"),
 		(error) => {
 			scope.close("failure", error);

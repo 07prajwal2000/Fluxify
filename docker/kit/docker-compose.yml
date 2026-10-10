@@ -38,8 +38,10 @@ services:
     restart: unless-stopped
     ports:
       - "8080:8080" # single public entrypoint (Caddy)
-      # Uncomment to reach the worker's health/readiness probe from the host.
+      # Uncomment to reach a worker's health/readiness probe from the host
+      # (5601 is the production worker, 5603 the development worker).
       # - "5601:5601"
+      # - "5603:5603"
     env_file:
       - .env
     depends_on:

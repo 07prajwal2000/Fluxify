@@ -54,7 +54,11 @@ export async function compileSuiteRoute(routeId: string) {
 	// package imports must resolve from the worker's installed deps, as live
 	const dependencies = await compileDependencies(route.projectId!);
 	// hook points in every block: a suite without hooks just finds none
-	const { source } = compileGraph(blocks, edges, { dependencies, hooks: true });
+	const { source } = compileGraph(blocks, edges, {
+		projectId: route.projectId!,
+		dependencies,
+		hooks: true,
+	});
 	return {
 		route: { ...route, middlewares: await loadRouteMiddlewares(routeId) },
 		workflow: undefined,
@@ -83,7 +87,12 @@ export async function compileSuiteWorkflow(workflowId: string) {
 
 	const { blocks, edges } = await loadGraph({ type: "workflow", id: workflowId });
 	const dependencies = await compileDependencies(workflow.projectId!);
-	const { source } = compileGraph(blocks, edges, { asWorkflow: true, dependencies, hooks: true });
+	const { source } = compileGraph(blocks, edges, {
+		asWorkflow: true,
+		projectId: workflow.projectId!,
+		dependencies,
+		hooks: true,
+	});
 	return {
 		route: undefined,
 		workflow: { ...workflow, name: workflow.name ?? workflowId },
@@ -135,7 +144,11 @@ async function compileProjectCustomBlocks(projectId: string, dependencies: Depen
 				id: row.id,
 			});
 			// `param:` placeholders resolve from the invocation, same as the compiler
-			const { source } = compileGraph(blocks, edges, { asCustomBlock: true, dependencies });
+			const { source } = compileGraph(blocks, edges, {
+				asCustomBlock: true,
+				projectId,
+				dependencies,
+			});
 			compiled.push({ name: row.name, source });
 		} catch (error) {
 			// one unfinished block must not stop the suite; the route only fails if

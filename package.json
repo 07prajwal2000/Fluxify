@@ -3,9 +3,10 @@
 	"version": "1.0.0",
 	"type": "module",
 	"scripts": {
-		"dev": "bun --parallel 'bun run dev:server' 'bun run dev:worker' 'bun run dev:portal' 'bun run dev:ai' 'bun run dev:docs'",
+		"dev": "bun --parallel 'bun run dev:server' 'bun run dev:worker' 'bun run dev:worker:development' 'bun run dev:portal' 'bun run dev:ai' 'bun run dev:docs'",
 		"dev:server": "bun run --env-file=.env --watch ./apps/server/deployments/standalone.ts",
 		"dev:worker": "bun run --env-file=.env --watch ./apps/server/deployments/compiledWorker.ts",
+		"dev:worker:development": "FLUXIFY_ENV=development WORKER_PORT=5602 bun run --env-file=.env --watch ./apps/server/deployments/compiledWorker.ts",
 		"dev:worker:dag": "bun run --env-file=.env --watch ./apps/server/deployments/worker.ts",
 		"dev:portal": "turbo run dev --filter=@fluxify/portal",
 		"dev:ai": "bun run --env-file=.env --watch ./apps/ai-gateway/src/server.ts",
@@ -40,6 +41,7 @@
 	"//scripts": {
 		"prepare": "Runs on every bun install. prepare:docs-index skips itself when the ai-gateway sources are absent, as in the Docker deps stage that copies manifests only.",
 		"dev:worker": "Compiled worker — runs routes as generated JavaScript. This is the default execution engine.",
+		"dev:worker:development": "Second compiled worker, FLUXIFY_ENV=development, traffic on 5602 and health on 5603 beside the production worker's 5600 and 5601. It serves every project and takes no license slot. The inline variables win over .env, so put FLUXIFY_ENV in no .env file.",
 		"dev:worker:dag": "LEGACY graph interpreter. Kept only until the compiled worker clears manual testing, then removed.",
 		"build:ai": "Removed — `bun run build` already builds the AI gateway through turbo."
 	},

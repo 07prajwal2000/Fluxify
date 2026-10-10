@@ -88,19 +88,45 @@ To send Fluxify's logs to a dashboard, with a complete example, see
 
 ## Resources {#resources}
 
-How much CPU and memory Fluxify's own pods ask for. Workers are sized per claim
-in the portal instead: see [Sizing a worker](./#sizing).
+How much CPU and memory Fluxify's own pods ask for. Production workers are sized
+per claim in the portal instead: see [Sizing a worker](./#sizing).
 
 | Setting | What it does | Default |
 | :--- | :--- | :--- |
 | `admin.resources` | The portal and API. Test runs execute here, so it has a memory ceiling. | 250m CPU, 512Mi, at most 2Gi |
 | `orchestrator.resources` | The orchestrator. | 100m CPU, 128Mi, at most 500m CPU and 512Mi |
+| `devWorker.resources` | The [development worker](#dev-worker). | 100m CPU, 256Mi, at most 1Gi |
 
 ```yaml
 admin:
   resources:
     requests: { cpu: "1", memory: 1Gi }
     limits: { memory: 4Gi }
+```
+
+## Development worker {#dev-worker}
+
+One pod for the development [environment](/concepts/environments). It uses the
+same worker image as your production workers, serves every project, takes no
+license slot and needs no claim. It is the only worker the chart installs; the
+orchestrator does not manage it.
+
+| Setting | What it does | Default |
+| :--- | :--- | :--- |
+| `devWorker.enabled` | Run the development worker. `false` if you do not use the development environment. | `true` |
+| `devWorker.resources` | The pod's CPU and memory. | 100m CPU, 256Mi, at most 1Gi |
+
+It is on by default so a Helm install matches the kit and the compose stack.
+Nothing is sent to the development environment yet, so it has no routes to
+serve for now, and no web route points at it.
+
+It starts once the orchestrator has written its first settings, a few seconds
+after the orchestrator is ready, and restarts when you run `helm upgrade` with
+changed settings.
+
+```yaml
+devWorker:
+  enabled: false
 ```
 
 ## Web traffic {#traffic}

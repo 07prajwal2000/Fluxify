@@ -11,6 +11,9 @@ import {
 	workflowNames,
 } from "../src/graph";
 
+/** the project a fixture runs under unless it names its own (`runner.ts`) */
+const DEFAULT_PROJECT = "e2e-project";
+
 /**
  * Guards the fixtures themselves. A graph that no longer compiles is a broken
  * test, not a caught regression, and without this it surfaces as a confusing
@@ -26,9 +29,10 @@ describe("graph fixtures", () => {
 			const fixture = await loadGraph(name);
 			expect(fixture.route.path.startsWith("/")).toBe(true);
 			// a caller only emits once its custom blocks are in the library
-			const { dispose } = await registerFixtureBlocks(fixture);
+			const projectId = fixture.projectId ?? DEFAULT_PROJECT;
+			const { dispose } = await registerFixtureBlocks(fixture, projectId);
 			try {
-				expect(compileGraph(fixture.blocks, fixture.edges).source).toBeString();
+				expect(compileGraph(fixture.blocks, fixture.edges, { projectId }).source).toBeString();
 			} finally {
 				dispose();
 			}
@@ -54,10 +58,14 @@ describe("custom block fixtures", () => {
 	for (const file of customBlockFiles()) {
 		it(`${file} compiles as a custom block`, async () => {
 			const block = await loadCustomBlock(file);
-			const { dispose } = await registerFixtureBlocks({ uses: block.uses } as GraphFixture);
+			const { dispose } = await registerFixtureBlocks(
+				{ uses: block.uses } as GraphFixture,
+				DEFAULT_PROJECT,
+			);
 			try {
 				const { source } = compileGraph(block.blocks, block.edges, {
 					asCustomBlock: true,
+					projectId: DEFAULT_PROJECT,
 				});
 				expect(source).toBeString();
 			} finally {

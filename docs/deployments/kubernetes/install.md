@@ -22,6 +22,7 @@ It takes about 15 minutes, most of it waiting for things to start.
 | :--- | :--- | :--- |
 | **Fluxify** | The portal, the API, and the orchestrator that starts your workers. | Step 6 |
 | **Workers** | The pods that run your APIs and workflows. You never install these: Fluxify starts them from your claims. | Fluxify |
+| **Development worker** | One pod for the development [environment](/concepts/environments). It is not a claim, and the install starts it. | Step 6, with Fluxify |
 | **NATS** | The message bus between Fluxify and its workers. | Step 6, with Fluxify |
 | **Valkey** | A cache. | Step 6, with Fluxify |
 | **Postgres** | The database holding everything you build. | Step 5 |
@@ -221,7 +222,9 @@ helm install fluxify oci://ghcr.io/fluxify-rest/charts/fluxify \
 
 **Check:** `kubectl get pods -n fluxify` after two or three minutes. Every pod
 is `Running` and ready, including one named `fluxify-worker-…`: that is the
-first worker, started from the claim every new install begins with.
+first worker, started from the claim every new install begins with. You also see
+`fluxify-dev-worker-…`, the [development worker](./helm-values#dev-worker). It
+waits for the orchestrator's first settings, so it may be a few seconds behind.
 
 While the database, Valkey and NATS are still starting, `fluxify-admin` and
 `fluxify-orchestrator` wait for them instead of restarting. Their logs show lines

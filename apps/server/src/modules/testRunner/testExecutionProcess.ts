@@ -86,7 +86,7 @@ function prepare(boot: TestBootstrap) {
 	});
 	hydrateProjectSettings(boot.projectId, boot.config.projectSettings);
 	for (const block of boot.customBlocks) {
-		registerCompiledCustomBlock(block.name, block.source);
+		registerCompiledCustomBlock(boot.projectId, block.name, block.source);
 	}
 	// A test run holds no broker connection, and firing real background work
 	// from an assertion is not something a suite should be able to do.

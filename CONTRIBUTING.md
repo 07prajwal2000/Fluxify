@@ -158,6 +158,16 @@ bun run dev
 Saving a route in the editor compiles it, and the worker picks it up in place.
 There is no restart.
 
+`bun run dev` starts two workers: the production worker on port `5600` and a
+development worker on `5602` (health on `5601` and `5603`). The second one runs
+the `development` [environment](https://docs.fluxify.rest/concepts/environments).
+It serves every project, takes no license slot, and is there so work on
+environments can be run against a real second worker. Nothing is sent to it yet,
+so it has no routes to serve for now. Don't put `FLUXIFY_ENV` in `.env`: the
+script sets it for that worker only, and in `.env` it would turn the production
+worker into a development one. Leave `WORKER_HEALTH_PORT` unset there too, so
+each worker's health port follows its own traffic port.
+
 ### 7. Open it
 
 | Surface | URL |
@@ -215,6 +225,7 @@ You rarely need the full stack. Run just the part you're changing:
 | **Full stack** | `bun run dev` | Server, worker, dashboard, AI gateway, docs |
 | **Backend server** | `bun run dev:server` | `apps/server` control plane, watch mode |
 | **Request worker** | `bun run dev:worker` | Compiled worker |
+| **Development worker** | `bun run dev:worker:development` | A second compiled worker for the `development` environment, on `5602` |
 | **Legacy worker** | `bun run dev:worker:dag` | Graph interpreter, for comparison only |
 | **Dashboard** | `bun run dev:portal` | `apps/portal` (Vite) |
 | **AI gateway** | `bun run dev:ai` | `apps/ai-gateway` |
@@ -321,6 +332,7 @@ hook runs Biome, the typecheck, analysis, and the unit tests.
 | `bun run dev` | All development servers concurrently |
 | `bun run dev:server` | Backend control plane, watch mode |
 | `bun run dev:worker` | Compiled request worker, watch mode |
+| `bun run dev:worker:development` | Development-environment worker on port `5602`, watch mode |
 | `bun run dev:worker:dag` | Legacy graph interpreter worker |
 | `bun run dev:portal` | Admin dashboard |
 | `bun run dev:ai` | AI gateway |

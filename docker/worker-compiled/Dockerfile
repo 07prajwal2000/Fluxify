@@ -32,6 +32,10 @@
 # OPTIONAL
 #   NATS_TOKEN              NATS auth token
 #   REDIS_PORT / REDIS_USER / REDIS_PASS
+#   FLUXIFY_ENV             `development` makes this the development
+#                           environment's worker: every project, both modes, no
+#                           license slot, and WORKER_PROJECT_ID is not needed.
+#                           Default `production`.
 #   WORKER_PORT             traffic port (default 5600)
 #   WORKER_HEALTH_PORT      health port (default 5601)
 #   INTEGRATION_TIMEOUT_POLICY_IN_SEC

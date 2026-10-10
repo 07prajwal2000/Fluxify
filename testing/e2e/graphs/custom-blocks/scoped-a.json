@@ -1,0 +1,104 @@
+{
+	"name": "custom-blocks/scoped-a",
+	"description": "GET /scoped on project A \u2014 calls its own 'greeting' custom block three ways (sync, async, queued) and answers with the sync result. Two projects share the block's name, so what comes back says which project's block served the call.",
+	"engine": "none",
+	"projectId": "e2e-scoped-a",
+	"route": {
+		"method": "GET",
+		"path": "/scoped"
+	},
+	"uses": [
+		"scoped-a"
+	],
+	"blocks": [
+		{
+			"id": "entry",
+			"type": "entrypoint",
+			"position": {
+				"x": 0,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Request"
+			}
+		},
+		{
+			"id": "sync",
+			"type": "greeting",
+			"position": {
+				"x": 240,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Greet (sync)",
+				"invoke": "sync"
+			}
+		},
+		{
+			"id": "fire",
+			"type": "greeting",
+			"position": {
+				"x": 480,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Greet (async)",
+				"invoke": "async"
+			}
+		},
+		{
+			"id": "queue",
+			"type": "greeting",
+			"position": {
+				"x": 720,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Greet (queued)",
+				"invoke": "queued"
+			}
+		},
+		{
+			"id": "reply",
+			"type": "response",
+			"position": {
+				"x": 960,
+				"y": 0
+			},
+			"data": {
+				"blockName": "200 OK",
+				"httpCode": "200"
+			}
+		}
+	],
+	"edges": [
+		{
+			"id": "e1",
+			"from": "entry",
+			"to": "sync",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e2",
+			"from": "sync",
+			"to": "fire",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e3",
+			"from": "fire",
+			"to": "queue",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e4",
+			"from": "queue",
+			"to": "reply",
+			"fromHandle": "source",
+			"toHandle": "source"
+		}
+	]
+}

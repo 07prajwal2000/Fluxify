@@ -1,6 +1,7 @@
 # Fluxify on Kubernetes: admin (portal, API, compiler) and the orchestrator,
-# which creates the worker pods from your claims. Workers are never declared
-# here; they come and go with the claims.
+# which creates the worker pods from your claims. Production workers are never
+# declared here; they come and go with the claims. The one exception is the
+# development worker (devWorker).
 #
 # Names are fixed (fluxify-admin, fluxify-env, ...), so one install per namespace.
 # The orchestrator's own objects are fixed-named too, so a second install in
@@ -53,6 +54,16 @@ orchestrator:
   resources:
     requests: { cpu: 100m, memory: 128Mi }
     limits: { cpu: 500m, memory: 512Mi }
+
+# The development environment's worker: one pod that serves every project, takes
+# no license slot and needs no claim. It is the only worker declared here, and
+# gets no route to it yet. On by default, as in the kit and the compose stack;
+# turn it off if you do not use the development environment.
+devWorker:
+  enabled: true
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { memory: 1Gi }
 
 # A Traefik route sending /_/admin and /.well-known/oauth-* to admin. Workers
 # get their own routes from the orchestrator. Needs Traefik; turn it off to

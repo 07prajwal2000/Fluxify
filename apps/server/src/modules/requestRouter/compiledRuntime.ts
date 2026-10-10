@@ -80,8 +80,8 @@ const routes = new Map<string, CompiledRoute>();
  * not be — a background job is not an endpoint somebody can curl.
  */
 const workflows = new Map<string, CompiledWorkflow>();
-/** custom block artifact id -> registered name, so a delete can unregister it */
-const customBlockNamesById = new Map<string, string>();
+/** custom block artifact id -> where it is registered, so a delete can unregister it */
+const customBlockNamesById = new Map<string, { projectId: string; name: string }>();
 /** middleware id -> its chain (#579); a route artifact names them by id */
 const middlewares = new Map<string, Middleware>();
 let dbConnectionManager: DbConnectionManager | undefined;
@@ -360,8 +360,8 @@ function routeDefinition(artifact: RouteArtifact): HttpRoute {
 
 function addCustomBlock(artifact: CustomBlockArtifact) {
 	try {
-		registerCompiledCustomBlock(artifact.name, artifact.source, artifact.id);
-		customBlockNamesById.set(artifact.id, artifact.name);
+		registerCompiledCustomBlock(artifact.projectId, artifact.name, artifact.source, artifact.id);
+		customBlockNamesById.set(artifact.id, { projectId: artifact.projectId, name: artifact.name });
 		logger.info(`[worker] loaded custom block ${artifact.name}`, "WORKER.compiled");
 	} catch (error) {
 		logger.error(
@@ -372,11 +372,11 @@ function addCustomBlock(artifact: CustomBlockArtifact) {
 }
 
 function removeCustomBlock(id: string) {
-	const name = customBlockNamesById.get(id);
-	if (!name) return;
-	unregisterCustomBlock(name);
+	const registered = customBlockNamesById.get(id);
+	if (!registered) return;
+	unregisterCustomBlock(registered.projectId, registered.name);
 	customBlockNamesById.delete(id);
-	logger.info(`[worker] removed custom block ${name}`, "WORKER.compiled");
+	logger.info(`[worker] removed custom block ${registered.name}`, "WORKER.compiled");
 }
 
 /** already unsealed by the supervisor — the encryption key never enters this thread */
