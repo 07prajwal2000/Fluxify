@@ -28,9 +28,11 @@ jobs:
       # tests. A release tests everything, always.
       lib: ${{ steps.filter.outputs.lib == 'true' || startsWith(github.ref, 'refs/tags/v') }}
       blocks: ${{ steps.filter.outputs.blocks == 'true' || startsWith(github.ref, 'refs/tags/v') }}
+      adapters: ${{ steps.filter.outputs.adapters == 'true' || startsWith(github.ref, 'refs/tags/v') }}
       server: ${{ steps.filter.outputs.server == 'true' || startsWith(github.ref, 'refs/tags/v') }}
-      portal: ${{ steps.filter.outputs.portal == 'true' || startsWith(github.ref, 'refs/tags/v') }}
+      e2e: ${{ steps.filter.outputs.e2e == 'true' || startsWith(github.ref, 'refs/tags/v') }}
       ai-gateway: ${{ steps.filter.outputs.ai-gateway == 'true' || startsWith(github.ref, 'refs/tags/v') }}
+      portal: ${{ steps.filter.outputs.portal == 'true' || startsWith(github.ref, 'refs/tags/v') }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -40,34 +42,59 @@ jobs:
         # which the tag clause below already resolves to true.
         if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         with:
+          # Each filter is the job's closure over the @fluxify/* dependencies in
+          # the package.json files, and scripts/check-ci-gates.ts fails the lint
+          # job when one drifts: add a dependency, update its gate.
           filters: |
             lib:
+              - 'packages/common/**'
               - 'packages/lib/**'
+              - '.github/workflows/ci.yml'
             blocks:
               - 'packages/blocks/**'
               - 'packages/adapters/**'
+              - 'packages/common/**'
               - 'packages/lib/**'
-            # Every package except packages/components, which is portal-only
-            # UI. Listed, not negated: paths-filter ORs its rules, so a lone
-            # '!packages/components/**' would match nearly every file.
-            server-packages: &server-packages
+              - '.github/workflows/ci.yml'
+            adapters:
+              - 'packages/adapters/**'
+              - 'packages/common/**'
+              - 'packages/lib/**'
+              - '.github/workflows/ci.yml'
+            server:
+              - 'apps/server/**'
               - 'packages/adapters/**'
               - 'packages/blocks/**'
               - 'packages/common/**'
               - 'packages/lib/**'
-            server:
-              - 'apps/server/**'
-              - 'apps/ai-gateway/**'
-              - *server-packages
-            portal:
-              - 'apps/portal/**'
-              - 'apps/ai-gateway/**'
-              - 'apps/server/**'
-              - 'packages/**'
+              - '.github/workflows/ci.yml'
             ai-gateway:
               - 'apps/ai-gateway/**'
               - 'apps/server/**'
-              - *server-packages
+              - 'packages/adapters/**'
+              - 'packages/blocks/**'
+              - 'packages/common/**'
+              - 'packages/lib/**'
+              - '.github/workflows/ci.yml'
+            e2e:
+              - 'testing/e2e/**'
+              - 'apps/ai-gateway/**'
+              - 'apps/server/**'
+              - 'packages/adapters/**'
+              - 'packages/blocks/**'
+              - 'packages/common/**'
+              - 'packages/lib/**'
+              - '.github/workflows/ci.yml'
+            portal:
+              - 'apps/portal/**'
+              - 'packages/components/**'
+              - 'apps/ai-gateway/**'
+              - 'apps/server/**'
+              - 'packages/adapters/**'
+              - 'packages/blocks/**'
+              - 'packages/common/**'
+              - 'packages/lib/**'
+              - '.github/workflows/ci.yml'
 
   lint:
     runs-on: ubuntu-latest
@@ -80,6 +107,8 @@ jobs:
         run: bun install
       - name: Run Biome (format, lint, import order, secrets)
         run: bun run lint --reporter=github
+      - name: Check CI test gates match the monorepo dependencies
+        run: bun run check:ci-gates
       - name: Build Portal (generates TanStack route tree for typecheck)
         run: bun run build --filter=@fluxify/portal
       - name: Run Typecheck
@@ -189,11 +218,9 @@ jobs:
       - name: Run Blocks Tests
         run: bun run test:blocks
 
-  # Integration and e2e jobs are CI-only (the pre-commit hook no longer runs
-  # them), so they share the server filter rather than a narrower one.
   test-packages-adapters:
     needs: detect-changes
-    if: needs.detect-changes.outputs.server == 'true'
+    if: needs.detect-changes.outputs.adapters == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -210,7 +237,7 @@ jobs:
 
   test-e2e-graphs:
     needs: detect-changes
-    if: needs.detect-changes.outputs.server == 'true'
+    if: needs.detect-changes.outputs.e2e == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

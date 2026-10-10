@@ -27,6 +27,7 @@
 		"test:ai-gateway": "bun test --parallel --cwd apps/ai-gateway",
 		"test:ai": "bun run test:ai-gateway",
 		"test:docs": "bun test ./docs/.vitepress",
+		"check:ci-gates": "bun run scripts/check-ci-gates.ts",
 		"analyze": "bun x fta-cli --score-cap 70 .",
 		"docs:build": "vitepress build docs",
 		"docs:preview": "vitepress preview docs",
