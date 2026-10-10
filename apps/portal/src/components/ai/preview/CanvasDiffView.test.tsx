@@ -156,19 +156,22 @@ test("the touched blocks sit in a fold and there is no zoom bar", async () => {
 	expect(view.container.querySelector(".fx-diff--same .fx-block")).not.toBeNull();
 	expect(view.queryByLabelText("Zoom in")).toBeNull();
 	// picking a block on the canvas opens the fold
-	fireEvent.click(view.container.querySelector('[data-block-key="db_insert_1"]') as Element);
+	fireEvent.click(view.container.querySelector('[data-block-key="consolelog_1"]') as Element);
 	await until(() => expect(fold.open).toBe(true));
 });
 
-test("a canvas read in full has the block settings panel; one built from ops alone has none", async () => {
-	const whole = show(diff);
-	await until(() =>
-		expect(whole.container.querySelector('aside[aria-label="Block settings"]')).not.toBeNull(),
-	);
-	whole.unmount();
+test("clicking a block opens its settings, no hover menu needed", async () => {
+	const view = show(diff);
+	const closed = 'aside[aria-label="Block settings"]';
+	await until(() => expect(view.container.querySelector(closed)).not.toBeNull());
+	fireEvent.click(view.container.querySelector('[data-block-key="response_1"]') as Element);
+	await until(() => expect(view.container.querySelector(closed)).toBeNull());
+	expect(view.container.querySelector('aside[aria-label$=" settings"]')).not.toBeNull();
+});
+
+test("a canvas built from ops alone has the block settings panel too", async () => {
 	const ops = show({ ...diff, partial: true });
 	await until(() =>
-		expect(ops.container.querySelector('[data-block-key="response_1"]')).not.toBeNull(),
+		expect(ops.container.querySelector('aside[aria-label="Block settings"]')).not.toBeNull(),
 	);
-	expect(ops.container.querySelector('aside[aria-label="Block settings"]')).toBeNull();
 });

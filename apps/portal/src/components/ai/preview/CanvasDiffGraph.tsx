@@ -10,6 +10,7 @@ import {
 import { BlockCanvas } from "@/components/canvas/BlockCanvas";
 import { createBlockNodeTypes } from "@/components/canvas/blocks";
 import { FLOW_EDGE_TYPE, FlowEdge } from "@/components/canvas/edges";
+import { useCanvasPanel } from "@/components/canvas/panel/PanelContext";
 import type { BlockEdge } from "@/components/canvas/types";
 import type { BlockStatus, CanvasDiff, DiffEdge } from "./canvasDiff";
 import { toGraph } from "./diffGraph";
@@ -23,9 +24,18 @@ const blockTypes = createBlockNodeTypes();
 /** The canvas's own block for this type, in a wrapper that tints it for what happened to it. */
 function DiffBlockNode(props: NodeProps) {
 	const status = useContext(StatusContext).blocks.get(props.id) ?? "same";
+	const panel = useCanvasPanel();
 	const Block = blockTypes[props.type] as ComponentType<NodeProps>;
 	return (
-		<div data-block-key={props.id} data-status={status} className={`fx-diff fx-diff--${status}`}>
+		// a click opens the settings (a no-op when the canvas has no panel); the hover menu is slow to appear
+		// biome-ignore lint/a11y/useKeyWithClickEvents: the block's own hover menu is the keyboard route
+		// biome-ignore lint/a11y/noStaticElementInteractions: same
+		<div
+			data-block-key={props.id}
+			data-status={status}
+			className={`fx-diff fx-diff--${status}`}
+			onClick={() => panel.open(props.id)}
+		>
 			<Block {...props} />
 		</div>
 	);

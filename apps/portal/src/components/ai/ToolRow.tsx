@@ -2,6 +2,7 @@ import { Spinner } from "@fluxify/components";
 import { useEffect, useState } from "react";
 import { TbBan, TbCheck, TbClock, TbX } from "react-icons/tb";
 import { type ToolPart, toolTitle } from "./agentMessages";
+import { docsInput } from "./preview/DocsPreview";
 import { oneLine } from "./preview/data";
 import { ToolBody } from "./preview/ToolBody";
 import { isDone } from "./preview/tool";
@@ -44,7 +45,9 @@ export function ToolRow({
 					<TbX size={14} className="shrink-0 text-muted" />
 				)}
 				<span className="font-medium text-foreground">{toolTitle(tool)}</span>
-				<span className="min-w-0 flex-1 truncate font-mono text-muted">{oneLine(tool.input)}</span>
+				<span className="min-w-0 flex-1 truncate font-mono text-muted">
+					{docsInput(tool) ?? oneLine(tool.input)}
+				</span>
 				{ms !== undefined && <span className="shrink-0 text-muted">{(ms / 1000).toFixed(1)}s</span>}
 			</summary>
 			{open && (

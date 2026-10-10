@@ -207,7 +207,7 @@ test("list and get results are compact tables and field lists", () => {
 
 test("a tool without a preview shows Raw alone, no tabs", () => {
 	const view = show({
-		name: "search_docs",
+		name: "whoami",
 		input: { query: "x" },
 		output: "some text answer",
 		status: "done",

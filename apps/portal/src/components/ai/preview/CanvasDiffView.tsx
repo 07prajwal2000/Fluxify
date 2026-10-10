@@ -31,9 +31,7 @@ function Legend({ diff }: { diff: CanvasDiff }) {
 	);
 }
 
-const Loading = ({ tall }: { tall: boolean }) => (
-	<div className={`${tall ? "h-96" : "h-64"} animate-pulse rounded-lg bg-surface-secondary`} />
-);
+const Loading = () => <div className="h-96 animate-pulse rounded-lg bg-surface-secondary" />;
 
 /**
  * What an edit does to a canvas: the canvas itself, and under a
@@ -53,14 +51,8 @@ export function CanvasDiffView({ diff }: { diff: CanvasDiff }) {
 	return (
 		<div className="flex flex-col gap-2">
 			<Legend diff={diff} />
-			<Suspense fallback={<Loading tall={!diff.partial} />}>
-				<CanvasDiffGraph
-					diff={diff}
-					selected={open?.key}
-					onSelect={pick}
-					// ops alone leave most blocks without their data: nothing real to open
-					panel={!diff.partial}
-				/>
+			<Suspense fallback={<Loading />}>
+				<CanvasDiffGraph diff={diff} selected={open?.key} onSelect={pick} panel />
 			</Suspense>
 			{touched.length > 0 && (
 				<Fold label={`Changed blocks (${touched.length})`} open={listed} onToggle={setListed}>

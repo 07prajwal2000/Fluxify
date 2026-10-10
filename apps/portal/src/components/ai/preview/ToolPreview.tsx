@@ -1,8 +1,10 @@
 import type { ReactNode } from "react";
 import type { ToolPart } from "../agentMessages";
 import { CallRoutePreview } from "./CallRoutePreview";
+import { ConnectionPreview } from "./ConnectionPreview";
 import { DataPreview, hasData } from "./DataPreview";
 import { DeleteCard } from "./DeleteCard";
+import { DocsPreview, isDocsTool } from "./DocsPreview";
 import { isRec } from "./data";
 import { EditCanvasPreview } from "./EditCanvasPreview";
 import { canDraw, GetCanvasPreview } from "./GetCanvasPreview";
@@ -43,6 +45,9 @@ export function previewOf(tool: ToolPart, asking: boolean): ReactNode | null {
 		return <SchemaDetailsPreview tool={tool} />;
 	if (name === "get_integration_schema" && hasConfigFields(tool.output))
 		return <IntegrationSchemaPreview tool={tool} />;
+	if (isDocsTool(name) && typeof tool.output === "string") return <DocsPreview tool={tool} />;
+	if (name === "test_integration_connection" && isRec(tool.output))
+		return <ConnectionPreview tool={tool} />;
 	if (name === "call_route") return <CallRoutePreview tool={tool} />;
 	if (name === "run_test_suite" || name === "get_test_runs") return <TestRunPreview tool={tool} />;
 	const res = resourceOf(name);

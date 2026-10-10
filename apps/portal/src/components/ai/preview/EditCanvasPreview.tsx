@@ -36,7 +36,7 @@ function PendingEdit({ input }: { input: Record<string, unknown> }) {
 		ready,
 	);
 	if (preview.isLoading)
-		return <div className="h-64 animate-pulse rounded-lg bg-surface-secondary" aria-busy />;
+		return <div className="h-96 animate-pulse rounded-lg bg-surface-secondary" aria-busy />;
 	const data = preview.data;
 	if (!data?.after) {
 		// refused ops or an unreachable server: still show what the ops say
