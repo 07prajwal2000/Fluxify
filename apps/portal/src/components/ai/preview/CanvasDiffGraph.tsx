@@ -83,10 +83,13 @@ export default function CanvasDiffGraph({
 	diff,
 	selected,
 	onSelect,
+	panel = false,
 }: {
 	diff: CanvasDiff;
 	selected?: string;
 	onSelect: (key: string) => void;
+	/** Room for the block settings panel, opened by a double click. */
+	panel?: boolean;
 }) {
 	const graph = useMemo(() => toGraph(diff), [diff]);
 	const statuses = useMemo<Statuses>(
@@ -98,13 +101,13 @@ export default function CanvasDiffGraph({
 	);
 	return (
 		<StatusContext.Provider value={statuses}>
-			<div className="h-64 overflow-hidden rounded-lg border border-border">
+			<div className={`${panel ? "h-96" : "h-64"} overflow-hidden rounded-lg border border-border`}>
 				<BlockCanvas
 					graph={graph}
 					mode="readonly"
 					nodeTypes={nodeTypes}
 					edgeTypes={edgeTypes}
-					enablePanel={false}
+					enablePanel={panel}
 					enableHistory={false}
 					enableFormat={false}
 					enableClipboard={false}

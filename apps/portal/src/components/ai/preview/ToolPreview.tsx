@@ -4,6 +4,7 @@ import { CallRoutePreview } from "./CallRoutePreview";
 import { DataPreview, hasData } from "./DataPreview";
 import { DeleteCard } from "./DeleteCard";
 import { EditCanvasPreview } from "./EditCanvasPreview";
+import { canDraw, GetCanvasPreview } from "./GetCanvasPreview";
 import { ResourceCard } from "./ResourceCard";
 import { resourceOf } from "./resourceMeta";
 import { TestRunPreview } from "./TestRunPreview";
@@ -18,6 +19,7 @@ const isRead = (name: string) => /^(get|list)(_|$)/.test(name);
 export function previewOf(tool: ToolPart, asking: boolean): ReactNode | null {
 	const { name } = tool;
 	if (name === "edit_canvas") return <EditCanvasPreview tool={tool} asking={asking} />;
+	if (name === "get_canvas" && canDraw(tool)) return <GetCanvasPreview tool={tool} />;
 	if (name === "call_route") return <CallRoutePreview tool={tool} />;
 	if (name === "run_test_suite" || name === "get_test_runs") return <TestRunPreview tool={tool} />;
 	const res = resourceOf(name);

@@ -4,8 +4,26 @@ import type { ToolPart } from "../agentMessages";
 
 // DOM only for this file; RTL reads `document` on import, so load it after.
 GlobalRegistrator.register();
+// ReactFlow measures its nodes with these
+class Observer {
+	observe() {}
+	unobserve() {}
+	disconnect() {}
+}
+Object.assign(globalThis, { ResizeObserver: Observer });
+Object.assign(globalThis, {
+	DOMMatrixReadOnly: class {
+		m22 = 1;
+	},
+});
+// the real canvas reads the route it sits on
+const router = await import("@tanstack/react-router");
 mock.module("@tanstack/react-router", () => ({
+	...router,
 	useParams: () => ({ projectId: "p1" }),
+	useMatch: () => undefined,
+	useNavigate: () => () => {},
+	useRouter: () => ({}),
 	Link: ({ to, children, ...rest }: any) => (
 		<a href={to} {...rest}>
 			{children}
@@ -214,4 +232,35 @@ test("Raw is the same JSON the row always showed, error included; the error stay
 	]);
 	fireEvent.click(view.getByRole("tab", { name: "Preview" }));
 	expect(view.getByRole("alert").textContent).toBe("route is not active");
+});
+
+test("get_canvas draws the canvas read-only; a compact read stays a plain list", async () => {
+	const blocks = [
+		{ key: "entrypoint_1", type: "entrypoint", data: {} },
+		{ key: "response_1", type: "response", data: { httpCode: "200" } },
+	];
+	const view = show({
+		name: "get_canvas",
+		input: { target: { kind: "route", id: "r1" } },
+		output: { version: 2, blocks, edges: ["entrypoint_1 → response_1"] },
+		status: "done",
+	});
+	await until(() =>
+		expect(view.container.querySelector('[data-block-key="response_1"]')).not.toBeNull(),
+	);
+	expect(view.container.textContent).toContain("Double-click a block for its settings");
+	view.unmount();
+
+	const compact = show({
+		name: "get_canvas",
+		input: { target: { kind: "route", id: "r1" }, compact: true },
+		output: {
+			version: 2,
+			blocks: [{ key: "response_1", type: "response", summary: "a" }],
+			edges: [],
+		},
+		status: "done",
+	});
+	expect(compact.container.querySelector("[data-block-key]")).toBeNull();
+	expect(compact.container.textContent).toContain("response_1");
 });
