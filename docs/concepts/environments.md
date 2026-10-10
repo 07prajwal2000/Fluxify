@@ -112,7 +112,7 @@ curl -H "x-fluxify-dev-token: fxd_..." https://your-host/...
 
 | What | Detail |
 | :--- | :--- |
-| Where to find it | Project settings, **Development access**. |
+| Where to find it | Project settings, **Development access**. It also shows your development URL, ending in `/_/dev`. If the project has a subdomain, the URL uses it. |
 | Who can copy it | Creators and project admins. Viewers don't see the section. |
 | Who can rotate it | Project admins only. |
 | What it opens | Development routes and sandboxes of that project. Nothing else. |
