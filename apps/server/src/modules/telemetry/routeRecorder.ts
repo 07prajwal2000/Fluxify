@@ -1,5 +1,6 @@
 import type { BlockTrace, BlockTraceSpan, CustomBlockScope } from "@fluxify/blocks";
 import type { TraceRunPayload, TraceSpanMetadata, TraceSpanRecord } from "@fluxify/common/otlp";
+import { userStack } from "../requestRouter/debugError";
 
 export const MAX_SPANS_PER_RUN = 1_000;
 const MAX_RUN_BYTES = 256 * 1024;
@@ -180,6 +181,9 @@ export abstract class BaseTraceRecorder implements BlockTrace {
 			...(input.truncated || output.truncated ? { truncated: true } : {}),
 			...spanMetadata(span),
 		};
+		// frames of the user's own code only, and only for an error it threw (#731)
+		const stack = span.error instanceof Error ? userStack(span.error) : undefined;
+		if (stack) record.stack = stack;
 		const bytes = byteLength(record);
 		if (this.state.bytes + bytes > MAX_RUN_BYTES) {
 			this.drop();

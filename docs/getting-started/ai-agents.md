@@ -104,7 +104,7 @@ request, runs your code or reaches the internet.
 | `get_integration_schema` | The fields one integration type needs | Viewer |
 | `list_projects` | Your projects | Viewer |
 | `get_project` | One project's name and description | Viewer |
-| `get_system_logs` | Compile results and other errors | Viewer |
+| `get_system_logs` | Compile results and other errors, including failed recorded runs | Viewer |
 | `list_routes` | A project's routes | Viewer |
 | `get_route` | One route's settings and request schemas | Viewer |
 | `list_workflows` | A project's workflows | Viewer |

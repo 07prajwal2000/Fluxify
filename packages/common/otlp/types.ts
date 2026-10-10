@@ -41,6 +41,8 @@ export type TraceSpanRecord = {
 	output?: unknown;
 	/** already stringified — an `Error` does not survive the wire */
 	error?: string;
+	/** the user's own frames, when the error came from the user's code (#731) */
+	stack?: string;
 	/** payload was cut to fit the per-span cap */
 	truncated?: boolean;
 	/** viewer-only span info; never exported over OTLP */

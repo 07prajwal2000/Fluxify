@@ -71,6 +71,13 @@
 			"when": 1791511722543,
 			"tag": "0009_block_keys",
 			"breakpoints": true
+		},
+		{
+			"idx": 10,
+			"version": "7",
+			"when": 1791640695178,
+			"tag": "0010_runtime_system_logs",
+			"breakpoints": true
 		}
 	]
 }

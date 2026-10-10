@@ -138,11 +138,12 @@ export const readTools: McpTool[] = [
 		name: "get_system_logs",
 		title: "Get system logs",
 		description:
-			"Platform logs for a project, newest first: compile results and other errors per route, workflow or trigger.",
+			"Platform logs for a project, newest first: compile results, orchestrator status and runtime errors of recorded runs (type runtime, with the failing block, stack and runId).",
 		role: "viewer",
 		input: {
 			projectId,
 			level: z.enum(["info", "warn", "error"]).optional().describe("Only this level"),
+			type: z.string().optional().describe("Only this kind, e.g. compile or runtime"),
 			resourceId: z
 				.string()
 				.optional()
@@ -152,6 +153,7 @@ export const readTools: McpTool[] = [
 		call: async ({ get }, a) => {
 			const body = await get(`/v1/projects/${a.projectId}/system-logs`, {
 				level: a.level,
+				type: a.type,
 				resourceId: a.resourceId,
 				limit: a.limit,
 			});
