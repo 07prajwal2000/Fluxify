@@ -31,6 +31,8 @@ export function ExecutionRecordings({
 	const [runId, setRunId] = useState<string | null>(initialRunId ?? null);
 	const [confirmClear, setConfirmClear] = useState(false);
 	const clear = recordingsQuery.clearRuns.useMutation(projectId, target);
+	// a sandbox is always recorded and keeps its runs until it is deleted
+	const isSandbox = target.type === "sandbox";
 
 	if (runId) {
 		return (
@@ -50,14 +52,17 @@ export function ExecutionRecordings({
 	return (
 		<div className="flex h-full min-h-0 flex-col">
 			<div className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-2">
-				<RecordButton projectId={projectId} target={target} />
+				{!isSandbox && <RecordButton projectId={projectId} target={target} />}
 				<span className="text-xs text-muted">
-					Recording keeps each run here, inputs and outputs included, so you can replay it on the
-					canvas.
+					{isSandbox
+						? "Every run of this sandbox is recorded here, inputs and outputs included, so you can replay it on the canvas."
+						: "Recording keeps each run here, inputs and outputs included, so you can replay it on the canvas."}
 				</span>
-				<DeleteButton size="sm" className="ml-auto" onPress={() => setConfirmClear(true)}>
-					Clear all
-				</DeleteButton>
+				{!isSandbox && (
+					<DeleteButton size="sm" className="ml-auto" onPress={() => setConfirmClear(true)}>
+						Clear all
+					</DeleteButton>
+				)}
 			</div>
 			<div className="min-h-0 flex-1 overflow-y-auto">
 				<RecordedRunList
@@ -87,15 +92,20 @@ export function ExecutionRecordings({
 	);
 }
 
-/** Workflows have no playground, so their recordings open in a modal of their own. */
-export function WorkflowRecordingsModal({
+/** Recorded runs in a modal of their own, for targets whose page has no tab for them. */
+export function RecordingsModal({
 	projectId,
-	workflowId,
+	target,
+	emptyHint,
+	initialRunId,
 	isOpen,
 	onOpenChange,
 }: {
 	projectId: string;
-	workflowId: string;
+	target: RecordingTarget;
+	emptyHint: string;
+	/** Start on this run (a link from the playground). */
+	initialRunId?: string;
 	isOpen: boolean;
 	onOpenChange: (open: boolean) => void;
 }) {
@@ -111,13 +121,37 @@ export function WorkflowRecordingsModal({
 						<Modal.Body className="min-h-0 flex-1 p-0">
 							<ExecutionRecordings
 								projectId={projectId}
-								target={{ type: "workflow", id: workflowId }}
-								emptyHint="run the workflow with the Run button or its trigger"
+								target={target}
+								emptyHint={emptyHint}
+								initialRunId={initialRunId}
 							/>
 						</Modal.Body>
 					</Modal.Dialog>
 				</Modal.Container>
 			</Modal.Backdrop>
 		</Modal>
+	);
+}
+
+/** Workflows have no playground, so their recordings open in a modal of their own. */
+export function WorkflowRecordingsModal({
+	projectId,
+	workflowId,
+	isOpen,
+	onOpenChange,
+}: {
+	projectId: string;
+	workflowId: string;
+	isOpen: boolean;
+	onOpenChange: (open: boolean) => void;
+}) {
+	return (
+		<RecordingsModal
+			projectId={projectId}
+			target={{ type: "workflow", id: workflowId }}
+			emptyHint="run the workflow with the Run button or its trigger"
+			isOpen={isOpen}
+			onOpenChange={onOpenChange}
+		/>
 	);
 }

@@ -192,6 +192,7 @@ Tell the agent to check each point, or check them yourself after it is done.
 | `LLM_TRACING_SAMPLE_RATE` | No | Share of runs traced, 0 to 1. Default `1`. |
 | `LLM_TRACING_RECORD_CONTENT` | No | `true` also sends prompts, messages and tool inputs/outputs, which can hold user data and secrets. Default `false`: only names, timings and token counts are sent. |
 | `FLUXIFY_ENV` | No | On one worker only, never in a `.env` every process shares. `production` (default) or `development`. A development worker runs only development work, holds no license slot, and serves every project in both modes, so it ignores `WORKER_PROJECT_ID`, `WORKER_MODE` and `WORKER_GROUP_ID`. The Kit, the compose file and the Helm chart each start one development worker with it set, so you don't set it yourself. See [Environments](../concepts/environments). |
+| `DEV_WORKER_URL` | No | Where the portal reaches the development worker, for [sandboxes](../concepts/sandbox). Leave it unset: the Kit, the compose file and the Helm chart already send `/_sandbox` to the development worker on the normal address. Set it only when the development worker has an address of its own, for example `http://localhost:5602` on a plain `bun run dev`. Read by the admin (or Kit) only. |
 | `RECORDING_MAX_AGE_DAYS` | No | Days a recorded run (Execution history) is kept before it is deleted. Default `30`. Read by the admin (or Kit) only. |
 | `HOSTNAME` | No | The address processes listen on inside the container. Leave `0.0.0.0`. It is **not** your domain. |
 

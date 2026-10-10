@@ -26,8 +26,10 @@ import { type PlaygroundValidationErrors, validatePlaygroundRequest } from "./va
 const toObject = (rows: ApiKeyValue[]) =>
 	Object.fromEntries(rows.filter((row) => row.key).map((row) => [row.key, row.value]));
 
+const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
+
 export function ApiPlayground({
-	route,
+	route: declaredRoute,
 	baseUrl = "",
 	onSend,
 	className,
@@ -41,7 +43,13 @@ export function ApiPlayground({
 	onRequestChange,
 	onStateChange,
 	onSelectBlock,
+	editableRequest = false,
 }: ApiPlaygroundProps) {
+	const [method, setMethod] = useState(declaredRoute.method);
+	const route = useMemo(
+		() => (editableRequest ? { ...declaredRoute, method } : declaredRoute),
+		[declaredRoute, editableRequest, method],
+	);
 	const [rawPath, setRawPath] = useState(route.path);
 	const [pathRows, setPathRows] = useState<ApiKeyValue[]>(() =>
 		resolvePathRows(route.path, initialPathParams, initialState?.pathRows),
@@ -235,15 +243,35 @@ export function ApiPlayground({
 		>
 			<div className="shrink-0 border-b border-border px-4 py-3">
 				<div className="flex h-10 gap-2">
-					<span
-						style={{ width: 78 }}
-						className="inline-flex shrink-0 items-center justify-center rounded-l-md border border-border bg-surface font-mono text-[13px] font-bold text-accent"
-					>
-						{route.method}
-					</span>
+					{editableRequest ? (
+						<select
+							aria-label="Request method"
+							style={{ width: 96 }}
+							value={method}
+							onChange={(e) => setMethod(e.target.value)}
+							className="shrink-0 rounded-l-md border border-border bg-surface px-2 font-mono text-[13px] font-bold text-accent"
+						>
+							{METHODS.map((name) => (
+								<option key={name} value={name}>
+									{name}
+								</option>
+							))}
+						</select>
+					) : (
+						<span
+							style={{ width: 78 }}
+							className="inline-flex shrink-0 items-center justify-center rounded-l-md border border-border bg-surface font-mono text-[13px] font-bold text-accent"
+						>
+							{route.method}
+						</span>
+					)}
 					<Input
 						aria-label="Request URL"
-						readOnly
+						readOnly={!editableRequest}
+						onChange={(e) => {
+							const next = e.target.value;
+							setRawPath(next === "" || next.startsWith("/") ? next : `/${next}`);
+						}}
 						value={rawPath}
 						className="h-10 min-w-0 flex-1 rounded-r-md font-mono text-[13px]"
 					/>

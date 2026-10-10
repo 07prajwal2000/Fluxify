@@ -7,6 +7,7 @@ import { formatWhen } from "@/components/testSuites/RunResults";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { recordingsQuery, useRecordingSwitch } from "@/query/recordingsQuery";
 import { routesQuery } from "@/query/routesQuery";
+import { sandboxesQuery } from "@/query/sandboxesQuery";
 import { workflowsQuery } from "@/query/workflowsQuery";
 import type { RecordedRunSummary, RecordingTarget } from "@/services/recordings";
 import { useRetentionNote } from "./RecordingControls";
@@ -61,6 +62,10 @@ export function RecordedRunList({
 
 	const route = routesQuery.byId.useQuery(target.type === "route" ? target.id : "");
 	const workflow = workflowsQuery.byId.useQuery(target.type === "workflow" ? target.id : "");
+	const sandbox = sandboxesQuery.byId.useQuery(
+		projectId,
+		target.type === "sandbox" ? target.id : "",
+	);
 
 	const runs = recordingsQuery.getRuns.useQuery(
 		projectId,
@@ -137,6 +142,9 @@ export function RecordedRunList({
 						<span className="text-xs font-medium text-foreground">
 							{workflow.data.name || "Workflow"}
 						</span>
+					)}
+					{target.type === "sandbox" && sandbox.data && (
+						<span className="text-xs font-medium text-foreground">{sandbox.data.name}</span>
 					)}
 					<span className="text-xs text-muted">· {retentionNote}</span>
 				</div>
@@ -265,16 +273,19 @@ export function RecordedRunList({
 								{formatDuration(run.durationMs)}
 							</span>
 						</button>
-						<DeleteIconButton
-							size="sm"
-							aria-label="Delete recorded run"
-							isDisabled={remove.isPending && remove.variables === run.id}
-							onPress={() =>
-								remove.mutate(run.id, {
-									onError: (error: Error) => showErrorNotification(error),
-								})
-							}
-						/>
+						{/* a sandbox keeps its runs until it is deleted */}
+						{target.type !== "sandbox" && (
+							<DeleteIconButton
+								size="sm"
+								aria-label="Delete recorded run"
+								isDisabled={remove.isPending && remove.variables === run.id}
+								onPress={() =>
+									remove.mutate(run.id, {
+										onError: (error: Error) => showErrorNotification(error),
+									})
+								}
+							/>
+						)}
 					</div>
 				))
 			)}

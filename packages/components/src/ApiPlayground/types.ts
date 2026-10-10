@@ -136,4 +136,10 @@ export type ApiPlaygroundProps = {
 	onStateChange?: (state: ApiPlaygroundState) => void;
 	/** Makes a debug error's block name clickable. */
 	onSelectBlock?: (blockId: string, message: string) => void;
+	/**
+	 * Lets the caller pick the method and type the path, for a target that has
+	 * neither declared (a sandbox answers any method on any path). `route.method`
+	 * and `route.path` are where it starts.
+	 */
+	editableRequest?: boolean;
 };

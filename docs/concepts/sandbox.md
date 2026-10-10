@@ -22,6 +22,31 @@ the KV blocks or the JS Runner.
 A sandbox canvas is like a route canvas and a workflow canvas at once. The same
 blocks run whether you call it over HTTP or run it as a workflow.
 
+## In the portal
+
+Open **Sandboxes** in the project's sidebar. Creators and project admins see it;
+viewers don't.
+
+| Screen | What you do there |
+| :--- | :--- |
+| **List** | See your sandboxes. Create one by giving it a name, rename it, open it, or delete it. |
+| **Canvas** | The same editor as a route or workflow canvas. Add blocks, connect them and **Save**. |
+| **Playground** | Open it from the canvas. Pick any method, type a path, add headers and a body, and press **Send**. You see the status, headers and body of the answer, and an **Open recording** link for the call. Fluxify adds the development token for you and never shows it. |
+| **Run** | Starts the sandbox as a workflow with the JSON (or plain text) you type. |
+| **Runs** | Every recorded run of this sandbox, newest first. Open one to see it on the canvas. |
+| **Settings** | Rename the sandbox, and turn **Export traces** on to send its spans to the project's telemetry destination. |
+
+If no development worker is running, a banner says so and **Run** and the
+playground are switched off until one starts.
+
+::: info Where the portal sends a playground call
+To your project's normal address, at `/_sandbox/<id>/…`. Kit, the production
+compose file and the Helm chart already send that path to the development
+worker. Only when the development worker has an address of its own does your
+operator set `DEV_WORKER_URL`, for example `http://localhost:5602` when you run
+Fluxify from source.
+:::
+
 ## Call it over HTTP
 
 Send a request to your development worker at:
@@ -46,8 +71,10 @@ curl -X POST \
   http://localhost:5602/_sandbox/<sandbox id>/hello
 ```
 
-Port `5602` is the development worker in the [Kit](/deployments/kit#dev-worker)
-and when you run Fluxify from source.
+In the [Kit](/deployments/kit#dev-worker), the production compose stack and the
+Helm chart, this is the same address as the rest of your API
+(`http://localhost:8080/_sandbox/<sandbox id>/hello` in the Kit). When you run
+Fluxify from source, the development worker is on port `5602`.
 
 | You send | You get |
 | :--- | :--- |
@@ -91,9 +118,7 @@ Deleting a sandbox removes its canvas and its recordings. Its address answers
 `404` from then on.
 
 ::: tip Coming next
-The sandbox screens in the portal (list, canvas and a playground to send
-requests) and triggers that start a sandbox are on the way. Until then you
-manage sandboxes through the admin API.
+Triggers that start a sandbox, and sandbox tools for AI agents, are on the way.
 :::
 
 ## Related

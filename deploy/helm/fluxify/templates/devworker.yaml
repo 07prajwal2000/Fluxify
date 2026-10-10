@@ -5,6 +5,9 @@
 # claim, and it takes no license slot. FLUXIFY_ENV is set on this Deployment
 # only; the orchestrator hands production workers a fixed list of settings, so
 # it never reaches them.
+#
+# `/_sandbox` is routed to it (below), so sandboxes can be called from outside
+# the cluster. `/_/dev` joins that rule in #736.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -40,9 +43,42 @@ spec:
             - name: FLUXIFY_NODE_ID
               valueFrom: { fieldRef: { fieldPath: metadata.name } }
           ports:
+            # the worker's default ports: traffic on 5600, health on 5601
+            - { name: http, containerPort: 5600 }
             - { name: health, containerPort: 5601 }
           readinessProbe:
             httpGet: { path: /_/admin/api/healthchecks/ready, port: health }
             periodSeconds: 10
           resources: {{- toYaml .Values.devWorker.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fluxify-dev-worker
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "fluxify.labels" . | nindent 4 }}
+spec:
+  selector: { app: fluxify-dev-worker }
+  ports:
+    - { name: http, port: 5600, targetPort: http }
+{{- if .Values.ingressRoute.enabled }}
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: fluxify-dev-worker
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "fluxify.labels" . | nindent 4 }}
+spec:
+  entryPoints: [{{ .Values.ingressRoute.entryPoint }}]
+  routes:
+    - kind: Rule
+      # Only the sandbox path: every other request keeps going to the
+      # production workers.
+      match: PathPrefix(`/_sandbox`)
+      # Above every production worker's route: a project host is 50, the catch-all 1.
+      priority: 100
+      services:
+        - { name: fluxify-dev-worker, port: 5600 }
+{{- end }}
 {{- end }}

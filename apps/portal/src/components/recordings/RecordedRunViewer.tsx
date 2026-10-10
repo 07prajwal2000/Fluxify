@@ -14,6 +14,12 @@ import { IncompleteChip, OutcomeIcon } from "./RecordedRunList";
 import { type SpanActions, SpanDetail } from "./SpanDetail";
 import { type Frame, rootCanvasId, spansAt } from "./spans";
 
+const TARGET_LABEL: Record<RecordingTarget["type"], string> = {
+	route: "Route",
+	workflow: "Workflow",
+	sandbox: "Sandbox",
+};
+
 /**
  * One recorded run: the canvas it ran on (30%) next to the span detail (70%).
  * Opening a custom block call or an async run pushes a level; the breadcrumb
@@ -38,7 +44,7 @@ export function RecordedRunViewer({
 			runId,
 			parentSeq: null,
 			customBlockId: null,
-			label: target.type === "route" ? "Route" : "Workflow",
+			label: TARGET_LABEL[target.type],
 		},
 	]);
 	const [selected, setSelected] = useState<string | null>(initialSelected);
@@ -108,7 +114,7 @@ export function RecordedRunViewer({
 				</Breadcrumbs>
 				{root && (
 					<div className="ml-auto flex items-center gap-3 text-xs text-muted">
-						{root.metadata && (
+						{root.metadata && target.type !== "sandbox" && (
 							<FromTestLink projectId={projectId} target={target} metadata={root.metadata} />
 						)}
 						<OutcomeIcon outcome={root.outcome} />
@@ -118,18 +124,21 @@ export function RecordedRunViewer({
 						<span>{formatWhen(root.startedAt)}</span>
 						<span>{formatDuration(root.durationMs)}</span>
 						<IncompleteChip run={root} />
-						<DeleteButton
-							size="sm"
-							isPending={remove.isPending}
-							onPress={() =>
-								remove.mutate(runId, {
-									onSuccess: onBack,
-									onError: (error: Error) => showErrorNotification(error),
-								})
-							}
-						>
-							Delete run
-						</DeleteButton>
+						{/* a sandbox keeps its runs until it is deleted: there is nothing to delete one with */}
+						{target.type !== "sandbox" && (
+							<DeleteButton
+								size="sm"
+								isPending={remove.isPending}
+								onPress={() =>
+									remove.mutate(runId, {
+										onSuccess: onBack,
+										onError: (error: Error) => showErrorNotification(error),
+									})
+								}
+							>
+								Delete run
+							</DeleteButton>
+						)}
 					</div>
 				)}
 			</div>
@@ -149,6 +158,7 @@ export function RecordedRunViewer({
 						left={
 							<OverlayCanvas
 								key={`${frame.runId}:${frame.parentSeq}`}
+								projectId={projectId}
 								target={target}
 								customBlockId={canvasId}
 								level={level}

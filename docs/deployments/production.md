@@ -632,9 +632,15 @@ workers, `ORCHESTRATOR_WORKER_IMAGE`, and is not an orchestrator claim: the
 orchestrator does not create, resize or remove it. It is also the only worker
 that is a compose service, so `--remove-orphans` leaves it alone.
 
-- **No route to it yet.** Traefik has no rule for it, so it takes no web
-  traffic. Nothing is sent to the development environment yet, so it has no
-  routes to serve for now.
+- **Traefik sends it `/_sandbox`, and nothing else.** A [sandbox](../concepts/sandbox)
+  is called at `/_sandbox/<id>/…` on your normal address, and that rule sends it
+  here instead of to a production worker. Every other path still goes to the
+  production workers. The portal's sandbox playground uses your address, so it
+  needs no setting.
+- **Its own address (optional).** Set `DEV_WORKER_URL` in `.env` only if the
+  development worker is reached somewhere other than your normal address, for
+  example `https://dev.example.com`. Leave it unset otherwise. It is read by
+  admin; the worker ignores it.
 - **Its settings are fixed.** It gets the NATS, Valkey and encryption-key
   settings from your `.env`, and nothing else; in particular no database
   address.

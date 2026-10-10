@@ -37,6 +37,7 @@ Traffic enters on port `8080` and is routed for you:
 | `http://localhost:8080/_/admin/api` | Admin REST API |
 | `http://localhost:8080/_/admin/api/openapi/ui` | API documentation |
 | `http://localhost:8080/` | Your published workflows & custom endpoints |
+| `http://localhost:8080/_sandbox/<id>/…` | A [sandbox](/concepts/sandbox), served by the development worker |
 
 ---
 
@@ -248,11 +249,12 @@ project, so it runs from the very first start, before you have created one.
 | Serves | The project in `WORKER_PROJECT_ID` | Every project |
 | Port (inside the container) | `5600` | `5602` |
 | Health probe | `5601` | `5603` |
-| Reached through port `8080` | Yes | No |
+| Reached through port `8080` | Yes | Only `/_sandbox` |
 
-Nothing is sent to the development environment yet, so it has no routes to
-serve for now. It does not count against your [edition's](./editions#workers)
-worker limit.
+Port `8080` sends `/_sandbox` to the development worker and everything else to
+the production worker, so the portal's sandbox playground works with no setting.
+The development worker does not count against your
+[edition's](./editions#workers) worker limit.
 
 > [!WARNING]
 > Don't set `FLUXIFY_ENV` in the kit's `.env` or with `-e`. The kit sets it on

@@ -83,8 +83,10 @@ declare interface FluxifyTriggerEvent {
  */
 declare const trigger: {
   kind: "route" | "job" | "workflow" | "cron" | "trigger";
+  /** Where the work came from: "http", "internal", "schedule", "kafka", "nats" and so on. */
   source: string;
-  reply: string;
+  /** Whether the caller waits for the answer. */
+  reply: "sync" | "async";
   id?: string;
   data: FluxifyTriggerEvent[];
   meta: {
@@ -93,14 +95,16 @@ declare const trigger: {
     size: number;
     firstReceivedAt?: string;
     lastReceivedAt?: string;
-    /** Kafka and NATS: 1 on the first run of this batch, counting up on each retry. */
+    /** 1 on the first run of this batch, counting up on each retry. */
     attempt?: number;
   };
-  /** Kafka and NATS: the source this batch was read from. */
+  /** Queue triggers only (Kafka, NATS, SQS, Redis Streams, RabbitMQ): the source this batch was read from. */
   connection?: {
     /**
      * The underlying client, for what the helpers below do not cover.
      * Kafka: a @platformatic/kafka Consumer. NATS: an @nats-io/nats-core NatsConnection.
+     * Redis Streams: an ioredis Redis. RabbitMQ: the consuming amqplib Channel
+     * (ack, nack, reject, cancel, close and prefetch throw, use commit and moveToDLQ).
      * Fluxify owns it: closing, pausing or re-subscribing it can stall the
      * trigger until the worker restarts. Use with care.
      */

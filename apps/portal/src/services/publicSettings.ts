@@ -38,6 +38,11 @@ export type PublicSettingsResponse = {
 	bunVersion?: string;
 	/** days a recorded run is kept before the retention job deletes it */
 	recordingMaxAgeDays?: number;
+	/**
+	 * Where the development worker is reached (`DEV_WORKER_URL`). Absent means the
+	 * project's own API address, which the proxy in front already routes there.
+	 */
+	devWorkerUrl?: string;
 };
 
 export const publicSettingsService = {

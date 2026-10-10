@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import type { RecordingTarget, TraceMetadata } from "@/services/recordings";
-import { testSuitesService } from "@/services/testSuites";
+import type { TraceMetadata } from "@/services/recordings";
+import { type SuiteTarget, testSuitesService } from "@/services/testSuites";
 
 const linkClass = "text-accent hover:underline";
 
@@ -15,7 +15,7 @@ export function FromTestLink({
 	metadata,
 }: {
 	projectId: string;
-	target: RecordingTarget;
+	target: SuiteTarget;
 	metadata: TraceMetadata;
 }) {
 	const testRun = useQuery({

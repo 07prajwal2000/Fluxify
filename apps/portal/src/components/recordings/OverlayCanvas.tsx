@@ -10,6 +10,7 @@ import { FLOW_EDGE_TYPE, FlowEdge } from "@/components/canvas/edges";
 import type { BlockEdge, BlockNode } from "@/components/canvas/types";
 import { customBlocksQuery } from "@/query/customBlocksQuery";
 import { routesQuery } from "@/query/routesQuery";
+import { sandboxesQuery } from "@/query/sandboxesQuery";
 import { workflowsQuery } from "@/query/workflowsQuery";
 import type { RecordedSpan, RecordingTarget } from "@/services/recordings";
 import { GhostNode } from "./GhostNode";
@@ -51,14 +52,19 @@ function SelectionSync({
 }
 
 /** the saved canvas a level ran on: the target's own, or a custom block's */
-function useLevelCanvas(target: RecordingTarget, customBlockId: string | null) {
+function useLevelCanvas(projectId: string, target: RecordingTarget, customBlockId: string | null) {
 	const own = customBlockId === null;
+	const sandbox = sandboxesQuery.canvasItems.useQuery(
+		projectId,
+		own && target.type === "sandbox" ? target.id : "",
+	);
 	const route = routesQuery.canvasItems.useQuery(own && target.type === "route" ? target.id : "");
 	const workflow = workflowsQuery.canvasItems.useQuery(
 		own && target.type === "workflow" ? target.id : "",
 	);
 	const block = customBlocksQuery.canvasItems.useQuery(customBlockId ?? "");
 	if (!own) return block;
+	if (target.type === "sandbox") return sandbox;
 	return target.type === "route" ? route : workflow;
 }
 
@@ -69,6 +75,7 @@ function useLevelCanvas(target: RecordingTarget, customBlockId: string | null) {
  * was, when its span recorded that (#628).
  */
 export function OverlayCanvas({
+	projectId,
 	target,
 	customBlockId,
 	level,
@@ -77,6 +84,7 @@ export function OverlayCanvas({
 	onSelect,
 	onOpenCall,
 }: {
+	projectId: string;
 	target: RecordingTarget;
 	customBlockId: string | null;
 	level: RecordedSpan[];
@@ -85,7 +93,7 @@ export function OverlayCanvas({
 	onSelect: (blockId: string | null) => void;
 	onOpenCall?: (span: RecordedSpan, customBlockId: string) => void;
 }) {
-	const items = useLevelCanvas(target, customBlockId);
+	const items = useLevelCanvas(projectId, target, customBlockId);
 	const { graph, lost } = useMemo(
 		() => overlayGraph(toGraph(items.data), level),
 		[items.data, level],

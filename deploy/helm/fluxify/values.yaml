@@ -65,9 +65,10 @@ devWorker:
     requests: { cpu: 100m, memory: 256Mi }
     limits: { memory: 1Gi }
 
-# A Traefik route sending /_/admin and /.well-known/oauth-* to admin. Workers
-# get their own routes from the orchestrator. Needs Traefik; turn it off to
-# expose admin another way.
+# Traefik routes sending /_/admin and /.well-known/oauth-* to admin, and
+# /_sandbox to the development worker (when devWorker is enabled). Workers get
+# their own routes from the orchestrator. Needs Traefik; turn it off to expose
+# admin and the development worker another way.
 ingressRoute:
   enabled: true
   entryPoint: web

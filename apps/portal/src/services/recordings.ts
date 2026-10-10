@@ -3,10 +3,11 @@ import type { responseSchema as getRunResponseSchema } from "@fluxify/server/src
 import type { responseSchema as getRunsResponseSchema } from "@fluxify/server/src/api/v1/recordings/get-runs/dto";
 import type z from "zod";
 import { httpClient } from "@/lib/http";
+import { sandboxesBase } from "./sandboxes";
 import type { SuiteTarget } from "./testSuites";
 
-/** What was recorded: a route or a workflow — the same pair test runs use. */
-export type RecordingTarget = SuiteTarget;
+/** What was recorded: a route or a workflow, as test runs do, or a sandbox. */
+export type RecordingTarget = SuiteTarget | { type: "sandbox"; id: string };
 export type RecordedRunList = z.infer<typeof getRunsResponseSchema>;
 export type RecordedRunSummary = RecordedRunList["data"][number];
 export type RecordedRun = z.infer<typeof getRunResponseSchema>;
@@ -16,9 +17,15 @@ export type TraceMetadata = NonNullable<RecordedRun["metadata"]>;
 /** narrows the list to test traces (#627) or normal runs; without it, both */
 export type TestTraceFilter = { source?: "test" | "live"; testRunId?: string };
 
-/** The project is in the path — the server authorizes off it directly (creator only). */
+/**
+ * The project is in the path — the server authorizes off it directly (creator
+ * only). A sandbox's runs are served by the sandbox itself, which also checks
+ * that it is yours.
+ */
 const runsUrl = (projectId: string, target: RecordingTarget) =>
-	`/v1/${projectId}/recordings/${target.type}/${target.id}/runs`;
+	target.type === "sandbox"
+		? `${sandboxesBase(projectId)}/${target.id}/runs`
+		: `/v1/${projectId}/recordings/${target.type}/${target.id}/runs`;
 
 export const recordingsService = {
 	/** newest first, headers only */

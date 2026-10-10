@@ -77,6 +77,16 @@ export const serverEnvSchema = baseEnvSchema.extend({
 			"How many days a recorded run (Execution history) is kept before it is deleted (default 30)",
 		),
 
+	DEV_WORKER_URL: z
+		.string()
+		.optional()
+		.refine((val) => !val || /^https?:\/\/[^\s/]+/.test(val), {
+			message: "DEV_WORKER_URL must be a full URL such as http://localhost:5602",
+		})
+		.describe(
+			"Where the portal reaches the development worker (sandbox calls). Unset means the same public address as the project's API. Set it when the development worker has an address of its own, for example http://localhost:5602 on a plain local run",
+		),
+
 	WORKER_PROJECT_ID: z
 		.string()
 		.optional()
@@ -410,6 +420,13 @@ export const FLUXIFY_CLAIM_ID = DEV_WORKER ? undefined : getEnv("FLUXIFY_CLAIM_I
 
 /** hard body-size ceiling for user-facing routes, in bytes (env is in KB) */
 export const MAX_REQUEST_BODY_BYTES = (Number(getEnv("WORKER_MAX_STREAM_SIZE")) || 8192) * 1024;
+
+/**
+ * Where the portal sends sandbox calls. Unset gives `undefined`, which the
+ * portal reads as "the project's own API address", and that is right wherever
+ * the proxy in front already sends `/_sandbox` to the development worker.
+ */
+export const DEV_WORKER_URL = getEnv("DEV_WORKER_URL")?.trim().replace(/\/+$/, "") || undefined;
 
 /** recorded runs older than this many days are deleted by the daily retention job (#254) */
 export const RECORDING_MAX_AGE_DAYS = Number(getEnv("RECORDING_MAX_AGE_DAYS")) || 30;

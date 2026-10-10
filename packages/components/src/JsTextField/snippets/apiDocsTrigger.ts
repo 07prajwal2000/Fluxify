@@ -59,21 +59,24 @@ export const TRIGGER_DOCS: ApiDocItem[] = [
 		id: "api-trigger-meta",
 		name: "trigger.meta",
 		kind: "property",
-		signature: "const trigger.meta: { batchId: string; size: number; attempt?: number };",
-		description: "Batch metadata including batchId, total batch size, and retry attempt count.",
+		signature:
+			"const trigger.meta: { batchId: string; size: number; firstReceivedAt?: string; lastReceivedAt?: string; attempt?: number };",
+		description:
+			"Batch metadata: batchId, how many events (size), when the first and last arrived, and the retry attempt count.",
 		category: "variables",
 		example:
 			"const { batchId, size, attempt } = trigger.meta;\nlogger.logInfo({ batchId, size, attempt });",
-		returns: "{ batchId: string; size: number; attempt?: number }",
+		returns:
+			"{ batchId: string; size: number; firstReceivedAt?: string; lastReceivedAt?: string; attempt?: number }",
 	},
 	{
 		id: "api-trigger-connection",
 		name: "trigger.connection",
 		kind: "object",
 		signature:
-			"const trigger.connection?: { commit(): Promise<void>; moveToDLQ(error?: any): Promise<void>; lag(): Promise<number | null>; };",
+			"const trigger.connection?: { raw: any; commit(): Promise<void>; moveToDLQ(error?: any): Promise<void>; lag(): Promise<number | null>; };",
 		description:
-			"Queue connection controls for external message stream triggers (Kafka, NATS): manual commit, moveToDLQ, and lag.",
+			"Queue triggers only (Kafka, NATS, SQS, Redis Streams, RabbitMQ): commit marks the batch done, moveToDLQ parks it, lag counts what is waiting, and raw is the underlying client. Use raw with care.",
 		category: "variables",
 		example: "if (trigger.connection) {\n  await trigger.connection.commit();\n}",
 		returns: "TriggerConnection | undefined",

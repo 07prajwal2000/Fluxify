@@ -225,8 +225,8 @@ fi
 # trigger group, so it needs no WORKER_PROJECT_ID and can start on a first boot.
 # FLUXIFY_ENV is set on this process only: the kit's .env is read by the admin
 # server and the production worker too, and one worker has one environment.
-# Ports 5602/5603 because the production worker already holds 5600/5601; there
-# is no route to it in the Caddyfile yet, so it takes no traffic.
+# Ports 5602/5603 because the production worker already holds 5600/5601. The
+# Caddyfile sends /_sandbox to it and nothing else.
 start worker-dev env FLUXIFY_ENV=development WORKER_PORT=5602 WORKER_HEALTH_PORT=5603 	bun --cwd=/app/server compiledWorker.js
 
 # The admin UI is a static Vite bundle in /app/portal, served by Caddy — there

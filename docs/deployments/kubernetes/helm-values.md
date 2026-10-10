@@ -117,8 +117,10 @@ orchestrator does not manage it.
 | `devWorker.resources` | The pod's CPU and memory. | 100m CPU, 256Mi, at most 1Gi |
 
 It is on by default so a Helm install matches the kit and the compose stack.
-Nothing is sent to the development environment yet, so it has no routes to
-serve for now, and no web route points at it.
+With `ingressRoute.enabled`, [Web traffic](#traffic) sends `/_sandbox` to it and
+nothing else, so [sandboxes](/concepts/sandbox) can be called on your normal
+address. With the route turned off, send `/_sandbox` to the service
+`fluxify-dev-worker`, port `5600`, yourself.
 
 It starts once the orchestrator has written its first settings, a few seconds
 after the orchestrator is ready, and restarts when you run `helm upgrade` with
@@ -133,7 +135,7 @@ devWorker:
 
 | Setting | What it does | Default |
 | :--- | :--- | :--- |
-| `ingressRoute.enabled` | Send `/_/admin` (the portal, API and MCP server) and `/.well-known/oauth-…` (sign-in for MCP clients) to Fluxify through Traefik. `false` to expose it your own way: send both to the service `fluxify-admin`, port `8080`. | `true` |
+| `ingressRoute.enabled` | Send `/_/admin` (the portal, API and MCP server) and `/.well-known/oauth-…` (sign-in for MCP clients) to Fluxify through Traefik, and `/_sandbox` to the [development worker](#dev-worker). `false` to expose them your own way: send the first two to the service `fluxify-admin`, port `8080`, and `/_sandbox` to `fluxify-dev-worker`, port `5600`. | `true` |
 | `ingressRoute.entryPoint` | The Traefik entry point it listens on. | `web` |
 
 ## NATS {#nats}
