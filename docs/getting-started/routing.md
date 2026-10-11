@@ -236,6 +236,11 @@ The **Playground** sends a real request to your route and shows the response.
 Open it with the **Playground** button on the Routes page, or the play button
 on the route's canvas.
 
+The request goes to the route's [development address](../concepts/environments.md#calling-a-route-on-development),
+so it runs on the development worker with your development values, never on
+production. Fluxify adds the development token for you. If no development
+worker is running, the playground says so and cannot send.
+
 For `POST` and `PUT` routes, pick a content type on the **Body** tab. The
 editor changes to match it:
 

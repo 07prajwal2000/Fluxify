@@ -19,7 +19,6 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
 import { RouteApiPlayground } from "@/components/RouteApiPlayground";
 import { RecordingIndicator } from "@/components/recordings/RecordingControls";
-import { useProjectApiBaseUrl } from "@/components/settings/SubdomainField";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
 import { projectsQuery } from "@/query/projectsQuery";
@@ -46,7 +45,6 @@ function RoutesPage() {
 	const { projectId } = Route.useParams();
 	const { data: project } = projectsQuery.byId.useQuery(projectId);
 	usePageTitle(formatProjectTitle(project?.name, "Routes"));
-	const apiBaseUrl = useProjectApiBaseUrl(projectId);
 	const navigate = useNavigate();
 	const [page, setPage] = useState(1);
 	const [search, setSearch] = useState("");
@@ -240,7 +238,6 @@ function RoutesPage() {
 									<RouteApiPlayground
 										key={pendingPlayground.id}
 										routeId={pendingPlayground.id}
-										baseUrl={apiBaseUrl}
 										isFramed={false}
 									/>
 								</Modal.Body>

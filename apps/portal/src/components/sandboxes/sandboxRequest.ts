@@ -3,9 +3,12 @@ import type { ApiPlaygroundRequest, ApiPlaygroundResponse } from "@fluxify/compo
 /** The header the development worker checks before it answers a sandbox call. */
 export const DEV_TOKEN_HEADER = "x-fluxify-dev-token";
 
+/** A route's development address: the real route path goes after it. */
+export const DEV_ROUTE_PREFIX = "/_/dev";
+
 /** Shown wherever a sandbox cannot run because no development worker is up. */
 export const DEV_WORKER_MESSAGE =
-	"No development worker is running. Start a worker with FLUXIFY_ENV=development to run a sandbox.";
+	"No development worker is running. Start a worker with FLUXIFY_ENV=development to try routes and sandboxes.";
 
 /** A sandbox answers on `/_sandbox/<id>`, whatever comes after it. */
 export function sandboxBaseUrl(devWorkerUrl: string, sandboxId: string) {

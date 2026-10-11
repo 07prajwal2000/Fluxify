@@ -9,7 +9,6 @@ import type { Replay } from "@/components/recordings/replay";
 import { RouteSettingsModal } from "@/components/routes/RouteSettingsModal";
 import { RouteSwitcher } from "@/components/routes/RouteSwitcher";
 import { RouteWorkbenchHeader, RouteWorkbenchTabs } from "@/components/routes/RouteWorkbenchTabs";
-import { useProjectApiBaseUrl } from "@/components/settings/SubdomainField";
 import { createRouteHead, usePageTitle } from "@/lib/seo";
 import { routesQuery } from "@/query/routesQuery";
 import { routesService } from "@/services/routes";
@@ -52,7 +51,6 @@ function RouteExecutionsPage() {
 	const navigate = Route.useNavigate();
 	const { data: route } = routesQuery.byId.useQuery(routeId);
 	const canEdit = useCanEditProject(projectId);
-	const apiBaseUrl = useProjectApiBaseUrl(projectId);
 	const [playgroundOpen, setPlaygroundOpen] = useState(false);
 	// a replayed run (#752) opens the playground with its recorded request
 	const [replay, setReplay] = useState<Replay & { kind: "request" }>();
@@ -116,7 +114,6 @@ function RouteExecutionsPage() {
 									<RouteApiPlayground
 										key={routeId}
 										routeId={routeId}
-										baseUrl={apiBaseUrl}
 										isFramed={false}
 										enableCache
 										replay={replay?.state}

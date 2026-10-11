@@ -91,6 +91,17 @@ test("without a subdomain the development URL is on the shared host", async () =
 	await until(() => expect(document.body.textContent).toContain("http://localhost:5601/_/dev"));
 });
 
+test("uses devWorkerUrl when configured in public settings", async () => {
+	publicSettings.mockResolvedValue({
+		hosting: { baseDomain: "example.test" },
+		devWorkerUrl: "http://dev-worker.internal:8080",
+	} as never);
+	setup("creator");
+	await until(() =>
+		expect(document.body.textContent).toContain("http://dev-worker.internal:8080/_/dev"),
+	);
+});
+
 test("a creator can copy the token but not rotate it", async () => {
 	setup("creator");
 	await until(() => {

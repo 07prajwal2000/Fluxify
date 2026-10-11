@@ -1,4 +1,4 @@
-import { Button, cn, Spinner, Switch, Tooltip } from "@fluxify/components";
+import { Button, cn, Spinner, Tooltip } from "@fluxify/components";
 import { TbPlayerRecord } from "react-icons/tb";
 import { publicSettingsQuery } from "@/query/publicSettingsQuery";
 import { useRecordingSwitch } from "@/query/recordingsQuery";
@@ -16,7 +16,7 @@ export function useRetentionNote(): string {
 
 export const RETENTION_NOTE = formatRetentionNote(30);
 
-/** Track Execution's record button: a live dot while recording is on. */
+/** Track Execution's record button for production; development records by default. */
 export function RecordButton({
 	projectId,
 	target,
@@ -35,7 +35,7 @@ export function RecordButton({
 	return recording.isOn ? (
 		<Button size="sm" variant="outline" onPress={() => recording.set(false)}>
 			<span className="size-2 animate-pulse rounded-full bg-danger" aria-hidden />
-			Recording · Stop
+			Production recording · Stop
 		</Button>
 	) : (
 		<Button
@@ -44,34 +44,8 @@ export function RecordButton({
 			isDisabled={recording.isLoading}
 			onPress={() => recording.set(true)}
 		>
-			<TbPlayerRecord size={16} /> Record
+			<TbPlayerRecord size={16} /> Record production
 		</Button>
-	);
-}
-
-/** The settings-modal switch. Applies on its own (it recompiles), not with Save. */
-export function RecordingSwitch({
-	projectId,
-	target,
-	readOnly,
-}: {
-	projectId: string;
-	target: RecordingTarget;
-	readOnly: boolean;
-}) {
-	const recording = useRecordingSwitch(projectId, target);
-	return (
-		<div className="flex items-center gap-2">
-			<Switch
-				isSelected={recording.isOn}
-				onChange={recording.set}
-				isDisabled={readOnly || recording.isLoading || recording.isApplying}
-				label={
-					recording.isApplying ? "Applying…" : recording.isOn ? "Recording on" : "Recording off"
-				}
-			/>
-			{recording.isApplying && <Spinner size="sm" />}
-		</div>
 	);
 }
 

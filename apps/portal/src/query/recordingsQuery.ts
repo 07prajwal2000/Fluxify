@@ -1,3 +1,4 @@
+import { toast } from "@fluxify/components";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import {
@@ -44,10 +45,19 @@ export const recordingsQuery = {
 			poll: boolean,
 			outcome?: "success" | "failure",
 			filter: TestTraceFilter = {},
+			env?: "development" | "production",
 		) {
 			return useQuery({
-				queryKey: [...runsKey(projectId, target), "list", page, outcome ?? "all", filter],
-				queryFn: () => recordingsService.getRuns(projectId, target, { page, outcome, ...filter }),
+				queryKey: [
+					...runsKey(projectId, target),
+					"list",
+					page,
+					outcome ?? "all",
+					env ?? "all",
+					filter,
+				],
+				queryFn: () =>
+					recordingsService.getRuns(projectId, target, { page, outcome, env, ...filter }),
 				enabled: !!projectId && !!target.id,
 				refetchOnWindowFocus: false,
 				refetchInterval: () => {
@@ -100,7 +110,8 @@ export const recordingsQuery = {
 };
 
 /**
- * The target's `recordExecution` flag. Changing it recompiles the target, so
+ * The target's production `recordExecution` flag (development's is set in the
+ * settings). Changing it recompiles the target, so
  * `isApplying` holds until the new compile has landed (or the wait runs out) —
  * the switch shows the server's value, never an optimistic flip.
  */
@@ -113,11 +124,11 @@ export function useRecordingSwitch(projectId: string, target: RecordingTarget) {
 	const set = useMutation({
 		mutationFn: async (recordExecution: boolean) => {
 			const before = await compiledAt(projectId, target).catch(() => 0);
-			if (target.type === "route") {
-				await routesService.updatePartial(target.id, { recordExecution });
-			} else {
-				await workflowsService.update(target.id, { recordExecution });
-			}
+			const saved =
+				target.type === "route"
+					? await routesService.updatePartial(target.id, { recordExecution })
+					: await workflowsService.update(target.id, { recordExecution });
+			if (saved?.warning) toast.warning(saved.warning);
 
 			const typeKey = target.type === "route" ? "routes" : "workflows";
 			qc.setQueriesData<{ data?: Array<{ id: string; recordExecution?: boolean }> }>(
@@ -158,7 +169,11 @@ export function useRecordingSwitch(projectId: string, target: RecordingTarget) {
 
 	return {
 		// a sandbox is always recorded: there is no switch to wait for
+		// production's switch: what the Record button flips
 		isOn: target.type === "sandbox" || Boolean(data?.recordExecution),
+		// recording in either environment, for "is anything being kept"
+		isRecording:
+			target.type === "sandbox" || Boolean(data?.recordExecution || data?.devRecordExecution),
 		isLoading: target.type !== "sandbox" && !data,
 		isApplying: set.isPending,
 		set: set.mutate,

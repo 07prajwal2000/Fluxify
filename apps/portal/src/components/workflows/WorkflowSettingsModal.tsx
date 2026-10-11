@@ -17,7 +17,9 @@ import { useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Section } from "@/components/common/Section";
-import { RecordingSwitch, useRetentionNote } from "@/components/recordings/RecordingControls";
+import { useRetentionNote } from "@/components/recordings/RecordingControls";
+import { ObservabilityTabs } from "@/components/settings/ObservabilityTabs";
+import { changedObservability, type Observability } from "@/components/settings/observability";
 import { AttachedTriggers } from "@/components/triggers/AttachedTriggers";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { workflowsQuery } from "@/query/workflowsQuery";
@@ -92,7 +94,13 @@ function WorkflowSettingsForm({
 	const [description, setDescription] = useState(workflow.description ?? "");
 	const [active, setActive] = useState(Boolean(workflow.active));
 	const [timeoutSeconds, setTimeoutSeconds] = useState(workflow.timeoutSeconds);
-	const [tracingEnabled, setTracingEnabled] = useState(workflow.tracingEnabled);
+	const [observability, setObservability] = useState<Observability>({
+		devRecordExecution: workflow.devRecordExecution,
+		devTracingEnabled: workflow.devTracingEnabled,
+		recordExecution: workflow.recordExecution,
+		tracingEnabled: workflow.tracingEnabled,
+	});
+	const [observabilityBaseline] = useState(observability);
 	const [tab, setTab] = useState("general");
 	const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -102,22 +110,27 @@ function WorkflowSettingsForm({
 			description,
 			active,
 			timeoutSeconds,
-			tracingEnabled,
 		}),
-		[name, description, active, timeoutSeconds, tracingEnabled],
+		[name, description, active, timeoutSeconds],
 	);
 	const [baseline] = useState(() => JSON.stringify(payload));
-	const isDirty = JSON.stringify(payload) !== baseline;
+	const observabilityChanges = changedObservability(observabilityBaseline, observability);
+	const isDirty =
+		JSON.stringify(payload) !== baseline || Object.keys(observabilityChanges).length > 0;
 	const nameIsValid = name.trim().length >= 2;
 
 	function save() {
-		update.mutate(payload, {
-			onSuccess: () => {
-				toast.success("Workflow settings saved");
-				onSaved();
+		update.mutate(
+			{ ...payload, ...observabilityChanges },
+			{
+				onSuccess: (result) => {
+					toast.success("Workflow settings saved");
+					if (result?.warning) toast.warning(result.warning);
+					onSaved();
+				},
+				onError: (error) => showErrorNotification(error as Error),
 			},
-			onError: (error) => showErrorNotification(error as Error),
-		});
+		);
 	}
 
 	function deleteWorkflow() {
@@ -233,25 +246,14 @@ function WorkflowSettingsForm({
 						</Section>
 
 						<Section
-							title="Telemetry"
-							description="Collect traces for every run. Useful while building, noise once the workflow is boring."
+							title="Observability"
+							description={`What to keep and export for each environment. Recording keeps runs here, to replay on the canvas. Tracing sends spans to your own backend. Applies right away, and is not part of a workflow version. ${retentionNote}`}
 						>
-							<Switch
-								isSelected={tracingEnabled}
-								onChange={setTracingEnabled}
-								isDisabled={readOnly}
-								label={tracingEnabled ? "Telemetry enabled" : "Telemetry disabled"}
-							/>
-						</Section>
-
-						<Section
-							title="Recording"
-							description={`Keep a copy of each run in Fluxify, inputs and outputs included, to replay it on the canvas from the Executions tab. Telemetry sends traces to your own backend; Recording keeps them here. Applies right away. ${retentionNote}`}
-						>
-							<RecordingSwitch
-								projectId={workflow.projectId}
-								target={{ type: "workflow", id: workflow.id }}
+							<ObservabilityTabs
+								value={observability}
+								onChange={setObservability}
 								readOnly={readOnly}
+								noun="workflow"
 							/>
 						</Section>
 					</Tabs.Panel>

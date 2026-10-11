@@ -5,17 +5,22 @@ import {
 	type ApiPlaygroundState,
 	Spinner,
 } from "@fluxify/components";
-import { isAxiosError } from "axios";
 import { useCallback, useState } from "react";
+import { TbPlayerRecord } from "react-icons/tb";
 import { useBlockErrorFocus } from "@/components/canvas/diagnostics/blockErrorFocus";
+import { EmptyState } from "@/components/common/EmptyState";
+import {
+	DEV_ROUTE_PREFIX,
+	DEV_WORKER_MESSAGE,
+	sendSandboxRequest,
+} from "@/components/sandboxes/sandboxRequest";
+import { useDevToken, useDevWorkerUrl } from "@/components/sandboxes/useDevWorkerUrl";
 import { routesQuery } from "@/query/routesQuery";
-import { routesService } from "@/services/routes";
+import { sandboxesQuery } from "@/query/sandboxesQuery";
 import { useCanvasPlaygroundCacheStore } from "@/store/canvasPlaygroundCache";
 
 type RouteApiPlaygroundProps = {
 	routeId: string;
-	/** The public route runtime origin, not the portal API origin. */
-	baseUrl: string;
 	/** Override transport for auth, proxies, or a mock server. */
 	onSend?: (request: ApiPlaygroundRequest) => Promise<ApiPlaygroundResponse>;
 	className?: string;
@@ -28,10 +33,11 @@ type RouteApiPlaygroundProps = {
 /**
  * Fluxify-specific bridge: React Query owns route loading, while the component
  * package stays portable and receives only route data plus a request callback.
+ * Trying a route out always lands on the development worker, at `/_/dev` with
+ * the project's development token, never on production.
  */
 export function RouteApiPlayground({
 	routeId,
-	baseUrl,
 	onSend,
 	className,
 	isFramed,
@@ -40,7 +46,23 @@ export function RouteApiPlayground({
 }: RouteApiPlaygroundProps) {
 	const route = routesQuery.byId.useQuery(routeId);
 	const selectBlock = useBlockErrorFocus();
-	const send = onSend ?? ((request: ApiPlaygroundRequest) => sendThroughAdmin(routeId, request));
+	const projectId = route.data?.projectId ?? "";
+	const devUrl = `${useDevWorkerUrl(projectId)}${DEV_ROUTE_PREFIX}`;
+	const token = useDevToken(projectId);
+	const { data: online = true } = sandboxesQuery.devWorker.useQuery(projectId);
+	const send =
+		onSend ??
+		(async (request: ApiPlaygroundRequest) => {
+			if (!token.data) {
+				return {
+					status: 0,
+					statusText: "No token",
+					body: "The development token could not be loaded, so the call was not sent.",
+					mimeType: "text/plain",
+				};
+			}
+			return sendSandboxRequest(request, token.data.token);
+		});
 	const [initialState] = useState(
 		() =>
 			replay ??
@@ -70,11 +92,22 @@ export function RouteApiPlayground({
 				Route details are unavailable.
 			</div>
 		);
+	if (!online) {
+		return (
+			<div className="grid h-full place-items-center p-6">
+				<EmptyState
+					icon={<TbPlayerRecord size={28} />}
+					title="No development worker"
+					description={DEV_WORKER_MESSAGE}
+				/>
+			</div>
+		);
+	}
 	return (
 		<ApiPlayground
 			className={className}
 			isFramed={isFramed}
-			baseUrl={baseUrl}
+			baseUrl={devUrl}
 			onSend={send}
 			onSelectBlock={selectBlock}
 			route={route.data}
@@ -82,64 +115,4 @@ export function RouteApiPlayground({
 			onStateChange={handleStateChange}
 		/>
 	);
-}
-
-async function executeRequest(request: ApiPlaygroundRequest): Promise<ApiPlaygroundResponse> {
-	const startedAt = performance.now();
-	const headers = new Headers(request.headers);
-	// The browser supplies multipart boundaries; a manually-set value would break them.
-	if (request.body instanceof FormData) headers.delete("content-type");
-	const response = await fetch(request.url, {
-		method: request.method,
-		headers,
-		body: request.body,
-	});
-	const body = await response.text();
-	return {
-		status: response.status,
-		statusText: response.statusText,
-		headers: response.headers,
-		body,
-		mimeType: response.headers.get("content-type") ?? undefined,
-		durationMs: Math.round(performance.now() - startedAt),
-		bytes: new TextEncoder().encode(body).byteLength,
-	};
-}
-
-/**
- * The admin call endpoint is the only way to get a failed run's real error. It
- * takes JSON/text bodies and a creator role; anything else goes straight from
- * the browser as before, without the debug error.
- */
-async function sendThroughAdmin(
-	routeId: string,
-	request: ApiPlaygroundRequest,
-): Promise<ApiPlaygroundResponse> {
-	if (request.body !== undefined && typeof request.body !== "string") {
-		return executeRequest(request);
-	}
-	try {
-		const result = await routesService.call(routeId, {
-			params: request.pathParams,
-			query: request.query,
-			headers: request.headers,
-			body: request.body || undefined,
-			debug: true,
-		});
-		if (result.status === null) throw new Error(result.error ?? "Could not reach the route");
-		const body = typeof result.body === "string" ? result.body : JSON.stringify(result.body);
-		return {
-			status: result.status,
-			headers: result.headers,
-			body,
-			mimeType: result.contentType ?? undefined,
-			durationMs: result.durationMs,
-			bytes: new TextEncoder().encode(body).byteLength,
-			debugError: result.debugError,
-		};
-	} catch (error) {
-		// viewers cannot use the call endpoint; they keep the plain playground
-		if (isAxiosError(error) && error.response?.status === 403) return executeRequest(request);
-		throw error;
-	}
 }

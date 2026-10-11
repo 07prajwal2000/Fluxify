@@ -4,15 +4,13 @@ import {
 	type ApiPlaygroundState,
 	Button,
 } from "@fluxify/components";
-import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { TbPlayerRecord } from "react-icons/tb";
 import { useCanvasPlayground } from "@/components/canvas/PlaygroundContext";
 import { EmptyState } from "@/components/common/EmptyState";
-import { projectDevTokenService } from "@/services/projectDevToken";
 import { recordingsService } from "@/services/recordings";
 import { DEV_WORKER_MESSAGE, sandboxBaseUrl, sendSandboxRequest } from "./sandboxRequest";
-import { useDevWorkerUrl } from "./useDevWorkerUrl";
+import { useDevToken, useDevWorkerUrl } from "./useDevWorkerUrl";
 
 const POLL_MS = 700;
 const POLL_TRIES = 6;
@@ -56,12 +54,7 @@ export function SandboxPlayground({
 	const baseUrl = sandboxBaseUrl(useDevWorkerUrl(projectId), sandboxId);
 	const playground = useCanvasPlayground();
 	const [latestRun, setLatestRun] = useState<string | null>(null);
-	// shares its cache with the Development access settings; the token is only ever sent, never shown
-	const token = useQuery({
-		queryKey: ["project-dev-token", projectId],
-		queryFn: () => projectDevTokenService.get(projectId),
-		refetchOnWindowFocus: false,
-	});
+	const token = useDevToken(projectId);
 	const route = useMemo(
 		() => ({ path: replay?.path ?? "/", method: replay?.method ?? "GET" }),
 		[replay],

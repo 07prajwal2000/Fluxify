@@ -1,4 +1,4 @@
-import { Button, Chip, cn, DeleteIconButton } from "@fluxify/components";
+import { Button, Chip, CustomSelect, cn, DeleteIconButton } from "@fluxify/components";
 import { useEffect, useState } from "react";
 import { TbCheck, TbPlayerRecord, TbX } from "react-icons/tb";
 import { EmptyState } from "@/components/common/EmptyState";
@@ -12,6 +12,13 @@ import { workflowsQuery } from "@/query/workflowsQuery";
 import type { RecordedRunSummary, RecordingTarget } from "@/services/recordings";
 import { useRetentionNote } from "./RecordingControls";
 import { isIncomplete } from "./spans";
+
+type EnvFilter = "all" | "development" | "production";
+const ENV_OPTIONS = [
+	{ value: "all", label: "All environments" },
+	{ value: "development", label: "Development" },
+	{ value: "production", label: "Production" },
+];
 
 export function OutcomeIcon({ outcome }: { outcome: "success" | "failure" }) {
 	return outcome === "success" ? (
@@ -53,6 +60,7 @@ export function RecordedRunList({
 	const [page, setPage] = useState(1);
 	const [outcomeFilter, setOutcomeFilter] = useState<"all" | "success" | "failure">("all");
 	const [sourceFilter, setSourceFilter] = useState<"all" | "test" | "live">("all");
+	const [envFilter, setEnvFilter] = useState<EnvFilter>("all");
 	const [focusedIndex, setFocusedIndex] = useState(-1);
 	const retentionNote = useRetentionNote();
 
@@ -77,6 +85,7 @@ export function RecordedRunList({
 		true,
 		outcomeFilter === "all" ? undefined : outcomeFilter,
 		sourceFilter === "all" ? {} : { source: sourceFilter },
+		envFilter === "all" ? undefined : envFilter,
 	);
 	const remove = recordingsQuery.deleteRun.useMutation(projectId, target);
 	const recording = useRecordingSwitch(projectId, target);
@@ -114,14 +123,20 @@ export function RecordedRunList({
 		);
 	}
 
-	if (items.length === 0 && page === 1 && outcomeFilter === "all" && sourceFilter === "all") {
+	if (
+		items.length === 0 &&
+		page === 1 &&
+		outcomeFilter === "all" &&
+		sourceFilter === "all" &&
+		envFilter === "all"
+	) {
 		return (
 			<div className="p-6">
 				<EmptyState
 					icon={<TbPlayerRecord size={24} />}
-					title={recording.isOn ? "Waiting for the first run" : "Recording is off"}
+					title={recording.isRecording ? "Waiting for the first run" : "Recording is off"}
 					description={
-						recording.isOn
+						recording.isRecording
 							? `Recording is on. To see a run here, ${emptyHint}. ${retentionNote}`
 							: `Turn recording on with the Record button, then ${emptyHint}. ${retentionNote}`
 					}
@@ -181,6 +196,20 @@ export function RecordedRunList({
 									{label}
 								</button>
 							))}
+						</div>
+					)}
+					{target.type !== "sandbox" && (
+						<div className="w-48">
+							<CustomSelect
+								aria-label="Filter by environment"
+								options={ENV_OPTIONS}
+								value={envFilter}
+								onChange={(value) => {
+									setEnvFilter(value as EnvFilter);
+									setPage(1);
+									setFocusedIndex(-1);
+								}}
+							/>
 						</div>
 					)}
 					<div className="flex items-center gap-1 rounded-lg border border-border bg-background p-0.5">
@@ -257,6 +286,11 @@ export function RecordedRunList({
 							<OutcomeIcon outcome={run.outcome} />
 							{run.statusCode != null && (
 								<span className="font-mono text-xs text-foreground">{run.statusCode}</span>
+							)}
+							{run.env && (
+								<Chip size="sm" color={run.env === "development" ? "accent" : "default"}>
+									{run.env === "development" ? "Dev" : "Prod"}
+								</Chip>
 							)}
 							{run.metadata && (
 								<Chip size="sm" color="accent" title={run.metadata.label}>

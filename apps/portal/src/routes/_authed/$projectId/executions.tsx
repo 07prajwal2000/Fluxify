@@ -7,7 +7,6 @@ import { RouteApiPlayground } from "@/components/RouteApiPlayground";
 import { ExecutionRecordings } from "@/components/recordings/ExecutionRecordings";
 import { ExecutionTargetHeader } from "@/components/recordings/ExecutionTargetHeader";
 import type { Replay } from "@/components/recordings/replay";
-import { useProjectApiBaseUrl } from "@/components/settings/SubdomainField";
 import { WorkflowRunModal } from "@/components/workflows/WorkflowRunModal";
 import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
 import { projectsQuery } from "@/query/projectsQuery";
@@ -38,7 +37,6 @@ function ExecutionsPage() {
 	const navigate = Route.useNavigate();
 	const { data: project } = projectsQuery.byId.useQuery(projectId);
 	usePageTitle(formatProjectTitle(project?.name, "Executions"));
-	const apiBaseUrl = useProjectApiBaseUrl(projectId);
 
 	const routesRes = routesQuery.getAll.useQuery({ projectId, page: 1, perPage: 50 });
 	const workflowsRes = workflowsQuery.getAll.useQuery({ projectId, page: 1, perPage: 50 });
@@ -215,7 +213,6 @@ function ExecutionsPage() {
 									<RouteApiPlayground
 										key={targetId}
 										routeId={targetId}
-										baseUrl={apiBaseUrl}
 										isFramed={false}
 										replay={replay?.kind === "request" ? replay.state : undefined}
 									/>
