@@ -11,6 +11,7 @@ import { useBlockErrorFocus } from "@/components/canvas/diagnostics/blockErrorFo
 import { EmptyState } from "@/components/common/EmptyState";
 import {
 	DEV_ROUTE_PREFIX,
+	DEV_URL_NOTE,
 	DEV_WORKER_MESSAGE,
 	sendSandboxRequest,
 } from "@/components/sandboxes/sandboxRequest";
@@ -108,6 +109,7 @@ export function RouteApiPlayground({
 			className={className}
 			isFramed={isFramed}
 			baseUrl={devUrl}
+			urlNote={DEV_URL_NOTE}
 			onSend={send}
 			onSelectBlock={selectBlock}
 			route={route.data}

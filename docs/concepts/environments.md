@@ -142,8 +142,10 @@ The route behaves exactly as it does on its public URL: the same method, the
 same request checks and the same middlewares. Your blocks see the path without
 `/_/dev` (`/users/42` above), and they never see the token.
 
-The token also picks the project. A project with its own subdomain only takes
-its own token on that subdomain.
+The token also picks the project, so you do not need the project's subdomain:
+the development address works on a bare host such as `localhost:5602` too. If you
+do use a subdomain, it must be the one of the token's own project; another
+project's subdomain answers `404`.
 
 ## Recording and tracing per environment
 

@@ -8,6 +8,7 @@ GlobalRegistrator.register();
 // route hands it matters, so it is swapped for a stub that exposes its props.
 type StubProps = {
 	baseUrl?: string;
+	urlNote?: string;
 	onSend: (request: Record<string, unknown>) => Promise<unknown>;
 };
 let stub: StubProps | undefined;
@@ -81,6 +82,7 @@ test("requests go to DEV_WORKER_URL/_/dev with the token header, which is never 
 	await until(() => {
 		if (stub?.baseUrl !== "http://localhost:5602/_/dev") throw new Error("not mounted");
 	});
+	expect(stub?.urlNote).toContain("subdomain is not needed");
 	await until(() => expect(projectDevTokenService.get).toHaveBeenCalled());
 	await until(() => expect(sandboxesService.devWorkerOnline).toHaveBeenCalled());
 

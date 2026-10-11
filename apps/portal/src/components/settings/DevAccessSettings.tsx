@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { TbCopy, TbRefresh } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
-import { DEV_ROUTE_PREFIX } from "@/components/sandboxes/sandboxRequest";
+import { DEV_ROUTE_PREFIX, DEV_URL_NOTE } from "@/components/sandboxes/sandboxRequest";
 import { useDevWorkerUrl } from "@/components/sandboxes/useDevWorkerUrl";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { projectDevTokenService } from "@/services/projectDevToken";
@@ -65,6 +65,7 @@ function DevAccess({ projectId }: { projectId: string }) {
 				<div className="flex min-w-0 flex-col gap-1">
 					<h3 className="font-medium text-foreground">Development URL</h3>
 					<code className="truncate text-sm text-muted">{devUrl}</code>
+					<p className="text-xs text-muted">{DEV_URL_NOTE}</p>
 				</div>
 				<Button variant="secondary" onPress={() => copyText(devUrl, "URL copied")}>
 					<TbCopy size={16} /> Copy URL

@@ -82,6 +82,7 @@ test("shows the development URL on the project's subdomain, and copies it", asyn
 		expect(document.body.textContent).toContain("http://billing.example.test:5601/_/dev"),
 	);
 
+	expect(document.body.textContent).toContain("subdomain is not needed");
 	fireEvent.click(button("Copy URL")!);
 	await until(() => expect(copied).toEqual(["http://billing.example.test:5601/_/dev"]));
 });
