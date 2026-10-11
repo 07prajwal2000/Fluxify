@@ -12,6 +12,7 @@ import {
 	TbBook,
 	TbBoxMultiple,
 	TbFilter,
+	TbFlask,
 	TbGitFork,
 	TbHome,
 	TbKeyboard,
@@ -28,9 +29,11 @@ import {
 import { CustomBlockIcon } from "@/components/customBlocks/IconPicker";
 import { withBasePath } from "@/constants/routes";
 import { getTheme, toggleTheme } from "@/lib/theme";
+import { useCanEditProject } from "@/store/auth";
 import type { CanvasAction } from "../actions/useCanvasActions";
 import { type BlockType, blockIcon, pickerBlockCatalogEntries } from "../blocks";
 import { useAddableCustomBlockDefs } from "../blocks/useCustomBlockDefs";
+import { buildResourceCommands } from "./resourceCommands";
 import type { SpotlightCommand } from "./types";
 import { useSpotlightResources } from "./useSpotlightResources";
 
@@ -79,7 +82,8 @@ export function useSpotlightCommands({
 }: UseSpotlightCommandsOptions): SpotlightCommand[] {
 	const navigate = useNavigate();
 	const customDefs = useAddableCustomBlockDefs();
-	const { projectId, routes, workflows, customBlocks } = useSpotlightResources();
+	const { projectId, routes, workflows, customBlocks, sandboxes } = useSpotlightResources();
+	const canEdit = useCanEditProject(projectId);
 
 	return useMemo(() => {
 		const commands: SpotlightCommand[] = [];
@@ -268,6 +272,17 @@ export function useSpotlightCommands({
 				},
 			];
 
+			if (canEdit) {
+				navPages.push({
+					id: "nav-sandboxes",
+					title: "Go to: Sandboxes",
+					subtitle: "Navigation",
+					keywords: ["goto", "nav", "sandboxes", "sandbox", "scratch"],
+					icon: <TbFlask size={15} />,
+					to: "/$projectId/sandboxes",
+				});
+			}
+
 			for (const page of navPages) {
 				commands.push({
 					id: page.id,
@@ -332,6 +347,18 @@ export function useSpotlightCommands({
 				});
 			}
 
+			if (canEdit) {
+				commands.push({
+					id: "nav-new-sandbox",
+					title: "Create Sandbox",
+					subtitle: "New",
+					category: "Navigation",
+					keywords: ["new", "create", "add", "sandbox", "new sandbox"],
+					icon: <TbPlus size={15} />,
+					onSelect: () => open("/$projectId/sandboxes"),
+				});
+			}
+
 			commands.push({
 				id: "nav-new-integration",
 				title: "Create Integration",
@@ -360,62 +387,18 @@ export function useSpotlightCommands({
 				}
 			}
 
-			// 4. Resources (Switch Route / Workflow / Custom Block directly)
-			for (const route of routes) {
-				commands.push({
-					id: `resource-route-${route.id}`,
-					title: `Route: ${route.method} ${route.path}`,
-					subtitle: route.name ? `API Route • ${route.name}` : "API Route",
-					category: "Resources",
-					keywords: ["goto", "route", route.method, route.path, route.name ?? ""],
-					icon: <TbRoute size={15} />,
-					onSelect: () => {
-						onClose();
-						navigate({
-							to: "/$projectId/canvas/$routeId",
-							params: { projectId, routeId: route.id },
-						} as any);
-					},
-				});
-			}
-
-			for (const wf of workflows) {
-				commands.push({
-					id: `resource-workflow-${wf.id}`,
-					title: `Workflow: ${wf.name}`,
-					subtitle: `Workflow • ${wf.active ? "Active" : "Draft"}`,
-					description: wf.description ?? undefined,
-					category: "Resources",
-					keywords: ["goto", "workflow", wf.name, wf.description ?? ""],
-					icon: <TbGitFork size={15} />,
-					onSelect: () => {
-						onClose();
-						navigate({
-							to: "/$projectId/workflow-canvas/$workflowId",
-							params: { projectId, workflowId: wf.id },
-						} as any);
-					},
-				});
-			}
-
-			for (const cb of customBlocks) {
-				commands.push({
-					id: `resource-custom-block-${cb.id}`,
-					title: `Custom Block: ${cb.label || cb.name}`,
-					subtitle: "Custom Block Canvas",
-					description: cb.description ?? undefined,
-					category: "Resources",
-					keywords: ["goto", "custom", "block", cb.name, cb.label ?? ""],
-					icon: <TbBoxMultiple size={15} />,
-					onSelect: () => {
-						onClose();
-						navigate({
-							to: "/$projectId/custom-block-canvas/$blockId",
-							params: { projectId, blockId: cb.id },
-						} as any);
-					},
-				});
-			}
+			// 4. Resources (Switch Route / Workflow / Custom Block / Sandbox directly)
+			commands.push(
+				...buildResourceCommands({
+					projectId,
+					routes,
+					workflows,
+					customBlocks,
+					sandboxes,
+					onClose,
+					navigate,
+				}),
+			);
 		}
 
 		// 5. Help / Documentation & Shortcuts
@@ -464,6 +447,8 @@ export function useSpotlightCommands({
 		routes,
 		workflows,
 		customBlocks,
+		sandboxes,
+		canEdit,
 		navigate,
 	]);
 }

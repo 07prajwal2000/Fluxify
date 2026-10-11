@@ -39,8 +39,20 @@ mock.module("@/query/integrationsQuery", () => ({
 		getBasicList: { useQuery: basicList },
 	},
 }));
+const mockSandboxes = [{ id: "s1", name: "my scratch" }];
+const { authStore } = await import("@/store/auth");
 mock.module("@/components/canvas/spotlight/useSpotlightResources", () => ({
-	useSpotlightResources: () => ({ projectId: "p1", routes: [], workflows: [], customBlocks: [] }),
+	useSpotlightResources: () => {
+		const role = authStore.getState().state.acl.p1;
+		const canEdit = role !== "viewer";
+		return {
+			projectId: "p1",
+			routes: [],
+			workflows: [],
+			customBlocks: [],
+			sandboxes: canEdit ? mockSandboxes : [],
+		};
+	},
 }));
 mock.module("@/components/canvas/blocks/useCustomBlockDefs", () => ({
 	useCustomBlockDefs: () => [],
@@ -52,14 +64,26 @@ mock.module("@/components/canvas/blocks/useCustomBlockDefs", () => ({
 const { cleanup, fireEvent, render } = await import("@testing-library/react");
 const { ProjectSpotlight } = await import("./ProjectSpotlight");
 
+function setRole(role: "creator" | "viewer") {
+	authStore.setState((s) => {
+		s.state.acl = { p1: role };
+		s.state.userData = { id: "u", name: "U", email: "u@x.io", isSystemAdmin: false };
+	});
+}
+
 afterEach(() => {
 	cleanup();
 	navigate.mockClear();
 	basicList.mockClear();
+	authStore.setState((s) => {
+		s.state.acl = {};
+		s.state.userData = { id: "", name: "", email: "", image: "" };
+	});
 });
 afterAll(() => GlobalRegistrator.unregister());
 
-function setup(isOpen: boolean) {
+function setup(isOpen: boolean, role: "creator" | "viewer" = "creator") {
+	setRole(role);
 	const onOpenChange = mock();
 	const onSignOut = mock();
 	const ui = render(
@@ -122,4 +146,26 @@ test("integrations are fetched on the first search, not before", () => {
 		to: "/$projectId/integrations/$integrationId",
 		params: { projectId: "p1", integrationId: "i1" },
 	});
+});
+
+test("sandboxes show and filter, open navigates", () => {
+	const { ui, onOpenChange } = setup(true, "creator");
+	fireEvent.change(ui.getByRole("textbox"), { target: { value: "scratch" } });
+	expect(ui.getByText("Sandbox: my scratch")).toBeTruthy();
+	fireEvent.click(ui.getByText("Sandbox: my scratch"));
+	expect(onOpenChange).toHaveBeenCalledWith(false);
+	expect(navigate).toHaveBeenCalledWith({
+		to: "/$projectId/sandbox-canvas/$sandboxId",
+		params: { projectId: "p1", sandboxId: "s1" },
+	});
+});
+
+test("viewer sees no sandboxes and no create sandbox command", () => {
+	const { ui } = setup(true, "viewer");
+	fireEvent.change(ui.getByRole("textbox"), { target: { value: "scratch" } });
+	expect(ui.queryByText("Sandbox: my scratch")).toBeNull();
+	fireEvent.change(ui.getByRole("textbox"), { target: { value: "sandbox" } });
+	expect(ui.queryByText("Sandbox: my scratch")).toBeNull();
+	expect(ui.queryByText("Create Sandbox")).toBeNull();
+	expect(ui.queryByText("Go to: Sandboxes")).toBeNull();
 });

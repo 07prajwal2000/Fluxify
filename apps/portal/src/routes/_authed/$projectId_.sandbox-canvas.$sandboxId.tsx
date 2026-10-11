@@ -1,7 +1,7 @@
 import { Button, toast } from "@fluxify/components";
 import { createFileRoute, isRedirect, redirect, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { TbActivity, TbArrowLeft, TbSettings } from "react-icons/tb";
+import { TbActivity, TbSettings } from "react-icons/tb";
 import z from "zod";
 import { CanvasWorkbench } from "@/components/canvas";
 import { RecordingsModal } from "@/components/recordings/ExecutionRecordings";
@@ -10,6 +10,7 @@ import { DevWorkerBanner } from "@/components/sandboxes/DevWorkerBanner";
 import { SandboxPlayground } from "@/components/sandboxes/SandboxPlayground";
 import { SandboxRunButton, SandboxRunModal } from "@/components/sandboxes/SandboxRunModal";
 import { SandboxSettingsModal } from "@/components/sandboxes/SandboxSettingsModal";
+import { SandboxSwitcher } from "@/components/sandboxes/SandboxSwitcher";
 import { createRouteHead, usePageTitle } from "@/lib/seo";
 import { useProjectPackageTypes } from "@/query/projectPackagesQuery";
 import { sandboxesQuery } from "@/query/sandboxesQuery";
@@ -103,19 +104,7 @@ function SandboxCanvasPage() {
 						}}
 					/>
 				}
-				headerLeft={
-					<>
-						<Button
-							variant="ghost"
-							aria-label="Back to sandboxes"
-							onPress={() => navigate({ to: "/$projectId/sandboxes", params: { projectId } })}
-						>
-							<TbArrowLeft size={16} />
-						</Button>
-						<span className="font-medium">{name}</span>
-						<span className="text-xs text-muted">Sandbox</span>
-					</>
-				}
+				headerLeft={<SandboxSwitcher projectId={projectId} sandboxId={sandboxId} />}
 				headerActions={
 					<>
 						<Button

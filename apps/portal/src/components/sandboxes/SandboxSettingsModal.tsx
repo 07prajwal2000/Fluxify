@@ -2,6 +2,7 @@ import {
 	Button,
 	Checkbox,
 	CloseButton,
+	DeleteButton,
 	Input,
 	Label,
 	Modal,
@@ -10,7 +11,9 @@ import {
 	TextField,
 	toast,
 } from "@fluxify/components";
+import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Section } from "@/components/common/Section";
 import { AttachedTriggers } from "@/components/triggers/AttachedTriggers";
 import { showErrorNotification } from "@/lib/errorNotifier";
@@ -78,7 +81,10 @@ function SettingsForm({
 	const [name, setName] = useState(sandbox.name);
 	const [tracing, setTracing] = useState(sandbox.settings.tracingEnabled);
 	const [tab, setTab] = useState("general");
+	const [confirmDelete, setConfirmDelete] = useState(false);
 	const update = sandboxesQuery.update.mutation(projectId);
+	const remove = sandboxesQuery.remove.mutation(projectId);
+	const navigate = useNavigate();
 	const trimmed = name.trim();
 	const isDirty = trimmed !== sandbox.name || tracing !== sandbox.settings.tracingEnabled;
 
@@ -93,6 +99,21 @@ function SettingsForm({
 				onError: (error) => showErrorNotification(error),
 			},
 		);
+	}
+
+	function deleteSandbox() {
+		remove.mutate(sandbox.id, {
+			onSuccess: () => {
+				toast.success("Sandbox deleted");
+				setConfirmDelete(false);
+				onClose();
+				navigate({
+					to: "/$projectId/sandboxes",
+					params: { projectId },
+				});
+			},
+			onError: (error) => showErrorNotification(error),
+		});
 	}
 
 	return (
@@ -118,6 +139,7 @@ function SettingsForm({
 					>
 						<Tabs.Tab id="general">General</Tabs.Tab>
 						<Tabs.Tab id="triggers">Triggers</Tabs.Tab>
+						{!readOnly && <Tabs.Tab id="danger">Danger zone</Tabs.Tab>}
 					</Tabs.List>
 
 					<Tabs.Panel id="general" className="min-h-0 flex-1 overflow-y-auto p-5">
@@ -155,8 +177,40 @@ function SettingsForm({
 							readOnly={readOnly}
 						/>
 					</Tabs.Panel>
+
+					{!readOnly && (
+						<Tabs.Panel id="danger" className="min-h-0 flex-1 overflow-y-auto p-5">
+							<Section
+								title="Delete this sandbox"
+								description="Its blocks, triggers and recordings go with it. This cannot be undone."
+							>
+								<div className="flex items-center justify-between rounded-md border border-danger/40 bg-danger/10 px-4 py-3">
+									<div className="min-w-0">
+										<p className="truncate text-xs">{sandbox.name}</p>
+										<p className="text-xs text-muted">
+											Blocks, triggers and recordings will be deleted.
+										</p>
+									</div>
+									<DeleteButton onPress={() => setConfirmDelete(true)}>Delete sandbox</DeleteButton>
+								</div>
+							</Section>
+						</Tabs.Panel>
+					)}
 				</Tabs>
 			</Modal.Body>
+
+			<ConfirmDialog
+				open={confirmDelete}
+				onOpenChange={setConfirmDelete}
+				title="Delete sandbox?"
+				danger
+				confirmText="Delete"
+				pending={remove.isPending}
+				onConfirm={deleteSandbox}
+			>
+				Delete <b className="text-foreground">{sandbox.name}</b>? Its blocks, triggers and
+				recordings will be deleted. This cannot be undone.
+			</ConfirmDialog>
 
 			<Modal.Footer className="flex shrink-0 flex-row items-center gap-3 border-t border-border px-5 py-3">
 				<span className="text-xs text-muted">

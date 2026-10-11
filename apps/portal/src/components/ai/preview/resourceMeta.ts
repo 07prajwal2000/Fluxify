@@ -31,12 +31,15 @@ export const META: Record<RefType, Meta> = {
 		fields: ["value", "description", "isEncrypted"],
 	},
 	test_suite: { idKey: "testSuiteId", names: ["name"], fields: ["targetType", "targetId"] },
+	sandbox: { idKey: "sandboxId", names: ["name"], fields: ["settings", "updatedAt"] },
 };
 
-/** `save_route` → route + save; anything that is not a save or delete of a resource → nothing. */
+/** `save_route` → route + save; `create_sandbox` → sandbox + create; anything that is not a save, create or delete of a resource → nothing. */
 export function resourceOf(tool: string) {
-	const m = /^(save|delete)_(.+)$/.exec(tool);
-	return m && isRefType(m[2]) ? { verb: m[1] as "save" | "delete", type: m[2] } : undefined;
+	const m = /^(save|delete|create)_(.+)$/.exec(tool);
+	return m && isRefType(m[2])
+		? { verb: m[1] as "save" | "delete" | "create", type: m[2] }
+		: undefined;
 }
 
 /** Fields that say which resource, not what about it: never a change. */
@@ -63,6 +66,7 @@ export const LISTED: Record<string, RefType> = {
 	integrations: "integration",
 	app_config: "app_config",
 	test_suites: "test_suite",
+	sandboxes: "sandbox",
 };
 
 /**

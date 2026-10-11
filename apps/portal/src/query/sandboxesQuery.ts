@@ -13,10 +13,11 @@ const canvasKey = (projectId: string, id: string) => ["sandboxes", projectId, id
 
 export const sandboxesQuery = {
 	getAll: {
-		useQuery(projectId: string) {
+		useQuery(projectId: string, enabled = true) {
 			return useQuery({
 				queryKey: listKey(projectId),
 				queryFn: () => sandboxesService.list(projectId),
+				enabled: Boolean(projectId) && enabled,
 				refetchOnWindowFocus: false,
 			});
 		},

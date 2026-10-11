@@ -8,6 +8,7 @@ export const REF_TYPES = [
 	"integration",
 	"app_config",
 	"test_suite",
+	"sandbox",
 ] as const;
 export type RefType = (typeof REF_TYPES)[number];
 
@@ -52,5 +53,8 @@ export function refPath(
 		case "test_suite":
 			if (suite?.routeId) return `${p}/canvas/${suite.routeId}/test-suites`;
 			if (suite?.workflowId) return `${p}/workflow-canvas/${suite.workflowId}/test-suites`;
+			break;
+		case "sandbox":
+			return `${p}/sandbox-canvas/${id}`;
 	}
 }
