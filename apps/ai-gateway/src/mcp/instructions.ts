@@ -37,5 +37,5 @@ Building tips:
 - Say "no behaviour change" only after you call the rewired branch with input that takes it (call_route or a test suite), not just any 200.
 - Block text inputs are literal unless they start with \`js:\` followed by code that returns the value (e.g. \`js: return input.id\`); never use \`{{ }}\`.
 - call_route returns the real error and a short trace of the blocks that ran. Check get_system_logs after a change: compile errors show up there.
-- Stop when the tests pass or the route works; don't keep polishing.
-- Prefer one route per endpoint; share logic with custom blocks or middlewares.`;
+- Work in development. Read or change production only when the user explicitly asks for it: reads take env: "production", writes set production's own value or config (value, config) or save a trigger. The user is asked first. Otherwise leave env out and set devValue / devConfig.
+- Stop when the tests pass or the route works; don't keep polishing. Prefer one route per endpoint; share logic with custom blocks or middlewares.`;

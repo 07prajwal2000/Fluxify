@@ -36,7 +36,13 @@ describe("integration inspect tools (#652)", () => {
 	it("kv_get reads one key", async () => {
 		const { api, calls } = fakeApi();
 		await run("kv_get", { projectId: "p", integrationId: "i", key: "users:all" }, api);
-		expect(calls).toEqual([["/v1/p/integrations/i/kv", { key: "users:all" }]]);
+		expect(calls).toEqual([["/v1/p/integrations/i/kv", { key: "users:all", env: "development" }]]);
+	});
+
+	it("kv_get reads production only when asked (#737)", async () => {
+		const { api, calls } = fakeApi();
+		await run("kv_get", { projectId: "p", integrationId: "i", key: "k", env: "production" }, api);
+		expect(calls).toEqual([["/v1/p/integrations/i/kv", { key: "k", env: "production" }]]);
 	});
 
 	it("are creator-only reads, loaded on demand", () => {

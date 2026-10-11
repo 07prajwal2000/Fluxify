@@ -35,5 +35,20 @@ export async function currentResource(
 	const [read, idKey] = READS[tool];
 	const id = input[idKey];
 	if (id === undefined || id === null || id === "") return null;
-	return call(read, { projectId, [idKey]: id });
+	return call(read, {
+		projectId,
+		[idKey]: id,
+		...(showsProduction(tool, input) && { env: "production" }),
+	});
 }
+
+/**
+ * get_app_config and get_integration answer with development's side only (#737).
+ * The card needs production's when the call sets it, or deletes the resource:
+ * this is the person approving, not the agent.
+ */
+const showsProduction = (tool: string, input: Record<string, unknown>) =>
+	tool === "delete_app_config" ||
+	tool === "delete_integration" ||
+	(tool === "save_app_config" && input.value !== undefined) ||
+	(tool === "save_integration" && input.config !== undefined);

@@ -45,6 +45,11 @@ export const buildAgent: RunDeps["build"] = async (job, loaded) => {
 	for (const key of LIMIT_KEYS) settings[key] = await getProjectSetting(job.projectId, key);
 	const askBeforeEphemeralRuns =
 		(await getProjectSetting(job.projectId, "settings.ai.askBeforeEphemeralRuns")) === "true";
+	// on unless the project turned them off
+	const askBeforeProductionReads =
+		(await getProjectSetting(job.projectId, "settings.ai.askBeforeProductionReads")) !== "false";
+	const askBeforeProductionWrites =
+		(await getProjectSetting(job.projectId, "settings.ai.askBeforeProductionWrites")) !== "false";
 	const token = mintAgentToken(job.userId, job.projectId);
 	const { tools, active, load } = agentTools(
 		httpAdminFetch,
@@ -61,6 +66,8 @@ export const buildAgent: RunDeps["build"] = async (job, loaded) => {
 		limits: limitsFromProject(settings, process.env),
 		mode: job.mode,
 		askBeforeEphemeralRuns,
+		askBeforeProductionReads,
+		askBeforeProductionWrites,
 		effort: job.effort,
 	};
 };

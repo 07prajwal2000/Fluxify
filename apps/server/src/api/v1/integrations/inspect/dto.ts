@@ -12,6 +12,8 @@ export const schemaQuerySchema = z.object({
 
 export const kvQuerySchema = z.object({
 	key: z.string().min(1, "key is required"),
+	/** whose credentials to connect with; development unless asked */
+	env: z.enum(["development", "production"]).default("development"),
 });
 
 export const kvResponseSchema = z.object({

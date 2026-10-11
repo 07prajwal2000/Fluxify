@@ -47,6 +47,17 @@ export const pick = <T extends Record<string, unknown>>(row: T, keys: (keyof T)[
 	Object.fromEntries(keys.map((k) => [k, row[k]]));
 
 export const projectId = z.string().describe("Project id, from list_projects");
+/**
+ * The environment a read looks at (#737). Development unless production is
+ * asked for, and production only when the user asked: it asks first.
+ */
+export const envInput = (what = "") =>
+	z
+		.enum(["development", "production"])
+		.optional()
+		.describe(
+			`development by default. Only use production when the user explicitly asks for it${what ? `. ${what}` : ""}`,
+		);
 export const page = z.number().int().min(1).optional().describe("Page number, 1 by default");
 const search = z.string().optional().describe("Only items whose name contains this");
 
@@ -148,10 +159,14 @@ export const readTools: McpTool[] = [
 				.string()
 				.optional()
 				.describe("Only logs about this route, workflow, trigger or sandbox id"),
+			env: envInput(
+				"Runtime errors from this environment's workers; compile and orchestrator logs show for both",
+			),
 			limit: z.number().int().min(1).max(200).optional().describe("How many, 50 by default"),
 		},
 		call: async ({ get }, a) => {
 			const body = await get(`/v1/projects/${a.projectId}/system-logs`, {
+				env: a.env ?? "development",
 				level: a.level,
 				type: a.type,
 				resourceId: a.resourceId,
@@ -418,14 +433,15 @@ export const readTools: McpTool[] = [
 		name: "get_app_config",
 		title: "Get app config",
 		description:
-			"One app config entry with its production value and its development value (devValue, null while it has none). syncDev true means development reads the production value. Encrypted values come back masked.",
+			"One app config entry. By default only the development value (devValue, null while it has none; syncDev true means development reads the production value, so it shows that). env production also returns the production value. Encrypted values come back masked.",
 		role: "creator",
 		input: {
 			projectId,
 			appConfigId: z.number().int().describe("App config id, from list_app_config"),
+			env: envInput("production adds its value (the ask comes first)"),
 		},
-		call: async ({ get }, a) =>
-			pick(await get(`/v1/${a.projectId}/app-config/${a.appConfigId}`), [
+		call: async ({ get }, a) => {
+			const row = pick(await get(`/v1/${a.projectId}/app-config/${a.appConfigId}`), [
 				"id",
 				"keyName",
 				"description",
@@ -435,7 +451,12 @@ export const readTools: McpTool[] = [
 				"dataType",
 				"isEncrypted",
 				"encodingType",
-			]),
+			]);
+			if (a.env === "production") return row;
+			// development: its own value, or production's when it reads that
+			const { value, ...dev } = row;
+			return { ...dev, devValue: row.syncDev ? value : row.devValue };
+		},
 	},
 	{
 		name: "list_integrations",
@@ -450,13 +471,20 @@ export const readTools: McpTool[] = [
 		name: "get_integration",
 		title: "Get integration",
 		description:
-			"One integration's settings: config is production's, devConfig development's (null while it has none), syncDev true when development reads the production config.",
+			"One integration's settings. By default only the development config (devConfig, null while it has none; syncDev true means development uses the production config, so it shows that). env production also returns config, production's own.",
 		role: "creator",
 		input: {
 			projectId,
 			integrationId: z.string().describe("Integration id, from list_integrations"),
+			env: envInput("production adds config (the ask comes first)"),
 		},
-		call: async ({ get }, a) => get(`/v1/${a.projectId}/integrations/${a.integrationId}`),
+		call: async ({ get }, a) => {
+			const row = await get(`/v1/${a.projectId}/integrations/${a.integrationId}`);
+			if (a.env === "production") return row;
+			// development: its own config, or production's when it uses that
+			const { config, ...dev } = row;
+			return { ...dev, devConfig: row.syncDev ? config : row.devConfig };
+		},
 	},
 	{
 		name: "list_members",

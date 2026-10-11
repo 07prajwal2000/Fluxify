@@ -14,6 +14,7 @@ import { projectSettingsKeysQuery } from "@/query/projectSettingsKeysQuery";
 import { integrationService } from "@/services/integrations";
 import { useIsProjectAdmin } from "@/store/auth";
 import { EphemeralRunSettings } from "./EphemeralRunSettings";
+import { ProductionAskSettings } from "./ProductionAskSettings";
 
 export function AiConnectionsSettings({ projectId }: { projectId: string }) {
 	const { data, isLoading } = projectSettingsKeysQuery.getAll.useQuery(projectId);
@@ -48,6 +49,7 @@ export function AiConnectionsSettings({ projectId }: { projectId: string }) {
 			)}
 			{!isLoading && <AgentLimits projectId={projectId} settings={settings} />}
 			{!isLoading && <EphemeralRunSettings projectId={projectId} settings={settings} />}
+			{!isLoading && <ProductionAskSettings projectId={projectId} settings={settings} />}
 		</div>
 	);
 }

@@ -62,6 +62,11 @@ export function ApprovalBar({ request, onApprove, onReject, calls = [], onDecide
 									Deletes
 								</Chip>
 							)}
+							{request.isProd && (
+								<Chip size="sm" color="danger">
+									Production
+								</Chip>
+							)}
 						</span>
 						<span className="truncate font-mono text-xs text-muted">
 							{summarizeInput(request.name, request.input)}

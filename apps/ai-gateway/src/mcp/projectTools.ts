@@ -3,7 +3,7 @@ import { requestBodySchema as projectUpdate } from "@fluxify/server/src/api/v1/p
 import { z } from "zod";
 import type { AdminApi } from "./adminApi";
 import { blockKeys, DEBUG_RECIPE } from "./routeTools";
-import { type McpTool, page, pick, projectId } from "./tools";
+import { envInput, type McpTool, page, pick, projectId } from "./tools";
 
 const SAVE = { readOnlyHint: false, destructiveHint: false };
 const REMOVE = { readOnlyHint: false, destructiveHint: true, idempotentHint: true };
@@ -81,10 +81,7 @@ const recordings = (a: RunTarget) =>
 		: `/v1/${a.projectId}/recordings/${a.kind}/${a.targetId}/runs`;
 const RECORDING_NOTE = `Runs exist only while the route or workflow has recording on for that environment (devRecordExecution for development, on by default; recordExecution for production; save_route, save_workflow), and for every test run; a sandbox records every run, in development. Recorded data is kept as-is, so it can hold headers, bodies and secrets. To debug and fix: read_doc ${DEBUG_RECIPE}.`;
 
-const recordingEnv = z
-	.enum(["development", "production"])
-	.optional()
-	.describe("Only runs from this environment's workers. Both by default");
+const recordingEnv = envInput("Only runs from this environment's workers");
 
 /** A span without its payloads: enough to find the block that failed. */
 const shortSpan = ({ input: _i, output: _o, metadata, error, ...span }: any) => ({
@@ -171,6 +168,7 @@ export const projectTools: McpTool[] = [
 		call: async ({ get }, a) => {
 			const body = await get(recordings(a), {
 				...pick(a, ["outcome", "source", "testRunId", "env", "from", "to", "page"]),
+				env: a.env ?? "development",
 				perPage: 50,
 			});
 			return {
@@ -212,7 +210,7 @@ export const projectTools: McpTool[] = [
 			env: recordingEnv,
 		},
 		call: async ({ get }, a) => {
-			const run = await get(`${recordings(a)}/${a.runId}`, a.env ? { env: a.env } : undefined);
+			const run = await get(`${recordings(a)}/${a.runId}`, { env: a.env ?? "development" });
 			// spans only carry the block's uuid: the canvas knows its key. The agent works by
 			// key, so the uuid stays only for a block deleted since (stored spans are unchanged)
 			const keys = await blockKeys(get, { kind: a.kind, id: a.targetId, projectId: a.projectId });

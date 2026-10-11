@@ -2,13 +2,34 @@ import { type ChatMessage, type ToolPart, toolTitle } from "./agentMessages";
 
 /** What the approval bar asks about: the call waiting for an answer, or a finished plan in plan mode. */
 export type ApprovalRequest =
-	| { kind: "tool"; id?: string; name: string; title: string; input: unknown; isDelete: boolean }
+	| {
+			kind: "tool";
+			id?: string;
+			name: string;
+			title: string;
+			input: unknown;
+			isDelete: boolean;
+			isProd?: boolean;
+	  }
 	| { kind: "plan" };
 
 export type ToolRequest = Extract<ApprovalRequest, { kind: "tool" }>;
 
 /** Deletes (and removals) ask in every mode; the server uses the same rule. */
 export const isDeleteTool = (name: string) => /^(delete|remove)_/.test(name);
+
+/**
+ * A call that reads or changes production (#737): `env: "production"` on a read,
+ * a production value or config on a save, any trigger save. The server decides
+ * what asks; this only marks the card, so it follows the same shape.
+ */
+export function isProdCall(name: string, input: unknown) {
+	const i = (input ?? {}) as Record<string, unknown>;
+	if (name === "save_trigger") return true;
+	if (name === "save_app_config") return i.value !== undefined;
+	if (name === "save_integration") return i.config !== undefined;
+	return i.env === "production";
+}
 
 const unanswered = (p: { type: string }): p is ToolPart =>
 	p.type === "tool" &&
@@ -29,6 +50,7 @@ export function waitingCalls(messages: ChatMessage[]): ToolRequest[] {
 		title: toolTitle(call),
 		input: call.input,
 		isDelete: isDeleteTool(call.name),
+		isProd: isProdCall(call.name, call.input),
 	}));
 }
 

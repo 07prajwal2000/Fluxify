@@ -18,6 +18,7 @@ import { tasks as BASE_TASKS } from "./tasks";
 import { moreTasks } from "./tasks2";
 import { ephemeralTasks } from "./tasksEphemeral";
 import { moveBlocksTasks } from "./tasksMoveBlocks";
+import { productionTasks } from "./tasksProduction";
 
 /**
  * Agent evals: each task gets a fresh project, its setup, an agent run, automatic checks,
@@ -255,7 +256,13 @@ export async function runAll(
 	return { rows, report };
 }
 
-const ALL_TASKS = [...BASE_TASKS, ...moreTasks, ...ephemeralTasks, ...moveBlocksTasks];
+const ALL_TASKS = [
+	...BASE_TASKS,
+	...moreTasks,
+	...ephemeralTasks,
+	...moveBlocksTasks,
+	...productionTasks,
+];
 
 /** --task ids → tasks, in the suite's order; throws on an unknown id. */
 export function pickTasks(ids: string | undefined, all = ALL_TASKS) {
