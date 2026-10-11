@@ -3,16 +3,41 @@ import { createUpdateSchema } from "drizzle-zod";
 import type z from "zod";
 import { type DbTransactionType, db } from "../../../../db";
 import { type HttpMethod, routesEntity } from "../../../../db/schema";
+import {
+	ROUTE_VERSIONED_FIELDS,
+	versionedSettingsChanged,
+} from "../../../../modules/versions/state";
 
 const updateRouteSchema = createUpdateSchema(routesEntity);
 
+/**
+ * Every route settings save lands here. Changing a setting a version keeps
+ * (#738) moves the revision like a canvas edit does, so the route reads as
+ * having uncommitted changes; name, switches and observability do not.
+ *
+ * The counters a canvas save owns are never taken from the caller: a patch that
+ * sends back the row it read would otherwise undo a save made in between.
+ */
 export async function updateRoute(data: z.infer<typeof updateRouteSchema>, tx?: DbTransactionType) {
-	const id = data.id!;
-	delete data.id;
-	const result = await (tx ?? db)
+	const {
+		id,
+		canvasRevision: _revision,
+		blockKeyCounters: _keys,
+		committedRevision: _committed,
+		headVersionId: _head,
+		...settings
+	} = data;
+	const conn = tx ?? db;
+	const [stored] = await conn
+		.select()
+		.from(routesEntity)
+		.where(eq(routesEntity.id, id!))
+		.for("update");
+	const bump = !!stored && versionedSettingsChanged(stored, settings, ROUTE_VERSIONED_FIELDS);
+	const result = await conn
 		.update(routesEntity)
-		.set(data)
-		.where(eq(routesEntity.id, id))
+		.set(bump ? { ...settings, canvasRevision: sql`${routesEntity.canvasRevision} + 1` } : settings)
+		.where(eq(routesEntity.id, id!))
 		.returning();
 	return result.length > 0 ? result[0] : null;
 }

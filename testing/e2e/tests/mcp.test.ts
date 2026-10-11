@@ -72,6 +72,9 @@ describe("MCP role matrix", () => {
 			bodySchema: null,
 			querySchema: null,
 			paramsSchema: null,
+			// never committed, so no version yet and the canvas counts as uncommitted
+			headVersionNumber: null,
+			uncommitted: true,
 			middlewares: { before: [], after: [] },
 		});
 	});

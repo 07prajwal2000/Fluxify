@@ -1,4 +1,5 @@
 import type { HonoServer } from "../../../types";
+import { registerVersionRoutes } from "../versions/register";
 import registerCallRoute from "./call/route";
 import registerCreateRoute from "./create/route";
 import registerDeleteRoute from "./delete/route";
@@ -26,5 +27,6 @@ export default {
 		registerSaveCanvasState(router);
 		registerOpenapiRoute(router);
 		registerCallRoute(router);
+		registerVersionRoutes(router, "route");
 	},
 };

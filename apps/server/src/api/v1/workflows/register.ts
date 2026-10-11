@@ -15,6 +15,7 @@ import {
 } from "../../../modules/canvas/types";
 import type { HonoServer } from "../../../types";
 import { requireLoggedIn, requireProjectAccess } from "../../auth/middleware";
+import { registerVersionRoutes } from "../versions/register";
 import {
 	createdSchema,
 	createSchema,
@@ -24,6 +25,7 @@ import {
 	patchSchema,
 	runAcceptedSchema,
 	runSchema,
+	workflowDetailSchema,
 	workflowSchema,
 } from "./dto";
 import runWorkflow from "./run";
@@ -83,7 +85,7 @@ export default {
 
 		router.get(
 			"/:id",
-			describeRoute(describe("get-workflow", "Returns one workflow", json(workflowSchema))),
+			describeRoute(describe("get-workflow", "Returns one workflow", json(workflowDetailSchema))),
 			validator("param", idParamSchema, zodErrorCallbackParser),
 			async (ctx) => ctx.json(await getWorkflow(ctx.req.valid("param").id, ctx.get("acl") || [])),
 		);
@@ -219,5 +221,7 @@ export default {
 					),
 				),
 		);
+
+		registerVersionRoutes(router, "workflow");
 	},
 };
