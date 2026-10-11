@@ -72,6 +72,50 @@ A route can only be brought back if its path and method are still free. If anoth
 
 If a middleware that a version used has since been deleted, the checkout still works. The deleted middleware is left out and you are told.
 
+## In the portal
+
+### Commit
+
+The canvas header of a route or workflow has a **Commit** button. A small dot sits on it while the working copy has changes no version holds.
+
+1. Select **Commit**.
+2. Give the version a **title**. It is required. A **description** is optional.
+3. Select **Commit**. You see "Committed v3" and the dot goes away.
+
+- If the canvas has edits you have not saved yet, the dialog says so and the button reads **Save and commit**. Your edits are saved first, then committed.
+- If there is nothing to commit, the button is greyed out and tells you so when you hover over it.
+- Next to **Commit** is a small arrow. It opens a menu with **Version history**.
+- Viewers do not see **Commit**. They see a **Version history** button instead.
+
+### Version history
+
+**Version history** shows the versions of the route or workflow, newest first, with the canvas of the one you pick next to them.
+
+- Each version shows its number, title, who saved it and how long ago. Hover over the time to see the exact date and hour.
+- The version the working copy came from is tagged **Current**.
+- If the working copy has uncommitted changes, the top of the list says **Uncommitted changes**. Select it to go back to the canvas and commit them.
+- The canvas on the right is read-only. You can open a block to read its settings, but nothing can be changed or saved. The path, method, schemas, timeout and middlewares of that version are shown beside it, also read-only.
+- **Back to canvas** takes you to the working copy.
+- A route or workflow with no versions yet says "No versions yet. Commit to save the first one."
+
+### The version menu
+
+Each version has a **⋯** menu.
+
+| Action | What it does | Who |
+| :--- | :--- | :--- |
+| **Check out** | Makes this version the working copy. See below. | Creators and project admins |
+| **Open in sandbox** | Copies this version's blocks into a new sandbox of yours and opens it. The route or workflow is not changed. | Creators and project admins |
+| **Copy version id** | Copies the id of the version, for example to give it to an agent. | Everyone |
+
+### Checking out
+
+**Check out** asks you to confirm.
+
+- If the working copy has uncommitted changes, the dialog also asks for a **title** for the version that saves them. It starts as "Saved before checking out v3". Change it if you like.
+- When it is done you see "Checked out v3", and "Saved your work as v5" if your changes were saved first. You land on the canvas.
+- If another route has taken the path and method since, the dialog shows the reason and nothing changes.
+
 ## Who can do what
 
 | Role | What they can do |

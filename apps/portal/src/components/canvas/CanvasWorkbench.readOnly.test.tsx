@@ -53,11 +53,15 @@ test("a system admin may edit any project", () => {
 
 // queries come from render(), not `screen`: in a shared test process `screen`
 // can still point at an earlier file's document
-function renderWorkbench(readOnly: boolean) {
+function renderWorkbench(
+	readOnly: boolean,
+	headerActions?: React.ComponentProps<typeof CanvasWorkbench>["headerActions"],
+) {
 	return render(
 		<CanvasWorkbench
 			title="Route canvas"
 			readOnly={readOnly}
+			headerActions={headerActions}
 			items={{ data: undefined, isLoading: true, isError: false, refetch: async () => {} }}
 			compileTarget={{ projectId: "p1", resourceType: "route", resourceId: "r1" }}
 			reload={async () => ({ canvasRevision: 0, blocks: [], edges: [] })}
@@ -76,4 +80,14 @@ test("read-only workbench has no Save button", () => {
 test("editable workbench keeps its Save button", () => {
 	const view = renderWorkbench(false);
 	expect(view.getByRole("button", { name: "Save" })).toBeTruthy();
+});
+
+test("header actions given as a function see the canvas's unsaved state and can save it", () => {
+	let seen: unknown;
+	const view = renderWorkbench(false, (canvas) => {
+		seen = canvas;
+		return <span>{canvas.hasUnsavedChanges ? "dirty" : "clean"}</span>;
+	});
+	expect(view.getByText("clean")).toBeTruthy();
+	expect(typeof (seen as { saveChanges: unknown }).saveChanges).toBe("function");
 });

@@ -5,6 +5,7 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 GlobalRegistrator.register();
 
 const opened = mock((_sandboxId: string) => undefined);
+const settingsOpened = mock(() => undefined);
 
 const { act, cleanup, fireEvent, render } = await import("@testing-library/react");
 /** Not RTL's waitFor/screen: they stay bound to the DOM of whichever test file loaded RTL first. */
@@ -25,12 +26,13 @@ const { sandboxesService } = await import("@/services/sandboxes");
 const { routesService } = await import("@/services/routes");
 const { workflowsService } = await import("@/services/workflows");
 const { middlewaresService } = await import("@/services/middlewares");
-const { OpenInSandboxButton } = await import("./OpenInSandboxButton");
+const { SettingsSplitButton } = await import("./SettingsSplitButton");
 
 afterEach(() => {
 	cleanup();
 	mock.restore();
 	opened.mockClear();
+	settingsOpened.mockClear();
 });
 afterAll(() => GlobalRegistrator.unregister());
 
@@ -105,10 +107,11 @@ function renderButton(kind: "route" | "workflow") {
 		<QueryClientProvider
 			client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
 		>
-			<OpenInSandboxButton
+			<SettingsSplitButton
 				projectId="p1"
 				source={{ kind, id: kind === "route" ? "r1" : "w1", name: "Orders" }}
-				onOpen={opened}
+				onOpenSettings={settingsOpened}
+				onOpenSandbox={opened}
 			/>
 		</QueryClientProvider>,
 	);
@@ -122,6 +125,21 @@ const button = (name: string) => {
 	return found;
 };
 
+/** the menu beside Settings: its Open in sandbox entry */
+async function openInSandboxFromMenu() {
+	const caret = document.body.querySelector('button[aria-label="Settings options"]');
+	if (!caret) throw new Error("no menu");
+	fireEvent.click(caret);
+	const item = await until(() => {
+		const found = [...document.body.querySelectorAll('[role="menuitem"]')].find(
+			(el) => el.textContent?.trim() === "Open in sandbox",
+		);
+		if (!found) throw new Error("no menu item");
+		return found;
+	});
+	fireEvent.click(item);
+}
+
 /** the route and middleware reads settle, so a click sees the warnings */
 const settle = () => act(() => new Promise((r) => setTimeout(r, 60)));
 
@@ -133,9 +151,9 @@ test("a route with middlewares and a body schema asks first, listing what is not
 		record: { bodySchema: { properties: [{ key: "id" }] } },
 	});
 	renderButton("route");
-	await until(() => button("Open in sandbox"));
+	await until(() => button("Settings"));
 	await settle();
-	fireEvent.click(button("Open in sandbox"));
+	await openInSandboxFromMenu();
 	await until(() => button("Create sandbox"));
 
 	const text = document.body.textContent ?? "";
@@ -175,9 +193,9 @@ test("a route with middlewares and a body schema asks first, listing what is not
 test("a click only asks: nothing is created until the dialog is confirmed", async () => {
 	const { create } = stubServer();
 	renderButton("route");
-	await until(() => button("Open in sandbox"));
+	await until(() => button("Settings"));
 	await settle();
-	fireEvent.click(button("Open in sandbox"));
+	await openInSandboxFromMenu();
 	await until(() => button("Create sandbox"));
 	expect(document.body.textContent).not.toContain("do not come along");
 	expect(create).not.toHaveBeenCalled();
@@ -191,8 +209,8 @@ test("a click only asks: nothing is created until the dialog is confirmed", asyn
 test("a workflow copies the same way and never warns", async () => {
 	const { create, put } = stubServer();
 	renderButton("workflow");
-	await until(() => button("Open in sandbox"));
-	fireEvent.click(button("Open in sandbox"));
+	await until(() => button("Settings"));
+	await openInSandboxFromMenu();
 	await until(() => button("Create sandbox"));
 	fireEvent.click(button("Create sandbox"));
 	await until(() => expect(opened).toHaveBeenCalled());
@@ -204,18 +222,30 @@ test("a refused save removes the sandbox it made and does not navigate", async (
 	const { remove, put } = stubServer();
 	put.mockRejectedValue(new Error("refused"));
 	renderButton("workflow");
-	await until(() => button("Open in sandbox"));
-	fireEvent.click(button("Open in sandbox"));
+	await until(() => button("Settings"));
+	await openInSandboxFromMenu();
 	await until(() => button("Create sandbox"));
 	fireEvent.click(button("Create sandbox"));
 	await until(() => expect(remove).toHaveBeenCalledWith("p1", "sb9"));
 	expect(opened).not.toHaveBeenCalled();
 });
 
-test("a viewer has no Open in sandbox", async () => {
+test("Settings alone opens the settings, and no sandbox", async () => {
+	const { create } = stubServer();
+	renderButton("route");
+	await until(() => button("Settings"));
+	fireEvent.click(button("Settings"));
+	expect(settingsOpened).toHaveBeenCalledTimes(1);
+	expect(create).not.toHaveBeenCalled();
+	expect(document.body.textContent).not.toContain("Create sandbox");
+});
+
+test("a viewer has Settings, and no menu to a sandbox", async () => {
 	setRole("viewer");
 	stubServer();
 	renderButton("route");
 	await settle();
+	expect(button("Settings")).toBeTruthy();
+	expect(document.body.querySelector('button[aria-label="Settings options"]')).toBeNull();
 	expect(document.body.textContent).not.toContain("Open in sandbox");
 });

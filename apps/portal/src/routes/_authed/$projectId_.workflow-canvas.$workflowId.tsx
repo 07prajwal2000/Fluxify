@@ -1,11 +1,11 @@
-import { Button, toast } from "@fluxify/components";
+import { toast } from "@fluxify/components";
 import { createFileRoute, isRedirect, redirect, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { TbSettings } from "react-icons/tb";
 import z from "zod";
 import { CanvasWorkbench } from "@/components/canvas";
 import { WorkflowWorkbenchTabs } from "@/components/routes/RouteWorkbenchTabs";
-import { OpenInSandboxButton } from "@/components/sandboxes/OpenInSandboxButton";
+import { SettingsSplitButton } from "@/components/sandboxes/SettingsSplitButton";
+import { CommitControls } from "@/components/versions/CommitControls";
 import { WorkflowRunButton, WorkflowRunModal } from "@/components/workflows/WorkflowRunModal";
 import { WorkflowSettingsModal } from "@/components/workflows/WorkflowSettingsModal";
 import { WorkflowSwitcher } from "@/components/workflows/WorkflowSwitcher";
@@ -78,28 +78,38 @@ function WorkflowCanvasPage() {
 						<WorkflowWorkbenchTabs projectId={projectId} workflowId={workflowId} />
 					</>
 				}
-				headerActions={
+				headerActions={(canvas) => (
 					<>
-						<OpenInSandboxButton
+						<CommitControls
+							kind="workflow"
+							id={workflowId}
 							projectId={projectId}
-							onOpen={(sandboxId) =>
+							canvas={canvas}
+							onOpenHistory={() =>
 								navigate({
-									to: "/$projectId/sandbox-canvas/$sandboxId",
-									params: { projectId, sandboxId },
+									to: "/$projectId/workflow-canvas/$workflowId/versions",
+									params: { projectId, workflowId },
 								})
 							}
-							source={{ kind: "workflow", id: workflowId, name: workflow?.name || "Untitled" }}
 						/>
 						<WorkflowRunButton
 							projectId={projectId}
 							active={!!workflow?.active}
 							onPress={() => setRunOpen(true)}
 						/>
-						<Button variant="outline" onPress={() => setSettingsOpen(true)}>
-							<TbSettings size={16} /> Settings
-						</Button>
+						<SettingsSplitButton
+							projectId={projectId}
+							source={{ kind: "workflow", id: workflowId, name: workflow?.name || "Untitled" }}
+							onOpenSettings={() => setSettingsOpen(true)}
+							onOpenSandbox={(sandboxId) =>
+								navigate({
+									to: "/$projectId/sandbox-canvas/$sandboxId",
+									params: { projectId, sandboxId },
+								})
+							}
+						/>
 					</>
-				}
+				)}
 			/>
 			{/* mounted only while open: each form seeds its state from the loaded workflow */}
 			{settingsOpen && (

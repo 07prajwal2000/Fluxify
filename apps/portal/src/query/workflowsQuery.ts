@@ -95,7 +95,12 @@ export const workflowsQuery = {
 			const qc = useQueryClient();
 			return useMutation({
 				mutationFn: (payload: CanvasSavePayload) => workflowsService.saveCanvasItems(id, payload),
-				onSuccess: () => qc.invalidateQueries({ queryKey: ["workflows", id, "canvas-items"] }),
+				onSuccess: () =>
+					// a saved edit is uncommitted work (#738): the header's Commit reads it from the workflow
+					Promise.all([
+						qc.invalidateQueries({ queryKey: ["workflows", id, "canvas-items"] }),
+						qc.invalidateQueries({ queryKey: byIdKey(id) }),
+					]),
 			});
 		},
 	},

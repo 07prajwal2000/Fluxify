@@ -1,5 +1,4 @@
 import {
-	Button,
 	toast,
 	useInputDataTypes,
 	useRouteParamSnippets,
@@ -8,7 +7,6 @@ import {
 } from "@fluxify/components";
 import { createFileRoute, isRedirect, redirect, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { TbSettings } from "react-icons/tb";
 import z from "zod";
 import { CanvasWorkbench } from "@/components/canvas";
 import { RouteApiPlayground } from "@/components/RouteApiPlayground";
@@ -16,7 +14,8 @@ import { RouteSettingsModal } from "@/components/routes/RouteSettingsModal";
 import { RouteSwitcher } from "@/components/routes/RouteSwitcher";
 import { RouteWorkbenchTabs } from "@/components/routes/RouteWorkbenchTabs";
 import { extractPathParams } from "@/components/routes/routeForm";
-import { OpenInSandboxButton } from "@/components/sandboxes/OpenInSandboxButton";
+import { SettingsSplitButton } from "@/components/sandboxes/SettingsSplitButton";
+import { CommitControls } from "@/components/versions/CommitControls";
 import { createRouteHead, usePageTitle } from "@/lib/seo";
 import { useProjectPackageTypes } from "@/query/projectPackagesQuery";
 import { routesQuery } from "@/query/routesQuery";
@@ -110,27 +109,37 @@ function RouteCanvasPage() {
 						<RouteWorkbenchTabs projectId={projectId} routeId={routeId} />
 					</>
 				}
-				headerActions={
+				headerActions={(canvas) => (
 					<>
-						<OpenInSandboxButton
+						<CommitControls
+							kind="route"
+							id={routeId}
 							projectId={projectId}
-							onOpen={(sandboxId) =>
+							canvas={canvas}
+							onOpenHistory={() =>
 								navigate({
-									to: "/$projectId/sandbox-canvas/$sandboxId",
-									params: { projectId, sandboxId },
+									to: "/$projectId/canvas/$routeId/versions",
+									params: { projectId, routeId },
 								})
 							}
+						/>
+						<SettingsSplitButton
+							projectId={projectId}
 							source={{
 								kind: "route",
 								id: routeId,
 								name: route?.name || `${route?.method.toUpperCase()} ${route?.path}`,
 							}}
+							onOpenSettings={() => setSettingsOpen(true)}
+							onOpenSandbox={(sandboxId) =>
+								navigate({
+									to: "/$projectId/sandbox-canvas/$sandboxId",
+									params: { projectId, sandboxId },
+								})
+							}
 						/>
-						<Button variant="outline" onPress={() => setSettingsOpen(true)}>
-							<TbSettings size={16} /> Settings
-						</Button>
 					</>
-				}
+				)}
 			/>
 			{/* mounted only while open: the form seeds its state from the loaded route */}
 			{settingsOpen && (

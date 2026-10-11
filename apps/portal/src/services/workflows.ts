@@ -4,6 +4,7 @@ import {
 	type listSchema,
 	type patchSchema,
 	type runAcceptedSchema,
+	type workflowDetailSchema,
 	type workflowSchema,
 } from "@fluxify/server/src/api/v1/workflows/dto";
 import type z from "zod";
@@ -22,6 +23,8 @@ export type ListWorkflowsQuery = {
 export type CreateWorkflowBody = z.infer<typeof createSchema>;
 export type UpdateWorkflowBody = z.infer<typeof patchSchema>;
 export type Workflow = z.infer<typeof workflowSchema>;
+/** one workflow, with where its working copy stands against its versions (#738) */
+export type WorkflowDetail = z.infer<typeof workflowDetailSchema>;
 
 export const workflowsService = {
 	async getAll(query: ListWorkflowsQuery): Promise<z.infer<typeof listSchema>> {
@@ -35,7 +38,7 @@ export const workflowsService = {
 		const result = await httpClient.get(`${baseUrl}/list?${params.toString()}`);
 		return result.data;
 	},
-	async getById(id: string): Promise<Workflow> {
+	async getById(id: string): Promise<WorkflowDetail> {
 		const result = await httpClient.get(`${baseUrl}/${id}`);
 		return result.data;
 	},

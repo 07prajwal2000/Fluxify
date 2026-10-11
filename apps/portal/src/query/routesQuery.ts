@@ -95,7 +95,12 @@ export const routesQuery = {
 			const qc = useQueryClient();
 			return useMutation({
 				mutationFn: (payload: CanvasSavePayload) => routesService.saveCanvasItems(routeId, payload),
-				onSuccess: () => qc.invalidateQueries({ queryKey: ["routes", routeId, "canvas-items"] }),
+				onSuccess: () =>
+					// a saved edit is uncommitted work (#738): the header's Commit reads it from the route
+					Promise.all([
+						qc.invalidateQueries({ queryKey: ["routes", routeId, "canvas-items"] }),
+						qc.invalidateQueries({ queryKey: ["routes", routeId, "by-id"] }),
+					]),
 			});
 		},
 	},
