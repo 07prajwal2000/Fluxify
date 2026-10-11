@@ -20,9 +20,9 @@ Recording is set per route or per workflow, and separately for each
 development records by default, production does not.
 
 - Open the route's or workflow's **Settings**, go to **Advanced**, pick the **Development** or **Production** tab, turn **Recording** on or off and press **Save changes**, or
-- Open **Track Execution** (see below) and press **Record production**. Press **Production recording · Stop** to turn it off.
+- Open **Track Execution** (see below) and press **Record development**. Press **Development recording · Stop** to turn it off. This button only changes development. To change production, use the **Production** tab in Settings.
 
-The change applies right away. Turning production recording on shows a warning, because recording is heavy at scale. While production recording is on, the canvas shows a red **Recording Active** badge.
+The change applies right away, and a message tells you when it has. Turning production recording on shows a warning, because recording is heavy at scale. Wherever a route or workflow is listed (the Routes and Workflows pages, the canvas and the Executions picker), a small badge shows what is recording: a blue dot for development, a red dot for production. One environment reads **Development recording** or **Production recording**; both read **Recording** with two dots. Hover the badge for details.
 
 Recording only saves runs that happen while it is on. Earlier runs were never kept.
 

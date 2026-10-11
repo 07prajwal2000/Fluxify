@@ -39,6 +39,7 @@ export type RouteRow = {
 	path?: string | null;
 	active?: boolean | null;
 	recordExecution?: boolean | null;
+	devRecordExecution?: boolean | null;
 };
 
 function RoutesPage() {
@@ -147,7 +148,10 @@ function RoutesPage() {
 									<Table.Cell>
 										<div className="flex items-center gap-2">
 											<span className="font-mono text-sm">{route.path}</span>
-											{route.recordExecution && <RecordingIndicator />}
+											<RecordingIndicator
+												dev={route.devRecordExecution}
+												prod={route.recordExecution}
+											/>
 										</div>
 									</Table.Cell>
 									<Table.Cell>{route.name}</Table.Cell>

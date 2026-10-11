@@ -5,7 +5,6 @@ GlobalRegistrator.register();
 
 const { cleanup, render, fireEvent } = await import("@testing-library/react");
 const { PayloadViewer } = await import("./PayloadViewer");
-const { RecordingIndicator } = await import("./RecordingControls");
 const { SpanTimeline } = await import("./SpanTimeline");
 const { SpanDetail } = await import("./SpanDetail");
 
@@ -35,11 +34,6 @@ const sampleSpan = (
 	truncated: false,
 	metadata: null,
 	...extra,
-});
-
-test("RecordingIndicator displays active recording badge", () => {
-	const view = render(<RecordingIndicator />);
-	expect(view.getByText("Recording Active")).toBeTruthy();
 });
 
 test("PayloadViewer marks a value a test hook mocked (#627)", () => {

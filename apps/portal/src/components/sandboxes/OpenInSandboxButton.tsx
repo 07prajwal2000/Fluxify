@@ -24,8 +24,9 @@ function useWarnings(source: SandboxSource) {
 }
 
 /**
- * Copies the whole canvas into a new sandbox of yours and opens it (#752). With
- * something that will not come along, a dialog says what first.
+ * Copies the whole canvas into a new sandbox of yours and opens it (#752). It
+ * always asks first, so a stray click never makes a sandbox; the dialog also says
+ * what will not come along.
  */
 export function OpenInSandboxButton({
 	projectId,
@@ -60,30 +61,31 @@ export function OpenInSandboxButton({
 	if (!canEdit) return null;
 	return (
 		<>
-			<Button
-				variant="outline"
-				isPending={pending && !confirming}
-				onPress={() => (warnings.length ? setConfirming(true) : void copy())}
-			>
+			<Button variant="outline" onPress={() => setConfirming(true)}>
 				<TbFlask size={16} /> Open in sandbox
 			</Button>
 			<ConfirmDialog
 				open={confirming}
 				onOpenChange={setConfirming}
 				title="Open in sandbox"
-				confirmText="Copy anyway"
+				confirmText="Create sandbox"
 				pending={pending}
 				onConfirm={() => void copy()}
 			>
 				<p>
-					This copies the canvas into a new sandbox, {source.name} sandbox. Some things do not come
-					along:
+					This creates a new sandbox, {source.name} sandbox, with a copy of this canvas and opens
+					it. {source.name} is not changed.
 				</p>
-				<ul className="mt-2 list-disc space-y-1 pl-5">
-					{warnings.map((warning) => (
-						<li key={warning}>{warning}</li>
-					))}
-				</ul>
+				{warnings.length > 0 && (
+					<>
+						<p className="mt-2">Some things do not come along:</p>
+						<ul className="mt-1 list-disc space-y-1 pl-5">
+							{warnings.map((warning) => (
+								<li key={warning}>{warning}</li>
+							))}
+						</ul>
+					</>
+				)}
 			</ConfirmDialog>
 		</>
 	);

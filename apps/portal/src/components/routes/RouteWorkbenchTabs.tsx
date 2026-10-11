@@ -56,7 +56,7 @@ export function RouteWorkbenchTabs({ projectId, routeId }: { projectId: string; 
 	return (
 		<div className="flex items-center gap-2">
 			<WorkbenchTabs tabs={ROUTE_TABS} params={{ projectId, routeId }} />
-			{route?.recordExecution && <RecordingIndicator />}
+			<RecordingIndicator dev={route?.devRecordExecution} prod={route?.recordExecution} />
 		</div>
 	);
 }
@@ -73,7 +73,7 @@ export function WorkflowWorkbenchTabs({
 	return (
 		<div className="flex items-center gap-2">
 			<WorkbenchTabs tabs={WORKFLOW_TABS} params={{ projectId, workflowId }} />
-			{workflow?.recordExecution && <RecordingIndicator />}
+			<RecordingIndicator dev={workflow?.devRecordExecution} prod={workflow?.recordExecution} />
 		</div>
 	);
 }

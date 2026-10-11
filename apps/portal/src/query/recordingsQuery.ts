@@ -110,9 +110,9 @@ export const recordingsQuery = {
 };
 
 /**
- * The target's production `recordExecution` flag (development's is set in the
- * settings). Changing it recompiles the target, so
- * `isApplying` holds until the new compile has landed (or the wait runs out) —
+ * The target's development `devRecordExecution` flag. Production's is only
+ * changed in the route's or workflow's settings. Changing it recompiles the
+ * target, so `isApplying` holds until the new compile has landed (or the wait runs out) —
  * the switch shows the server's value, never an optimistic flip.
  */
 export function useRecordingSwitch(projectId: string, target: RecordingTarget) {
@@ -122,30 +122,30 @@ export function useRecordingSwitch(projectId: string, target: RecordingTarget) {
 	const data = target.type === "route" ? route.data : workflow.data;
 
 	const set = useMutation({
-		mutationFn: async (recordExecution: boolean) => {
+		mutationFn: async (devRecordExecution: boolean) => {
 			const before = await compiledAt(projectId, target).catch(() => 0);
-			const saved =
-				target.type === "route"
-					? await routesService.updatePartial(target.id, { recordExecution })
-					: await workflowsService.update(target.id, { recordExecution });
-			if (saved?.warning) toast.warning(saved.warning);
+			if (target.type === "route") {
+				await routesService.updatePartial(target.id, { devRecordExecution });
+			} else {
+				await workflowsService.update(target.id, { devRecordExecution });
+			}
 
 			const typeKey = target.type === "route" ? "routes" : "workflows";
-			qc.setQueriesData<{ data?: Array<{ id: string; recordExecution?: boolean }> }>(
+			qc.setQueriesData<{ data?: Array<{ id: string; devRecordExecution?: boolean }> }>(
 				{ queryKey: [typeKey, "list"] },
 				(old) => {
 					if (!old || !Array.isArray(old.data)) return old;
 					return {
 						...old,
 						data: old.data.map((item) =>
-							item.id === target.id ? { ...item, recordExecution } : item,
+							item.id === target.id ? { ...item, devRecordExecution } : item,
 						),
 					};
 				},
 			);
-			qc.setQueriesData<{ recordExecution?: boolean }>(
+			qc.setQueriesData<{ devRecordExecution?: boolean }>(
 				{ queryKey: [typeKey, target.id, "by-id"] },
-				(old) => (old ? { ...old, recordExecution } : old),
+				(old) => (old ? { ...old, devRecordExecution } : old),
 			);
 			qc.invalidateQueries({ queryKey: [typeKey, target.id, "by-id"] });
 			qc.invalidateQueries({ queryKey: [typeKey, "list"] });
@@ -155,6 +155,7 @@ export function useRecordingSwitch(projectId: string, target: RecordingTarget) {
 				if ((await compiledAt(projectId, target).catch(() => 0)) > before) break;
 			}
 		},
+		onSuccess: (_data, on) => toast.success(`Development recording turned ${on ? "on" : "off"}`),
 		onError: (error) => showErrorNotification(error),
 		onSettled: () => {
 			const typeKey = target.type === "route" ? "routes" : "workflows";
@@ -169,8 +170,8 @@ export function useRecordingSwitch(projectId: string, target: RecordingTarget) {
 
 	return {
 		// a sandbox is always recorded: there is no switch to wait for
-		// production's switch: what the Record button flips
-		isOn: target.type === "sandbox" || Boolean(data?.recordExecution),
+		// development's switch: what the Record button flips
+		isOn: target.type === "sandbox" || Boolean(data?.devRecordExecution),
 		// recording in either environment, for "is anything being kept"
 		isRecording:
 			target.type === "sandbox" || Boolean(data?.recordExecution || data?.devRecordExecution),

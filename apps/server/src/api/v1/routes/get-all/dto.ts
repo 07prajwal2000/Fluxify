@@ -40,6 +40,7 @@ export const responseSchema = z.object({
 			active: z.boolean().nullable(),
 			method: z.string().nullable(),
 			recordExecution: z.boolean().default(false),
+			devRecordExecution: z.boolean().default(false),
 			createdAt: z.string(),
 			updatedAt: z.string(),
 			projectId: z.string(),

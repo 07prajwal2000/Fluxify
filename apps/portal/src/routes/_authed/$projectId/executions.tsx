@@ -65,9 +65,9 @@ function ExecutionsPage() {
 		}
 
 		// Priority 1: Target actively recording
-		const recordingRoute = routes.find((r) => r.recordExecution);
+		const recordingRoute = routes.find((r) => r.recordExecution || r.devRecordExecution);
 		if (recordingRoute) return { type: "route" as const, id: recordingRoute.id };
-		const recordingWorkflow = workflows.find((w) => w.recordExecution);
+		const recordingWorkflow = workflows.find((w) => w.recordExecution || w.devRecordExecution);
 		if (recordingWorkflow) return { type: "workflow" as const, id: recordingWorkflow.id };
 
 		// Priority 2: First route or first workflow
@@ -87,14 +87,26 @@ function ExecutionsPage() {
 	const mergedRoutes = useMemo(() => {
 		if (targetType !== "route" || !activeRouteRes.data) return routes;
 		return routes.map((r) =>
-			r.id === targetId ? { ...r, recordExecution: activeRouteRes.data.recordExecution } : r,
+			r.id === targetId
+				? {
+						...r,
+						recordExecution: activeRouteRes.data.recordExecution,
+						devRecordExecution: activeRouteRes.data.devRecordExecution,
+					}
+				: r,
 		);
 	}, [routes, activeRouteRes.data, targetType, targetId]);
 
 	const mergedWorkflows = useMemo(() => {
 		if (targetType !== "workflow" || !activeWorkflowRes.data) return workflows;
 		return workflows.map((w) =>
-			w.id === targetId ? { ...w, recordExecution: activeWorkflowRes.data.recordExecution } : w,
+			w.id === targetId
+				? {
+						...w,
+						recordExecution: activeWorkflowRes.data.recordExecution,
+						devRecordExecution: activeWorkflowRes.data.devRecordExecution,
+					}
+				: w,
 		);
 	}, [workflows, activeWorkflowRes.data, targetType, targetId]);
 

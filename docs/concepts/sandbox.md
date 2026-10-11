@@ -49,9 +49,9 @@ Fluxify from source.
 
 ## Start from a route or workflow
 
-On a route's or workflow's canvas, **Open in sandbox** copies the whole canvas into a new sandbox named `<name> sandbox` and opens it. The original is not changed, so you can try a fix on development data and copy it back when it works (select the blocks, copy, and paste them on the original canvas).
+On a route's or workflow's canvas, **Open in sandbox** asks you to confirm, then copies the whole canvas into a new sandbox named `<name> sandbox` and opens it. A stray click never makes a sandbox. The original is not changed, so you can try a fix on development data and copy it back when it works (select the blocks, copy, and paste them on the original canvas).
 
-The copy has the blocks and the connections between them. Some things stay behind, and a dialog tells you before it copies:
+The copy has the blocks and the connections between them. Some things stay behind, and the confirmation says so before it copies:
 
 | Left behind | Why |
 | :--- | :--- |

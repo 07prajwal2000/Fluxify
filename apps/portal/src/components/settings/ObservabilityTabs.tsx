@@ -31,11 +31,21 @@ export function ObservabilityTabs({
 	} as const;
 
 	return (
-		<Tabs selectedKey={tab} onSelectionChange={(key) => setTab(key as Env)}>
-			<Tabs.List aria-label="Environment">
-				<Tabs.Tab id="development">Development</Tabs.Tab>
-				<Tabs.Tab id="production">Production</Tabs.Tab>
-			</Tabs.List>
+		<Tabs selectedKey={tab} onSelectionChange={(key) => setTab(key as Env)} variant="secondary">
+			{/* the secondary variant draws the underline through the container and one
+			    indicator inside each tab; without them the tabs are plain text */}
+			<Tabs.ListContainer>
+				<Tabs.List aria-label="Environment">
+					<Tabs.Tab id="development">
+						Development
+						<Tabs.Indicator />
+					</Tabs.Tab>
+					<Tabs.Tab id="production">
+						Production
+						<Tabs.Indicator />
+					</Tabs.Tab>
+				</Tabs.List>
+			</Tabs.ListContainer>
 			{(["development", "production"] as const).map((env) => (
 				<Tabs.Panel key={env} id={env} className="flex flex-col gap-4 pt-4">
 					<div className="flex flex-col gap-1">

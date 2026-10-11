@@ -131,7 +131,10 @@ function WorkflowsPage() {
 									<Table.Cell>
 										<div className="flex items-center gap-2">
 											<span>{workflow.name}</span>
-											{workflow.recordExecution && <RecordingIndicator />}
+											<RecordingIndicator
+												dev={workflow.devRecordExecution}
+												prod={workflow.recordExecution}
+											/>
 										</div>
 									</Table.Cell>
 									<Table.Cell>
