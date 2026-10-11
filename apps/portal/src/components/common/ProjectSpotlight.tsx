@@ -9,7 +9,6 @@ import {
 	type SpotlightCommand,
 	useSpotlightCommands,
 } from "@/components/canvas/spotlight";
-import { authClient } from "@/lib/auth";
 import { integrationsQuery } from "@/query/integrationsQuery";
 import { projectsQuery } from "@/query/projectsQuery";
 
@@ -130,6 +129,8 @@ export function ProjectSpotlightHost() {
 			isOpen={isOpen}
 			onOpenChange={setIsOpen}
 			onSignOut={async () => {
+				// loaded here: the auth client reads the page origin as soon as it is imported
+				const { authClient } = await import("@/lib/auth");
 				await authClient.signOut();
 				navigate({ to: "/login" });
 			}}
