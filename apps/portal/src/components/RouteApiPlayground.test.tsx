@@ -80,13 +80,13 @@ function mount(online = true, devWorkerUrl?: string, subdomain?: string) {
 	);
 }
 
-test("the preview shows the project's subdomain; the request goes to DEV_WORKER_URL/_/dev with the token header, never rendered", async () => {
+test("a project with a subdomain is called on its subdomain even with DEV_WORKER_URL set (#742); the token header is sent, never rendered", async () => {
 	const view = mount(true, "http://localhost:5602/", "billing");
 	const shown = "http://billing.example.test:5601";
 	await until(() => {
 		if (stub?.baseUrl !== `${shown}/_/dev`) throw new Error("not mounted");
 	});
-	expect(stub?.urlNote).toContain("subdomain is not needed");
+	expect(stub?.urlNote).toContain("on that subdomain only");
 	await until(() => expect(projectDevTokenService.get).toHaveBeenCalled());
 	await until(() => expect(sandboxesService.devWorkerOnline).toHaveBeenCalled());
 
@@ -110,7 +110,8 @@ test("the preview shows the project's subdomain; the request goes to DEV_WORKER_
 	});
 
 	const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
-	expect(url).toBe("http://localhost:5602/_/dev/orders/7");
+	// DEV_WORKER_URL would be a bare host, which a subdomain project refuses
+	expect(url).toBe("http://billing.example.test:5601/_/dev/orders/7");
 	expect((init.headers as Headers).get(DEV_TOKEN_HEADER)).toBe(TOKEN);
 	expect(view.container.textContent).not.toContain(TOKEN);
 });

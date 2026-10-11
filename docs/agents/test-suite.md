@@ -352,11 +352,17 @@ The last run is the suite's own, so the suite and the response must be for the s
 
 ## Run a suite
 
-`run_test_suite` takes `testSuiteId`. It waits about 10 seconds. If the run finished, it returns the result.
+`run_test_suite` takes `testSuiteId` and an optional `env`. It waits about 10 seconds. If the run finished, it returns the result, with the `env` it ran.
+
+| `env` | What runs |
+| :--- | :--- |
+| `development` (default) | The working copy, with development credentials and values. |
+| `production` | The promoted version, still with development credentials and values, so it never touches production data. Answers 409 "Not promoted yet" when nothing is promoted. It asks first like a production read when the project asks before production reads. |
 
 ```json
 {
   "runId": "<run id>",
+  "env": "development",
   "status": "failed",
   "passedCount": 0,
   "failedCount": 1,

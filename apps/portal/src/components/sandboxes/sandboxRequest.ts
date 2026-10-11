@@ -3,9 +3,9 @@ import type { ApiPlaygroundRequest, ApiPlaygroundResponse } from "@fluxify/compo
 /** The header the development worker checks before it answers a sandbox call. */
 export const DEV_TOKEN_HEADER = "x-fluxify-dev-token";
 
-/** Under the development URL: the host does not choose the project. */
+/** Under the development URL: the token chooses the project, and a subdomain, when set, is the only host (#742). */
 export const DEV_URL_NOTE =
-	"Sent to the development worker, which picks the project from the development token. The subdomain is not needed.";
+	"Sent to the development worker, which picks the project from the development token. A project with a subdomain answers on that subdomain only.";
 
 /** A route's development address: the real route path goes after it. */
 export const DEV_ROUTE_PREFIX = "/_/dev";

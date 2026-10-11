@@ -56,6 +56,15 @@ export const sandboxKey = (projectId: string, sandboxId: string) =>
 export const sandboxWorkflowKey = (projectId: string, sandboxId: string) =>
 	`sandbox-workflow.${projectId}.${sandboxId}`;
 /**
+ * A candidate (#739) is a version's graph built for the tests gate or a production
+ * test run: development bucket only, deleted when the run ends. Not in
+ * `ARTIFACT_KINDS`, so no worker watches it. The id carries a random suffix so
+ * two runs of one version never delete each other's key.
+ */
+export const candidateKey = (kind: string, projectId: string, versionId: string, nonce: string) =>
+	`candidate.${kind}.${projectId}.${versionId}-${nonce}`;
+
+/**
  * A trigger is not compiled — it has no graph of its own. It rides this bucket
  * anyway because the worker already watches it, so a trigger reaches every node
  * that could run it without inventing a second distribution path.

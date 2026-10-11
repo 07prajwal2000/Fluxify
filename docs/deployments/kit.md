@@ -255,7 +255,10 @@ project, so it runs from the very first start, before you have created one.
 Port `8080` sends `/_sandbox` and `/_/dev` to the development worker and
 everything else to the production worker, so sandboxes, the playground and
 `call_route` work with no setting. A path that only starts with the same
-letters, such as `/_/devices`, still goes to the production worker.
+letters, such as `/_/devices`, still goes to the production worker. This
+holds on a project's subdomain too. A project with a subdomain answers
+`/_sandbox` and `/_/dev` only on that subdomain, so keep the subdomain's name
+pointing at port `8080`.
 The development worker does not count against your
 [edition's](./editions#workers) worker limit.
 

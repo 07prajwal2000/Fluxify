@@ -92,7 +92,7 @@ const shortSpan = ({ input: _i, output: _o, metadata, error, ...span }: any) => 
 
 const runResult = (run: any, suiteId?: string) => ({
 	runId: run.id,
-	...pick(run, ["status", "passedCount", "failedCount", "durationMs", "createdAt"]),
+	...pick(run, ["env", "status", "passedCount", "failedCount", "durationMs", "createdAt"]),
 	suites: run.suiteRuns.filter((s: any) => !suiteId || s.testSuiteId === suiteId).map(suiteResult),
 });
 
@@ -101,13 +101,24 @@ export const projectTools: McpTool[] = [
 		name: "run_test_suite",
 		title: "Run test suite",
 		description:
-			"Run one test suite for real, as the portal's Run button does: setup hooks, requests and workflow runs all happen. Waits about 10 seconds for the result; if the run is not done by then it returns the run id, and get_test_runs reads the result later.",
+			"Run one test suite for real, as the portal's Run button does: setup hooks, requests and workflow runs all happen. env development (default) runs the working copy; env production runs the promoted version (409 when nothing is promoted yet), still with development credentials and values, so it never touches production data. Waits about 10 seconds for the result; if the run is not done by then it returns the run id, and get_test_runs reads the result later.",
 		role: "creator",
 		annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
-		input: { testSuiteId },
+		input: {
+			testSuiteId,
+			env: z
+				.enum(["development", "production"])
+				.optional()
+				.describe(
+					"development (default): the working copy. production: the promoted version, run with development credentials",
+				),
+		},
 		call: async (api, a) => {
 			const runs = await runsPath(api, a.testSuiteId);
-			const { runId } = await api.send("POST", runs, { suiteIds: [a.testSuiteId] });
+			const { runId } = await api.send("POST", runs, {
+				suiteIds: [a.testSuiteId],
+				env: a.env ?? "development",
+			});
 			for (let i = 0; i < WAIT_TRIES; i++) {
 				const run = await api.get(`${runs}/${runId}`);
 				if (!PENDING.has(run.status)) return runResult(run);

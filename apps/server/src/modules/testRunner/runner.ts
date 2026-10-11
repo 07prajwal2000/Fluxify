@@ -11,7 +11,9 @@ import {
 	testSuiteRunsEntity,
 	testSuitesEntity,
 } from "../../db/schema";
+import { dropCandidate } from "../compiler/candidate";
 import { assertOverridesOwned } from "../requestRouter/service";
+import { readSnapshot } from "../versions/repository";
 import { type AssertionType, buildSuiteRequest } from "./assertions";
 import { countCases } from "./cases";
 import {
@@ -19,12 +21,19 @@ import {
 	compileInputScript,
 	compileSuiteTarget,
 	INPUT_SCRIPT_BLOCK,
+	type SuiteCandidate,
 } from "./compile";
 import { runSuiteOnWorker } from "./dispatch";
 import { loadSuiteHooks, type SuiteHook } from "./hooks";
 import { type Pool, testWorkerPool } from "./pool";
 import { resolveSuiteConfig } from "./resolve";
-import { type SuiteTarget, targetColumn, targetKeys, targetProject } from "./target";
+import {
+	type SuiteTarget,
+	targetColumn,
+	targetKeys,
+	targetProdVersion,
+	targetProject,
+} from "./target";
 import type { SuiteInputSpec, TestBootstrap, TestResult } from "./types";
 
 type Suite = InferSelectModel<typeof testSuitesEntity>;
@@ -73,16 +82,35 @@ const defaultDeps: RunnerDeps = {
  * exists so a test can await a run instead of polling the database.
  */
 export async function startTestRun(
-	input: { projectId: string; target: SuiteTarget; suiteIds?: string[] },
+	input: {
+		projectId: string;
+		target: SuiteTarget;
+		suiteIds?: string[];
+		/** which graph runs (#739); production is the promoted version, with development values */
+		env?: "development" | "production";
+		/** the tests gate's run: the version being promoted, tagged with its deployment */
+		candidate?: SuiteCandidate;
+		deploymentId?: string;
+	},
 	deps: Partial<RunnerDeps> = {},
 ): Promise<{ runId: string; done: Promise<void> }> {
-	const { projectId, target, suiteIds } = input;
+	const { projectId, target, suiteIds, deploymentId } = input;
+	const env = input.env ?? "development";
 	const label = target.type === "route" ? "Route" : "Workflow";
 
 	const owner = await targetProject(target);
 	if (owner === undefined) throw new TestRunError(404, `${label} not found`);
 	if (owner !== projectId) {
 		throw new TestRunError(403, `${label} belongs to another project`);
+	}
+
+	// a production run tests what production serves: the promoted version's snapshot
+	let candidate = input.candidate;
+	if (!candidate && env === "production") {
+		const versionId = await targetProdVersion(target);
+		const snapshot = versionId ? await readSnapshot(versionId) : undefined;
+		if (!versionId || !snapshot) throw new TestRunError(409, "Not promoted yet");
+		candidate = { versionId, snapshot };
 	}
 
 	const ofTarget = eq(targetColumn(testSuitesEntity, target.type), target.id);
@@ -112,7 +140,7 @@ export async function startTestRun(
 
 	const [run] = await db
 		.insert(testRunsEntity)
-		.values({ projectId, ...targetKeys(target), totalSuites: suites.length })
+		.values({ projectId, ...targetKeys(target), totalSuites: suites.length, env, deploymentId })
 		.returning({ id: testRunsEntity.id });
 
 	const suiteRuns = await db
@@ -135,10 +163,17 @@ export async function startTestRun(
 
 	return {
 		runId: run!.id,
-		done: executeRun(run!.id, target, projectId, work, {
-			...defaultDeps,
-			...deps,
-		}),
+		done: executeRun(
+			run!.id,
+			target,
+			projectId,
+			work,
+			{
+				...defaultDeps,
+				...deps,
+			},
+			candidate,
+		),
 	};
 }
 
@@ -155,12 +190,15 @@ async function executeRun(
 	projectId: string,
 	work: Array<{ suite: Suite; suiteRunId: string }>,
 	deps: RunnerDeps,
+	candidate?: SuiteCandidate,
 ): Promise<void> {
+	let candidateKey: string | undefined;
 	try {
 		// ONE compile for the whole fleet: it reads the live blocks/edges tables,
 		// so compiling per suite would be the same work N times — and could hand
 		// two suites of one run different code if the target were edited mid-run.
-		const compiled = await deps.compile(target);
+		const compiled = await deps.compile(target, candidate);
+		candidateKey = compiled.candidateKey;
 		const hooks = await deps.hooks(work.map((w) => w.suite.id));
 		const names = await deps.blockNames(
 			work.flatMap(({ suite }) => [
@@ -219,6 +257,9 @@ async function executeRun(
 			// the database is the only place a failure can be reported; if that is
 			// gone too, the boot sweep picks the row up on the next restart
 		});
+	} finally {
+		// a crash that skips this is caught by the daily candidate sweep
+		if (candidateKey) await dropCandidate(candidateKey).catch(() => {});
 	}
 }
 

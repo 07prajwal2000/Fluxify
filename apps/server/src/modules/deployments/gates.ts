@@ -25,6 +25,7 @@ export type GateTarget = {
 	kind: CanvasVersionKind;
 	id: string;
 	projectId: string;
+	versionId: string;
 	snapshot: CanvasSnapshot;
 };
 
@@ -149,13 +150,6 @@ export async function customBlocksGate(target: GateTarget): Promise<GateResult> 
 		: { gate: "custom_blocks", status: "passed", message: "No custom blocks or middlewares used" };
 }
 
-/** Placeholder: the test suites gate the promote in the next release. */
-export const testsGate = (): GateResult => ({
-	gate: "tests",
-	status: "skipped",
-	message: "Test suites do not gate a promote yet; coming next",
-});
-
 /**
  * The version has to compile, or production would keep serving what it served
  * before while the log said otherwise. Compiling here changes nothing.
@@ -179,12 +173,12 @@ export async function compileGate(target: GateTarget): Promise<GateResult> {
 	}
 }
 
-export async function runGates(target: GateTarget): Promise<GateResult[]> {
+/** Every gate but the tests: quick, so the request waits for them (see `testsGate`). */
+export async function runChecks(target: GateTarget): Promise<GateResult[]> {
 	return [
 		await compileGate(target),
 		await valuesGate(target),
 		...(target.kind === "route" ? [await pathGate(target)] : []),
 		await customBlocksGate(target),
-		testsGate(),
 	];
 }

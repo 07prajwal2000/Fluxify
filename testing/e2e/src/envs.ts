@@ -127,11 +127,16 @@ export async function promote(
 		check(await api(stack, "creator", `/v1/${kind}/${id}/versions`, { body: { title: "Release" } }));
 	}
 	const [newest] = (await history()).versions;
-	const deployment = check(
+	let deployment = check(
 		await api(stack, "creator", `/v1/${kind}/${id}/deployments`, {
 			body: { versionId: newest.id, description },
 		}),
 	);
+	// a route with test suites waits for them: poll until the gates finish
+	for (let i = 0; deployment.status === "pending" && i < 600; i++) {
+		await Bun.sleep(500);
+		deployment = check(await api(stack, "creator", `/v1/${kind}/${id}/deployments/${deployment.id}`));
+	}
 	if (deployment.status !== "live") throw new Error(`promote failed: ${JSON.stringify(deployment.gates)}`);
 	return deployment as { id: string; status: string; action: string; versionNumber: number };
 }

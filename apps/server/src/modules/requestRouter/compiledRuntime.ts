@@ -149,13 +149,16 @@ const SANDBOX_PREFIX = "/_sandbox/";
  * `/_sandbox/<id>/*` (#735): undefined for any other path. A sandbox nobody
  * published here is a 404 like any unknown path, and only the development
  * bucket holds them, so a production worker never serves one. A known sandbox
- * needs its project's development token, or it is a 401. Otherwise a one-route
+ * needs its project's development token, or it is a 401. A project with a
+ * subdomain answers only there: reached through the shared trie it is a 404,
+ * token or not (#742). Otherwise a one-route
  * parser matching any method, and the rest of the path, which is what the
  * sandbox's blocks see as the request path.
  */
 export function sandboxRequest(
 	path: string,
 	devToken: string | null,
+	host?: string,
 ):
 	| { status: 401 | 404 }
 	| { status: 200; path: string; parser: Pick<HttpRouteParser, "getRouteId"> }
@@ -166,6 +169,7 @@ export function sandboxRequest(
 	if (!compiled) return { status: 404 };
 	const devTokenHash = devTokenHashes.get(compiled.artifact.projectId);
 	if (!verifyDevToken({ devTokenHash }, devToken)) return { status: 401 };
+	if (onSharedHostOfSubdomainProject(compiled.artifact.projectId, host)) return { status: 404 };
 	const match = {
 		...routeDefinition(compiled.artifact),
 		id,
@@ -182,8 +186,10 @@ const DEV_PREFIX = "/_/dev";
  * `/_/dev/*` (#736): undefined for any other path. Only a development worker
  * serves it; a production one answers 404 whatever the headers say. The token
  * picks the project, so projects sharing the base domain never shadow each
- * other here; a project subdomain must be the token's own project. The route
- * then matches as usual, on the path after the prefix.
+ * other here; a project subdomain must be the token's own project. A project
+ * that has a subdomain answers only there: on the shared host it is a 404 even
+ * with a valid token (#742). The route then matches as usual, on the path after
+ * the prefix.
  */
 export function devRequest(
 	path: string,
@@ -201,7 +207,13 @@ export function devRequest(
 	const own = projectParsers.get(projectId) ?? NO_ROUTES;
 	const byHost = routeParserFor(host);
 	if (byHost !== parser && byHost !== own) return { status: 404 };
+	if (onSharedHostOfSubdomainProject(projectId, host)) return { status: 404 };
 	return { status: 200, path: path.slice(DEV_PREFIX.length) || "/", parser: own };
+}
+
+/** the request reached the shared trie, but this project lives on its own subdomain */
+function onSharedHostOfSubdomainProject(projectId: string, host: string | undefined) {
+	return routeParserFor(host) === parser && subdomainByProject.has(projectId);
 }
 
 // ponytail: one hash per project per request; a hash -> project map if a dev worker holds thousands

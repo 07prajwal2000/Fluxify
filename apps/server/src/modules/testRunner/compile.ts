@@ -2,13 +2,15 @@ import { BlockTypes, compileGraph } from "@fluxify/blocks";
 import { logger } from "@fluxify/common";
 import { eq } from "drizzle-orm";
 import { db } from "../../db";
+import type { CanvasSnapshot } from "../../db/schema";
 import {
 	customBlocksListEntity,
 	projectsEntity,
 	routesEntity,
 	workflowsEntity,
 } from "../../db/schema";
-import { loadRouteMiddlewares } from "../compiler/middlewares";
+import { dropCandidate, publishCandidate, readCandidate } from "../compiler/candidate";
+import { loadRouteMiddlewares, resolveMiddlewareIds } from "../compiler/middlewares";
 import { loadGraph } from "../compiler/service";
 import { compileDependencies } from "../packages/service";
 import type { SuiteTarget } from "./target";
@@ -20,7 +22,14 @@ export type CompiledSuiteTarget = Awaited<
 	ReturnType<typeof compileSuiteRoute | typeof compileSuiteWorkflow>
 >;
 
-export function compileSuiteTarget(target: SuiteTarget): Promise<CompiledSuiteTarget> {
+/** a version's snapshot to run instead of the working copy (#739) */
+export type SuiteCandidate = { versionId: string; snapshot: CanvasSnapshot };
+
+export function compileSuiteTarget(
+	target: SuiteTarget,
+	candidate?: SuiteCandidate,
+): Promise<CompiledSuiteTarget & { candidateKey?: string }> {
+	if (candidate) return compileSuiteCandidate(target, candidate);
 	return target.type === "route" ? compileSuiteRoute(target.id) : compileSuiteWorkflow(target.id);
 }
 
@@ -100,6 +109,85 @@ export async function compileSuiteWorkflow(workflowId: string) {
 		dependencies,
 		customBlocks: await compileProjectCustomBlocks(workflow.projectId!, dependencies),
 	};
+}
+
+/**
+ * A version's snapshot as the suite target (#739): built into a candidate in the
+ * development bucket and read back from there. The caller deletes `candidateKey`
+ * when the run ends. Name and project come from the row, which is live; the graph,
+ * path, schemas, timeout and middlewares come from the snapshot.
+ */
+async function compileSuiteCandidate(target: SuiteTarget, candidate: SuiteCandidate) {
+	const parent =
+		target.type === "route"
+			? await db
+					.select({
+						projectId: routesEntity.projectId,
+						projectName: projectsEntity.name,
+					})
+					.from(routesEntity)
+					.leftJoin(projectsEntity, eq(routesEntity.projectId, projectsEntity.id))
+					.where(eq(routesEntity.id, target.id))
+			: await db
+					.select({ projectId: workflowsEntity.projectId, name: workflowsEntity.name })
+					.from(workflowsEntity)
+					.where(eq(workflowsEntity.id, target.id));
+	const row = parent[0] as
+		| { projectId: string | null; projectName?: string | null; name?: string | null }
+		| undefined;
+	if (!row) throw new Error(`${target.type} ${target.id} not found`);
+	const projectId = row.projectId!;
+
+	const { key } = await publishCandidate({
+		kind: target.type,
+		projectId,
+		versionId: candidate.versionId,
+		snapshot: candidate.snapshot,
+	});
+	try {
+		const stored = await readCandidate(key);
+		if (!stored) throw new Error("The candidate artifact is missing from the development bucket");
+		const dependencies = await compileDependencies(projectId);
+		const customBlocks = await compileProjectCustomBlocks(projectId, dependencies);
+		const { settings, source } = stored;
+		if (target.type === "route") {
+			return {
+				route: {
+					id: target.id,
+					method: settings.method ?? "GET",
+					path: settings.path ?? "",
+					projectId,
+					projectName: row.projectName ?? null,
+					bodySchema: settings.bodySchema,
+					querySchema: settings.querySchema,
+					paramsSchema: settings.paramsSchema,
+					timeoutSeconds: settings.timeoutSeconds,
+					middlewares: await resolveMiddlewareIds(settings.middlewares),
+				},
+				workflow: undefined,
+				source,
+				dependencies,
+				customBlocks,
+				candidateKey: key,
+			};
+		}
+		return {
+			route: undefined,
+			workflow: {
+				id: target.id,
+				name: row.name ?? target.id,
+				projectId,
+				timeoutSeconds: settings.timeoutSeconds,
+			},
+			source,
+			dependencies,
+			customBlocks,
+			candidateKey: key,
+		};
+	} catch (error) {
+		await dropCandidate(key).catch(() => {});
+		throw error;
+	}
 }
 
 /** the name a suite's input script is registered under in its child */

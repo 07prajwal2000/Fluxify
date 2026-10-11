@@ -8,7 +8,7 @@ import { NotFoundError } from "../../errors/notFoundError";
 import { canAccessProject } from "../../lib/acl";
 import { findAuthor, findVersion, readTarget, versionNumberOf } from "../versions/repository";
 import type { deployBodySchema } from "./dto";
-import { runGates } from "./gates";
+import { runChecks } from "./gates";
 import {
 	findDeployment,
 	finishDeployment,
@@ -17,12 +17,14 @@ import {
 	pendingDeployments,
 	setProdVersion,
 } from "./repository";
+import { countSuites, testsGate } from "./testsGate";
 
 /**
  * Promote and rollback (#739). A deployment is written `pending`, its gates
  * run, and it ends `live` (production now serves the version) or `failed` (the
- * gates say why). The gates run in the request today; the row is what a slower
- * gate, such as a test run, would be polled through.
+ * gates say why). The quick gates run in the request. The tests gate takes as
+ * long as the suites do, so when there are suites the request returns the
+ * `pending` row and the rest finishes in the background: poll the deployment.
  *
  * Rollback is not a separate mechanism: it is a promote of a version older than
  * the one in production, and the log says which.
@@ -116,31 +118,62 @@ export async function deployVersion(
 		return { deployment, snapshot: version.snapshot, projectId: target.projectId! };
 	});
 
-	// 2. the gates, outside the transaction: they may take a while
-	let gates: GateResult[];
+	// 2. the quick gates, outside the transaction: they may take a while
+	const gateTarget = {
+		kind,
+		id,
+		projectId: started.projectId,
+		versionId: started.deployment.versionId,
+		snapshot: started.snapshot,
+	};
+	let quick: GateResult[];
 	try {
-		gates = await runGates({ kind, id, projectId: started.projectId, snapshot: started.snapshot });
+		quick = await runChecks(gateTarget);
 	} catch (error) {
-		gates = [
-			{
-				gate: "compile",
-				status: "failed",
-				message: `The checks could not run: ${error instanceof Error ? error.message : String(error)}`,
-			},
-		];
+		quick = [failedGate("compile", "The checks could not run", error)];
 	}
-	const passed = !gates.some((gate) => gate.status === "failed");
+	const quickPassed = !quick.some((gate) => gate.status === "failed");
 
-	// 3. finish: production's pointer and the log move together
-	await db.transaction(async (tx) => {
-		await accessTarget(kind, id, acl, "creator", tx, true);
-		if (passed) await setProdVersion(kind, id, started.deployment.versionId, tx);
-		await finishDeployment(started.deployment.id, passed ? "live" : "failed", gates, tx);
-	});
-	// the usual change signal: the compiler republishes production from the new pointer
-	if (passed) await publishMessage(CHANGE_CHANNEL[kind], id);
+	// 3. the tests gate, last; then finish
+	const finish = async () => {
+		let tests: GateResult;
+		try {
+			tests = await testsGate(gateTarget, started.deployment.id, !quickPassed);
+		} catch (error) {
+			tests = failedGate("tests", "The tests could not run", error);
+		}
+		const gates = [...quick, tests];
+		const passed = !gates.some((gate) => gate.status === "failed");
+		// production's pointer and the log move together
+		await db.transaction(async (tx) => {
+			await accessTarget(kind, id, acl, "creator", tx, true);
+			if (passed) await setProdVersion(kind, id, started.deployment.versionId, tx);
+			await finishDeployment(started.deployment.id, passed ? "live" : "failed", gates, tx);
+		});
+		// the usual change signal: the compiler republishes production from the new pointer
+		if (passed) await publishMessage(CHANGE_CHANNEL[kind], id);
+	};
 
+	if (quickPassed && (await countSuites(kind, id)) > 0) {
+		// the request has its answer: pending, to be polled
+		finish().catch((error) =>
+			finishDeployment(started.deployment.id, "failed", [
+				...quick,
+				failedGate("tests", "The deployment could not finish", error),
+			]).catch(() => {}),
+		);
+	} else {
+		await finish();
+	}
 	return present((await findDeployment(kind, id, started.deployment.id))!);
+}
+
+function failedGate(gate: GateResult["gate"], what: string, error: unknown): GateResult {
+	return {
+		gate,
+		status: "failed",
+		message: `${what}: ${error instanceof Error ? error.message : String(error)}`,
+	};
 }
 
 export async function listTargetDeployments(kind: CanvasVersionKind, id: string, acl: AuthACL[]) {

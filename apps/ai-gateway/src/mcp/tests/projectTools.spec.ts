@@ -75,7 +75,11 @@ describe("project tools", () => {
 			{ [RUNS]: { runId: "run1" } },
 		);
 		const result: any = await run("run_test_suite", { testSuiteId: "s1" }, api);
-		expect(calls[2]).toEqual({ method: "POST", path: RUNS, body: { suiteIds: ["s1"] } });
+		expect(calls[2]).toEqual({
+			method: "POST",
+			path: RUNS,
+			body: { suiteIds: ["s1"], env: "development" },
+		});
 		expect(result).toEqual({
 			runId: "run1",
 			status: "failed",
@@ -101,6 +105,20 @@ describe("project tools", () => {
 				},
 			],
 		});
+	});
+
+	it("run_test_suite env production runs the promoted version and reports the env", async () => {
+		const { api, calls } = fakeApi(
+			{ ...suiteGets, [`${RUNS}/run1`]: { ...routeSuiteRun("run1", "s1"), env: "production" } },
+			{ [RUNS]: { runId: "run1" } },
+		);
+		const result: any = await run("run_test_suite", { testSuiteId: "s1", env: "production" }, api);
+		expect(calls[2]).toEqual({
+			method: "POST",
+			path: RUNS,
+			body: { suiteIds: ["s1"], env: "production" },
+		});
+		expect(result.env).toBe("production");
 	});
 
 	it("get_test_runs reads a workflow suite's cases and skips runs of other suites", async () => {

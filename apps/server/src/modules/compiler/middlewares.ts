@@ -51,8 +51,14 @@ export async function loadRouteMiddlewareIds(
 
 /** a route's middlewares resolved in full — the test runner, which reads the database */
 export async function loadRouteMiddlewares(routeId: string): Promise<RouteMiddlewares | undefined> {
-	const ids = await loadRouteMiddlewareIds(routeId);
-	if (!ids) return undefined;
+	return resolveMiddlewareIds(await loadRouteMiddlewareIds(routeId));
+}
+
+/** the same for ids already known, such as a version's snapshot (#739) */
+export async function resolveMiddlewareIds(
+	ids: RouteMiddlewareIds | undefined,
+): Promise<RouteMiddlewares | undefined> {
+	if (!ids || (!ids.before.length && !ids.after.length)) return undefined;
 	const resolve = async (list: string[]) => {
 		const loaded = await Promise.all(list.map(loadMiddleware));
 		return loaded.flatMap((entry) => (entry ? [entry.middleware] : []));

@@ -59,7 +59,7 @@ export async function finishDeployment(
 	id: string,
 	status: Exclude<DeploymentStatus, "pending">,
 	gates: GateResult[],
-	tx: DbTransactionType,
+	tx: DbTransactionType | typeof db = db,
 ) {
 	await tx
 		.update(deploymentsEntity)

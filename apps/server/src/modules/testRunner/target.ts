@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../db";
 import { parentTable } from "../canvas/repository";
+import { readTarget } from "../versions/repository";
 
 /**
  * What a suite tests (#487): a route or a workflow. Both are canvas parents, so
@@ -50,4 +51,10 @@ export async function targetProject(target: SuiteTarget) {
 		.from(table)
 		.where(eq(table.id, target.id));
 	return row ? ((row.projectId as string | null) ?? undefined) : undefined;
+}
+
+/** the version production serves for this target, or null when it was never promoted */
+export async function targetProdVersion(target: SuiteTarget) {
+	const row = await readTarget(target.type, target.id, undefined);
+	return row?.prodVersionId ?? null;
 }
