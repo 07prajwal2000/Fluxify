@@ -62,6 +62,7 @@ describe("MCP role matrix", () => {
 			method: "GET",
 			path: "/hello",
 			active: true,
+			devActive: true,
 			timeoutSeconds: 30,
 			tracingEnabled: false,
 			recordExecution: false,
