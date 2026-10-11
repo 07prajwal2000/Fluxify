@@ -120,7 +120,11 @@ describe("MCP writes", () => {
 			value: secret,
 		});
 		expect(updated).toEqual({ id: created.id });
-		const read = await call("get_app_config", { projectId: p, appConfigId: created.id });
+		const read = await call("get_app_config", {
+			projectId: p,
+			appConfigId: created.id,
+			env: "production",
+		});
 		expect(read.value).not.toContain(secret);
 		expect(read.isEncrypted).toBe(true);
 	});
