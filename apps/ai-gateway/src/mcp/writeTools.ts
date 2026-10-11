@@ -11,7 +11,7 @@ import {
 	patchSchema as triggerPatch,
 } from "@fluxify/server/src/api/v1/triggers/dto";
 import { z } from "zod";
-import { type McpTool, projectId } from "./tools";
+import { envInput, type McpTool, projectId } from "./tools";
 
 /** How a 400 reads after readableError (adminApi.ts). */
 const INVALID = "Invalid input: ";
@@ -61,7 +61,7 @@ export const writeTools: McpTool[] = [
 		name: "save_trigger",
 		title: "Save trigger",
 		description:
-			"Create or update a trigger. To create pass projectId, name and type ('internal' is started by workflows, 'schedule' needs schedule: '@every 5m', '@daily' or six-field cron with seconds first; queue types need integrationId and source). On update pass triggerId and only what changes; type and project cannot change. workflowId null detaches the workflow. sandboxId runs one of your sandboxes instead of a workflow, on a development worker (not with 'schedule'); null detaches it.",
+			"Create or update a trigger. Triggers are shared by development and production, so saving one changes production: only when the user asks for it. To create pass projectId, name and type ('internal' is started by workflows, 'schedule' needs schedule: '@every 5m', '@daily' or six-field cron with seconds first; queue types need integrationId and source). On update pass triggerId and only what changes; type and project cannot change. workflowId null detaches the workflow. sandboxId runs one of your sandboxes instead of a workflow, on a development worker (not with 'schedule'); null detaches it.",
 		role: "creator",
 		annotations: SAVE,
 		input: {
@@ -144,7 +144,7 @@ export const writeTools: McpTool[] = [
 		name: "save_app_config",
 		title: "Save app config",
 		description:
-			"Create or update an app config entry (a setting or secret blocks read). To create pass keyName, value, description, isEncrypted and encodingType ('plaintext' unless the value is already base64 or hex). value is production's; devValue is development's own (null removes it), and syncDev true makes development read value instead. A development run with no devValue and syncDev off fails, naming the key. Encrypt secrets: an encrypted value is never shown again and cannot be decrypted back. On update, fields left out keep their value; keyName and dataType cannot change.",
+			"Create or update an app config entry (a setting or secret blocks read). To create pass keyName, value, description, isEncrypted and encodingType ('plaintext' unless the value is already base64 or hex). value is production's: set it only when the user explicitly asks to change production, otherwise set devValue, development's own (null removes it), and syncDev true makes development read value instead. A development run with no devValue and syncDev off fails, naming the key. Encrypt secrets: an encrypted value is never shown again and cannot be decrypted back. On update, fields left out keep their value; keyName and dataType cannot change.",
 		role: "creator",
 		annotations: SAVE,
 		input: {
@@ -187,7 +187,7 @@ export const writeTools: McpTool[] = [
 	{
 		name: "save_integration",
 		title: "Save integration",
-		description: `Create or update an integration (a database, KV store, AI provider, queue, …). To create pass name, group, variant and config. Variants by group: ${VARIANTS}. config fields depend on the variant: call get_integration_schema first for the exact fields, and a wrong config returns the fields to fix. Put secrets in app config and reference them as "cfg:KEY_NAME". config is production's; devConfig is development's own, same fields (null removes it), and syncDev true makes development use config instead. Point devConfig at separate dev instances: a development run with no devConfig and syncDev off fails, naming the integration. On update, group and variant cannot change and config replaces the whole config.`,
+		description: `Create or update an integration (a database, KV store, AI provider, queue, …). To create pass name, group, variant and config. Variants by group: ${VARIANTS}. config fields depend on the variant: call get_integration_schema first for the exact fields, and a wrong config returns the fields to fix. Put secrets in app config and reference them as "cfg:KEY_NAME". config is production's: set it only when the user explicitly asks to change production, otherwise set devConfig, development's own, same fields (null removes it), and syncDev true makes development use config instead. Point devConfig at separate dev instances: a development run with no devConfig and syncDev off fails, naming the integration. On update, group and variant cannot change and config replaces the whole config.`,
 		role: "creator",
 		annotations: SAVE,
 		input: {
@@ -289,9 +289,13 @@ export const writeTools: McpTool[] = [
 			projectId,
 			integrationId: z.string().describe("A KV integration's id, from list_integrations"),
 			key: z.string().min(1),
+			env: envInput("Connects with that environment's credentials"),
 		},
 		call: async ({ get }, a) =>
-			get(`/v1/${a.projectId}/integrations/${a.integrationId}/kv`, { key: a.key }),
+			get(`/v1/${a.projectId}/integrations/${a.integrationId}/kv`, {
+				key: a.key,
+				env: a.env ?? "development",
+			}),
 	},
 ];
 

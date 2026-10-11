@@ -67,3 +67,19 @@ describe("ephemeral run keys (#741)", () => {
 			expect(() => assertCanWriteKey(user, acl("creator"), "p1", key as never)).not.toThrow();
 	});
 });
+
+describe("production ask keys (#737)", () => {
+	const m = projectSettingsKeySchemaMap;
+	const keys = ["settings.ai.askBeforeProductionReads", "settings.ai.askBeforeProductionWrites"] as const;
+
+	it("default to asking", () => {
+		for (const key of keys) expect(m[key].defaultValue).toBe("true");
+	});
+
+	it("take only true or false", () => {
+		for (const key of keys) {
+			expect(m[key].schema.safeParse("false").success).toBe(true);
+			expect(m[key].schema.safeParse("yes").success).toBe(false);
+		}
+	});
+});

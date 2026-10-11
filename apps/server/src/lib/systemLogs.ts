@@ -37,6 +37,8 @@ export type SystemLogFilter = {
 	resourceId?: string;
 	type?: string;
 	level?: SystemLogLevel;
+	/** rows of this environment; rows with no env (compile, orchestrator) match both */
+	env?: "development" | "production";
 	limit?: number;
 };
 
@@ -92,6 +94,10 @@ export async function listSystemLogs(filter: SystemLogFilter, userId: string) {
 	if (filter.resourceId) where.push(eq(systemLogsEntity.resourceId, filter.resourceId));
 	if (filter.type) where.push(eq(systemLogsEntity.type, filter.type));
 	if (filter.level) where.push(eq(systemLogsEntity.level, filter.level));
+	if (filter.env)
+		where.push(
+			sql`(${systemLogsEntity.detail}->>'env' IS NULL OR ${systemLogsEntity.detail}->>'env' = ${filter.env})`,
+		);
 
 	return db
 		.select()

@@ -14,7 +14,7 @@ const schemaDocs: DescribeRouteOptions = {
 
 const kvDocs: DescribeRouteOptions = {
 	description:
-		"Read one key from a KV integration: the value (capped at 10,000 characters) and its TTL where the store reports one. Read only.",
+		"Read one key from a KV integration: the value (capped at 10,000 characters) and its TTL where the store reports one. Read only. Connects with development credentials unless `env=production`.",
 	operationId: "get-integration-kv-value",
 	tags: ["Integrations"],
 };
@@ -34,6 +34,9 @@ export default function (app: HonoServer) {
 		requireProjectAccess("creator", { key: "projectId", source: "param" }),
 		validator("param", requestRouteSchema, zodErrorCallbackParser),
 		validator("query", kvQuerySchema, zodErrorCallbackParser),
-		async (c) => c.json(await getKvValue(c.req.valid("param"), c.req.valid("query").key)),
+		async (c) => {
+			const { key, env } = c.req.valid("query");
+			return c.json(await getKvValue(c.req.valid("param"), key, env));
+		},
 	);
 }

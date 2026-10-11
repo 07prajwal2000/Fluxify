@@ -12,6 +12,7 @@ export const systemLogsQuerySchema = z.object({
 	resourceId: z.string().optional(),
 	type: z.string().optional(),
 	level: z.enum(["info", "warn", "error"]).optional(),
+	env: z.enum(["development", "production"]).optional(),
 	limit: z.coerce.number().int().min(1).max(200).default(50),
 });
 

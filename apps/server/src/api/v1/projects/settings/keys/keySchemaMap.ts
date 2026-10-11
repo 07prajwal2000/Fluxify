@@ -103,6 +103,18 @@ export const projectSettingsKeySchemaMap = {
 		defaultValue: "false",
 		dataType: "boolean",
 	},
+	/** On by default: the agent asks before it reads production (env "production"), in auto mode too (#737). */
+	"settings.ai.askBeforeProductionReads": {
+		schema: z.enum(["true", "false"]),
+		defaultValue: "true",
+		dataType: "boolean",
+	},
+	/** On by default: the agent asks before it sets a production value or config, or saves a trigger (#737). */
+	"settings.ai.askBeforeProductionWrites": {
+		schema: z.enum(["true", "false"]),
+		defaultValue: "true",
+		dataType: "boolean",
+	},
 	"experimental.workerTimeouts.enabled": {
 		schema: z.enum(["true", "false"]),
 		defaultValue: "false",

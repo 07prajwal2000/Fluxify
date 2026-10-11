@@ -23,6 +23,7 @@ import {
 	isRead,
 	type Mode,
 	needsApproval,
+	touchesProd,
 } from "./tools";
 
 export { type Limit, MAX_STEPS } from "./guards";
@@ -110,6 +111,9 @@ type Run = {
 	mode: Mode;
 	/** The project's "Ask before ephemeral runs" (#741): run_blocks asks in every mode. */
 	askBeforeEphemeralRuns?: boolean;
+	/** "Ask before production reads" and "writes" (#737), both on unless the project turned them off: asks in every mode. */
+	askBeforeProductionReads?: boolean;
+	askBeforeProductionWrites?: boolean;
 	/** Thinking level (`none` turns it off); sent only for models known to support it. */
 	effort?: Effort;
 	approve: Approve;
@@ -175,6 +179,8 @@ export function runAgent({
 	limits,
 	mode,
 	askBeforeEphemeralRuns,
+	askBeforeProductionReads = true,
+	askBeforeProductionWrites = true,
 	effort,
 	approve,
 	onLimit = async () => false,
@@ -316,10 +322,14 @@ export function runAgent({
 		},
 		toolApproval: async ({ toolCall: { toolCallId, toolName, input } }) => {
 			const del = isDelete(toolName);
-			// a copy into a real canvas asks every time, like a delete, but is not styled as one
-			const every = del || copiesIntoRealCanvas(toolName, input);
+			// a copy into a real canvas, or a production write, asks every time like a delete, but is not styled as one
+			const every =
+				del ||
+				copiesIntoRealCanvas(toolName, input) ||
+				(askBeforeProductionWrites && touchesProd(toolName, input) === "write");
+			const prod = { reads: askBeforeProductionReads, writes: askBeforeProductionWrites };
 			if (
-				!needsApproval(mode, toolName, askBeforeEphemeralRuns, input) ||
+				!needsApproval(mode, toolName, askBeforeEphemeralRuns, input, prod) ||
 				(!every && allowed.has(toolName))
 			)
 				return undefined;

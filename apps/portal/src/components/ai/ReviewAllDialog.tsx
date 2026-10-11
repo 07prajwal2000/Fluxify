@@ -72,6 +72,11 @@ export function ReviewAllDialog({ calls, open, onOpenChange, onConfirm }: Props)
 															Deletes
 														</Chip>
 													)}
+													{c.isProd && (
+														<Chip size="sm" color="danger">
+															Production
+														</Chip>
+													)}
 												</span>
 												<span className="truncate font-mono text-xs text-muted">
 													{summarizeInput(c.name, c.input)}

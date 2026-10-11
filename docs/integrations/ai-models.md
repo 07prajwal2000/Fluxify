@@ -54,6 +54,33 @@ The same page has an **Ephemeral runs** section for the agent's `run_blocks` too
 
 See [Try blocks with an ephemeral run](/agents/recipes/ephemeral-run).
 
+### Environments and approvals
+
+The agent works in **development** by default. It reads development logs, development recordings, development values and development integration settings, and it reads KV keys with the development connection. It only goes to production when you explicitly ask it to.
+
+When it does, it waits for your approval first, in auto mode too. The approval shows a red **Production** badge.
+
+| What the agent does | Asks? |
+| :--- | :--- |
+| Reads production logs, recordings, KV keys, app config values or integration configs | Yes, unless you turn off **Ask before production reads** |
+| Sets an app config **production value**, or an integration's production **config** | Yes, unless you turn off **Ask before production writes** |
+| Saves a trigger (triggers are shared by development and production) | Yes, unless you turn off **Ask before production writes** |
+| Sets only a development value or config, or turns "Same as production" on or off | No |
+| Saves a route, workflow, custom block or middleware | No. Saves change development only. |
+
+| Setting | Default | What it does |
+| :--- | :--- | :--- |
+| Ask before production reads | On | The agent waits for your approval before it reads anything from production. |
+| Ask before production writes | On | The agent waits for your approval before it changes a production value, a production config or a trigger. |
+
+::: warning
+Turning **Ask before production writes** off lets the agent change production values and triggers without asking. Production logs and values can also hold secrets and customer data, so think before turning off the reads one.
+:::
+
+::: info
+Until promoting a version is available, saving a route or workflow still goes live in production too.
+:::
+
 A setting you have not changed uses its default. The offline agent CLI reads `AGENT_MAX_STEPS`, `AGENT_MAX_CONTEXT_TOKENS` and `AGENT_TOKEN_BUDGET` from the environment, and those win over the project values.
 
 ## Long conversations

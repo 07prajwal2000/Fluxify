@@ -7,6 +7,7 @@ import {
 import type { z } from "zod";
 import { BadRequestError } from "../../../../errors/badRequestError";
 import { NotFoundError } from "../../../../errors/notFoundError";
+import type { FluxifyEnv } from "../../../../lib/env";
 import { ADMIN_CONNECTION_ENV, configForAdminEnv } from "../adminEnv";
 import { getAppConfigKeysFromData } from "../create/service";
 import { getIntegrationByID } from "../get-by-id/repository";
@@ -19,19 +20,15 @@ export const KV_VALUE_CAP = 10_000;
 
 type Params = z.infer<typeof requestRouteSchema>;
 
-async function load(params: Params, group: string) {
+async function load(params: Params, group: string, env: FluxifyEnv = ADMIN_CONNECTION_ENV) {
 	const integration = await getIntegrationByID(params.projectId, params.integrationId);
 	if (!integration) throw new NotFoundError("Integration not found");
 	if (integration.group !== group) {
 		throw new BadRequestError(`Not supported for ${integration.group} integrations`);
 	}
-	// the development credentials: an agent or a stray click never reaches production
-	const config = configForAdminEnv(integration, ADMIN_CONNECTION_ENV);
-	const appConfigs = await decodeAppConfig(
-		getAppConfigKeysFromData(config),
-		params.projectId,
-		ADMIN_CONNECTION_ENV,
-	);
+	// development unless production is asked for: an agent or a stray click never reaches it by default
+	const config = configForAdminEnv(integration, env);
+	const appConfigs = await decodeAppConfig(getAppConfigKeysFromData(config), params.projectId, env);
 	return { integration, config, appConfigs };
 }
 
@@ -66,8 +63,9 @@ export async function getSchemaDetails(params: Params, tables?: string): Promise
 export async function getKvValue(
 	params: Params,
 	key: string,
+	env: FluxifyEnv = ADMIN_CONNECTION_ENV,
 ): Promise<z.infer<typeof kvResponseSchema>> {
-	const { integration, config: stored, appConfigs } = await load(params, "kv");
+	const { integration, config: stored, appConfigs } = await load(params, "kv", env);
 	const config = stored as any;
 	if (integration.variant === "Redis") {
 		const kv = new RedisIntegration(

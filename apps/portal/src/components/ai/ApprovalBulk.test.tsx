@@ -11,7 +11,7 @@ afterEach(cleanup);
 afterAll(() => GlobalRegistrator.unregister());
 
 const q = () => within(document.body);
-const call = (id: string, name = "save_route", isDelete = false) =>
+const call = (id: string, name = "save_route", isDelete = false, isProd = false) =>
 	({
 		kind: "tool",
 		id,
@@ -19,6 +19,7 @@ const call = (id: string, name = "save_route", isDelete = false) =>
 		title: `${name} ${id}`,
 		input: { name: id },
 		isDelete,
+		isProd,
 	}) as const;
 
 function show(calls: ReturnType<typeof call>[]) {
@@ -96,4 +97,23 @@ test("dialog: Approve all skips deletes, Reject all covers them, a delete can be
 		{ toolCallId: "a", approve: false },
 		{ toolCallId: "d", approve: true },
 	]);
+});
+
+test("a production call carries a red Production badge, an ordinary one does not (#737)", () => {
+	show([call("a", "get_system_logs", false, true)]);
+	expect(q().getByText("Production")).toBeTruthy();
+	cleanup();
+	show([call("b")]);
+	expect(q().queryByText("Production")).toBeNull();
+});
+
+test("isProdCall marks production reads and writes only (#737)", async () => {
+	const { isProdCall } = await import("./agentApproval");
+	expect(isProdCall("kv_get", { env: "production" })).toBe(true);
+	expect(isProdCall("kv_get", { env: "development" })).toBe(false);
+	expect(isProdCall("save_app_config", { value: "x" })).toBe(true);
+	expect(isProdCall("save_app_config", { devValue: "x" })).toBe(false);
+	expect(isProdCall("save_integration", { config: {} })).toBe(true);
+	expect(isProdCall("save_trigger", {})).toBe(true);
+	expect(isProdCall("save_route", {})).toBe(false);
 });

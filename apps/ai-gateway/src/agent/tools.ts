@@ -7,7 +7,7 @@ import { projectTools } from "../mcp/projectTools";
 import { routeTools } from "../mcp/routeTools";
 import { sandboxTools } from "../mcp/sandboxTools";
 import { testSuiteTools } from "../mcp/testSuiteTools";
-import { lenient, type McpTool, readTools } from "../mcp/tools";
+import { envInput, lenient, type McpTool, readTools } from "../mcp/tools";
 import { writeTools } from "../mcp/writeTools";
 
 const ALL: McpTool[] = [
@@ -125,23 +125,64 @@ export function copiesIntoRealCanvas(name: string, args: unknown) {
 	return to !== "__new_sandbox__" && (to as { kind?: string } | undefined)?.kind !== "sandbox";
 }
 
+/** Tools that take an `env` and read production only when it is "production". */
+const PROD_READ_TOOLS = [
+	"list_recordings",
+	"get_recording",
+	"get_system_logs",
+	"kv_get",
+	"get_app_config",
+	"get_integration",
+];
+
+/**
+ * What a call does to production (#737), or undefined when it stays on
+ * development. A read names `env: "production"` (`get` for app config and
+ * integrations too). A write sets production's own value or config, or saves a
+ * trigger: triggers are shared by both environments. Calls that only set
+ * devValue / devConfig / syncDev are development. Canvas saves are not here:
+ * they only change development until a version is promoted (#739).
+ */
+export function touchesProd(name: string, args: unknown): "read" | "write" | undefined {
+	const a = (args ?? {}) as Record<string, unknown>;
+	if (name === "save_trigger") return "write";
+	if (name === "save_app_config") return a.value !== undefined ? "write" : undefined;
+	if (name === "save_integration") return a.config !== undefined ? "write" : undefined;
+	const reads =
+		PROD_READ_TOOLS.includes(name) ||
+		(name === "get" && (a.type === "app_config" || a.type === "integration"));
+	return reads && a.env === "production" ? "read" : undefined;
+}
+
+/** The project's "Ask before production reads / writes" settings (#737). */
+export type ProdAsks = { reads: boolean; writes: boolean };
+
 /**
  * The one ask rule. Deletes always ask; reads never do. Other calls ask in
  * manual (and plan, where they are not active anyway) but not in auto, so
  * call_route and run_test_suite run unasked in auto despite destructiveHint.
  * `askBeforeEphemeral` is the project's "Ask before ephemeral runs" setting:
- * run_blocks then asks in auto too. `args` is only read for copy_blocks.
+ * run_blocks then asks in auto too. `prod` is the two production settings: a
+ * production read or write asks in auto too. `args` is only read for
+ * copy_blocks and the production rule.
  */
 export const needsApproval = (
 	mode: Mode,
 	name: string,
 	askBeforeEphemeral = false,
 	args?: unknown,
-) =>
-	isDelete(name) ||
-	(askBeforeEphemeral && name === EPHEMERAL_RUN_TOOL) ||
-	copiesIntoRealCanvas(name, args) ||
-	(!isRead(name) && mode !== "auto");
+	prod: ProdAsks = { reads: true, writes: true },
+) => {
+	const touched = touchesProd(name, args);
+	return (
+		isDelete(name) ||
+		(askBeforeEphemeral && name === EPHEMERAL_RUN_TOOL) ||
+		copiesIntoRealCanvas(name, args) ||
+		(touched === "read" && prod.reads) ||
+		(touched === "write" && prod.writes) ||
+		(!isRead(name) && mode !== "auto")
+	);
+};
 
 /** Calls one MCP tool by name as the `auth` user, its input checked like the agent's. */
 export const mcpCall =
@@ -220,10 +261,18 @@ export function agentTools(
 		inputSchema: z.object({
 			type: z.enum(Object.keys(GET_TYPES) as [keyof typeof GET_TYPES]),
 			id: z.string(),
+			env: envInput(
+				"app_config and integration only: development returns the development value or config",
+			),
 		}),
-		execute: ({ type, id }, { abortSignal }) => {
+		execute: ({ type, id, env }, { abortSignal }) => {
 			const [name, key] = GET_TYPES[type];
-			return run(name, { projectId, [key]: type === "app_config" ? Number(id) : id }, abortSignal);
+			const withEnv = type === "app_config" || type === "integration" ? { env } : {};
+			return run(
+				name,
+				{ projectId, [key]: type === "app_config" ? Number(id) : id, ...withEnv },
+				abortSignal,
+			);
 		},
 	});
 	tools.list_advanced_tools = tool({

@@ -15,9 +15,18 @@ describe("currentResource", () => {
 		expect(calls.at(-1)).toEqual(["get_app_config", { projectId: "p1", appConfigId: 7 }]);
 	});
 
+	it("asks for production's side only when the call sets it or deletes the resource (#737)", async () => {
+		await currentResource(call, "p1", "save_app_config", { appConfigId: 7, value: "x" });
+		expect(calls.at(-1)).toEqual(["get_app_config", { projectId: "p1", appConfigId: 7, env: "production" }]);
+		await currentResource(call, "p1", "save_app_config", { appConfigId: 7, devValue: "x" });
+		expect(calls.at(-1)).toEqual(["get_app_config", { projectId: "p1", appConfigId: 7 }]);
+		await currentResource(call, "p1", "save_integration", { integrationId: "i1", config: {} });
+		expect(calls.at(-1)).toEqual(["get_integration", { projectId: "p1", integrationId: "i1", env: "production" }]);
+	});
+
 	it("reads what a delete removes", async () => {
 		await currentResource(call, "p1", "delete_integration", { integrationId: "i1" });
-		expect(calls.at(-1)).toEqual(["get_integration", { projectId: "p1", integrationId: "i1" }]);
+		expect(calls.at(-1)).toEqual(["get_integration", { projectId: "p1", integrationId: "i1", env: "production" }]);
 	});
 
 	it("a create has nothing to read", async () => {
