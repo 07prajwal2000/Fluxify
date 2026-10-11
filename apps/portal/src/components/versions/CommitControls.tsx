@@ -1,7 +1,8 @@
-import { Button, ButtonGroup, Dropdown, Label, Tooltip } from "@fluxify/components";
+import { Button, Tooltip } from "@fluxify/components";
 import { useState } from "react";
-import { TbChevronDown, TbGitCommit, TbHistory } from "react-icons/tb";
+import { TbGitCommit, TbHistory } from "react-icons/tb";
 import type { CanvasHeaderState } from "@/components/canvas/CanvasWorkbench";
+import { SplitButton } from "@/components/common/SplitButton";
 import type { VersionKind } from "@/services/versions";
 import { useCanEditProject } from "@/store/auth";
 import { CommitDialog } from "./CommitDialog";
@@ -43,32 +44,28 @@ export function CommitControls({
 			<Tooltip isDisabled={hasWork}>
 				{/* a disabled button takes no hover, so the tooltip sits on its wrapper */}
 				<Tooltip.Trigger role="group" aria-label="Commit">
-					<ButtonGroup variant="outline">
-						<Button isDisabled={!hasWork} onPress={() => setCommitting(true)}>
-							<TbGitCommit size={16} /> Commit
-							{hasWork && (
-								<span
-									role="img"
-									aria-label="Uncommitted changes"
-									className="size-2 rounded-full bg-warning"
-								/>
-							)}
-						</Button>
-						<Dropdown>
-							<Button isIconOnly variant="outline" aria-label="Version options">
-								<ButtonGroup.Separator />
-								<TbChevronDown size={14} />
-							</Button>
-							<Dropdown.Popover>
-								<Dropdown.Menu onAction={onOpenHistory}>
-									<Dropdown.Item id="history" textValue="Version history">
-										<TbHistory size={16} />
-										<Label>Version history</Label>
-									</Dropdown.Item>
-								</Dropdown.Menu>
-							</Dropdown.Popover>
-						</Dropdown>
-					</ButtonGroup>
+					<SplitButton
+						isDisabled={!hasWork}
+						onPress={() => setCommitting(true)}
+						menuLabel="Version options"
+						items={[
+							{
+								id: "history",
+								label: "Version history",
+								icon: <TbHistory size={16} />,
+								onAction: onOpenHistory,
+							},
+						]}
+					>
+						<TbGitCommit size={16} /> Commit
+						{hasWork && (
+							<span
+								role="img"
+								aria-label="Uncommitted changes"
+								className="size-2 rounded-full bg-warning"
+							/>
+						)}
+					</SplitButton>
 				</Tooltip.Trigger>
 				<Tooltip.Content>Nothing to commit</Tooltip.Content>
 			</Tooltip>

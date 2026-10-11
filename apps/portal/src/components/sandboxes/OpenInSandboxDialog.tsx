@@ -1,19 +1,17 @@
-import { Button, toast } from "@fluxify/components";
+import { toast } from "@fluxify/components";
 import { useState } from "react";
-import { TbFlask } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { middlewaresQuery } from "@/query/middlewaresQuery";
 import { routesQuery } from "@/query/routesQuery";
 import type { CanvasItems } from "@/services/canvas";
-import { useCanEditProject } from "@/store/auth";
 import { copyWarnings, openInSandbox, type SandboxSource } from "./openInSandbox";
 
 const hasSchema = (schema: unknown) =>
 	!!schema && Object.keys(schema as Record<string, unknown>).length > 0;
 
 /** The warnings that apply to this source; a workflow has no middlewares or request schemas. */
-function useWarnings(source: SandboxSource) {
+export function useSandboxWarnings(source: SandboxSource) {
 	const isRoute = source.kind === "route";
 	const { data: route } = routesQuery.byId.useQuery(isRoute ? source.id : "");
 	const { data: middlewares } = middlewaresQuery.forRoute.useQuery(isRoute ? source.id : "");
@@ -88,39 +86,5 @@ export function OpenInSandboxDialog({
 				</>
 			)}
 		</ConfirmDialog>
-	);
-}
-
-/** Copies the whole canvas into a new sandbox of yours and opens it (#752). */
-export function OpenInSandboxButton({
-	projectId,
-	source,
-	onOpen,
-}: {
-	projectId: string;
-	source: SandboxSource;
-	/** the new sandbox is saved: open it */
-	onOpen: (sandboxId: string) => void;
-}) {
-	const canEdit = useCanEditProject(projectId);
-	const warnings = useWarnings(source);
-	const [confirming, setConfirming] = useState(false);
-
-	// sandboxes are for creators and above
-	if (!canEdit) return null;
-	return (
-		<>
-			<Button variant="outline" onPress={() => setConfirming(true)}>
-				<TbFlask size={16} /> Open in sandbox
-			</Button>
-			<OpenInSandboxDialog
-				projectId={projectId}
-				source={source}
-				warnings={warnings}
-				open={confirming}
-				onOpenChange={setConfirming}
-				onOpen={onOpen}
-			/>
-		</>
 	);
 }

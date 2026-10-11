@@ -1,7 +1,7 @@
 import { Button, Spinner } from "@fluxify/components";
 import { useState } from "react";
 import { TbArrowLeft } from "react-icons/tb";
-import { OpenInSandboxDialog } from "@/components/sandboxes/OpenInSandboxButton";
+import { OpenInSandboxDialog } from "@/components/sandboxes/OpenInSandboxDialog";
 import { copyWarnings } from "@/components/sandboxes/openInSandbox";
 import { versionsQuery } from "@/query/versionsQuery";
 import type { Version, VersionKind } from "@/services/versions";
