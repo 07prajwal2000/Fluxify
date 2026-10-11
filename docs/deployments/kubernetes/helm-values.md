@@ -120,7 +120,9 @@ It is on by default so a Helm install matches the kit and the compose stack.
 With `ingressRoute.enabled`, [Web traffic](#traffic) sends `/_sandbox` and
 `/_/dev` to it and nothing else, so [sandboxes](/concepts/sandbox) and
 [routes on development](/concepts/environments#calling-a-route-on-development)
-can be called on your normal address. With the route turned off, send
+can be called on your normal address, and on a project's subdomain (the
+rule matches any host; a project with a subdomain answers these paths only
+there). With the route turned off, send
 `/_sandbox`, `/_/dev` and `/_/dev/…` (not `/_/devices`) to the service
 `fluxify-dev-worker`, port `5600`, yourself.
 

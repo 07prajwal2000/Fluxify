@@ -172,7 +172,8 @@ async function serveRoute(request: Request): Promise<Response> {
 	const devToken = request.headers.get(DEV_TOKEN_HEADER);
 	// a sandbox (#735) or a development route (#736): both need the dev token
 	const scoped =
-		sandboxRequest(ctx.req.path, devToken) ?? devRequest(ctx.req.path, host, devToken, boot?.env);
+		sandboxRequest(ctx.req.path, devToken, host) ??
+		devRequest(ctx.req.path, host, devToken, boot?.env);
 	if (scoped && scoped.status !== 200) {
 		const message =
 			scoped.status === 404 ? "Route not found" : "Missing or wrong development token";

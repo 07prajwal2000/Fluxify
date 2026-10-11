@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useProjectApiBaseUrl } from "@/components/settings/SubdomainField";
+import { projectSettingsKeysQuery } from "@/query/projectSettingsKeysQuery";
 import { publicSettingsQuery } from "@/query/publicSettingsQuery";
 import { projectDevTokenService } from "@/services/projectDevToken";
 
@@ -7,11 +8,19 @@ import { projectDevTokenService } from "@/services/projectDevToken";
  * Where sandbox calls go: the operator's `DEV_WORKER_URL` when one is set, and
  * otherwise the project's own API address, which the proxy in front of a
  * deployment already sends `/_sandbox` to the development worker from.
+ *
+ * A project with a subdomain answers dev requests only on that host (#742), and
+ * a browser cannot set `Host` for a fixed worker URL, so such a project always
+ * goes through its own address.
  */
 export function useDevWorkerUrl(projectId: string) {
 	const { data } = publicSettingsQuery.get.useQuery();
 	const apiBase = useProjectApiBaseUrl(projectId);
-	return (data?.devWorkerUrl || apiBase).replace(/\/+$/, "");
+	const { data: settings } = projectSettingsKeysQuery.getAll.useQuery(projectId);
+	const hasSubdomain = Boolean(
+		((settings ?? {}) as Record<string, string>)["settings.routing.subdomain"],
+	);
+	return (hasSubdomain ? apiBase : data?.devWorkerUrl || apiBase).replace(/\/+$/, "");
 }
 
 /**

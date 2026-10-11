@@ -33,8 +33,8 @@ callers and your live triggers reach **production**.
 
 The route playground sends its request to the route's `/_/dev` address, with
 your project's development token added for you. You never see the token. The
-URL preview shows your project's address, subdomain included; the request itself
-goes to the development worker, which picks the project from the token.
+URL preview shows your project's address, subdomain included, and the request
+goes there. The development worker picks the project from the token.
 
 If no development worker is running, these development features answer
 "start a worker with FLUXIFY_ENV=development". In the portal the playground
@@ -178,10 +178,18 @@ The route behaves exactly as it does on its public URL: the same method, the
 same request checks and the same middlewares. Your blocks see the path without
 `/_/dev` (`/users/42` above), and they never see the token.
 
-The token also picks the project, so you do not need the project's subdomain:
-the development address works on a bare host such as `localhost:5602` too. If you
-do use a subdomain, it must be the one of the token's own project; another
-project's subdomain answers `404`.
+The token picks the project. What the address must look like depends on whether
+the project has a [subdomain](/concepts/environments#development-access):
+
+| The project | Where `/_/dev` and `/_sandbox` answer |
+| :--- | :--- |
+| Has no subdomain | On the bare host, such as `localhost:5602`. |
+| Has a subdomain | **Only on that subdomain.** On the bare host, or on any other host, they answer `404`, even with a valid token. |
+
+This matches production, where a project with a subdomain also answers only on
+its subdomain. The playground, **Run**, test suites and `call_route` all use the
+right address for you. When you call it yourself from Postman or curl, use the
+Development URL shown in the project's **Development access** settings.
 
 ## Recording and tracing per environment
 
@@ -228,7 +236,7 @@ curl -H "x-fluxify-dev-token: fxd_..." https://your-host/...
 
 | What | Detail |
 | :--- | :--- |
-| Where to find it | Project settings, **Development access**. It also shows your development URL, ending in `/_/dev`. If your team set a separate address for the development worker, the URL starts with it. Otherwise, if the project has a subdomain, the URL uses it. |
+| Where to find it | Project settings, **Development access**. It also shows your development URL, ending in `/_/dev`. If your team set a separate address for the development worker, the URL starts with it. Otherwise, if the project has a subdomain, the URL uses it, and that is the only address that works. |
 | Who can copy it | Creators and project admins. Viewers don't see the section. |
 | Who can rotate it | Project admins only. |
 | What it opens | Development routes and sandboxes of that project. Nothing else. |

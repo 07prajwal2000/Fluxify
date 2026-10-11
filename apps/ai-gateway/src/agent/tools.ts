@@ -137,6 +137,8 @@ export function copiesIntoRealCanvas(name: string, args: unknown) {
 
 /** Tools that take an `env` and read production only when it is "production". */
 const PROD_READ_TOOLS = [
+	// production here is the promoted graph on development data, still a production read (#739)
+	"run_test_suite",
 	"list_recordings",
 	"get_recording",
 	"get_system_logs",

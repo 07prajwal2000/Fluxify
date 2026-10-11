@@ -1021,6 +1021,18 @@ export const testRunsEntity = pgTable(
 		}),
 		status: testRunStatusEnum("status").default("queued").notNull(),
 		totalSuites: integer("total_suites").notNull(),
+		/**
+		 * Which graph ran (#739): development is the working copy, production the
+		 * promoted version. Both run with development values.
+		 */
+		env: varchar("env", { length: 16 })
+			.$type<"development" | "production">()
+			.default("development")
+			.notNull(),
+		/** set on the runs a promote's tests gate started, so history can tag them */
+		deploymentId: uuid("deployment_id").references(() => deploymentsEntity.id, {
+			onDelete: "set null",
+		}),
 		passedCount: integer("passed_count").default(0).notNull(),
 		failedCount: integer("failed_count").default(0).notNull(),
 		result: jsonb("result").$type<TestRunSummary | null>(),

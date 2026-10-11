@@ -33,9 +33,23 @@ Every suite runs through the same steps, in this order:
 
 Then the suite gets one result: **passed**, **failed**, **error**, or **timeout**. See [Reading results](./results).
 
-::: tip Suites test what you saved
-A suite always runs the route as it is **saved** on the canvas, not the version that is live. You can test a change before anyone uses it.
+## Development and Production runs
+
+When you run suites you pick an environment. **Development** is the default.
+
+| Run | What it tests | Credentials and values |
+| --- | --- | --- |
+| **Development** | The route as it is **saved** on the canvas. You can test a change before anyone uses it. | Development |
+| **Production** | The version you **promoted**, as production serves it now. | Still development |
+
+::: info What "Production" means here
+A Production run tests the promoted version's blocks, but it always uses your **development** credentials and values. It never touches production data, so it is safe to run at any time. Use it to check that the version in production still passes after the working copy has moved on.
 :::
+
+- A route or workflow that has not been [promoted](/concepts/versioning#promoting-a-version) yet has no Production run. Fluxify answers "Not promoted yet".
+- Each run in the history shows which environment it ran.
+- The AI agent's `run_test_suite` tool takes the same `env` setting. With `production` it asks first, like any other production read, if your project is set to ask.
+- Promoting a version runs all its suites automatically. See [The tests check](/concepts/versioning#the-tests-check).
 
 ::: info Suites never touch live traffic
 Each suite runs on its own, away from the requests your users are sending. Changes a suite makes for testing, such as a made-up block result or a different database, only apply to that suite.

@@ -494,7 +494,7 @@ describe("gates", () => {
 		expect(res.body.gates.find((g: any) => g.gate === "path").status).toBe("passed");
 	});
 
-	it("warns about custom blocks and middlewares and skips the tests gate, neither a failure", async () => {
+	it("warns about custom blocks and middlewares and warns that there are no suites, neither a failure", async () => {
 		const { as, project } = await setup();
 		const id = await createRoute(as);
 		const v1 = await versioned(as, id, "return 1;");
@@ -509,7 +509,10 @@ describe("gates", () => {
 		const byGate = Object.fromEntries(res.body.gates.map((g: any) => [g.gate, g]));
 		expect(byGate.custom_blocks).toMatchObject({ status: "warning", items: ["middleware audit"] });
 		expect(byGate.custom_blocks.message).toContain("current state in production");
-		expect(byGate.tests).toMatchObject({ status: "skipped" });
+		expect(byGate.tests).toMatchObject({
+			status: "warning",
+			message: "No test suites: promoted without tests",
+		});
 		expect(byGate.values.status).toBe("passed");
 		expect(byGate.compile.status).toBe("passed");
 	});

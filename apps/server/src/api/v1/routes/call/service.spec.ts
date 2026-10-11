@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, it } from "bun:test";
 import { BadRequestError } from "../../../../errors/badRequestError";
-import { fetchRoute, fillPath } from "./service";
+import { devHostHeader, fetchRoute, fillPath } from "./service";
 
 describe("fillPath", () => {
 	it("fills and encodes each :param", () => {
@@ -26,8 +26,29 @@ describe("fetchRoute", () => {
 		expect(await res.text()).toBe(`test.localhost:${server.port} /ping`);
 	});
 
+	it("keeps a Host the caller already set", async () => {
+		const res = await fetchRoute(new URL(`http://localhost:${server.port}/ping`), {
+			headers: { host: "shop.example.com" },
+		});
+		expect(await res.text()).toBe("shop.example.com /ping");
+	});
+
 	it("leaves any other host alone", async () => {
 		const res = await fetchRoute(new URL(`http://127.0.0.1:${server.port}/ping`), {});
 		expect(await res.text()).toBe(`127.0.0.1:${server.port} /ping`);
+	});
+});
+
+describe("devHostHeader (#742)", () => {
+	it("names the project's subdomain host for a fixed dev worker URL", () => {
+		expect(devHostHeader("shop", "http://localhost:5602")).toEqual({
+			host: expect.stringMatching(/^shop./),
+		});
+	});
+
+	it("adds nothing without a subdomain, or when the call goes through the project's address", () => {
+		expect(devHostHeader(undefined, "http://localhost:5602")).toEqual({});
+		expect(devHostHeader("", "http://localhost:5602")).toEqual({});
+		expect(devHostHeader("shop", undefined)).toEqual({});
 	});
 });

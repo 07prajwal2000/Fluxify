@@ -2,14 +2,15 @@ import { BlockTypes, compileGraph } from "@fluxify/blocks";
 import { logger } from "@fluxify/common";
 import { eq } from "drizzle-orm";
 import { db } from "../../db";
+import type { CanvasSnapshot } from "../../db/schema";
 import {
 	customBlocksListEntity,
 	projectsEntity,
 	routesEntity,
 	workflowsEntity,
 } from "../../db/schema";
-import { loadRouteMiddlewares } from "../compiler/middlewares";
-import { loadGraph } from "../compiler/service";
+import { loadRouteMiddlewares, resolveMiddlewareIds } from "../compiler/middlewares";
+import { ensureCustomBlocksRegistered, loadGraph, snapshotGraph } from "../compiler/service";
 import { compileDependencies } from "../packages/service";
 import type { SuiteTarget } from "./target";
 
@@ -20,7 +21,14 @@ export type CompiledSuiteTarget = Awaited<
 	ReturnType<typeof compileSuiteRoute | typeof compileSuiteWorkflow>
 >;
 
-export function compileSuiteTarget(target: SuiteTarget): Promise<CompiledSuiteTarget> {
+/** a version's snapshot to run instead of the working copy (#739) */
+export type SuiteCandidate = { versionId: string; snapshot: CanvasSnapshot };
+
+export function compileSuiteTarget(
+	target: SuiteTarget,
+	candidate?: SuiteCandidate,
+): Promise<CompiledSuiteTarget> {
+	if (candidate) return compileSuiteCandidate(target, candidate);
 	return target.type === "route" ? compileSuiteRoute(target.id) : compileSuiteWorkflow(target.id);
 }
 
@@ -99,6 +107,78 @@ export async function compileSuiteWorkflow(workflowId: string) {
 		source,
 		dependencies,
 		customBlocks: await compileProjectCustomBlocks(workflow.projectId!, dependencies),
+	};
+}
+
+/**
+ * A version's snapshot as the suite target (#739): the graph is compiled in
+ * memory with hook points, the same way `compileSuiteRoute` does for the working
+ * copy. Name and project come from the row, which is live; the graph, path,
+ * schemas, timeout and middlewares come from the snapshot.
+ */
+async function compileSuiteCandidate(target: SuiteTarget, candidate: SuiteCandidate) {
+	const parent =
+		target.type === "route"
+			? await db
+					.select({
+						projectId: routesEntity.projectId,
+						projectName: projectsEntity.name,
+					})
+					.from(routesEntity)
+					.leftJoin(projectsEntity, eq(routesEntity.projectId, projectsEntity.id))
+					.where(eq(routesEntity.id, target.id))
+			: await db
+					.select({ projectId: workflowsEntity.projectId, name: workflowsEntity.name })
+					.from(workflowsEntity)
+					.where(eq(workflowsEntity.id, target.id));
+	const row = parent[0] as
+		| { projectId: string | null; projectName?: string | null; name?: string | null }
+		| undefined;
+	if (!row) throw new Error(`${target.type} ${target.id} not found`);
+	const projectId = row.projectId!;
+	const { settings } = candidate.snapshot;
+
+	await ensureCustomBlocksRegistered(projectId);
+	const dependencies = await compileDependencies(projectId);
+	const graph = snapshotGraph(candidate.snapshot);
+	const { source } = compileGraph(graph.blocks, graph.edges, {
+		projectId,
+		dependencies,
+		asWorkflow: target.type === "workflow",
+		hooks: true,
+	});
+	const customBlocks = await compileProjectCustomBlocks(projectId, dependencies);
+	if (target.type === "route") {
+		return {
+			route: {
+				id: target.id,
+				method: settings.method ?? "GET",
+				path: settings.path ?? "",
+				projectId,
+				projectName: row.projectName ?? null,
+				bodySchema: settings.bodySchema,
+				querySchema: settings.querySchema,
+				paramsSchema: settings.paramsSchema,
+				timeoutSeconds: settings.timeoutSeconds,
+				middlewares: await resolveMiddlewareIds(settings.middlewares),
+			},
+			workflow: undefined,
+			source,
+			dependencies,
+			customBlocks,
+		};
+	}
+	return {
+		route: undefined,
+		workflow: {
+			id: target.id,
+			name: row.name ?? target.id,
+			projectId,
+			timeoutSeconds: settings.timeoutSeconds,
+		},
+		source,
+		dependencies,
+		customBlocks,
 	};
 }
 

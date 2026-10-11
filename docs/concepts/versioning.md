@@ -97,11 +97,25 @@ Production serves one version of each route and workflow: the one you **promoted
 | Production values | Every integration and app config key the version's blocks use has a production value. The result lists each one that is missing. | Yes |
 | Path is free | For a route: no other route's promoted version has the same method and path. | Yes |
 | Custom blocks and middlewares | Lists the ones the version uses. They run their current state in production until custom blocks have versions. | No, a warning |
-| Tests | Not checked yet. Test suites will gate a promote in a later release. | No, skipped |
+| Tests | Every test suite of the route or workflow is run against the version you are promoting. See [The tests check](#the-tests-check). | Yes, if any suite fails. A warning if there are no suites. |
+
+### The tests check
+
+The tests check runs last, after the others have passed.
+
+- Every [test suite](/testing/) of the route or workflow runs against the **version you are promoting**, not against the working copy. Edits you have made since do not count.
+- The suites run on the development worker with your **development** credentials and values, so a promote never writes to production data.
+- If any suite fails, the promote fails. The result names each suite that did not pass, the cases that failed, and the first error.
+- If there are no suites, the promote goes through and the result carries the warning **"No test suites: promoted without tests"**.
+- If no development worker is running, the check fails with "start a worker with FLUXIFY_ENV=development".
+
+Running suites can take a while, so a promote with suites stays **pending** until they finish, then becomes **live** or **failed**. The log shows it as pending meanwhile. Only one promote or rollback can run at a time for a route or workflow.
+
+The suites that ran for a promote also show up in the [test run history](/testing/results) like any other run, tagged with the deployment.
 
 ### Rolling back
 
-**Rolling back** is promoting an older version than the one that is live. It runs the same checks and needs a description too. The log records it as a rollback, so you can tell the two apart.
+**Rolling back** is promoting an older version than the one that is live. It runs the same checks, tests included, and needs a description too. The log records it as a rollback, so you can tell the two apart.
 
 Roll back to get production onto a version that worked, then fix the problem in the working copy and promote again.
 

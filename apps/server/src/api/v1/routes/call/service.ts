@@ -6,6 +6,9 @@ import { ForbiddenError } from "../../../../errors/forbidError";
 import { NotFoundError } from "../../../../errors/notFoundError";
 import { canAccessProject } from "../../../../lib/acl";
 import { DEV_WORKER_URL, getEnv } from "../../../../lib/env";
+import { projectHost } from "../../../../lib/hosting";
+import { baseDomain } from "../../../../loaders/instanceSettingsLoader";
+import { projectSettingsCache } from "../../../../loaders/projectSettingsLoader";
 import { devWorkerOnline } from "../../../../modules/orchestrator/status";
 import {
 	DEBUG_ERROR_HEADER,
@@ -89,7 +92,8 @@ export function fetchRoute(url: URL, init: RequestInit) {
 	const { hostname } = url;
 	if (hostname !== "localhost" && !hostname.endsWith(".localhost")) return fetch(url, init);
 	const headers = new Headers(init.headers);
-	headers.set("host", url.host);
+	// a caller that already names the project's host keeps it (#742)
+	if (!headers.has("host")) headers.set("host", url.host);
 	const target = new URL(url);
 	target.hostname = "127.0.0.1";
 	return fetch(target, { ...init, headers });
@@ -98,17 +102,43 @@ export function fetchRoute(url: URL, init: RequestInit) {
 export const NO_DEV_WORKER = "start a worker with FLUXIFY_ENV=development";
 
 /**
+ * The `Host` a call to a fixed dev worker URL must carry for a project with a
+ * subdomain (#742). Without a fixed URL the call goes to the project's own
+ * address, which is that host already.
+ */
+export function devHostHeader(
+	subdomain: unknown,
+	fixedWorkerUrl: string | undefined,
+): Record<string, string> {
+	return fixedWorkerUrl && typeof subdomain === "string" && subdomain
+		? { host: projectHost(subdomain, baseDomain()) }
+		: {};
+}
+
+/**
  * `path` on the development worker, and the project's development token to
  * send with it. DEV_WORKER_URL, else the project's address, whose proxy sends
  * `/_/dev` and `/_sandbox` to the development worker. The token never leaves
  * the admin: it is not in the answer, and the worker strips it before the
  * blocks run.
+ *
+ * A project with a subdomain answers dev requests only on that host (#742), so
+ * every call to a dev worker goes through here and carries it. Through the
+ * project's address the URL is that host already; a fixed DEV_WORKER_URL gets
+ * it as the `Host` header.
  */
 export async function devWorkerTarget(projectId: string, path: string, requestOrigin: string) {
 	if (!(await devWorkerOnline(projectId))) throw new ConflictError(NO_DEV_WORKER);
 	const base = DEV_WORKER_URL ?? specServerUrl(projectId, getEnv("SERVER_URL") || requestOrigin);
 	const { token } = await readDevToken(projectId);
-	return { url: new URL(path, base), headers: { [DEV_TOKEN_HEADER]: token } };
+	const subdomain = projectSettingsCache[projectId]?.["settings.routing.subdomain"];
+	return {
+		url: new URL(path, base),
+		headers: {
+			[DEV_TOKEN_HEADER]: token,
+			...devHostHeader(subdomain, DEV_WORKER_URL),
+		},
+	};
 }
 
 /**

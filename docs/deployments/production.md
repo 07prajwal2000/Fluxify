@@ -637,7 +637,10 @@ that is a compose service, so `--remove-orphans` leaves it alone.
   [route on development](../concepts/environments#calling-a-route-on-development)
   at `/_/dev/…`, on your normal address. That rule sends them here instead of to
   a production worker, which would answer `/_/dev` with a `404`. Every other
-  path, `/_/devices` included, still goes to the production workers. Sandboxes,
+  path, `/_/devices` included, still goes to the production workers. The rule
+  matches any host, so a project's subdomain reaches the development worker
+  too, and a project with a subdomain answers these paths on that subdomain
+  only. Sandboxes,
   the playground and `call_route` use your address, so they need no setting.
 - **Its own address (optional).** Set `DEV_WORKER_URL` in `.env` only if the
   development worker is reached somewhere other than your normal address, for

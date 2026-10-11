@@ -25,6 +25,29 @@ describe("production asks (#737)", () => {
 		expect(r.asked).toEqual(["get", "get"]);
 	});
 
+	it("run_test_suite asks only with env production: the promoted graph is a production read (#739)", async () => {
+		const r = await run(
+			[
+				[
+					call("run_test_suite", { testSuiteId: "s", env: "production" }),
+					call("run_test_suite", { testSuiteId: "s", env: "development" }),
+					call("run_test_suite", { testSuiteId: "s" }),
+				],
+			],
+			"auto",
+		);
+		expect(r.asked).toEqual(["run_test_suite"]);
+		expect(r.ran).toHaveLength(3);
+		// the same setting as other production reads
+		const off = await run(
+			[[call("run_test_suite", { testSuiteId: "s", env: "production" })]],
+			"auto",
+			() => ({ ok: true }),
+			{ askBeforeProductionReads: false },
+		);
+		expect(off.asked).toEqual([]);
+	});
+
 	it("save_app_config asks with value, not with only devValue or syncDev", async () => {
 		const r = await run(
 			[[

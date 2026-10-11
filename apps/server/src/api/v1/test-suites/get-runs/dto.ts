@@ -13,6 +13,10 @@ export const runSummarySchema = z.object({
 	id: z.string(),
 	status: z.enum(testRunStatusEnum.enumValues),
 	totalSuites: z.number(),
+	/** which graph ran: the working copy, or the promoted version (both with development values) */
+	env: z.enum(["development", "production"]),
+	/** set when a promote's tests gate started this run */
+	deploymentId: z.string().nullable(),
 	passedCount: z.number(),
 	failedCount: z.number(),
 	durationMs: z.number().nullable(),

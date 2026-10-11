@@ -258,3 +258,126 @@ describe("through the agent's tools", () => {
 		expect(JSON.parse(shown.text)).toMatchObject({ prodVersionNumber: 1 });
 	}, 240_000);
 });
+
+describe("the tests gate on a live route", () => {
+	const suitePath = (id: string) => `/v1/${PROJECT()}/test-suites/route/${id}/runs`;
+
+	/** a suite that sends the route one request and wants `say` to equal `expected` */
+	async function addSuite(routeId: string, name: string, expected: string) {
+		const created = await ok(
+			api(stack, "creator", `/v1/test-suites/route/${routeId}`, { body: { name, description: "" } }),
+		);
+		await ok(
+			api(stack, "creator", `/v1/test-suites/${created.id}`, {
+				method: "PUT",
+				body: {
+					assertions: [{ target: "body", operator: "eq", expectedValue: expected, propertyPath: "say" }],
+				},
+			}),
+		);
+		return created.id as string;
+	}
+
+	/** starts a run and waits for it to finish */
+	async function runSuites(routeId: string, env?: "development" | "production") {
+		const started = await api(stack, "creator", suitePath(routeId), { body: env ? { env } : {} });
+		if (started.status !== 202) return started;
+		return {
+			status: 200,
+			body: await until("the test run to finish", async () => {
+				const run = await ok(api(stack, "creator", `${suitePath(routeId)}/${started.body.runId}`));
+				return !["queued", "running"].includes(run.status) && run;
+			}),
+		};
+	}
+
+	const settled = (id: string, deploymentId: string) =>
+		until("the deployment to finish", async () => {
+			const d = await ok(api(stack, "creator", `/v1/routes/${id}/deployments/${deploymentId}`));
+			return d.status !== "pending" && d;
+		});
+
+	it("a suite that fails on v2 blocks the promote while production keeps v1; v3 fixes it", async () => {
+		const id = await newRoute("/gate-tests");
+		await setScript("routes", id, "return { say: 'one' };");
+		const v1 = await commit(id, "Says one");
+		// no suites yet: live at once, with the warning
+		const first = await ok(deploy(id, v1, "First release"));
+		expect(first.status).toBe("live");
+		expect(first.gates.find((g: any) => g.gate === "tests")).toMatchObject({
+			status: "warning",
+			message: "No test suites: promoted without tests",
+		});
+		await says("production", "/gate-tests", "one");
+
+		const suiteId = await addSuite(id, "says one", "one");
+		await setScript("routes", id, "return { say: 'broken' };");
+		const v2 = await commit(id, "Says broken");
+
+		// suites take time: the request answers pending, and the log settles on failed
+		const pending = await ok(deploy(id, v2, "Ship v2"));
+		expect(pending.status).toBe("pending");
+		const refused = await settled(id, pending.id);
+		expect(refused.status).toBe("failed");
+		const tests = refused.gates.find((g: any) => g.gate === "tests");
+		expect(tests).toMatchObject({ status: "failed", message: "1 of 1 test suites did not pass" });
+		expect(tests.items.join("\n")).toContain("says one");
+		expect(tests.items.join("\n")).toContain("broken");
+		// production still serves v1
+		expect((await hit("production", "/gate-tests")).body.say).toBe("one");
+		expect(await ok(api(stack, "creator", `/v1/routes/${id}`))).toMatchObject({ prodVersionNumber: 1 });
+
+		// the gate's run is in the history, tagged with the deployment
+		const runs = (await ok(api(stack, "creator", suitePath(id)))).data;
+		expect(runs.find((r: any) => r.deploymentId === pending.id)).toMatchObject({
+			env: "production",
+			status: "failed",
+		});
+
+		// v3 fixes it, and the same suite now lets it through
+		await setScript("routes", id, "return { say: 'one', fixed: true };");
+		const v3 = await commit(id, "Fixed");
+		const retry = await ok(deploy(id, v3, "Ship v3"));
+		expect(retry.status).toBe("pending");
+		const live = await settled(id, retry.id);
+		expect(live.status).toBe("live");
+		expect(live.gates.find((g: any) => g.gate === "tests").status).toBe("passed");
+		await until("production to serve v3", async () => (await hit("production", "/gate-tests")).body.fixed === true);
+
+		// a production test run hits the promoted graph after the working copy moved on
+		await setScript("routes", id, "return { say: 'working copy' };");
+		const prod = await runSuites(id, "production");
+		expect(prod.body).toMatchObject({ env: "production", status: "passed" });
+		const dev = await runSuites(id);
+		expect(dev.body).toMatchObject({ env: "development", status: "failed" });
+		expect(suiteId).toBeTruthy();
+	}, 600_000);
+
+	it("a production test run is a 409 before the first promote", async () => {
+		const id = await newRoute("/never-promoted");
+		await setScript("routes", id, "return { say: 'one' };");
+		await addSuite(id, "says one", "one");
+
+		const res = await runSuites(id, "production");
+		expect(res.status).toBe(409);
+		expect(res.body.message).toBe("Not promoted yet");
+	}, 120_000);
+
+	it("run_test_suite takes env, and reports it", async () => {
+		const id = await newRoute("/tool-env");
+		await setScript("routes", id, "return { say: 'one' };");
+		const suiteId = await addSuite(id, "says one", "one");
+		const v1 = await commit(id, "One");
+		const release = await ok(deploy(id, v1, "Release"));
+		expect((await settled(id, release.id)).status).toBe("live");
+
+		const prod = await mcpTool(stack, stack.tokens.creator, "run_test_suite", {
+			testSuiteId: suiteId,
+			env: "production",
+		});
+		expect(prod.ok).toBe(true);
+		expect(JSON.parse(prod.text)).toMatchObject({ env: "production", status: "passed" });
+		const dev = await mcpTool(stack, stack.tokens.creator, "run_test_suite", { testSuiteId: suiteId });
+		expect(JSON.parse(dev.text)).toMatchObject({ env: "development", status: "passed" });
+	}, 240_000);
+});

@@ -35,6 +35,10 @@ export default function (app: HonoServer) {
 					description: "Target or suites not found",
 					content: { "application/json": { schema: resolver(errorSchema) } },
 				},
+				409: {
+					description: "env is production and nothing is promoted yet",
+					content: { "application/json": { schema: resolver(errorSchema) } },
+				},
 			},
 		}),
 		requireProjectAccess("creator", { key: "projectId", source: "param" }),
@@ -44,8 +48,13 @@ export default function (app: HonoServer) {
 			// "run everything" is a bodyless POST, so a missing body is not an error
 			const parsed = requestBodySchema.safeParse(await ctx.req.json().catch(() => ({})));
 			if (!parsed.success) return zodErrorCallbackParser(parsed, ctx)!;
-			const { suiteIds } = parsed.data;
-			const result = await handleRequest({ projectId, target: targetFromParams(target), suiteIds });
+			const { suiteIds, env } = parsed.data;
+			const result = await handleRequest({
+				projectId,
+				target: targetFromParams(target),
+				suiteIds,
+				env,
+			});
 			return ctx.json(result, 202);
 		},
 	);

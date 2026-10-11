@@ -16,6 +16,12 @@ export const requestBodySchema = z.object({
 		.array(z.string())
 		.optional()
 		.describe("Suites to run; omit to run every suite on the target"),
+	env: z
+		.enum(["development", "production"])
+		.optional()
+		.describe(
+			"development (default) runs the working copy. production runs the promoted version, still with development credentials and values; 409 when nothing is promoted yet",
+		),
 });
 
 export const responseSchema = z.object({

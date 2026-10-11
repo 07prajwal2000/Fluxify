@@ -25,6 +25,8 @@ export async function getTestRuns(
 			id: testRunsEntity.id,
 			status: testRunsEntity.status,
 			totalSuites: testRunsEntity.totalSuites,
+			env: testRunsEntity.env,
+			deploymentId: testRunsEntity.deploymentId,
 			passedCount: testRunsEntity.passedCount,
 			failedCount: testRunsEntity.failedCount,
 			durationMs: testRunsEntity.durationMs,

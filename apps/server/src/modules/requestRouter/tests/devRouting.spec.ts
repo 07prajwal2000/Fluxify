@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { applyArtifactUpdate, devRequest, setBaseDomain } from "../compiledRuntime";
+import { applyArtifactUpdate, devRequest, sandboxRequest, setBaseDomain } from "../compiledRuntime";
 import { hashDevToken } from "../devToken";
 
 const SHOP = "0192b1c4-3333-7000-8000-00000000000a";
@@ -79,8 +79,48 @@ describe("/_/dev routing (#736)", () => {
 		expect(reach("/_/dev/items/7", SHOP_TOKEN, "nobody.example.com")).toBe(404);
 	});
 
+	it("answers a project with a subdomain on that subdomain only (#742)", () => {
+		project(SHOP, "devshop", SHOP_TOKEN);
+		// bare host, valid token: the project lives on its subdomain
+		expect(reach("/_/dev/items/7", SHOP_TOKEN, "example.com")).toBe(404);
+		expect(reach("/_/dev/items/7", SHOP_TOKEN, "10.0.0.5:3000")).toBe(404);
+		expect(reach("/_/dev/items/7", SHOP_TOKEN, "devshop.example.com")).toBe("shop-items");
+		// a project with no subdomain keeps working on the bare host
+		expect(reach("/_/dev/items/7", BLOG_TOKEN, "example.com")).toBe("blog-items");
+	});
+
+	it("applies the same rule to a sandbox", () => {
+		project(SHOP, "devshop", SHOP_TOKEN);
+		applyArtifactUpdate(`sandbox.${SHOP}.sbx1`, {
+			routeId: "sbx1",
+			projectId: SHOP,
+			projectName: "shop",
+			method: "*",
+			path: "/_sandbox/sbx1",
+			source: "return null;",
+			sandbox: true,
+		});
+		expect(sandboxRequest("/_sandbox/sbx1/x", SHOP_TOKEN, "example.com")).toEqual({ status: 404 });
+		expect(sandboxRequest("/_sandbox/sbx1/x", SHOP_TOKEN, "devshop.example.com")?.status).toBe(200);
+		// a wrong token is still a 401 before the host is looked at
+		expect(sandboxRequest("/_sandbox/sbx1/x", "fxd_wrong", "example.com")).toEqual({
+			status: 401,
+		});
+		// a project without a subdomain stays reachable on the bare host
+		applyArtifactUpdate(`sandbox.${BLOG}.sbx2`, {
+			routeId: "sbx2",
+			projectId: BLOG,
+			projectName: "blog",
+			method: "*",
+			path: "/_sandbox/sbx2",
+			source: "return null;",
+			sandbox: true,
+		});
+		expect(sandboxRequest("/_sandbox/sbx2/x", BLOG_TOKEN, "example.com")?.status).toBe(200);
+	});
+
 	it("answers an unknown path under the prefix with no route", () => {
-		expect(reach("/_/dev/nothing", SHOP_TOKEN)).toBeNull();
-		expect(reach("/_/dev", SHOP_TOKEN)).toBeNull();
+		expect(reach("/_/dev/nothing", SHOP_TOKEN, "devshop.example.com")).toBeNull();
+		expect(reach("/_/dev", SHOP_TOKEN, "devshop.example.com")).toBeNull();
 	});
 });
