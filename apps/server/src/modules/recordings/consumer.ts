@@ -14,7 +14,6 @@ import {
 } from "../../db/schema";
 import { type FluxifyEnv, RECORDING_MAX_AGE_DAYS } from "../../lib/env";
 import { deleteExpiredEphemeralLogs, RUNTIME_LOG_TYPE, systemLog } from "../../lib/systemLogs";
-import { sweepCandidates } from "../compiler/candidateSweep";
 import { sweepEphemeralArtifacts } from "../compiler/ephemeralSweep";
 import { onSystemTick } from "../schedules/system";
 import { MAX_SPANS_PER_RUN } from "../telemetry/routeRecorder";
@@ -150,12 +149,8 @@ export async function startRecordingConsumer(): Promise<QueueConsumer[]> {
 	const sweep = await onSystemTick("daily", "ephemeral-artifact-sweep", async () => {
 		await sweepEphemeralArtifacts();
 	});
-	// the same for the candidate artifacts of tests-gate and production test runs (#739)
-	const candidates = await onSystemTick("daily", "candidate-artifact-sweep", async () => {
-		await sweepCandidates();
-	});
 	logger.info("[recordings] consumer listening", "RECORDINGS");
-	return [recordings, retention, sweep, candidates];
+	return [recordings, retention, sweep];
 }
 
 /**

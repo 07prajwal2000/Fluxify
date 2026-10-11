@@ -12,7 +12,7 @@ import type { GateTarget } from "./gates";
 
 /**
  * The tests gate (#739), the last one: every suite of the route or workflow runs
- * against a candidate built from the version being promoted, with development
+ * against a candidate compiled in memory from the version being promoted, with development
  * values. Any suite that does not pass fails the promote. It can take as long as
  * the suites do, so a deployment waits `pending` for it (see `deployVersion`).
  */

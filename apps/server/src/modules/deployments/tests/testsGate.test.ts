@@ -1,4 +1,4 @@
-// The tests gate, candidate artifacts and production test runs (#739) against a
+// The tests gate and production test runs (#739) against a
 // real Postgres and a real NATS. A fake development worker answers on the real
 // bus, so the runner, the bucket and the sealed bootstrap are the real ones.
 import { afterAll, beforeAll, beforeEach, describe, expect, it, mock, spyOn } from "bun:test";
@@ -27,7 +27,6 @@ const { routeKey, workflowKey } = await import("../../compiler/subjects");
 const { natsConnection, natsName } = await import("../../../db/nats");
 const { EncryptionService } = await import("../../../lib/encryption");
 const { testRunSubject } = await import("../../testRunner/types");
-const { sweepCandidates } = await import("../../compiler/candidateSweep");
 
 async function waitForPostgres(url: string) {
 	for (let i = 0; ; i++) {
@@ -238,11 +237,11 @@ async function versioned(as: As, id: string, script: string) {
 	return await commit(as, "routes", id, `v: ${script}`);
 }
 
-// The tests gate (#739): the suites of a route run against a candidate built
+// The tests gate (#739): the suites of a route run against a candidate compiled
 // from the version being promoted. A fake development worker answers on the
 // real bus, so the real runner, the real bucket and the real sealed bootstrap are
 // all in the path; only the user code a worker would run is replaced.
-describe("tests gate and candidates", () => {
+describe("tests gate", () => {
 	const responders: RpcResponder[] = [];
 	afterAll(() => Promise.all(responders.map((r) => r.stop())));
 
@@ -265,24 +264,20 @@ describe("tests gate and candidates", () => {
 
 	/** answers suite runs for a project as its development worker would, and records what it was given */
 	function devWorker(project: string, answer: (bootstrap: any) => unknown) {
-		const seen: { bootstrap: any; candidateKeys: string[] }[] = [];
+		const seen: { bootstrap: any }[] = [];
 		responders.push(
 			rpcRespond<{ sealed: string }, any>(
 				natsConnection(),
 				natsName(testRunSubject(project), "development"),
 				async ({ sealed }) => {
 					const bootstrap = JSON.parse(EncryptionService.decrypt(sealed));
-					const store = await natsKv.artifactStore("development");
-					seen.push({ bootstrap, candidateKeys: await store.keys("candidate.*.*.*") });
+					seen.push({ bootstrap });
 					return answer(bootstrap);
 				},
 			),
 		);
 		return seen;
 	}
-
-	const candidateKeys = async () =>
-		(await (await natsKv.artifactStore("development")).keys("candidate.*.*.*")).filter(Boolean);
 
 	async function suite(routeId: string, name = `suite-${short()}`) {
 		const id = `s${short()}`;
@@ -305,7 +300,7 @@ describe("tests gate and candidates", () => {
 			return d.status !== "pending" && d;
 		});
 
-	it("builds a candidate from the version, runs the suite on it with development values, deletes it, and goes live", async () => {
+	it("runs the suite on the version's graph, not the working copy, with development values, and goes live", async () => {
 		const { as, project } = await setup();
 		const id = await createRoute(as);
 		const key = `CFG_${short()}`.toUpperCase();
@@ -326,15 +321,11 @@ describe("tests gate and candidates", () => {
 		expect(done.status).toBe("live");
 		expect(done.gates.at(-1)).toMatchObject({ gate: "tests", status: "passed" });
 		expect(seen).toHaveLength(1);
-		const { bootstrap, candidateKeys: during } = seen[0]!;
+		const { bootstrap } = seen[0]!;
 		expect(bootstrap.suite.id).toBe(s.id);
 		expect(bootstrap.source).toContain(" from v1");
 		expect(bootstrap.source).not.toContain("working copy");
 		expect(bootstrap.config.appConfig[key]).toBe("dev-value");
-		// the candidate lived in the development bucket while the suite ran, and is gone now
-		expect(during).toHaveLength(1);
-		expect(during[0]).toStartWith(`candidate.route.${project}.${v1}-`);
-		expect(await candidateKeys()).toEqual([]);
 
 		// the run is in the history like any other, tagged with the deployment
 		const [run] = await sql`SELECT env, deployment_id, status FROM test_runs WHERE route_id = ${id}`;
@@ -356,9 +347,8 @@ describe("tests gate and candidates", () => {
 		const tests = done.gates.find((g: any) => g.gate === "tests");
 		expect(tests).toMatchObject({ status: "failed", message: "1 of 1 test suites did not pass" });
 		expect(tests.items).toEqual([`${s.name}: Expected Status to eq 200, got: 500`]);
-		// production keeps what it had, and the candidate is gone
+		// production keeps what it had
 		expect((await call(as, "GET", `/routes/${id}`)).body.prodVersionId).toBeNull();
-		expect(await candidateKeys()).toEqual([]);
 	});
 
 	it("no suites: goes live at once, with the warning", async () => {
@@ -388,7 +378,6 @@ describe("tests gate and candidates", () => {
 		const tests = done.gates.at(-1);
 		expect(tests.status).toBe("failed");
 		expect(tests.message).toContain("start a worker with FLUXIFY_ENV=development");
-		expect(await candidateKeys()).toEqual([]);
 	});
 
 	it("does not run the suites when an earlier check already failed", async () => {
@@ -408,24 +397,6 @@ describe("tests gate and candidates", () => {
 		expect(res.body.status).toBe("failed");
 		expect(res.body.gates.at(-1)).toMatchObject({ gate: "tests", status: "skipped" });
 		expect(seen).toHaveLength(0);
-	});
-
-	it("the sweep removes candidates over an hour old and keeps a fresh one", async () => {
-		const old = `candidate.route.p${short()}.v-${short()}`;
-		const fresh = `candidate.route.p${short()}.v-${short()}`;
-		await natsKv.putArtifact(
-			old,
-			{ compiledAt: new Date(Date.now() - 2 * 3_600_000).toISOString() },
-			"development",
-		);
-		await natsKv.putArtifact(fresh, { compiledAt: new Date().toISOString() }, "development");
-
-		await sweepCandidates();
-
-		const left = await candidateKeys();
-		expect(left).toContain(fresh);
-		expect(left).not.toContain(old);
-		await natsKv.deleteArtifact(fresh, "development");
 	});
 });
 

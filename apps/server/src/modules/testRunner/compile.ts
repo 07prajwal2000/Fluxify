@@ -9,9 +9,8 @@ import {
 	routesEntity,
 	workflowsEntity,
 } from "../../db/schema";
-import { dropCandidate, publishCandidate, readCandidate } from "../compiler/candidate";
 import { loadRouteMiddlewares, resolveMiddlewareIds } from "../compiler/middlewares";
-import { loadGraph } from "../compiler/service";
+import { ensureCustomBlocksRegistered, loadGraph, snapshotGraph } from "../compiler/service";
 import { compileDependencies } from "../packages/service";
 import type { SuiteTarget } from "./target";
 
@@ -28,7 +27,7 @@ export type SuiteCandidate = { versionId: string; snapshot: CanvasSnapshot };
 export function compileSuiteTarget(
 	target: SuiteTarget,
 	candidate?: SuiteCandidate,
-): Promise<CompiledSuiteTarget & { candidateKey?: string }> {
+): Promise<CompiledSuiteTarget> {
 	if (candidate) return compileSuiteCandidate(target, candidate);
 	return target.type === "route" ? compileSuiteRoute(target.id) : compileSuiteWorkflow(target.id);
 }
@@ -112,10 +111,10 @@ export async function compileSuiteWorkflow(workflowId: string) {
 }
 
 /**
- * A version's snapshot as the suite target (#739): built into a candidate in the
- * development bucket and read back from there. The caller deletes `candidateKey`
- * when the run ends. Name and project come from the row, which is live; the graph,
- * path, schemas, timeout and middlewares come from the snapshot.
+ * A version's snapshot as the suite target (#739): the graph is compiled in
+ * memory with hook points, the same way `compileSuiteRoute` does for the working
+ * copy. Name and project come from the row, which is live; the graph, path,
+ * schemas, timeout and middlewares come from the snapshot.
  */
 async function compileSuiteCandidate(target: SuiteTarget, candidate: SuiteCandidate) {
 	const parent =
@@ -137,57 +136,50 @@ async function compileSuiteCandidate(target: SuiteTarget, candidate: SuiteCandid
 		| undefined;
 	if (!row) throw new Error(`${target.type} ${target.id} not found`);
 	const projectId = row.projectId!;
+	const { settings } = candidate.snapshot;
 
-	const { key } = await publishCandidate({
-		kind: target.type,
+	await ensureCustomBlocksRegistered(projectId);
+	const dependencies = await compileDependencies(projectId);
+	const graph = snapshotGraph(candidate.snapshot);
+	const { source } = compileGraph(graph.blocks, graph.edges, {
 		projectId,
-		versionId: candidate.versionId,
-		snapshot: candidate.snapshot,
+		dependencies,
+		asWorkflow: target.type === "workflow",
+		hooks: true,
 	});
-	try {
-		const stored = await readCandidate(key);
-		if (!stored) throw new Error("The candidate artifact is missing from the development bucket");
-		const dependencies = await compileDependencies(projectId);
-		const customBlocks = await compileProjectCustomBlocks(projectId, dependencies);
-		const { settings, source } = stored;
-		if (target.type === "route") {
-			return {
-				route: {
-					id: target.id,
-					method: settings.method ?? "GET",
-					path: settings.path ?? "",
-					projectId,
-					projectName: row.projectName ?? null,
-					bodySchema: settings.bodySchema,
-					querySchema: settings.querySchema,
-					paramsSchema: settings.paramsSchema,
-					timeoutSeconds: settings.timeoutSeconds,
-					middlewares: await resolveMiddlewareIds(settings.middlewares),
-				},
-				workflow: undefined,
-				source,
-				dependencies,
-				customBlocks,
-				candidateKey: key,
-			};
-		}
+	const customBlocks = await compileProjectCustomBlocks(projectId, dependencies);
+	if (target.type === "route") {
 		return {
-			route: undefined,
-			workflow: {
+			route: {
 				id: target.id,
-				name: row.name ?? target.id,
+				method: settings.method ?? "GET",
+				path: settings.path ?? "",
 				projectId,
+				projectName: row.projectName ?? null,
+				bodySchema: settings.bodySchema,
+				querySchema: settings.querySchema,
+				paramsSchema: settings.paramsSchema,
 				timeoutSeconds: settings.timeoutSeconds,
+				middlewares: await resolveMiddlewareIds(settings.middlewares),
 			},
+			workflow: undefined,
 			source,
 			dependencies,
 			customBlocks,
-			candidateKey: key,
 		};
-	} catch (error) {
-		await dropCandidate(key).catch(() => {});
-		throw error;
 	}
+	return {
+		route: undefined,
+		workflow: {
+			id: target.id,
+			name: row.name ?? target.id,
+			projectId,
+			timeoutSeconds: settings.timeoutSeconds,
+		},
+		source,
+		dependencies,
+		customBlocks,
+	};
 }
 
 /** the name a suite's input script is registered under in its child */

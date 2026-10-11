@@ -11,7 +11,6 @@ import {
 	testSuiteRunsEntity,
 	testSuitesEntity,
 } from "../../db/schema";
-import { dropCandidate } from "../compiler/candidate";
 import { assertOverridesOwned } from "../requestRouter/service";
 import { readSnapshot } from "../versions/repository";
 import { type AssertionType, buildSuiteRequest } from "./assertions";
@@ -192,13 +191,11 @@ async function executeRun(
 	deps: RunnerDeps,
 	candidate?: SuiteCandidate,
 ): Promise<void> {
-	let candidateKey: string | undefined;
 	try {
 		// ONE compile for the whole fleet: it reads the live blocks/edges tables,
 		// so compiling per suite would be the same work N times — and could hand
 		// two suites of one run different code if the target were edited mid-run.
 		const compiled = await deps.compile(target, candidate);
-		candidateKey = compiled.candidateKey;
 		const hooks = await deps.hooks(work.map((w) => w.suite.id));
 		const names = await deps.blockNames(
 			work.flatMap(({ suite }) => [
@@ -257,9 +254,6 @@ async function executeRun(
 			// the database is the only place a failure can be reported; if that is
 			// gone too, the boot sweep picks the row up on the next restart
 		});
-	} finally {
-		// a crash that skips this is caught by the daily candidate sweep
-		if (candidateKey) await dropCandidate(candidateKey).catch(() => {});
 	}
 }
 
