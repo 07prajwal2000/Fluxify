@@ -32,7 +32,9 @@ callers and your live triggers reach **production**.
 | Any route at `/_/dev/<path>` with the [development token](#development-access) | Development |
 
 The route playground sends its request to the route's `/_/dev` address, with
-your project's development token added for you. You never see the token.
+your project's development token added for you. You never see the token. The
+URL preview shows your project's address, subdomain included; the request itself
+goes to the development worker, which picks the project from the token.
 
 If no development worker is running, these development features answer
 "start a worker with FLUXIFY_ENV=development". In the portal the playground

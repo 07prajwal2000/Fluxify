@@ -16,6 +16,7 @@ import {
 	sendSandboxRequest,
 } from "@/components/sandboxes/sandboxRequest";
 import { useDevToken, useDevWorkerUrl } from "@/components/sandboxes/useDevWorkerUrl";
+import { useProjectApiBaseUrl } from "@/components/settings/SubdomainField";
 import { routesQuery } from "@/query/routesQuery";
 import { sandboxesQuery } from "@/query/sandboxesQuery";
 import { useCanvasPlaygroundCacheStore } from "@/store/canvasPlaygroundCache";
@@ -48,7 +49,11 @@ export function RouteApiPlayground({
 	const route = routesQuery.byId.useQuery(routeId);
 	const selectBlock = useBlockErrorFocus();
 	const projectId = route.data?.projectId ?? "";
-	const devUrl = `${useDevWorkerUrl(projectId)}${DEV_ROUTE_PREFIX}`;
+	// The preview shows the project's own address, subdomain included, which is
+	// what a caller would use; the request goes to the development worker, which
+	// is DEV_WORKER_URL when the operator set one.
+	const shownUrl = `${useProjectApiBaseUrl(projectId).replace(/\/+$/, "")}${DEV_ROUTE_PREFIX}`;
+	const workerUrl = `${useDevWorkerUrl(projectId)}${DEV_ROUTE_PREFIX}`;
 	const token = useDevToken(projectId);
 	const { data: online = true } = sandboxesQuery.devWorker.useQuery(projectId);
 	const send =
@@ -62,7 +67,10 @@ export function RouteApiPlayground({
 					mimeType: "text/plain",
 				};
 			}
-			return sendSandboxRequest(request, token.data.token);
+			const url = request.url.startsWith(shownUrl)
+				? workerUrl + request.url.slice(shownUrl.length)
+				: request.url;
+			return sendSandboxRequest({ ...request, url }, token.data.token);
 		});
 	const [initialState] = useState(
 		() =>
@@ -108,7 +116,7 @@ export function RouteApiPlayground({
 		<ApiPlayground
 			className={className}
 			isFramed={isFramed}
-			baseUrl={devUrl}
+			baseUrl={shownUrl}
 			urlNote={DEV_URL_NOTE}
 			onSend={send}
 			onSelectBlock={selectBlock}

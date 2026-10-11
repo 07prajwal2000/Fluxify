@@ -9,6 +9,7 @@ import {
 	type SpotlightCommand,
 	useSpotlightCommands,
 } from "@/components/canvas/spotlight";
+import { authClient } from "@/lib/auth";
 import { integrationsQuery } from "@/query/integrationsQuery";
 import { projectsQuery } from "@/query/projectsQuery";
 
@@ -113,6 +114,25 @@ export function ProjectSpotlight({ isOpen, onOpenChange, onSignOut }: ProjectSpo
 			onOpenChange={onOpenChange}
 			commands={commands}
 			onQueryChange={setQuery}
+		/>
+	);
+}
+
+/**
+ * The same spotlight for a page outside the project layout (the route and
+ * workflow executions views), which owns its open state and signs out itself.
+ */
+export function ProjectSpotlightHost() {
+	const navigate = useNavigate();
+	const [isOpen, setIsOpen] = useState(false);
+	return (
+		<ProjectSpotlight
+			isOpen={isOpen}
+			onOpenChange={setIsOpen}
+			onSignOut={async () => {
+				await authClient.signOut();
+				navigate({ to: "/login" });
+			}}
 		/>
 	);
 }

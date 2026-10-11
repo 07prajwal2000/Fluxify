@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeEach, expect, mock, spyOn, test } from "bun:
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 
 // DOM only for this file; RTL reads `document` on import, so load it after.
-GlobalRegistrator.register();
+GlobalRegistrator.register({ url: "http://localhost:5601/" });
 
 // The playground itself is covered in packages/components; here only what the
 // route hands it matters, so it is swapped for a stub that exposes its props.
@@ -53,7 +53,7 @@ async function until<T>(check: () => T, timeout = 1500): Promise<T> {
 	}
 }
 
-function mount(online = true, devWorkerUrl?: string) {
+function mount(online = true, devWorkerUrl?: string, subdomain?: string) {
 	spyOn(routesService, "getById").mockResolvedValue({
 		id: "r1",
 		name: "Orders",
@@ -64,8 +64,11 @@ function mount(online = true, devWorkerUrl?: string) {
 	spyOn(publicSettingsService, "get").mockResolvedValue({
 		license: { status: "community" },
 		devWorkerUrl,
+		hosting: { baseDomain: "example.test" },
 	} as never);
-	spyOn(projectSettingsKeysService, "getAll").mockResolvedValue({} as never);
+	spyOn(projectSettingsKeysService, "getAll").mockResolvedValue(
+		(subdomain ? { "settings.routing.subdomain": subdomain } : {}) as never,
+	);
 	spyOn(projectDevTokenService, "get").mockResolvedValue({ token: TOKEN } as never);
 	spyOn(sandboxesService, "devWorkerOnline").mockResolvedValue(online);
 	return render(
@@ -77,10 +80,11 @@ function mount(online = true, devWorkerUrl?: string) {
 	);
 }
 
-test("requests go to DEV_WORKER_URL/_/dev with the token header, which is never rendered", async () => {
-	const view = mount(true, "http://localhost:5602/");
+test("the preview shows the project's subdomain; the request goes to DEV_WORKER_URL/_/dev with the token header, never rendered", async () => {
+	const view = mount(true, "http://localhost:5602/", "billing");
+	const shown = "http://billing.example.test:5601";
 	await until(() => {
-		if (stub?.baseUrl !== "http://localhost:5602/_/dev") throw new Error("not mounted");
+		if (stub?.baseUrl !== `${shown}/_/dev`) throw new Error("not mounted");
 	});
 	expect(stub?.urlNote).toContain("subdomain is not needed");
 	await until(() => expect(projectDevTokenService.get).toHaveBeenCalled());
@@ -94,7 +98,7 @@ test("requests go to DEV_WORKER_URL/_/dev with the token header, which is never 
 		await act(async () => {
 			await stub?.onSend({
 				method: "POST",
-				url: "http://localhost:5602/_/dev/orders/7",
+				url: `${shown}/_/dev/orders/7`,
 				path: "/orders/7",
 				pathParams: {},
 				query: {},
