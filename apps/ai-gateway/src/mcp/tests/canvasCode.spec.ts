@@ -9,7 +9,7 @@ const SCRIPT = "const a = 1;\nconst b = 2;\nreturn a + b;";
 const at = (x: number) => ({ x, y: 0 });
 
 const canvas = () => ({
-	canvasVersion: 3,
+	canvasRevision: 3,
 	blocks: [
 		{ id: "entry", key: "entrypoint_1", type: "entrypoint", data: {}, position: at(0) },
 		{ id: "js", key: "jsrunner_1", type: "jsrunner", data: { value: SCRIPT }, position: at(300) },
@@ -101,20 +101,20 @@ describe("edit_code", () => {
 			get: async () => canvas(),
 			send: async (_m, path, body) => {
 				sent.push({ path, body });
-				return { canvasVersion: 4 };
+				return { canvasRevision: 4 };
 			},
 		};
 		const tool = canvasTools.find((t) => t.name === "edit_canvas")!;
 		const args = z.object(lenient(tool.input)).parse({
 			target: { kind: "custom_block", id: "cb1" },
-			version: 3,
+			revision: 3,
 			ops: [edit("a + b", "a * b")],
 		});
 		expect(await tool.call(api, args)).toEqual({
-			version: 4,
+			revision: 4,
 			changes: ["edited jsrunner_1.value (1 change, line 3)"],
 		});
-		expect(sent[0].path).toBe("/v1/custom-blocks/cb1/save-canvas?expectedVersion=3");
+		expect(sent[0].path).toBe("/v1/custom-blocks/cb1/save-canvas?expectedRevision=3");
 		expect(sent[0].body.changes.blocks[0].data.value).toBe("const a = 1;\nconst b = 2;\nreturn a * b;");
 	});
 });

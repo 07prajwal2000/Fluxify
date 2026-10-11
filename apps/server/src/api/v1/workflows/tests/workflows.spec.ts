@@ -46,6 +46,7 @@ const stored = {
 	name: "nightly report",
 	description: null,
 	active: true,
+	devActive: true,
 	timeoutSeconds: 300,
 	tracingEnabled: false,
 	recordExecution: false,
@@ -153,13 +154,24 @@ describe("workflow run", () => {
 		expect(enqueued).toEqual([]);
 	});
 
-	it("refuses an inactive workflow instead of queueing work nothing will run", async () => {
+	it("refuses a workflow switched off in development instead of queueing work nothing will run", async () => {
 		spyOn(repo, "findWorkflowById").mockResolvedValue({
 			...stored,
-			active: false,
+			devActive: false,
 		} as any);
 
 		expect(runWorkflow("wf-1", {}, "u1", acl)).rejects.toThrow(BadRequestError);
 		expect(enqueued).toEqual([]);
+	});
+
+	it("runs a workflow that is off in production but on in development", async () => {
+		spyOn(repo, "findWorkflowById").mockResolvedValue({
+			...stored,
+			active: false,
+			devActive: true,
+		} as any);
+
+		await runWorkflow("wf-1", {}, "u1", acl);
+		expect(enqueued.length).toBe(1);
 	});
 });

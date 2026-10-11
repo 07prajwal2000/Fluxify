@@ -30,7 +30,7 @@ import {
  *  query need not select it. */
 type Workflow = Omit<
 	typeof workflowsEntity.$inferSelect,
-	"createdBy" | "canvasVersion" | "blockKeyCounters"
+	"createdBy" | "canvasRevision" | "blockKeyCounters"
 >;
 
 export async function createWorkflow(
@@ -158,6 +158,7 @@ function present(row: Workflow): z.infer<typeof workflowSchema> {
 		name: row.name,
 		description: row.description,
 		active: row.active,
+		devActive: row.devActive,
 		timeoutSeconds: row.timeoutSeconds,
 		tracingEnabled: row.tracingEnabled,
 		recordExecution: row.recordExecution,

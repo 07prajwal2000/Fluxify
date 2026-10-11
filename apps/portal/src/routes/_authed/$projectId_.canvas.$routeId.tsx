@@ -102,7 +102,7 @@ function RouteCanvasPage() {
 					<RouteApiPlayground key={routeId} routeId={routeId} isFramed={false} enableCache />
 				}
 				reload={() => routesService.getCanvasItems(routeId)}
-				getVersion={() => routesService.getCanvasVersion(routeId)}
+				getRevision={() => routesService.getCanvasRevision(routeId)}
 				save={(payload) => save.mutateAsync(payload)}
 				headerLeft={
 					<>

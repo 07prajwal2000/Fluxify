@@ -4,7 +4,7 @@ import registerDeleteRoute from "./delete/route";
 import registerGetAllRoute from "./get-all/route";
 import registerGetByIdRoute from "./get-by-id/route";
 import registerGetCanvasItemsRoute from "./get-canvas-items/route";
-import registerGetCanvasVersionRoute from "./get-canvas-version/route";
+import registerGetCanvasRevisionRoute from "./get-canvas-revision/route";
 import registerSaveCanvasRoute from "./save-canvas/route";
 import registerUpdateRoute from "./update/route";
 
@@ -15,7 +15,7 @@ export default {
 		registerGetAllRoute(router);
 		registerGetByIdRoute(router);
 		registerGetCanvasItemsRoute(router);
-		registerGetCanvasVersionRoute(router);
+		registerGetCanvasRevisionRoute(router);
 		registerSaveCanvasRoute(router);
 		registerCreateRoute(router);
 		registerUpdateRoute(router);

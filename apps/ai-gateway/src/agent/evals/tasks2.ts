@@ -47,7 +47,7 @@ async function brokenSqlRoute(ctx: Ctx) {
 	const response = canvas.blocks.find((b: any) => b.type === "response").key;
 	await ctx.tool("edit_canvas", {
 		target,
-		version: canvas.version,
+		revision: canvas.revision,
 		ops: [
 			{
 				op: "add_block",
@@ -75,7 +75,7 @@ async function unwiredRoute(ctx: Ctx) {
 	const entry = canvas.blocks.find((b: any) => b.type === "entrypoint").key;
 	await ctx.tool("edit_canvas", {
 		target,
-		version: canvas.version,
+		revision: canvas.revision,
 		ops: [
 			{
 				op: "add_block",

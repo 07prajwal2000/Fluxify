@@ -12,7 +12,6 @@ import {
 	SchemaEditor,
 	type SchemaProperty,
 	Spinner,
-	Switch,
 	Tabs,
 	TextField,
 	toast,
@@ -140,6 +139,7 @@ function RouteSettingsForm({
 	);
 	const [timeoutSeconds, setTimeoutSeconds] = useState(route.timeoutSeconds);
 	const [active, setActive] = useState(route.active);
+	const [devActive, setDevActive] = useState(route.devActive);
 	const [observability, setObservability] = useState<Observability>({
 		devRecordExecution: route.devRecordExecution,
 		devTracingEnabled: route.devTracingEnabled,
@@ -188,6 +188,7 @@ function RouteSettingsForm({
 			path,
 			method: method as HttpMethod,
 			active,
+			devActive,
 			timeoutSeconds,
 			acceptedContentTypes: hasBody ? (contentTypes as [ContentType, ...ContentType[]]) : undefined,
 			// null, not undefined: an omitted field is skipped by the update, which
@@ -201,6 +202,7 @@ function RouteSettingsForm({
 			path,
 			method,
 			active,
+			devActive,
 			timeoutSeconds,
 			hasBody,
 			contentTypes,
@@ -327,18 +329,6 @@ function RouteSettingsForm({
 								</div>
 							)}
 						</Section>
-
-						<Section
-							title="Availability"
-							description="A disabled route returns 404 until you turn it back on."
-						>
-							<Switch
-								isSelected={active}
-								onChange={setActive}
-								isDisabled={readOnly}
-								label={active ? "Route is active" : "Route is disabled"}
-							/>
-						</Section>
 					</Tabs.Panel>
 
 					<Tabs.Panel id="params" className="min-h-0 flex-1 overflow-y-auto p-5">
@@ -412,12 +402,17 @@ function RouteSettingsForm({
 
 					<Tabs.Panel id="advanced" className="min-h-0 flex-1 overflow-y-auto p-5">
 						<Section
-							title="Observability"
-							description={`What to keep and export for each environment. Recording keeps runs here, to replay on the canvas. Tracing sends spans to your own backend. Applies right away, and is not part of a route version. ${retentionNote}`}
+							title="Environments"
+							description={`Whether the route is served in each environment, and what to keep and export there. A route that is off in an environment returns 404 until you turn it back on. Recording keeps runs here, to replay on the canvas. Tracing sends spans to your own backend. Applies right away, and is not part of a route version. ${retentionNote}`}
 						>
 							<ObservabilityTabs
 								value={observability}
 								onChange={setObservability}
+								enabled={{ active, devActive }}
+								onEnabledChange={(next) => {
+									setActive(next.active);
+									setDevActive(next.devActive);
+								}}
 								readOnly={readOnly}
 								noun="route"
 							/>

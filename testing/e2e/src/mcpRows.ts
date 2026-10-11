@@ -161,12 +161,12 @@ export async function writeRows(s: McpStack): Promise<Row[]> {
 			args: { routeId: ids.route },
 			api: post(`/v1/routes/${ids.route}/call`, { debug: true }),
 		},
-		// a check-only edit: a dry-run save, so the version stays put for every role
+		// a check-only edit: a dry-run save, so the revision stays put for every role
 		{
 			tool: "edit_canvas",
 			args: {
 				target: { kind: "route", id: ids.route },
-				version: routeCanvas.body.canvasVersion,
+				revision: routeCanvas.body.canvasRevision,
 				ops: [],
 				validate: true,
 			},

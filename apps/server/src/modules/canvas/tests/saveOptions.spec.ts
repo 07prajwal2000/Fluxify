@@ -66,14 +66,14 @@ describe("saveCanvas options (#597)", () => {
 
 	it("bumps the version in the save and returns it", async () => {
 		const result = await saveCanvas(route, save(), ["p1"]);
-		expect(result).toEqual({ canvasVersion: 4, issues: [], newKeys: { b1: "response_1" } });
+		expect(result).toEqual({ canvasRevision: 4, issues: [], newKeys: { b1: "response_1" } });
 		expect(touchParent.mock.calls[0][2]).toBeUndefined();
 		expect(published).toEqual(["chan:on-route-change"]);
 	});
 
 	it("passes the expected version down and refuses a stale one", async () => {
 		touchParent.mockResolvedValue(undefined);
-		await expect(saveCanvas(route, save(), ["p1"], undefined, false, { expectedVersion: 2 })).rejects.toThrow(
+		await expect(saveCanvas(route, save(), ["p1"], undefined, false, { expectedRevision: 2 })).rejects.toThrow(
 			ConflictError,
 		);
 		expect(touchParent.mock.calls[0][2]).toBe(2);
@@ -94,7 +94,7 @@ describe("saveCanvas options (#597)", () => {
 	it("a dry run checks, returns the issues and the current version, and publishes nothing", async () => {
 		const workflow = { type: "workflow" as const, id: "w-1" };
 		const result = await saveCanvas(workflow, save(), ["p1"], undefined, false, { dryRun: true });
-		expect(result.canvasVersion).toBe(3);
+		expect(result.canvasRevision).toBe(3);
 		expect(result.issues).toEqual([
 			expect.objectContaining({ severity: "warning", blockId: "b1" }),
 		]);

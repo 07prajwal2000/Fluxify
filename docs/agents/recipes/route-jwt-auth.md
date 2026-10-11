@@ -38,7 +38,7 @@ Call `save_app_config`:
 
 It answers `{ "id": 7 }`. A `409 Key already exists` means the key is already there. Use `list_app_config` and keep it.
 
-## 3. Create the route, inactive
+## 3. Create the route
 
 Call `save_route`:
 
@@ -51,7 +51,7 @@ Call `save_route`:
 }
 ```
 
-It answers `{ "id": "<route id>" }`. A new route is inactive, so nobody can reach it while you build.
+It answers `{ "id": "<route id>" }`. A new route is on in development (`devActive`), so `call_route` can run it while you build, and off in production (`active`), so real callers cannot reach it yet.
 
 ## 4. Read the canvas
 
@@ -61,11 +61,11 @@ Call `get_canvas`:
 { "target": { "kind": "route", "id": "<route id>" } }
 ```
 
-You get `version`, `blocks` and `edges`. Note three things: the key of the `entrypoint` block (`entrypoint_1`), the key of the `response` block with `httpCode` `"200"` (`response_1`), and the `version`.
+You get `revision`, `blocks` and `edges`. Note three things: the key of the `entrypoint` block (`entrypoint_1`), the key of the `response` block with `httpCode` `"200"` (`response_1`), and the `revision`.
 
 ## 5. Build the check
 
-Pass the `version` you just read. Three new blocks make the flow:
+Pass the `revision` you just read. Three new blocks make the flow:
 
 1. `verify` reads the header and checks the token.
 2. `check` branches on the result.
@@ -78,7 +78,7 @@ Call `edit_canvas`:
 ```json
 {
   "target": { "kind": "route", "id": "<route id>" },
-  "version": 0,
+  "revision": 0,
   "validate": true,
   "ops": [
     { "op": "add_block", "ref": "verify", "type": "jsrunner",
@@ -97,7 +97,7 @@ Call `edit_canvas`:
 
 If `get_canvas` showed an edge from the entrypoint to the response block, add `{ "op": "disconnect", "from": "entrypoint_1", "to": "response_1" }` as the first op. A handle holds one edge, so the connect would be refused without it.
 
-The answer has the new `version`, `refs` and, with `validate`, any `issues`. Errors are refused and nothing is saved. Warnings still save.
+The answer has the new `revision`, `refs` and, with `validate`, any `issues`. Errors are refused and nothing is saved. Warnings still save.
 
 The body of a response is the output of the block before it. The 200 answer is `{ "ok": true, "userId": "...", "role": "..." }`. The 401 answer is `{ "ok": false, "error": "Invalid or missing token" }`.
 
@@ -109,7 +109,7 @@ Call `get_system_logs`:
 { "projectId": "<project id>", "level": "error", "resourceId": "<route id>" }
 ```
 
-An empty list means it compiled. Then activate:
+An empty list means it compiled. Then switch production on:
 
 Call `save_route`:
 
@@ -149,8 +149,8 @@ A guard repeated on many routes belongs in a [middleware](/agents/middleware). M
 
 | What you see | What to do |
 | --- | --- |
-| `call_route` says `Route is not active` | Run `save_route` with `active: true`. |
+| `call_route` says `Route is switched off in development` | Run `save_route` with `devActive: true`. |
 | Always 401, even with a good token | The secret differs. The token must be signed with the `JWT_SECRET` value. Header must start with `Bearer `. |
 | `jwt` or `getConfig` is not defined | The code must run in a `jsrunner` block or a `js:` field, not a plain text field. |
-| `edit_canvas` says `Canvas changed since you read it` | Call `get_canvas` again and redo the edit with the new `version`. |
+| `edit_canvas` says `Canvas changed since you read it` | Call `get_canvas` again and redo the edit with the new `revision`. |
 | 500 and an error in `get_system_logs` | Read the message. A script error names the block. Use [Recipe, debug and fix a route or workflow](/agents/recipes/debug-and-fix). |

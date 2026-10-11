@@ -5,7 +5,7 @@ import { canvasFromRead } from "./canvasRead";
 const call = (input: unknown, output: unknown) =>
 	({ type: "tool", id: "t", name: "get_canvas", input, output, status: "done" }) as ToolPart;
 const full = {
-	version: 3,
+	revision: 3,
 	blocks: [
 		{ key: "entrypoint_1", type: "entrypoint", data: {} },
 		{ key: "if_1", type: "if", note: "guards the insert", data: { condition: "x" } },

@@ -7,7 +7,7 @@ description: Canvas patterns with exact edit_canvas ops, check then update or 40
 
 Patterns you combine on a route canvas. Every step is an `edit_canvas` call. Read the [Canvas guide](/agents/canvas) first for handles, refs and validation. Validate input with the route schemas, not with blocks: [Validate a request](/agents/recipes/validate-request).
 
-In every example, blocks are named by the keys `get_canvas` shows (`entrypoint_1`, `response_1`; yours may differ), and `version` is the one you just read. A new route has an edge from the entrypoint to its 200 response. When you put blocks in between, add `{ "op": "disconnect", "from": "entrypoint_1", "to": "response_1" }` as the first op, because a handle holds one edge. Block text inputs are literal unless they start with `js:`; code fields (`transformScript`, JS Runner `value`) never take `js:`. See [Dynamic values and `js:` expressions](/agents/expressions).
+In every example, blocks are named by the keys `get_canvas` shows (`entrypoint_1`, `response_1`; yours may differ), and `revision` is the one you just read. A new route has an edge from the entrypoint to its 200 response. When you put blocks in between, add `{ "op": "disconnect", "from": "entrypoint_1", "to": "response_1" }` as the first op, because a handle holds one edge. Block text inputs are literal unless they start with `js:`; code fields (`transformScript`, JS Runner `value`) never take `js:`. See [Dynamic values and `js:` expressions](/agents/expressions).
 
 ## 1. Check, then update or answer 404
 
@@ -24,7 +24,7 @@ The flow: read the body, look the user up, branch.
 ```json
 {
   "target": { "kind": "route", "id": "<route id>" },
-  "version": 0,
+  "revision": 0,
   "ops": [
     { "op": "disconnect", "from": "entrypoint_1", "to": "response_1" },
     { "op": "add_block", "ref": "body", "type": "httpgetrequestbody",
@@ -81,7 +81,7 @@ The `retry` block runs the chain on its `executor` handle. If the chain throws, 
 ```json
 {
   "target": { "kind": "route", "id": "<route id>" },
-  "version": 0,
+  "revision": 0,
   "ops": [
     { "op": "disconnect", "from": "entrypoint_1", "to": "response_1" },
     { "op": "add_block", "ref": "retry", "type": "retry",
@@ -116,7 +116,7 @@ The error handler block is already on the canvas. Give its `source` handle an ed
 ```json
 {
   "target": { "kind": "route", "id": "<route id>" },
-  "version": 0,
+  "revision": 0,
   "ops": [
     { "op": "add_block", "ref": "fail", "type": "response",
       "data": { "httpCode": "500", "transformEnabled": true,

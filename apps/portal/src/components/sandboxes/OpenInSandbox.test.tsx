@@ -51,7 +51,7 @@ const edge = (id: string, from: string, to: string, handle = "source") => ({
 
 /** entrypoint → jsrunner → response, with an error handler */
 const SOURCE = {
-	canvasVersion: 3,
+	canvasRevision: 3,
 	blocks: [
 		block("en", "entrypoint"),
 		block("eh", "error_handler"),
@@ -61,7 +61,7 @@ const SOURCE = {
 	edges: [edge("e1", "en", "js"), edge("e2", "js", "rs")],
 };
 const OWN = {
-	canvasVersion: 1,
+	canvasRevision: 1,
 	blocks: [block("sen", "entrypoint"), block("seh", "error_handler")],
 	edges: [],
 };
@@ -96,7 +96,7 @@ function stubServer(options: { record?: object; middlewares?: boolean } = {}) {
 	const create = spyOn(sandboxesService, "create").mockResolvedValue({ id: "sb9" });
 	const remove = spyOn(sandboxesService, "delete").mockResolvedValue(undefined);
 	spyOn(sandboxesService, "getCanvasItems").mockResolvedValue(OWN as never);
-	const put = spyOn(sandboxesService, "saveCanvas").mockResolvedValue({ canvasVersion: 2 });
+	const put = spyOn(sandboxesService, "saveCanvas").mockResolvedValue({ canvasRevision: 2 });
 	return { create, remove, put };
 }
 

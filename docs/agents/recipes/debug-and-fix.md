@@ -109,7 +109,7 @@ Call `edit_canvas`:
 ```json
 {
   "target": { "kind": "route", "id": "<route id>" },
-  "version": 3,
+  "revision": 3,
   "validate": true,
   "ops": [
     { "op": "update_block", "id": "jsrunner_1", "data": { "js": "return await dbQuery('SELECT id, email FROM users WHERE id = $1', [input.id]);" } }

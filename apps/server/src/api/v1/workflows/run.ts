@@ -25,9 +25,11 @@ export default async function runWorkflow(
 ): Promise<z.infer<typeof runAcceptedSchema>> {
 	const workflow = await mustAccess(id, acl, "creator");
 
-	// An inactive workflow has no artifact in the store, so the job would sit on
-	// the queue until it aged out. Refuse now, where the caller can see why.
-	if (!workflow.active) throw new BadRequestError("Workflow is not active — activate it to run it");
+	// A workflow switched off in development has no artifact in its store, so the
+	// job would sit on the queue until it aged out. Refuse now, where the caller
+	// can see why.
+	if (!workflow.devActive)
+		throw new BadRequestError("Workflow is switched off in development — turn it on to run it");
 	// otherwise the run would wait on the queue for a worker nobody started
 	if (!(await devWorkerOnline(workflow.projectId!))) throw new ConflictError(NO_DEV_WORKER);
 

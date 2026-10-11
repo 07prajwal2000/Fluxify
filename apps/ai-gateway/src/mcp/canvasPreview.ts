@@ -19,8 +19,8 @@ export type CanvasView = {
 };
 
 export type EditPreview = {
-	/** The version the ops were checked against: the one edit_canvas must be given. */
-	version: number;
+	/** The revision the ops were checked against: the one edit_canvas must be given. */
+	revision: number;
 	before: CanvasView;
 	/** The canvas once the ops are applied; missing when an op was refused. */
 	after?: CanvasView;
@@ -66,21 +66,21 @@ export async function previewEdit(
 	const canvas = await read(api.get, target);
 	const stored = nameBlocks(canvas);
 	const before = view(canvas, stored.name);
-	const version = canvas.canvasVersion as number;
+	const revision = canvas.canvasRevision as number;
 	let planned: ReturnType<typeof opsToChanges>;
 	try {
 		planned = opsToChanges(canvas, ops, autoLayout);
 	} catch (error) {
-		return { version, before, error: (error as Error).message };
+		return { revision, before, error: (error as Error).message };
 	}
 	const { changes, refs, describe } = planned;
-	const path = `${canvasPath(target)}/save-canvas?expectedVersion=${version}&dryRun=true`;
+	const path = `${canvasPath(target)}/save-canvas?expectedRevision=${revision}&dryRun=true`;
 	const dry = await api.send("PUT", path, changes).catch((error: Error) => error);
 	const failed = dry instanceof Error;
 	const { name, keyed } = nameBlocks(canvas, refs, failed ? {} : dry.newKeys);
 	const after = view(canvasAfterChanges(canvas, changes), name);
 	return {
-		version,
+		revision,
 		before,
 		after,
 		changes: describe(name),
@@ -99,7 +99,7 @@ export async function previewEdit(
 }
 
 const edit = canvasTools.find((t) => t.name === "edit_canvas") as McpTool;
-/** What the preview takes: edit_canvas's own target and ops, checked the same way, no version. */
+/** What the preview takes: edit_canvas's own target and ops, checked the same way, no revision. */
 export const previewInput = z.object(
 	lenient({ target: edit.input.target, ops: edit.input.ops, auto_layout: edit.input.auto_layout }),
 );

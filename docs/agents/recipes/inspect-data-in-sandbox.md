@@ -37,7 +37,7 @@ Call `get_canvas`. A sandbox target needs its `projectId`:
 { "target": { "kind": "sandbox", "id": "<sandbox id>", "projectId": "<project id>" } }
 ```
 
-Note the `version` and the entrypoint key (`entrypoint_1`).
+Note the `revision` and the entrypoint key (`entrypoint_1`).
 
 ## 4. Add a DB Native block and a response
 
@@ -48,7 +48,7 @@ Call `edit_canvas`:
 ```json
 {
   "target": { "kind": "sandbox", "id": "<sandbox id>", "projectId": "<project id>" },
-  "version": 0,
+  "revision": 0,
   "ops": [
     { "op": "add_block", "ref": "query", "type": "db_native",
       "data": {
@@ -91,7 +91,7 @@ Fluxify adds the development token for you; you never see or send it. The answer
 
 ## 6. Change the query and call again
 
-Use an `edit_code` op on `db_native_1` (field `js`) with the version `edit_canvas` returned, then `call_sandbox` again. Every call is recorded.
+Use an `edit_code` op on `db_native_1` (field `js`) with the revision `edit_canvas` returned, then `call_sandbox` again. Every call is recorded.
 
 ## Start from a route you already have
 

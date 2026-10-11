@@ -244,7 +244,7 @@ test("get_canvas draws the canvas read-only; a compact read stays a plain list",
 	const view = show({
 		name: "get_canvas",
 		input: { target: { kind: "route", id: "r1" } },
-		output: { version: 2, blocks, edges: ["entrypoint_1 → response_1"] },
+		output: { revision: 2, blocks, edges: ["entrypoint_1 → response_1"] },
 		status: "done",
 	});
 	await until(() =>
@@ -257,7 +257,7 @@ test("get_canvas draws the canvas read-only; a compact read stays a plain list",
 		name: "get_canvas",
 		input: { target: { kind: "route", id: "r1" }, compact: true },
 		output: {
-			version: 2,
+			revision: 2,
 			blocks: [{ key: "response_1", type: "response", summary: "a" }],
 			edges: [],
 		},

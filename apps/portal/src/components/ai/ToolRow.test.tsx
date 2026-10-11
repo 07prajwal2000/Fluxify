@@ -67,14 +67,14 @@ const edit: ToolPart = {
 	name: "edit_canvas",
 	input: {
 		target: { kind: "route", id: "r1" },
-		version: 7,
+		revision: 7,
 		ops: [{ op: "update_block", id: "response_1", data: { httpCode: "201" } }],
 	},
 };
 
 const preview = () =>
 	spyOn(agentConversationsService, "canvasPreview").mockResolvedValue({
-		version: 7,
+		revision: 7,
 		before: {
 			blocks: [
 				{ id: "e", key: "entrypoint_1", type: "entrypoint", data: {}, position: at },
@@ -131,7 +131,7 @@ test("a waiting edit_canvas opens by itself on the canvas diff, computed before 
 
 test("an edit the server would refuse shows why, on top", async () => {
 	const ask = spyOn(agentConversationsService, "canvasPreview").mockResolvedValue({
-		version: 7,
+		revision: 7,
 		before: { blocks: [], edges: [] },
 		error: "response_9 is not on this canvas",
 	});
@@ -167,7 +167,7 @@ test("an edit that ran shows the blocks its ops touched, added ones by the key t
 				{ op: "add_block", ref: "b1", type: "consolelog", connect_from: { from: "response_1" } },
 			],
 		},
-		output: { version: 8, refs: { b1: "consolelog_2" }, changes: ["added consolelog_2 (b1)"] },
+		output: { revision: 8, refs: { b1: "consolelog_2" }, changes: ["added consolelog_2 (b1)"] },
 		status: "done",
 	});
 	// done rows start folded
@@ -197,7 +197,7 @@ test("a call that runs without asking (auto mode) does not ask the server for an
 
 test("Raw is today's JSON, unchanged; Preview is the default", async () => {
 	const ask = preview();
-	const tool = { ...edit, output: { version: 8 }, status: "done" as const };
+	const tool = { ...edit, output: { revision: 8 }, status: "done" as const };
 	const view = row(tool);
 	fireEvent.click(view.getByText("Edit canvas"));
 	expect(view.getByRole("tab", { name: "Preview" }).getAttribute("aria-selected")).toBe("true");
@@ -208,7 +208,7 @@ test("Raw is today's JSON, unchanged; Preview is the default", async () => {
 });
 
 test("a canvas call's folded row names the canvas and links it; an ephemeral run has nothing to open", () => {
-	const view = row({ ...edit, output: { version: 8 }, status: "done" });
+	const view = row({ ...edit, output: { revision: 8 }, status: "done" });
 	expect(view.getByText("Route")).toBeTruthy();
 	const link = view.getByText("r1").closest("a");
 	expect(link?.getAttribute("href")).toBe("/p1/canvas/r1");

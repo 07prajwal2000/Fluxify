@@ -283,6 +283,8 @@ export const routesEntity = pgTable(
 		name: varchar({ length: 255 }),
 		path: text(),
 		active: boolean().default(false),
+		/** development's own switch (#738): `active` is production. On by default so a new one answers in dev at once. */
+		devActive: boolean("dev_active").default(true).notNull(),
 		projectId: varchar("project_id", { length: 50 })
 			.references(() => projectsEntity.id, {
 				onDelete: "cascade",
@@ -305,7 +307,7 @@ export const routesEntity = pgTable(
 		recordExecution: boolean("record_execution").default(false).notNull(),
 		...devObservability(),
 		/** #597: +1 on every canvas save, in the same transaction. A save naming an older one is refused. */
-		canvasVersion: integer("canvas_version").default(0).notNull(),
+		canvasRevision: integer("canvas_revision").default(0).notNull(),
 		blockKeyCounters: blockKeyCounters(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		createdBy: varchar("created_by", { length: 50 }),
@@ -347,6 +349,8 @@ export const workflowsEntity = pgTable(
 		name: varchar({ length: 255 }),
 		description: text(),
 		active: boolean().default(false),
+		/** development's own switch (#738): `active` is production. On by default so a new one answers in dev at once. */
+		devActive: boolean("dev_active").default(true).notNull(),
 		projectId: varchar("project_id", { length: 50 })
 			.references(() => projectsEntity.id, {
 				onDelete: "cascade",
@@ -359,7 +363,7 @@ export const workflowsEntity = pgTable(
 		recordExecution: boolean("record_execution").default(false).notNull(),
 		...devObservability(),
 		/** #597: +1 on every canvas save, in the same transaction. A save naming an older one is refused. */
-		canvasVersion: integer("canvas_version").default(0).notNull(),
+		canvasRevision: integer("canvas_revision").default(0).notNull(),
 		blockKeyCounters: blockKeyCounters(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		createdBy: varchar("created_by", { length: 50 }),
@@ -400,7 +404,7 @@ export const sandboxesEntity = pgTable(
 		name: varchar({ length: 255 }).notNull(),
 		settings: jsonb().$type<SandboxSettings>().default({ tracingEnabled: false }).notNull(),
 		/** #597: +1 on every canvas save, in the same transaction. A save naming an older one is refused. */
-		canvasVersion: integer("canvas_version").default(0).notNull(),
+		canvasRevision: integer("canvas_revision").default(0).notNull(),
 		blockKeyCounters: blockKeyCounters(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		updatedAt: timestamp("updated_at")
@@ -991,7 +995,7 @@ export const customBlocksListEntity = pgTable(
 		// #526: markdown shown in the block settings Docs tab
 		docs: text(),
 		/** #597: +1 on every canvas save, in the same transaction. A save naming an older one is refused. */
-		canvasVersion: integer("canvas_version").default(0).notNull(),
+		canvasRevision: integer("canvas_revision").default(0).notNull(),
 		blockKeyCounters: blockKeyCounters(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		updatedAt: timestamp("updated_at")

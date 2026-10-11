@@ -199,6 +199,7 @@ test("ExecutionTargetHeader renders active recording badges and triggers target 
 			name: "Nightly Sync",
 			recordExecution: true,
 			active: true,
+			devActive: true,
 			description: "Sync data",
 			projectId: "p1",
 			createdAt: "2026-01-01T00:00:00.000Z",

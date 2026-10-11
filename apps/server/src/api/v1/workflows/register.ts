@@ -5,11 +5,11 @@ import { validationErrorSchema } from "../../../errors/validationError";
 import { canAccess } from "../../../lib/acl";
 import zodErrorCallbackParser from "../../../middlewares/zodErrorCallbackParser";
 import { requestBodyValidator } from "../../../modules/canvas/blockDataValidator";
-import { getCanvas, readCanvasVersion, saveCanvas } from "../../../modules/canvas/service";
+import { getCanvas, readCanvasRevision, saveCanvas } from "../../../modules/canvas/service";
 import {
 	canvasChangesSchema,
 	canvasItemsSchema,
-	canvasVersionSchema,
+	canvasRevisionSchema,
 	saveCanvasQuerySchema,
 	saveCanvasResultSchema,
 } from "../../../modules/canvas/types";
@@ -156,12 +156,12 @@ export default {
 		);
 
 		router.get(
-			"/:id/canvas-version",
+			"/:id/canvas-revision",
 			describeRoute(
 				describe(
-					"get-workflow-canvas-version",
+					"get-workflow-canvas-revision",
 					"The workflow canvas's save counter, for spotting changes made elsewhere",
-					json(canvasVersionSchema),
+					json(canvasRevisionSchema),
 				),
 			),
 			validator("param", idParamSchema, zodErrorCallbackParser),
@@ -169,7 +169,7 @@ export default {
 				const { id } = ctx.req.valid("param");
 				// same access rule as canvas-items: viewers may read
 				await mustAccess(id, ctx.get("acl") || [], "viewer");
-				return ctx.json(await readCanvasVersion({ type: "workflow", id }, ["*"]));
+				return ctx.json(await readCanvasRevision({ type: "workflow", id }, ["*"]));
 			},
 		);
 

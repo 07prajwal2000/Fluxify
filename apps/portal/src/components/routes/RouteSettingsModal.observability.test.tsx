@@ -12,7 +12,9 @@ const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query
 const { toast } = await import("@fluxify/components");
 const { RouteSettingsModal } = await import("./RouteSettingsModal");
 const { routesService } = await import("@/services/routes");
-const { PROD_RECORDING_HINT } = await import("@/components/settings/ObservabilityTabs");
+const { PROD_ENABLED_HINT, PROD_RECORDING_HINT } = await import(
+	"@/components/settings/ObservabilityTabs"
+);
 
 afterEach(cleanup);
 afterAll(() => GlobalRegistrator.unregister());
@@ -27,6 +29,7 @@ const ROUTE = {
 	path: "/orders",
 	method: "GET",
 	active: true,
+	devActive: true,
 	timeoutSeconds: 30,
 	acceptedContentTypes: [],
 	paramsSchema: null,
@@ -88,4 +91,24 @@ test("development is the default tab; both tabs save their own fields; productio
 	expect(update.mock.calls[0]?.[1]).not.toHaveProperty("tracingEnabled");
 	expect(partial).toHaveBeenCalledWith("r1", { devRecordExecution: false, recordExecution: true });
 	expect(warn).toHaveBeenCalledWith(WARNING);
+});
+
+test("each environment has its own Enabled switch, saved as active and devActive", async () => {
+	const update = spyOn(routesService, "update").mockResolvedValue({ id: "r1" } as never);
+	const view = renderSettings();
+	await click(view.getByRole("tab", { name: "Advanced" }));
+
+	// development: on, as saved; the production hint is not shown here
+	expect((view.getByRole("checkbox", { name: /^Enabled/ }) as HTMLInputElement).checked).toBe(true);
+	expect(view.queryByText(PROD_ENABLED_HINT)).toBeNull();
+	await click(view.getByRole("checkbox", { name: /^Enabled/ }));
+
+	await click(view.getByRole("tab", { name: "Production" }));
+	expect(view.getByText(PROD_ENABLED_HINT)).toBeTruthy();
+	await click(view.getByRole("checkbox", { name: /^Enabled/ }));
+
+	await click(view.getByRole("button", { name: "Save changes" }));
+	await act(() => new Promise((r) => setTimeout(r, 20)));
+
+	expect(update.mock.calls[0]?.[1]).toMatchObject({ active: false, devActive: false });
 });

@@ -204,7 +204,7 @@ describe("blocks copied from a sandbox back into a route", () => {
 
 		const after = await canvasOf({ kind: "route", id: routeId });
 		expect(after.blocks).toHaveLength(before.blocks.length);
-		expect(after.version).toBe(before.version);
+		expect(after.revision).toBe(before.revision);
 	}, 120_000);
 });
 

@@ -3,7 +3,7 @@ import { outcome } from "./guards";
 import { looping, run, type Step } from "./guards.fixture";
 
 const route = (status: number, body: unknown = "x") => (n: string) =>
-	n === "call_route" ? { status, body } : { version: 2 };
+	n === "call_route" ? { status, body } : { revision: 2 };
 const edit = (ops: unknown[]): Step => ["edit_canvas", { ops }];
 const call = (input: object = {}): Step => ["call_route", { routeId: "r1", ...input }];
 
@@ -35,7 +35,7 @@ describe("progress resets the repeat count", () => {
 	it("edit_canvas with warnings is a failure and does not reset", async () => {
 		const issues = [{ severity: "warning", message: "response block has no status" }];
 		const calls = Array.from({ length: 6 }, (_, i) => edit([i]));
-		const r = await run(calls, { respond: () => ({ version: 3, issues }) });
+		const r = await run(calls, { respond: () => ({ revision: 3, issues }) });
 		expect(r.stopped).toEqual({ kind: "repeat", tool: "edit_canvas" });
 		expect(r.prompts).toHaveLength(5);
 	});

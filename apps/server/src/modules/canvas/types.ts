@@ -49,8 +49,8 @@ export type CanvasChanges = z.infer<typeof canvasChangesSchema>;
 
 /** what get-canvas-items returns, for any parent */
 export const canvasItemsSchema = z.object({
-	/** +1 on every save (#597); pass it back as `expectedVersion` to refuse a stale save */
-	canvasVersion: z.number().int(),
+	/** +1 on every save (#597); pass it back as `expectedRevision` to refuse a stale save */
+	canvasRevision: z.number().int(),
 	/** `key` is the block's readable name on this canvas (`response_1`); the server sets it, a save never takes it */
 	blocks: z.array(canvasBlockSchema.extend({ key: z.string() })),
 	edges: z.array(
@@ -64,13 +64,13 @@ export const canvasItemsSchema = z.object({
 	),
 });
 
-/** what get-canvas-version returns, for any parent */
-export const canvasVersionSchema = canvasItemsSchema.pick({ canvasVersion: true });
+/** what get-canvas-revision returns, for any parent */
+export const canvasRevisionSchema = canvasItemsSchema.pick({ canvasRevision: true });
 
 /** query string of every save-canvas endpoint */
 export const saveCanvasQuerySchema = z.object({
-	/** the canvasVersion the edit was made against; a newer canvas refuses the save (409) */
-	expectedVersion: z.coerce.number().int().min(0).optional(),
+	/** the canvasRevision the edit was made against; a newer canvas refuses the save (409) */
+	expectedRevision: z.coerce.number().int().min(0).optional(),
 	/** run every check, save nothing, and return the rule issues */
 	dryRun: z
 		.enum(["true", "false"])
@@ -80,7 +80,7 @@ export const saveCanvasQuerySchema = z.object({
 
 /** what every save-canvas endpoint answers */
 export const saveCanvasResultSchema = z.object({
-	canvasVersion: z.number().int(),
+	canvasRevision: z.number().int(),
 	issues: z.array(
 		z.object({
 			severity: z.enum(["error", "warning"]),

@@ -27,14 +27,14 @@ describe("the sandbox canvas adapter", () => {
 
 	test("loads the canvas and its version from the sandbox", async () => {
 		const get = spyOn(httpClient, "get")
-			.mockResolvedValueOnce({ data: { canvasVersion: 3, blocks: [], edges: [] } })
-			.mockResolvedValueOnce({ data: { canvasVersion: 3 } });
+			.mockResolvedValueOnce({ data: { canvasRevision: 3, blocks: [], edges: [] } })
+			.mockResolvedValueOnce({ data: { canvasRevision: 3 } });
 		const canvas = sandboxCanvas("p1");
 		await canvas.getCanvasItems("s1");
-		expect(await canvas.getCanvasVersion("s1")).toBe(3);
+		expect(await canvas.getCanvasRevision("s1")).toBe(3);
 		expect(get.mock.calls.map((call) => call[0])).toEqual([
 			"/v1/projects/p1/sandboxes/s1/canvas-items",
-			"/v1/projects/p1/sandboxes/s1/canvas-version",
+			"/v1/projects/p1/sandboxes/s1/canvas-revision",
 		]);
 	});
 });

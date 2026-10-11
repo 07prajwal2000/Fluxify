@@ -70,7 +70,7 @@ function WorkflowCanvasPage() {
 				items={workflowsQuery.canvasItems.useQuery(workflowId)}
 				compileTarget={{ projectId, resourceType: "workflow", resourceId: workflowId }}
 				reload={() => workflowsService.getCanvasItems(workflowId)}
-				getVersion={() => workflowsService.getCanvasVersion(workflowId)}
+				getRevision={() => workflowsService.getCanvasRevision(workflowId)}
 				save={(payload) => save.mutateAsync(payload)}
 				headerLeft={
 					<>

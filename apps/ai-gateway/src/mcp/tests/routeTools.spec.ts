@@ -122,6 +122,19 @@ describe("route and workflow tools", () => {
 		});
 	});
 
+	it("save_route and save_workflow take devActive, and say which switch is which (#738)", async () => {
+		const route = fakeApi();
+		await run("save_route", { routeId: "r1", devActive: false }, route.api);
+		expect(route.calls[0]).toMatchObject({ path: "/v1/routes/partial/r1", body: { devActive: false } });
+		const wf = fakeApi({ id: "w1" });
+		await run("save_workflow", { workflowId: "w1", devActive: false }, wf.api);
+		expect(wf.calls[0]).toMatchObject({ path: "/v1/workflows/w1", body: { devActive: false } });
+		for (const name of ["save_route", "save_workflow"]) {
+			expect(tool(name).description).toContain("devActive");
+		}
+		expect(tool("save_route").description).not.toContain("INACTIVE");
+	});
+
 	it("save_workflow never sends projectId on update", async () => {
 		const { api, calls } = fakeApi();
 		await run("save_workflow", { workflowId: "w1", projectId: P, description: "d" }, api);

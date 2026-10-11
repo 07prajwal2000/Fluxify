@@ -8,6 +8,7 @@ export const requestBodySchema = z.object({
 	path: z.string().min(1).regex(ROUTE_REGEX, "Must be a valid URL path").optional(),
 	method: z.enum(["GET", "POST", "PUT", "DELETE"], "Must be a HTTP Method").optional(),
 	active: z.boolean().optional(),
+	devActive: z.boolean().optional(),
 	// Validated in the service, not here: they are only meaningful against the
 	// route's effective path, and a patch may not carry one.
 	bodySchema: z.any().optional(),

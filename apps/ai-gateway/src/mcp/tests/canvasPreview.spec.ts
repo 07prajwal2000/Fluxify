@@ -8,7 +8,7 @@ const [ENTRY, RESPONSE, LOG] = [1, 2, 3].map(id);
 const target = { kind: "route" as const, id: "r1" };
 
 const canvas = () => ({
-	canvasVersion: 7,
+	canvasRevision: 7,
 	blocks: [
 		{ id: ENTRY, key: "entrypoint_1", type: "entrypoint", data: {}, position: at },
 		{ id: RESPONSE, key: "response_1", type: "response", data: { httpCode: "200" }, position: at },
@@ -21,7 +21,7 @@ const canvas = () => ({
 
 /** An admin API that records what it was asked and answers the dry run like the server does. */
 function fakeApi(dry: (body: any) => unknown = (b) => ({
-	canvasVersion: 7,
+	canvasRevision: 7,
 	issues: [],
 	newKeys: Object.fromEntries(b.changes.blocks.filter((x: any) => !x.key && x.id !== LOG).map((x: any) => [x.id, "consolelog_2"])),
 })) {
@@ -47,7 +47,7 @@ describe("previewEdit", () => {
 			{ op: "add_block", ref: "b1", type: "consolelog", connect_from: { from: "entrypoint_1" } },
 			{ op: "remove_block", id: "consolelog_1" },
 		]);
-		expect(out.version).toBe(7);
+		expect(out.revision).toBe(7);
 		expect(out.before.blocks.map((b) => b.key)).toEqual(["entrypoint_1", "response_1", "consolelog_1"]);
 		const keys = out.after?.blocks.map((b) => b.key);
 		expect(keys).toEqual(["entrypoint_1", "response_1", "consolelog_2"]);
@@ -58,7 +58,7 @@ describe("previewEdit", () => {
 		// one dry run, never a save
 		expect(sent).toHaveLength(1);
 		expect(sent[0].method).toBe("PUT");
-		expect(sent[0].path).toBe("/v1/routes/r1/save-canvas?expectedVersion=7&dryRun=true");
+		expect(sent[0].path).toBe("/v1/routes/r1/save-canvas?expectedRevision=7&dryRun=true");
 	});
 
 	it("an edge reads from, to and the bare handle", async () => {
@@ -85,7 +85,7 @@ describe("previewEdit", () => {
 
 	it("rule issues come back naming blocks by key", async () => {
 		const { api } = fakeApi(() => ({
-			canvasVersion: 7,
+			canvasRevision: 7,
 			newKeys: {},
 			issues: [{ severity: "warning", message: "not connected", blockId: LOG }],
 		}));
@@ -95,7 +95,7 @@ describe("previewEdit", () => {
 });
 
 describe("previewInput", () => {
-	it("takes edit_canvas's target and ops, and no version", () => {
+	it("takes edit_canvas's target and ops, and no revision", () => {
 		const ok = previewInput.safeParse({ target, ops: [{ op: "remove_block", id: "log_1" }] });
 		expect(ok.success).toBe(true);
 		expect(previewInput.safeParse({ target, ops: "not ops" }).success).toBe(false);

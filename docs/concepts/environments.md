@@ -82,10 +82,11 @@ You don't have to do this for the usual setups. Each of them starts one for you:
 
 ::: info
 Every time you save, Fluxify publishes your routes, workflows, custom blocks,
-middlewares, triggers and packages to **both** environments. For now the
-development worker and the production worker run the same saved version. What
-differs between them is the [values](#values-per-environment) they run with,
-and whether each one [records and traces](#recording-and-tracing-per-environment) runs.
+middlewares, triggers and packages. A route or workflow goes to each
+environment where it is [switched on](#turning-a-route-or-workflow-on-or-off).
+For now the development worker and the production worker run the same saved
+version. What differs between them is the [values](#values-per-environment) they
+run with, and whether each one [records and traces](#recording-and-tracing-per-environment) runs.
 :::
 
 ::: warning
@@ -93,6 +94,30 @@ Don't put `FLUXIFY_ENV=development` in a `.env` file that every Fluxify process
 reads. That turns your production worker into a development worker, and your
 live routes stop being served.
 :::
+
+## Turning a route or workflow on or off
+
+Every route and workflow has one **Enabled** switch per environment. Find them
+in its settings, on the **Advanced** tab, under **Environments**.
+
+| Switch | Environment | A new route or workflow starts… |
+| :--- | :--- | :--- |
+| **Development** | Development | **On**, so you can call it right away from the playground or `call_route`. |
+| **Production** | Production | **Off**, so real callers get `404` until you are ready. |
+
+Together they work like a feature flag: on in development, off in production.
+Turn **Production** on when the canvas is ready. Turn it off again to stop
+serving it in production while you keep working in development.
+
+A route that is off in an environment returns `404` there. A workflow that is
+off in an environment is not given to that environment's workers, so nothing
+can run it there: not a trigger, not a manual run.
+
+These switches apply right away. They are settings of the route or workflow,
+not part of its canvas.
+
+For AI agents, the same two switches are `devActive` (development) and `active`
+(production) on `save_route` and `save_workflow`.
 
 ## Values per environment
 

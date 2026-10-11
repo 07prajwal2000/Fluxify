@@ -9,7 +9,7 @@ import { routeTools } from "../routeTools";
 const at = (x: number) => ({ x, y: 0 });
 /** entry → resp, plus an if block wired on success to log */
 const canvas = () => ({
-	canvasVersion: 3,
+	canvasRevision: 3,
 	blocks: [
 		{ id: "entry", key: "entrypoint_1", type: "entrypoint", data: {}, position: at(0) },
 		{ id: "err", key: "error_handler_1", type: "error_handler", data: {}, position: at(0) },
@@ -108,7 +108,7 @@ describe("edit_canvas ops → save diff", () => {
 
 	it("get_canvas names blocks and edges by key, with no ids or UI data", () => {
 		const out = trimCanvas(canvas());
-		expect(out.version).toBe(3);
+		expect(out.revision).toBe(3);
 		expect(out.blocks[0]).toEqual({ key: "entrypoint_1", type: "entrypoint", data: {} });
 		expect(out.edges).toEqual(["entrypoint_1 → response_1", "if_1.success → consolelog_1"]);
 	});
@@ -116,13 +116,13 @@ describe("edit_canvas ops → save diff", () => {
 
 describe("edit_canvas tool", () => {
 	const tool = canvasTools.find((t) => t.name === "edit_canvas")!;
-	const fake = (version = 3) => {
+	const fake = (revision = 3) => {
 		const sent: { path: string; body: unknown }[] = [];
 		const api: AdminApi = {
-			get: async () => ({ ...canvas(), canvasVersion: version }),
+			get: async () => ({ ...canvas(), canvasRevision: revision }),
 			send: async (_m, path, body) => {
 				sent.push({ path, body });
-				return { canvasVersion: 4, issues: [{ severity: "warning", message: "w" }] };
+				return { canvasRevision: 4, issues: [{ severity: "warning", message: "w" }] };
 			},
 		};
 		return { api, sent };
@@ -130,39 +130,39 @@ describe("edit_canvas tool", () => {
 	const run = (api: AdminApi, args: object) => tool.call(api, z.object(lenient(tool.input)).parse(args));
 	const target = { kind: "route", id: "r1" };
 
-	it("saves against the version read and returns the new one, with its issues by default", async () => {
+	it("saves against the revision read and returns the new one, with its issues by default", async () => {
 		const { api, sent } = fake();
-		const out = await run(api, { target, version: 3, ops: [{ op: "update_block", id: "consolelog_1", data: {} }] });
+		const out = await run(api, { target, revision: 3, ops: [{ op: "update_block", id: "consolelog_1", data: {} }] });
 		expect(out).toEqual({
-			version: 4,
+			revision: 4,
 			changes: ["updated consolelog_1 (no fields)"],
 			issues: [{ severity: "warning", message: "w" }],
 		});
-		expect(sent[0].path).toBe("/v1/routes/r1/save-canvas?expectedVersion=3");
+		expect(sent[0].path).toBe("/v1/routes/r1/save-canvas?expectedRevision=3");
 	});
 
 	it("validate: false skips the issues", async () => {
-		const out = await run(fake().api, { target, version: 3, ops: [{ op: "update_block", id: "consolelog_1", data: {} }], validate: false });
-		expect(out).toEqual({ version: 4, changes: ["updated consolelog_1 (no fields)"] });
+		const out = await run(fake().api, { target, revision: 3, ops: [{ op: "update_block", id: "consolelog_1", data: {} }], validate: false });
+		expect(out).toEqual({ revision: 4, changes: ["updated consolelog_1 (no fields)"] });
 	});
 
-	it("takes ops, version and validate sent as strings", async () => {
+	it("takes ops, revision and validate sent as strings", async () => {
 		const ops = JSON.stringify([{ op: "update_block", id: "consolelog_1", data: {} }]);
-		const out = await run(fake().api, { target: JSON.stringify(target), version: "3", ops, validate: "false" });
-		expect(out).toEqual({ version: 4, changes: ["updated consolelog_1 (no fields)"] });
+		const out = await run(fake().api, { target: JSON.stringify(target), revision: "3", ops, validate: "false" });
+		expect(out).toEqual({ revision: 4, changes: ["updated consolelog_1 (no fields)"] });
 	});
 
-	it("refuses a stale version without saving", async () => {
+	it("refuses a stale revision without saving", async () => {
 		const { api, sent } = fake(5);
-		await expect(run(api, { target, version: 3, ops: [] })).rejects.toThrow("get_canvas");
+		await expect(run(api, { target, revision: 3, ops: [] })).rejects.toThrow("get_canvas");
 		expect(sent).toEqual([]);
 	});
 
 	it("validate with no ops is a dry run that returns the issues", async () => {
 		const { api, sent } = fake();
-		const out = await run(api, { target: { kind: "workflow", id: "w" }, version: 3, ops: [], validate: true });
-		expect(sent[0].path).toBe("/v1/workflows/w/save-canvas?expectedVersion=3&dryRun=true");
-		expect(out).toEqual({ version: 4, issues: [{ severity: "warning", message: "w" }] });
+		const out = await run(api, { target: { kind: "workflow", id: "w" }, revision: 3, ops: [], validate: true });
+		expect(sent[0].path).toBe("/v1/workflows/w/save-canvas?expectedRevision=3&dryRun=true");
+		expect(out).toEqual({ revision: 4, issues: [{ severity: "warning", message: "w" }] });
 	});
 });
 

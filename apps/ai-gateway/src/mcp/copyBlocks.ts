@@ -110,7 +110,7 @@ export const copyBlocksTool: McpTool = {
 		"keys are the block keys from get_canvas; leave them out to copy the whole canvas. The entrypoint and error handler are never copied, and an edge to a block you did not copy is dropped.",
 		"connect_from { from, handle? } is a block on the target; it is connected to the first copied block. Without it the copy sits unconnected. position moves the copy there.",
 		"Saved in one go with the usual canvas checks: a refused copy changes nothing. Copying into a route, workflow or custom block asks the user first, even in auto mode; into a sandbox it does not.",
-		"Returns target, keys (each source key → the key the copy got), version, issues (rule warnings) and warnings (what was not copied or may not work, e.g. route middlewares, request schemas, a custom block's inputs).",
+		"Returns target, keys (each source key → the key the copy got), revision, issues (rule warnings) and warnings (what was not copied or may not work, e.g. route middlewares, request schemas, a custom block's inputs).",
 	].join(" "),
 	role: "creator",
 	annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
@@ -196,7 +196,7 @@ export const copyBlocksTool: McpTool = {
 			const result = await api
 				.send(
 					"PUT",
-					`${canvasPath(target)}/save-canvas?expectedVersion=${(canvas as any).canvasVersion}`,
+					`${canvasPath(target)}/save-canvas?expectedRevision=${(canvas as any).canvasRevision}`,
 					changes,
 				)
 				.catch((error: Error) => {
@@ -214,7 +214,7 @@ export const copyBlocksTool: McpTool = {
 					id: target.id,
 					...(created && { name: `${src.name} sandbox` }),
 				},
-				version: result.canvasVersion,
+				revision: result.canvasRevision,
 				keys: keyOf,
 				...(src.warnings.length && { warnings: src.warnings }),
 				...(issues.length && { issues }),

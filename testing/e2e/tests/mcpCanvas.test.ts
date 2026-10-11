@@ -34,26 +34,26 @@ const log = (ref: string, from?: string) => ({
 });
 
 describe("MCP canvas edits", () => {
-	it("refuses a stale version and saves nothing", async () => {
+	it("refuses a stale revision and saves nothing", async () => {
 		const { target, canvas } = await newWorkflow();
 		const add = log("b", keyOf(canvas, "entrypoint"));
-		await call("edit_canvas", { target, version: canvas.version, ops: [add] });
+		await call("edit_canvas", { target, revision: canvas.revision, ops: [add] });
 		const stale = await callTool(stack, stack.tokens.creator, "edit_canvas", {
 			target,
-			version: canvas.version,
+			revision: canvas.revision,
 			ops: [{ ...add, ref: "c" }],
 		});
 		expect(stale.ok).toBe(false);
 		expect(stale.text).toContain("Read it again with get_canvas");
-		// the server refuses it too, for any writer that sends the version
+		// the server refuses it too, for any writer that sends the revision
 		const direct = await adminCall(stack, stack.tokens.creator, {
 			method: "PUT",
-			path: `/v1/workflows/${target.id}/save-canvas?expectedVersion=${canvas.version}`,
+			path: `/v1/workflows/${target.id}/save-canvas?expectedRevision=${canvas.revision}`,
 			body: { actionsToPerform: { blocks: [], edges: [] }, changes: { blocks: [], edges: [] } },
 		});
 		expect(direct.status).toBe(409);
 		const now = await call("get_canvas", { target });
-		expect(now.version).toBe(canvas.version + 1);
+		expect(now.revision).toBe(canvas.revision + 1);
 		expect(now.blocks).toHaveLength(canvas.blocks.length + 1);
 	});
 
@@ -62,7 +62,7 @@ describe("MCP canvas edits", () => {
 		// a Response block in a workflow is a warning: it still saves
 		const saved = await call("edit_canvas", {
 			target,
-			version: canvas.version,
+			revision: canvas.revision,
 			ops: [
 				{
 					op: "add_block",
@@ -79,9 +79,9 @@ describe("MCP canvas edits", () => {
 			expect.objectContaining({ severity: "warning", block: "response_1" }),
 		]);
 
-		const checked = await call("edit_canvas", { target, version: saved.version, ops: [], validate: true });
-		expect(checked).toEqual({ version: saved.version, issues: saved.issues });
-		expect((await call("get_canvas", { target })).version).toBe(saved.version);
+		const checked = await call("edit_canvas", { target, revision: saved.revision, ops: [], validate: true });
+		expect(checked).toEqual({ revision: saved.revision, issues: saved.issues });
+		expect((await call("get_canvas", { target })).revision).toBe(saved.revision);
 	});
 
 	it("warns about a route that does not reach a response, by block key (#704)", async () => {
@@ -99,7 +99,7 @@ describe("MCP canvas edits", () => {
 		const messages = (r: any) => r.issues.map((i: any) => i.message);
 
 		// a new route has its entrypoint and response apart
-		const fresh = await call("edit_canvas", { target, version: canvas.version, ops: [] });
+		const fresh = await call("edit_canvas", { target, revision: canvas.revision, ops: [] });
 		expect(messages(fresh)).toEqual([
 			`${response} is not connected to the flow, so it never runs.`,
 			expect.stringContaining("No path from entrypoint to a response block"),
@@ -107,21 +107,21 @@ describe("MCP canvas edits", () => {
 
 		const wired = await call("edit_canvas", {
 			target,
-			version: canvas.version,
+			revision: canvas.revision,
 			ops: [{ op: "connect", from: entry, to: response }],
 		});
 		expect(wired.issues).toBeUndefined();
 
 		const cut = await call("edit_canvas", {
 			target,
-			version: wired.version,
+			revision: wired.revision,
 			ops: [{ op: "disconnect", from: entry, to: response }],
 		});
 		expect(messages(cut)).toEqual(messages(fresh));
 
 		const branched = await call("edit_canvas", {
 			target,
-			version: cut.version,
+			revision: cut.revision,
 			ops: [
 				{
 					op: "add_block",
@@ -147,7 +147,7 @@ describe("MCP canvas edits", () => {
 		const handler = keyOf(canvas, "error_handler");
 		const saved = await call("edit_canvas", {
 			target,
-			version: canvas.version,
+			revision: canvas.revision,
 			ops: [
 				{ op: "update_block", id: handler, data: { statusCode: 500, transform: "return 1;" } },
 				{
@@ -179,23 +179,23 @@ describe("MCP canvas edits", () => {
 		const { target, canvas } = await newWorkflow();
 		const bad = await callTool(stack, stack.tokens.creator, "edit_canvas", {
 			target,
-			version: canvas.version,
+			revision: canvas.revision,
 			ops: [{ op: "connect", from: "nope", to: "also-nope" }],
 		});
 		expect(bad).toEqual({ ok: false, text: expect.stringContaining('no block "nope"') });
 		const typo = await callTool(stack, stack.tokens.creator, "edit_canvas", {
 			target,
-			version: canvas.version,
+			revision: canvas.revision,
 			ops: [{ op: "update_block", id: "entrypoint_7", data: {} }],
 		});
 		expect(typo.text).toContain("Similar keys: entrypoint_1");
 		const unknown = await callTool(stack, stack.tokens.creator, "edit_canvas", {
 			target,
-			version: canvas.version,
+			revision: canvas.revision,
 			ops: [{ op: "add_block", ref: "x", type: "not_a_block" }],
 		});
 		expect(unknown.text).toContain("Unknown block type");
-		expect((await call("get_canvas", { target })).version).toBe(canvas.version);
+		expect((await call("get_canvas", { target })).revision).toBe(canvas.revision);
 	});
 });
 
@@ -205,7 +205,7 @@ describe("MCP block keys", () => {
 		expect(keys(canvas)).toEqual(expect.arrayContaining(["entrypoint_1", "error_handler_1"]));
 		const saved = await call("edit_canvas", {
 			target,
-			version: canvas.version,
+			revision: canvas.revision,
 			ops: [log("a", "entrypoint_1"), log("b", "a")],
 		});
 		expect(saved.refs).toEqual({ a: "consolelog_1", b: "consolelog_2" });
@@ -222,10 +222,10 @@ describe("MCP block keys", () => {
 
 	it("never gives a key out twice, even after the newest block is deleted", async () => {
 		const { target, canvas } = await newWorkflow();
-		let version = canvas.version;
+		let revision = canvas.revision;
 		const edit = async (ops: object[]) => {
-			const out = await call("edit_canvas", { target, version, ops });
-			version = out.version;
+			const out = await call("edit_canvas", { target, revision, ops });
+			revision = out.revision;
 			return out;
 		};
 		expect((await edit([log("a"), log("b")])).refs).toEqual({ a: "consolelog_1", b: "consolelog_2" });
@@ -247,7 +247,7 @@ describe("MCP block keys", () => {
 		for (const { target, canvas } of [first, second]) {
 			const out = await call("edit_canvas", {
 				target,
-				version: canvas.version,
+				revision: canvas.revision,
 				ops: [log("a"), { op: "add_block", ref: "s", type: "setvar", data: { key: "k", value: "v" } }],
 			});
 			expect(out.refs).toEqual({ a: "consolelog_1", s: "setvar_1" });
@@ -264,7 +264,7 @@ describe("MCP block keys", () => {
 		// an id still names the block
 		const byId = await call("edit_canvas", {
 			target,
-			version: canvas.version,
+			revision: canvas.revision,
 			ops: [{ op: "update_block", id: entry.id, data: {} }],
 		});
 		expect(byId.changes).toEqual(["updated entrypoint_1 (no fields)"]);

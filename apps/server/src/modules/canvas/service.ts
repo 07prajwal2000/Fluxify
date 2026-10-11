@@ -23,7 +23,7 @@ import {
 	deleteStructuralBlocks,
 	getBlocks,
 	getBlocksCountByType,
-	getCanvasVersion,
+	getCanvasRevision,
 	getCustomBlockCalls,
 	getCustomBlockNames,
 	getEdges,
@@ -353,7 +353,7 @@ async function mergeStaleSingleton(
  * RPC bus) — see `mergeStaleSingleton`. A human-driven save always gets the
  * strict duplicate error.
  *
- * `expectedVersion` refuses the save when the canvas moved past it (#597);
+ * `expectedRevision` refuses the save when the canvas moved past it (#597);
  * omitted, the save goes through as it always did. `dryRun` runs every check
  * and rolls back, so a caller can ask "would this save, and what is wrong?".
  */
@@ -363,7 +363,7 @@ export async function saveCanvas(
 	projectIds: string[] = [],
 	outer?: DbTransactionType,
 	mergeAiDuplicates = false,
-	{ expectedVersion, dryRun = false }: SaveOptions = {},
+	{ expectedRevision, dryRun = false }: SaveOptions = {},
 ): Promise<SaveResult> {
 	if (!(await parentExists(parent, projectIds, outer))) {
 		// visible to nobody vs. outside the caller's projects: 404 vs. 403, as
@@ -382,7 +382,7 @@ export async function saveCanvas(
 		.filter((c) => c.action === "delete")
 		.map((c) => c.id);
 
-	let result: SaveResult = { canvasVersion: 0, issues: [], newKeys: {} };
+	let result: SaveResult = { canvasRevision: 0, issues: [], newKeys: {} };
 	// a tx nests as a savepoint, so the outer transaction still decides the outcome
 	const saving = (outer ?? db).transaction(async (tx) => {
 		await assertBlockTypesExist(parent, data, tx);
@@ -422,10 +422,10 @@ export async function saveCanvas(
 			[BlockTypes.entrypoint, BlockTypes.errorHandler],
 			tx,
 		);
-		const canvasVersion = await touchParent(parent, tx, expectedVersion);
-		if (canvasVersion === undefined) {
+		const canvasRevision = await touchParent(parent, tx, expectedRevision);
+		if (canvasRevision === undefined) {
 			throw new ConflictError(
-				`Canvas changed: it is past version ${expectedVersion}. Read it again and redo the edit.`,
+				"Canvas changed since you opened it. Read it again and redo the edit.",
 			);
 		}
 		for (const block of structural) {
@@ -434,7 +434,7 @@ export async function saveCanvas(
 			throw new BadRequestError(`Duplicate block ${block.type} found`);
 		}
 		// a dry run reports the version the canvas is still at
-		result = { canvasVersion: dryRun ? canvasVersion - 1 : canvasVersion, issues, newKeys };
+		result = { canvasRevision: dryRun ? canvasRevision - 1 : canvasRevision, issues, newKeys };
 		if (dryRun) throw DRY_RUN;
 	});
 	try {
@@ -448,9 +448,9 @@ export async function saveCanvas(
 	return result;
 }
 
-export type SaveOptions = { expectedVersion?: number; dryRun?: boolean };
+export type SaveOptions = { expectedRevision?: number; dryRun?: boolean };
 export type SaveResult = {
-	canvasVersion: number;
+	canvasRevision: number;
 	issues: CanvasIssue[];
 	/** the key each block this save created was given, by block id */
 	newKeys: Record<string, string>;
@@ -460,9 +460,9 @@ export type SaveResult = {
 const DRY_RUN = new Error("canvas dry run");
 
 /** Only the save counter, for an open editor polling for changes made elsewhere (#597). */
-export async function readCanvasVersion(parent: CanvasParent, projectIds: string[] = []) {
+export async function readCanvasRevision(parent: CanvasParent, projectIds: string[] = []) {
 	if (!(await parentExists(parent, projectIds))) throw new NotFoundError(NOT_FOUND[parent.type]);
-	return { canvasVersion: await getCanvasVersion(parent) };
+	return { canvasRevision: await getCanvasRevision(parent) };
 }
 
 export async function getCanvas(parent: CanvasParent, projectIds: string[] = []) {
@@ -470,13 +470,13 @@ export async function getCanvas(parent: CanvasParent, projectIds: string[] = [])
 		if (!(await parentExists(parent, projectIds, tx))) {
 			throw new NotFoundError(NOT_FOUND[parent.type]);
 		}
-		const [blocks, edges, canvasVersion] = await Promise.all([
+		const [blocks, edges, canvasRevision] = await Promise.all([
 			getBlocks(parent, tx),
 			getEdges(parent, tx),
-			getCanvasVersion(parent, tx),
+			getCanvasRevision(parent, tx),
 		]);
 		return {
-			canvasVersion,
+			canvasRevision,
 			blocks: blocks.map((b) => ({
 				id: b.id,
 				key: b.key,

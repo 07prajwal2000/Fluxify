@@ -38,7 +38,7 @@ const trimmed = (v: string) => v.includes("[result trimmed");
 const user: ModelMessage = { role: "user", content: "go" };
 const canvasOf = (...types: string[]) => ({
 	type: "json" as const,
-	value: { version: 3, blocks: types.map((type, i) => ({ key: `${type}_${i}`, type })), edges: [] },
+	value: { revision: 3, blocks: types.map((type, i) => ({ key: `${type}_${i}`, type })), edges: [] },
 });
 const target = (id: string) => ({ target: { kind: "route", id } });
 

@@ -9,7 +9,7 @@ const at = (x: number) => ({ x, y: 0 });
 const SCRIPT = Array.from({ length: 24 }, (_, i) => `step(${i});`).join("\n");
 
 const canvas = () => ({
-	canvasVersion: 7,
+	canvasRevision: 7,
 	blocks: [
 		{ id: "entry", key: "entrypoint_1", type: "entrypoint", data: {}, position: at(0) },
 		{
@@ -48,11 +48,11 @@ describe("get_canvas notes", () => {
 });
 
 describe("get_canvas compact", () => {
-	const { blocks, edges, version } = trimCanvas(canvas(), { compact: true });
+	const { blocks, edges, revision } = trimCanvas(canvas(), { compact: true });
 	const byKey = Object.fromEntries(blocks.map((b: any) => [b.key, b]));
 
-	it("keeps key, type, note and a one-line summary, with edges and version as before", () => {
-		expect(version).toBe(7);
+	it("keeps key, type, note and a one-line summary, with edges and revision as before", () => {
+		expect(revision).toBe(7);
 		expect(edges).toEqual(["entrypoint_1 → jsrunner_1", "jsrunner_1 → response_1"]);
 		expect(byKey.jsrunner_1).toEqual({
 			key: "jsrunner_1",
@@ -86,20 +86,20 @@ describe("get_canvas blocks", () => {
 		expect(out.blocks.map((b: any) => b.key)).toEqual(["response_1"]);
 		expect(out.blocks[0]).toHaveProperty("data");
 		expect(out.edges).toEqual(["jsrunner_1 → response_1"]);
-		expect(out.version).toBe(7);
+		expect(out.revision).toBe(7);
 	});
 
 	it("names the keys when one does not exist", () => {
 		expect(() => trimCanvas(canvas(), { blocks: ["ghost_9"] })).toThrow(/no block "ghost_9"\. Keys: entrypoint_1/);
 	});
 
-	it("the tool takes both, and the version works with edit_canvas either way", async () => {
+	it("the tool takes both, and the revision works with edit_canvas either way", async () => {
 		const sent: string[] = [];
 		const api: AdminApi = {
 			get: async () => canvas(),
 			send: async (_m, path) => {
 				sent.push(path);
-				return { canvasVersion: 8 };
+				return { canvasRevision: 8 };
 			},
 		};
 		const get = canvasTools.find((t) => t.name === "get_canvas")!;
@@ -111,12 +111,12 @@ describe("get_canvas blocks", () => {
 		for (const read of [compact, one]) {
 			const args = z.object(lenient(edit.input)).parse({
 				target: { kind: "route", id: "r" },
-				version: read.version,
+				revision: read.revision,
 				ops: [{ op: "update_block", id: "jsrunner_1", data: { blockDescription: "why" } }],
 			});
-			expect(await edit.call(api, args)).toMatchObject({ version: 8 });
+			expect(await edit.call(api, args)).toMatchObject({ revision: 8 });
 		}
-		expect(sent).toEqual(Array(2).fill("/v1/routes/r/save-canvas?expectedVersion=7"));
+		expect(sent).toEqual(Array(2).fill("/v1/routes/r/save-canvas?expectedRevision=7"));
 	});
 });
 

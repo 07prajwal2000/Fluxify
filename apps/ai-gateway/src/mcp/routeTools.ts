@@ -115,7 +115,7 @@ export const routeTools: McpTool[] = [
 	{
 		name: "save_route",
 		title: "Save route",
-		description: `Create or update an HTTP route's settings. To create pass projectId, name, path ('/users/:id') and method. A new route starts INACTIVE: pass active: true, or call_route and real callers get 404. It starts with a canvas that answers 200. On update pass routeId and only what changes. Recording and tracing are set per environment: devRecordExecution / devTracingEnabled for development (where call_route runs), recordExecution / tracingEnabled for production. Pass the warning in the answer on to the user. ${SCHEMA_HINT} middlewares attaches middlewares (ids from list_middlewares): before runs before the canvas, after runs after it, each list in run order. Build the route's logic with get_canvas and edit_canvas.`,
+		description: `Create or update an HTTP route's settings. To create pass projectId, name, path ('/users/:id') and method. active is production (off by default, so real callers get 404 until you pass active: true); devActive is development (on by default, so a new route answers call_route right away). It starts with a canvas that answers 200. On update pass routeId and only what changes. Recording and tracing are set per environment: devRecordExecution / devTracingEnabled for development (where call_route runs), recordExecution / tracingEnabled for production. Pass the warning in the answer on to the user. ${SCHEMA_HINT} middlewares attaches middlewares (ids from list_middlewares): before runs before the canvas, after runs after it, each list in run order. Build the route's logic with get_canvas and edit_canvas.`,
 		role: "creator",
 		annotations: SAVE,
 		input: {
@@ -155,7 +155,7 @@ export const routeTools: McpTool[] = [
 		name: "save_workflow",
 		title: "Save workflow",
 		description:
-			"Create or update a workflow's settings (a background job started by triggers). To create pass projectId and name. On update pass workflowId and only what changes. Recording and tracing are set per environment: devRecordExecution / devTracingEnabled for development, recordExecution / tracingEnabled for production. Pass the warning in the answer on to the user. Build its logic with get_canvas and edit_canvas.",
+			"Create or update a workflow's settings (a background job started by triggers). To create pass projectId and name. On update pass workflowId and only what changes. active is production (off by default), devActive is development (on by default). Recording and tracing are set per environment: devRecordExecution / devTracingEnabled for development, recordExecution / tracingEnabled for production. Pass the warning in the answer on to the user. Build its logic with get_canvas and edit_canvas.",
 		role: "creator",
 		annotations: SAVE,
 		input: {
@@ -185,7 +185,7 @@ export const routeTools: McpTool[] = [
 	{
 		name: "call_route",
 		title: "Call route",
-		description: `Send a REAL HTTP request to a route and get back its status and body. It runs on the development worker, against development data and the development values of integrations and app config, never production. This runs the route for real: it can create, change or delete data and call other services. Read get_route first for the path params and the body/query schemas. The route must be active. Bodies over ${MAX_RESPONSE_CHARS} characters are cut. When the route fails, error has the real cause its callers never see: { block: { key, type, name }, message, detail (e.g. the SQL error), stack (your own code only) }. trace lists the blocks that ran, one line each (key, type, ok or ERROR, ms, output cut short); a long run ends with "… N more blocks, see get_recording". A route with development recording and tracing both off has no trace. No development worker running: start a worker with FLUXIFY_ENV=development. debug: false leaves out error and trace. To debug and fix: read_doc ${DEBUG_RECIPE}.`,
+		description: `Send a REAL HTTP request to a route and get back its status and body. It runs on the development worker, against development data and the development values of integrations and app config, never production. This runs the route for real: it can create, change or delete data and call other services. Read get_route first for the path params and the body/query schemas. The route must be switched on in development (devActive, on by default). Bodies over ${MAX_RESPONSE_CHARS} characters are cut. When the route fails, error has the real cause its callers never see: { block: { key, type, name }, message, detail (e.g. the SQL error), stack (your own code only) }. trace lists the blocks that ran, one line each (key, type, ok or ERROR, ms, output cut short); a long run ends with "… N more blocks, see get_recording". A route with development recording and tracing both off has no trace. No development worker running: start a worker with FLUXIFY_ENV=development. debug: false leaves out error and trace. To debug and fix: read_doc ${DEBUG_RECIPE}.`,
 		role: "creator",
 		annotations: RUN,
 		input: {

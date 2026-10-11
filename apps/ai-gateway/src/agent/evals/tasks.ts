@@ -160,7 +160,7 @@ export const tasks: Task[] = [
 			const next = nextKey(canvas, code.key)!;
 			await ctx.tool("edit_canvas", {
 				target: { kind: "route", id },
-				version: canvas.version,
+				revision: canvas.revision,
 				ops: [
 					{
 						op: "update_block",
@@ -339,7 +339,7 @@ export const tasks: Task[] = [
 			const next = nextKey(canvas, code.key)!;
 			await ctx.tool("edit_canvas", {
 				target: { kind: "route", id },
-				version: canvas.version,
+				revision: canvas.revision,
 				ops: [
 					{ op: "disconnect", from: code.key, to: next },
 					{

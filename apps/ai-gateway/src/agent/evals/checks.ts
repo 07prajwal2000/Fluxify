@@ -227,7 +227,7 @@ export async function setCode(
 		{ op: "connect", from: entry.key, to: "code" },
 		...(next ? [{ op: "connect", from: "code", to: next }] : []),
 	];
-	await ctx.tool("edit_canvas", { target, version: canvas.version, ops });
+	await ctx.tool("edit_canvas", { target, revision: canvas.revision, ops });
 }
 
 /** A flow custom block named `name` with text inputs, running `code`. Returns its id. */

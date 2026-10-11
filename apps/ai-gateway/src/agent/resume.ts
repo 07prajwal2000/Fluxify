@@ -128,7 +128,7 @@ export async function continueConversation(o: {
 				(o.approval ? [[pending[0].toolCallId, o.approval] as const] : []),
 		);
 		if (!answers.size) throw new Error("The run is waiting for an approval; answer it first.");
-		// In the order the model made the calls, one after another: writes to one canvas would clash on version.
+		// In the order the model made the calls, one after another: writes to one canvas would clash on revision.
 		for (const call of pending) {
 			const approval = answers.get(call.toolCallId);
 			if (!approval) continue;

@@ -96,6 +96,7 @@ export default async function handleRequest(
 			if (clash) throw routeConflictError(clash, wanted);
 		}
 		if (data.active !== undefined) patchedRoute.active = data.active;
+		if (data.devActive !== undefined) patchedRoute.devActive = data.devActive;
 		if (data.timeoutSeconds !== undefined) {
 			patchedRoute.timeoutSeconds = data.timeoutSeconds;
 		}

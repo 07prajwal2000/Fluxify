@@ -109,6 +109,7 @@ export async function listWorkflows(
 			name: workflowsEntity.name,
 			description: workflowsEntity.description,
 			active: workflowsEntity.active,
+			devActive: workflowsEntity.devActive,
 			timeoutSeconds: workflowsEntity.timeoutSeconds,
 			tracingEnabled: workflowsEntity.tracingEnabled,
 			recordExecution: workflowsEntity.recordExecution,

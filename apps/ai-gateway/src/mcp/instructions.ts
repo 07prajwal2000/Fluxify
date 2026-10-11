@@ -26,7 +26,7 @@ What things are:
 Building tips:
 - Call get_block_schemas with no input to see the built-in blocks, then with blockTypes for the
   exact fields of the ones you will use.
-- Edit a canvas with get_canvas, then edit_canvas (small ops, the version you read). Blocks are named
+- Edit a canvas with get_canvas, then edit_canvas (small ops, the revision you read). Blocks are named
   by key (response_1, db_insert_2): use keys, never ids. edit_canvas lists what each op changed and
   returns rule errors and warnings; check the changes hit the blocks you meant and fix every error.
 - Change part of a script with an edit_code op, not by resending the whole field. On a big canvas read get_canvas with compact: true, then blocks: [keys] for the ones you will edit.

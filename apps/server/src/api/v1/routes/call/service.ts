@@ -126,7 +126,9 @@ export async function callRoute(
 	const route = await getRouteById(id);
 	if (!route) throw new NotFoundError("Route not found");
 	if (!canAccessProject(acl, route.projectId ?? "", "creator")) throw new ForbiddenError();
-	if (!route.active) throw new BadRequestError("Route is not active — activate it to call it");
+	// it runs on the development worker, so development's switch is the one that counts
+	if (!route.devActive)
+		throw new BadRequestError("Route is switched off in development — turn it on to call it");
 
 	const path = `/_/dev${fillPath(route.path!, input.params)}`;
 	const { url, headers } = await devWorkerTarget(route.projectId!, path, requestOrigin);

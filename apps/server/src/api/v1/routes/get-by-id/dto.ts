@@ -8,7 +8,9 @@ export const responseSchema = z.object({
 	id: z.string(),
 	name: z.string().min(1).max(255),
 	path: z.string(),
+	/** production's switch; `devActive` is development's (#738) */
 	active: z.boolean(),
+	devActive: z.boolean(),
 	method: z.string(),
 	projectId: z.string(),
 	projectName: z.string(),

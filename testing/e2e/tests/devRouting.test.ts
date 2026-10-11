@@ -201,6 +201,62 @@ describe("a route at /_/dev on the development worker", () => {
 	});
 });
 
+describe("active is production, devActive is development (#738)", () => {
+	const patch = (id: string, body: object) =>
+		ok(api(stack, "creator", `/v1/routes/partial/${id}`, { method: "PATCH", body }));
+	const gone = (worker: "production" | "development", path: string) =>
+		until(`${worker} to stop serving ${path}`, async () => {
+			const res = await hit(worker, path, worker === "development" ? token : null);
+			return res.status === 404 && res;
+		});
+
+	it("serves a new route on development at once, and 404s it on production", async () => {
+		const { id } = await ok(
+			api(stack, "creator", "/v1/routes", {
+				body: { name: "switches", path: "/switches", method: "GET", projectId: PROJECT() },
+			}),
+		);
+		expect(await ok(api(stack, "creator", `/v1/routes/${id}`))).toMatchObject({
+			active: false,
+			devActive: true,
+		});
+		await chain(`/v1/routes/${id}`, [js("return { on: true };")]);
+		await served("development", "/_/dev/switches", (body) => body?.on === true);
+		expect((await hit("production", "/switches", null)).status).toBe(404);
+
+		// production on: both serve
+		await patch(id, { active: true });
+		await until("production to serve /switches", async () => {
+			const res = await hit("production", "/switches", null);
+			return res.status === 200 && res;
+		});
+		expect((await hit("development", "/_/dev/switches")).status).toBe(200);
+
+		// development off: only production serves, and call_route says why
+		await patch(id, { devActive: false });
+		await gone("development", "/_/dev/switches");
+		expect((await hit("production", "/switches", null)).status).toBe(200);
+		const call = await api(stack, "creator", `/v1/routes/${id}/call`, { body: {} });
+		expect(call.status).toBe(400);
+
+		// both off: nothing serves
+		await patch(id, { active: false });
+		await gone("production", "/switches");
+	}, 120_000);
+
+	it("gives a new workflow devActive on and active off", async () => {
+		const { id } = await ok(
+			api(stack, "creator", "/v1/workflows", {
+				body: { name: "switches-wf", projectId: PROJECT() },
+			}),
+		);
+		expect(await ok(api(stack, "creator", `/v1/workflows/${id}`))).toMatchObject({
+			active: false,
+			devActive: true,
+		});
+	});
+});
+
 describe("middlewares and request schemas apply under /_/dev", () => {
 	it("runs the route's before-middleware and validates its query", async () => {
 		const name = `dev_mw_${crypto.randomUUID().slice(0, 6)}`;

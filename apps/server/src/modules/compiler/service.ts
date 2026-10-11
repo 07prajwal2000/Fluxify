@@ -8,7 +8,7 @@ import {
 	unregisterCustomBlock,
 } from "@fluxify/blocks";
 import { logger } from "@fluxify/common";
-import { and, eq, inArray, ne } from "drizzle-orm";
+import { and, eq, inArray, ne, or } from "drizzle-orm";
 import { type DbTransactionType, db } from "../../db";
 import { deleteArtifactEverywhere, putArtifactEverywhere } from "../../db/natsKv";
 import {
@@ -116,7 +116,12 @@ export async function compileProjectRoutes(projectId: string) {
 	const routes = await db
 		.select({ id: routesEntity.id })
 		.from(routesEntity)
-		.where(and(eq(routesEntity.projectId, projectId), eq(routesEntity.active, true)));
+		.where(
+			and(
+				eq(routesEntity.projectId, projectId),
+				or(eq(routesEntity.active, true), eq(routesEntity.devActive, true)),
+			),
+		);
 	for (const route of routes) await compileRoute(route.id);
 	return routes.length;
 }
@@ -125,7 +130,12 @@ export async function compileProjectWorkflows(projectId: string) {
 	const workflows = await db
 		.select({ id: workflowsEntity.id })
 		.from(workflowsEntity)
-		.where(and(eq(workflowsEntity.projectId, projectId), eq(workflowsEntity.active, true)));
+		.where(
+			and(
+				eq(workflowsEntity.projectId, projectId),
+				or(eq(workflowsEntity.active, true), eq(workflowsEntity.devActive, true)),
+			),
+		);
 	for (const workflow of workflows) await compileWorkflow(workflow.id);
 	return workflows.length;
 }
@@ -166,7 +176,7 @@ export async function compileProjectCustomBlocks(projectId: string) {
 	return blocks.length;
 }
 
-/** compile one route and publish it; an inactive or deleted route is dropped */
+/** compile one route and publish it where it is switched on; one off everywhere, or deleted, is dropped */
 export async function compileRoute(routeId: string) {
 	const [route] = await db
 		.select({
@@ -174,6 +184,7 @@ export async function compileRoute(routeId: string) {
 			method: routesEntity.method,
 			path: routesEntity.path,
 			active: routesEntity.active,
+			devActive: routesEntity.devActive,
 			projectId: routesEntity.projectId,
 			projectName: projectsEntity.name,
 			bodySchema: routesEntity.bodySchema,
@@ -191,7 +202,7 @@ export async function compileRoute(routeId: string) {
 		.leftJoin(httpRouteConfigEntity, eq(httpRouteConfigEntity.routeId, routesEntity.id))
 		.where(eq(routesEntity.id, routeId));
 
-	if (!route || !route.active) {
+	if (!route || (!route.active && !route.devActive)) {
 		logger.info(`[compiler] dropping route ${routeId}`, "COMPILER");
 		if (route?.projectId) {
 			await dropRoute(route.projectId, routeId);
@@ -241,7 +252,7 @@ export async function compileRoute(routeId: string) {
 		middlewares: await loadRouteMiddlewareIds(routeId),
 		compiledAt,
 	};
-	await putPerEnv(routeKey(route.projectId!, routeId), artifact, perEnv);
+	await putPerEnv(routeKey(route.projectId!, routeId), artifact, perEnv, route);
 	await logCompiled(resource);
 	logger.info(`[compiler] compiled route ${route.method} ${route.path}`, "COMPILER");
 }
@@ -264,6 +275,7 @@ export async function compileWorkflow(workflowId: string) {
 			id: workflowsEntity.id,
 			name: workflowsEntity.name,
 			active: workflowsEntity.active,
+			devActive: workflowsEntity.devActive,
 			projectId: workflowsEntity.projectId,
 			projectName: projectsEntity.name,
 			timeoutSeconds: workflowsEntity.timeoutSeconds,
@@ -276,7 +288,7 @@ export async function compileWorkflow(workflowId: string) {
 		.leftJoin(projectsEntity, eq(workflowsEntity.projectId, projectsEntity.id))
 		.where(eq(workflowsEntity.id, workflowId));
 
-	if (!workflow || !workflow.active) {
+	if (!workflow || (!workflow.active && !workflow.devActive)) {
 		logger.info(`[compiler] dropping workflow ${workflowId}`, "COMPILER");
 		if (workflow?.projectId) {
 			await dropWorkflow(workflow.projectId, workflowId);
@@ -328,7 +340,7 @@ export async function compileWorkflow(workflowId: string) {
 		workflowVersion: compiledAt,
 		compiledAt,
 	};
-	await putPerEnv(workflowKey(workflow.projectId!, workflowId), artifact, perEnv);
+	await putPerEnv(workflowKey(workflow.projectId!, workflowId), artifact, perEnv, workflow);
 	await logCompiled(resource);
 	logger.info(`[compiler] compiled workflow ${workflow.name}`, "COMPILER");
 }

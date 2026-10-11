@@ -33,7 +33,7 @@ const parentTables = {
 			id: any;
 			projectId: any;
 			updatedAt: any;
-			canvasVersion: any;
+			canvasRevision: any;
 			blockKeyCounters: any;
 		};
 		column: string;
@@ -354,36 +354,36 @@ export async function getCustomBlockCalls(
 }
 
 /**
- * Marks a canvas saved: `updated_at` and `canvas_version + 1`, returning the
- * new version. With `expectedVersion` the row only matches at that version, so
+ * Marks a canvas saved: `updated_at` and `canvas_revision + 1`, returning the
+ * new version. With `expectedRevision` the row only matches at that version, so
  * a stale save gets `undefined`. The row lock makes two racing saves at the
  * same version resolve to one winner.
  */
 export async function touchParent(
 	parent: CanvasParent,
 	tx?: DbTransactionType,
-	expectedVersion?: number,
+	expectedRevision?: number,
 ): Promise<number | undefined> {
 	const table = parentTable(parent.type);
 	const [row] = await (tx ?? db)
 		.update(table)
-		.set({ updatedAt: sql`now()`, canvasVersion: sql`${table.canvasVersion} + 1` })
+		.set({ updatedAt: sql`now()`, canvasRevision: sql`${table.canvasRevision} + 1` })
 		.where(
 			and(
 				eq(table.id, parent.id),
-				expectedVersion === undefined ? undefined : eq(table.canvasVersion, expectedVersion),
+				expectedRevision === undefined ? undefined : eq(table.canvasRevision, expectedRevision),
 			),
 		)
-		.returning({ canvasVersion: table.canvasVersion });
-	return row?.canvasVersion;
+		.returning({ canvasRevision: table.canvasRevision });
+	return row?.canvasRevision;
 }
 
 /** The canvas's save counter (#597), 0 for a canvas never saved. */
-export async function getCanvasVersion(parent: CanvasParent, tx?: DbTransactionType) {
+export async function getCanvasRevision(parent: CanvasParent, tx?: DbTransactionType) {
 	const table = parentTable(parent.type);
 	const [row] = await (tx ?? db)
-		.select({ canvasVersion: table.canvasVersion })
+		.select({ canvasRevision: table.canvasRevision })
 		.from(table)
 		.where(eq(table.id, parent.id));
-	return row?.canvasVersion ?? 0;
+	return row?.canvasRevision ?? 0;
 }

@@ -7,6 +7,7 @@ export const fieldEnumSchema = z.enum([
 	"name",
 	"path",
 	"active",
+	"devActive",
 	"method",
 	"recordExecution",
 ]);
@@ -38,6 +39,7 @@ export const responseSchema = z.object({
 			name: z.string().nullable(),
 			path: z.string().nullable(),
 			active: z.boolean().nullable(),
+			devActive: z.boolean(),
 			method: z.string().nullable(),
 			recordExecution: z.boolean().default(false),
 			devRecordExecution: z.boolean().default(false),

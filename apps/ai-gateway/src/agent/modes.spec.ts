@@ -143,7 +143,7 @@ describe("cli answers", () => {
 	it("shows edit_canvas ops readably", () => {
 		const s = describeCall("edit_canvas", {
 			target: { kind: "route", id: "r1" },
-			version: 3,
+			revision: 3,
 			ops: [
 				{ op: "add_block", ref: "a", type: "response", data: { status: 200 } },
 				{ op: "connect", from: "entry", to: "a" },

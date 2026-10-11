@@ -126,7 +126,7 @@ async function canvasSection(
 		} catch {}
 	}
 	return parts.length
-		? `${CANVAS_HEAD} (get_canvas compact, as of this summary; block keys come from here. Read a canvas again for its version before you edit it):\n${parts.join("\n")}`
+		? `${CANVAS_HEAD} (get_canvas compact, as of this summary; block keys come from here. Read a canvas again for its revision before you edit it):\n${parts.join("\n")}`
 		: "";
 }
 
