@@ -1,4 +1,5 @@
 import type { HonoServer } from "../../../types";
+import { registerDeploymentRoutes } from "../deployments/register";
 import { registerVersionRoutes } from "../versions/register";
 import registerCallRoute from "./call/route";
 import registerCreateRoute from "./create/route";
@@ -28,5 +29,6 @@ export default {
 		registerOpenapiRoute(router);
 		registerCallRoute(router);
 		registerVersionRoutes(router, "route");
+		registerDeploymentRoutes(router, "route");
 	},
 };

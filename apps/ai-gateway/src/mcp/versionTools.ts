@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { deploymentDescription } from "../agent/deployment";
 import type { CanvasItems } from "./canvasNormalize";
 import { BASE } from "./canvasTools";
 import { trimCanvas } from "./canvasView";
@@ -10,10 +11,19 @@ const versionId = z.string().describe("Version id, from list_versions");
 
 const COMMIT = { readOnlyHint: false, destructiveHint: false, idempotentHint: false };
 const CHECKOUT = { readOnlyHint: false, destructiveHint: true, idempotentHint: false };
+const DEPLOY = { readOnlyHint: false, destructiveHint: true, idempotentHint: false };
 
 const base = (a: { kind: "route" | "workflow"; id: string }) => `${BASE[a.kind]}/${a.id}/versions`;
 
-const SUMMARY = ["versionNumber", "title", "description", "author", "createdAt", "isHead"];
+const SUMMARY = [
+	"versionNumber",
+	"title",
+	"description",
+	"author",
+	"createdAt",
+	"isHead",
+	"isProd",
+];
 
 /** A version as the tools show it: its id, number and title, and the version it came from. */
 const summary = (v: Record<string, unknown>) => ({
@@ -22,10 +32,81 @@ const summary = (v: Record<string, unknown>) => ({
 	parentVersionId: v.parentId,
 });
 
+const note = z
+	.string()
+	.max(2000)
+	.optional()
+	.describe(
+		"A short note on what this puts live and why. It is saved after the person's own comment",
+	);
+
+/** What a deployment answers with: the log row, and the reasons when its checks stopped it. */
+const deployment = (d: Record<string, any>) => ({
+	deploymentId: d.id,
+	...pick(d, ["action", "status", "versionNumber", "description", "gates", "createdAt"]),
+	...(d.status === "failed"
+		? {
+				failed: d.gates
+					.filter((g: { status: string }) => g.status === "failed")
+					.map((g: { gate: string; message: string; items?: string[] }) => ({
+						gate: g.gate,
+						message: g.message,
+						...(g.items ? { items: g.items } : {}),
+					})),
+			}
+		: {}),
+});
+
+type DeployArgs = {
+	kind: "route" | "workflow";
+	id: string;
+	versionId: string;
+	note?: string;
+	/** the person's own words, put in by the agent's approval; it is not in the input schema */
+	comment?: string;
+};
+
+/**
+ * Promote and rollback (#739). One endpoint behind both: the server decides the
+ * action from the version numbers, and rollback only refuses the wrong
+ * direction, so it never quietly moves production forward.
+ */
+async function deploy(
+	{ get, send }: Parameters<McpTool["call"]>[0],
+	a: DeployArgs,
+	direction: "promote" | "rollback",
+) {
+	if (direction === "rollback") {
+		const target = await get(`${BASE[a.kind]}/${a.id}`);
+		const wanted = await get(`${base(a)}/${a.versionId}`);
+		const live = target.prodVersionNumber as number | null;
+		if (live === null)
+			throw new Error(
+				"Nothing is live in production yet, so there is nothing to roll back to. Use promote_version.",
+			);
+		if (wanted.versionNumber >= live)
+			throw new Error(
+				`rollback_version only goes back: v${wanted.versionNumber} is not older than v${live}, which is live. Use promote_version to put a newer version live.`,
+			);
+	}
+	return deployment(
+		await send("POST", `${BASE[a.kind]}/${a.id}/deployments`, {
+			versionId: a.versionId,
+			description: deploymentDescription(a.comment, a.note),
+		}),
+	);
+}
+
+const DEPLOY_NOTE = [
+	"Production serves what is promoted and nothing else: editing the working copy or committing never reaches it.",
+	"Checks run first and any failure stops it, with the reasons: every integration and app config key the version uses needs a production value, and no other route's live version may take the same method and path. Custom blocks and middlewares run their current state in production, which is shown as a warning.",
+	"A person approves every call, in every mode, and writes the reason that is saved with it. Never call it unless the user asked you to.",
+].join(" ");
+
 /**
  * Versions (#738): named snapshots of a route's or workflow's canvas and
  * settings. Committing never deploys; checking out changes the working copy
- * and nothing else.
+ * and nothing else. Promote and rollback (#739) are what put one in production.
  */
 export const versionTools: McpTool[] = [
 	{
@@ -125,5 +206,31 @@ export const versionTools: McpTool[] = [
 				...(out.warnings.length ? { warnings: out.warnings } : {}),
 			};
 		},
+	},
+	{
+		name: "promote_version",
+		title: "Promote version",
+		description: [
+			"Put a version live in production: it is what the route or workflow serves from now on, with production's values.",
+			"Promote the version you committed and tested; list_versions shows which one is live (isProd).",
+			DEPLOY_NOTE,
+		].join(" "),
+		role: "creator",
+		annotations: DEPLOY,
+		input: { kind, id, versionId, note },
+		call: (api, a) => deploy(api, a, "promote"),
+	},
+	{
+		name: "rollback_version",
+		title: "Roll back version",
+		description: [
+			"Put an earlier version back live in production, after a bad promote. It must be older than the one live now; to move forward use promote_version.",
+			"It is logged as a rollback and runs the same checks.",
+			DEPLOY_NOTE,
+		].join(" "),
+		role: "creator",
+		annotations: DEPLOY,
+		input: { kind, id, versionId, note },
+		call: (api, a) => deploy(api, a, "rollback"),
 	},
 ];

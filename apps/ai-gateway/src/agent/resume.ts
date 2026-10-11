@@ -5,6 +5,7 @@ import { guardTools, MAX_RESULT_CHARS, newGuard } from "./guards";
 import type { AgentStore, RunStatus } from "./store";
 import { type RunMeta, toolSpan } from "./telemetry";
 import { withToolTimeouts } from "./timeouts";
+import { isDeploy } from "./tools";
 
 /** Tool calls of the last assistant message that have no result yet: what an approval wait is waiting on. */
 export function pendingCalls(history: ModelMessage[]): ToolCallPart[] {
@@ -45,6 +46,16 @@ async function decide(
 		await toolSpan(call, "denied", meta);
 		return part({ type: "execution-denied", reason: rejected(call.toolName, approval.reason) });
 	}
+	// a deployment is described by the person who approved it; the model's input never carries it
+	const comment = approval.comment?.trim();
+	if (isDeploy(call.toolName) && !comment) {
+		await toolSpan(call, "denied", meta);
+		return part({
+			type: "error-text",
+			value: `${call.toolName} was not run: the person approving it has to write a comment.`,
+		});
+	}
+	const input = isDeploy(call.toolName) ? { ...(call.input as object), comment } : call.input;
 	const max = agent.limits.maxResultChars ?? MAX_RESULT_CHARS;
 	const tool = guardTools(withToolTimeouts(agent.tools, agent.limits.toolMs), newGuard(), max)[
 		call.toolName
@@ -52,7 +63,7 @@ async function decide(
 	try {
 		if (!tool?.execute) throw new Error(`No tool named ${call.toolName}`);
 		const out = await toolSpan(call, "approved", meta, async () =>
-			tool.execute?.(call.input, {
+			tool.execute?.(input, {
 				toolCallId: call.toolCallId,
 				messages: history,
 				abortSignal: agent.abortSignal,

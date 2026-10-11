@@ -216,6 +216,8 @@ export function registerAgentRoutes(app: Hono) {
 				z.object({
 					approve: z.boolean(),
 					reason: z.string().max(2000).optional(),
+					/** the person's reason; required to approve promote_version and rollback_version */
+					comment: z.string().max(5000).optional(),
 					mode: mode.optional(),
 					effort: effort.optional(),
 				}),
@@ -226,6 +228,7 @@ export function registerAgentRoutes(app: Hono) {
 								toolCallId: z.string().min(1),
 								approve: z.boolean(),
 								reason: z.string().max(2000).optional(),
+								comment: z.string().max(5000).optional(),
 							}),
 						)
 						.min(1)

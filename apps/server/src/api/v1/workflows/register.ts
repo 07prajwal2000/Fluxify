@@ -15,6 +15,7 @@ import {
 } from "../../../modules/canvas/types";
 import type { HonoServer } from "../../../types";
 import { requireLoggedIn, requireProjectAccess } from "../../auth/middleware";
+import { registerDeploymentRoutes } from "../deployments/register";
 import { registerVersionRoutes } from "../versions/register";
 import {
 	createdSchema,
@@ -223,5 +224,6 @@ export default {
 		);
 
 		registerVersionRoutes(router, "workflow");
+		registerDeploymentRoutes(router, "workflow");
 	},
 };

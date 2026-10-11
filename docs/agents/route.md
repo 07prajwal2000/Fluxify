@@ -42,7 +42,7 @@ A new route starts with three blocks: an entrypoint, a response block with `http
 
 A block text input is a literal unless it starts with `js:`, and `js:` code must `return` the value. See [Dynamic values and `js:` expressions](/agents/expressions) before you fill a block field.
 
-A route has two switches. `devActive` is development and is **on** for a new route, so `call_route` can run it straight away. `active` is production and is **off** for a new route: pass `active: true` to serve it to real callers, once its canvas is ready.
+A route has two switches. `devActive` is development and is **on** for a new route, so `call_route` can run it straight away. `active` is production and is **off** for a new route: pass `active: true` to allow real callers, once its canvas is ready. Production serves only a version you promoted (`commit_version`, then `promote_version`, which a person approves), so `active: true` alone serves nothing there.
 
 ## Update a route
 
@@ -62,7 +62,7 @@ Pass `routeId` and only the fields that change. Fields you leave out keep their 
 | `name` | string | 2 to 255 characters. Must be unique. | none |
 | `path` | string | See [Path rules](#path-rules). | none |
 | `method` | string | `GET`, `POST`, `PUT` or `DELETE`. | none |
-| `active` | boolean | Only active routes answer callers. | `false` |
+| `active` | boolean | Only active routes answer callers, and only with a promoted version. | `false` |
 | `timeoutSeconds` | integer | At least 30. There is no upper limit. | `30` |
 | `tracingEnabled` | boolean | Production: sends spans to the project's own telemetry destination. Stores nothing in Fluxify. | `false` |
 | `recordExecution` | boolean | Production: keeps a debug recording of each run. See [Recording](#recording-and-tracing). | `false` |

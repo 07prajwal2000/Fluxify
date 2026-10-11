@@ -105,6 +105,14 @@ export const titleOf = (name: string) =>
 /** Deletes ask in every mode and are never approved for the whole session. */
 export const isDelete = (name: string) => /^(delete|remove)_/.test(name);
 
+/**
+ * Promote and rollback (#739) put a version live in production. They ask in
+ * every mode, are never approved for the session, and the user writes a comment
+ * with the approval: it becomes the deployment's description.
+ */
+export const DEPLOY_TOOLS = ["promote_version", "rollback_version"];
+export const isDeploy = (name: string) => DEPLOY_TOOLS.includes(name);
+
 /** The one tool a project can make ask in every mode, auto included (#741). */
 export const EPHEMERAL_RUN_TOOL = "run_blocks";
 
@@ -147,6 +155,8 @@ const PROD_READ_TOOLS = [
  */
 export function touchesProd(name: string, args: unknown): "read" | "write" | undefined {
 	const a = (args ?? {}) as Record<string, unknown>;
+	// whatever the project's settings say: this is production by definition
+	if (isDeploy(name)) return "write";
 	if (name === "save_trigger") return "write";
 	if (name === "save_app_config") return a.value !== undefined ? "write" : undefined;
 	if (name === "save_integration") return a.config !== undefined ? "write" : undefined;
@@ -160,7 +170,7 @@ export function touchesProd(name: string, args: unknown): "read" | "write" | und
 export type ProdAsks = { reads: boolean; writes: boolean };
 
 /**
- * The one ask rule. Deletes always ask; reads never do. Other calls ask in
+ * The one ask rule. Deletes and deployments always ask; reads never do. Other calls ask in
  * manual (and plan, where they are not active anyway) but not in auto, so
  * call_route and run_test_suite run unasked in auto despite destructiveHint.
  * `askBeforeEphemeral` is the project's "Ask before ephemeral runs" setting:
@@ -178,6 +188,7 @@ export const needsApproval = (
 	const touched = touchesProd(name, args);
 	return (
 		isDelete(name) ||
+		isDeploy(name) ||
 		(askBeforeEphemeral && name === EPHEMERAL_RUN_TOOL) ||
 		copiesIntoRealCanvas(name, args) ||
 		(touched === "read" && prod.reads) ||

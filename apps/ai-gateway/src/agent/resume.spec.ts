@@ -39,8 +39,11 @@ const turn = async (
 	agent: ReturnType<typeof scripted>["agent"],
 	input: {
 		message?: string;
-		approval?: { ok: true } | { ok: false; reason?: string };
-		decisions?: ({ toolCallId: string } & ({ ok: true } | { ok: false; reason?: string }))[];
+		approval?: { ok: true; comment?: string } | { ok: false; reason?: string };
+		decisions?: ({ toolCallId: string } & (
+			| { ok: true; comment?: string }
+			| { ok: false; reason?: string }
+		))[];
 	},
 ) => {
 	const r = await continueConversation({ store: s.store, conversationId: "c", runId: "r", agent, ...input });
@@ -97,6 +100,42 @@ describe("approval wait", () => {
 		const m = scripted([["save_route"]]);
 		await turn(s, m.agent, { message: "build it" });
 		expect(turn(s, m.agent, { message: "hello?" })).rejects.toThrow("waiting for an approval");
+	});
+});
+
+describe("deployments (#739)", () => {
+	it("an approved promote runs with the person's comment, which the model never sent", async () => {
+		const s = memStore();
+		const m = scripted([["promote_version"]]);
+		await turn(s, m.agent, { message: "ship it" });
+		expect(await turn(s, m.agent, { approval: { ok: true, comment: "  fixes the 500s  " } })).toBe(
+			"completed",
+		);
+		expect(m.inputs).toEqual([{ name: "promote_version", input: { comment: "fixes the 500s" } }]);
+		// what is stored for the model is the call it made, without the comment
+		expect(JSON.stringify(s.rows[1].content)).not.toContain("fixes the 500s");
+	});
+
+	it("an approval with no comment does not run it, and the model is told why", async () => {
+		const s = memStore();
+		const m = scripted([["rollback_version"]]);
+		await turn(s, m.agent, { message: "undo it" });
+		expect(await turn(s, m.agent, { approval: { ok: true, comment: "   " } })).toBe("completed");
+		expect(m.ran).toEqual([]);
+		expect(JSON.stringify(m.prompts[1].at(-1))).toContain("the person approving it has to write a comment");
+	});
+
+	it("each call of a bulk answer carries its own comment", async () => {
+		const s = memStore();
+		const m = scripted([["promote_version", "rollback_version"]]);
+		await turn(s, m.agent, { message: "both" });
+		const ids = pendingCalls(s.rows.map((r) => r.content)).map((c) => c.toolCallId);
+		const decisions = [
+			{ toolCallId: ids[0], ok: true as const, comment: "first" },
+			{ toolCallId: ids[1], ok: true as const, comment: "second" },
+		];
+		expect(await turn(s, m.agent, { decisions })).toBe("completed");
+		expect(m.inputs.map((i) => (i.input as { comment: string }).comment)).toEqual(["first", "second"]);
 	});
 });
 

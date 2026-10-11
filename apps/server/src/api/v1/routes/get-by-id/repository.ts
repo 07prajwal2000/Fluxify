@@ -23,6 +23,7 @@ export async function getRouteById(id: string, tx?: DbTransactionType) {
 			canvasRevision: routesEntity.canvasRevision,
 			committedRevision: routesEntity.committedRevision,
 			headVersionId: routesEntity.headVersionId,
+			prodVersionId: routesEntity.prodVersionId,
 			tracingEnabled: routesEntity.tracingEnabled,
 			recordExecution: routesEntity.recordExecution,
 			devTracingEnabled: routesEntity.devTracingEnabled,

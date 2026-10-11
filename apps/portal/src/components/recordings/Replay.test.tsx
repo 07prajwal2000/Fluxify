@@ -105,6 +105,8 @@ const runOf = (input: unknown) => ({
 	parentRunId: null,
 	routeVersion: null,
 	workflowVersion: null,
+	versionId: null,
+	versionNumber: null,
 	parentSeq: null,
 	childRuns: [],
 	spans: [entrySpan(input)],

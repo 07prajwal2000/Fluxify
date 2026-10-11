@@ -20,6 +20,7 @@ import {
 	closeMatches,
 	copiesIntoRealCanvas,
 	isDelete,
+	isDeploy,
 	isRead,
 	type Mode,
 	needsApproval,
@@ -47,6 +48,7 @@ Basics:
 - Keep notes true: after an edit, re-check every blockDescription and sticky note (yours or earlier ones) against the new edges, and fix any the edit made false in the same edit_canvas call.
 - Block names (blockName) are unique per canvas and say where the block sits ("200 OK: cached users", "200 OK: users from DB"). Rename a block when you clone it.
 - Say "no behaviour change" only after you call the rewired branch with input that takes it (call_route or a test suite), not just any 200.
+- Production serves only a promoted version. Never call promote_version or rollback_version unless the user asks: a person approves each one and writes why.
 - To try a few blocks without saving anything, run_blocks does it in one call (an advanced tool). search_docs when unsure. list_advanced_tools and load_tools give you deletes, members, packages, integrations and more.
 
 Referring to resources: when you mention one that exists, write :ref[Label]{type=<type> id=<id>} instead of a bare name or path ("see :ref[GET /users]{type=route id=abc}", not "see the /users api"). The chat shows it as a link. Types: route, workflow, trigger, custom_block, middleware, integration, app_config, test_suite. Take the id from list, get or what a save returned; never invent one.
@@ -70,12 +72,13 @@ export type PendingCall = {
 	isDelete: boolean;
 };
 /**
- * `always` approves the tool for the rest of the session (ignored for deletes).
+ * `always` approves the tool for the rest of the session (ignored for deletes and deployments).
+ * `comment` is the user's reason, required for promote and rollback.
  * `defer` answers later: the call is left without a result and the run ends,
  * waiting for the user (the web path; see continueConversation).
  */
 export type Approval =
-	| { ok: true; always?: boolean }
+	| { ok: true; always?: boolean; comment?: string }
 	| { ok: false; reason?: string; defer?: boolean };
 /** Asks the user (terminal, UI, …). `signal` fires when the run is stopped. */
 export type Approve = (call: PendingCall, signal?: AbortSignal) => Promise<Approval>;
@@ -322,9 +325,10 @@ export function runAgent({
 		},
 		toolApproval: async ({ toolCall: { toolCallId, toolName, input } }) => {
 			const del = isDelete(toolName);
-			// a copy into a real canvas, or a production write, asks every time like a delete, but is not styled as one
+			// a copy into a real canvas, a deployment or a production write asks every time like a delete, but is not styled as one
 			const every =
 				del ||
+				isDeploy(toolName) ||
 				copiesIntoRealCanvas(toolName, input) ||
 				(askBeforeProductionWrites && touchesProd(toolName, input) === "write");
 			const prod = { reads: askBeforeProductionReads, writes: askBeforeProductionWrites };

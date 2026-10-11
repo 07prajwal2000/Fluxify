@@ -78,9 +78,18 @@ export async function findWorkflowByName(projectId: string, name: string, tx?: D
 /** A changed timeout moves the revision (#738), as it does for a route. */
 export async function updateWorkflowRow(
 	id: string,
-	data: Partial<WorkflowInsert>,
+	patch: Partial<WorkflowInsert>,
 	tx?: DbTransactionType,
 ) {
+	// commit, checkout and promote own these; a patch never moves them
+	const {
+		canvasRevision: _revision,
+		blockKeyCounters: _keys,
+		committedRevision: _committed,
+		headVersionId: _head,
+		prodVersionId: _prod,
+		...data
+	} = patch;
 	const conn = tx ?? db;
 	const [stored] = await conn
 		.select()

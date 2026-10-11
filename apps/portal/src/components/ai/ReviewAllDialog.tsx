@@ -2,6 +2,7 @@ import { Button, Chip, CloseButton, Modal } from "@fluxify/components";
 import { useState } from "react";
 import type { Decision } from "@/services/agentConversations";
 import { summarizeInput, type ToolRequest } from "./agentApproval";
+import { DeployComment } from "./DeployComment";
 import { RowPreview } from "./RowPreview";
 
 type Props = {
@@ -12,13 +13,24 @@ type Props = {
 	onConfirm: (decisions: Decision[]) => void;
 };
 
+const omit = (picks: Record<string, boolean>, id: string) =>
+	Object.fromEntries(Object.entries(picks).filter(([key]) => key !== id));
+
 /** Every call that waits, with its own Approve / Reject; sent together on Confirm. */
 export function ReviewAllDialog({ calls, open, onOpenChange, onConfirm }: Props) {
 	const [picks, setPicks] = useState<Record<string, boolean>>({});
+	// promote and rollback each carry their own reason (#739)
+	const [comments, setComments] = useState<Record<string, string>>({});
 	const rows = calls.filter((c): c is ToolRequest & { id: string } => Boolean(c.id));
 	const set = (ids: string[], approve: boolean) =>
 		setPicks((p) => ({ ...p, ...Object.fromEntries(ids.map((id) => [id, approve])) }));
 	const decided = rows.filter((c) => c.id in picks);
+	const comment = (id: string) => comments[id]?.trim() ?? "";
+	const write = (id: string, value: string) => {
+		setComments((c) => ({ ...c, [id]: value }));
+		// an approval is only as good as its reason: clearing it takes the approval back
+		if (!value.trim()) setPicks((p) => (p[id] === true ? omit(p, id) : p));
+	};
 
 	return (
 		<Modal isOpen={open} onOpenChange={onOpenChange}>
@@ -38,14 +50,14 @@ export function ReviewAllDialog({ calls, open, onOpenChange, onConfirm }: Props)
 									className="w-[5.5rem] whitespace-nowrap h-7 min-h-7 px-2 text-xs"
 									onPress={() =>
 										set(
-											rows.filter((c) => !c.isDelete).map((c) => c.id),
+											rows.filter((c) => !c.isDelete && !c.needsComment).map((c) => c.id),
 											true,
 										)
 									}
 								>
 									Approve all
 								</Button>
-								{/* Deletes are never covered by Approve all: they need their own Approve. */}
+								{/* Deletes and deployments are never covered by Approve all: they need their own Approve. */}
 								<Button
 									size="sm"
 									variant="danger-soft"
@@ -89,6 +101,7 @@ export function ReviewAllDialog({ calls, open, onOpenChange, onConfirm }: Props)
 													className={`w-[5.5rem] whitespace-nowrap h-7 min-h-7 px-2 text-xs ${picks[c.id] === true ? "" : "text-success"}`}
 													aria-label={`Approve ${c.title}`}
 													aria-pressed={picks[c.id] === true}
+													isDisabled={c.needsComment && !comment(c.id)}
 													onPress={() => set([c.id], true)}
 												>
 													Approve
@@ -105,6 +118,13 @@ export function ReviewAllDialog({ calls, open, onOpenChange, onConfirm }: Props)
 												</Button>
 											</div>
 										</div>
+										{c.needsComment && (
+											<DeployComment
+												label={`Why: ${c.title}`}
+												value={comments[c.id] ?? ""}
+												onChange={(value) => write(c.id, value)}
+											/>
+										)}
 										<RowPreview call={c} />
 									</li>
 								))}
@@ -118,7 +138,13 @@ export function ReviewAllDialog({ calls, open, onOpenChange, onConfirm }: Props)
 								variant="primary"
 								isDisabled={!decided.length}
 								onPress={() =>
-									onConfirm(decided.map((c) => ({ toolCallId: c.id, approve: picks[c.id] })))
+									onConfirm(
+										decided.map((c) => ({
+											toolCallId: c.id,
+											approve: picks[c.id],
+											...(picks[c.id] && c.needsComment && { comment: comment(c.id) }),
+										})),
+									)
 								}
 							>
 								Confirm ({decided.length})

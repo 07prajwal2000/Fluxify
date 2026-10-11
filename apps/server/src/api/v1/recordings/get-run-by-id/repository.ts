@@ -1,6 +1,6 @@
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "../../../../db";
-import { traceRunsEntity, traceSpansEntity } from "../../../../db/schema";
+import { canvasVersionsEntity, traceRunsEntity, traceSpansEntity } from "../../../../db/schema";
 import type { FluxifyEnv } from "../../../../lib/env";
 import { type RunTarget, runTargetColumn } from "../get-runs/repository";
 
@@ -31,9 +31,12 @@ export async function getRecordedRunById(
 			env: traceRunsEntity.env,
 			routeVersion: traceRunsEntity.routeVersion,
 			workflowVersion: traceRunsEntity.workflowVersion,
+			versionId: traceRunsEntity.versionId,
+			versionNumber: canvasVersionsEntity.versionNumber,
 			metadata: traceRunsEntity.metadata,
 		})
 		.from(traceRunsEntity)
+		.leftJoin(canvasVersionsEntity, eq(canvasVersionsEntity.id, traceRunsEntity.versionId))
 		.where(
 			and(
 				eq(traceRunsEntity.id, runId),

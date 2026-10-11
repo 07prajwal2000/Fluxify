@@ -210,7 +210,7 @@ If the next block needs only the previous output, just read `input`. Do not save
 2. `get_canvas` for the keys and `revision`.
 3. `edit_canvas` with small ops. Fix every `error` in `issues`.
 4. `get_system_logs` for compile errors. `call_route` also gives the real error and a trace of the blocks that ran.
-5. `call_route` with real input; it runs in development. Switch production on with `save_route` and `active: true` when the route is ready.
+5. `call_route` with real input; it runs in development. When the route is ready, commit it with `commit_version`, switch production on with `save_route` and `active: true`, and ask the user to approve `promote_version`: production serves only a promoted version.
 6. Stop when the route works and its tests pass. Do not rewrite a working canvas.
 
 ## Common problems

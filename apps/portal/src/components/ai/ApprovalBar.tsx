@@ -4,12 +4,16 @@ import { TbChevronDown, TbClipboardCheck, TbClock, TbTrash } from "react-icons/t
 import { showErrorNotification } from "@/lib/errorNotifier";
 import type { Decision, Mode } from "@/services/agentConversations";
 import { type ApprovalRequest, summarizeInput, type ToolRequest } from "./agentApproval";
+import { DeployComment } from "./DeployComment";
 import { ReviewAllDialog } from "./ReviewAllDialog";
 
 type Props = {
 	request: ApprovalRequest;
-	/** Approve, and the mode the conversation goes on in (manual, or auto for "Approve with Auto"). */
-	onApprove: (mode: Mode) => Promise<unknown>;
+	/**
+	 * Approve, and the mode the conversation goes on in (manual, or auto for "Approve with Auto").
+	 * `comment` is the reason a promote or rollback needs (#739).
+	 */
+	onApprove: (mode: Mode, comment?: string) => Promise<unknown>;
 	/** Turn it down with no reason; typing in the editor turns it down with one. */
 	onReject: () => Promise<unknown>;
 	/** Every call that waits; with 2 or more, Approve all and Review all show up. */
@@ -26,10 +30,18 @@ type Props = {
 export function ApprovalBar({ request, onApprove, onReject, calls = [], onDecide }: Props) {
 	const [busy, setBusy] = useState(false);
 	const [reviewing, setReviewing] = useState(false);
+	// one reason per waiting call, so answering the next one starts empty
+	const [comments, setComments] = useState<Record<string, string>>({});
 	const many = request.kind === "tool" && onDecide !== undefined && calls.length > 1;
-	// Approve all never covers a delete: those need their own answer.
-	const safe = calls.filter((c) => !c.isDelete && c.id);
-	const deletes = calls.length - calls.filter((c) => !c.isDelete).length;
+	// Approve all never covers a delete or a deployment: those need their own answer.
+	const safe = calls.filter((c) => !c.isDelete && !c.needsComment && c.id);
+	const deletes = calls.filter((c) => c.isDelete).length;
+	const deploys = calls.filter((c) => c.needsComment).length;
+	const commentKey = request.kind === "tool" ? (request.id ?? request.name) : "";
+	const comment = comments[commentKey] ?? "";
+	const needsComment = request.kind === "tool" && request.needsComment === true;
+	// the person has to say why before a promote or rollback goes through
+	const blocked = needsComment && !comment.trim();
 	const answer = (f: () => Promise<unknown>) => {
 		setBusy(true);
 		f()
@@ -74,6 +86,14 @@ export function ApprovalBar({ request, onApprove, onReject, calls = [], onDecide
 					</>
 				)}
 			</div>
+			{needsComment && (
+				<div className="basis-full">
+					<DeployComment
+						value={comment}
+						onChange={(value) => setComments((c) => ({ ...c, [commentKey]: value }))}
+					/>
+				</div>
+			)}
 			<div className="flex shrink-0 flex-wrap items-center gap-1">
 				{many && (
 					<>
@@ -95,6 +115,10 @@ export function ApprovalBar({ request, onApprove, onReject, calls = [], onDecide
 									deletes
 										? ` · ${deletes} ${deletes === 1 ? "delete needs" : "deletes need"} review`
 										: ""
+								}${
+									deploys
+										? ` · ${deploys} ${deploys === 1 ? "deployment needs" : "deployments need"} a comment`
+										: ""
 								}`}
 							</Button>
 						)}
@@ -103,15 +127,15 @@ export function ApprovalBar({ request, onApprove, onReject, calls = [], onDecide
 				<Button size="sm" variant="ghost" isDisabled={busy} onPress={() => answer(onReject)}>
 					Reject
 				</Button>
-				<ButtonGroup size="sm" variant="primary" isDisabled={busy}>
-					<Button onPress={() => answer(() => onApprove("manual"))}>Approve</Button>
+				<ButtonGroup size="sm" variant="primary" isDisabled={busy || blocked}>
+					<Button onPress={() => answer(() => onApprove("manual", comment))}>Approve</Button>
 					<Dropdown>
 						<Button isIconOnly aria-label="More approve options">
 							<ButtonGroup.Separator />
 							<TbChevronDown size={14} />
 						</Button>
 						<Dropdown.Popover>
-							<Dropdown.Menu onAction={() => answer(() => onApprove("auto"))}>
+							<Dropdown.Menu onAction={() => answer(() => onApprove("auto", comment))}>
 								<Dropdown.Item id="auto" textValue="Approve with Auto">
 									<Label>Approve with Auto</Label>
 								</Dropdown.Item>

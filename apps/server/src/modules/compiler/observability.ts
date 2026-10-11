@@ -21,41 +21,61 @@ export function observabilityFor(row: ObservabilityRow, env: FluxifyEnv): Switch
 		: { tracingEnabled: row.tracingEnabled, recordExecution: row.recordExecution };
 }
 
-export type PerEnv = Record<FluxifyEnv, Switches & { source: string }>;
+/**
+ * A route's or workflow's switches. `active` is production's and `devActive`
+ * development's (#738); production also needs a promoted version (#739), so
+ * `active` alone serves nothing.
+ */
+export type EnvSwitches = {
+	active: boolean | null;
+	devActive: boolean;
+	prodVersionId: string | null;
+};
+
+export const isServedIn = (row: EnvSwitches, env: FluxifyEnv) =>
+	env === "development" ? row.devActive : row.active === true && row.prodVersionId !== null;
+
+/** What each served environment publishes: its switches and its own build. */
+export type PerEnv<T extends object = { source: string }> = Partial<
+	Record<FluxifyEnv, Switches & T>
+>;
 
 /**
- * Each environment's switches and source. Span code is compiled in only where
- * the environment wants spans; two environments that agree share one compile.
- * `compile` may throw, before anything is published.
+ * Each served environment's switches and build. `build` makes what is specific
+ * to the environment (its source, and the graph that source came from — the
+ * working copy in development, the promoted version in production); span code
+ * is compiled in only where the environment wants spans. It may throw, before
+ * anything is published. An environment that is switched off is not built.
  */
-export function compilePerEnv(row: ObservabilityRow, compile: (tracing: boolean) => string) {
-	const sources = new Map<boolean, string>();
-	const perEnv = {} as PerEnv;
+export function compilePerEnv<T extends object>(
+	row: ObservabilityRow & EnvSwitches,
+	build: (env: FluxifyEnv, tracing: boolean) => T,
+) {
+	const perEnv: PerEnv<T> = {};
 	for (const env of ENVIRONMENTS) {
+		if (!isServedIn(row, env)) continue;
 		const switches = observabilityFor(row, env);
-		const tracing = wantsSpans(switches);
-		if (!sources.has(tracing)) sources.set(tracing, compile(tracing));
-		perEnv[env] = { ...switches, source: sources.get(tracing)! };
+		perEnv[env] = { ...switches, ...build(env, wantsSpans(switches)) };
 	}
 	return perEnv;
 }
 
-/** A route's or workflow's two on/off switches: `active` is production, `devActive` development (#738). */
-export type EnvSwitches = { active: boolean | null; devActive: boolean };
-
-export const isServedIn = (row: EnvSwitches, env: FluxifyEnv) =>
-	env === "development" ? row.devActive : row.active === true;
-
 /**
- * One artifact per bucket: identical but for the environment's own switches and
- * source. An environment the row is switched off for loses its artifact.
+ * One artifact per bucket: the shared fields, plus what each environment built.
+ * An environment the row is not served in loses its artifact.
  */
-export async function putPerEnv(key: string, artifact: object, perEnv: PerEnv, row: EnvSwitches) {
+export async function putPerEnv<T extends object>(
+	key: string,
+	artifact: object,
+	perEnv: PerEnv<T>,
+	row: EnvSwitches,
+) {
 	await Promise.all(
-		ENVIRONMENTS.map((env) =>
-			isServedIn(row, env)
-				? putArtifact(key, { ...artifact, ...perEnv[env] }, env)
-				: deleteArtifact(key, env),
-		),
+		ENVIRONMENTS.map((env) => {
+			const built = perEnv[env];
+			return isServedIn(row, env) && built
+				? putArtifact(key, { ...artifact, ...built }, env)
+				: deleteArtifact(key, env);
+		}),
 	);
 }

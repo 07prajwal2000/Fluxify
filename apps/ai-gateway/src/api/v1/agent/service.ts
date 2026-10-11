@@ -1,4 +1,4 @@
-import { ConflictError, db } from "@fluxify/server";
+import { BadRequestError, ConflictError, db } from "@fluxify/server";
 import { canCompact } from "../../../agent/compact";
 import type { Effort } from "../../../agent/model";
 import { pendingCalls } from "../../../agent/resume";
@@ -17,7 +17,7 @@ import {
 	updateConversation,
 } from "../../../agent/runner/repository";
 import { agentStore } from "../../../agent/store";
-import type { Mode } from "../../../agent/tools";
+import { isDeploy, type Mode } from "../../../agent/tools";
 import { assertRunQuota } from "./rateLimit";
 
 const store = () => agentStore(db);
@@ -118,29 +118,46 @@ export async function compactConversation(
 }
 
 /** Answers the first waiting call; the run goes on in a new job. */
-export type Decision = { toolCallId: string; approve: boolean; reason?: string };
+export type Decision = { toolCallId: string; approve: boolean; reason?: string; comment?: string };
 
 export async function answerApproval(
 	conversation: Conversation,
 	userId: string,
 	approval: { mode?: Mode; effort?: Effort } & (
-		| { approve: boolean; reason?: string; decisions?: undefined }
+		| { approve: boolean; reason?: string; comment?: string; decisions?: undefined }
 		| { decisions: Decision[] }
 	),
 ) {
 	const runId = conversation.activeRunId;
+	const waiting = pendingCalls((await store().modelView(conversation.id)).map((v) => v.message));
 	if (approval.decisions) {
-		const pending = new Set(
-			pendingCalls((await store().modelView(conversation.id)).map((v) => v.message)).map(
-				(c) => c.toolCallId,
-			),
-		);
+		const pending = new Set(waiting.map((c) => c.toolCallId));
 		const stale = approval.decisions.filter((d) => !pending.has(d.toolCallId));
 		if (stale.length)
 			throw new ConflictError(
 				`Not waiting for an approval: ${stale.map((d) => d.toolCallId).join(", ")}`,
 			);
 	}
+	// a deployment is described by the person approving it, so no comment, no approval
+	const answered: Decision[] = approval.decisions
+		? approval.decisions
+		: waiting[0]
+			? [
+					{
+						toolCallId: waiting[0].toolCallId,
+						approve: approval.approve,
+						comment: approval.comment,
+					},
+				]
+			: [];
+	const named = new Map(waiting.map((c) => [c.toolCallId, c.toolName]));
+	const bare = answered.filter(
+		(d) => d.approve && isDeploy(named.get(d.toolCallId) ?? "") && !d.comment?.trim(),
+	);
+	if (bare.length)
+		throw new BadRequestError(
+			"Promote and rollback need a comment from the person approving them: it is saved as the reason in the deployment log",
+		);
 	if (!runId || !(await claimContinue(conversation.id, runId)))
 		throw new ConflictError("This conversation is not waiting for an approval");
 	// The approval can pick the mode the conversation goes on in ("Approve with Auto").
@@ -165,9 +182,16 @@ export async function answerApproval(
 						toolCallId: d.toolCallId,
 						ok: d.approve,
 						reason: d.reason,
+						comment: d.comment,
 					})),
 				}
-			: { approval: { ok: approval.approve, reason: approval.reason } }),
+			: {
+					approval: {
+						ok: approval.approve,
+						reason: approval.reason,
+						comment: approval.comment,
+					},
+				}),
 	});
 	return { runId };
 }

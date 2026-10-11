@@ -47,6 +47,9 @@ export const workflowSchema = z.object({
 export const workflowDetailSchema = workflowSchema.extend({
 	/** the number of the version the working copy came from; null before the first */
 	headVersionNumber: z.number().int().nullable(),
+	/** the version production serves; null until one is promoted (#739) */
+	prodVersionId: z.string().nullable(),
+	prodVersionNumber: z.number().int().nullable(),
 	/** the working copy has changes no version holds */
 	uncommitted: z.boolean(),
 });

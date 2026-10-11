@@ -10,6 +10,8 @@ export type ApprovalRequest =
 			input: unknown;
 			isDelete: boolean;
 			isProd?: boolean;
+			/** promote and rollback (#739): the approver writes why, and it is saved with the deployment */
+			needsComment?: boolean;
 	  }
 	| { kind: "plan" };
 
@@ -18,6 +20,10 @@ export type ToolRequest = Extract<ApprovalRequest, { kind: "tool" }>;
 /** Deletes (and removals) ask in every mode; the server uses the same rule. */
 export const isDeleteTool = (name: string) => /^(delete|remove)_/.test(name);
 
+/** Promote and rollback ask in every mode, and need a comment with the approval (#739). */
+export const isDeployTool = (name: string) =>
+	name === "promote_version" || name === "rollback_version";
+
 /**
  * A call that reads or changes production (#737): `env: "production"` on a read,
  * a production value or config on a save, any trigger save. The server decides
@@ -25,7 +31,7 @@ export const isDeleteTool = (name: string) => /^(delete|remove)_/.test(name);
  */
 export function isProdCall(name: string, input: unknown) {
 	const i = (input ?? {}) as Record<string, unknown>;
-	if (name === "save_trigger") return true;
+	if (name === "save_trigger" || isDeployTool(name)) return true;
 	if (name === "save_app_config") return i.value !== undefined;
 	if (name === "save_integration") return i.config !== undefined;
 	return i.env === "production";
@@ -51,6 +57,7 @@ export function waitingCalls(messages: ChatMessage[]): ToolRequest[] {
 		input: call.input,
 		isDelete: isDeleteTool(call.name),
 		isProd: isProdCall(call.name, call.input),
+		needsComment: isDeployTool(call.name),
 	}));
 }
 

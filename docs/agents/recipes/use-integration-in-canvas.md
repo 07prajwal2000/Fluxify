@@ -146,6 +146,8 @@ Call `save_route`:
 { "routeId": "<route id>", "active": true }
 ```
 
+Production serves a promoted version only, and the version needs a production value for the integration. When the user wants it live, call `commit_version`, then `promote_version`. A person approves the promote.
+
 Call `call_route`:
 
 ```json

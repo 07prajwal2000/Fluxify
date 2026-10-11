@@ -51,7 +51,8 @@ const observability = {
 	devTracingEnabled: false,
 	devRecordExecution: true,
 };
-const perEnv = compilePerEnv(observability, () => "compiled source");
+const served = { active: true, devActive: true, prodVersionId: "v1" };
+const perEnv = compilePerEnv({ ...observability, ...served }, () => ({ source: "compiled source" }));
 let n = 0;
 const key = () => `routes/p/r${++n}-${crypto.randomUUID().slice(0, 6)}`;
 const artifact = { routeId: "r", path: "/x" };
@@ -63,19 +64,19 @@ const where = async (k: string) => ({
 describe("putPerEnv", () => {
 	it("publishes to development only when only devActive is on", async () => {
 		const k = key();
-		await putPerEnv(k, artifact, perEnv, { active: false, devActive: true });
+		await putPerEnv(k, artifact, perEnv, { active: false, devActive: true, prodVersionId: "v1" });
 		expect(await where(k)).toEqual({ production: false, development: true });
 	});
 
 	it("publishes to production only when only active is on", async () => {
 		const k = key();
-		await putPerEnv(k, artifact, perEnv, { active: true, devActive: false });
+		await putPerEnv(k, artifact, perEnv, { active: true, devActive: false, prodVersionId: "v1" });
 		expect(await where(k)).toEqual({ production: true, development: false });
 	});
 
 	it("publishes each environment its own switches and the same source", async () => {
 		const k = key();
-		await putPerEnv(k, artifact, perEnv, { active: true, devActive: true });
+		await putPerEnv(k, artifact, perEnv, { active: true, devActive: true, prodVersionId: "v1" });
 		expect(await getArtifact(k, "development")).toMatchObject({
 			recordExecution: true,
 			source: "compiled source",
@@ -88,16 +89,32 @@ describe("putPerEnv", () => {
 
 	it("removes an environment's artifact when its switch goes off, and keeps the other", async () => {
 		const k = key();
-		await putPerEnv(k, artifact, perEnv, { active: true, devActive: true });
-		await putPerEnv(k, artifact, perEnv, { active: true, devActive: false });
+		await putPerEnv(k, artifact, perEnv, { active: true, devActive: true, prodVersionId: "v1" });
+		await putPerEnv(k, artifact, perEnv, { active: true, devActive: false, prodVersionId: "v1" });
 		expect(await where(k)).toEqual({ production: true, development: false });
-		await putPerEnv(k, artifact, perEnv, { active: false, devActive: true });
+		await putPerEnv(k, artifact, perEnv, { active: false, devActive: true, prodVersionId: "v1" });
 		expect(await where(k)).toEqual({ production: false, development: true });
+	});
+
+	it("serves nothing in production for an active route with no promoted version", async () => {
+		const k = key();
+		await putPerEnv(k, artifact, perEnv, { active: true, devActive: true, prodVersionId: null });
+		expect(await where(k)).toEqual({ production: false, development: true });
+	});
+
+	it("builds only the environments that are served", () => {
+		const built = compilePerEnv(
+			{ ...observability, active: true, devActive: false, prodVersionId: "v1" },
+			(env) => ({ source: env }),
+		);
+		expect(built).toEqual({
+			production: { tracingEnabled: false, recordExecution: false, source: "production" },
+		});
 	});
 
 	it("treats a null active (a row from before the column had a default) as off", async () => {
 		const k = key();
-		await putPerEnv(k, artifact, perEnv, { active: null, devActive: true });
+		await putPerEnv(k, artifact, perEnv, { active: null, devActive: true, prodVersionId: "v1" });
 		expect(await where(k)).toEqual({ production: false, development: true });
 	});
 });

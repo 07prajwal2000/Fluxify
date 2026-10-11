@@ -44,11 +44,22 @@ export async function readTarget(
 			canvasRevision: table.canvasRevision,
 			committedRevision: table.committedRevision,
 			headVersionId: table.headVersionId,
+			prodVersionId: table.prodVersionId,
 		})
 		.from(table)
 		.where(eq(table.id, id));
 	const [row] = await (lock ? query.for("update") : query);
 	return row;
+}
+
+/** The user a version or deployment is credited to: their id and email, or nothing for an unknown user. */
+export async function findAuthor(userId: string | undefined, tx: DbTransactionType) {
+	if (!userId) return undefined;
+	const [author] = await tx
+		.select({ id: systemUsers.id, email: systemUsers.email })
+		.from(systemUsers)
+		.where(eq(systemUsers.id, userId));
+	return author;
 }
 
 /** The number a new version of this target takes: the highest so far, plus one. */
@@ -142,4 +153,16 @@ export async function versionNumberOf(versionId: string | null, tx?: DbTransacti
 		.from(canvasVersionsEntity)
 		.where(eq(canvasVersionsEntity.id, versionId));
 	return row?.versionNumber ?? null;
+}
+
+/**
+ * What production serves: the snapshot of one version, by id alone. The compiler
+ * reads it, and it already holds the id from the row it is compiling.
+ */
+export async function readSnapshot(versionId: string, tx?: DbTransactionType) {
+	const [row] = await (tx ?? db)
+		.select({ snapshot: canvasVersionsEntity.snapshot })
+		.from(canvasVersionsEntity)
+		.where(eq(canvasVersionsEntity.id, versionId));
+	return row?.snapshot;
 }

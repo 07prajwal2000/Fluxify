@@ -31,6 +31,8 @@ export const defer: Approve = async () => ({ ok: false, defer: true });
 export function scripted(script: string[][], approve: Approve = defer, maxContextTokens?: number) {
 	const prompts: ModelMessage[][] = [];
 	const ran: string[] = [];
+	/** what each tool was called with, in order */
+	const inputs: { name: string; input: unknown }[] = [];
 	const model = new MockLanguageModelV4({
 		doGenerate: async () => ({
 			content: [{ type: "text", text: "the summary" }],
@@ -56,12 +58,13 @@ export function scripted(script: string[][], approve: Approve = defer, maxContex
 		},
 	});
 	const tools = Object.fromEntries(
-		["save_route", "get_route"].map((n) => [
+		["save_route", "get_route", "promote_version", "rollback_version"].map((n) => [
 			n,
 			tool({
 				inputSchema: z.object({}).passthrough(),
-				execute: async () => {
+				execute: async (input) => {
 					ran.push(n);
+					inputs.push({ name: n, input });
 					return n === "get_route" ? BIG : "ok";
 				},
 			}),
@@ -76,7 +79,7 @@ export function scripted(script: string[][], approve: Approve = defer, maxContex
 		mode: "manual" as const,
 		approve,
 	};
-	return { agent, prompts, ran };
+	return { agent, prompts, ran, inputs };
 }
 
 /** A finished get_route step: the call and its (big) result. */

@@ -27,6 +27,8 @@ export const versionSchema = z.object({
 	parentId: z.string().nullable(),
 	/** the version the working copy came from */
 	isHead: z.boolean(),
+	/** the version production serves (#739) */
+	isProd: z.boolean(),
 });
 
 export const versionListSchema = z.object({

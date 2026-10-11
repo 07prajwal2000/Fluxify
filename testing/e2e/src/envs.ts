@@ -105,3 +105,33 @@ export async function mcpTool(stack: EnvStack, token: string, name: string, args
 	const { result } = (await res.json()) as { result: any };
 	return { ok: !result.isError, text: result.content[0].text as string };
 }
+
+/**
+ * Puts a route's or workflow's current work live in production (#739): commits
+ * the working copy when it moved past the last version, then promotes the
+ * newest version. The production worker only serves a promoted version, so a
+ * test that calls the public path calls this once its canvas is final.
+ */
+export async function promote(
+	stack: EnvStack,
+	id: string,
+	kind: "routes" | "workflows" = "routes",
+	description = "e2e release",
+) {
+	const check = (res: { status: number; body: any }) => {
+		if (res.status >= 300) throw new Error(`${res.status} ${JSON.stringify(res.body)}`);
+		return res.body;
+	};
+	const history = () => api(stack, "creator", `/v1/${kind}/${id}/versions`).then(check);
+	if ((await history()).uncommitted) {
+		check(await api(stack, "creator", `/v1/${kind}/${id}/versions`, { body: { title: "Release" } }));
+	}
+	const [newest] = (await history()).versions;
+	const deployment = check(
+		await api(stack, "creator", `/v1/${kind}/${id}/deployments`, {
+			body: { versionId: newest.id, description },
+		}),
+	);
+	if (deployment.status !== "live") throw new Error(`promote failed: ${JSON.stringify(deployment.gates)}`);
+	return deployment as { id: string; status: string; action: string; versionNumber: number };
+}

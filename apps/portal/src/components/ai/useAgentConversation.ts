@@ -286,8 +286,10 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 	};
 	/** Answers the listed calls in one go (#704); the rest keep waiting. */
 	const decide = (decisions: Decision[], to: Mode = "manual") => answer({ decisions, mode: to });
-	const approve = (to: Mode) =>
-		plan ? send(START_PLAN, { mode: to }) : answer({ approve: true, mode: to });
+	const approve = (to: Mode, comment?: string) =>
+		plan
+			? send(START_PLAN, { mode: to })
+			: answer({ approve: true, mode: to, ...(comment?.trim() && { comment: comment.trim() }) });
 	const reject = () => (plan ? Promise.resolve(setDismissed(lastSeq)) : answer({ approve: false }));
 	return {
 		conversation: detail.data?.conversation ?? null,

@@ -59,6 +59,8 @@ const run = {
 	parentRunId: null,
 	routeVersion: null,
 	workflowVersion: null,
+	versionId: null,
+	versionNumber: null,
 	parentSeq: null,
 	childRuns: [],
 	spans: [

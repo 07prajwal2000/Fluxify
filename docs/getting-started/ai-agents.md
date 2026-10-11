@@ -158,6 +158,8 @@ request, runs your code or reaches the internet.
 | `copy_blocks` | Copy blocks, or a whole canvas, between canvases of one project, such as a route into a new sandbox. See [Debug a route in a sandbox](../agents/recipes/debug-route-in-sandbox.md) | Creator |
 | `commit_version` | Save a route's or workflow's canvas and settings as its next [version](../concepts/versioning.md). It needs a title, and never deploys | Creator |
 | `checkout_version` | Bring an earlier version back as the working copy. Uncommitted work is saved first as a new version | Creator |
+| `promote_version` | Put a version live in [production](../concepts/versioning.md#what-production-serves). A person approves it and writes why | Creator |
+| `rollback_version` | Put an older version back live in production. A person approves it and writes why | Creator |
 | `run_test_suite` | Run a test suite (real) | Creator |
 | `add_member` | Add a user to a project | Project Admin |
 | `update_member_role` | Change a member's role | Project Admin |
@@ -188,6 +190,7 @@ the short message.
   in your browser.
 - **Your client may ask before each change.** Tools that delete or run things
   are marked as such, so most clients ask you first.
+- **Going live is always your call.** `promote_version` and `rollback_version` change what production serves. The in-app agent asks you first in every mode, even in Auto, and you write the reason that is kept in the deployment log. A connected client should ask you too, and the tool descriptions tell it never to promote unless you asked.
 - **Revoke access any time.** Open **Account → Connected apps** to remove an app,
   or **Account → Access tokens** to delete a token. It stops working at once.
 - **Apps stay signed in for up to 30 days.** A connected app gets a short-lived

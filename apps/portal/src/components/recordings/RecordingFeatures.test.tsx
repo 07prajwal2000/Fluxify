@@ -108,6 +108,8 @@ test("SpanDetail allows toggling between List and Timeline views", () => {
 		parentRunId: null,
 		routeVersion: null,
 		workflowVersion: null,
+		versionId: null,
+		versionNumber: null,
 		parentSeq: null,
 		env: "development" as const,
 		metadata: null,
