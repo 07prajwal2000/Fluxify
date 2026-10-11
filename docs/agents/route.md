@@ -49,7 +49,7 @@ A new route is **inactive**. Pass `active: true`, or real callers and `call_rout
 Pass `routeId` and only the fields that change. Fields you leave out keep their value.
 
 ```json
-{ "routeId": "<route id>", "active": true, "recordExecution": true }
+{ "routeId": "<route id>", "active": true, "devRecordExecution": true }
 ```
 
 `projectId` cannot change. Sending `null` for `bodySchema`, `querySchema` or `paramsSchema` removes that schema.
@@ -64,8 +64,10 @@ Pass `routeId` and only the fields that change. Fields you leave out keep their 
 | `method` | string | `GET`, `POST`, `PUT` or `DELETE`. | none |
 | `active` | boolean | Only active routes answer callers. | `false` |
 | `timeoutSeconds` | integer | At least 30. There is no upper limit. | `30` |
-| `tracingEnabled` | boolean | Sends spans to the project's own telemetry destination. Stores nothing in Fluxify. | `false` |
-| `recordExecution` | boolean | Keeps a debug recording of each run. See [Recording](#recording-and-tracing). | `false` |
+| `tracingEnabled` | boolean | Production: sends spans to the project's own telemetry destination. Stores nothing in Fluxify. | `false` |
+| `recordExecution` | boolean | Production: keeps a debug recording of each run. See [Recording](#recording-and-tracing). | `false` |
+| `devTracingEnabled` | boolean | Development: the same as `tracingEnabled`. | `false` |
+| `devRecordExecution` | boolean | Development: the same as `recordExecution`. `call_route` runs on development. | `true` |
 | `acceptedContentTypes` | string list | At least one of the values in [Content types](#content-types). | `["application/json"]` |
 | `bodySchema` | object or null | Checks the request body. See [Request schemas](#request-schemas). | none |
 | `querySchema` | object or null | Checks the query string. | none |
@@ -162,9 +164,9 @@ A request with another content type is refused with 415.
 
 ## Recording and tracing
 
-They are two separate switches.
+They are two separate switches, each set per environment: `devRecordExecution` and `devTracingEnabled` for development, `recordExecution` and `tracingEnabled` for production. `call_route` runs on development, where recording is on by default.
 
-- `recordExecution: true` keeps each run inside Fluxify. You read it with `list_recordings` and `get_recording`. Recordings hold request headers, bodies and secrets as they were, so use it while debugging and turn it off after. See [Recipe, debug and fix a route or workflow](/agents/recipes/debug-and-fix).
+- `recordExecution: true` (production) keeps each run inside Fluxify. The answer then carries a `warning` to pass on to the user: recording is heavy at scale. You read it with `list_recordings` and `get_recording`. Recordings hold request headers, bodies and secrets as they were, so use it while debugging and turn it off after. See [Recipe, debug and fix a route or workflow](/agents/recipes/debug-and-fix).
 - `tracingEnabled: true` sends spans to the project's own telemetry destination. It keeps nothing in Fluxify.
 
 ## Common errors

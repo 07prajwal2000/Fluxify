@@ -71,7 +71,7 @@ Press **Save**, then **Run suite**. The result appears on the right within a few
 Press **Run all** at the top to run every suite of the route at once.
 
 ::: warning A worker must be running
-Suites run on the same servers that serve your routes. If none is running for this project, the run stops with "No worker is serving this project's routes". Start one, then run again. See [Reading results](./results#common-problems).
+Suites run on the development worker, with your development values. If none is running, the run stops with "No development worker is running". Start a worker with `FLUXIFY_ENV=development`, then run again. See [Reading results](./results#common-problems).
 :::
 
 ## Next steps

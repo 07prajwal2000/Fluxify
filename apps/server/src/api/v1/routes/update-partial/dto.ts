@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { observabilityFields, warningField } from "../../../../lib/observability";
 import { CONTENT_TYPES } from "../../../../lib/routeConfig";
 import { ROUTE_REGEX } from "../constants";
 
@@ -13,8 +14,7 @@ export const requestBodySchema = z.object({
 	querySchema: z.any().optional(),
 	paramsSchema: z.any().optional(),
 	timeoutSeconds: z.number().int().min(30).optional(),
-	tracingEnabled: z.boolean().optional(),
-	recordExecution: z.boolean().optional(),
+	...observabilityFields,
 	acceptedContentTypes: z.array(z.enum(CONTENT_TYPES)).min(1).optional(),
 });
 
@@ -30,4 +30,5 @@ export const responseSchema = z.object({
 	timeoutSeconds: z.number().int(),
 	createdAt: z.string(),
 	updatedAt: z.string(),
+	...warningField,
 });

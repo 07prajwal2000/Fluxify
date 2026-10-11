@@ -5,7 +5,7 @@ import zodErrorCallbackParser from "../../../../middlewares/zodErrorCallbackPars
 import { targetFromParams } from "../../../../modules/testRunner/target";
 import type { HonoServer } from "../../../../types";
 import { requireProjectAccess } from "../../../auth/middleware";
-import { requestParamSchema, responseSchema } from "./dto";
+import { requestParamSchema, requestQuerySchema, responseSchema } from "./dto";
 import handleRequest from "./service";
 
 export default function (app: HonoServer) {
@@ -35,9 +35,11 @@ export default function (app: HonoServer) {
 		}),
 		requireProjectAccess("creator", { key: "projectId", source: "param" }),
 		validator("param", requestParamSchema, zodErrorCallbackParser),
+		validator("query", requestQuerySchema, zodErrorCallbackParser),
 		async (ctx) => {
 			const { projectId, runId, ...target } = ctx.req.valid("param");
-			return ctx.json(await handleRequest(projectId, targetFromParams(target), runId));
+			const { env } = ctx.req.valid("query");
+			return ctx.json(await handleRequest(projectId, targetFromParams(target), runId, env));
 		},
 	);
 }

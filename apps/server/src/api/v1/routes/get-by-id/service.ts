@@ -35,6 +35,8 @@ export default async function handleRequest(
 		timeoutSeconds: route.timeoutSeconds,
 		tracingEnabled: route.tracingEnabled,
 		recordExecution: route.recordExecution,
+		devTracingEnabled: route.devTracingEnabled,
+		devRecordExecution: route.devRecordExecution,
 		acceptedContentTypes: acceptedContentTypes(route.routeConfig),
 	};
 }

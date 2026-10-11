@@ -2,8 +2,9 @@ import { eq, isNull, or } from "drizzle-orm";
 import { integrationsGroupSchema } from "../../api/v1/integrations/schemas";
 import { db } from "../../db";
 import { integrationsEntity } from "../../db/schema";
-import { getProjectAppConfig } from "../../loaders/appconfigLoader";
-import { resolveIntegrationConfig } from "../../loaders/integrationsLoader";
+import { missingIntegrationMessage } from "../../lib/envValues";
+import { loadAppConfigFor } from "../../loaders/appconfigLoader";
+import { configForEnv, resolveIntegrationConfig } from "../../loaders/integrationsLoader";
 import { projectSettingsCache } from "../../loaders/projectSettingsLoader";
 import type { ProjectConfigPayload } from "../compiler/artifacts";
 
@@ -28,6 +29,10 @@ export type SuiteOverrides = {
  * live cache for exactly that reason: the cached ones were already expanded
  * against the un-overridden config.
  *
+ * Development values (#736): a suite runs on the development worker, against
+ * development data, whatever env the graph comes from later (#739). A value
+ * with no development side is named in `missingValues`, and fails at use.
+ *
  * No ownership check here — the orchestrator calls `assertOverridesOwned`
  * before dispatch (#219). Only this project's rows (and unowned ones) are
  * loaded, so an override naming a foreign integration throws below.
@@ -37,9 +42,12 @@ export async function resolveSuiteConfig(
 	overrides: SuiteOverrides,
 ): Promise<ProjectConfigPayload> {
 	// 1. app config first.
-	const appConfig = { ...(getProjectAppConfig(projectId) ?? {}) };
+	const { config, missing } = await loadAppConfigFor("development", projectId);
+	const appConfig = { ...(config[projectId] ?? {}) };
+	const missingKeys = new Set(missing[projectId] ?? []);
 	for (const { key, value } of overrides.appConfigOverrides ?? []) {
 		appConfig[key] = value;
+		missingKeys.delete(key);
 	}
 
 	// 2. integrations second, against the overridden map.
@@ -69,12 +77,16 @@ export async function resolveSuiteConfig(
 		[integrationsGroupSchema.enum.ai]: payload.aiIntegrations,
 	};
 
+	const missingIntegrations: Record<string, string> = {};
 	for (const row of rows) {
 		const bucket = byGroup[row.group ?? ""];
 		if (!bucket) continue;
-		// suites run on the production worker for now (picked per run in #736)
-		const config = resolveIntegrationConfig(row, appConfig, "production");
-		if (config) bucket[row.id] = config;
+		if (configForEnv(row, "development") === null) {
+			missingIntegrations[row.id] = missingIntegrationMessage(row.name);
+			continue;
+		}
+		const resolved = resolveIntegrationConfig(row, appConfig, "development");
+		if (resolved) bucket[row.id] = resolved;
 	}
 
 	// 3. integration swaps, on the freshly resolved configs.
@@ -84,7 +96,11 @@ export async function resolveSuiteConfig(
 			throw new Error(`Integration override target "${newId}" was not found for this project`);
 		}
 		bucket[existingId] = bucket[newId];
+		delete missingIntegrations[existingId];
 	}
 
+	if (missingKeys.size || Object.keys(missingIntegrations).length) {
+		payload.missingValues = { integrations: missingIntegrations, appConfig: [...missingKeys] };
+	}
 	return payload;
 }

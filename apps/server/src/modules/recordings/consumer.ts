@@ -12,7 +12,7 @@ import {
 	traceSpansEntity,
 	workflowsEntity,
 } from "../../db/schema";
-import { RECORDING_MAX_AGE_DAYS } from "../../lib/env";
+import { type FluxifyEnv, RECORDING_MAX_AGE_DAYS } from "../../lib/env";
 import { deleteExpiredEphemeralLogs, RUNTIME_LOG_TYPE, systemLog } from "../../lib/systemLogs";
 import { sweepEphemeralArtifacts } from "../compiler/ephemeralSweep";
 import { onSystemTick } from "../schedules/system";
@@ -150,7 +150,9 @@ export async function persistRecording(payload: unknown): Promise<"stored" | "dr
 		return "dropped";
 	}
 	const run = parsed.data;
-	if (!(await shouldStore(run))) return "dropped";
+	// a sandbox only ever runs on a development worker (#735)
+	const env = run.sandboxId ? "development" : (run.env ?? "production");
+	if (!(await shouldStore({ ...run, env }))) return "dropped";
 
 	// span times are `performance.now()` readings; this puts them on the wall clock
 	const wall = (t: number) => new Date(run.startedAtWallMs + (t - run.perfOrigin));
@@ -176,6 +178,7 @@ export async function persistRecording(payload: unknown): Promise<"stored" | "dr
 				parentSeq: run.parentSeq,
 				spanCount: run.spans.length,
 				metadata: run.metadata,
+				env,
 			})
 			.onConflictDoNothing()
 			.returning({ id: traceRunsEntity.id });
@@ -207,7 +210,7 @@ export async function persistRecording(payload: unknown): Promise<"stored" | "dr
 		return Boolean(inserted);
 	});
 	// not on a redelivery, which would append the same failure again
-	if (fresh) await logFailedRun(run);
+	if (fresh) await logFailedRun({ ...run, env });
 	return "stored";
 }
 
@@ -241,8 +244,8 @@ async function logFailedRun(run: z.infer<typeof runSchema>) {
 /**
  * The run's route, workflow or sandbox must belong to its project, always. A
  * test run (#627) is stored whatever `recordExecution` says; any other run only
- * while recording is still on — it may have been switched off since the run. A
- * sandbox always records (#735).
+ * while its environment's recording is still on (#736) — it may have been
+ * switched off since the run. A sandbox always records (#735).
  */
 async function shouldStore(run: {
 	projectId: string;
@@ -250,7 +253,9 @@ async function shouldStore(run: {
 	workflowId?: string;
 	sandboxId?: string;
 	metadata?: { source: "test" };
+	env: FluxifyEnv;
 }) {
+	const dev = run.env === "development";
 	if (run.sandboxId) {
 		const [sandbox] = await db
 			.select({ id: sandboxesEntity.id })
@@ -262,11 +267,11 @@ async function shouldStore(run: {
 	}
 	const [row] = run.routeId
 		? await db
-				.select({ on: routesEntity.recordExecution })
+				.select({ on: dev ? routesEntity.devRecordExecution : routesEntity.recordExecution })
 				.from(routesEntity)
 				.where(and(eq(routesEntity.id, run.routeId), eq(routesEntity.projectId, run.projectId)))
 		: await db
-				.select({ on: workflowsEntity.recordExecution })
+				.select({ on: dev ? workflowsEntity.devRecordExecution : workflowsEntity.recordExecution })
 				.from(workflowsEntity)
 				.where(
 					and(

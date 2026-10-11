@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { observabilityFields, warningField } from "../../../lib/observability";
 import { paginationRequestQuerySchema, paginationResponseSchema } from "../../../lib/pagination";
 
 /**
@@ -13,15 +14,14 @@ export const createSchema = z.object({
 	// A background job is allowed to be slower than a request, but not endless.
 	timeoutSeconds: z.number().int().min(30).max(3600).default(300),
 	active: z.boolean().optional(),
-	tracingEnabled: z.boolean().optional(),
-	recordExecution: z.boolean().optional(),
+	...observabilityFields,
 });
 
 export const patchSchema = createSchema.omit({ projectId: true }).partial();
 
 export const idParamSchema = z.object({ id: z.uuidv7() });
 
-export const createdSchema = z.object({ id: z.uuidv7() });
+export const createdSchema = z.object({ id: z.uuidv7(), ...warningField });
 
 export const workflowSchema = z.object({
 	id: z.string(),
@@ -29,11 +29,15 @@ export const workflowSchema = z.object({
 	description: z.string().nullable(),
 	active: z.boolean().nullable(),
 	timeoutSeconds: z.number().int(),
+	/** production's; development has its own pair (#736) */
 	tracingEnabled: z.boolean(),
 	recordExecution: z.boolean(),
+	devTracingEnabled: z.boolean(),
+	devRecordExecution: z.boolean(),
 	projectId: z.string(),
 	createdAt: z.string(),
 	updatedAt: z.string(),
+	...warningField,
 });
 
 export const listQuerySchema = z

@@ -6,8 +6,8 @@
 # only; the orchestrator hands production workers a fixed list of settings, so
 # it never reaches them.
 #
-# `/_sandbox` is routed to it (below), so sandboxes can be called from outside
-# the cluster. `/_/dev` joins that rule in #736.
+# `/_sandbox` and `/_/dev` are routed to it (below), so sandboxes and
+# development routes can be called from outside the cluster.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -73,9 +73,9 @@ spec:
   entryPoints: [{{ .Values.ingressRoute.entryPoint }}]
   routes:
     - kind: Rule
-      # Only the sandbox path: every other request keeps going to the
-      # production workers.
-      match: PathPrefix(`/_sandbox`)
+      # Only the sandbox and development paths: every other request keeps
+      # going to the production workers. `/_/dev` but not `/_/devices`.
+      match: PathPrefix(`/_sandbox`) || Path(`/_/dev`) || PathPrefix(`/_/dev/`)
       # Above every production worker's route: a project host is 50, the catch-all 1.
       priority: 100
       services:

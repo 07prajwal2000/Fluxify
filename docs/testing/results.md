@@ -45,7 +45,7 @@ If a suite's [teardown](./setup-and-teardown) fails, the suite **keeps its resul
 
 | You see | What it means | What to do |
 | --- | --- | --- |
-| "No worker is serving this project's routes" | Suites run on the same servers as your live routes, and none is running for this project | Start a worker for the project, then run again |
+| "No development worker is running" | Suites run on the development worker, and none is running | Start a worker with `FLUXIFY_ENV=development`, then run again |
 | "No result from a worker within …" | The worker didn't answer in time, for example because it restarted mid-run | Run again. If it keeps happening, raise the suite's time limits |
 | "Custom JS made no t.expect(...) checks" | A Custom JS check doesn't call `t.expect` | Rewrite it with `t.expect(...)`. See [Custom JS checks](./checks#custom-js-checks) |
 | "Setup failed: …" | The setup block threw an error | Open the setup block and fix it. The route was skipped |

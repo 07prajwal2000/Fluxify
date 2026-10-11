@@ -21,6 +21,8 @@ export async function getRouteById(id: string, tx?: DbTransactionType) {
 			timeoutSeconds: routesEntity.timeoutSeconds,
 			tracingEnabled: routesEntity.tracingEnabled,
 			recordExecution: routesEntity.recordExecution,
+			devTracingEnabled: routesEntity.devTracingEnabled,
+			devRecordExecution: routesEntity.devRecordExecution,
 			routeConfig: httpRouteConfigEntity.routeConfig,
 		})
 		.from(routesEntity)

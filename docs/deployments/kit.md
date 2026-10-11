@@ -38,6 +38,7 @@ Traffic enters on port `8080` and is routed for you:
 | `http://localhost:8080/_/admin/api/openapi/ui` | API documentation |
 | `http://localhost:8080/` | Your published workflows & custom endpoints |
 | `http://localhost:8080/_sandbox/<id>/…` | A [sandbox](/concepts/sandbox), served by the development worker |
+| `http://localhost:8080/_/dev/…` | Your routes on the [development worker](/concepts/environments#calling-a-route-on-development), with the development token |
 
 ---
 
@@ -249,10 +250,12 @@ project, so it runs from the very first start, before you have created one.
 | Serves | The project in `WORKER_PROJECT_ID` | Every project |
 | Port (inside the container) | `5600` | `5602` |
 | Health probe | `5601` | `5603` |
-| Reached through port `8080` | Yes | Only `/_sandbox` |
+| Reached through port `8080` | Yes | Only `/_sandbox` and `/_/dev` |
 
-Port `8080` sends `/_sandbox` to the development worker and everything else to
-the production worker, so the portal's sandbox playground works with no setting.
+Port `8080` sends `/_sandbox` and `/_/dev` to the development worker and
+everything else to the production worker, so sandboxes, the playground and
+`call_route` work with no setting. A path that only starts with the same
+letters, such as `/_/devices`, still goes to the production worker.
 The development worker does not count against your
 [edition's](./editions#workers) worker limit.
 

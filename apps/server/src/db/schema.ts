@@ -34,6 +34,16 @@ import { jsonb } from "./jsonbColumn";
 const blockKeyCounters = () =>
 	jsonb("block_key_counters").$type<Record<string, number>>().default({}).notNull();
 
+/**
+ * Development's observability switches (#736); the unprefixed pair is
+ * production's. Settings, not definition: live and never versioned (#738).
+ * Development records by default, production does not.
+ */
+const devObservability = () => ({
+	devTracingEnabled: boolean("dev_tracing_enabled").default(false).notNull(),
+	devRecordExecution: boolean("dev_record_execution").default(true).notNull(),
+});
+
 /* ============================================================================
  * 1. GENERAL ENUMS & TYPES
  * ============================================================================ */
@@ -289,9 +299,11 @@ export const routesEntity = pgTable(
 		 * `tracingEnabled` exports spans to the project's own OTEL destination and
 		 * stores nothing here; `recordExecution` persists a debug recording for the
 		 * portal trace viewer and is expensive, so it stays off by default.
+		 * These two are production's; development has its own (#736).
 		 */
 		tracingEnabled: boolean("tracing_enabled").default(false).notNull(),
 		recordExecution: boolean("record_execution").default(false).notNull(),
+		...devObservability(),
 		/** #597: +1 on every canvas save, in the same transaction. A save naming an older one is refused. */
 		canvasVersion: integer("canvas_version").default(0).notNull(),
 		blockKeyCounters: blockKeyCounters(),
@@ -345,6 +357,7 @@ export const workflowsEntity = pgTable(
 		/** Same two independent switches as a route — see `routesEntity`. */
 		tracingEnabled: boolean("tracing_enabled").default(false).notNull(),
 		recordExecution: boolean("record_execution").default(false).notNull(),
+		...devObservability(),
 		/** #597: +1 on every canvas save, in the same transaction. A save naming an older one is refused. */
 		canvasVersion: integer("canvas_version").default(0).notNull(),
 		blockKeyCounters: blockKeyCounters(),
@@ -1338,6 +1351,7 @@ export const systemLogsEntity = pgTable(
 
 /** how a recorded run or block ended; also a condition block's chosen branch */
 export const traceOutcomeEnum = pgEnum("trace_outcome", ["success", "failure"]);
+export const fluxifyEnvEnum = pgEnum("fluxify_env", ["production", "development"]);
 
 /**
  * One recorded run of a route or workflow with `recordExecution` on. Written by
@@ -1382,6 +1396,8 @@ export const traceRunsEntity = pgTable(
 		spanCount: integer("span_count").notNull(),
 		/** null on a normal run; a test run's link back to its suite and case (#627) */
 		metadata: jsonb().$type<TraceRunMetadata | null>(),
+		/** the worker's environment (#736); a sandbox run is always development */
+		env: fluxifyEnvEnum("env").default("production").notNull(),
 	},
 	(table) => [
 		index("idx_trace_runs_project_route").on(

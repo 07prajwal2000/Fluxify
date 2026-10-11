@@ -17,23 +17,23 @@ const { runSuiteOnWorker } = await import("../dispatch");
 const bootstrap = { projectId: "p1", timeoutMs: 1_000 } as any;
 
 describe("runSuiteOnWorker", () => {
-	it("sends the suite sealed, on the project's subject", async () => {
+	it("sends the suite sealed, on the project's development subject (#736)", async () => {
 		let sent: { subject: string; sealed: string } | undefined;
 		respond = async (subject, { sealed }) => {
 			sent = { subject, sealed };
 			return { ok: true };
 		};
 		expect(await runSuiteOnWorker(bootstrap)).toEqual({ ok: true } as any);
-		expect(sent!.subject).toBe("fluxify.tests.run.p1");
+		expect(sent!.subject).toBe(dbNats.natsName("fluxify.tests.run.p1", "development"));
 		expect(JSON.parse(EncryptionService.decrypt(sent!.sealed))).toEqual(bootstrap);
 	});
 
-	it("fails the suite at once when no worker serves the project", async () => {
+	it("fails the suite at once when no development worker is running", async () => {
 		respond = async () => {
 			throw new nats.RpcError("NO_RESPONDERS", "none");
 		};
 		const result = await runSuiteOnWorker(bootstrap);
-		expect(result).toMatchObject({ ok: false, error: expect.stringContaining("No worker") });
+		expect(result).toMatchObject({ ok: false, error: expect.stringContaining("FLUXIFY_ENV=development") });
 		expect("timedOut" in result).toBe(false);
 	});
 

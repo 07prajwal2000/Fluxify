@@ -125,8 +125,8 @@ request, runs your code or reaches the internet.
 | `list_members` | A project's members and roles | Creator |
 | `list_packages` | A project's npm packages | Creator |
 | `get_test_runs` | A test suite's recent runs and results, with each case's trace id | Creator |
-| `list_recordings` | A route's, workflow's or sandbox's [recorded runs](../concepts/execution-recording.md) | Creator |
-| `get_recording` | One recorded run, block by block | Creator |
+| `list_recordings` | A route's, workflow's or sandbox's [recorded runs](../concepts/execution-recording.md); `env` picks development or production | Creator |
+| `get_recording` | One recorded run, block by block; `env` reads it only from that environment | Creator |
 | `save_route` | Create or change a route | Creator |
 | `delete_route` | Delete a route | Creator |
 | `save_workflow` | Create or change a workflow | Creator |
@@ -145,7 +145,7 @@ request, runs your code or reaches the internet.
 | `get_integration_schema_details` | Tables, columns and keys of a database integration (no rows) | Creator |
 | `kv_get` | Read one key from a KV integration, with its expiry | Creator |
 | `edit_canvas` | Add, change and connect blocks on a canvas | Creator |
-| `call_route` | Send a request to a route (real) | Creator |
+| `call_route` | Send a request to a route (real, on the development worker and development data) | Creator |
 | `list_sandboxes` | Your own [sandboxes](../concepts/sandbox.md) in a project | Creator |
 | `get_sandbox` | One of your sandboxes | Creator |
 | `create_sandbox` | Create a sandbox | Creator |

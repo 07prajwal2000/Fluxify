@@ -15,7 +15,9 @@ Runs are saved exactly as they happened. Request headers, bodies, cookies and an
 
 ## Turn it on
 
-Recording is set per route or per workflow:
+Recording is set per route or per workflow, and separately for each
+[environment](./environments.md#recording-and-tracing-per-environment):
+development records by default, production does not.
 
 - Open the route's or workflow's **Settings** and turn on **Recording**, or
 - Open **Track Execution** (see below) and press **Record**. Press **Recording · Stop** to turn it off.
@@ -129,4 +131,6 @@ An agent connected through [MCP](../getting-started/ai-agents.md) can read recor
 - `get_system_logs` with `type: "runtime"` lists failed runs. Each entry's `detail.runId` is the run to read with `get_recording`.
 - `get_test_runs` gives each test case's trace id, to read with `get_recording`.
 
-`save_route` and `save_workflow` can turn recording on with `recordExecution: true`.
+`list_recordings` and `get_recording` take `env` (`development` or `production`) to read only that environment's runs. Without it, both.
+
+`save_route` and `save_workflow` set recording per environment: `devRecordExecution` for development (on by default) and `recordExecution` for production. Turning production recording on returns a `warning` in the answer.

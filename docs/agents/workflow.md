@@ -60,8 +60,10 @@ Pass `workflowId` and only the fields that change.
 | `description` | string | Up to 2000 characters. | none |
 | `timeoutSeconds` | integer | From 30 to 3600. | `300` |
 | `active` | boolean | Only active workflows can be started. | `false` |
-| `tracingEnabled` | boolean | Sends spans to the project's own telemetry destination. | `false` |
-| `recordExecution` | boolean | Keeps a debug recording of each run. Read it with `list_recordings`. | `false` |
+| `tracingEnabled` | boolean | Production: sends spans to the project's own telemetry destination. | `false` |
+| `recordExecution` | boolean | Production: keeps a debug recording of each run. Read it with `list_recordings`. Turning it on returns a `warning`. | `false` |
+| `devTracingEnabled` | boolean | Development: the same as `tracingEnabled`. | `false` |
+| `devRecordExecution` | boolean | Development: the same as `recordExecution`. | `true` |
 
 ## What a workflow receives
 

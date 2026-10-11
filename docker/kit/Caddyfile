@@ -30,11 +30,12 @@
 	handle /.well-known/oauth-* {
 		reverse_proxy localhost:5500
 	}
-	# Sandboxes: private scratch canvases that only ever run on the development
+	# Sandboxes and development routes (`/_/dev`, #736) only ever run on the development
 	# worker (port 5602, see docker/kit/entrypoint.sh). It must come before the
 	# catch-all below, which would send them to the production worker's 404.
-	# /_/dev joins this rule in #736.
-	handle /_sandbox* {
+	# `/_/dev` but not `/_/devices`: a project's own route may start with that.
+	@dev path /_sandbox* /_/dev /_/dev/*
+	handle @dev {
 		reverse_proxy localhost:5602
 	}
 	# Everything else is user API traffic, served by the compiled worker.

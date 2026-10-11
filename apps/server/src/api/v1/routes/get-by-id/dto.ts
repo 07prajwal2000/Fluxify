@@ -16,8 +16,11 @@ export const responseSchema = z.object({
 	querySchema: z.any().optional(),
 	paramsSchema: z.any().optional(),
 	timeoutSeconds: z.number().int(),
+	/** production's; development has its own pair (#736) */
 	tracingEnabled: z.boolean(),
 	recordExecution: z.boolean(),
+	devTracingEnabled: z.boolean(),
+	devRecordExecution: z.boolean(),
 	acceptedContentTypes: z.array(z.string()),
 	createdAt: z.string(),
 	createdBy: z.string(),

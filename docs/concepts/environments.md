@@ -1,6 +1,6 @@
 ---
 title: Environments
-description: What production and development workers are, how to start a development worker, and how the two are kept apart.
+description: What production and development workers are, what runs on each, how to call a route on development at /_/dev, and how recording and tracing are set per environment.
 ---
 
 # Environments
@@ -14,6 +14,26 @@ setting when you start the worker:
 | :--- | :--- |
 | `production` (or not set) | **Production worker.** Serves your live routes and runs your live workflows, triggers and schedules. This is every worker you have today. |
 | `development` | **Development worker.** Runs development work only. |
+
+## What runs where
+
+Anything you do to try things out runs on **development**. Only your real
+callers and your live triggers reach **production**.
+
+| What | Runs on |
+| :--- | :--- |
+| Your public route URLs, called by your users | Production |
+| Triggers, schedules and queued work of your live app | Production |
+| The route playground and **Run** in the portal | Development |
+| `call_route` from an AI agent | Development |
+| A workflow's **Run** button | Development |
+| Test suites | Development |
+| Sandboxes and quick block runs | Development |
+| Any route at `/_/dev/<path>` with the [development token](#development-access) | Development |
+
+If no development worker is running, these development features answer
+"start a worker with FLUXIFY_ENV=development". They never fall back to
+production.
 
 ## The two are kept apart
 
@@ -50,16 +70,17 @@ You don't have to do this for the usual setups. Each of them starts one for you:
 
 | Setup | Its development worker |
 | :--- | :--- |
-| [Kit](/deployments/kit#dev-worker) | Runs inside the container, on port `5602`. Port `8080` sends `/_sandbox` to it. |
+| [Kit](/deployments/kit#dev-worker) | Runs inside the container, on port `5602`. Port `8080` sends `/_/dev` and `/_sandbox` to it. |
 | [Production stack](/deployments/production#dev-workers) | The `worker-dev` service. |
 | [Kubernetes](/deployments/kubernetes/helm-values#dev-worker) | One pod, from the `devWorker` setting. On by default. |
-| Running Fluxify from source (`bun run dev`) | A second worker on port `5602`, beside the production worker on `5600`. Set `DEV_WORKER_URL=http://localhost:5602` so the portal's sandbox playground finds it. |
+| Running Fluxify from source (`bun run dev`) | A second worker on port `5602`, beside the production worker on `5600`. Set `DEV_WORKER_URL=http://localhost:5602` so the playground, `call_route` and sandboxes find it. |
 
 ::: info
 Every time you save, Fluxify publishes your routes, workflows, custom blocks,
 middlewares, triggers and packages to **both** environments. For now the
 development worker and the production worker run the same saved version. What
-differs between them is the [values](#values-per-environment) they run with.
+differs between them is the [values](#values-per-environment) they run with,
+and whether each one [records and traces](#recording-and-tracing-per-environment) runs.
 :::
 
 ::: warning
@@ -97,6 +118,53 @@ own database, its own queues or topics and its own key-value store.
 Triggers have the same consumer group names in both environments. A development
 value that points at a **production** queue takes production's messages.
 :::
+
+## Calling a route on development
+
+Every route also answers on the development worker, at its normal path with
+`/_/dev` in front. Send the project's [development token](#development-access)
+with it:
+
+```bash
+curl -H "x-fluxify-dev-token: fxd_..." https://your-host/_/dev/users/42
+```
+
+| What you send | What you get |
+| :--- | :--- |
+| The right token | The route runs on development, with development values. |
+| No token, or a wrong one | `401` |
+| Anything, to a production worker | `404`. Production never serves `/_/dev`. |
+
+The route behaves exactly as it does on its public URL: the same method, the
+same request checks and the same middlewares. Your blocks see the path without
+`/_/dev` (`/users/42` above), and they never see the token.
+
+The token also picks the project. A project with its own subdomain only takes
+its own token on that subdomain.
+
+## Recording and tracing per environment
+
+[Recording](/concepts/execution-recording) and
+[tracing](/concepts/telemetry-configuration) are set **separately for each
+environment**, on every route and every workflow.
+
+| Setting | Development | Production |
+| :--- | :--- | :--- |
+| Recording | **On** by default | Off by default |
+| Tracing | Off by default | Off by default |
+
+A change applies straight away, without a save. It is a live setting of the
+route or workflow, never part of its saved graph. Each recorded run is marked with the environment it ran in, so you can
+look at development runs and production runs apart.
+
+::: warning Recording on production
+Turning production recording on shows a warning: "Recording is heavy at scale.
+Prefer tracing, or open the route in a sandbox to test in isolation." Every
+recorded run is stored with its full data, which adds up quickly on live
+traffic.
+:::
+
+Sandboxes always record.
 
 ## Development access
 

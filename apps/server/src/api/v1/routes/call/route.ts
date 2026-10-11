@@ -16,7 +16,7 @@ export default function (app: HonoServer) {
 		"/:id/call",
 		describeRoute({
 			description:
-				"Sends one real HTTP request to the route and returns what it answered. Runs the route for real. With debug, a failed run also returns its real error, which the route's own callers never get.",
+				"Sends one real HTTP request to the route on the development worker (at /_/dev, on development data) and returns what it answered. Runs the route for real. With debug, a failed run also returns its real error, which the route's own callers never get.",
 			operationId: "call-route",
 			tags: ["Routes"],
 			responses: {
@@ -27,6 +27,7 @@ export default function (app: HonoServer) {
 				400: error("Invalid data or inactive route", validationErrorSchema),
 				403: error("Forbidden"),
 				404: error("Route not found"),
+				409: error("No development worker is running"),
 			},
 		}),
 		validator("param", requestRouteSchema, zodErrorCallbackParser),

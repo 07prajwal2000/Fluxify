@@ -77,13 +77,19 @@ const messageOf = (error: unknown) => (error instanceof Error ? error.message : 
  * route, setup and teardown all run from that library.
  */
 function prepare(boot: TestBootstrap) {
-	hydrateAppConfig(boot.projectId, boot.config.appConfig);
-	hydrateIntegrations(boot.projectId, {
-		db: boot.config.dbIntegrations,
-		kv: boot.config.kvIntegrations,
-		observability: boot.config.observabilityIntegrations,
-		ai: boot.config.aiIntegrations,
-	});
+	// a development value that is not there fails at use and says why (#733)
+	const missing = boot.config.missingValues;
+	hydrateAppConfig(boot.projectId, boot.config.appConfig, missing?.appConfig);
+	hydrateIntegrations(
+		boot.projectId,
+		{
+			db: boot.config.dbIntegrations,
+			kv: boot.config.kvIntegrations,
+			observability: boot.config.observabilityIntegrations,
+			ai: boot.config.aiIntegrations,
+		},
+		missing?.integrations,
+	);
 	hydrateProjectSettings(boot.projectId, boot.config.projectSettings);
 	for (const block of boot.customBlocks) {
 		registerCompiledCustomBlock(boot.projectId, block.name, block.source);

@@ -2,6 +2,7 @@ import { fileURLToPath } from "node:url";
 import { CANCEL_SCHEDULE_JOB, TRIGGER_WORKFLOW_JOB } from "@fluxify/blocks";
 import { logger } from "@fluxify/common";
 import { RPC_SUBJECTS, rpcRequest } from "../../db/natsRpc";
+import type { FluxifyEnv } from "../../lib/env";
 import { enqueueJob } from "../jobs/publisher";
 import type { JobEnvelope } from "../jobs/types";
 import { publishRecording } from "../recordings/stream";
@@ -52,6 +53,8 @@ export interface ExecutionSupervisorOptions {
 	trustedOrigins: string[];
 	/** Verifies the admin's debug-call tokens (#671). */
 	debugKey?: string;
+	/** Only a development worker serves `/_/dev/*` (#736); production by default. */
+	env?: FluxifyEnv;
 	/** Read at every spawn; later changes arrive as a `base-domain` message. */
 	baseDomain: () => string;
 	/** Whether any project loaded here asks for execution timeouts. */
@@ -196,6 +199,7 @@ export function createExecutionSupervisor(
 			baseDomain: options.baseDomain(),
 			trustedOrigins: options.trustedOrigins,
 			debugKey: options.debugKey,
+			env: options.env ?? "production",
 			artifacts: options.artifacts(),
 			workerTimeoutsEnabled: options.timeoutsEnabled(),
 			maxRequestBodyBytes: options.maxRequestBodyBytes,

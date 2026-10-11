@@ -65,6 +65,8 @@ describe("MCP role matrix", () => {
 			timeoutSeconds: 30,
 			tracingEnabled: false,
 			recordExecution: false,
+			devTracingEnabled: false,
+			devRecordExecution: true,
 			acceptedContentTypes: expect.any(Array),
 			bodySchema: null,
 			querySchema: null,

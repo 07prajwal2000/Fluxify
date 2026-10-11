@@ -135,7 +135,7 @@ A workflow has no URL, so there is no `call_route`. Test it with a test suite in
 
 1. Call `run_test_suite` with a workflow suite (see [Write and run a test suite](/agents/recipes/write-and-run-test-suite)). Each failed case has an `error`: the same `block`, `message`, `detail` and `stack` as above.
 2. Every test run is recorded, with recording off. `get_test_runs` gives each case a `traceRunId`. Pass it as `runId` to `get_recording` with `kind: "workflow"` and the workflow id.
-3. For a run a trigger started, turn recording on with `save_workflow` (`recordExecution: true`), let the trigger fire, then use `list_recordings` with `kind: "workflow"`.
+3. For a run a live trigger started, turn production recording on with `save_workflow` (`recordExecution: true`, which answers with a warning to pass on), let the trigger fire, then use `list_recordings` with `kind: "workflow"` and `env: "production"`. Turn it off again after.
 4. Fix with `edit_canvas` (`target.kind: "workflow"`) and run the suite again.
 
 ## Common problems
@@ -143,7 +143,7 @@ A workflow has no URL, so there is no `call_route`. Test it with a test suite in
 | What you see | What to do |
 | --- | --- |
 | No `error`, and the body still shows a generic message | The route has an error handler, or it was saved before debug errors existed. Save it again, or record a run (step 3). |
-| `list_recordings` is empty | Recording was off when it ran, or it did not compile. Check `get_system_logs`, then run it again. |
+| `list_recordings` is empty | Recording was off in that environment when it ran (`devRecordExecution` for development, `recordExecution` for production), or it did not compile. Check `get_system_logs`, then run it again. |
 | `This run has no span 9` | Use a `seq` from the span list of that run. |
 | `Not found` on `get_recording` | `kind` and `targetId` must be the route or workflow that made the run. |
 | The fix did not change anything | Read `get_system_logs`: a compile error keeps the old version running. |

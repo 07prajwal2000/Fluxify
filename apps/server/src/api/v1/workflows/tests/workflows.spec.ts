@@ -23,12 +23,13 @@ mock.module("../../../../modules/jobs/publisher", () => ({
 // A test run takes the same internal subject a Trigger Workflow block does, so
 // what it publishes is a trigger message rather than a job envelope.
 mock.module("../../../../modules/triggers/publisher", () => ({
-	fireInternalTrigger: async (input: any) => {
-		enqueued.push(input);
+	fireInternalTrigger: async (input: any, env: string) => {
+		enqueued.push({ ...input, env });
 		return { id: "job-1" };
 	},
 }));
 
+import * as status from "../../../../modules/orchestrator/status";
 import * as repo from "../repository";
 import { createWorkflow, deleteWorkflow, updateWorkflow } from "../service";
 import runWorkflow from "../run";
@@ -127,7 +128,13 @@ describe("workflow service", () => {
 });
 
 describe("workflow run", () => {
-	it("queues a job carrying the payload", async () => {
+	let devWorker = true;
+	beforeEach(() => {
+		devWorker = true;
+		spyOn(status, "devWorkerOnline").mockImplementation(async () => devWorker);
+	});
+
+	it("queues a job carrying the payload, on development (#736)", async () => {
 		const result = await runWorkflow("wf-1", { payload: { day: 1 } }, "u1", acl);
 
 		expect(result).toEqual({ id: "job-1", accepted: true });
@@ -136,7 +143,14 @@ describe("workflow run", () => {
 			workflowId: "wf-1",
 			data: { day: 1 },
 			origin: { via: "manual", userId: "u1" },
+			env: "development",
 		});
+	});
+
+	it("refuses with the start-a-worker message when no development worker is up", async () => {
+		devWorker = false;
+		expect(runWorkflow("wf-1", {}, "u1", acl)).rejects.toThrow("FLUXIFY_ENV=development");
+		expect(enqueued).toEqual([]);
 	});
 
 	it("refuses an inactive workflow instead of queueing work nothing will run", async () => {

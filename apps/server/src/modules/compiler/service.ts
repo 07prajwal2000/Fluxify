@@ -26,7 +26,6 @@ import { systemLog } from "../../lib/systemLogs";
 import { parentColumn } from "../canvas/repository";
 import type { CanvasParent, CanvasParentType } from "../canvas/types";
 import { compileDependencies } from "../packages/service";
-import { wantsSpans } from "../requestRouter/traceLifecycle";
 import type {
 	CustomBlockArtifact,
 	MiddlewareArtifact,
@@ -34,6 +33,7 @@ import type {
 	WorkflowArtifact,
 } from "./artifacts";
 import { loadMiddleware, loadRouteMiddlewareIds } from "./middlewares";
+import { compilePerEnv, type PerEnv, putPerEnv } from "./observability";
 import { publishProjectConfig } from "./projectConfig";
 import { customBlockKey, middlewareKey, routeKey, workflowKey } from "./subjects";
 
@@ -182,6 +182,8 @@ export async function compileRoute(routeId: string) {
 			timeoutSeconds: routesEntity.timeoutSeconds,
 			tracingEnabled: routesEntity.tracingEnabled,
 			recordExecution: routesEntity.recordExecution,
+			devTracingEnabled: routesEntity.devTracingEnabled,
+			devRecordExecution: routesEntity.devRecordExecution,
 			routeConfig: httpRouteConfigEntity.routeConfig,
 		})
 		.from(routesEntity)
@@ -209,21 +211,21 @@ export async function compileRoute(routeId: string) {
 
 	const { blocks, edges } = await loadGraph({ type: "route", id: routeId });
 	const dependencies = await compileDependencies(route.projectId!);
-	let source: string;
+	let perEnv: PerEnv;
 	try {
-		({ source } = compileOrThrow(resource, () =>
-			compileGraph(blocks, edges, {
-				projectId: route.projectId!,
-				dependencies,
-				tracing: wantsSpans(route),
-			}),
-		));
+		perEnv = compilePerEnv(
+			route,
+			(tracing) =>
+				compileOrThrow(resource, () =>
+					compileGraph(blocks, edges, { projectId: route.projectId!, dependencies, tracing }),
+				).source,
+		);
 	} catch (error) {
 		return recordFailure(error);
 	}
 
 	const compiledAt = new Date().toISOString();
-	const artifact: RouteArtifact = {
+	const artifact: Omit<RouteArtifact, keyof PerEnv["production"]> = {
 		routeId,
 		projectId: route.projectId!,
 		projectName: route.projectName ?? "",
@@ -234,15 +236,12 @@ export async function compileRoute(routeId: string) {
 		paramsSchema: route.paramsSchema,
 		timeoutSeconds: route.timeoutSeconds,
 		acceptedContentTypes: acceptedContentTypes(route.routeConfig),
-		tracingEnabled: route.tracingEnabled,
-		recordExecution: route.recordExecution,
 		// no versioning yet — the compile timestamp is the version (see RouteArtifact)
 		routeVersion: compiledAt,
-		source,
 		middlewares: await loadRouteMiddlewareIds(routeId),
 		compiledAt,
 	};
-	await putArtifactEverywhere(routeKey(route.projectId!, routeId), artifact);
+	await putPerEnv(routeKey(route.projectId!, routeId), artifact, perEnv);
 	await logCompiled(resource);
 	logger.info(`[compiler] compiled route ${route.method} ${route.path}`, "COMPILER");
 }
@@ -270,6 +269,8 @@ export async function compileWorkflow(workflowId: string) {
 			timeoutSeconds: workflowsEntity.timeoutSeconds,
 			tracingEnabled: workflowsEntity.tracingEnabled,
 			recordExecution: workflowsEntity.recordExecution,
+			devTracingEnabled: workflowsEntity.devTracingEnabled,
+			devRecordExecution: workflowsEntity.devRecordExecution,
 		})
 		.from(workflowsEntity)
 		.leftJoin(projectsEntity, eq(workflowsEntity.projectId, projectsEntity.id))
@@ -297,36 +298,37 @@ export async function compileWorkflow(workflowId: string) {
 
 	const { blocks, edges } = await loadGraph({ type: "workflow", id: workflowId });
 	const dependencies = await compileDependencies(workflow.projectId!);
-	let source: string;
+	let perEnv: PerEnv;
 	try {
 		// `asWorkflow` is the one thing the compiler is told: a response block has
 		// nothing to respond to here, so it compiles to a plain terminal.
-		({ source } = compileOrThrow(resource, () =>
-			compileGraph(blocks, edges, {
-				asWorkflow: true,
-				projectId: workflow.projectId!,
-				dependencies,
-				tracing: wantsSpans(workflow),
-			}),
-		));
+		perEnv = compilePerEnv(
+			workflow,
+			(tracing) =>
+				compileOrThrow(resource, () =>
+					compileGraph(blocks, edges, {
+						asWorkflow: true,
+						projectId: workflow.projectId!,
+						dependencies,
+						tracing,
+					}),
+				).source,
+		);
 	} catch (error) {
 		return recordFailure(error);
 	}
 
 	const compiledAt = new Date().toISOString();
-	const artifact: WorkflowArtifact = {
+	const artifact: Omit<WorkflowArtifact, keyof PerEnv["production"]> = {
 		workflowId,
 		projectId: workflow.projectId!,
 		projectName: workflow.projectName ?? "",
 		name: workflow.name ?? "",
 		timeoutSeconds: workflow.timeoutSeconds,
-		tracingEnabled: workflow.tracingEnabled,
-		recordExecution: workflow.recordExecution,
 		workflowVersion: compiledAt,
-		source,
 		compiledAt,
 	};
-	await putArtifactEverywhere(workflowKey(workflow.projectId!, workflowId), artifact);
+	await putPerEnv(workflowKey(workflow.projectId!, workflowId), artifact, perEnv);
 	await logCompiled(resource);
 	logger.info(`[compiler] compiled workflow ${workflow.name}`, "COMPILER");
 }

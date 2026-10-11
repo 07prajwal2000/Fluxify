@@ -17,11 +17,12 @@ const DISPATCH_GRACE_MS = 10_000;
 /**
  * Admin's half of a test run (#478): send one suite to a worker serving the
  * project and wait for its verdict. The bootstrap carries resolved integration
- * credentials, so it crosses the bus sealed. Production only until #736 picks per run.
+ * credentials, so it crosses the bus sealed. A suite runs on a development
+ * worker, on development data (#736); picking the environment per run is #739.
  */
 export async function runSuiteOnWorker(
 	bootstrap: TestBootstrap,
-	env: FluxifyEnv = "production",
+	env: FluxifyEnv = "development",
 ): Promise<TestResult> {
 	const startedAt = Date.now();
 	// every phase's own budget (#483): the worker times each, this waits for all
@@ -43,7 +44,8 @@ export async function runSuiteOnWorker(
 		if (error instanceof RpcError && error.code === "NO_RESPONDERS") {
 			return {
 				ok: false,
-				error: "No worker is serving this project's routes. Start one, then run the suite again.",
+				error:
+					"No development worker is running: start a worker with FLUXIFY_ENV=development, then run the suite again.",
 				durationMs,
 			};
 		}

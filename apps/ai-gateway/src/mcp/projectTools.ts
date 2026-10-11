@@ -79,7 +79,12 @@ const recordings = (a: RunTarget) =>
 	a.kind === "sandbox"
 		? `/v1/projects/${a.projectId}/sandboxes/${a.targetId}/runs`
 		: `/v1/${a.projectId}/recordings/${a.kind}/${a.targetId}/runs`;
-const RECORDING_NOTE = `Runs exist only while the route or workflow has recordExecution on (save_route, save_workflow), and for every test run; a sandbox records every run. Recorded data is kept as-is, so it can hold headers, bodies and secrets. To debug and fix: read_doc ${DEBUG_RECIPE}.`;
+const RECORDING_NOTE = `Runs exist only while the route or workflow has recording on for that environment (devRecordExecution for development, on by default; recordExecution for production; save_route, save_workflow), and for every test run; a sandbox records every run, in development. Recorded data is kept as-is, so it can hold headers, bodies and secrets. To debug and fix: read_doc ${DEBUG_RECIPE}.`;
+
+const recordingEnv = z
+	.enum(["development", "production"])
+	.optional()
+	.describe("Only runs from this environment's workers. Both by default");
 
 /** A span without its payloads: enough to find the block that failed. */
 const shortSpan = ({ input: _i, output: _o, metadata, error, ...span }: any) => ({
@@ -158,13 +163,14 @@ export const projectTools: McpTool[] = [
 				.optional()
 				.describe("test: only test run traces, live: only normal runs. Both by default"),
 			testRunId: z.string().optional().describe("Only the traces of this test run"),
+			env: recordingEnv,
 			from: z.string().optional().describe("Only runs started at or after this ISO time"),
 			to: z.string().optional().describe("Only runs started before this ISO time"),
 			page,
 		},
 		call: async ({ get }, a) => {
 			const body = await get(recordings(a), {
-				...pick(a, ["outcome", "source", "testRunId", "from", "to", "page"]),
+				...pick(a, ["outcome", "source", "testRunId", "env", "from", "to", "page"]),
 				perPage: 50,
 			});
 			return {
@@ -178,6 +184,7 @@ export const projectTools: McpTool[] = [
 						"statusCode",
 						"spanCount",
 						"truncated",
+						"env",
 					]),
 					testLabel: r.metadata?.label,
 				})),
@@ -202,9 +209,10 @@ export const projectTools: McpTool[] = [
 				.optional()
 				.describe("Return only this span, input and output included"),
 			full: z.boolean().optional().describe("Every span with its input and output"),
+			env: recordingEnv,
 		},
 		call: async ({ get }, a) => {
-			const run = await get(`${recordings(a)}/${a.runId}`);
+			const run = await get(`${recordings(a)}/${a.runId}`, a.env ? { env: a.env } : undefined);
 			// spans only carry the block's uuid: the canvas knows its key. The agent works by
 			// key, so the uuid stays only for a block deleted since (stored spans are unchanged)
 			const keys = await blockKeys(get, { kind: a.kind, id: a.targetId, projectId: a.projectId });

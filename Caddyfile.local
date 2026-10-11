@@ -35,9 +35,11 @@
         reverse_proxy host.docker.internal:5500
     }
 
-    # sandboxes only ever run on the development worker (`bun run dev` starts it
-    # on 5602); without this the request worker would answer them with a 404
-    handle /_sandbox* {
+    # sandboxes and development routes only ever run on the development worker
+    # (`bun run dev` starts it on 5602); without this the request worker would
+    # answer them with a 404. `/_/dev` but not `/_/devices`, a user's own path.
+    @dev path /_sandbox* /_/dev /_/dev/*
+    handle @dev {
         reverse_proxy host.docker.internal:5602
     }
 
