@@ -9,7 +9,16 @@ import { NotFoundError } from "../../../errors/notFoundError";
 import { canAccessProject } from "../../../lib/acl";
 import { prodRecordingWarning } from "../../../lib/observability";
 import { dropWorkflow } from "../../../modules/compiler/service";
-import type { createSchema, listQuerySchema, listSchema, patchSchema, workflowSchema } from "./dto";
+import { versionNumberOf } from "../../../modules/versions/repository";
+import { hasUncommitted } from "../../../modules/versions/state";
+import type {
+	createSchema,
+	listQuerySchema,
+	listSchema,
+	patchSchema,
+	workflowDetailSchema,
+	workflowSchema,
+} from "./dto";
 import {
 	deleteWorkflowRow,
 	findWorkflowById,
@@ -30,7 +39,7 @@ import {
  *  query need not select it. */
 type Workflow = Omit<
 	typeof workflowsEntity.$inferSelect,
-	"createdBy" | "canvasRevision" | "blockKeyCounters"
+	"createdBy" | "canvasRevision" | "blockKeyCounters" | "committedRevision" | "headVersionId"
 >;
 
 export async function createWorkflow(
@@ -102,8 +111,13 @@ export async function deleteWorkflow(id: string, acl: AuthACL[] = []) {
 export async function getWorkflow(
 	id: string,
 	acl: AuthACL[] = [],
-): Promise<z.infer<typeof workflowSchema>> {
-	return present(await mustAccess(id, acl, "viewer"));
+): Promise<z.infer<typeof workflowDetailSchema>> {
+	const row = await mustAccess(id, acl, "viewer");
+	return {
+		...present(row),
+		headVersionNumber: await versionNumberOf(row.headVersionId),
+		uncommitted: hasUncommitted(row),
+	};
 }
 
 export async function listAllWorkflows(

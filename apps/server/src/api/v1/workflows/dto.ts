@@ -43,6 +43,14 @@ export const workflowSchema = z.object({
 	...warningField,
 });
 
+/** one workflow: where its working copy stands against its versions (#738) */
+export const workflowDetailSchema = workflowSchema.extend({
+	/** the number of the version the working copy came from; null before the first */
+	headVersionNumber: z.number().int().nullable(),
+	/** the working copy has changes no version holds */
+	uncommitted: z.boolean(),
+});
+
 export const listQuerySchema = z
 	.clone(paginationRequestQuerySchema)
 	.extend({

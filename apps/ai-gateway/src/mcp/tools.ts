@@ -211,7 +211,7 @@ export const readTools: McpTool[] = [
 		name: "get_route",
 		title: "Get route",
 		description:
-			"One route's settings, its body, query and params schemas (what call_route must send) and its before/after middlewares in run order. Its canvas (blocks and edges) is not included.",
+			"One route's settings, its body, query and params schemas (what call_route must send) and its before/after middlewares in run order. headVersionNumber is the version its working copy came from and uncommitted says it holds changes no version does (list_versions, commit_version). Its canvas (blocks and edges) is not included.",
 		role: "viewer",
 		input: { routeId: z.string().describe("Route id, from list_routes") },
 		call: async ({ get }, a) => {
@@ -238,6 +238,8 @@ export const readTools: McpTool[] = [
 					"bodySchema",
 					"querySchema",
 					"paramsSchema",
+					"headVersionNumber",
+					"uncommitted",
 				]),
 				middlewares: { before: named(m.before), after: named(m.after) },
 			};
@@ -263,7 +265,8 @@ export const readTools: McpTool[] = [
 	{
 		name: "get_workflow",
 		title: "Get workflow",
-		description: "One workflow's settings. Its canvas is not included.",
+		description:
+			"One workflow's settings, the version its working copy came from (headVersionNumber) and whether it has uncommitted changes. Its canvas is not included.",
 		role: "viewer",
 		input: { workflowId: z.string().describe("Workflow id, from list_workflows") },
 		call: async ({ get }, a) =>
@@ -278,6 +281,8 @@ export const readTools: McpTool[] = [
 				"recordExecution",
 				"devTracingEnabled",
 				"devRecordExecution",
+				"headVersionNumber",
+				"uncommitted",
 			]),
 	},
 	{

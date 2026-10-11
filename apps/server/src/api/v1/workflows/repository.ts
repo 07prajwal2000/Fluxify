@@ -1,10 +1,14 @@
 import { BlockTypes } from "@fluxify/blocks";
 import { STARTER_POSITIONS } from "@fluxify/blocks/layout";
 import { generateID } from "@fluxify/lib";
-import { and, count, desc, eq, ilike, type SQL } from "drizzle-orm";
+import { and, count, desc, eq, ilike, type SQL, sql } from "drizzle-orm";
 import { type DbTransactionType, db } from "../../../db";
 import { blocksEntity, projectsEntity, workflowsEntity } from "../../../db/schema";
 import { parentKeys, reserveBlockKeys } from "../../../modules/canvas/repository";
+import {
+	versionedSettingsChanged,
+	WORKFLOW_VERSIONED_FIELDS,
+} from "../../../modules/versions/state";
 
 type WorkflowInsert = typeof workflowsEntity.$inferInsert;
 
@@ -71,14 +75,22 @@ export async function findWorkflowByName(projectId: string, name: string, tx?: D
 	return row;
 }
 
+/** A changed timeout moves the revision (#738), as it does for a route. */
 export async function updateWorkflowRow(
 	id: string,
 	data: Partial<WorkflowInsert>,
 	tx?: DbTransactionType,
 ) {
-	const [row] = await (tx ?? db)
+	const conn = tx ?? db;
+	const [stored] = await conn
+		.select()
+		.from(workflowsEntity)
+		.where(eq(workflowsEntity.id, id))
+		.for("update");
+	const bump = !!stored && versionedSettingsChanged(stored, data, WORKFLOW_VERSIONED_FIELDS);
+	const [row] = await conn
 		.update(workflowsEntity)
-		.set(data)
+		.set(bump ? { ...data, canvasRevision: sql`${workflowsEntity.canvasRevision} + 1` } : data)
 		.where(eq(workflowsEntity.id, id))
 		.returning();
 	return row;

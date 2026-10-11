@@ -11,6 +11,8 @@ import {
 } from "../../../db/schema";
 import { BadRequestError } from "../../../errors/badRequestError";
 import { ConflictError } from "../../../errors/conflictError";
+import { touchParent } from "../../../modules/canvas/repository";
+import { routeMiddlewareIds } from "../../../modules/versions/snapshot";
 
 /**
  * Queries shared by the middleware endpoints (#534) and the route's own
@@ -175,7 +177,11 @@ export async function getRouteMiddlewares(routeId: string) {
 		.orderBy(asc(routeMiddlewaresEntity.position));
 }
 
-/** replace a route's middlewares; each one appears once, in one phase */
+/**
+ * Replace a route's middlewares; each one appears once, in one phase. Which
+ * ones, and in what order, is part of a version (#738), so a real change moves
+ * the route's revision like a canvas edit.
+ */
 export async function setRouteMiddlewares(
 	routeId: string,
 	projectId: string,
@@ -195,9 +201,12 @@ export async function setRouteMiddlewares(
 			throw new BadRequestError("Only this project's middlewares can be added to its routes");
 		}
 	}
+	const stored = await routeMiddlewareIds(routeId, tx);
 	await tx.delete(routeMiddlewaresEntity).where(eq(routeMiddlewaresEntity.routeId, routeId));
 	const rows = (["before", "after"] as const).flatMap((phase) =>
 		phases[phase].map((middlewareId, position) => ({ routeId, middlewareId, phase, position })),
 	);
 	if (rows.length) await tx.insert(routeMiddlewaresEntity).values(rows);
+	if (!Bun.deepEquals(stored, { before: phases.before, after: phases.after }))
+		await touchParent({ type: "route", id: routeId }, tx);
 }

@@ -44,6 +44,19 @@ const devObservability = () => ({
 	devRecordExecution: boolean("dev_record_execution").default(true).notNull(),
 });
 
+/**
+ * Where a route's or workflow's working copy stands against its versions (#738):
+ * `committedRevision` is the `canvasRevision` the last commit or checkout left it
+ * at (null before the first), and `headVersionId` the version it came from, which
+ * the next commit takes as its parent. Only commit and checkout move them.
+ */
+const versionHead = () => ({
+	committedRevision: integer("committed_revision"),
+	headVersionId: uuid("head_version_id").references((): AnyPgColumn => canvasVersionsEntity.id, {
+		onDelete: "set null",
+	}),
+});
+
 /* ============================================================================
  * 1. GENERAL ENUMS & TYPES
  * ============================================================================ */
@@ -308,6 +321,7 @@ export const routesEntity = pgTable(
 		...devObservability(),
 		/** #597: +1 on every canvas save, in the same transaction. A save naming an older one is refused. */
 		canvasRevision: integer("canvas_revision").default(0).notNull(),
+		...versionHead(),
 		blockKeyCounters: blockKeyCounters(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		createdBy: varchar("created_by", { length: 50 }),
@@ -364,6 +378,7 @@ export const workflowsEntity = pgTable(
 		...devObservability(),
 		/** #597: +1 on every canvas save, in the same transaction. A save naming an older one is refused. */
 		canvasRevision: integer("canvas_revision").default(0).notNull(),
+		...versionHead(),
 		blockKeyCounters: blockKeyCounters(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		createdBy: varchar("created_by", { length: 50 }),
@@ -413,6 +428,90 @@ export const sandboxesEntity = pgTable(
 			.$onUpdate(() => new Date()),
 	},
 	(table) => [index("idx_sandboxes_project_user").on(table.projectId, table.userId)],
+);
+
+export const CANVAS_VERSION_KINDS = ["route", "workflow"] as const;
+export type CanvasVersionKind = (typeof CANVAS_VERSION_KINDS)[number];
+
+/**
+ * What a version keeps of a canvas (#738): the blocks and edges with their ids
+ * and keys, and the settings that define the work. Name, description, the
+ * on/off switches and observability stay live and are not here.
+ */
+export type CanvasSnapshot = {
+	blocks: {
+		id: string;
+		key: string;
+		type: string;
+		data: unknown;
+		position: { x: number; y: number };
+	}[];
+	edges: {
+		id: string;
+		from: string;
+		to: string;
+		fromHandle: string | null;
+		toHandle: string | null;
+	}[];
+	settings: {
+		timeoutSeconds: number;
+		/** routes only */
+		path?: string | null;
+		method?: string | null;
+		bodySchema?: unknown;
+		querySchema?: unknown;
+		paramsSchema?: unknown;
+		middlewares?: { before: string[]; after: string[] };
+	};
+};
+
+/**
+ * A committed version of a route or workflow (#738). Written once and never
+ * changed: nothing updates a row here. It goes with its route or workflow, and
+ * the author's email stays when the user is gone.
+ */
+export const canvasVersionsEntity = pgTable(
+	"canvas_versions",
+	{
+		id: uuid()
+			.$defaultFn(() => generateID())
+			.primaryKey(),
+		kind: varchar({ length: 16 }).$type<CanvasVersionKind>().notNull(),
+		/** the target is one of these two, as for test suites; `kind` says which */
+		routeId: varchar("route_id", { length: 50 }).references(() => routesEntity.id, {
+			onDelete: "cascade",
+		}),
+		workflowId: varchar("workflow_id", { length: 50 }).references(() => workflowsEntity.id, {
+			onDelete: "cascade",
+		}),
+		projectId: varchar("project_id", { length: 50 })
+			.references(() => projectsEntity.id, { onDelete: "cascade" })
+			.notNull(),
+		/** v1, v2, … per route or workflow */
+		versionNumber: integer("version_number").notNull(),
+		/** the version the working copy came from when this one was committed */
+		parentId: uuid("parent_id").references((): AnyPgColumn => canvasVersionsEntity.id, {
+			onDelete: "set null",
+		}),
+		title: text().notNull(),
+		description: text(),
+		authorId: varchar("author_id", { length: 50 }).references(() => systemUsers.id, {
+			onDelete: "set null",
+		}),
+		authorEmail: text("author_email"),
+		createdAt: timestamp("created_at").defaultNow().notNull(),
+		snapshot: jsonb("snapshot").$type<CanvasSnapshot>().notNull(),
+	},
+	(table) => [
+		uniqueIndex("uq_canvas_versions_route_number").on(table.routeId, table.versionNumber),
+		uniqueIndex("uq_canvas_versions_workflow_number").on(table.workflowId, table.versionNumber),
+		index("idx_canvas_versions_project_id").on(table.projectId),
+		check(
+			"canvas_versions_one_target",
+			sql`(${table.kind} = 'route' and ${table.routeId} is not null and ${table.workflowId} is null)
+				or (${table.kind} = 'workflow' and ${table.workflowId} is not null and ${table.routeId} is null)`,
+		),
+	],
 );
 
 /**

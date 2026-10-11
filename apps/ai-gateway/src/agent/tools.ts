@@ -8,6 +8,7 @@ import { routeTools } from "../mcp/routeTools";
 import { sandboxTools } from "../mcp/sandboxTools";
 import { testSuiteTools } from "../mcp/testSuiteTools";
 import { envInput, lenient, type McpTool, readTools } from "../mcp/tools";
+import { versionTools } from "../mcp/versionTools";
 import { writeTools } from "../mcp/writeTools";
 
 const ALL: McpTool[] = [
@@ -18,6 +19,7 @@ const ALL: McpTool[] = [
 	...canvasTools,
 	...projectTools,
 	...testSuiteTools,
+	...versionTools,
 	...docsTools,
 ];
 

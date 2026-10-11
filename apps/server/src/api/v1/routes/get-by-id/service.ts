@@ -3,6 +3,8 @@ import type { AuthACL } from "../../../../db/schema";
 import { ForbiddenError } from "../../../../errors/forbidError";
 import { NotFoundError } from "../../../../errors/notFoundError";
 import { acceptedContentTypes } from "../../../../lib/routeConfig";
+import { versionNumberOf } from "../../../../modules/versions/repository";
+import { hasUncommitted } from "../../../../modules/versions/state";
 import type { responseSchema } from "./dto";
 import { getRouteById } from "./repository";
 
@@ -39,5 +41,7 @@ export default async function handleRequest(
 		devTracingEnabled: route.devTracingEnabled,
 		devRecordExecution: route.devRecordExecution,
 		acceptedContentTypes: acceptedContentTypes(route.routeConfig),
+		headVersionNumber: await versionNumberOf(route.headVersionId),
+		uncommitted: hasUncommitted(route),
 	};
 }

@@ -12,6 +12,7 @@ import { routeTools } from "./routeTools";
 import { sandboxTools } from "./sandboxTools";
 import { testSuiteTools } from "./testSuiteTools";
 import { lenient, readTools } from "./tools";
+import { versionTools } from "./versionTools";
 import { writeTools } from "./writeTools";
 
 /** Who the MCP call acts as: what `setSession` put on the request. */
@@ -67,6 +68,7 @@ export function createMcpServer(
 		...canvasTools,
 		...projectTools,
 		...testSuiteTools,
+		...versionTools,
 		...docsTools,
 	]) {
 		const api = adminApi(fetcher, auth, tool.role);

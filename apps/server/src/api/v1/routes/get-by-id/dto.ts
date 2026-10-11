@@ -24,6 +24,10 @@ export const responseSchema = z.object({
 	devTracingEnabled: z.boolean(),
 	devRecordExecution: z.boolean(),
 	acceptedContentTypes: z.array(z.string()),
+	/** the number of the version the working copy came from; null before the first (#738) */
+	headVersionNumber: z.number().int().nullable(),
+	/** the working copy has changes no version holds */
+	uncommitted: z.boolean(),
 	createdAt: z.string(),
 	createdBy: z.string(),
 	updatedAt: z.string(),
