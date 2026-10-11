@@ -116,3 +116,24 @@ export function ProjectSpotlight({ isOpen, onOpenChange, onSignOut }: ProjectSpo
 		/>
 	);
 }
+
+/**
+ * The same spotlight for a page outside the project layout (the route and
+ * workflow executions views), which owns its open state and signs out itself.
+ */
+export function ProjectSpotlightHost() {
+	const navigate = useNavigate();
+	const [isOpen, setIsOpen] = useState(false);
+	return (
+		<ProjectSpotlight
+			isOpen={isOpen}
+			onOpenChange={setIsOpen}
+			onSignOut={async () => {
+				// loaded here: the auth client reads the page origin as soon as it is imported
+				const { authClient } = await import("@/lib/auth");
+				await authClient.signOut();
+				navigate({ to: "/login" });
+			}}
+		/>
+	);
+}

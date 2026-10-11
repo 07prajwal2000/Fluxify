@@ -19,10 +19,10 @@ Recording is set per route or per workflow, and separately for each
 [environment](./environments.md#recording-and-tracing-per-environment):
 development records by default, production does not.
 
-- Open the route's or workflow's **Settings** and turn on **Recording**, or
-- Open **Track Execution** (see below) and press **Record**. Press **Recording · Stop** to turn it off.
+- Open the route's or workflow's **Settings**, go to **Advanced**, pick the **Development** or **Production** tab, turn **Recording** on or off and press **Save changes**, or
+- Open **Track Execution** (see below) and press **Record development**. Press **Development recording · Stop** to turn it off. This button only changes development. To change production, use the **Production** tab in Settings.
 
-The change applies right away, without pressing Save. While it is on, the canvas shows a red **Recording Active** badge.
+The change applies right away, and a message tells you when it has. Turning production recording on shows a warning, because recording is heavy at scale. Wherever a route or workflow is listed (the Routes and Workflows pages, the canvas and the Executions picker), a small badge shows what is recording: a blue dot for development, a red dot for production. One environment reads **Development recording** or **Production recording**; both read **Recording** with two dots. Hover the badge for details.
 
 Recording only saves runs that happen while it is on. Earlier runs were never kept.
 
@@ -68,9 +68,10 @@ The left side lists recorded runs, newest first. Each row shows:
 
 - a ✓ or ✗ for success or failure, and the status code of a route;
 - when the run started and how long it took;
+- a **Dev** or **Prod** badge for the environment it ran in;
 - a **Test** badge if a [test suite](#test-traces) made the run.
 
-Filter by **All runs**, **Test runs** or **Live runs**. Click a run to open it.
+Filter by **All runs**, **Test runs** or **Live runs**, and by environment: **All environments**, **Development** or **Production**. Click a run to open it.
 
 ### The run on the canvas
 

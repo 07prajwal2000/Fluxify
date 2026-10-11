@@ -82,6 +82,7 @@ test("shows the development URL on the project's subdomain, and copies it", asyn
 		expect(document.body.textContent).toContain("http://billing.example.test:5601/_/dev"),
 	);
 
+	expect(document.body.textContent).toContain("subdomain is not needed");
 	fireEvent.click(button("Copy URL")!);
 	await until(() => expect(copied).toEqual(["http://billing.example.test:5601/_/dev"]));
 });
@@ -89,6 +90,17 @@ test("shows the development URL on the project's subdomain, and copies it", asyn
 test("without a subdomain the development URL is on the shared host", async () => {
 	setup("creator");
 	await until(() => expect(document.body.textContent).toContain("http://localhost:5601/_/dev"));
+});
+
+test("uses devWorkerUrl when configured in public settings", async () => {
+	publicSettings.mockResolvedValue({
+		hosting: { baseDomain: "example.test" },
+		devWorkerUrl: "http://dev-worker.internal:8080",
+	} as never);
+	setup("creator");
+	await until(() =>
+		expect(document.body.textContent).toContain("http://dev-worker.internal:8080/_/dev"),
+	);
 });
 
 test("a creator can copy the token but not rotate it", async () => {

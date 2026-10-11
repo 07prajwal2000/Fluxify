@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { z } from "zod";
+import type { Observability } from "@/components/settings/observability";
 import {
 	type CanvasSavePayload,
 	type ListRoutesQuery,
@@ -53,7 +54,16 @@ export const routesQuery = {
 		mutation(routeId: string) {
 			const qc = useQueryClient();
 			return useMutation({
-				mutationFn: (body: UpdateRouteBody) => routesService.update(routeId, body),
+				// The full update takes the definition only; the four recording and
+				// tracing switches go through the partial update (#736).
+				mutationFn: async ({
+					observability,
+					...body
+				}: UpdateRouteBody & { observability?: Partial<Observability> }) => {
+					const saved = await routesService.update(routeId, body);
+					if (!observability || Object.keys(observability).length === 0) return saved;
+					return routesService.updatePartial(routeId, observability);
+				},
 				onSuccess: () => {
 					qc.invalidateQueries({ queryKey: LIST_KEY });
 					qc.invalidateQueries({ queryKey: ["routes", routeId, "by-id"] });

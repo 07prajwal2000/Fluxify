@@ -2,6 +2,7 @@ import { cn } from "@fluxify/components";
 import { Link } from "@tanstack/react-router";
 import type { IconType } from "react-icons";
 import { TbFlask, TbHistory, TbTopologyStar3 } from "react-icons/tb";
+import { ProjectSpotlightHost } from "@/components/common/ProjectSpotlight";
 import { RecordingIndicator } from "@/components/recordings/RecordingControls";
 import { routesQuery } from "@/query/routesQuery";
 import { workflowsQuery } from "@/query/workflowsQuery";
@@ -56,7 +57,7 @@ export function RouteWorkbenchTabs({ projectId, routeId }: { projectId: string; 
 	return (
 		<div className="flex items-center gap-2">
 			<WorkbenchTabs tabs={ROUTE_TABS} params={{ projectId, routeId }} />
-			{route?.recordExecution && <RecordingIndicator />}
+			<RecordingIndicator dev={route?.devRecordExecution} prod={route?.recordExecution} />
 		</div>
 	);
 }
@@ -73,7 +74,7 @@ export function WorkflowWorkbenchTabs({
 	return (
 		<div className="flex items-center gap-2">
 			<WorkbenchTabs tabs={WORKFLOW_TABS} params={{ projectId, workflowId }} />
-			{workflow?.recordExecution && <RecordingIndicator />}
+			<RecordingIndicator dev={workflow?.devRecordExecution} prod={workflow?.recordExecution} />
 		</div>
 	);
 }
@@ -87,10 +88,17 @@ export function RouteWorkbenchHeader({
 	className?: string;
 }) {
 	return (
-		<header
-			className={cn("flex items-center gap-3 border-b border-border px-4 py-2 text-sm", className)}
-		>
-			{children}
-		</header>
+		<>
+			<header
+				className={cn(
+					"flex items-center gap-3 border-b border-border px-4 py-2 text-sm",
+					className,
+				)}
+			>
+				{children}
+			</header>
+			{/* Ctrl/Cmd+K, as on the canvas and the project pages */}
+			<ProjectSpotlightHost />
+		</>
 	);
 }

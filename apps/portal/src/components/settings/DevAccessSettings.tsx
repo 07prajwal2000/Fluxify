@@ -3,14 +3,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { TbCopy, TbRefresh } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
-import { useProjectApiBaseUrl } from "@/components/settings/SubdomainField";
+import { DEV_ROUTE_PREFIX, DEV_URL_NOTE } from "@/components/sandboxes/sandboxRequest";
+import { useDevWorkerUrl } from "@/components/sandboxes/useDevWorkerUrl";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { projectDevTokenService } from "@/services/projectDevToken";
 import { useCanEditProject, useIsProjectAdmin } from "@/store/auth";
 
 const HEADER = "x-fluxify-dev-token";
-/** Where development routes live, under the project's own host (its subdomain, when it has one). */
-const DEV_PREFIX = "/_/dev";
 const queryKey = (projectId: string) => ["project-dev-token", projectId];
 
 /** Shows the shape, never the secret: the real token only ever goes to the clipboard. */
@@ -32,7 +31,7 @@ async function copyText(text: string, done: string) {
 
 function DevAccess({ projectId }: { projectId: string }) {
 	const canRotate = useIsProjectAdmin(projectId);
-	const devUrl = `${useProjectApiBaseUrl(projectId)}${DEV_PREFIX}`;
+	const devUrl = `${useDevWorkerUrl(projectId)}${DEV_ROUTE_PREFIX}`;
 	const client = useQueryClient();
 	const [confirming, setConfirming] = useState(false);
 
@@ -66,6 +65,7 @@ function DevAccess({ projectId }: { projectId: string }) {
 				<div className="flex min-w-0 flex-col gap-1">
 					<h3 className="font-medium text-foreground">Development URL</h3>
 					<code className="truncate text-sm text-muted">{devUrl}</code>
+					<p className="text-xs text-muted">{DEV_URL_NOTE}</p>
 				</div>
 				<Button variant="secondary" onPress={() => copyText(devUrl, "URL copied")}>
 					<TbCopy size={16} /> Copy URL

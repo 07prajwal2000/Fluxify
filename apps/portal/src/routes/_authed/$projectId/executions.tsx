@@ -7,7 +7,6 @@ import { RouteApiPlayground } from "@/components/RouteApiPlayground";
 import { ExecutionRecordings } from "@/components/recordings/ExecutionRecordings";
 import { ExecutionTargetHeader } from "@/components/recordings/ExecutionTargetHeader";
 import type { Replay } from "@/components/recordings/replay";
-import { useProjectApiBaseUrl } from "@/components/settings/SubdomainField";
 import { WorkflowRunModal } from "@/components/workflows/WorkflowRunModal";
 import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
 import { projectsQuery } from "@/query/projectsQuery";
@@ -38,7 +37,6 @@ function ExecutionsPage() {
 	const navigate = Route.useNavigate();
 	const { data: project } = projectsQuery.byId.useQuery(projectId);
 	usePageTitle(formatProjectTitle(project?.name, "Executions"));
-	const apiBaseUrl = useProjectApiBaseUrl(projectId);
 
 	const routesRes = routesQuery.getAll.useQuery({ projectId, page: 1, perPage: 50 });
 	const workflowsRes = workflowsQuery.getAll.useQuery({ projectId, page: 1, perPage: 50 });
@@ -67,9 +65,9 @@ function ExecutionsPage() {
 		}
 
 		// Priority 1: Target actively recording
-		const recordingRoute = routes.find((r) => r.recordExecution);
+		const recordingRoute = routes.find((r) => r.recordExecution || r.devRecordExecution);
 		if (recordingRoute) return { type: "route" as const, id: recordingRoute.id };
-		const recordingWorkflow = workflows.find((w) => w.recordExecution);
+		const recordingWorkflow = workflows.find((w) => w.recordExecution || w.devRecordExecution);
 		if (recordingWorkflow) return { type: "workflow" as const, id: recordingWorkflow.id };
 
 		// Priority 2: First route or first workflow
@@ -89,14 +87,26 @@ function ExecutionsPage() {
 	const mergedRoutes = useMemo(() => {
 		if (targetType !== "route" || !activeRouteRes.data) return routes;
 		return routes.map((r) =>
-			r.id === targetId ? { ...r, recordExecution: activeRouteRes.data.recordExecution } : r,
+			r.id === targetId
+				? {
+						...r,
+						recordExecution: activeRouteRes.data.recordExecution,
+						devRecordExecution: activeRouteRes.data.devRecordExecution,
+					}
+				: r,
 		);
 	}, [routes, activeRouteRes.data, targetType, targetId]);
 
 	const mergedWorkflows = useMemo(() => {
 		if (targetType !== "workflow" || !activeWorkflowRes.data) return workflows;
 		return workflows.map((w) =>
-			w.id === targetId ? { ...w, recordExecution: activeWorkflowRes.data.recordExecution } : w,
+			w.id === targetId
+				? {
+						...w,
+						recordExecution: activeWorkflowRes.data.recordExecution,
+						devRecordExecution: activeWorkflowRes.data.devRecordExecution,
+					}
+				: w,
 		);
 	}, [workflows, activeWorkflowRes.data, targetType, targetId]);
 
@@ -215,7 +225,6 @@ function ExecutionsPage() {
 									<RouteApiPlayground
 										key={targetId}
 										routeId={targetId}
-										baseUrl={apiBaseUrl}
 										isFramed={false}
 										replay={replay?.kind === "request" ? replay.state : undefined}
 									/>

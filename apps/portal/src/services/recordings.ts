@@ -36,6 +36,7 @@ export const recordingsService = {
 			page?: number;
 			perPage?: number;
 			outcome?: "success" | "failure";
+			env?: "development" | "production";
 		} & TestTraceFilter = {},
 	): Promise<RecordedRunList> {
 		const params = new URLSearchParams();
@@ -44,6 +45,7 @@ export const recordingsService = {
 		if (query.outcome) {
 			params.set("outcome", query.outcome);
 		}
+		if (query.env) params.set("env", query.env);
 		if (query.source) params.set("source", query.source);
 		if (query.testRunId) params.set("testRunId", query.testRunId);
 		const result = await httpClient.get(`${runsUrl(projectId, target)}?${params.toString()}`);

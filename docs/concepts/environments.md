@@ -31,9 +31,14 @@ callers and your live triggers reach **production**.
 | Sandboxes and quick block runs | Development |
 | Any route at `/_/dev/<path>` with the [development token](#development-access) | Development |
 
+The route playground sends its request to the route's `/_/dev` address, with
+your project's development token added for you. You never see the token. The
+URL preview shows your project's address, subdomain included; the request itself
+goes to the development worker, which picks the project from the token.
+
 If no development worker is running, these development features answer
-"start a worker with FLUXIFY_ENV=development". They never fall back to
-production.
+"start a worker with FLUXIFY_ENV=development". In the portal the playground
+shows that message and cannot send. They never fall back to production.
 
 ## The two are kept apart
 
@@ -139,8 +144,10 @@ The route behaves exactly as it does on its public URL: the same method, the
 same request checks and the same middlewares. Your blocks see the path without
 `/_/dev` (`/users/42` above), and they never see the token.
 
-The token also picks the project. A project with its own subdomain only takes
-its own token on that subdomain.
+The token also picks the project, so you do not need the project's subdomain:
+the development address works on a bare host such as `localhost:5602` too. If you
+do use a subdomain, it must be the one of the token's own project; another
+project's subdomain answers `404`.
 
 ## Recording and tracing per environment
 
@@ -153,9 +160,16 @@ environment**, on every route and every workflow.
 | Recording | **On** by default | Off by default |
 | Tracing | Off by default | Off by default |
 
-A change applies straight away, without a save. It is a live setting of the
-route or workflow, never part of its saved graph. Each recorded run is marked with the environment it ran in, so you can
-look at development runs and production runs apart.
+To change them, open the route's or workflow's **Settings**, go to
+**Advanced** and pick the **Development** or **Production** tab. Each tab has a
+**Recording** switch and a **Tracing (OTel)** switch. **Development** is shown
+first. Press **Save changes** and the setting applies right away. It is a live
+setting of the route or workflow, never part of its saved graph.
+
+Each recorded run is marked **Dev** or **Prod** in the run list. The
+**Executions** page has an environment filter (**All environments**,
+**Development** or **Production**) so you can look at development runs and
+production runs apart.
 
 ::: warning Recording on production
 Turning production recording on shows a warning: "Recording is heavy at scale.
@@ -180,7 +194,7 @@ curl -H "x-fluxify-dev-token: fxd_..." https://your-host/...
 
 | What | Detail |
 | :--- | :--- |
-| Where to find it | Project settings, **Development access**. It also shows your development URL, ending in `/_/dev`. If the project has a subdomain, the URL uses it. |
+| Where to find it | Project settings, **Development access**. It also shows your development URL, ending in `/_/dev`. If your team set a separate address for the development worker, the URL starts with it. Otherwise, if the project has a subdomain, the URL uses it. |
 | Who can copy it | Creators and project admins. Viewers don't see the section. |
 | Who can rotate it | Project admins only. |
 | What it opens | Development routes and sandboxes of that project. Nothing else. |
@@ -192,12 +206,6 @@ frontend, has to be updated.
 ::: info It never opens production
 A production worker ignores this header. The token cannot reach your live
 routes, whatever you send.
-:::
-
-::: tip Sandboxes take it today
-[Sandboxes](/concepts/sandbox) already accept this token, at `/_sandbox/<id>/…`
-on your normal address. Development routes arrive with the development routing
-work.
 :::
 
 ## Related

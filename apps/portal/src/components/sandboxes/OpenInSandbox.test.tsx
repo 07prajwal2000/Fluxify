@@ -136,7 +136,7 @@ test("a route with middlewares and a body schema asks first, listing what is not
 	await until(() => button("Open in sandbox"));
 	await settle();
 	fireEvent.click(button("Open in sandbox"));
-	await until(() => button("Copy anyway"));
+	await until(() => button("Create sandbox"));
 
 	const text = document.body.textContent ?? "";
 	expect(text).toContain("middlewares are not copied");
@@ -144,7 +144,7 @@ test("a route with middlewares and a body schema asks first, listing what is not
 	expect(create).not.toHaveBeenCalled();
 	expect(put).not.toHaveBeenCalled();
 
-	fireEvent.click(button("Copy anyway"));
+	fireEvent.click(button("Create sandbox"));
 	await until(() => expect(opened).toHaveBeenCalled());
 
 	expect(create).toHaveBeenCalledWith("p1", { name: "Orders sandbox" });
@@ -172,15 +172,20 @@ test("a route with middlewares and a body schema asks first, listing what is not
 	expect(opened).toHaveBeenCalledWith("sb9");
 });
 
-test("a route with nothing to warn about copies at once, without a dialog", async () => {
+test("a click only asks: nothing is created until the dialog is confirmed", async () => {
 	const { create } = stubServer();
 	renderButton("route");
 	await until(() => button("Open in sandbox"));
 	await settle();
 	fireEvent.click(button("Open in sandbox"));
+	await until(() => button("Create sandbox"));
+	expect(document.body.textContent).not.toContain("do not come along");
+	expect(create).not.toHaveBeenCalled();
+	expect(opened).not.toHaveBeenCalled();
+
+	fireEvent.click(button("Create sandbox"));
 	await until(() => expect(opened).toHaveBeenCalled());
 	expect(create).toHaveBeenCalledWith("p1", { name: "Orders sandbox" });
-	expect(document.body.textContent).not.toContain("Copy anyway");
 });
 
 test("a workflow copies the same way and never warns", async () => {
@@ -188,6 +193,8 @@ test("a workflow copies the same way and never warns", async () => {
 	renderButton("workflow");
 	await until(() => button("Open in sandbox"));
 	fireEvent.click(button("Open in sandbox"));
+	await until(() => button("Create sandbox"));
+	fireEvent.click(button("Create sandbox"));
 	await until(() => expect(opened).toHaveBeenCalled());
 	expect(create).toHaveBeenCalledWith("p1", { name: "Orders sandbox" });
 	expect(put).toHaveBeenCalledTimes(1);
@@ -199,6 +206,8 @@ test("a refused save removes the sandbox it made and does not navigate", async (
 	renderButton("workflow");
 	await until(() => button("Open in sandbox"));
 	fireEvent.click(button("Open in sandbox"));
+	await until(() => button("Create sandbox"));
+	fireEvent.click(button("Create sandbox"));
 	await until(() => expect(remove).toHaveBeenCalledWith("p1", "sb9"));
 	expect(opened).not.toHaveBeenCalled();
 });

@@ -31,6 +31,7 @@ const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
 export function ApiPlayground({
 	route: declaredRoute,
 	baseUrl = "",
+	urlNote,
 	onSend,
 	className,
 	isFramed = true,
@@ -300,6 +301,7 @@ export function ApiPlayground({
 						queryRows={queryRows}
 					/>
 				</div>
+				{urlNote && <p className="mt-1 text-[11px] text-muted">{urlNote}</p>}
 			</div>
 			<div
 				className="min-h-0 flex-1 overflow-hidden"

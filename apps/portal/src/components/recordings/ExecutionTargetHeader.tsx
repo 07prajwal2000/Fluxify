@@ -1,5 +1,6 @@
 import { CustomSelect, type CustomSelectOption, Dropdown } from "@fluxify/components";
 import { TbDotsVertical, TbPlayerPlay, TbTopologyStar3 } from "react-icons/tb";
+import { RecordingIndicator } from "@/components/recordings/RecordingControls";
 import type { RouteRow } from "@/routes/_authed/$projectId/routes";
 import type { Workflow } from "@/services/workflows";
 
@@ -32,9 +33,7 @@ export function ExecutionTargetHeader({
 			label,
 			node: (
 				<span className="flex items-center gap-2 truncate">
-					{r.recordExecution && (
-						<span className="size-2 shrink-0 animate-pulse rounded-full bg-danger" aria-hidden />
-					)}
+					<RecordingIndicator compact dev={r.devRecordExecution} prod={r.recordExecution} />
 					<span className="truncate">{label}</span>
 				</span>
 			),
@@ -48,9 +47,7 @@ export function ExecutionTargetHeader({
 			label,
 			node: (
 				<span className="flex items-center gap-2 truncate">
-					{w.recordExecution && (
-						<span className="size-2 shrink-0 animate-pulse rounded-full bg-danger" aria-hidden />
-					)}
+					<RecordingIndicator compact dev={w.devRecordExecution} prod={w.recordExecution} />
 					<span className="truncate">{label}</span>
 				</span>
 			),

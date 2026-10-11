@@ -19,7 +19,6 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
 import { RouteApiPlayground } from "@/components/RouteApiPlayground";
 import { RecordingIndicator } from "@/components/recordings/RecordingControls";
-import { useProjectApiBaseUrl } from "@/components/settings/SubdomainField";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
 import { projectsQuery } from "@/query/projectsQuery";
@@ -40,13 +39,13 @@ export type RouteRow = {
 	path?: string | null;
 	active?: boolean | null;
 	recordExecution?: boolean | null;
+	devRecordExecution?: boolean | null;
 };
 
 function RoutesPage() {
 	const { projectId } = Route.useParams();
 	const { data: project } = projectsQuery.byId.useQuery(projectId);
 	usePageTitle(formatProjectTitle(project?.name, "Routes"));
-	const apiBaseUrl = useProjectApiBaseUrl(projectId);
 	const navigate = useNavigate();
 	const [page, setPage] = useState(1);
 	const [search, setSearch] = useState("");
@@ -149,7 +148,10 @@ function RoutesPage() {
 									<Table.Cell>
 										<div className="flex items-center gap-2">
 											<span className="font-mono text-sm">{route.path}</span>
-											{route.recordExecution && <RecordingIndicator />}
+											<RecordingIndicator
+												dev={route.devRecordExecution}
+												prod={route.recordExecution}
+											/>
 										</div>
 									</Table.Cell>
 									<Table.Cell>{route.name}</Table.Cell>
@@ -240,7 +242,6 @@ function RoutesPage() {
 									<RouteApiPlayground
 										key={pendingPlayground.id}
 										routeId={pendingPlayground.id}
-										baseUrl={apiBaseUrl}
 										isFramed={false}
 									/>
 								</Modal.Body>

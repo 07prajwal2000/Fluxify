@@ -28,7 +28,9 @@ import { useEffect, useMemo, useState } from "react";
 import { TbAlertTriangle } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Section } from "@/components/common/Section";
-import { RecordingSwitch, useRetentionNote } from "@/components/recordings/RecordingControls";
+import { useRetentionNote } from "@/components/recordings/RecordingControls";
+import { ObservabilityTabs } from "@/components/settings/ObservabilityTabs";
+import { changedObservability, type Observability } from "@/components/settings/observability";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { projectSettingsKeysQuery } from "@/query/projectSettingsKeysQuery";
 import { routesQuery } from "@/query/routesQuery";
@@ -138,7 +140,13 @@ function RouteSettingsForm({
 	);
 	const [timeoutSeconds, setTimeoutSeconds] = useState(route.timeoutSeconds);
 	const [active, setActive] = useState(route.active);
-	const [tracingEnabled, setTracingEnabled] = useState(route.tracingEnabled);
+	const [observability, setObservability] = useState<Observability>({
+		devRecordExecution: route.devRecordExecution,
+		devTracingEnabled: route.devTracingEnabled,
+		recordExecution: route.recordExecution,
+		tracingEnabled: route.tracingEnabled,
+	});
+	const [observabilityBaseline] = useState(observability);
 	// Configured params survive a path edit: keyed by param name, not position.
 	const [paramConfig, setParamConfig] = useState<Record<string, SchemaProperty>>(() =>
 		paramConfigFrom(route.paramsSchema),
@@ -180,7 +188,6 @@ function RouteSettingsForm({
 			path,
 			method: method as HttpMethod,
 			active,
-			tracingEnabled,
 			timeoutSeconds,
 			acceptedContentTypes: hasBody ? (contentTypes as [ContentType, ...ContentType[]]) : undefined,
 			// null, not undefined: an omitted field is skipped by the update, which
@@ -194,7 +201,6 @@ function RouteSettingsForm({
 			path,
 			method,
 			active,
-			tracingEnabled,
 			timeoutSeconds,
 			hasBody,
 			contentTypes,
@@ -207,7 +213,9 @@ function RouteSettingsForm({
 
 	// Stored once from the route as loaded, so "dirty" survives a refetch.
 	const [baseline] = useState(() => JSON.stringify(payload));
-	const isDirty = JSON.stringify(payload) !== baseline;
+	const observabilityChanges = changedObservability(observabilityBaseline, observability);
+	const isDirty =
+		JSON.stringify(payload) !== baseline || Object.keys(observabilityChanges).length > 0;
 
 	// The tab list shrinks with the method and the path; never sit on a gone tab.
 	const tabs = useMemo(
@@ -228,13 +236,17 @@ function RouteSettingsForm({
 	}, [tabs, tab]);
 
 	function save() {
-		update.mutate(payload, {
-			onSuccess: () => {
-				toast.success("Route settings saved");
-				onSaved();
+		update.mutate(
+			{ ...payload, observability: observabilityChanges },
+			{
+				onSuccess: (result) => {
+					toast.success("Route settings saved");
+					if (result?.warning) toast.warning(result.warning);
+					onSaved();
+				},
+				onError: (error) => showErrorNotification(error as Error),
 			},
-			onError: (error) => showErrorNotification(error as Error),
-		});
+		);
 	}
 
 	return (
@@ -400,41 +412,31 @@ function RouteSettingsForm({
 
 					<Tabs.Panel id="advanced" className="min-h-0 flex-1 overflow-y-auto p-5">
 						<Section
-							title="Telemetry"
-							description="Collect request telemetry for this route. Leave it off when latency is the priority; turn it on when you need visibility into what a request did."
+							title="Observability"
+							description={`What to keep and export for each environment. Recording keeps runs here, to replay on the canvas. Tracing sends spans to your own backend. Applies right away, and is not part of a route version. ${retentionNote}`}
 						>
-							<Switch
-								isSelected={tracingEnabled}
-								onChange={setTracingEnabled}
-								isDisabled={readOnly}
-								label={tracingEnabled ? "Telemetry enabled" : "Telemetry disabled"}
+							<ObservabilityTabs
+								value={observability}
+								onChange={setObservability}
+								readOnly={readOnly}
+								noun="route"
 							/>
 							<RouteTelemetryHelp projectId={route.projectId} />
-							{tracingEnabled && !hasTelemetryDestination && (
-								<Alert status="warning">
-									<Alert.Indicator>
-										<TbAlertTriangle size={16} />
-									</Alert.Indicator>
-									<Alert.Content>
-										<Alert.Title>No telemetry destination</Alert.Title>
-										<Alert.Description>
-											This project has no traces or metrics destination, so this route's telemetry
-											is not exported. Configure one in Project Settings → Telemetry.
-										</Alert.Description>
-									</Alert.Content>
-								</Alert>
-							)}
-						</Section>
-
-						<Section
-							title="Recording"
-							description={`Keep a copy of each run in Fluxify, inputs and outputs included, to replay it on the canvas from the Executions tab. Telemetry sends traces to your own backend; Recording keeps them here. Applies right away. ${retentionNote}`}
-						>
-							<RecordingSwitch
-								projectId={route.projectId}
-								target={{ type: "route", id: route.id }}
-								readOnly={readOnly}
-							/>
+							{(observability.tracingEnabled || observability.devTracingEnabled) &&
+								!hasTelemetryDestination && (
+									<Alert status="warning">
+										<Alert.Indicator>
+											<TbAlertTriangle size={16} />
+										</Alert.Indicator>
+										<Alert.Content>
+											<Alert.Title>No telemetry destination</Alert.Title>
+											<Alert.Description>
+												This project has no traces or metrics destination, so this route's telemetry
+												is not exported. Configure one in Project Settings → Telemetry.
+											</Alert.Description>
+										</Alert.Content>
+									</Alert>
+								)}
 						</Section>
 
 						{workerTimeoutsEnabled && (

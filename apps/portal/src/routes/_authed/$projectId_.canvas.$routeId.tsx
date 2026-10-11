@@ -17,7 +17,6 @@ import { RouteSwitcher } from "@/components/routes/RouteSwitcher";
 import { RouteWorkbenchTabs } from "@/components/routes/RouteWorkbenchTabs";
 import { extractPathParams } from "@/components/routes/routeForm";
 import { OpenInSandboxButton } from "@/components/sandboxes/OpenInSandboxButton";
-import { useProjectApiBaseUrl } from "@/components/settings/SubdomainField";
 import { createRouteHead, usePageTitle } from "@/lib/seo";
 import { useProjectPackageTypes } from "@/query/projectPackagesQuery";
 import { routesQuery } from "@/query/routesQuery";
@@ -60,7 +59,6 @@ function RouteCanvasPage() {
 	const navigate = useNavigate();
 	const { block, error } = Route.useSearch();
 	useProjectPackageTypes(projectId);
-	const apiBaseUrl = useProjectApiBaseUrl(projectId);
 	const save = routesQuery.saveCanvas.mutation(routeId);
 	const canEdit = useCanEditProject(projectId);
 	const [settingsOpen, setSettingsOpen] = useState(false);
@@ -101,13 +99,7 @@ function RouteCanvasPage() {
 				items={items}
 				compileTarget={{ projectId, resourceType: "route", resourceId: routeId }}
 				playgroundContent={
-					<RouteApiPlayground
-						key={routeId}
-						routeId={routeId}
-						baseUrl={apiBaseUrl}
-						isFramed={false}
-						enableCache
-					/>
+					<RouteApiPlayground key={routeId} routeId={routeId} isFramed={false} enableCache />
 				}
 				reload={() => routesService.getCanvasItems(routeId)}
 				getVersion={() => routesService.getCanvasVersion(routeId)}

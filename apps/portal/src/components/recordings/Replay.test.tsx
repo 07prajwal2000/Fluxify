@@ -40,6 +40,7 @@ const { publicSettingsService } = await import("@/services/publicSettings");
 const { projectSettingsKeysService } = await import("@/services/projectSettingsKeys");
 const { projectDevTokenService } = await import("@/services/projectDevToken");
 const { recordingsService } = await import("@/services/recordings");
+const { sandboxesService } = await import("@/services/sandboxes");
 
 afterEach(() => {
 	cleanup();
@@ -175,17 +176,19 @@ test("the route playground starts from the replayed request, not the cached one"
 		path: "/orders/:id",
 		projectId: "p1",
 	} as never);
+	spyOn(publicSettingsService, "get").mockResolvedValue({
+		license: { status: "community" },
+		devWorkerUrl: "http://localhost:5602",
+	} as never);
+	spyOn(projectSettingsKeysService, "getAll").mockResolvedValue({} as never);
+	spyOn(projectDevTokenService, "get").mockResolvedValue({ token: "t" } as never);
+	spyOn(sandboxesService, "devWorkerOnline").mockResolvedValue(true);
 	const replay = replayOf(runOf(REQUEST).spans as never);
 	if (replay?.kind !== "request") throw new Error("expected a request replay");
 	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	render(
 		<QueryClientProvider client={client}>
-			<RouteApiPlayground
-				routeId="r1"
-				baseUrl="http://api.test"
-				enableCache
-				replay={replay.state}
-			/>
+			<RouteApiPlayground routeId="r1" enableCache replay={replay.state} />
 		</QueryClientProvider>,
 	);
 	await until(() => {

@@ -1,4 +1,4 @@
-import { Button, cn, Spinner, Switch, Tooltip } from "@fluxify/components";
+import { Button, cn, Spinner, Tooltip } from "@fluxify/components";
 import { TbPlayerRecord } from "react-icons/tb";
 import { publicSettingsQuery } from "@/query/publicSettingsQuery";
 import { useRecordingSwitch } from "@/query/recordingsQuery";
@@ -16,7 +16,7 @@ export function useRetentionNote(): string {
 
 export const RETENTION_NOTE = formatRetentionNote(30);
 
-/** Track Execution's record button: a live dot while recording is on. */
+/** Track Execution's record button: development only. Production is set in the settings. */
 export function RecordButton({
 	projectId,
 	target,
@@ -35,7 +35,7 @@ export function RecordButton({
 	return recording.isOn ? (
 		<Button size="sm" variant="outline" onPress={() => recording.set(false)}>
 			<span className="size-2 animate-pulse rounded-full bg-danger" aria-hidden />
-			Recording · Stop
+			Development recording · Stop
 		</Button>
 	) : (
 		<Button
@@ -44,57 +44,66 @@ export function RecordButton({
 			isDisabled={recording.isLoading}
 			onPress={() => recording.set(true)}
 		>
-			<TbPlayerRecord size={16} /> Record
+			<TbPlayerRecord size={16} /> Record development
 		</Button>
 	);
 }
 
-/** The settings-modal switch. Applies on its own (it recompiles), not with Save. */
-export function RecordingSwitch({
-	projectId,
-	target,
-	readOnly,
-}: {
-	projectId: string;
-	target: RecordingTarget;
-	readOnly: boolean;
-}) {
-	const recording = useRecordingSwitch(projectId, target);
-	return (
-		<div className="flex items-center gap-2">
-			<Switch
-				isSelected={recording.isOn}
-				onChange={recording.set}
-				isDisabled={readOnly || recording.isLoading || recording.isApplying}
-				label={
-					recording.isApplying ? "Applying…" : recording.isOn ? "Recording on" : "Recording off"
-				}
-			/>
-			{recording.isApplying && <Spinner size="sm" />}
-		</div>
-	);
-}
+const DOT = {
+	development: "bg-accent",
+	production: "bg-danger",
+} as const;
 
 /**
- * Prominent indicator shown when execution recording is active.
- * Warns that capturing execution traces introduces performance overhead and is for debugging only.
+ * Shows which environments are recording a route or workflow: one pulsing dot per
+ * environment (development accent, production danger), with a tooltip. Nothing when
+ * neither is on. `compact` is the dots alone, for tight lists.
  */
-export function RecordingIndicator({ className }: { className?: string }) {
+export function RecordingIndicator({
+	dev,
+	prod,
+	compact,
+	className,
+}: {
+	dev?: boolean | null;
+	prod?: boolean | null;
+	compact?: boolean;
+	className?: string;
+}) {
+	if (!dev && !prod) return null;
+	const label = dev && prod ? "Recording" : dev ? "Development recording" : "Production recording";
+	const detail = [
+		dev && "Development runs are being recorded.",
+		prod &&
+			"Production runs are being recorded, which degrades performance. Prefer tracing for production.",
+	]
+		.filter(Boolean)
+		.join(" ");
+	const dots = (
+		<span className="inline-flex items-center gap-1" aria-hidden>
+			{dev && <span className={cn("size-2 animate-pulse rounded-full", DOT.development)} />}
+			{prod && <span className={cn("size-2 animate-pulse rounded-full", DOT.production)} />}
+		</span>
+	);
+	if (compact) {
+		return (
+			<span className={cn("inline-flex shrink-0", className)} title={`${label}. ${detail}`}>
+				{dots}
+			</span>
+		);
+	}
 	return (
 		<Tooltip>
 			<span
 				className={cn(
-					"inline-flex items-center gap-1.5 rounded-full border border-danger/40 bg-danger/10 px-2 py-0.5 text-xs font-medium text-danger",
+					"inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2 py-0.5 text-xs font-medium text-foreground",
 					className,
 				)}
 			>
-				<span className="size-2 animate-pulse rounded-full bg-danger" aria-hidden />
-				<span>Recording Active</span>
+				{dots}
+				<span>{label}</span>
 			</span>
-			<Tooltip.Content>
-				Execution recording is active. Every execution payload and trace span is captured, which
-				degrades performance. For debugging only.
-			</Tooltip.Content>
+			<Tooltip.Content>{detail}</Tooltip.Content>
 		</Tooltip>
 	);
 }

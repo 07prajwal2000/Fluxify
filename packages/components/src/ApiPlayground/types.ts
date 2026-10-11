@@ -118,6 +118,8 @@ export type ApiPlaygroundProps = {
 	route: ApiPlaygroundRoute;
 	/** Origin or base URL, such as `http://localhost:8000`. */
 	baseUrl?: string;
+	/** A short note under the URL preview, for what the address does not show. */
+	urlNote?: string;
 	/** A caller owns transport, auth, CORS policy, and response parsing. */
 	onSend: (request: ApiPlaygroundRequest) => Promise<ApiPlaygroundResponse>;
 	className?: string;
