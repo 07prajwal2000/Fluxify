@@ -1,20 +1,40 @@
 import { Button, cn, Dropdown, Label, toast } from "@fluxify/components";
-import { TbCopy, TbDotsVertical, TbFlask, TbGitBranch } from "react-icons/tb";
+import {
+	TbArrowBackUp,
+	TbCopy,
+	TbDotsVertical,
+	TbFlask,
+	TbGitBranch,
+	TbPlayerRecord,
+	TbRocket,
+} from "react-icons/tb";
 import { getTimeAgo } from "@/lib/datetime";
 import type { Version } from "@/services/versions";
 
-export type VersionAction = "checkout" | "sandbox";
+export type VersionAction = "checkout" | "sandbox" | "deploy" | "recordings";
 
 /** the name, else the email, else a person no longer in the project */
 const authorOf = (version: Version) => version.author ?? version.authorEmail ?? "Unknown author";
 
+/** Promoting a version older than the live one is a rollback (#739). */
+export function deployAction(version: Version, liveVersionNumber: number | null) {
+	if (version.isProd) return null;
+	const rollback = liveVersionNumber !== null && version.versionNumber < liveVersionNumber;
+	return {
+		label: rollback ? "Roll back to this version" : "Promote to production",
+		icon: rollback ? <TbArrowBackUp size={16} /> : <TbRocket size={16} />,
+	};
+}
+
 function VersionMenu({
 	version,
 	canEdit,
+	liveVersionNumber,
 	onAction,
 }: {
 	version: Version;
 	canEdit: boolean;
+	liveVersionNumber: number | null;
 	onAction: (action: VersionAction, version: Version) => void;
 }) {
 	async function copyId() {
@@ -25,6 +45,8 @@ function VersionMenu({
 			toast.danger("Could not copy the version id");
 		}
 	}
+
+	const deploy = deployAction(version, liveVersionNumber);
 
 	return (
 		<Dropdown>
@@ -50,6 +72,18 @@ function VersionMenu({
 							<Label>Open in sandbox</Label>
 						</Dropdown.Item>
 					) : null}
+					{canEdit && deploy ? (
+						<Dropdown.Item id="deploy" textValue={deploy.label}>
+							{deploy.icon}
+							<Label>{deploy.label}</Label>
+						</Dropdown.Item>
+					) : null}
+					{canEdit ? (
+						<Dropdown.Item id="recordings" textValue="View recordings">
+							<TbPlayerRecord size={16} />
+							<Label>View recordings</Label>
+						</Dropdown.Item>
+					) : null}
 					<Dropdown.Item id="copy" textValue="Copy version id">
 						<TbCopy size={16} />
 						<Label>Copy version id</Label>
@@ -62,13 +96,15 @@ function VersionMenu({
 
 /**
  * The versions, newest first (#738). A top row stands in for work no version
- * holds yet and leads back to the canvas, where it can be committed.
+ * holds yet and leads back to the canvas, where it can be committed. The live
+ * version carries an "In production" badge (#739).
  */
 export function VersionList({
 	versions,
 	uncommitted,
 	selectedId,
 	canEdit,
+	liveVersionNumber,
 	onSelect,
 	onOpenCanvas,
 	onAction,
@@ -77,6 +113,8 @@ export function VersionList({
 	uncommitted: boolean;
 	selectedId: string | undefined;
 	canEdit: boolean;
+	/** production's version number now, for the promote/rollback wording */
+	liveVersionNumber: number | null;
 	onSelect: (versionId: string) => void;
 	onOpenCanvas: () => void;
 	onAction: (action: VersionAction, version: Version) => void;
@@ -112,6 +150,11 @@ export function VersionList({
 					>
 						<span className="flex items-center gap-2 text-sm">
 							<span className="font-mono font-semibold">v{version.versionNumber}</span>
+							{version.isProd && (
+								<span className="rounded-md bg-success/10 px-1.5 py-0.5 text-[11px] font-medium text-success">
+									In production
+								</span>
+							)}
 							{version.isHead && (
 								<span className="rounded-md bg-accent/10 px-1.5 py-0.5 text-[11px] font-medium text-accent">
 									Current
@@ -130,7 +173,12 @@ export function VersionList({
 						</span>
 					</button>
 					<div className="pt-2">
-						<VersionMenu version={version} canEdit={canEdit} onAction={onAction} />
+						<VersionMenu
+							version={version}
+							canEdit={canEdit}
+							liveVersionNumber={liveVersionNumber}
+							onAction={onAction}
+						/>
 					</div>
 				</li>
 			))}

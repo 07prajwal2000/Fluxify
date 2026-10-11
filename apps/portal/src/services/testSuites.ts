@@ -38,6 +38,9 @@ export type TestRunStatus = TestRunDetail["status"];
 /** Statuses a run can still move on from — the only reason to keep polling. */
 export const IN_FLIGHT_STATUSES: TestRunStatus[] = ["queued", "running"];
 
+/** Which copy of the target a run tests (#739): the saved working copy, or the promoted version. */
+export type TestRunEnv = "development" | "production";
+
 export const testSuitesService = {
 	async getAll(target: SuiteTarget): Promise<TestSuiteList> {
 		const result = await httpClient.get(targetSuitesUrl(target));
@@ -80,15 +83,18 @@ export const testSuitesService = {
 	/**
 	 * Queues a run and returns immediately with its id — the suites report
 	 * progress by updating their own rows, so the caller polls `getRun`.
-	 * Omit `suiteIds` to run every suite on the target.
+	 * Omit `suiteIds` to run every suite on the target. `env: "production"`
+	 * tests the promoted version with development values (#739).
 	 */
 	async startRun(
 		projectId: string,
 		target: SuiteTarget,
 		suiteIds?: string[],
+		env?: TestRunEnv,
 	): Promise<z.infer<typeof startRunResponseSchema>> {
 		const result = await httpClient.post(runsUrl(projectId, target), {
 			suiteIds,
+			...(env ? { env } : {}),
 		});
 		return result.data;
 	},

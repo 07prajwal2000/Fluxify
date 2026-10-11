@@ -6,6 +6,7 @@ import { CanvasWorkbench } from "@/components/canvas";
 import { WorkflowWorkbenchTabs } from "@/components/routes/RouteWorkbenchTabs";
 import { SettingsSplitButton } from "@/components/sandboxes/SettingsSplitButton";
 import { CommitControls } from "@/components/versions/CommitControls";
+import { ProductionChip } from "@/components/versions/ProductionChip";
 import { WorkflowRunButton, WorkflowRunModal } from "@/components/workflows/WorkflowRunModal";
 import { WorkflowSettingsModal } from "@/components/workflows/WorkflowSettingsModal";
 import { WorkflowSwitcher } from "@/components/workflows/WorkflowSwitcher";
@@ -80,6 +81,7 @@ function WorkflowCanvasPage() {
 				}
 				headerActions={(canvas) => (
 					<>
+						<ProductionChip kind="workflow" id={workflowId} projectId={projectId} />
 						<CommitControls
 							kind="workflow"
 							id={workflowId}

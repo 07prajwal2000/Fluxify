@@ -1,4 +1,4 @@
-import { Button, cn, DeleteButton, Spinner, Tabs } from "@fluxify/components";
+import { Button, Chip, cn, DeleteButton, Spinner, Tabs } from "@fluxify/components";
 import type { SuiteRunResult } from "@fluxify/server/src/db/schema";
 import { useEffect, useState } from "react";
 import {
@@ -209,6 +209,14 @@ function RunHistory({
 				>
 					<div className="flex items-center gap-2">
 						<StatusIcon status={run.status} />
+						<Chip size="sm" color={run.env === "development" ? "accent" : "default"}>
+							{run.env === "development" ? "Dev" : "Prod"}
+						</Chip>
+						{run.deploymentId && (
+							<Chip size="sm" title="Ran as part of a promote">
+								Promote check
+							</Chip>
+						)}
 						<span className="flex-1 text-xs text-foreground">
 							{run.passedCount}/{run.totalSuites} passed
 						</span>
@@ -293,7 +301,17 @@ export function RunResults({
 					</Tabs.ListContainer>
 					{view === "latest" && data && (
 						<>
-							<span className="ml-auto text-xs text-muted">
+							<span className="ml-auto flex items-center gap-2">
+								<Chip size="sm" color={data.env === "development" ? "accent" : "default"}>
+									{data.env === "development" ? "Dev" : "Prod"}
+								</Chip>
+								{data.deploymentId && (
+									<Chip size="sm" title="Ran as part of a promote">
+										Promote check
+									</Chip>
+								)}
+							</span>
+							<span className="text-xs text-muted">
 								{data.passedCount} passed · {data.failedCount} failed
 							</span>
 							<span className="flex items-center gap-1 text-xs text-muted">

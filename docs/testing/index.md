@@ -35,7 +35,7 @@ Then the suite gets one result: **passed**, **failed**, **error**, or **timeout*
 
 ## Development and Production runs
 
-When you run suites you pick an environment. **Development** is the default.
+When you run suites you pick an environment. The **Run in Production** toggle sits next to **Run all** (and next to **Run suite**). It is **off** by default, which means **Development**. Switching it on asks you to confirm first, so a production run is never one click away by accident.
 
 | Run | What it tests | Credentials and values |
 | --- | --- | --- |
@@ -46,8 +46,8 @@ When you run suites you pick an environment. **Development** is the default.
 A Production run tests the promoted version's blocks, but it always uses your **development** credentials and values. It never touches production data, so it is safe to run at any time. Use it to check that the version in production still passes after the working copy has moved on.
 :::
 
-- A route or workflow that has not been [promoted](/concepts/versioning#promoting-a-version) yet has no Production run. Fluxify answers "Not promoted yet".
-- Each run in the history shows which environment it ran.
+- A route or workflow that has not been [promoted](/concepts/versioning#promoting-a-version) yet has no Production run: the toggle is disabled and says **Not promoted yet**.
+- Each run in the history carries a **Dev** or **Prod** chip. Runs that a promote ran to check a version — its gate runs — also say **Promote check**.
 - The AI agent's `run_test_suite` tool takes the same `env` setting. With `production` it asks first, like any other production read, if your project is set to ask.
 - Promoting a version runs all its suites automatically. See [The tests check](/concepts/versioning#the-tests-check).
 

@@ -41,6 +41,7 @@ const { versionsService } = await import("@/services/versions");
 const { routesService } = await import("@/services/routes");
 const { middlewaresService } = await import("@/services/middlewares");
 const { sandboxesService } = await import("@/services/sandboxes");
+const { deploymentsService } = await import("@/services/deployments");
 const { VersionHistory } = await import("./VersionHistory");
 
 afterEach(cleanup);
@@ -124,6 +125,8 @@ function stub(options: { versions: ReturnType<typeof version>[]; uncommitted?: b
 	spyOn(middlewaresService, "getAll").mockResolvedValue([
 		{ id: "m1", name: "Auth", blocks: [] },
 	] as never);
+	// the production panel (#739) reads the deployment log on every history
+	spyOn(deploymentsService, "list").mockResolvedValue({ deployments: [] } as never);
 }
 
 function renderHistory() {
@@ -309,4 +312,38 @@ test("Open in sandbox copies the chosen version's blocks, not the live canvas", 
 	};
 	// the version's response block comes across; the sandbox keeps its own entrypoint
 	expect(payload.changes.blocks.map((b) => b.type)).toEqual(["response"]);
+});
+
+test("the history badges the live version and names production", async () => {
+	stub({ versions: [version(2, { isProd: true }), version(1)] });
+	const { view } = renderHistory();
+	await until(() => view.getByText("Title 2"));
+
+	const items = [...document.body.querySelectorAll('ul[aria-label="Versions"] > li')];
+	expect(items[0]?.textContent).toContain("In production");
+	expect(items[1]?.textContent).not.toContain("In production");
+	expect(document.body.textContent).toContain("In production: v2 · Title 2");
+});
+
+test("the version menu's View recordings opens that version's runs", async () => {
+	stub({ versions: [version(2, { isProd: true }), version(1)] });
+	const onViewRecordings = mock((_id: string) => undefined);
+	const view = render(
+		<QueryClientProvider
+			client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+		>
+			<VersionHistory
+				kind="route"
+				id="r1"
+				projectId="p1"
+				onBackToCanvas={() => undefined}
+				onOpenSandbox={() => undefined}
+				onViewRecordings={onViewRecordings}
+			/>
+		</QueryClientProvider>,
+	);
+	await until(() => view.getByText("Title 2"));
+	fireEvent.click(button("v2 options"));
+	fireEvent.click(await until(() => view.getByRole("menuitem", { name: "View recordings" })));
+	expect(onViewRecordings).toHaveBeenCalledWith("v2");
 });

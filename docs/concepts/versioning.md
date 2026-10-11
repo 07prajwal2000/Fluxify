@@ -148,6 +148,8 @@ The canvas header of a route or workflow has a **Commit** button. A small dot si
 
 - Each version shows its number, title, who saved it and how long ago. Hover over the time to see the exact date and hour.
 - The version the working copy came from is tagged **Current**.
+- The version production serves is tagged **In production**.
+- At the top is a **Production** panel: the version that is live, and the promote/roll back log. See [The production panel](#the-production-panel).
 - If the working copy has uncommitted changes, the top of the list says **Uncommitted changes**. Select it to go back to the canvas and commit them.
 - The canvas on the right is read-only. You can open a block to read its settings, but nothing can be changed or saved. The path, method, schemas, timeout and middlewares of that version are shown beside it, also read-only.
 - **Back to canvas** takes you to the working copy.
@@ -161,6 +163,9 @@ Each version has a **⋯** menu.
 | :--- | :--- | :--- |
 | **Check out** | Makes this version the working copy. See below. | Creators and project admins |
 | **Open in sandbox** | Copies this version's blocks into a new sandbox of yours and opens it. The route or workflow is not changed. | Creators and project admins |
+| **Promote to production** | Puts this version live. Shown on a version that is not live. See below. | Creators and project admins |
+| **Roll back to this version** | Puts an older version live again. Shown instead of Promote when the version is older than the live one. | Creators and project admins |
+| **View recordings** | Opens the version's runs on the route's or workflow's **Executions** page. See below. | Creators and project admins |
 | **Copy version id** | Copies the id of the version, for example to give it to an agent. | Everyone |
 
 ### Checking out
@@ -170,6 +175,49 @@ Each version has a **⋯** menu.
 - If the working copy has uncommitted changes, the dialog also asks for a **title** for the version that saves them. It starts as "Saved before checking out v3". Change it if you like.
 - When it is done you see "Checked out v3", and "Saved your work as v5" if your changes were saved first. You land on the canvas.
 - If another route has taken the path and method since, the dialog shows the reason and nothing changes.
+
+### Promoting and rolling back in the portal
+
+Pick **Promote to production** (or **Roll back to this version**) from a version's menu to open the dialog.
+
+1. Write a **description** of why. It is required and is kept in the log.
+2. Select **Promote** (or **Roll back**).
+
+The dialog then shows the checks live, one row each, while they run:
+
+| Check | What it shows |
+| :--- | :--- |
+| Compiles | Whether the version still builds |
+| Production values | Whether every integration and app config key has a production value |
+| Production path is free | Routes only: whether another route's live version uses the same method and path |
+| Custom blocks and middlewares | The ones the version uses; a warning, not a stop |
+| Tests | The result of running every suite against this version |
+
+Each row carries a status: passed, failed, a warning, skipped, or a spinner while it runs. When they all pass the dialog says **Live in production** and the version's badge moves. If one fails, the dialog stays open with the reason and production is unchanged.
+
+Running the tests can take a while, so with suites the promote stays **pending** for a bit. You can close the dialog while it runs — a message tells you when it finishes.
+
+If another promote or roll back is already running for the route or workflow, the dialog says **"A deployment is already in progress"** and nothing changes.
+
+### The production panel
+
+The **Production** panel sits at the top of **Version history**. It names the version that is live, or says **Not in production yet**, and lists every promote and roll back, newest first:
+
+- The version number, whether it was a **Promote** or a **Rollback**, and its result (**Live**, **Failed**, or **Pending**).
+- The description and who did it.
+- For a failure, **Show failed checks** opens the checks with their reasons.
+
+Select **Production** to collapse or open the panel.
+
+### The production chip
+
+On a route's or workflow's canvas, a small chip in the header shows **Prod vN** for the live version, or **Not in production**. Select it to open the version history, where you can promote another version.
+
+### Viewing a version's recordings
+
+**View recordings** opens the target's **Executions** page, showing only the production runs that served this version. Each run row carries its version (**vN**), and development runs say **working copy**. **Show all runs** drops the filter.
+
+A development run is not tied to a version, because it runs the working copy; only a production run says which version served it.
 
 ## Who can do what
 

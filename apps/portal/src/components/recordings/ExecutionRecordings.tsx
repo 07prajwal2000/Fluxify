@@ -21,6 +21,8 @@ export function ExecutionRecordings({
 	initialRunId,
 	onClosed,
 	onReplay,
+	versionId,
+	onClearVersionFilter,
 }: {
 	projectId: string;
 	target: RecordingTarget;
@@ -31,6 +33,10 @@ export function ExecutionRecordings({
 	onClosed?: () => void;
 	/** Replay on a run: the host opens its playground or Run form with the recorded input. */
 	onReplay?: (replay: Replay) => void;
+	/** Only production runs that served this version (#739), from the version menu. */
+	versionId?: string;
+	/** Drops the version filter. */
+	onClearVersionFilter?: () => void;
 }) {
 	const [runId, setRunId] = useState<string | null>(initialRunId ?? null);
 	const [confirmClear, setConfirmClear] = useState(false);
@@ -75,6 +81,8 @@ export function ExecutionRecordings({
 					target={target}
 					emptyHint={emptyHint}
 					showSourceFilter={target.type !== "sandbox"}
+					versionId={versionId}
+					onClearVersionFilter={onClearVersionFilter}
 					onOpen={(run) => setRunId(run.id)}
 				/>
 			</div>

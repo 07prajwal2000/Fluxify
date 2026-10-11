@@ -16,6 +16,7 @@ import { RouteWorkbenchTabs } from "@/components/routes/RouteWorkbenchTabs";
 import { extractPathParams } from "@/components/routes/routeForm";
 import { SettingsSplitButton } from "@/components/sandboxes/SettingsSplitButton";
 import { CommitControls } from "@/components/versions/CommitControls";
+import { ProductionChip } from "@/components/versions/ProductionChip";
 import { createRouteHead, usePageTitle } from "@/lib/seo";
 import { useProjectPackageTypes } from "@/query/projectPackagesQuery";
 import { routesQuery } from "@/query/routesQuery";
@@ -111,6 +112,7 @@ function RouteCanvasPage() {
 				}
 				headerActions={(canvas) => (
 					<>
+						<ProductionChip kind="route" id={routeId} projectId={projectId} />
 						<CommitControls
 							kind="route"
 							id={routeId}

@@ -69,6 +69,13 @@ function WorkflowVersionsPage() {
 						params: { projectId, sandboxId },
 					})
 				}
+				onViewRecordings={(versionId) =>
+					navigate({
+						to: "/$projectId/workflow-canvas/$workflowId/executions",
+						params: { projectId, workflowId },
+						search: { version: versionId },
+					})
+				}
 			/>
 		</div>
 	);

@@ -23,7 +23,7 @@ export const Route = createFileRoute(
 		"Workflow Executions | Workflows",
 		"Inspect and debug recorded executions for a workflow.",
 	),
-	validateSearch: z.object({ open: z.string().optional() }),
+	validateSearch: z.object({ open: z.string().optional(), version: z.string().optional() }),
 	beforeLoad: async ({ params, context }) => {
 		try {
 			const workflow = await context.queryClient.ensureQueryData({
@@ -51,7 +51,7 @@ export const Route = createFileRoute(
 
 function WorkflowExecutionsPage() {
 	const { projectId, workflowId } = Route.useParams();
-	const { open } = Route.useSearch();
+	const { open, version } = Route.useSearch();
 	const navigate = Route.useNavigate();
 	const { data: workflow } = workflowsQuery.byId.useQuery(workflowId);
 	const canEdit = useCanEditProject(projectId);
@@ -89,6 +89,8 @@ function WorkflowExecutionsPage() {
 				<ExecutionRecordings
 					key={workflowId}
 					initialRunId={open}
+					versionId={version}
+					onClearVersionFilter={() => navigate({ search: {}, replace: true })}
 					onClosed={() => navigate({ search: {}, replace: true })}
 					projectId={projectId}
 					target={{ type: "workflow", id: workflowId }}

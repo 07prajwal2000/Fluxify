@@ -65,6 +65,13 @@ function RouteVersionsPage() {
 						params: { projectId, sandboxId },
 					})
 				}
+				onViewRecordings={(versionId) =>
+					navigate({
+						to: "/$projectId/canvas/$routeId/executions",
+						params: { projectId, routeId },
+						search: { version: versionId },
+					})
+				}
 			/>
 		</div>
 	);

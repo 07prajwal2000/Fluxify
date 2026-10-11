@@ -7,6 +7,8 @@ import { versionsQuery } from "@/query/versionsQuery";
 import type { Version, VersionKind } from "@/services/versions";
 import { useCanEditProject } from "@/store/auth";
 import { CheckoutDialog } from "./CheckoutDialog";
+import { DeployDialog } from "./DeployDialog";
+import { ProductionPanel } from "./ProductionPanel";
 import { useVersionTarget } from "./useVersionTarget";
 import { VersionCanvas, versionItems } from "./VersionCanvas";
 import { type VersionAction, VersionList } from "./VersionList";
@@ -117,12 +119,15 @@ export function VersionHistory({
 	projectId,
 	onBackToCanvas,
 	onOpenSandbox,
+	onViewRecordings,
 }: {
 	kind: VersionKind;
 	id: string;
 	projectId: string;
 	onBackToCanvas: () => void;
 	onOpenSandbox: (sandboxId: string) => void;
+	/** the version menu's "View recordings": opens the executions list filtered to it */
+	onViewRecordings?: (versionId: string) => void;
 }) {
 	const canEdit = useCanEditProject(projectId);
 	const { data, isLoading, isError } = versionsQuery.list.useQuery(kind, id);
@@ -145,6 +150,7 @@ export function VersionHistory({
 	}
 
 	const { versions, uncommitted } = data;
+	const liveVersionNumber = versions.find((v) => v.isProd)?.versionNumber ?? null;
 	const selected =
 		versions.find((v) => v.id === picked) ?? versions.find((v) => v.isHead) ?? versions[0];
 
@@ -157,14 +163,19 @@ export function VersionHistory({
 					</Button>
 				</div>
 				<div className="min-h-0 flex-1 overflow-y-auto">
+					<ProductionPanel kind={kind} id={id} versions={versions} />
 					<VersionList
 						versions={versions}
 						uncommitted={uncommitted}
 						selectedId={selected?.id}
 						canEdit={canEdit}
+						liveVersionNumber={liveVersionNumber}
 						onSelect={setPicked}
 						onOpenCanvas={onBackToCanvas}
-						onAction={(type, version) => setAction({ type, version })}
+						onAction={(type, version) => {
+							if (type === "recordings") onViewRecordings?.(version.id);
+							else setAction({ type, version });
+						}}
 					/>
 				</div>
 			</aside>
@@ -193,6 +204,15 @@ export function VersionHistory({
 					version={action.version}
 					onClose={() => setAction(undefined)}
 					onOpen={onOpenSandbox}
+				/>
+			)}
+			{action?.type === "deploy" && (
+				<DeployDialog
+					kind={kind}
+					id={id}
+					version={action.version}
+					liveVersionNumber={liveVersionNumber}
+					onClose={() => setAction(undefined)}
 				/>
 			)}
 		</div>

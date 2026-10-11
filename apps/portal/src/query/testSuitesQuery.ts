@@ -3,6 +3,7 @@ import {
 	type CreateTestSuiteBody,
 	IN_FLIGHT_STATUSES,
 	type SuiteTarget,
+	type TestRunEnv,
 	testSuitesService,
 	type UpdateTestSuiteBody,
 } from "@/services/testSuites";
@@ -92,8 +93,8 @@ export const testSuitesQuery = {
 		mutation(projectId: string, target: SuiteTarget) {
 			const qc = useQueryClient();
 			return useMutation({
-				mutationFn: (suiteIds?: string[]) =>
-					testSuitesService.startRun(projectId, target, suiteIds),
+				mutationFn: ({ suiteIds, env }: { suiteIds?: string[]; env?: TestRunEnv }) =>
+					testSuitesService.startRun(projectId, target, suiteIds, env),
 				onSuccess: () => qc.invalidateQueries({ queryKey: runKey(projectId, target) }),
 			});
 		},

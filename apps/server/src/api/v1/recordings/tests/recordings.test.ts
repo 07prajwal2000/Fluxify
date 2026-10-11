@@ -76,15 +76,26 @@ type Run = {
 	outcome?: "success" | "failure";
 	open?: boolean;
 	parent?: { id: string; seq: number };
+	/** the version a production run served (#739) */
+	versionId?: string;
 };
 
-async function insertRun({ route, workflow, minute, outcome = "success", open, parent }: Run) {
+/** a route version row, for a run that served one */
+async function insertVersion(route: string, number: number) {
+	const id = crypto.randomUUID();
+	await sql`
+		INSERT INTO canvas_versions (id, kind, route_id, project_id, version_number, title, snapshot)
+		VALUES (${id}, 'route', ${route}, 'p1', ${number}, ${`v${number}`}, '{}'::jsonb)`;
+	return id;
+}
+
+async function insertRun({ route, workflow, minute, outcome = "success", open, parent, versionId }: Run) {
 	const id = crypto.randomUUID();
 	const started = at(minute);
 	const ended = open ? null : new Date(started.getTime() + 250);
 	await sql`
-		INSERT INTO trace_runs (id, project_id, route_id, workflow_id, started_at, ended_at, outcome, status_code, span_count, truncated, dropped_spans, parent_run_id, parent_seq)
-		VALUES (${id}, 'p1', ${route ?? null}, ${workflow ?? null}, ${started}, ${ended}, ${outcome}, ${route ? 200 : null}, 0, ${Boolean(open)}, ${open ? 3 : 0}, ${parent?.id ?? null}, ${parent?.seq ?? null})`;
+		INSERT INTO trace_runs (id, project_id, route_id, workflow_id, started_at, ended_at, outcome, status_code, span_count, truncated, dropped_spans, parent_run_id, parent_seq, version_id)
+		VALUES (${id}, 'p1', ${route ?? null}, ${workflow ?? null}, ${started}, ${ended}, ${outcome}, ${route ? 200 : null}, 0, ${Boolean(open)}, ${open ? 3 : 0}, ${parent?.id ?? null}, ${parent?.seq ?? null}, ${versionId ?? null})`;
 	return id;
 }
 
@@ -167,6 +178,21 @@ describe("GET runs", () => {
 
 		expect((await get(`${runsUrl("route", "r1")}?outcome=nope`)).status).toBe(400);
 		expect((await get(`${runsUrl("route", "r1")}?from=not-a-date`)).status).toBe(400);
+	});
+
+	it("filters by the version a production run served (#739)", async () => {
+		const v1 = await insertVersion("r1", 1);
+		const v2 = await insertVersion("r1", 2);
+		const onV1 = await insertRun({ route: "r1", minute: 0, versionId: v1 });
+		await insertRun({ route: "r1", minute: 1, versionId: v2 });
+		// a development run serves the working copy, so it has no version
+		await insertRun({ route: "r1", minute: 2 });
+
+		const filtered = await get(`${runsUrl("route", "r1")}?versionId=${v1}`);
+		expect(filtered.body.data.map((run: any) => run.id)).toEqual([onV1]);
+		expect(filtered.body.data[0]).toMatchObject({ versionId: v1, versionNumber: 1 });
+
+		expect((await get(`${runsUrl("route", "r1")}?versionId=not-a-uuid`)).status).toBe(400);
 	});
 
 	it("keeps routes and workflows apart", async () => {
