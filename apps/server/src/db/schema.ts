@@ -55,6 +55,13 @@ const versionHead = () => ({
 	headVersionId: uuid("head_version_id").references((): AnyPgColumn => canvasVersionsEntity.id, {
 		onDelete: "set null",
 	}),
+	/**
+	 * The version production serves (#739). Null means nothing is served in
+	 * production, whatever `active` says. Only a promote or rollback moves it.
+	 */
+	prodVersionId: uuid("prod_version_id").references((): AnyPgColumn => canvasVersionsEntity.id, {
+		onDelete: "set null",
+	}),
 });
 
 /* ============================================================================
@@ -508,6 +515,69 @@ export const canvasVersionsEntity = pgTable(
 		index("idx_canvas_versions_project_id").on(table.projectId),
 		check(
 			"canvas_versions_one_target",
+			sql`(${table.kind} = 'route' and ${table.routeId} is not null and ${table.workflowId} is null)
+				or (${table.kind} = 'workflow' and ${table.workflowId} is not null and ${table.routeId} is null)`,
+		),
+	],
+);
+
+export const DEPLOYMENT_ACTIONS = ["promote", "rollback"] as const;
+export type DeploymentAction = (typeof DEPLOYMENT_ACTIONS)[number];
+export const DEPLOYMENT_STATUSES = ["pending", "live", "failed"] as const;
+export type DeploymentStatus = (typeof DEPLOYMENT_STATUSES)[number];
+
+/** One check a promote ran before going live (#739); the log keeps them as they were. */
+export type GateResult = {
+	gate: "compile" | "values" | "path" | "custom_blocks" | "tests";
+	/** `warning` and `skipped` never stop a deployment; `failed` does */
+	status: "passed" | "failed" | "warning" | "skipped";
+	message: string;
+	/** what the message is about, e.g. the integrations with no production value */
+	items?: string[];
+};
+
+/**
+ * The log of what went to production (#739): one row per promote or rollback,
+ * kept whatever the outcome. It goes with its route or workflow, and the
+ * author's email stays when the user is gone.
+ */
+export const deploymentsEntity = pgTable(
+	"deployments",
+	{
+		id: uuid()
+			.$defaultFn(() => generateID())
+			.primaryKey(),
+		kind: varchar({ length: 16 }).$type<CanvasVersionKind>().notNull(),
+		/** the target is one of these two, as for versions; `kind` says which */
+		routeId: varchar("route_id", { length: 50 }).references(() => routesEntity.id, {
+			onDelete: "cascade",
+		}),
+		workflowId: varchar("workflow_id", { length: 50 }).references(() => workflowsEntity.id, {
+			onDelete: "cascade",
+		}),
+		projectId: varchar("project_id", { length: 50 })
+			.references(() => projectsEntity.id, { onDelete: "cascade" })
+			.notNull(),
+		versionId: uuid("version_id")
+			.references(() => canvasVersionsEntity.id, { onDelete: "cascade" })
+			.notNull(),
+		action: varchar({ length: 16 }).$type<DeploymentAction>().notNull(),
+		description: text().notNull(),
+		authorId: varchar("author_id", { length: 50 }).references(() => systemUsers.id, {
+			onDelete: "set null",
+		}),
+		authorEmail: text("author_email"),
+		status: varchar({ length: 16 }).$type<DeploymentStatus>().notNull(),
+		gates: jsonb("gates").$type<GateResult[]>().default([]).notNull(),
+		createdAt: timestamp("created_at").defaultNow().notNull(),
+		finishedAt: timestamp("finished_at"),
+	},
+	(table) => [
+		index("idx_deployments_route").on(table.routeId, table.createdAt.desc()),
+		index("idx_deployments_workflow").on(table.workflowId, table.createdAt.desc()),
+		index("idx_deployments_project_id").on(table.projectId),
+		check(
+			"deployments_one_target",
 			sql`(${table.kind} = 'route' and ${table.routeId} is not null and ${table.workflowId} is null)
 				or (${table.kind} = 'workflow' and ${table.workflowId} is not null and ${table.routeId} is null)`,
 		),
@@ -1461,7 +1531,7 @@ export const fluxifyEnvEnum = pgEnum("fluxify_env", ["production", "development"
  * the admin's recordings consumer, never by a worker. Deleted after
  * `RECORDING_MAX_AGE_DAYS` by the daily retention job; its spans go with it.
  *
- * `routeVersion` is the compile timestamp until route versioning lands.
+ * `routeVersion` is the compile timestamp in development and the version id in production.
  * `parentRunId` links a run forked by an async custom block back to the span
  * that started it — no foreign key, the parent may be gone or not yet written.
  */
@@ -1485,6 +1555,12 @@ export const traceRunsEntity = pgTable(
 		}),
 		routeVersion: varchar("route_version", { length: 50 }),
 		workflowVersion: varchar("workflow_version", { length: 50 }),
+		/**
+		 * The version a production run served (#739): the id of a `canvas_versions`
+		 * row. Null on a development run, which runs the working copy. No foreign
+		 * key: a recording may arrive after, or outlive, its version.
+		 */
+		versionId: uuid("version_id"),
 		startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
 		/** null means the run never finished */
 		endedAt: timestamp("ended_at", { withTimezone: true }),

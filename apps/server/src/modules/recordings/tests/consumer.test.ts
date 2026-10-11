@@ -230,6 +230,32 @@ describe("recordings consumer", () => {
 		expect(await list()).toContain(dev.runId);
 	});
 
+	it("stores the version a production run served, and nothing for a development run (#739)", async () => {
+		const version = Bun.randomUUIDv7();
+		await sql`INSERT INTO canvas_versions (id, kind, route_id, project_id, version_number, title, snapshot)
+			VALUES (${version}, 'route', 'r-off', 'p1', 1, 'v1', '{"blocks":[],"edges":[],"settings":{"timeoutSeconds":30}}')`;
+
+		// r-off records on development by default; switch production on for this one
+		await sql`UPDATE routes SET record_execution = true WHERE id = 'r-off'`;
+		const prod = makeRun({ routeId: "r-off", routeVersion: version, env: "production" } as Partial<TraceRunPayload>);
+		const dev = makeRun({ routeId: "r-off", routeVersion: version, env: "development" } as Partial<TraceRunPayload>);
+		// a run from before versions carries a timestamp, which is no version
+		const old = makeRun({ routeId: "r-off", env: "production" } as Partial<TraceRunPayload>);
+		for (const run of [prod, dev, old]) expect(await recordings.persistRecording(run)).toBe("stored");
+
+		expect((await runRow(prod.runId)).version_id).toBe(version);
+		expect((await runRow(dev.runId)).version_id).toBeNull();
+		expect((await runRow(old.runId)).version_id).toBeNull();
+
+		// the run list says which version, by number
+		const { getRecordedRuns } = await import("../../../api/v1/recordings/get-runs/repository");
+		const { result } = await getRecordedRuns("p1", { type: "route", id: "r-off" }, {}, 0, 50);
+		const listed = (id: string) => result.find((run) => run.id === id);
+		expect(listed(prod.runId)).toMatchObject({ versionId: version, versionNumber: 1 });
+		expect(listed(dev.runId)).toMatchObject({ versionId: null, versionNumber: null });
+		await sql`UPDATE routes SET record_execution = false WHERE id = 'r-off'`;
+	});
+
 	it("an old run with no env is production's", async () => {
 		const run = makeRun({ routeId: "r-on" });
 		expect(await recordings.persistRecording(run)).toBe("stored");

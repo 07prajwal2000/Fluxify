@@ -39,7 +39,7 @@ A new workflow starts with an entrypoint block and an error handler block, and n
 
 A block text input is a literal unless it starts with `js:`, and `js:` code must `return` the value. See [Dynamic values and `js:` expressions](/agents/expressions) before you fill a block field.
 
-A workflow has two switches. `devActive` is development and is **on** for a new workflow. `active` is production and is **off** for a new workflow: pass `active: true` once its canvas is ready. A workflow that is off in an environment is not given to that environment's workers, so no trigger can start it there.
+A workflow has two switches. `devActive` is development and is **on** for a new workflow. `active` is production and is **off** for a new workflow: pass `active: true` once its canvas is ready. Production serves only a version you promoted (`commit_version`, then `promote_version`, which a person approves), so `active: true` alone runs nothing there. A workflow that is off in an environment is not given to that environment's workers, so no trigger can start it there.
 
 ## Update a workflow
 
@@ -59,7 +59,7 @@ Pass `workflowId` and only the fields that change.
 | `name` | string | 2 to 255 characters. Unique in the project. | none |
 | `description` | string | Up to 2000 characters. | none |
 | `timeoutSeconds` | integer | From 30 to 3600. | `300` |
-| `active` | boolean | Only active workflows can be started. | `false` |
+| `active` | boolean | Only active workflows can be started, and in production only with a promoted version. | `false` |
 | `tracingEnabled` | boolean | Production: sends spans to the project's own telemetry destination. | `false` |
 | `recordExecution` | boolean | Production: keeps a debug recording of each run. Read it with `list_recordings`. Turning it on returns a `warning`. | `false` |
 | `devTracingEnabled` | boolean | Development: the same as `tracingEnabled`. | `false` |

@@ -74,6 +74,8 @@ describe("MCP role matrix", () => {
 			paramsSchema: null,
 			// never committed, so no version yet and the canvas counts as uncommitted
 			headVersionNumber: null,
+			// and nothing is promoted: `active` alone serves nothing in production
+			prodVersionNumber: null,
 			uncommitted: true,
 			middlewares: { before: [], after: [] },
 		});

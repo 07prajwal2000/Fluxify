@@ -1,7 +1,7 @@
 import { and, count, desc, eq, gte, lt, sql } from "drizzle-orm";
 import type { z } from "zod";
 import { db } from "../../../../db";
-import { traceRunsEntity } from "../../../../db/schema";
+import { canvasVersionsEntity, traceRunsEntity } from "../../../../db/schema";
 import { type SuiteTarget, targetColumn } from "../../../../modules/testRunner/target";
 import type { requestQuerySchema } from "./dto";
 
@@ -57,9 +57,12 @@ export async function getRecordedRuns(
 			droppedSpans: traceRunsEntity.droppedSpans,
 			parentRunId: traceRunsEntity.parentRunId,
 			env: traceRunsEntity.env,
+			versionId: traceRunsEntity.versionId,
+			versionNumber: canvasVersionsEntity.versionNumber,
 			metadata: traceRunsEntity.metadata,
 		})
 		.from(traceRunsEntity)
+		.leftJoin(canvasVersionsEntity, eq(canvasVersionsEntity.id, traceRunsEntity.versionId))
 		.where(where)
 		.orderBy(desc(traceRunsEntity.startedAt), desc(traceRunsEntity.id))
 		.offset(skip)

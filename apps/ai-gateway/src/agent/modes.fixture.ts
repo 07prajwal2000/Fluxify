@@ -35,6 +35,8 @@ export const NAMES = [
 	"save_app_config",
 	"save_integration",
 	"save_trigger",
+	"promote_version",
+	"rollback_version",
 	"get",
 ];
 

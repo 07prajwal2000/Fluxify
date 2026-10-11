@@ -13,6 +13,7 @@ import { type DbTransactionType, db } from "../../db";
 import { deleteArtifactEverywhere, putArtifactEverywhere } from "../../db/natsKv";
 import {
 	blocksEntity,
+	type CanvasSnapshot,
 	customBlocksListEntity,
 	edgesEntity,
 	httpRouteConfigEntity,
@@ -26,6 +27,7 @@ import { systemLog } from "../../lib/systemLogs";
 import { parentColumn } from "../canvas/repository";
 import type { CanvasParent, CanvasParentType } from "../canvas/types";
 import { compileDependencies } from "../packages/service";
+import { readSnapshot } from "../versions/repository";
 import type {
 	CustomBlockArtifact,
 	MiddlewareArtifact,
@@ -33,7 +35,13 @@ import type {
 	WorkflowArtifact,
 } from "./artifacts";
 import { loadMiddleware, loadRouteMiddlewareIds } from "./middlewares";
-import { compilePerEnv, type PerEnv, putPerEnv } from "./observability";
+import {
+	compilePerEnv,
+	type EnvSwitches,
+	isServedIn,
+	type PerEnv,
+	putPerEnv,
+} from "./observability";
 import { publishProjectConfig } from "./projectConfig";
 import { customBlockKey, middlewareKey, routeKey, workflowKey } from "./subjects";
 
@@ -90,13 +98,31 @@ export const logCompiled = (resource: CompiledResource) =>
 		detail: { status: "compiled" satisfies CompileStatus },
 	});
 
-const logInactive = (resource: CompiledResource) =>
+const logInactive = (resource: CompiledResource, row: EnvSwitches) =>
 	systemLog.info({
 		...resource,
 		type: COMPILE_LOG_TYPE,
-		message: `This ${resource.resourceType} is inactive, so it is not deployed`,
+		message:
+			row.active && row.prodVersionId === null
+				? `This ${resource.resourceType} is active but has no promoted version, so it is not deployed`
+				: `This ${resource.resourceType} is inactive, so it is not deployed`,
 		detail: { status: "inactive" satisfies CompileStatus },
 	});
+
+/** what a route's build adds to the shared artifact for one environment */
+type RouteEnvBuild = Pick<
+	RouteArtifact,
+	| "source"
+	| "method"
+	| "path"
+	| "bodySchema"
+	| "querySchema"
+	| "paramsSchema"
+	| "timeoutSeconds"
+	| "middlewares"
+	| "routeVersion"
+>;
+type WorkflowEnvBuild = Pick<WorkflowArtifact, "source" | "timeoutSeconds" | "workflowVersion">;
 
 const logCompileFailed = (error: StaticCompileError) =>
 	systemLog.error({
@@ -176,7 +202,23 @@ export async function compileProjectCustomBlocks(projectId: string) {
 	return blocks.length;
 }
 
-/** compile one route and publish it where it is switched on; one off everywhere, or deleted, is dropped */
+/**
+ * The graph an environment serves (#739): development runs the working copy,
+ * production the promoted version's snapshot. Saving the working copy never
+ * reaches production, because production reads nothing but this snapshot.
+ */
+export function snapshotGraph(snapshot: CanvasSnapshot) {
+	return compilerGraph(
+		snapshot.blocks.filter((block) => block.type !== BlockTypes.sticky_note),
+		snapshot.edges,
+	);
+}
+
+/**
+ * compile one route and publish it where it is served: development where
+ * `devActive` is on, production where `active` is on and a version is promoted.
+ * One served nowhere, or deleted, is dropped.
+ */
 export async function compileRoute(routeId: string) {
 	const [route] = await db
 		.select({
@@ -185,6 +227,7 @@ export async function compileRoute(routeId: string) {
 			path: routesEntity.path,
 			active: routesEntity.active,
 			devActive: routesEntity.devActive,
+			prodVersionId: routesEntity.prodVersionId,
 			projectId: routesEntity.projectId,
 			projectName: projectsEntity.name,
 			bodySchema: routesEntity.bodySchema,
@@ -202,11 +245,14 @@ export async function compileRoute(routeId: string) {
 		.leftJoin(httpRouteConfigEntity, eq(httpRouteConfigEntity.routeId, routesEntity.id))
 		.where(eq(routesEntity.id, routeId));
 
-	if (!route || (!route.active && !route.devActive)) {
+	if (!route || (!isServedIn(route, "development") && !isServedIn(route, "production"))) {
 		logger.info(`[compiler] dropping route ${routeId}`, "COMPILER");
 		if (route?.projectId) {
 			await dropRoute(route.projectId, routeId);
-			await logInactive({ projectId: route.projectId, resourceType: "route", resourceId: routeId });
+			await logInactive(
+				{ projectId: route.projectId, resourceType: "route", resourceId: routeId },
+				route,
+			);
 		}
 		return;
 	}
@@ -220,36 +266,55 @@ export async function compileRoute(routeId: string) {
 	// process's library — the artifact in KV is for workers, not for us
 	await ensureCustomBlocksRegistered(route.projectId!);
 
-	const { blocks, edges } = await loadGraph({ type: "route", id: routeId });
+	const compiledAt = new Date().toISOString();
+	const workingCopy = isServedIn(route, "development")
+		? await loadGraph({ type: "route", id: routeId })
+		: undefined;
+	const snapshot = isServedIn(route, "production")
+		? await readSnapshot(route.prodVersionId!)
+		: undefined;
 	const dependencies = await compileDependencies(route.projectId!);
-	let perEnv: PerEnv;
+	const workingMiddlewares = await loadRouteMiddlewareIds(routeId);
+	let perEnv: PerEnv<RouteEnvBuild>;
 	try {
-		perEnv = compilePerEnv(
-			route,
-			(tracing) =>
-				compileOrThrow(resource, () =>
-					compileGraph(blocks, edges, { projectId: route.projectId!, dependencies, tracing }),
+		perEnv = compilePerEnv(route, (env, tracing) => {
+			const production = env === "production";
+			const graph = production ? snapshotGraph(snapshot!) : workingCopy!;
+			const settings = production ? snapshot!.settings : route;
+			const middlewares = production ? snapshot!.settings.middlewares : workingMiddlewares;
+			return {
+				source: compileOrThrow(resource, () =>
+					compileGraph(graph.blocks, graph.edges, {
+						projectId: route.projectId!,
+						dependencies,
+						tracing,
+					}),
 				).source,
-		);
+				method: settings.method ?? "GET",
+				path: settings.path ?? "",
+				bodySchema: settings.bodySchema,
+				querySchema: settings.querySchema,
+				paramsSchema: settings.paramsSchema,
+				timeoutSeconds: settings.timeoutSeconds,
+				middlewares:
+					middlewares?.before.length || middlewares?.after.length ? middlewares : undefined,
+				// production's version is the promoted one; development has no version
+				// of its own, so the compile timestamp tells its builds apart
+				routeVersion: production ? route.prodVersionId! : compiledAt,
+			};
+		});
 	} catch (error) {
 		return recordFailure(error);
 	}
 
-	const compiledAt = new Date().toISOString();
-	const artifact: Omit<RouteArtifact, keyof PerEnv["production"]> = {
+	const artifact: Pick<
+		RouteArtifact,
+		"routeId" | "projectId" | "projectName" | "acceptedContentTypes" | "compiledAt"
+	> = {
 		routeId,
 		projectId: route.projectId!,
 		projectName: route.projectName ?? "",
-		method: route.method ?? "GET",
-		path: route.path ?? "",
-		bodySchema: route.bodySchema,
-		querySchema: route.querySchema,
-		paramsSchema: route.paramsSchema,
-		timeoutSeconds: route.timeoutSeconds,
 		acceptedContentTypes: acceptedContentTypes(route.routeConfig),
-		// no versioning yet — the compile timestamp is the version (see RouteArtifact)
-		routeVersion: compiledAt,
-		middlewares: await loadRouteMiddlewareIds(routeId),
 		compiledAt,
 	};
 	await putPerEnv(routeKey(route.projectId!, routeId), artifact, perEnv, route);
@@ -276,6 +341,7 @@ export async function compileWorkflow(workflowId: string) {
 			name: workflowsEntity.name,
 			active: workflowsEntity.active,
 			devActive: workflowsEntity.devActive,
+			prodVersionId: workflowsEntity.prodVersionId,
 			projectId: workflowsEntity.projectId,
 			projectName: projectsEntity.name,
 			timeoutSeconds: workflowsEntity.timeoutSeconds,
@@ -288,15 +354,14 @@ export async function compileWorkflow(workflowId: string) {
 		.leftJoin(projectsEntity, eq(workflowsEntity.projectId, projectsEntity.id))
 		.where(eq(workflowsEntity.id, workflowId));
 
-	if (!workflow || (!workflow.active && !workflow.devActive)) {
+	if (!workflow || (!isServedIn(workflow, "development") && !isServedIn(workflow, "production"))) {
 		logger.info(`[compiler] dropping workflow ${workflowId}`, "COMPILER");
 		if (workflow?.projectId) {
 			await dropWorkflow(workflow.projectId, workflowId);
-			await logInactive({
-				projectId: workflow.projectId,
-				resourceType: "workflow",
-				resourceId: workflowId,
-			});
+			await logInactive(
+				{ projectId: workflow.projectId, resourceType: "workflow", resourceId: workflowId },
+				workflow,
+			);
 		}
 		return;
 	}
@@ -308,36 +373,46 @@ export async function compileWorkflow(workflowId: string) {
 
 	await ensureCustomBlocksRegistered(workflow.projectId!);
 
-	const { blocks, edges } = await loadGraph({ type: "workflow", id: workflowId });
+	const compiledAt = new Date().toISOString();
+	const workingCopy = isServedIn(workflow, "development")
+		? await loadGraph({ type: "workflow", id: workflowId })
+		: undefined;
+	const snapshot = isServedIn(workflow, "production")
+		? await readSnapshot(workflow.prodVersionId!)
+		: undefined;
 	const dependencies = await compileDependencies(workflow.projectId!);
-	let perEnv: PerEnv;
+	let perEnv: PerEnv<WorkflowEnvBuild>;
 	try {
 		// `asWorkflow` is the one thing the compiler is told: a response block has
 		// nothing to respond to here, so it compiles to a plain terminal.
-		perEnv = compilePerEnv(
-			workflow,
-			(tracing) =>
-				compileOrThrow(resource, () =>
-					compileGraph(blocks, edges, {
+		perEnv = compilePerEnv(workflow, (env, tracing) => {
+			const production = env === "production";
+			const graph = production ? snapshotGraph(snapshot!) : workingCopy!;
+			return {
+				source: compileOrThrow(resource, () =>
+					compileGraph(graph.blocks, graph.edges, {
 						asWorkflow: true,
 						projectId: workflow.projectId!,
 						dependencies,
 						tracing,
 					}),
 				).source,
-		);
+				timeoutSeconds: production ? snapshot!.settings.timeoutSeconds : workflow.timeoutSeconds,
+				workflowVersion: production ? workflow.prodVersionId! : compiledAt,
+			};
+		});
 	} catch (error) {
 		return recordFailure(error);
 	}
 
-	const compiledAt = new Date().toISOString();
-	const artifact: Omit<WorkflowArtifact, keyof PerEnv["production"]> = {
+	const artifact: Pick<
+		WorkflowArtifact,
+		"workflowId" | "projectId" | "projectName" | "name" | "compiledAt"
+	> = {
 		workflowId,
 		projectId: workflow.projectId!,
 		projectName: workflow.projectName ?? "",
 		name: workflow.name ?? "",
-		timeoutSeconds: workflow.timeoutSeconds,
-		workflowVersion: compiledAt,
 		compiledAt,
 	};
 	await putPerEnv(workflowKey(workflow.projectId!, workflowId), artifact, perEnv, workflow);

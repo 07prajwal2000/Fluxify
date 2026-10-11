@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
-import { api, type EnvStack, mcpTool, startEnvStack, stopEnvStack } from "../src/envs";
+import { api, type EnvStack, mcpTool, promote, startEnvStack, stopEnvStack } from "../src/envs";
 
 // Per-environment values (#733): one integration row holds a production and a
 // development config, the compiler publishes every artifact to both buckets,
@@ -116,6 +116,8 @@ async function route(path: string, integrationId: string) {
 		});
 		return res.status < 300 || (void console.log(res.status, JSON.stringify(res.body)), false);
 	});
+	// production serves a promoted version, never the working copy (#739)
+	await promote(stack, id);
 	return id as string;
 }
 

@@ -55,13 +55,19 @@ export type AgentConversationDetail = {
 };
 /** Rename, pin or archive; archiving unpins. */
 export type ConversationPatch = { title?: string; pinned?: boolean; archived?: boolean };
-export type Decision = { toolCallId: string; approve: boolean; reason?: string };
+/** `comment` is the approver's reason, required for promote and rollback (#739). */
+export type Decision = {
+	toolCallId: string;
+	approve: boolean;
+	reason?: string;
+	comment?: string;
+};
 /**
  * An answer to the first waiting call, or `decisions` for several at once (the
  * calls not listed keep waiting); `mode` is the mode the conversation goes on in.
  */
 export type ApprovalAnswer = { mode?: Mode; effort?: Effort } & (
-	| { approve: boolean; reason?: string }
+	| { approve: boolean; reason?: string; comment?: string }
 	| { decisions: Decision[] }
 );
 

@@ -51,7 +51,7 @@ Call `save_route`:
 }
 ```
 
-It answers `{ "id": "<route id>" }`. A new route is on in development (`devActive`), so `call_route` can run it while you build, and off in production (`active`), so real callers cannot reach it yet.
+It answers `{ "id": "<route id>" }`. A new route is on in development (`devActive`), so `call_route` can run it while you build, and off in production (`active`), so real callers cannot reach it yet. Production also needs a promoted version, which comes at the end.
 
 ## 4. Read the canvas
 
@@ -116,6 +116,8 @@ Call `save_route`:
 ```json
 { "routeId": "<route id>", "active": true }
 ```
+
+Production serves a promoted version only. When the user wants it live, call `commit_version` with a title, then `promote_version` with the new `versionId`. A person approves the promote and says why.
 
 ## 7. Try it
 

@@ -84,9 +84,11 @@ You don't have to do this for the usual setups. Each of them starts one for you:
 Every time you save, Fluxify publishes your routes, workflows, custom blocks,
 middlewares, triggers and packages. A route or workflow goes to each
 environment where it is [switched on](#turning-a-route-or-workflow-on-or-off).
-For now the development worker and the production worker run the same saved
-version. What differs between them is the [values](#values-per-environment) they
-run with, and whether each one [records and traces](#recording-and-tracing-per-environment) runs.
+The two environments do not run the same copy: development runs your working
+copy as you save it, and production runs the version you
+[promoted](/concepts/versioning#what-production-serves). They also differ in the
+[values](#values-per-environment) they run with, and in whether each one
+[records and traces](#recording-and-tracing-per-environment) runs.
 :::
 
 ::: warning
@@ -108,6 +110,13 @@ in its settings, on the **Advanced** tab, under **Environments**.
 Together they work like a feature flag: on in development, off in production.
 Turn **Production** on when the canvas is ready. Turn it off again to stop
 serving it in production while you keep working in development.
+
+Production also needs a **promoted version**. The **Production** switch only
+says that the route may be served there; what it serves is the version you
+[promoted](/concepts/versioning#what-production-serves). With the switch on and
+no promoted version, production answers `404`. Editing the route afterwards
+changes development at once and leaves production on the promoted version, until
+you promote another one or roll back.
 
 A route that is off in an environment returns `404` there. A workflow that is
 off in an environment is not given to that environment's workers, so nothing

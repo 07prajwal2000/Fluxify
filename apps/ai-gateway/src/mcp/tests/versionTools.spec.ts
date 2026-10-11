@@ -182,6 +182,127 @@ describe("version tools", () => {
 		}
 	});
 
+	describe("promote_version and rollback_version (#739)", () => {
+		const deployment = (n: number, extra: object = {}) => ({
+			id: "d1",
+			action: "promote",
+			status: "live",
+			versionNumber: n,
+			description: "ok",
+			gates: [],
+			createdAt: "2026-10-11T10:00:00.000Z",
+			...extra,
+		});
+		const routeDetail = { prodVersionNumber: 3 };
+
+		it("promote_version posts the version with the person's comment and the agent's note", async () => {
+			const { api, calls } = fakeApi(() => deployment(4));
+			const out: any = await tool("promote_version").call(api, {
+				kind: "route",
+				id: R,
+				versionId: `${V}-4`,
+				note: "adds retry",
+				comment: "Fixes the 500s",
+			});
+			expect(calls).toEqual([
+				{
+					method: "POST",
+					path: `/v1/routes/${R}/deployments`,
+					body: { versionId: `${V}-4`, description: "Fixes the 500s\n\nAgent: adds retry" },
+				},
+			]);
+			expect(out).toMatchObject({ deploymentId: "d1", status: "live", versionNumber: 4 });
+			expect(out.failed).toBeUndefined();
+		});
+
+		it("says what stopped a deployment", async () => {
+			const gates = [
+				{ gate: "compile", status: "passed", message: "The version compiles" },
+				{
+					gate: "values",
+					status: "failed",
+					message: "Production has no value for:",
+					items: ["app config key TOKEN has no production value"],
+				},
+			];
+			const { api } = fakeApi(() => deployment(4, { status: "failed", gates }));
+			const out: any = await run("promote_version", { kind: "workflow", id: W, versionId: V }, api);
+			expect(out.status).toBe("failed");
+			expect(out.failed).toEqual([
+				{
+					gate: "values",
+					message: "Production has no value for:",
+					items: ["app config key TOKEN has no production value"],
+				},
+			]);
+		});
+
+		it("rollback_version refuses a version that is not older than production's, and says to use promote", async () => {
+			const posts: string[] = [];
+			const { api } = fakeApi((path) => {
+				if (path.endsWith("/deployments")) posts.push(path);
+				return path.includes("/versions/") ? version(5) : routeDetail;
+			});
+			await expect(
+				run("rollback_version", { kind: "route", id: R, versionId: `${V}-5` }, api),
+			).rejects.toThrow("Use promote_version");
+			expect(posts).toEqual([]);
+		});
+
+		it("rollback_version goes back to an older version", async () => {
+			const { api, calls } = fakeApi((path) =>
+				path.endsWith("/deployments")
+					? deployment(1, { action: "rollback" })
+					: path.includes("/versions/")
+						? version(1)
+						: routeDetail,
+			);
+			const out: any = await run(
+				"rollback_version",
+				{ kind: "route", id: R, versionId: `${V}-1`, note: "it broke" },
+				api,
+			);
+			expect(out).toMatchObject({ action: "rollback", versionNumber: 1 });
+			expect(calls.at(-1)).toMatchObject({
+				method: "POST",
+				path: `/v1/routes/${R}/deployments`,
+				body: { description: "Agent: it broke" },
+			});
+		});
+
+		it("rollback_version has nothing to go back to before the first promote", async () => {
+			const { api } = fakeApi((path) => (path.includes("/versions/") ? version(1) : { prodVersionNumber: null }));
+			await expect(
+				run("rollback_version", { kind: "workflow", id: W, versionId: V }, api),
+			).rejects.toThrow("nothing to roll back to");
+		});
+
+		it("always ask, and the descriptions say what goes live, the checks and that a person approves", () => {
+			for (const name of ["promote_version", "rollback_version"]) {
+				expect(needsApproval("manual", name)).toBe(true);
+				expect(needsApproval("auto", name)).toBe(true);
+				const text = tool(name).description;
+				expect(text).toContain("production");
+				expect(text).toContain("production value");
+				expect(text).toContain("A person approves every call");
+				expect(tool(name).role).toBe("creator");
+			}
+			expect(MCP_INSTRUCTIONS).toContain("Never call promote_version or rollback_version unless the user asks");
+		});
+
+		it("marks the live version in list_versions", async () => {
+			const { api } = fakeApi(() => ({
+				uncommitted: false,
+				versions: [version(2, { isHead: true }), version(1, { isProd: true })],
+			}));
+			const out: any = await run("list_versions", { kind: "route", id: R }, api);
+			expect(out.versions.map((v: any) => [v.versionNumber, v.isProd])).toEqual([
+				[2, undefined],
+				[1, true],
+			]);
+		});
+	});
+
 	it("is introduced to every client in the instructions", () => {
 		expect(MCP_INSTRUCTIONS).toContain("commit_version");
 		expect(MCP_INSTRUCTIONS).toContain("Commit when a piece of work is done and tested");

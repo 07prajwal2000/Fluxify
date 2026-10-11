@@ -42,6 +42,8 @@ export default async function handleRequest(
 		devRecordExecution: route.devRecordExecution,
 		acceptedContentTypes: acceptedContentTypes(route.routeConfig),
 		headVersionNumber: await versionNumberOf(route.headVersionId),
+		prodVersionId: route.prodVersionId,
+		prodVersionNumber: await versionNumberOf(route.prodVersionId),
 		uncommitted: hasUncommitted(route),
 	};
 }

@@ -99,6 +99,22 @@ const runSchema = z
 	});
 
 /**
+ * The version a run served (#739). Production stamps its artifact's version id
+ * as the route or workflow version, while development stamps a compile
+ * timestamp and a run from before versions carries one too, so only a
+ * production run holding a uuid counts.
+ */
+function productionVersionId(
+	run: { routeVersion?: string; workflowVersion?: string; sandboxId?: string },
+	env: string,
+) {
+	const version = run.routeVersion ?? run.workflowVersion;
+	return env === "production" && !run.sandboxId && version && z.uuid().safeParse(version).success
+		? version
+		: null;
+}
+
+/**
  * A span's input / output as a jsonb value (#665). A block can hand on anything — KV set and
  * delete answer `true` — but Bun's driver binds a bare boolean or number as a boolean or numeric
  * parameter, which a jsonb column rejects, and one rejected span loses the whole run. Sending the
@@ -168,6 +184,7 @@ export async function persistRecording(payload: unknown): Promise<"stored" | "dr
 				sandboxId: run.sandboxId,
 				routeVersion: run.routeVersion,
 				workflowVersion: run.workflowVersion,
+				versionId: productionVersionId(run, env),
 				startedAt: new Date(run.startedAtWallMs),
 				endedAt: wall(run.endedAt),
 				outcome: run.outcome,

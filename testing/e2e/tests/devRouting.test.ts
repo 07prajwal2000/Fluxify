@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { SQL } from "bun";
-import { api, type EnvStack, mcpTool, startEnvStack, stopEnvStack } from "../src/envs";
+import { api, type EnvStack, mcpTool, promote, startEnvStack, stopEnvStack } from "../src/envs";
 
 // Development routing (#736), the real thing: an admin, NATS, a production and
 // a development worker. Every route answers at `/_/dev/<path>` on the
@@ -116,6 +116,8 @@ describe("a route at /_/dev on the development worker", () => {
 		});
 		await chain(`/v1/routes/${routeId}`, [js(ECHO)]);
 		await served("development", "/_/dev/echo/1", (body) => body?.path === "/echo/1");
+		// production serves a promoted version, never the working copy (#739)
+		await promote(stack, routeId);
 	}, 120_000);
 
 	it("answers with the token, and the blocks see the path without the prefix and no token", async () => {
@@ -224,8 +226,13 @@ describe("active is production, devActive is development (#738)", () => {
 		await served("development", "/_/dev/switches", (body) => body?.on === true);
 		expect((await hit("production", "/switches", null)).status).toBe(404);
 
-		// production on: both serve
+		// production on, but nothing is promoted: still nothing there (#739)
 		await patch(id, { active: true });
+		await Bun.sleep(1_500);
+		expect((await hit("production", "/switches", null)).status).toBe(404);
+
+		// promoted: both serve
+		await promote(stack, id);
 		await until("production to serve /switches", async () => {
 			const res = await hit("production", "/switches", null);
 			return res.status === 200 && res;

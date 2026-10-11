@@ -1,6 +1,6 @@
 ---
 title: Versioning
-description: How to save a named version of a route or workflow, look back through its history, and bring an earlier version back without losing any work.
+description: How to save a named version of a route or workflow, look back through its history, bring an earlier version back, and promote a version to production or roll it back.
 ---
 
 # Versioning
@@ -72,6 +72,47 @@ A route can only be brought back if its path and method are still free. If anoth
 
 If a middleware that a version used has since been deleted, the checkout still works. The deleted middleware is left out and you are told.
 
+## What production serves
+
+Production serves one version of each route and workflow: the one you **promoted**. Nothing else reaches it.
+
+- Editing the working copy, committing and checking out never change what production serves. Development runs your edits as you save them; production keeps running the promoted version.
+- A route or workflow with no promoted version serves nothing in production, even when its **Production** switch is on. Callers get `404` until you promote one.
+- The switches, the name, recording and tracing are live settings. They apply to production straight away, whichever version is promoted.
+- Triggers start the promoted version of their workflow on production.
+- Custom blocks and middlewares are not versioned yet. Production runs their current state, so changing one changes what production runs.
+
+### Promoting a version
+
+**Promoting** puts a version live in production.
+
+- You need the **Creator** role.
+- You write a **description** of why. It is required and is kept in the log.
+- Fluxify runs its checks first. If they all pass, production switches to that version. If one fails, nothing changes, and the log shows what failed and why.
+- Promoting the version that is already live is refused.
+
+| Check | What it looks at | Stops the promote? |
+| :--- | :--- | :--- |
+| Compiles | The version still builds. For example, a custom block it used may have been deleted. | Yes |
+| Production values | Every integration and app config key the version's blocks use has a production value. The result lists each one that is missing. | Yes |
+| Path is free | For a route: no other route's promoted version has the same method and path. | Yes |
+| Custom blocks and middlewares | Lists the ones the version uses. They run their current state in production until custom blocks have versions. | No, a warning |
+| Tests | Not checked yet. Test suites will gate a promote in a later release. | No, skipped |
+
+### Rolling back
+
+**Rolling back** is promoting an older version than the one that is live. It runs the same checks and needs a description too. The log records it as a rollback, so you can tell the two apart.
+
+Roll back to get production onto a version that worked, then fix the problem in the working copy and promote again.
+
+### The log
+
+Every promote and rollback is kept, newest first: the version, whether it was a promote or a rollback, the description, who did it and when, the result, and what each check said. A promote that was stopped by a check stays in the log as failed.
+
+### Upgrading from before production versions
+
+Routes and workflows that existed before this feature are not interrupted. Each one starts with a version called **Initial** that holds what it was serving, already live in production. If it already had versions, the new version is called "Live in production at upgrade" and follows the last one. Nothing needs to be done, and production serves exactly what it served before.
+
 ## In the portal
 
 ### Commit
@@ -120,27 +161,37 @@ Each version has a **⋯** menu.
 
 | Role | What they can do |
 | :--- | :--- |
-| Viewer | See the history and open any version |
-| Creator and project admin | Also commit and check out versions |
+| Viewer | See the history, open any version and read the deployment log |
+| Creator and project admin | Also commit, check out, promote and roll back versions |
 
 ## From the API and the AI agent
 
-The AI agent can work with versions using four tools, and each one takes the kind (`route` or `workflow`) and the id.
+The AI agent can work with versions using six tools, and each one takes the kind (`route` or `workflow`) and the id.
 
 | Tool | What it does |
 | :--- | :--- |
 | `commit_version` | Saves the working copy as the next version. It needs a title. |
-| `list_versions` | Lists the versions, newest first, and says whether there are uncommitted changes. |
+| `list_versions` | Lists the versions, newest first, says which one is live in production, and says whether there are uncommitted changes. |
 | `get_version` | Shows one version's canvas and settings, read-only. |
 | `checkout_version` | Brings a version back. Uncommitted work is saved first. |
+| `promote_version` | Puts a version live in production. |
+| `rollback_version` | Puts an older version back live in production. It refuses a version that is not older than the live one. |
 
-The same actions are available over the admin API, under the route's or workflow's `/versions` address.
+`promote_version` and `rollback_version` always ask a person first, in every mode, and the approval can't be given once for the whole chat. The person writes a comment with the approval, and that comment is the description in the log. The agent can add a short `note`, which is saved after the person's comment.
+
+::: warning
+The agent never promotes or rolls back unless you ask it to.
+:::
+
+The same actions are available over the admin API. Versions are under the route's or workflow's `/versions` address. Promote and rollback are a `POST` to its `/deployments` address with the version id and a description, and a `GET` there returns the log. A promote that a check stopped answers normally, with the status `failed` and the reasons in `gates`.
 
 ::: tip
 Ask the agent to commit when a piece of work is finished and tested. A named version of working code is the easiest thing to come back to when the next change goes wrong.
 :::
 
-Getting a route or workflow also tells you the number of the current version and whether it has uncommitted changes.
+Getting a route or workflow also tells you the number of the current version, the number of the version production serves, and whether it has uncommitted changes.
+
+Recorded runs from production say which version served them. Runs on development are not tied to a version, because they run the working copy.
 
 ## Related
 

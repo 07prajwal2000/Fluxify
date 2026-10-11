@@ -57,9 +57,9 @@ export type AgentJob = {
 	/** start: the user's message. */
 	message?: string;
 	/** continue: the answer to the first waiting call. */
-	approval?: { ok: boolean; reason?: string };
+	approval?: { ok: boolean; reason?: string; comment?: string };
 	/** continue: answers to the named calls (#704); the others stay waiting. */
-	decisions?: { toolCallId: string; ok: boolean; reason?: string }[];
+	decisions?: { toolCallId: string; ok: boolean; reason?: string; comment?: string }[];
 	/** compact: what the user asked the summary to keep. */
 	keep?: string;
 };

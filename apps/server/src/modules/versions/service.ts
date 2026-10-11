@@ -3,7 +3,6 @@ import type { z } from "zod";
 import { routeConflictError } from "../../api/v1/routes/routeConflict";
 import { findRouteConflict } from "../../api/v1/routes/update/repository";
 import { type DbTransactionType, db } from "../../db";
-import { systemUsers } from "../../db/auth-schema";
 import { CHAN_ON_ROUTE_CHANGE, CHAN_ON_WORKFLOW_CHANGE, publishMessage } from "../../db/redis";
 import type { AuthACL, CanvasVersionKind } from "../../db/schema";
 import { ConflictError } from "../../errors/conflictError";
@@ -12,6 +11,7 @@ import { NotFoundError } from "../../errors/notFoundError";
 import { canAccessProject } from "../../lib/acl";
 import type { checkoutBodySchema, commitBodySchema } from "./dto";
 import {
+	findAuthor,
 	findVersion,
 	insertVersion,
 	listVersions,
@@ -39,6 +39,7 @@ type VersionRow = NonNullable<Awaited<ReturnType<typeof findVersion>>>;
 function present(
 	row: Omit<VersionRow, "snapshot"> & { snapshot?: unknown },
 	headId: string | null,
+	prodId: string | null,
 ) {
 	return {
 		id: row.id,
@@ -52,6 +53,8 @@ function present(
 		createdAt: row.createdAt.toISOString(),
 		parentId: row.parentId,
 		isHead: row.id === headId,
+		/** the version production serves (#739) */
+		isProd: row.id === prodId,
 	};
 }
 
@@ -77,12 +80,7 @@ async function writeVersion(
 	userId: string | undefined,
 	tx: DbTransactionType,
 ) {
-	const [author] = userId
-		? await tx
-				.select({ id: systemUsers.id, email: systemUsers.email })
-				.from(systemUsers)
-				.where(eq(systemUsers.id, userId))
-		: [];
+	const author = await findAuthor(userId, tx);
 	const created = await insertVersion(
 		{
 			kind,
@@ -122,7 +120,7 @@ export async function commitVersion(
 		const target = await accessTarget(kind, id, acl, "creator", tx, true);
 		if (!hasUncommitted(target)) throw new ConflictError("Nothing to commit");
 		const created = await writeVersion(kind, target, input, userId, tx);
-		return present({ ...created, authorName: null }, created.id);
+		return present({ ...created, authorName: null }, created.id, target.prodVersionId);
 	});
 }
 
@@ -139,7 +137,7 @@ export async function checkoutVersion(
 		const version = await findVersion(kind, id, versionId, tx);
 		if (!version) throw new NotFoundError("Version not found");
 		const uncommitted = hasUncommitted(target);
-		const checkedOut = present(version, version.id);
+		const checkedOut = present(version, version.id, target.prodVersionId);
 		if (!uncommitted && target.headVersionId === version.id) {
 			return { checkedOut, canvasRevision: target.canvasRevision, warnings: [], changed: false };
 		}
@@ -165,7 +163,9 @@ export async function checkoutVersion(
 			.set({ canvasRevision, committedRevision: canvasRevision, headVersionId: version.id })
 			.where(eq(table.id, id));
 		return {
-			savedVersion: saved ? present({ ...saved, authorName: null }, null) : undefined,
+			savedVersion: saved
+				? present({ ...saved, authorName: null }, null, target.prodVersionId)
+				: undefined,
 			checkedOut,
 			canvasRevision,
 			warnings: skipped.length
@@ -204,7 +204,7 @@ export async function listTargetVersions(kind: CanvasVersionKind, id: string, ac
 	const target = await accessTarget(kind, id, acl, "viewer");
 	const rows = await listVersions(kind, id);
 	return {
-		versions: rows.map((row) => present(row, target.headVersionId)),
+		versions: rows.map((row) => present(row, target.headVersionId, target.prodVersionId)),
 		uncommitted: hasUncommitted(target),
 	};
 }
@@ -218,5 +218,8 @@ export async function getTargetVersion(
 	const target = await accessTarget(kind, id, acl, "viewer");
 	const version = await findVersion(kind, id, versionId);
 	if (!version) throw new NotFoundError("Version not found");
-	return { ...present(version, target.headVersionId), snapshot: version.snapshot };
+	return {
+		...present(version, target.headVersionId, target.prodVersionId),
+		snapshot: version.snapshot,
+	};
 }

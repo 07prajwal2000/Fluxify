@@ -39,7 +39,12 @@ import {
  *  query need not select it. */
 type Workflow = Omit<
 	typeof workflowsEntity.$inferSelect,
-	"createdBy" | "canvasRevision" | "blockKeyCounters" | "committedRevision" | "headVersionId"
+	| "createdBy"
+	| "canvasRevision"
+	| "blockKeyCounters"
+	| "committedRevision"
+	| "headVersionId"
+	| "prodVersionId"
 >;
 
 export async function createWorkflow(
@@ -116,6 +121,8 @@ export async function getWorkflow(
 	return {
 		...present(row),
 		headVersionNumber: await versionNumberOf(row.headVersionId),
+		prodVersionId: row.prodVersionId,
+		prodVersionNumber: await versionNumberOf(row.prodVersionId),
 		uncommitted: hasUncommitted(row),
 	};
 }

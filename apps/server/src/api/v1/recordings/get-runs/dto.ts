@@ -35,6 +35,10 @@ export const runSummarySchema = z.object({
 	droppedSpans: z.number(),
 	parentRunId: z.string().nullable(),
 	env: runEnvSchema,
+	/** the version a production run served (#739); null on a development run, which runs the working copy */
+	versionId: z.string().nullable(),
+	/** its `vN`; null with the id, or once the version is gone */
+	versionNumber: z.number().int().nullable(),
 	/** null on a normal run; set on a test run's trace (#627) */
 	metadata: z
 		.object({

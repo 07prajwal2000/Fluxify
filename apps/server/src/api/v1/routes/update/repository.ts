@@ -2,7 +2,7 @@ import { and, eq, ne, or, type SQL, sql } from "drizzle-orm";
 import { createUpdateSchema } from "drizzle-zod";
 import type z from "zod";
 import { type DbTransactionType, db } from "../../../../db";
-import { type HttpMethod, routesEntity } from "../../../../db/schema";
+import { canvasVersionsEntity, type HttpMethod, routesEntity } from "../../../../db/schema";
 import {
 	ROUTE_VERSIONED_FIELDS,
 	versionedSettingsChanged,
@@ -15,8 +15,9 @@ const updateRouteSchema = createUpdateSchema(routesEntity);
  * (#738) moves the revision like a canvas edit does, so the route reads as
  * having uncommitted changes; name, switches and observability do not.
  *
- * The counters a canvas save owns are never taken from the caller: a patch that
- * sends back the row it read would otherwise undo a save made in between.
+ * The counters a canvas save owns, and the versions commit, checkout and promote
+ * own, are never taken from the caller: a patch that sends back the row it read
+ * would otherwise undo a save, a commit or a promote made in between.
  */
 export async function updateRoute(data: z.infer<typeof updateRouteSchema>, tx?: DbTransactionType) {
 	const {
@@ -25,6 +26,7 @@ export async function updateRoute(data: z.infer<typeof updateRouteSchema>, tx?: 
 		blockKeyCounters: _keys,
 		committedRevision: _committed,
 		headVersionId: _head,
+		prodVersionId: _prod,
 		...settings
 	} = data;
 	const conn = tx ?? db;
@@ -48,7 +50,7 @@ export async function getRouteById(id: string, tx?: DbTransactionType) {
 }
 
 /** `/users/:id/` and `/users/:userId` match the same requests: params become `:`, trailing `/` goes. */
-const pathShape = (path: SQL | typeof routesEntity.path) =>
+export const pathShape = (path: SQL | typeof routesEntity.path) =>
 	sql`rtrim(regexp_replace(${path}, ':[A-Za-z0-9_]+', ':', 'g'), '/')`;
 
 export type RouteConflict = {
@@ -93,4 +95,38 @@ export async function findRouteConflict(
 		)
 		.limit(1);
 	return result[0];
+}
+
+/**
+ * The route whose promoted version holds the same method on a path the router
+ * cannot tell apart from this one (#739). Two versions can share a path while
+ * only one of them is live; the clash is between what production would serve.
+ * Compared across projects, like `findRouteConflict`.
+ */
+export async function findProdPathClash(
+	route: { id: string; method: string; path: string },
+	tx?: DbTransactionType,
+) {
+	// the keys are constants, spelled out: a bound parameter has no type after `->>`
+	const settings = (field: "path" | "method") =>
+		sql`${canvasVersionsEntity.snapshot}->'settings'->>${sql.raw(`'${field}'`)}`;
+	const [clash] = await (tx ?? db)
+		.select({
+			id: routesEntity.id,
+			name: routesEntity.name,
+			projectId: routesEntity.projectId,
+			path: sql<string>`${settings("path")}`,
+			method: sql<string>`${settings("method")}`,
+		})
+		.from(routesEntity)
+		.innerJoin(canvasVersionsEntity, eq(canvasVersionsEntity.id, routesEntity.prodVersionId))
+		.where(
+			and(
+				ne(routesEntity.id, route.id),
+				sql`${settings("method")} = ${route.method}`,
+				sql`${pathShape(settings("path"))} = ${pathShape(sql`${route.path}`)}`,
+			),
+		)
+		.limit(1);
+	return clash;
 }

@@ -106,6 +106,62 @@ describe("mode and effort stick to the conversation", () => {
 		expect(publish).not.toHaveBeenCalled();
 	});
 
+	describe("promote and rollback need a comment from the approver (#739)", () => {
+		const deploys = [
+			{
+				message: {
+					role: "assistant",
+					content: [
+						{ type: "tool-call", toolCallId: "p", toolName: "promote_version", input: {} },
+						{ type: "tool-call", toolCallId: "s", toolName: "save_route", input: {} },
+					],
+				},
+				seq: 0,
+			},
+		];
+
+		it("refuses an approval with no comment before claiming the run", async () => {
+			viewOf.mockResolvedValueOnce(deploys as never);
+			await expect(answerApproval(conv(), "u", { approve: true })).rejects.toThrow("need a comment");
+			viewOf.mockResolvedValueOnce(deploys as never);
+			await expect(
+				answerApproval(conv(), "u", { decisions: [{ toolCallId: "p", approve: true, comment: "  " }] }),
+			).rejects.toThrow("need a comment");
+			expect(claim).not.toHaveBeenCalled();
+			expect(publish).not.toHaveBeenCalled();
+		});
+
+		it("lets a rejection through without one, and other calls in the same bulk answer", async () => {
+			viewOf.mockResolvedValueOnce(deploys as never);
+			await answerApproval(conv(), "u", { approve: false, reason: "not now" });
+			expect(publish.mock.calls[0][0]).toMatchObject({ approval: { ok: false, reason: "not now" } });
+
+			viewOf.mockResolvedValueOnce(deploys as never);
+			await answerApproval(conv(), "u", { decisions: [{ toolCallId: "s", approve: true }] });
+			expect((publish.mock.calls[1][0] as any).decisions).toEqual([
+				{ toolCallId: "s", ok: true, reason: undefined, comment: undefined },
+			]);
+		});
+
+		it("queues the comment with its own call", async () => {
+			viewOf.mockResolvedValueOnce(deploys as never);
+			await answerApproval(conv(), "u", {
+				decisions: [
+					{ toolCallId: "p", approve: true, comment: "Fixes the 500s" },
+					{ toolCallId: "s", approve: true },
+				],
+			});
+			expect((publish.mock.calls[0][0] as any).decisions).toEqual([
+				{ toolCallId: "p", ok: true, reason: undefined, comment: "Fixes the 500s" },
+				{ toolCallId: "s", ok: true, reason: undefined, comment: undefined },
+			]);
+
+			viewOf.mockResolvedValueOnce(deploys as never);
+			await answerApproval(conv(), "u", { approve: true, comment: "Ship it" });
+			expect(publish.mock.calls[1][0]).toMatchObject({ approval: { ok: true, comment: "Ship it" } });
+		});
+	});
+
 	it("an approval that picks nothing leaves the settings alone", async () => {
 		await answerApproval(conv({ metadata: { agent: true, mode: "auto", effort: "mid" } }), "u", {
 			approve: false,
