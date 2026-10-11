@@ -1,6 +1,7 @@
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "../../../../db";
 import { traceRunsEntity, traceSpansEntity } from "../../../../db/schema";
+import type { FluxifyEnv } from "../../../../lib/env";
 import { type RunTarget, runTargetColumn } from "../get-runs/repository";
 
 /**
@@ -9,7 +10,12 @@ import { type RunTarget, runTargetColumn } from "../get-runs/repository";
  * The run lookup carries the project and target from the path, so a run id from
  * another project or target reads as one that does not exist.
  */
-export async function getRecordedRunById(projectId: string, target: RunTarget, runId: string) {
+export async function getRecordedRunById(
+	projectId: string,
+	target: RunTarget,
+	runId: string,
+	env?: FluxifyEnv,
+) {
 	const [run] = await db
 		.select({
 			id: traceRunsEntity.id,
@@ -22,6 +28,7 @@ export async function getRecordedRunById(projectId: string, target: RunTarget, r
 			droppedSpans: traceRunsEntity.droppedSpans,
 			parentRunId: traceRunsEntity.parentRunId,
 			parentSeq: traceRunsEntity.parentSeq,
+			env: traceRunsEntity.env,
 			routeVersion: traceRunsEntity.routeVersion,
 			workflowVersion: traceRunsEntity.workflowVersion,
 			metadata: traceRunsEntity.metadata,
@@ -32,6 +39,7 @@ export async function getRecordedRunById(projectId: string, target: RunTarget, r
 				eq(traceRunsEntity.id, runId),
 				eq(traceRunsEntity.projectId, projectId),
 				eq(runTargetColumn(target), target.id),
+				env ? eq(traceRunsEntity.env, env) : undefined,
 			),
 		);
 	if (!run) return null;

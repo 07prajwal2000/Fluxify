@@ -1,4 +1,4 @@
-import { describe, expect, it, mock } from "bun:test";
+import { describe, expect, it, mock, spyOn } from "bun:test";
 import { fileURLToPath } from "node:url";
 
 /**
@@ -23,6 +23,7 @@ const rows = [
 		variant: "PostgreSQL",
 		config: { source: "url", url: "cfg:PG_URL" },
 		projectId: PROJECT,
+		syncDev: true,
 	},
 ];
 
@@ -33,10 +34,15 @@ mock.module("../../../db", () => ({
 }));
 
 const { resolveSuiteConfig } = await import("../resolve");
-const { hydrateAppConfig } = await import("../../../loaders/appconfigLoader");
+const appConfigLoader = await import("../../../loaders/appconfigLoader");
 
-hydrateAppConfig(PROJECT, {
-	PG_URL: "postgres://real:real@prod-host:5432/proddb",
+// a suite runs on development values (#736)
+spyOn(appConfigLoader, "loadAppConfigFor").mockImplementation(async (env) => {
+	expect(env).toBe("development");
+	return {
+		config: { [PROJECT]: { PG_URL: "postgres://real:real@prod-host:5432/proddb" } },
+		missing: {},
+	};
 });
 
 /** spawn, bootstrap, wait for the child's answer, always reap it */

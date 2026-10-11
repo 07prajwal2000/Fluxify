@@ -51,6 +51,18 @@ describe("route and workflow tools", () => {
 		]);
 	});
 
+	it("save_route and save_workflow pass the prod recording warning on (#736)", async () => {
+		const warning = "Recording is heavy at scale.";
+		const { api, calls } = fakeApi({ id: "new-id", warning });
+		const input = { routeId: "r1", projectId: P, recordExecution: true, devTracingEnabled: true };
+		expect(await run("save_route", input, api)).toEqual({ id: "r1", warning });
+		expect(calls[0]!.body).toEqual({ recordExecution: true, devTracingEnabled: true });
+		expect(await run("save_workflow", { workflowId: "w1", recordExecution: true }, api)).toEqual({
+			id: "new-id",
+			warning,
+		});
+	});
+
 	it("save_route with middlewares creates, then sets both lists in order", async () => {
 		const { api, calls } = fakeApi();
 		const input = { projectId: P, name: "priv", path: "/p", method: "GET" };

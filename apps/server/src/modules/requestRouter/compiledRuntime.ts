@@ -11,6 +11,7 @@ import {
 } from "@fluxify/blocks";
 import { logger } from "@fluxify/common";
 import { type HttpRoute, HttpRouteParser } from "@fluxify/lib";
+import type { FluxifyEnv } from "../../lib/env";
 import { DEFAULT_BASE_DOMAIN, isPortalOrigin, subdomainOf } from "../../lib/hosting";
 import { type CompiledRequestSchema, compileRequestSchema } from "../../lib/schemaParser";
 import { hydrateAppConfig } from "../../loaders/appconfigLoader";
@@ -173,6 +174,41 @@ export function sandboxRequest(
 		...(compiled.artifact.ephemeral ? { debugSpans: true } : {}),
 	};
 	return { status: 200, path: `/${rest.join("/")}`, parser: { getRouteId: () => match } };
+}
+
+const DEV_PREFIX = "/_/dev";
+
+/**
+ * `/_/dev/*` (#736): undefined for any other path. Only a development worker
+ * serves it; a production one answers 404 whatever the headers say. The token
+ * picks the project, so projects sharing the base domain never shadow each
+ * other here; a project subdomain must be the token's own project. The route
+ * then matches as usual, on the path after the prefix.
+ */
+export function devRequest(
+	path: string,
+	host: string | undefined,
+	devToken: string | null,
+	env: FluxifyEnv | undefined,
+):
+	| { status: 401 | 404 }
+	| { status: 200; path: string; parser: Pick<HttpRouteParser, "getRouteId"> }
+	| undefined {
+	if (path !== DEV_PREFIX && !path.startsWith(`${DEV_PREFIX}/`)) return;
+	if (env !== "development") return { status: 404 };
+	const projectId = devToken ? projectOfDevToken(devToken) : undefined;
+	if (!projectId) return { status: 401 };
+	const own = projectParsers.get(projectId) ?? NO_ROUTES;
+	const byHost = routeParserFor(host);
+	if (byHost !== parser && byHost !== own) return { status: 404 };
+	return { status: 200, path: path.slice(DEV_PREFIX.length) || "/", parser: own };
+}
+
+// ponytail: one hash per project per request; a hash -> project map if a dev worker holds thousands
+function projectOfDevToken(token: string) {
+	for (const [projectId, devTokenHash] of devTokenHashes) {
+		if (verifyDevToken({ devTokenHash }, token)) return projectId;
+	}
 }
 
 /** Cached alongside the compiled graph; no Zod tree is rebuilt per request. */

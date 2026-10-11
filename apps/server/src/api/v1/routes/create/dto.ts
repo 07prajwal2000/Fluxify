@@ -1,4 +1,5 @@
 import z from "zod";
+import { observabilityFields, warningField } from "../../../../lib/observability";
 import { CONTENT_TYPES } from "../../../../lib/routeConfig";
 import { ROUTE_REGEX } from "../constants";
 import { routeSchemaValidationRefinement } from "../schema-validator";
@@ -16,12 +17,12 @@ export const requestBodySchema = z
 		paramsSchema: z.any().optional(),
 		timeoutSeconds: z.number().int().min(30).default(30),
 		active: z.boolean().optional(),
-		tracingEnabled: z.boolean().optional(),
-		recordExecution: z.boolean().optional(),
+		...observabilityFields,
 		acceptedContentTypes: z.array(z.enum(CONTENT_TYPES)).min(1).optional(),
 	})
 	.superRefine(routeSchemaValidationRefinement);
 
 export const responseSchema = z.object({
 	id: z.uuidv7(),
+	...warningField,
 });

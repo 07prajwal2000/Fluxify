@@ -1,14 +1,8 @@
 import { z } from "zod";
-import { ConflictError } from "../../../errors/conflictError";
-import { DEV_WORKER_URL, getEnv } from "../../../lib/env";
-import { devWorkerOnline } from "../../../modules/orchestrator/status";
-import { DEV_TOKEN_HEADER } from "../../../modules/requestRouter/devToken";
-import { readDevToken } from "../projects/settings/dev-token/service";
-import { callBodySchema, sendCall } from "../routes/call/service";
-import { specServerUrl } from "../routes/openapi/service";
+import { callBodySchema, devWorkerTarget, sendCall } from "../routes/call/service";
 import { mustOwn } from "./service";
 
-export const NO_DEV_WORKER = "start a worker with FLUXIFY_ENV=development";
+export { NO_DEV_WORKER } from "../routes/call/service";
 
 export const sandboxCallSchema = callBodySchema.omit({ params: true }).extend({
 	method: z
@@ -32,21 +26,20 @@ export async function callDevWorker(
 	requestOrigin: string,
 	options: { timeoutSeconds?: number; abortAfterMs?: number } = {},
 ) {
-	if (!(await devWorkerOnline(projectId))) throw new ConflictError(NO_DEV_WORKER);
-
-	// DEV_WORKER_URL, else the project's address, whose proxy sends /_sandbox to the development worker
-	const base = DEV_WORKER_URL ?? specServerUrl(projectId, getEnv("SERVER_URL") || requestOrigin);
 	const path = input.path.startsWith("/") ? input.path : `/${input.path}`;
-	const url = new URL(`/_sandbox/${id}${path}`, base);
+	const { url, headers } = await devWorkerTarget(
+		projectId,
+		`/_sandbox/${id}${path}`,
+		requestOrigin,
+	);
 	for (const [k, v] of Object.entries(input.query ?? {})) url.searchParams.set(k, v);
 
 	const method = input.method ?? (input.body !== undefined ? "POST" : "GET");
-	const { token } = await readDevToken(projectId);
 	return sendCall(url, method, input, {
 		target: { projectId, id },
 		timeoutSeconds: options.timeoutSeconds ?? 30,
 		abortAfterMs: options.abortAfterMs,
-		headers: { [DEV_TOKEN_HEADER]: token },
+		headers,
 	});
 }
 

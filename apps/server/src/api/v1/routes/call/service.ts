@@ -1,10 +1,12 @@
 import { z } from "zod";
 import type { AuthACL } from "../../../../db/schema";
 import { BadRequestError } from "../../../../errors/badRequestError";
+import { ConflictError } from "../../../../errors/conflictError";
 import { ForbiddenError } from "../../../../errors/forbidError";
 import { NotFoundError } from "../../../../errors/notFoundError";
 import { canAccessProject } from "../../../../lib/acl";
-import { getEnv } from "../../../../lib/env";
+import { DEV_WORKER_URL, getEnv } from "../../../../lib/env";
+import { devWorkerOnline } from "../../../../modules/orchestrator/status";
 import {
 	DEBUG_ERROR_HEADER,
 	DEBUG_TOKEN_HEADER,
@@ -13,6 +15,8 @@ import {
 	signDebugToken,
 } from "../../../../modules/requestRouter/debugError";
 import { DEBUG_TRACE_HEADER, decodeDebugTrace } from "../../../../modules/requestRouter/debugTrace";
+import { DEV_TOKEN_HEADER } from "../../../../modules/requestRouter/devToken";
+import { readDevToken } from "../../projects/settings/dev-token/service";
 import { getRouteById } from "../get-by-id/repository";
 import { specServerUrl } from "../openapi/service";
 
@@ -91,10 +95,27 @@ export function fetchRoute(url: URL, init: RequestInit) {
 	return fetch(target, { ...init, headers });
 }
 
+export const NO_DEV_WORKER = "start a worker with FLUXIFY_ENV=development";
+
 /**
- * Sends one real request to a route, the way the portal's playground does:
- * over HTTP to the project's public URL, so it runs on whatever serves the
- * project's traffic. Creator only, because it runs user code that may write data.
+ * `path` on the development worker, and the project's development token to
+ * send with it. DEV_WORKER_URL, else the project's address, whose proxy sends
+ * `/_/dev` and `/_sandbox` to the development worker. The token never leaves
+ * the admin: it is not in the answer, and the worker strips it before the
+ * blocks run.
+ */
+export async function devWorkerTarget(projectId: string, path: string, requestOrigin: string) {
+	if (!(await devWorkerOnline(projectId))) throw new ConflictError(NO_DEV_WORKER);
+	const base = DEV_WORKER_URL ?? specServerUrl(projectId, getEnv("SERVER_URL") || requestOrigin);
+	const { token } = await readDevToken(projectId);
+	return { url: new URL(path, base), headers: { [DEV_TOKEN_HEADER]: token } };
+}
+
+/**
+ * Sends one real request to a route, the way the portal's playground does, on
+ * the development worker at `/_/dev/<path>` (#736): it runs on development
+ * data, never production's. Creator only, because it runs user code that may
+ * write data.
  */
 export async function callRoute(
 	id: string,
@@ -107,13 +128,14 @@ export async function callRoute(
 	if (!canAccessProject(acl, route.projectId ?? "", "creator")) throw new ForbiddenError();
 	if (!route.active) throw new BadRequestError("Route is not active — activate it to call it");
 
-	const base = specServerUrl(route.projectId!, getEnv("SERVER_URL") || requestOrigin);
-	const url = new URL(fillPath(route.path!, input.params), base);
+	const path = `/_/dev${fillPath(route.path!, input.params)}`;
+	const { url, headers } = await devWorkerTarget(route.projectId!, path, requestOrigin);
 	for (const [k, v] of Object.entries(input.query ?? {})) url.searchParams.set(k, v);
 
 	return sendCall(url, route.method!, input, {
 		target: { projectId: route.projectId!, id },
 		timeoutSeconds: route.timeoutSeconds,
+		headers,
 	});
 }
 

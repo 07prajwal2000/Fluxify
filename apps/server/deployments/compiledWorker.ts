@@ -166,6 +166,7 @@ const supervisor = createExecutionSupervisor({
 		.map((origin) => origin.trim())
 		.filter(Boolean),
 	debugKey: routeDebugKey(getEnv("MASTER_ENCRYPTION_KEY")),
+	env: FLUXIFY_ENV,
 	timeoutsEnabled: timeoutPolicyEnabled,
 });
 

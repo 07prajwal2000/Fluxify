@@ -3,6 +3,7 @@ import type z from "zod";
 import { type DbTransactionType, db } from "../../../../db";
 import { CHAN_ON_ROUTE_CHANGE, publishMessage } from "../../../../db/redis";
 import { NotFoundError } from "../../../../errors/notFoundError";
+import { prodRecordingWarning } from "../../../../lib/observability";
 import { DEFAULT_CONTENT_TYPES } from "../../../../lib/routeConfig";
 import { patchRouteConfig } from "../routeConfigRepository";
 import { routeConflictError } from "../routeConflict";
@@ -49,5 +50,5 @@ export default async function handleRequest(
 		};
 	});
 	if (!outer) await publishMessage(CHAN_ON_ROUTE_CHANGE, result.id);
-	return result;
+	return { ...result, ...prodRecordingWarning(data) };
 }

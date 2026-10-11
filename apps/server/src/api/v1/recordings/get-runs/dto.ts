@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { traceOutcomeEnum } from "../../../../db/schema";
+import { fluxifyEnvEnum, traceOutcomeEnum } from "../../../../db/schema";
 import { paginationRequestQuerySchema, paginationResponseSchema } from "../../../../lib/pagination";
 import { targetParamSchema } from "../../../../modules/testRunner/target";
 
@@ -7,7 +7,11 @@ export const requestParamSchema = targetParamSchema.extend({
 	projectId: z.string(),
 });
 
+/** the worker that ran it (#736); a sandbox run is always development */
+export const runEnvSchema = z.enum(fluxifyEnvEnum.enumValues);
+
 export const requestQuerySchema = paginationRequestQuerySchema.extend({
+	env: runEnvSchema.optional().describe("only runs from this environment. Without it, both (#736)"),
 	outcome: z.enum(traceOutcomeEnum.enumValues).optional(),
 	from: z.coerce.date().optional().describe("runs started at or after this time"),
 	to: z.coerce.date().optional().describe("runs started before this time"),
@@ -30,6 +34,7 @@ export const runSummarySchema = z.object({
 	truncated: z.boolean(),
 	droppedSpans: z.number(),
 	parentRunId: z.string().nullable(),
+	env: runEnvSchema,
 	/** null on a normal run; set on a test run's trace (#627) */
 	metadata: z
 		.object({

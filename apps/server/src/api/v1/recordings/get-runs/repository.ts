@@ -27,7 +27,11 @@ export async function getRecordedRuns(
 		to,
 		source,
 		testRunId,
-	}: Pick<z.infer<typeof requestQuerySchema>, "outcome" | "from" | "to" | "source" | "testRunId">,
+		env,
+	}: Pick<
+		z.infer<typeof requestQuerySchema>,
+		"outcome" | "from" | "to" | "source" | "testRunId" | "env"
+	>,
 	skip: number,
 	take: number,
 ) {
@@ -35,6 +39,7 @@ export async function getRecordedRuns(
 		eq(traceRunsEntity.projectId, projectId),
 		eq(runTargetColumn(target), target.id),
 		outcome ? eq(traceRunsEntity.outcome, outcome) : undefined,
+		env ? eq(traceRunsEntity.env, env) : undefined,
 		from ? gte(traceRunsEntity.startedAt, from) : undefined,
 		to ? lt(traceRunsEntity.startedAt, to) : undefined,
 		testRunsFilter(source, testRunId),
@@ -51,6 +56,7 @@ export async function getRecordedRuns(
 			truncated: traceRunsEntity.truncated,
 			droppedSpans: traceRunsEntity.droppedSpans,
 			parentRunId: traceRunsEntity.parentRunId,
+			env: traceRunsEntity.env,
 			metadata: traceRunsEntity.metadata,
 		})
 		.from(traceRunsEntity)

@@ -16,6 +16,7 @@ import { AsyncExecutor } from "./asyncExecutor";
 import {
 	applyArtifactUpdate,
 	compiledRouteValidators,
+	devRequest,
 	fromPortal,
 	initCompiledRuntime,
 	routeParserFor,
@@ -167,18 +168,22 @@ async function handle(request: Request): Promise<Response> {
 async function serveRoute(request: Request): Promise<Response> {
 	if (!ready) return new Response("Execution process is not ready", { status: 503 });
 	const ctx = createHttpContext(request);
-	const sandbox = sandboxRequest(ctx.req.path, request.headers.get(DEV_TOKEN_HEADER));
-	if (sandbox && sandbox.status !== 200) {
+	const host = request.headers.get("host") ?? undefined;
+	const devToken = request.headers.get(DEV_TOKEN_HEADER);
+	// a sandbox (#735) or a development route (#736): both need the dev token
+	const scoped =
+		sandboxRequest(ctx.req.path, devToken) ?? devRequest(ctx.req.path, host, devToken, boot?.env);
+	if (scoped && scoped.status !== 200) {
 		const message =
-			sandbox.status === 404 ? "Route not found" : "Missing or wrong development token";
-		return json({ message }, sandbox.status, ctx.responseHeaders);
+			scoped.status === 404 ? "Route not found" : "Missing or wrong development token";
+		return json({ message }, scoped.status, ctx.responseHeaders);
 	}
 	// resolved before anything else: the host decides which project's routes exist
-	const parser = sandbox?.parser ?? routeParserFor(request.headers.get("host") ?? undefined);
+	const parser = scoped?.parser ?? routeParserFor(host);
 	const env = await envelopeFromHttp(ctx as any);
-	if (sandbox) {
-		// blocks see the path after the sandbox id, and never the token
-		env.payload.path = sandbox.path;
+	if (scoped) {
+		// blocks see the path after the prefix, and never the token
+		env.payload.path = scoped.path;
 		delete env.payload.headers[DEV_TOKEN_HEADER];
 	}
 	const debug = debugRequested(env, parser, boot?.debugKey);

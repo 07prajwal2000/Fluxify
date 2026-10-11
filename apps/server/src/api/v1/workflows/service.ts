@@ -7,6 +7,7 @@ import { ConflictError } from "../../../errors/conflictError";
 import { ForbiddenError } from "../../../errors/forbidError";
 import { NotFoundError } from "../../../errors/notFoundError";
 import { canAccessProject } from "../../../lib/acl";
+import { prodRecordingWarning } from "../../../lib/observability";
 import { dropWorkflow } from "../../../modules/compiler/service";
 import type { createSchema, listQuerySchema, listSchema, patchSchema, workflowSchema } from "./dto";
 import {
@@ -59,7 +60,7 @@ export async function createWorkflow(
 	});
 
 	if (!outer) await publishMessage(CHAN_ON_WORKFLOW_CHANGE, result.id);
-	return result;
+	return { ...result, ...prodRecordingWarning(data) };
 }
 
 export async function updateWorkflow(
@@ -80,7 +81,7 @@ export async function updateWorkflow(
 	});
 
 	await publishMessage(CHAN_ON_WORKFLOW_CHANGE, id);
-	return present(updated!);
+	return { ...present(updated!), ...prodRecordingWarning(data) };
 }
 
 export async function deleteWorkflow(id: string, acl: AuthACL[] = []) {
@@ -160,6 +161,8 @@ function present(row: Workflow): z.infer<typeof workflowSchema> {
 		timeoutSeconds: row.timeoutSeconds,
 		tracingEnabled: row.tracingEnabled,
 		recordExecution: row.recordExecution,
+		devTracingEnabled: row.devTracingEnabled,
+		devRecordExecution: row.devRecordExecution,
 		projectId: row.projectId!,
 		createdAt: row.createdAt.toISOString(),
 		updatedAt: row.updatedAt.toISOString(),

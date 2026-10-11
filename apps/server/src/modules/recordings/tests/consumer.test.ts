@@ -212,6 +212,30 @@ describe("recordings consumer", () => {
 		expect(await runRow(run.runId)).toBeUndefined();
 	});
 
+	it("records by the run's environment and keeps it (#736)", async () => {
+		// r-off: production recording off, development recording on (the default)
+		const dev = makeRun({ routeId: "r-off", env: "development" } as Partial<TraceRunPayload>);
+		const prod = makeRun({ routeId: "r-off", env: "production" } as Partial<TraceRunPayload>);
+		expect(await recordings.persistRecording(dev)).toBe("stored");
+		expect(await recordings.persistRecording(prod)).toBe("dropped");
+		expect((await runRow(dev.runId)).env).toBe("development");
+
+		const { getRecordedRuns } = await import("../../../api/v1/recordings/get-runs/repository");
+		const list = async (env?: "development" | "production") =>
+			(await getRecordedRuns("p1", { type: "route", id: "r-off" }, { env }, 0, 50)).result.map(
+				(run) => run.id,
+			);
+		expect(await list("development")).toContain(dev.runId);
+		expect(await list("production")).not.toContain(dev.runId);
+		expect(await list()).toContain(dev.runId);
+	});
+
+	it("an old run with no env is production's", async () => {
+		const run = makeRun({ routeId: "r-on" });
+		expect(await recordings.persistRecording(run)).toBe("stored");
+		expect((await runRow(run.runId)).env).toBe("production");
+	});
+
 	describe("test run traces (#627)", () => {
 		const metadata = (testRunId: string, caseIndex = 0) => ({
 			source: "test" as const,

@@ -84,7 +84,7 @@ export const serverEnvSchema = baseEnvSchema.extend({
 			message: "DEV_WORKER_URL must be a full URL such as http://localhost:5602",
 		})
 		.describe(
-			"Where the portal reaches the development worker (sandbox calls). Unset means the same public address as the project's API. Set it when the development worker has an address of its own, for example http://localhost:5602 on a plain local run",
+			"Where the admin and portal reach the development worker (sandboxes, /_/dev routes, call_route). Unset means the same public address as the project's API. Set it when the development worker has an address of its own, for example http://localhost:5602 on a plain local run",
 		),
 
 	WORKER_PROJECT_ID: z

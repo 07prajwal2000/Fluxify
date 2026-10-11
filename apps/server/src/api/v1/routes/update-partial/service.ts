@@ -7,6 +7,7 @@ import { ForbiddenError } from "../../../../errors/forbidError";
 import { NotFoundError } from "../../../../errors/notFoundError";
 import { ServerError } from "../../../../errors/serverError";
 import { canAccessProject } from "../../../../lib/acl";
+import { prodRecordingWarning } from "../../../../lib/observability";
 import { patchRouteConfig } from "../routeConfigRepository";
 import { routeConflictError } from "../routeConflict";
 import { normalizeParamsSchema, validateRouteSchemas } from "../schema-validator";
@@ -21,6 +22,12 @@ type RouteSchemas = {
 };
 
 const SCHEMA_FIELDS = ["bodySchema", "querySchema", "paramsSchema"] as const;
+const OBSERVABILITY_FIELDS = [
+	"tracingEnabled",
+	"recordExecution",
+	"devTracingEnabled",
+	"devRecordExecution",
+] as const;
 
 /**
  * Patches the request/response schemas onto the route being updated.
@@ -92,11 +99,8 @@ export default async function handleRequest(
 		if (data.timeoutSeconds !== undefined) {
 			patchedRoute.timeoutSeconds = data.timeoutSeconds;
 		}
-		if (data.tracingEnabled !== undefined) {
-			patchedRoute.tracingEnabled = data.tracingEnabled;
-		}
-		if (data.recordExecution !== undefined) {
-			patchedRoute.recordExecution = data.recordExecution;
+		for (const name of OBSERVABILITY_FIELDS) {
+			if (data[name] !== undefined) patchedRoute[name] = data[name];
 		}
 		if (data.acceptedContentTypes !== undefined) {
 			await patchRouteConfig(
@@ -128,5 +132,6 @@ export default async function handleRequest(
 		timeoutSeconds: result.timeoutSeconds,
 		createdAt: result.createdAt.toISOString(),
 		updatedAt: result.updatedAt.toISOString(),
+		...prodRecordingWarning(data),
 	};
 }

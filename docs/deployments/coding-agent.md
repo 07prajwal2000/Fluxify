@@ -192,7 +192,7 @@ Tell the agent to check each point, or check them yourself after it is done.
 | `LLM_TRACING_SAMPLE_RATE` | No | Share of runs traced, 0 to 1. Default `1`. |
 | `LLM_TRACING_RECORD_CONTENT` | No | `true` also sends prompts, messages and tool inputs/outputs, which can hold user data and secrets. Default `false`: only names, timings and token counts are sent. |
 | `FLUXIFY_ENV` | No | On one worker only, never in a `.env` every process shares. `production` (default) or `development`. A development worker runs only development work, holds no license slot, and serves every project in both modes, so it ignores `WORKER_PROJECT_ID`, `WORKER_MODE` and `WORKER_GROUP_ID`. The Kit, the compose file and the Helm chart each start one development worker with it set, so you don't set it yourself. See [Environments](../concepts/environments). |
-| `DEV_WORKER_URL` | No | Where the portal reaches the development worker, for [sandboxes](../concepts/sandbox). Leave it unset: the Kit, the compose file and the Helm chart already send `/_sandbox` to the development worker on the normal address. Set it only when the development worker has an address of its own, for example `http://localhost:5602` on a plain `bun run dev`. Read by the admin (or Kit) only. |
+| `DEV_WORKER_URL` | No | Where the admin and portal reach the development worker, for [sandboxes](../concepts/sandbox), the playground and `call_route`. Leave it unset: the Kit, the compose file and the Helm chart already send `/_sandbox` and `/_/dev` to the development worker on the normal address. Set it only when the development worker has an address of its own, for example `http://localhost:5602` on a plain `bun run dev`. Read by the admin (or Kit) only. |
 | `RECORDING_MAX_AGE_DAYS` | No | Days a recorded run (Execution history) is kept before it is deleted. Default `30`. Read by the admin (or Kit) only. |
 | `HOSTNAME` | No | The address processes listen on inside the container. Leave `0.0.0.0`. It is **not** your domain. |
 
@@ -250,7 +250,8 @@ them in the `fluxify-env` Secret.
   A fresh install starts one worker for every project on its own.
 - [ ] Admin + Workers: one development worker runs too, `fluxify-dev-worker`
   (the `worker-dev` compose service, or the Helm `devWorker` setting). It is
-  not one of the production workers, and nothing routes web traffic to it.
+  not one of the production workers. Only `/_sandbox` and `/_/dev` reach it,
+  on the normal address; everything else goes to the production workers.
   Kit: it runs inside the container on port `5602`, with no setup.
 - [ ] The number of workers fits the edition: 1 on Community, 2 on
   non-commercial, no limit on Enterprise. The node pool (starts at 2) caps it
@@ -271,6 +272,7 @@ The agent runs these and reports each result. `<url>` is your public address.
 | Containers or pods are up | `docker ps` or `kubectl get pods -n <namespace>` | Every one `Up`/`healthy` or `Running` and ready, with a `fluxify-worker-…` among them (Admin + Workers), beside `fluxify-dev-worker`. |
 | Admin answers | `curl -s -o /dev/null -w '%{http_code}' <url>/_/admin/api/public-settings` | `200` |
 | A worker answers | `curl -s <url>/fluxify-agent-check` | `{"message":"Route not found"}`. That is the worker. A `502`, or Traefik's plain `404 page not found`, means no worker is serving. |
+| The development worker answers | `curl -s <url>/_/dev/fluxify-agent-check` | `{"message":"Missing or wrong development token"}`. That is the development worker. `{"message":"Route not found"}` means `/_/dev` reached a production worker: the proxy rule for `/_/dev` is missing. |
 | MCP server answers | `curl -i -X POST <url>/_/admin/mcp` | `401` with a `WWW-Authenticate` header. |
 | MCP sign-in is found | `curl <url>/.well-known/oauth-protected-resource/_/admin/mcp` | JSON whose `resource` is `<url>/_/admin/mcp`. |
 | MCP sign-in details | `curl <url>/.well-known/oauth-authorization-server/_/admin/api/auth` | JSON whose `issuer` is `<url>/_/admin/api/auth`. |
@@ -305,6 +307,8 @@ agent to stop and hand over at that point.
 | What you see | Likely mistake | Fix |
 | :--- | :--- | :--- |
 | The portal loads but sign-in fails | `SERVER_URL`, `BETTER_AUTH_URL` and `TRUSTED_ORIGINS` don't match the address in the browser (http vs https, a port, a trailing slash, an IP instead of the domain) | Set all three to the exact address, then restart the admin. On Helm, fix `url` and upgrade. |
+| The playground, `call_route` or a test suite says "start a worker with FLUXIFY_ENV=development" | The development worker is not running, or it was removed (`devWorker.enabled: false`, or the `worker-dev` service deleted) | Start it again: these features only ever run on development. |
+| `<url>/_/dev/…` answers `Route not found` | The proxy sends `/_/dev` to a production worker, which never serves it | Send `/_sandbox`, `/_/dev` and `/_/dev/…` to the development worker, as the Kit, compose file and Helm chart do. |
 | The agent set `HOSTNAME` to the domain | `HOSTNAME` is the listen address, not the domain | Put it back to `0.0.0.0`. |
 | Fluxify exits at start, logs mention NATS | NATS is missing, not reachable, older than 2.14, has no JetStream, or the token differs | Start NATS with `-js`, check `NATS_URL`, and make `NATS_TOKEN` match `--auth`. |
 | Admin exits at start after an upgrade, log says `database migration failed` | A database update could not be applied. It is all or nothing, so the database is unchanged | Read the reason in the log. Fix it, or go back to the previous version. Never edit the database by hand to get past it. |

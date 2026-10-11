@@ -1,13 +1,17 @@
 import type { z } from "zod";
 import type { AuthACL } from "../../../db/schema";
 import { BadRequestError } from "../../../errors/badRequestError";
+import { ConflictError } from "../../../errors/conflictError";
+import { devWorkerOnline } from "../../../modules/orchestrator/status";
 import { fireInternalTrigger } from "../../../modules/triggers/publisher";
+import { NO_DEV_WORKER } from "../routes/call/service";
 import type { runAcceptedSchema, runSchema } from "./dto";
 import { mustAccess } from "./service";
 
 /**
- * Queues one run of a workflow. This is the manual path the portal's test-run
- * button uses; a trigger enqueues exactly the same job.
+ * Queues one run of a workflow on a development worker (#736), on development
+ * data. This is the manual path the portal's test-run button uses; a trigger
+ * enqueues exactly the same job.
  *
  * The response is an id, not a result. A workflow is background work — the
  * process that runs it is a worker somewhere else, and it may not even be up
@@ -24,6 +28,8 @@ export default async function runWorkflow(
 	// An inactive workflow has no artifact in the store, so the job would sit on
 	// the queue until it aged out. Refuse now, where the caller can see why.
 	if (!workflow.active) throw new BadRequestError("Workflow is not active — activate it to run it");
+	// otherwise the run would wait on the queue for a worker nobody started
+	if (!(await devWorkerOnline(workflow.projectId!))) throw new ConflictError(NO_DEV_WORKER);
 
 	// The same subject the Trigger Workflow block uses. A test run and a fired
 	// trigger must take one path, or the thing the user tests is not the thing
@@ -35,8 +41,7 @@ export default async function runWorkflow(
 			data: body.payload,
 			origin: { via: "manual", userId },
 		},
-		// the Run button moves to development in #736
-		"production",
+		"development",
 	);
 	return { id: fired.id, accepted: true };
 }

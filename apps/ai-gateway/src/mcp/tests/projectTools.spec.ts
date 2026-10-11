@@ -170,11 +170,21 @@ describe("project tools", () => {
 			truncated: false,
 			droppedSpans: 0,
 			parentRunId: null,
+			env: "development",
 			metadata: { source: "test", label: "Suite · case", testRunId: "tr" },
 		};
 		const { api, calls } = fakeApi({ [REC]: { data: [row], pagination: { page: 1, hasNext: false } } });
-		const result = await run("list_recordings", { ...target, outcome: "failure", source: "test" }, api);
-		expect(calls[0].query).toMatchObject({ outcome: "failure", source: "test", perPage: 50 });
+		const result = await run(
+			"list_recordings",
+			{ ...target, outcome: "failure", source: "test", env: "development" },
+			api,
+		);
+		expect(calls[0].query).toMatchObject({
+			outcome: "failure",
+			source: "test",
+			env: "development",
+			perPage: 50,
+		});
 		expect(result).toEqual({
 			items: [
 				{
@@ -186,6 +196,7 @@ describe("project tools", () => {
 					statusCode: null,
 					spanCount: 2,
 					truncated: false,
+					env: "development",
 					testLabel: "Suite · case",
 				},
 			],
@@ -228,6 +239,8 @@ describe("project tools", () => {
 		expect(short.spans[0]).not.toHaveProperty("input");
 
 		expect(await run("get_recording", { ...target, runId: "x", full: true }, api)).toEqual(recorded);
+		await run("get_recording", { ...target, runId: "x", env: "production" }, api);
+		expect(calls.some((c) => c.path === `${REC}/x` && (c.query as any)?.env === "production")).toBe(true);
 		expect(await run("get_recording", { ...target, runId: "x", spanSeq: 1 }, api)).toEqual(recorded.spans[1]);
 		await expect(run("get_recording", { ...target, runId: "x", spanSeq: 9 }, api)).rejects.toThrow(
 			"This run has no span 9.",

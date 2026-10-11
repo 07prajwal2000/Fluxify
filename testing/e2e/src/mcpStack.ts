@@ -5,7 +5,8 @@
 // shuts down when its stdin closes.
 //
 // Like the kit, one origin serves both: /_/admin goes to the admin app, every
-// other path to a real compiled worker, so call_route runs for real.
+// other path to a real compiled worker, so call_route runs for real. It is a
+// development worker: call_route and test suites only ever run there (#736).
 import { join } from "node:path";
 import {
 	createProject,
@@ -127,13 +128,14 @@ const integration = await insert<{ id: string }>(schema.integrationsEntity, {
 	projectId,
 });
 
-// the real compiled worker, serving every project from the artifacts the
-// compile worker writes
+// the real compiled worker, serving every project from the development
+// artifacts the compile worker writes
 const worker = Bun.spawn(
 	["bun", join(import.meta.dir, "../../../apps/server/deployments/compiledWorker.ts")],
 	{
 		env: {
 			...process.env,
+			FLUXIFY_ENV: "development",
 			WORKER_PROJECT_ID: "*",
 			WORKER_MODE: "both",
 			WORKER_PORT: String(workerPort),

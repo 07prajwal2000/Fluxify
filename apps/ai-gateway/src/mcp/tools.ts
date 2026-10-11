@@ -215,6 +215,8 @@ export const readTools: McpTool[] = [
 					"timeoutSeconds",
 					"tracingEnabled",
 					"recordExecution",
+					"devTracingEnabled",
+					"devRecordExecution",
 					"acceptedContentTypes",
 					"bodySchema",
 					"querySchema",
@@ -256,6 +258,8 @@ export const readTools: McpTool[] = [
 				"timeoutSeconds",
 				"tracingEnabled",
 				"recordExecution",
+				"devTracingEnabled",
+				"devRecordExecution",
 			]),
 	},
 	{

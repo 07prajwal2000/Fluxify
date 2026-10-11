@@ -1,4 +1,5 @@
 import type { TraceRunPayload } from "@fluxify/common/otlp";
+import type { FluxifyEnv } from "../../lib/env";
 import type { JobEnvelope } from "../jobs/types";
 import type { AsyncExecutorLimits } from "./asyncExecutor";
 import type { ArtifactEntry } from "./compiledRuntime";
@@ -21,6 +22,8 @@ export type ExecutionBootstrap = {
 	workerTimeoutsEnabled: boolean;
 	/** verifies the admin's debug-call tokens (#671); empty turns debug errors off */
 	debugKey?: string;
+	/** the worker's environment: only development serves `/_/dev/*` (#736) */
+	env: FluxifyEnv;
 	/** hard request body ceiling in bytes; the child cannot read the env itself */
 	maxRequestBodyBytes: number;
 	/** furthest ahead a Trigger Workflow block may schedule a run, in milliseconds */

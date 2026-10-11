@@ -290,6 +290,51 @@ describe("migrateDB", () => {
 		expect(left.n).toBe(0);
 	});
 
+	test("observability per environment (#736): old rows keep production's, development records", async () => {
+		const { url, client } = await newDatabase();
+		const folder = mkdtempSync(join(tmpdir(), "fluxify-migrations-"));
+		try {
+			cpSync(MIGRATIONS_FOLDER, folder, { recursive: true });
+			const journalPath = join(folder, "meta/_journal.json");
+			const meta = await Bun.file(journalPath).json();
+			const from = meta.entries.findIndex((e: { tag: string }) => e.tag === "0014_dev_observability");
+			meta.entries = meta.entries.slice(0, from);
+			await Bun.write(journalPath, JSON.stringify(meta));
+			await migrateDB(url, folder);
+		} finally {
+			rmSync(folder, { recursive: true, force: true });
+		}
+		await client`INSERT INTO projects (id, name, slug) VALUES ('p1', 'Shop', 'shop')`;
+		await client`INSERT INTO system_users (id, email, name) VALUES ('u1', 'ada@example.com', 'Ada')`;
+		await client`INSERT INTO routes (id, project_id, tracing_enabled, record_execution) VALUES ('r1', 'p1', true, true), ('r2', 'p1', false, false)`;
+		await client`INSERT INTO workflows (id, project_id, record_execution) VALUES ('w1', 'p1', true)`;
+		await client`INSERT INTO sandboxes (id, project_id, user_id, name) VALUES ('s1', 'p1', 'u1', 'scratch')`;
+		await client`INSERT INTO trace_runs (id, project_id, route_id, sandbox_id, started_at, outcome, span_count) VALUES
+			('00000000-0000-4000-8000-000000000001', 'p1', 'r1', NULL, now(), 'success', 0),
+			('00000000-0000-4000-8000-000000000002', 'p1', NULL, 's1', now(), 'success', 0)`;
+		await migrateDB(url);
+
+		expect(
+			await client`SELECT id, tracing_enabled, record_execution, dev_tracing_enabled, dev_record_execution FROM routes ORDER BY id`,
+		).toEqual([
+			{ id: "r1", tracing_enabled: true, record_execution: true, dev_tracing_enabled: false, dev_record_execution: true },
+			{ id: "r2", tracing_enabled: false, record_execution: false, dev_tracing_enabled: false, dev_record_execution: true },
+		]);
+		expect(await client`SELECT record_execution, dev_tracing_enabled, dev_record_execution FROM workflows`).toEqual([
+			{ record_execution: true, dev_tracing_enabled: false, dev_record_execution: true },
+		]);
+		expect((await client`SELECT env FROM trace_runs ORDER BY id`).map((r: { env: string }) => r.env)).toEqual([
+			"production",
+			"development",
+		]);
+
+		// a new row: development records, production does not, neither traces
+		await client`INSERT INTO routes (id, project_id) VALUES ('r3', 'p1')`;
+		expect(
+			await client`SELECT tracing_enabled, record_execution, dev_tracing_enabled, dev_record_execution FROM routes WHERE id = 'r3'`,
+		).toEqual([{ tracing_enabled: false, record_execution: false, dev_tracing_enabled: false, dev_record_execution: true }]);
+	});
+
 	test("two migrators at once: one applies, the other waits and finds nothing to do", async () => {
 		const { url, client } = await newDatabase();
 		await Promise.all([migrateDB(url), migrateDB(url)]);
