@@ -5,6 +5,7 @@ import { TbActivity, TbArrowLeft, TbSettings } from "react-icons/tb";
 import z from "zod";
 import { CanvasWorkbench } from "@/components/canvas";
 import { RecordingsModal } from "@/components/recordings/ExecutionRecordings";
+import type { Replay } from "@/components/recordings/replay";
 import { DevWorkerBanner } from "@/components/sandboxes/DevWorkerBanner";
 import { SandboxPlayground } from "@/components/sandboxes/SandboxPlayground";
 import { SandboxRunButton, SandboxRunModal } from "@/components/sandboxes/SandboxRunModal";
@@ -57,6 +58,20 @@ function SandboxCanvasPage() {
 	const [runOpen, setRunOpen] = useState(false);
 	const [runsOpen, setRunsOpen] = useState(false);
 	const [focusRun, setFocusRun] = useState<string | undefined>();
+	// a replayed run (#752): a request opens the playground, a payload the Run form
+	const [replayRequest, setReplayRequest] = useState<Extract<Replay, { kind: "request" }>>();
+	const [replayPayload, setReplayPayload] = useState<unknown>();
+	const [playgroundToken, setPlaygroundToken] = useState(0);
+	const replay = (r: Replay) => {
+		setRunsOpen(false);
+		if (r.kind === "request") {
+			setReplayRequest(r);
+			setPlaygroundToken((n) => n + 1);
+		} else {
+			setReplayPayload(r.payload);
+			setRunOpen(true);
+		}
+	};
 	const name = sandbox?.name ?? "Sandbox";
 
 	return (
@@ -66,6 +81,7 @@ function SandboxCanvasPage() {
 				enableBlockPicker
 				enablePlayground
 				enableSpotlight
+				playgroundToken={playgroundToken}
 				focusBlock={block ? { blockId: block, error } : undefined}
 				readOnly={!canEdit}
 				items={sandboxesQuery.canvasItems.useQuery(projectId, sandboxId)}
@@ -76,7 +92,8 @@ function SandboxCanvasPage() {
 				banner={<DevWorkerBanner online={online} />}
 				playgroundContent={
 					<SandboxPlayground
-						key={sandboxId}
+						key={`${sandboxId}:${playgroundToken}`}
+						replay={replayRequest}
 						projectId={projectId}
 						sandboxId={sandboxId}
 						online={online}
@@ -113,7 +130,10 @@ function SandboxCanvasPage() {
 						<SandboxRunButton
 							projectId={projectId}
 							online={online}
-							onPress={() => setRunOpen(true)}
+							onPress={() => {
+								setReplayPayload(undefined);
+								setRunOpen(true);
+							}}
 						/>
 						<Button variant="outline" onPress={() => setSettingsOpen(true)}>
 							<TbSettings size={16} /> Settings
@@ -139,6 +159,7 @@ function SandboxCanvasPage() {
 					online={online}
 					isOpen={runOpen}
 					onOpenChange={setRunOpen}
+					initialPayload={replayPayload}
 				/>
 			)}
 			{runsOpen && (
@@ -148,6 +169,7 @@ function SandboxCanvasPage() {
 					target={{ type: "sandbox", id: sandboxId }}
 					emptyHint="send a request from the playground, or press Run"
 					initialRunId={focusRun}
+					onReplay={replay}
 					isOpen={runsOpen}
 					onOpenChange={setRunsOpen}
 				/>

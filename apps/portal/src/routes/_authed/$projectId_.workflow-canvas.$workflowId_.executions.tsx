@@ -56,6 +56,8 @@ function WorkflowExecutionsPage() {
 	const { data: workflow } = workflowsQuery.byId.useQuery(workflowId);
 	const canEdit = useCanEditProject(projectId);
 	const [runOpen, setRunOpen] = useState(false);
+	// a replayed run (#752) opens the Run form with its recorded payload
+	const [replayPayload, setReplayPayload] = useState<unknown>();
 	const [settingsOpen, setSettingsOpen] = useState(false);
 
 	const title = workflow?.name
@@ -72,7 +74,10 @@ function WorkflowExecutionsPage() {
 					<WorkflowRunButton
 						projectId={projectId}
 						active={!!workflow?.active}
-						onPress={() => setRunOpen(true)}
+						onPress={() => {
+							setReplayPayload(undefined);
+							setRunOpen(true);
+						}}
 					/>
 					<Button variant="outline" onPress={() => setSettingsOpen(true)}>
 						<TbSettings size={16} /> Settings
@@ -88,6 +93,11 @@ function WorkflowExecutionsPage() {
 					projectId={projectId}
 					target={{ type: "workflow", id: workflowId }}
 					emptyHint="run the workflow with the Run button or its trigger"
+					onReplay={(next) => {
+						if (next.kind !== "payload") return;
+						setReplayPayload(next.payload);
+						setRunOpen(true);
+					}}
 				/>
 			</main>
 
@@ -97,6 +107,7 @@ function WorkflowExecutionsPage() {
 					name={workflow?.name ?? "Untitled"}
 					isOpen={runOpen}
 					onOpenChange={setRunOpen}
+					initialPayload={replayPayload}
 				/>
 			)}
 

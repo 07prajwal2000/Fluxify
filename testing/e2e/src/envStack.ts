@@ -100,6 +100,11 @@ const creator = await createUser(s, "creator", projectId);
 const viewer = await createUser(s, "viewer", projectId);
 // another creator in the same project, who must never see the first one's sandboxes
 const other = await createUser(s, "creator", projectId);
+// a second project the creator also works in (#752: copy_blocks never crosses projects)
+const otherProjectId = await createProject(s);
+await s.db
+	.insert(s.server.accessControlEntity)
+	.values({ userId: creator.id, projectId: otherProjectId, role: "creator" });
 
 async function apiKey(email: string) {
 	const cookie = await signIn(s, email);
@@ -153,6 +158,7 @@ console.log(
 		url: `http://127.0.0.1:${server.port}`,
 		workers: { production, development },
 		projectId,
+		otherProjectId,
 		creatorId: creator.id,
 		data: {
 			production: { port: prodData.port, password: "prod-secret", database: "postgres" },

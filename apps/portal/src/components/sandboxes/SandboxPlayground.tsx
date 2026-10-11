@@ -1,4 +1,9 @@
-import { ApiPlayground, type ApiPlaygroundRequest, Button } from "@fluxify/components";
+import {
+	ApiPlayground,
+	type ApiPlaygroundRequest,
+	type ApiPlaygroundState,
+	Button,
+} from "@fluxify/components";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { TbPlayerRecord } from "react-icons/tb";
@@ -39,11 +44,14 @@ export function SandboxPlayground({
 	sandboxId,
 	online,
 	onOpenRun,
+	replay,
 }: {
 	projectId: string;
 	sandboxId: string;
 	online: boolean;
 	onOpenRun: (runId: string) => void;
+	/** A recorded request to start from (#752). */
+	replay?: { method: string; path: string; state: ApiPlaygroundState };
 }) {
 	const baseUrl = sandboxBaseUrl(useDevWorkerUrl(projectId), sandboxId);
 	const playground = useCanvasPlayground();
@@ -54,7 +62,10 @@ export function SandboxPlayground({
 		queryFn: () => projectDevTokenService.get(projectId),
 		refetchOnWindowFocus: false,
 	});
-	const route = useMemo(() => ({ path: "/", method: "GET" }), []);
+	const route = useMemo(
+		() => ({ path: replay?.path ?? "/", method: replay?.method ?? "GET" }),
+		[replay],
+	);
 
 	async function onSend(request: ApiPlaygroundRequest) {
 		setLatestRun(null);
@@ -94,6 +105,7 @@ export function SandboxPlayground({
 					isFramed={false}
 					editableRequest
 					defaultValidate={false}
+					initialState={replay?.state}
 				/>
 			</div>
 			{latestRun && (

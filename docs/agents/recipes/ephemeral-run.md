@@ -33,6 +33,8 @@ What to know:
 - A block with more than one output handle (such as `if`) needs a `handle` on its edges: `"from": "check.success"` or `"handle": "success"`. `get_block_schemas` lists each block's handles.
 - Block text inputs are literal unless they start with `js:`, as on any canvas.
 
+To run a canvas that already exists, leave out `blocks` and `edges` and give `from` instead: `{ "kind": "route", "id": "<route id>" }` (or a workflow, a custom block or your own sandbox of this project). Add `keys` to run only those blocks. The saved canvas is not changed.
+
 ## 2. Read the answer
 
 | Field | What it is |

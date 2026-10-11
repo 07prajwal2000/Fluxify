@@ -106,16 +106,41 @@ export const isDelete = (name: string) => /^(delete|remove)_/.test(name);
 /** The one tool a project can make ask in every mode, auto included (#741). */
 export const EPHEMERAL_RUN_TOOL = "run_blocks";
 
+/** The tool that moves blocks between canvases (#752). */
+export const COPY_TOOL = "copy_blocks";
+
+/**
+ * copy_blocks into a route, workflow or custom block changes live work, so it
+ * asks even in auto and is never approved for the whole session. Into a
+ * sandbox (new or existing) it is a plain write. An unreadable target asks.
+ */
+export function copiesIntoRealCanvas(name: string, args: unknown) {
+	if (name !== COPY_TOOL) return false;
+	let to = (args as { to?: unknown } | undefined)?.to;
+	if (typeof to === "string" && to !== "__new_sandbox__") {
+		try {
+			to = JSON.parse(to);
+		} catch {}
+	}
+	return to !== "__new_sandbox__" && (to as { kind?: string } | undefined)?.kind !== "sandbox";
+}
+
 /**
  * The one ask rule. Deletes always ask; reads never do. Other calls ask in
  * manual (and plan, where they are not active anyway) but not in auto, so
  * call_route and run_test_suite run unasked in auto despite destructiveHint.
  * `askBeforeEphemeral` is the project's "Ask before ephemeral runs" setting:
- * run_blocks then asks in auto too.
+ * run_blocks then asks in auto too. `args` is only read for copy_blocks.
  */
-export const needsApproval = (mode: Mode, name: string, askBeforeEphemeral = false) =>
+export const needsApproval = (
+	mode: Mode,
+	name: string,
+	askBeforeEphemeral = false,
+	args?: unknown,
+) =>
 	isDelete(name) ||
 	(askBeforeEphemeral && name === EPHEMERAL_RUN_TOOL) ||
+	copiesIntoRealCanvas(name, args) ||
 	(!isRead(name) && mode !== "auto");
 
 /** Calls one MCP tool by name as the `auth` user, its input checked like the agent's. */

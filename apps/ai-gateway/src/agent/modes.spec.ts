@@ -24,7 +24,7 @@ const text = (s: string) => [
 	{ type: "text-delta", id: "t", delta: s },
 	{ type: "text-end", id: "t" },
 ];
-const NAMES = ["save_route", "call_route", "get_canvas", "delete_route", "run_test_suite", "run_blocks"];
+const NAMES = ["save_route", "call_route", "get_canvas", "delete_route", "run_test_suite", "run_blocks", "copy_blocks"];
 
 /**
  * One run: each entry of `steps` is the tools the model calls in that step,
@@ -62,11 +62,12 @@ async function run(
 			prompts.push({ tools: (o.tools ?? []).map((t) => t.name), messages: withoutBudget(o.prompt as ModelMessage[]) });
 			const names = steps[prompts.length - 1];
 			if (!names) return reply(text("done"), "stop") as any;
+			// "name|{json}" gives the call arguments
 			const calls = names.map((n, i) => ({
 				type: "tool-call",
 				toolCallId: `c${prompts.length}-${i}`,
-				toolName: n,
-				input: "{}",
+				toolName: n.split("|")[0],
+				input: n.split("|")[1] ?? "{}",
 			}));
 			return reply(calls, "tool-calls") as any;
 		},
@@ -127,6 +128,19 @@ describe("what asks", () => {
 			askBeforeEphemeralRuns: true,
 		});
 		expect(others.asked).toEqual([]);
+	});
+
+	it("copy_blocks into a route asks every time, even in auto; into a sandbox it does not (#752)", async () => {
+		const to = (t: unknown) => `copy_blocks|${JSON.stringify({ to: t })}`;
+		const route = to({ kind: "route", id: "r" });
+		const sandbox = to({ kind: "sandbox", id: "s" });
+		const fresh = to("__new_sandbox__");
+		expect((await run([[route, sandbox, fresh]], "auto")).asked).toEqual(["copy_blocks"]);
+		expect((await run([[sandbox, fresh]], "manual")).asked).toHaveLength(2);
+		// "always" on a copy into a sandbox never covers a copy into a route
+		const always = (): Approval => ({ ok: true, always: true });
+		const steps = [[sandbox], [sandbox, route], [route]];
+		expect((await run(steps, "manual", always, { allowed: new Set() })).asked).toHaveLength(3);
 	});
 
 	it("a rejected run_blocks does not run", async () => {

@@ -6,7 +6,7 @@ import {
 	useRouteParamTypes,
 	type ValidationSchema,
 } from "@fluxify/components";
-import { createFileRoute, isRedirect, redirect } from "@tanstack/react-router";
+import { createFileRoute, isRedirect, redirect, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { TbSettings } from "react-icons/tb";
 import z from "zod";
@@ -16,6 +16,7 @@ import { RouteSettingsModal } from "@/components/routes/RouteSettingsModal";
 import { RouteSwitcher } from "@/components/routes/RouteSwitcher";
 import { RouteWorkbenchTabs } from "@/components/routes/RouteWorkbenchTabs";
 import { extractPathParams } from "@/components/routes/routeForm";
+import { OpenInSandboxButton } from "@/components/sandboxes/OpenInSandboxButton";
 import { useProjectApiBaseUrl } from "@/components/settings/SubdomainField";
 import { createRouteHead, usePageTitle } from "@/lib/seo";
 import { useProjectPackageTypes } from "@/query/projectPackagesQuery";
@@ -56,6 +57,7 @@ export const Route = createFileRoute("/_authed/$projectId_/canvas/$routeId")({
 
 function RouteCanvasPage() {
 	const { projectId, routeId } = Route.useParams();
+	const navigate = useNavigate();
 	const { block, error } = Route.useSearch();
 	useProjectPackageTypes(projectId);
 	const apiBaseUrl = useProjectApiBaseUrl(projectId);
@@ -117,9 +119,25 @@ function RouteCanvasPage() {
 					</>
 				}
 				headerActions={
-					<Button variant="outline" onPress={() => setSettingsOpen(true)}>
-						<TbSettings size={16} /> Settings
-					</Button>
+					<>
+						<OpenInSandboxButton
+							projectId={projectId}
+							onOpen={(sandboxId) =>
+								navigate({
+									to: "/$projectId/sandbox-canvas/$sandboxId",
+									params: { projectId, sandboxId },
+								})
+							}
+							source={{
+								kind: "route",
+								id: routeId,
+								name: route?.name || `${route?.method.toUpperCase()} ${route?.path}`,
+							}}
+						/>
+						<Button variant="outline" onPress={() => setSettingsOpen(true)}>
+							<TbSettings size={16} /> Settings
+						</Button>
+					</>
 				}
 			/>
 			{/* mounted only while open: the form seeds its state from the loaded route */}

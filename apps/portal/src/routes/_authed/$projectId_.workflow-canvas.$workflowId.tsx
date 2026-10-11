@@ -1,10 +1,11 @@
 import { Button, toast } from "@fluxify/components";
-import { createFileRoute, isRedirect, redirect } from "@tanstack/react-router";
+import { createFileRoute, isRedirect, redirect, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { TbSettings } from "react-icons/tb";
 import z from "zod";
 import { CanvasWorkbench } from "@/components/canvas";
 import { WorkflowWorkbenchTabs } from "@/components/routes/RouteWorkbenchTabs";
+import { OpenInSandboxButton } from "@/components/sandboxes/OpenInSandboxButton";
 import { WorkflowRunButton, WorkflowRunModal } from "@/components/workflows/WorkflowRunModal";
 import { WorkflowSettingsModal } from "@/components/workflows/WorkflowSettingsModal";
 import { WorkflowSwitcher } from "@/components/workflows/WorkflowSwitcher";
@@ -47,6 +48,7 @@ export const Route = createFileRoute("/_authed/$projectId_/workflow-canvas/$work
 
 function WorkflowCanvasPage() {
 	const { projectId, workflowId } = Route.useParams();
+	const navigate = useNavigate();
 	const { block, error } = Route.useSearch();
 	useProjectPackageTypes(projectId);
 	const save = workflowsQuery.saveCanvas.mutation(workflowId);
@@ -78,6 +80,16 @@ function WorkflowCanvasPage() {
 				}
 				headerActions={
 					<>
+						<OpenInSandboxButton
+							projectId={projectId}
+							onOpen={(sandboxId) =>
+								navigate({
+									to: "/$projectId/sandbox-canvas/$sandboxId",
+									params: { projectId, sandboxId },
+								})
+							}
+							source={{ kind: "workflow", id: workflowId, name: workflow?.name || "Untitled" }}
+						/>
 						<WorkflowRunButton
 							projectId={projectId}
 							active={!!workflow?.active}

@@ -8,7 +8,7 @@ import type {
 import type { runAcceptedSchema } from "@fluxify/server/src/api/v1/workflows/dto";
 import type z from "zod";
 import { httpClient } from "@/lib/http";
-import { canvasEndpoints } from "./canvas";
+import { type CanvasItems, type CanvasSavePayload, canvasEndpoints } from "./canvas";
 
 export type Sandbox = z.infer<typeof sandboxSchema>;
 export type CreateSandboxBody = z.infer<typeof createSchema>;
@@ -53,6 +53,12 @@ export const sandboxesService = {
 	): Promise<z.infer<typeof runAcceptedSchema>> {
 		const result = await httpClient.post(`${sandboxesBase(projectId)}/${id}/run`, { payload });
 		return result.data;
+	},
+	async getCanvasItems(projectId: string, id: string): Promise<CanvasItems> {
+		return sandboxCanvas(projectId).getCanvasItems(id);
+	},
+	async saveCanvas(projectId: string, id: string, payload: CanvasSavePayload) {
+		return sandboxCanvas(projectId).saveCanvasItems(id, payload);
 	},
 	async devWorkerOnline(projectId: string): Promise<boolean> {
 		const result = await httpClient.get(`/v1/projects/${projectId}/nodes/dev-worker`);

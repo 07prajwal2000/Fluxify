@@ -21,6 +21,8 @@ type RouteApiPlaygroundProps = {
 	className?: string;
 	isFramed?: boolean;
 	enableCache?: boolean;
+	/** A recorded request to start from (#752); it replaces the cached state. */
+	replay?: ApiPlaygroundState;
 };
 
 /**
@@ -34,12 +36,17 @@ export function RouteApiPlayground({
 	className,
 	isFramed,
 	enableCache,
+	replay,
 }: RouteApiPlaygroundProps) {
 	const route = routesQuery.byId.useQuery(routeId);
 	const selectBlock = useBlockErrorFocus();
 	const send = onSend ?? ((request: ApiPlaygroundRequest) => sendThroughAdmin(routeId, request));
-	const [initialState] = useState(() =>
-		enableCache ? useCanvasPlaygroundCacheStore.getState().getPlaygroundState(routeId) : undefined,
+	const [initialState] = useState(
+		() =>
+			replay ??
+			(enableCache
+				? useCanvasPlaygroundCacheStore.getState().getPlaygroundState(routeId)
+				: undefined),
 	);
 
 	const handleStateChange = useCallback(

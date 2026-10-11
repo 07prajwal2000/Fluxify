@@ -81,6 +81,7 @@ function CanvasInner({
 	className,
 	cycleFeedbackToken = 0,
 	reloadToken = 0,
+	playgroundToken = 0,
 	onNodeDoubleClick: onCustomNodeDoubleClick,
 	focusBlock,
 	children,
@@ -154,6 +155,13 @@ function CanvasInner({
 			edges: initial.edges.map((edge) => edge.id),
 		});
 	}, [initial, setNodes, setEdges, resetChanges, clear]);
+
+	const playgroundSeen = useRef(playgroundToken);
+	useEffect(() => {
+		if (playgroundSeen.current === playgroundToken) return;
+		playgroundSeen.current = playgroundToken;
+		playground.open();
+	}, [playgroundToken, playground]);
 
 	// A reload after a change made elsewhere (#597) may keep every id while
 	// changing block data, so it replaces the canvas whatever the topology says.

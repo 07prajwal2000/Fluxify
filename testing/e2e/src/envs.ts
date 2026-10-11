@@ -6,6 +6,8 @@ export type EnvStack = {
 	url: string;
 	workers: { production: string; development: string };
 	projectId: string;
+	/** a second project the creator is also a creator in */
+	otherProjectId: string;
 	creatorId: string;
 	/** the data Postgres behind each environment */
 	data: Record<"production" | "development", { port: number; password: string; database: string }>;
