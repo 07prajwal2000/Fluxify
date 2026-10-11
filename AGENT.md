@@ -172,10 +172,10 @@ Never edit a filter to silence the check without confirming the dependency reall
 **Workflow layout (`.github/workflows`):** `ci.yml` (PRs, pushes to main) calls `checks.yml` (lint, helm, secret scan) and `tests.yml` (path-filtered tests; `full: true` disables the filter). `nightly.yml` (Kit image) and `release.yml` (version tags) call both with `full: true`, then build. Nothing but those two builds or publishes.
 **Rules:** every workflow's top-level jobs carry `if: github.repository_owner == 'Fluxify-rest'`, so forks never run CI. A deployment (nightly, release) must see every job `success`: never use `always()` or `!contains(needs.*.result, 'failure')` on it, because those let a skipped job pass. `tests.yml`'s `require-all` job fails a `full` run if any test job was skipped, so keep every new test job in its `needs`.
 
-### New Routes Are Created Inactive, so the Compiler Skips Them
-**Issue:** Route never served / e2e route 404.
-**Cause:** New routes default to inactive (`active: false`), so the compiler ignores them and workers never receive the route artifact.
-**Fix & Best Practices:** Pass `active: true` when creating routes in tests and seeds (`POST /v1/routes`, seed fixtures). Bit in #746 e2e.
+### New Routes Serve in Dev at Once, but Production Needs `active: true`
+**Issue:** Route never served on a production worker / e2e public-path 404.
+**Cause:** A route (and a workflow) has two live switches (#738). `devActive` is development and defaults to **on**; `active` is production and defaults to **off**. The compiler publishes the artifact to each environment's bucket only where its switch is on, and removes it where it is off. A new route therefore answers at `/_/dev/<path>` right away, and 404s on the public path of a production worker.
+**Fix & Best Practices:** Pass `active: true` when creating routes in tests and seeds that call the public path (`POST /v1/routes`, seed fixtures). Tests that only call `/_/dev` need nothing. `call_route` and a workflow's manual Run check `devActive`, not `active`. Bit in #746 e2e.
 
 ---
 

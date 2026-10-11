@@ -27,6 +27,7 @@ export default async function handleRequest(
 		data: result.map((value) => ({
 			id: value.id!,
 			active: value.active!,
+			devActive: value.devActive,
 			name: value.name!,
 			method: value.method!,
 			path: value.path!,

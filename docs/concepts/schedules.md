@@ -176,4 +176,4 @@ Deleting the trigger removes the schedule outright.
 | The preview says "This never fires" | An `@at` time that has already passed. |
 | It runs an hour early or late twice a year | The timezone observes daylight saving. Use UTC if the run must be at a fixed interval. |
 | It runs a few seconds after the time you set | Expected — runs are spread across the minute. Name the seconds field to pin it. |
-| Nothing runs at all | The trigger is off, no workflow is attached to it, or the workflow it starts is inactive. All three have to be right. |
+| Nothing runs at all | The trigger is off, no workflow is attached to it, or the workflow it starts is switched off in that environment. All three have to be right. |

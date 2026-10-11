@@ -37,8 +37,11 @@ external system — make it a workflow.
    **error handler**, the same two blocks every canvas has.
 2. Add your blocks and connect them from the entrypoint.
 3. Save the canvas.
-4. **Activate it.** An inactive workflow is never published to your workers, so
-   nothing can run it — not a trigger, not a manual run.
+4. **Turn it on.** A new workflow is on in **Development** and off in
+   **Production**. A workflow that is off in an environment is never given to
+   that environment's workers, so nothing can run it there: not a trigger, not
+   a manual run. Turn **Production** on in the workflow's settings when it is
+   ready. See [Environments](/concepts/environments#turning-a-route-or-workflow-on-or-off).
 
 A **response** block does nothing here. There is nobody waiting and no status
 code to send, so it simply ends the run like any other last block — whatever
@@ -85,8 +88,8 @@ type in. It is how you test a workflow before attaching a trigger to it.
 
 The run is queued, not executed on the spot — you get a run id back immediately
 and the work happens on a worker. One thing to know: the workflow has to be
-**active**. An inactive one is refused straight away, rather than accepted and
-then silently never run.
+switched on in **Development**, where a run by hand goes. If it is off there, the
+run is refused straight away, rather than accepted and then silently never run.
 
 ## When a run fails
 

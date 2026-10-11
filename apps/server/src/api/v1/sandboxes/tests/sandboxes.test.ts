@@ -197,7 +197,7 @@ describe("who sees a sandbox", () => {
 				[`/${id}`, "PATCH", { name: "mine now" }],
 				[`/${id}`, "DELETE"],
 				[`/${id}/canvas-items`, "GET"],
-				[`/${id}/canvas-version`, "GET"],
+				[`/${id}/canvas-revision`, "GET"],
 				[`/${id}/save-canvas`, "PUT", { actionsToPerform: { blocks: [], edges: [] }, changes: { blocks: [], edges: [] } }],
 				[`/${id}/run`, "POST", {}],
 				[`/${id}/runs`, "GET"],
@@ -283,7 +283,7 @@ describe("custom blocks", () => {
 			actionsToPerform: { blocks: [{ id: block.id, action: "upsert" }], edges: [] },
 			changes: { blocks: [block], edges: [] },
 		});
-		expect(res.body).toMatchObject({ canvasVersion: expect.any(Number) });
+		expect(res.body).toMatchObject({ canvasRevision: expect.any(Number) });
 	});
 });
 

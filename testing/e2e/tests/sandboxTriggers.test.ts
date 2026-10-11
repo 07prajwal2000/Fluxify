@@ -193,7 +193,7 @@ describe("MCP sandbox tools", () => {
 		const entry = read.blocks.find((b: any) => b.type === "entrypoint").key;
 		const edit = await mcpTool(stack, stack.tokens.creator, "edit_canvas", {
 			target: target(),
-			version: read.version,
+			revision: read.revision,
 			ops: [
 				{
 					op: "add_block",
@@ -210,7 +210,7 @@ describe("MCP sandbox tools", () => {
 		for (const [name, args] of [
 			["get_sandbox", { projectId: PROJECT(), sandboxId: box }],
 			["get_canvas", { target: target() }],
-			["edit_canvas", { target: target(), version: 0, ops: [] }],
+			["edit_canvas", { target: target(), revision: 0, ops: [] }],
 			["call_sandbox", { projectId: PROJECT(), sandboxId: box }],
 			["run_sandbox", { projectId: PROJECT(), sandboxId: box }],
 			["delete_sandbox", { projectId: PROJECT(), sandboxId: box }],

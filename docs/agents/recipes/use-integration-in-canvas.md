@@ -64,7 +64,7 @@ Expect `success: true`. A `warning` means it connected but something will not wo
 
 You can also test before saving: pass `group`, `variant` and `config` in place of `integrationId`.
 
-## 5. Create the route, inactive
+## 5. Create the route
 
 Call `save_route`:
 
@@ -90,7 +90,7 @@ Call `get_canvas`:
 { "target": { "kind": "route", "id": "<route id>" } }
 ```
 
-Note the `version`, the entrypoint id, and the id of the `response` block.
+Note the `revision`, the entrypoint id, and the id of the `response` block.
 
 A block text input is a literal unless it starts with `js:`, and `js:` code must `return` the value. See [Dynamic values and `js:` expressions](/agents/expressions) before you fill a block field.
 
@@ -99,7 +99,7 @@ Call `edit_canvas`:
 ```json
 {
   "target": { "kind": "route", "id": "<route id>" },
-  "version": 0,
+  "revision": 0,
   "validate": true,
   "ops": [
     { "op": "add_block", "ref": "users", "type": "db_getall",
@@ -132,7 +132,7 @@ To filter, add a condition. A condition whose value is `undefined` at run time i
 ]
 ```
 
-## 8. Check, activate, call
+## 8. Check, switch production on, call
 
 Call `get_system_logs`:
 

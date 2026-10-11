@@ -5,7 +5,7 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 GlobalRegistrator.register();
 afterAll(() => GlobalRegistrator.unregister());
 
-const { pollCanvasVersion } = await import("./useCanvasPoll");
+const { pollCanvasRevision } = await import("./useCanvasPoll");
 
 let visibility = "visible";
 beforeEach(() => {
@@ -18,53 +18,53 @@ beforeEach(() => {
 
 function state(over: { isDirty?: boolean; isSaving?: boolean; remote?: number } = {}) {
 	return {
-		version: 3,
+		revision: 3,
 		isDirty: over.isDirty ?? false,
 		isSaving: over.isSaving ?? false,
-		getVersion: mock(async () => over.remote ?? 4),
+		getRevision: mock(async () => over.remote ?? 4),
 		reload: mock(() => {}),
 	};
 }
 
-test("newer version and no unsaved edits reloads quietly", async () => {
+test("newer revision and no unsaved edits reloads quietly", async () => {
 	const s = state();
-	expect(await pollCanvasVersion(() => s)).toBeUndefined();
+	expect(await pollCanvasRevision(() => s)).toBeUndefined();
 	expect(s.reload).toHaveBeenCalledTimes(1);
 });
 
-test("newer version with unsaved edits asks instead of reloading", async () => {
+test("newer revision with unsaved edits asks instead of reloading", async () => {
 	const s = state({ isDirty: true });
-	expect(await pollCanvasVersion(() => s)).toBe("stale");
+	expect(await pollCanvasRevision(() => s)).toBe("stale");
 	expect(s.reload).not.toHaveBeenCalled();
 });
 
-test("same version does nothing", async () => {
+test("same revision does nothing", async () => {
 	const s = state({ remote: 3 });
-	expect(await pollCanvasVersion(() => s)).toBeUndefined();
+	expect(await pollCanvasRevision(() => s)).toBeUndefined();
 	expect(s.reload).not.toHaveBeenCalled();
 });
 
 test("skips the poll while a save is in progress", async () => {
 	const s = state({ isSaving: true });
-	await pollCanvasVersion(() => s);
-	expect(s.getVersion).not.toHaveBeenCalled();
+	await pollCanvasRevision(() => s);
+	expect(s.getRevision).not.toHaveBeenCalled();
 	expect(s.reload).not.toHaveBeenCalled();
 });
 
 test("a hidden tab does not poll", async () => {
 	visibility = "hidden";
 	const s = state();
-	await pollCanvasVersion(() => s);
-	expect(s.getVersion).not.toHaveBeenCalled();
+	await pollCanvasRevision(() => s);
+	expect(s.getRevision).not.toHaveBeenCalled();
 });
 
 test("a save started mid-request wins over the reload", async () => {
 	const s = state();
 	let saving = false;
-	s.getVersion.mockImplementation(async () => {
+	s.getRevision.mockImplementation(async () => {
 		saving = true;
 		return 4;
 	});
-	await pollCanvasVersion(() => ({ ...s, isSaving: saving }));
+	await pollCanvasRevision(() => ({ ...s, isSaving: saving }));
 	expect(s.reload).not.toHaveBeenCalled();
 });

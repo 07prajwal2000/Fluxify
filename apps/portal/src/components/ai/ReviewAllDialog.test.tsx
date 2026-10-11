@@ -52,7 +52,7 @@ const edit = {
 	title: "Edit canvas",
 	input: {
 		target: { kind: "route", id: "r1" },
-		version: 1,
+		revision: 1,
 		ops: [{ op: "remove_block", id: "log_1" }],
 	},
 	isDelete: false,
@@ -79,7 +79,7 @@ function open() {
 
 test("a row's details show the canvas diff or the delete card only once opened", async () => {
 	const canvas = spyOn(agentConversationsService, "canvasPreview").mockResolvedValue({
-		version: 1,
+		revision: 1,
 		before: {
 			blocks: [{ id: "l", key: "log_1", type: "consolelog", data: {}, position: at }],
 			edges: [],

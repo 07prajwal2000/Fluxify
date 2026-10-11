@@ -29,7 +29,7 @@ const spies = [
 	spyOn(repo, "listConversations").mockResolvedValue([]),
 	spyOn(integration, "projectSupportsThinking").mockResolvedValue(true),
 	spyOn(resources, "currentResource").mockResolvedValue({ name: "Users" }),
-	spyOn(preview, "previewEdit").mockResolvedValue({ version: 3, before: { blocks: [], edges: [] } }),
+	spyOn(preview, "previewEdit").mockResolvedValue({ revision: 3, before: { blocks: [], edges: [] } }),
 	spyOn(service, "getConversationDetail").mockResolvedValue({} as any),
 	spyOn(service, "getOlderMessages").mockResolvedValue({ messages: [], nextBeforeSeq: null }),
 	spyOn(service, "sendMessage").mockResolvedValue({ runId: "r1" }),
@@ -128,7 +128,7 @@ describe("agent API auth", () => {
 		who = owner;
 		const res = await call("POST", "/agent/p1/canvas-preview", body);
 		expect(res.status).toBe(200);
-		expect(await res.json()).toEqual({ version: 3, before: { blocks: [], edges: [] } });
+		expect(await res.json()).toEqual({ revision: 3, before: { blocks: [], edges: [] } });
 		expect((preview.previewEdit as any).mock.calls.at(-1).slice(1)).toEqual([body.target, body.ops, undefined]);
 		expect((await call("POST", "/agent/p1/canvas-preview", { target: body.target, ops: "x" })).status).toBe(400);
 	});

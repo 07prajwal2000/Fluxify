@@ -1,4 +1,4 @@
-import { putArtifact } from "../../db/natsKv";
+import { deleteArtifact, putArtifact } from "../../db/natsKv";
 import type { FluxifyEnv } from "../../lib/env";
 import { ENVIRONMENTS } from "../../lib/envValues";
 import { wantsSpans } from "../requestRouter/traceLifecycle";
@@ -40,9 +40,22 @@ export function compilePerEnv(row: ObservabilityRow, compile: (tracing: boolean)
 	return perEnv;
 }
 
-/** One artifact per bucket: identical but for the environment's own switches and source. */
-export async function putPerEnv(key: string, artifact: object, perEnv: PerEnv) {
+/** A route's or workflow's two on/off switches: `active` is production, `devActive` development (#738). */
+export type EnvSwitches = { active: boolean | null; devActive: boolean };
+
+export const isServedIn = (row: EnvSwitches, env: FluxifyEnv) =>
+	env === "development" ? row.devActive : row.active === true;
+
+/**
+ * One artifact per bucket: identical but for the environment's own switches and
+ * source. An environment the row is switched off for loses its artifact.
+ */
+export async function putPerEnv(key: string, artifact: object, perEnv: PerEnv, row: EnvSwitches) {
 	await Promise.all(
-		ENVIRONMENTS.map((env) => putArtifact(key, { ...artifact, ...perEnv[env] }, env)),
+		ENVIRONMENTS.map((env) =>
+			isServedIn(row, env)
+				? putArtifact(key, { ...artifact, ...perEnv[env] }, env)
+				: deleteArtifact(key, env),
+		),
 	);
 }

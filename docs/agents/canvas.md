@@ -57,14 +57,14 @@ Block text inputs are literal unless they start with `js:`. See [Dynamic values 
 
 `get_canvas` returns the full data of every block. On a big canvas that is a lot to read each time. Ask for less:
 
-- `compact: true` gives each block as `key`, `type`, `note` and a one-line `summary`. Code shows as `code: 30 lines` and a `js:` input as `js: 4 lines`. Long text is cut. Edges and `version` are the same, so the `version` works with `edit_canvas`.
+- `compact: true` gives each block as `key`, `type`, `note` and a one-line `summary`. Code shows as `code: 30 lines` and a `js:` input as `js: 4 lines`. Long text is cut. Edges and `revision` are the same, so the `revision` works with `edit_canvas`.
 - `blocks: ["jsrunner_1", "response_1"]` gives the full data of just those blocks, and the edges that touch them. An unknown key is refused and the error lists the keys on the canvas.
 
 Read compact first, then fetch the blocks you will change.
 
 ```json
 {
-  "version": 12,
+  "revision": 12,
   "blocks": [
     { "key": "entrypoint_1", "type": "entrypoint" },
     { "key": "jsrunner_1", "type": "jsrunner", "note": "Parks the hash: KV returns true", "summary": "blockName=\"Hash it\"; value=code: 24 lines" },
@@ -99,12 +99,12 @@ Every block has a **key**: its type and a number, such as `response_1`, `db_inse
 
 ## Edit with `edit_canvas`
 
-Call `get_canvas` first. It gives `version`, `blocks` (key, type, data) and `edges`, written as text: `entrypoint_1 → response_1`, or `if_1.success → db_insert_1` for a block with several handles (`from.handle → to`). Pass that `version` to `edit_canvas`. If the canvas changed since, you get `Canvas changed since you read it`: read it again and redo the edit.
+Call `get_canvas` first. It gives `revision`, `blocks` (key, type, data) and `edges`, written as text: `entrypoint_1 → response_1`, or `if_1.success → db_insert_1` for a block with several handles (`from.handle → to`). Pass that `revision` to `edit_canvas`. If the canvas changed since, you get `Canvas changed since you read it`: read it again and redo the edit.
 
 ```json
 {
   "target": { "kind": "route", "id": "<route id>" },
-  "version": 4,
+  "revision": 4,
   "ops": [
     { "op": "add_block", "ref": "find", "type": "db_exists",
       "data": { "connection": "<integration id>", "tableName": "users", "conditions": [] },
@@ -127,7 +127,7 @@ Call `get_canvas` first. It gives `version`, `blocks` (key, type, data) and `edg
 - `from` can also carry the handle: `"from": "if_1.success"`.
 - Ops run **in order**. A later op can use a `ref` added earlier in the same call, and a `disconnect` followed by a `connect` on the same handle works.
 - All or nothing: one bad op (unknown block type, missing id, a handle the block does not have, a handle already used) refuses the whole call and saves nothing. The error names the block and lists its valid handles.
-- The answer has the new `version`; `changes`, one line per thing done (`updated response_1 (httpCode)`, `edited jsrunner_1.value (1 change, lines 12–14)`, `connected if_1.success → db_insert_1`, `removed log_2 (+2 edges)`), so you can see each op hit the block you meant. A block you add also says what it outputs, which is the next block's `input`; and `refs`, which maps each of your refs to the key the block got. Use those keys in later calls.
+- The answer has the new `revision`; `changes`, one line per thing done (`updated response_1 (httpCode)`, `edited jsrunner_1.value (1 change, lines 12–14)`, `connected if_1.success → db_insert_1`, `removed log_2 (+2 edges)`), so you can see each op hit the block you meant. A block you add also says what it outputs, which is the next block's `input`; and `refs`, which maps each of your refs to the key the block got. Use those keys in later calls.
 - Leave `position` out and the server places new blocks. Pass `auto_layout: true` to lay out the whole canvas again.
 - `ops: []` checks the canvas and saves nothing.
 
@@ -207,17 +207,17 @@ If the next block needs only the previous output, just read `input`. Do not save
 ## The build loop
 
 1. `get_block_schemas` with `blockTypes` for the blocks you will use.
-2. `get_canvas` for the keys and `version`.
+2. `get_canvas` for the keys and `revision`.
 3. `edit_canvas` with small ops. Fix every `error` in `issues`.
 4. `get_system_logs` for compile errors. `call_route` also gives the real error and a trace of the blocks that ran.
-5. Activate the route if needed (`save_route` with `active: true`), then `call_route` with real input.
+5. `call_route` with real input; it runs in development. Switch production on with `save_route` and `active: true` when the route is ready.
 6. Stop when the route works and its tests pass. Do not rewrite a working canvas.
 
 ## Common problems
 
 | What you see | What to do |
 | --- | --- |
-| `Canvas changed since you read it` | `get_canvas` again, redo the edit with the new `version`. |
+| `Canvas changed since you read it` | `get_canvas` again, redo the edit with the new `revision`. |
 | `... has no "x" handle. Use ...` | The error lists the handles the block has. Pick one. |
 | `... handle already goes to ...` | Add a `disconnect` before the `connect`, in the same call. |
 | `no block "x"` | Use a key from `get_canvas` (the error lists similar ones), or a `ref` added earlier in the same call. |

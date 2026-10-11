@@ -7,7 +7,6 @@ import {
 	Modal,
 	NumberField,
 	Spinner,
-	Switch,
 	Tabs,
 	TextArea,
 	TextField,
@@ -93,6 +92,7 @@ function WorkflowSettingsForm({
 	const [name, setName] = useState(workflow.name ?? "");
 	const [description, setDescription] = useState(workflow.description ?? "");
 	const [active, setActive] = useState(Boolean(workflow.active));
+	const [devActive, setDevActive] = useState(workflow.devActive);
 	const [timeoutSeconds, setTimeoutSeconds] = useState(workflow.timeoutSeconds);
 	const [observability, setObservability] = useState<Observability>({
 		devRecordExecution: workflow.devRecordExecution,
@@ -109,9 +109,10 @@ function WorkflowSettingsForm({
 			name: name.trim(),
 			description,
 			active,
+			devActive,
 			timeoutSeconds,
 		}),
-		[name, description, active, timeoutSeconds],
+		[name, description, active, devActive, timeoutSeconds],
 	);
 	const [baseline] = useState(() => JSON.stringify(payload));
 	const observabilityChanges = changedObservability(observabilityBaseline, observability);
@@ -201,18 +202,6 @@ function WorkflowSettingsForm({
 								/>
 							</div>
 						</Section>
-
-						<Section
-							title="Availability"
-							description="An inactive workflow is never published to your workers, so nothing can run it — not a trigger, not a manual run."
-						>
-							<Switch
-								isSelected={active}
-								onChange={setActive}
-								isDisabled={readOnly}
-								label={active ? "Workflow is active" : "Workflow is inactive"}
-							/>
-						</Section>
 					</Tabs.Panel>
 
 					<Tabs.Panel id="triggers" className="min-h-0 flex-1 overflow-y-auto p-5">
@@ -246,12 +235,17 @@ function WorkflowSettingsForm({
 						</Section>
 
 						<Section
-							title="Observability"
-							description={`What to keep and export for each environment. Recording keeps runs here, to replay on the canvas. Tracing sends spans to your own backend. Applies right away, and is not part of a workflow version. ${retentionNote}`}
+							title="Environments"
+							description={`Whether the workflow runs in each environment, and what to keep and export there. A workflow that is off in an environment is never given to its workers, so nothing can run it there: not a trigger, not a manual run. Recording keeps runs here, to replay on the canvas. Tracing sends spans to your own backend. Applies right away, and is not part of a workflow version. ${retentionNote}`}
 						>
 							<ObservabilityTabs
 								value={observability}
 								onChange={setObservability}
+								enabled={{ active, devActive }}
+								onEnabledChange={(next) => {
+									setActive(next.active);
+									setDevActive(next.devActive);
+								}}
 								readOnly={readOnly}
 								noun="workflow"
 							/>

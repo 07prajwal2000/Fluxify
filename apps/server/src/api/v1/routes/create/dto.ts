@@ -17,6 +17,7 @@ export const requestBodySchema = z
 		paramsSchema: z.any().optional(),
 		timeoutSeconds: z.number().int().min(30).default(30),
 		active: z.boolean().optional(),
+		devActive: z.boolean().optional(),
 		...observabilityFields,
 		acceptedContentTypes: z.array(z.enum(CONTENT_TYPES)).min(1).optional(),
 	})

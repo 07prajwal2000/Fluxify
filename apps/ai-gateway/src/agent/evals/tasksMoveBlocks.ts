@@ -20,7 +20,7 @@ export const moveBlocksTasks: Task[] = [
 			const entry = canvas.blocks.find((b: any) => b.type === "entrypoint").key;
 			await ctx.tool("edit_canvas", {
 				target,
-				version: canvas.version,
+				revision: canvas.revision,
 				ops: [
 					{
 						op: "add_block",

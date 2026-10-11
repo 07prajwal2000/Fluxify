@@ -26,7 +26,7 @@ const edge = (id: string, from: string, handle: string, to: string) => ({
 
 /** a route: entry → fetch → if (success → ok, failure → fail) */
 const ROUTE_CANVAS = {
-	canvasVersion: 4,
+	canvasRevision: 4,
 	blocks: [
 		block("en", "entrypoint_1", "entrypoint", {}, 0),
 		block("eh", "error_handler_1", "error_handler", {}, 0),
@@ -43,7 +43,7 @@ const ROUTE_CANVAS = {
 	],
 };
 const SANDBOX_CANVAS = {
-	canvasVersion: 1,
+	canvasRevision: 1,
 	blocks: [
 		block("sen", "entrypoint_1", "entrypoint"),
 		block("seh", "error_handler_1", "error_handler"),
@@ -64,7 +64,7 @@ function fakeApi(w: World = {}) {
 		if (method === "POST" && path.endsWith("/sandboxes")) return { id: "new-sb" };
 		if (method === "PUT") {
 			if (w.saveFails) throw new Error(w.saveFails);
-			return { canvasVersion: 2, newKeys: {}, issues: [] };
+			return { canvasRevision: 2, newKeys: {}, issues: [] };
 		}
 		if (method === "DELETE") return {};
 		if (path === "/v1/routes/r1")
@@ -84,7 +84,7 @@ function fakeApi(w: World = {}) {
 		if (path === `/v1/projects/${P}/sandboxes/sb1/canvas-items`) return SANDBOX_CANVAS;
 		if (path === `/v1/projects/${P}/sandboxes/new-sb/canvas-items`)
 			return {
-				canvasVersion: 0,
+				canvasRevision: 0,
 				blocks: [block("nen", "entrypoint_1", "entrypoint"), block("neh", "error_handler_1", "error_handler")],
 				edges: [],
 			};
@@ -122,7 +122,7 @@ describe("copy_blocks", () => {
 		expect(create.body).toEqual({ name: "Orders sandbox" });
 
 		const put = saved(calls);
-		expect(put.path).toBe(`/v1/projects/${P}/sandboxes/new-sb/save-canvas?expectedVersion=0`);
+		expect(put.path).toBe(`/v1/projects/${P}/sandboxes/new-sb/save-canvas?expectedRevision=0`);
 		const blocks = copiesIn(put);
 		const { edges } = put.body.changes;
 		// 4 copies: entrypoint and error handler never travel
@@ -161,7 +161,7 @@ describe("copy_blocks", () => {
 			api,
 		);
 		const put = saved(calls);
-		expect(put.path).toBe(`/v1/projects/${P}/sandboxes/sb1/save-canvas?expectedVersion=1`);
+		expect(put.path).toBe(`/v1/projects/${P}/sandboxes/sb1/save-canvas?expectedRevision=1`);
 		const blocks = copiesIn(put);
 		const { edges } = put.body.changes;
 		expect(blocks).toHaveLength(2);
@@ -230,7 +230,7 @@ describe("copy_blocks", () => {
 		const { api, calls } = fakeApi();
 		// the route's canvas swapped for an orchestrator listing two branches
 		const canvas = {
-			canvasVersion: 1,
+			canvasRevision: 1,
 			blocks: [
 				block("en", "entrypoint_1", "entrypoint"),
 				block("or", "orchestrator_1", "orchestrator", { order: ["a", "b"] }),

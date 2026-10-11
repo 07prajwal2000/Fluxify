@@ -27,7 +27,7 @@ export type CanvasSavePayload = {
 
 export type CanvasItems = {
 	/** +1 on every save (#597) */
-	canvasVersion: number;
+	canvasRevision: number;
 	blocks: {
 		id: string;
 		key?: string;
@@ -45,9 +45,9 @@ export function canvasEndpoints(baseUrl: string) {
 			return result.data;
 		},
 		/** cheap check for a canvas changed elsewhere (#597) */
-		async getCanvasVersion(id: string): Promise<number> {
-			const result = await httpClient.get(`${baseUrl}/${id}/canvas-version`);
-			return result.data.canvasVersion;
+		async getCanvasRevision(id: string): Promise<number> {
+			const result = await httpClient.get(`${baseUrl}/${id}/canvas-revision`);
+			return result.data.canvasRevision;
 		},
 		/** the server's rule issues come back with a save; warnings do not stop it */
 		async saveCanvasItems(id: string, payload: CanvasSavePayload): Promise<unknown> {

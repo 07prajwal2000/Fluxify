@@ -62,6 +62,7 @@ describe("MCP role matrix", () => {
 			method: "GET",
 			path: "/hello",
 			active: true,
+			devActive: true,
 			timeoutSeconds: 30,
 			tracingEnabled: false,
 			recordExecution: false,
@@ -185,7 +186,7 @@ describe("MCP runs", () => {
 		const fromEntry = canvas.edges.filter((e: string) => e.startsWith(`${entry} → `));
 		const edited = await call("edit_canvas", {
 			target,
-			version: canvas.version,
+			revision: canvas.revision,
 			ops: [
 				...fromEntry.map((e: string) => ({ op: "disconnect", from: entry, to: e.split(" → ")[1] })),
 				{
@@ -200,7 +201,7 @@ describe("MCP runs", () => {
 			],
 		});
 		expect(edited).toEqual({
-			version: canvas.version + 1,
+			revision: canvas.revision + 1,
 			changes: [
 				expect.stringContaining("added jsrunner_1 (block_1); its output: "),
 				`connected ${entry} → jsrunner_1`,
@@ -252,7 +253,7 @@ describe("MCP runs", () => {
 		const entry = canvas.blocks.find((b: any) => b.type === "entrypoint").key;
 		await call("edit_canvas", {
 			target: { kind: "route", id },
-			version: canvas.version,
+			revision: canvas.revision,
 			ops: [
 				{
 					op: "add_block",
@@ -297,7 +298,7 @@ describe("MCP runs", () => {
 		const response = canvas.blocks.find((b: any) => b.type === "response").key;
 		await call("edit_canvas", {
 			target: { kind: "route", id },
-			version: canvas.version,
+			revision: canvas.revision,
 			ops: [
 				{
 					op: "add_block",
@@ -356,7 +357,7 @@ describe("MCP runs", () => {
 		const entry = canvas.blocks.find((b: any) => b.type === "entrypoint").key;
 		await call("edit_canvas", {
 			target: { kind: "route", id },
-			version: canvas.version,
+			revision: canvas.revision,
 			ops: [
 				{
 					op: "add_block",

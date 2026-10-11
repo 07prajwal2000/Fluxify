@@ -12,7 +12,7 @@ const [ENTRY, ERROR, RESPONSE, IF, LOG, OTHER_LOG] = [1, 2, 3, 4, 5, 6].map(id);
 
 /** entry → response, an if with its success on a log, and a second, loose log */
 const canvas = () => ({
-	canvasVersion: 7,
+	canvasRevision: 7,
 	blocks: [
 		{ id: ENTRY, key: "entrypoint_1", type: "entrypoint", data: {}, position: at },
 		{ id: ERROR, key: "error_handler_1", type: "error_handler", data: {}, position: at },
@@ -125,13 +125,13 @@ describe("edit_canvas result", () => {
 			get: async () => canvas(),
 			send: async () => {
 				if (answer instanceof Error) throw answer;
-				return { canvasVersion: 8, issues: [], newKeys: {}, ...answer };
+				return { canvasRevision: 8, issues: [], newKeys: {}, ...answer };
 			},
 		};
 		return api;
 	};
 	const run = (api: AdminApi, ops: object[], extra: object = {}) =>
-		tool.call(api, z.object(lenient(tool.input)).parse({ target, version: 7, ops, ...extra }));
+		tool.call(api, z.object(lenient(tool.input)).parse({ target, revision: 7, ops, ...extra }));
 
 	it("says what every op changed, and the key the server gave each new block", async () => {
 		let sentIds: string[] = [];
@@ -139,7 +139,7 @@ describe("edit_canvas result", () => {
 		api.send = async (_m, _p, body: any) => {
 			sentIds = body.changes.blocks.map((b: { id: string }) => b.id);
 			const added = body.changes.blocks.find((b: { id: string; type: string }) => b.type === "consolelog" && b.id !== LOG);
-			return { canvasVersion: 8, issues: [], newKeys: { [added.id]: "consolelog_3" } };
+			return { canvasRevision: 8, issues: [], newKeys: { [added.id]: "consolelog_3" } };
 		};
 		const out = await run(api, [
 			{ op: "update_block", id: "response_1", data: { httpCode: "201", transform: "x" } },
@@ -149,7 +149,7 @@ describe("edit_canvas result", () => {
 			{ op: "remove_block", id: "consolelog_2" },
 		]);
 		expect(out).toEqual({
-			version: 8,
+			revision: 8,
 			changes: [
 				"updated response_1 (httpCode, transform)",
 				"disconnected if_1.success → consolelog_1",

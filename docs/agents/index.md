@@ -57,7 +57,7 @@ Each recipe is a list of steps. Every step is a tool call with its arguments.
 
 - Tools act as the signed-in user. A `You need the ... role` error means ask a project admin. Do not retry.
 - A `save_*` tool creates when you leave out the resource id, and updates when you pass it. On update, send only the fields that change.
-- A new route, workflow or trigger is inactive. Switch it on with `active: true` when it is ready.
+- A new route or workflow is on in development (`devActive`, on by default) and off in production (`active`). Pass `active: true` when it is ready for production. A new trigger is inactive: switch it on with `active: true`.
 - A block text input is a literal unless it starts with `js:`, and `js:` code must `return` the value. Never use `{{ }}`. See [Dynamic values and `js:` expressions](/agents/expressions).
 - Put secrets in app config and refer to them as `cfg:KEY` in an integration, or with `getConfig("KEY")` in code. Never write a secret into a block or a canvas.
 - Check `get_system_logs` after a change. Compile errors show up there.

@@ -63,7 +63,7 @@ function withoutNote(b: Block) {
  * full data for just those keys, and the edges touching them.
  */
 export function trimCanvas(
-	canvas: CanvasItems & { canvasVersion: number },
+	canvas: CanvasItems & { canvasRevision: number },
 	{ compact, blocks }: { compact?: boolean; blocks?: string[] } = {},
 ) {
 	const keyOf = (b: Block) => b.key ?? b.id;
@@ -95,7 +95,7 @@ export function trimCanvas(
 	});
 	const ids = new Set(shown.map((b) => b.id));
 	return {
-		version: canvas.canvasVersion,
+		revision: canvas.canvasRevision,
 		blocks: shown.map(compact && !blocks?.length ? short : full),
 		edges: canvas.edges
 			.filter((e: Edge) => !blocks?.length || ids.has(e.from) || ids.has(e.to))

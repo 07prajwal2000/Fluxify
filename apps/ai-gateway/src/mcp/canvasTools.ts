@@ -43,7 +43,7 @@ export const canvasTools: McpTool[] = [
 		name: "get_canvas",
 		title: "Get canvas",
 		description: [
-			"The blocks and edges of a route, workflow, custom block or sandbox canvas, and its version. Pass the version to edit_canvas. A sandbox target also needs projectId.",
+			"The blocks and edges of a route, workflow, custom block or sandbox canvas, and its revision. Pass the revision to edit_canvas. A sandbox target also needs projectId.",
 			"Every block has a key like response_1 or db_insert_2 (its type and a number); use keys everywhere, edit_canvas takes them.",
 			'Edges read like "if_1.success → db_insert_1": from.handle → to. The handle is left out when the block has only one.',
 			"A block's note says why it is there (a workaround, a contract); a sticky note block's text is its note. Read notes before you change plumbing that looks pointless.",
@@ -77,13 +77,13 @@ export const canvasTools: McpTool[] = [
 			"Keep notes true: after an edit re-check every blockDescription and sticky note against the new edges and fix any the edit made false in this same call. Block names are unique per canvas and say where the block sits; rename a block you clone.",
 			"It always returns rule errors and warnings (issues); errors that block a save refuse it, warnings still save. Fix reachability warnings (a block not connected, no path to a response, an open if branch) before testing. validate: false skips them. Empty ops checks without saving.",
 			"Block text inputs are literal unless they start with `js:` followed by code that returns the value (e.g. `js: return input.id`); never use `{{ }}`.",
-			'Returns the new version; changes, one line per thing done ("updated response_1 (httpCode)", "edited jsrunner_1.value (1 change, lines 12–14)", "connected if_1.success → db_insert_1", "removed log_2 (+2 edges)"; an added block also says what it outputs), so check each hit the block you meant; and refs, the key the server gave each added block.',
+			'Returns the new revision; changes, one line per thing done ("updated response_1 (httpCode)", "edited jsrunner_1.value (1 change, lines 12–14)", "connected if_1.success → db_insert_1", "removed log_2 (+2 edges)"; an added block also says what it outputs), so check each hit the block you meant; and refs, the key the server gave each added block.',
 		].join(" "),
 		role: "creator",
 		annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false },
 		input: {
 			target,
-			version: z.number().int().min(0).describe("The version from get_canvas"),
+			revision: z.number().int().min(0).describe("The revision from get_canvas"),
 			ops: z.array(canvasOpSchema),
 			auto_layout: z.boolean().optional().describe("Re-lay out the whole canvas"),
 			validate: z.boolean().optional().describe("false: skip returning rule issues. On by default"),
@@ -91,13 +91,13 @@ export const canvasTools: McpTool[] = [
 		call: async ({ get, send }, a) => {
 			const ops = a.ops as CanvasOp[];
 			const canvas = await read(get, a.target);
-			if (canvas.canvasVersion !== a.version) throw new Error(STALE);
+			if (canvas.canvasRevision !== a.revision) throw new Error(STALE);
 			const { changes, refs, describe } = opsToChanges(canvas, ops, a.auto_layout);
 			// nothing to change: at most a check, never a save
 			const checkOnly = ops.length === 0 && !a.auto_layout;
 			const validate = a.validate !== false;
-			if (checkOnly && !validate) return { version: a.version };
-			const query = `expectedVersion=${a.version}${checkOnly ? "&dryRun=true" : ""}`;
+			if (checkOnly && !validate) return { revision: a.revision };
+			const query = `expectedRevision=${a.revision}${checkOnly ? "&dryRun=true" : ""}`;
 			const path = `${canvasPath(a.target as Target)}/save-canvas?${query}`;
 			const result = await send("PUT", path, changes).catch((error: Error) => {
 				throw error.message.includes("Canvas changed")
@@ -112,7 +112,7 @@ export const canvasTools: McpTool[] = [
 				...(blockId ? { block: name(blockId) } : {}),
 			}));
 			return {
-				version: result.canvasVersion,
+				revision: result.canvasRevision,
 				...(done.length ? { changes: done } : {}),
 				...(Object.keys(keys).length ? { refs: keys } : {}),
 				...(validate && issues.length ? { issues } : {}),

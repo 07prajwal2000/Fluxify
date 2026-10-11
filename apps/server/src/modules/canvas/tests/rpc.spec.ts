@@ -50,7 +50,7 @@ describe("fluxify.ops.canvas responder", () => {
 			types.map((type, i) => `${type}_${i + 1}`),
 		);
 		spyOn(repository, "touchParent").mockResolvedValue(1);
-		spyOn(repository, "getCanvasVersion").mockResolvedValue(1);
+		spyOn(repository, "getCanvasRevision").mockResolvedValue(1);
 		upsertBlocks.mockResolvedValue(undefined);
 		upsertEdges.mockResolvedValue(undefined);
 		getBlocks.mockResolvedValue([] as any);

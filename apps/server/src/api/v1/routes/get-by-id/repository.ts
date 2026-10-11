@@ -10,6 +10,7 @@ export async function getRouteById(id: string, tx?: DbTransactionType) {
 			path: routesEntity.path,
 			method: routesEntity.method,
 			active: routesEntity.active,
+			devActive: routesEntity.devActive,
 			createdBy: routesEntity.createdBy,
 			projectId: routesEntity.projectId,
 			createdAt: routesEntity.createdAt,

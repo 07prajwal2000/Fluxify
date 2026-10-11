@@ -188,7 +188,8 @@ export const readTools: McpTool[] = [
 	{
 		name: "list_routes",
 		title: "List routes",
-		description: "A project's HTTP routes: method, path and whether each is active.",
+		description:
+			"A project's HTTP routes: method, path and whether each is on in production (active) and in development (devActive).",
 		role: "viewer",
 		input: { projectId, page, search },
 		call: async ({ get }, a) =>
@@ -203,7 +204,7 @@ export const readTools: McpTool[] = [
 						"filter.value": a.search,
 					}),
 				}),
-				["id", "name", "method", "path", "active"],
+				["id", "name", "method", "path", "active", "devActive"],
 			),
 	},
 	{
@@ -227,6 +228,7 @@ export const readTools: McpTool[] = [
 					"method",
 					"path",
 					"active",
+					"devActive",
 					"timeoutSeconds",
 					"tracingEnabled",
 					"recordExecution",
@@ -255,7 +257,7 @@ export const readTools: McpTool[] = [
 					perPage: PER_PAGE,
 					search: a.search,
 				}),
-				["id", "name", "description", "active"],
+				["id", "name", "description", "active", "devActive"],
 			),
 	},
 	{
@@ -270,6 +272,7 @@ export const readTools: McpTool[] = [
 				"name",
 				"description",
 				"active",
+				"devActive",
 				"timeoutSeconds",
 				"tracingEnabled",
 				"recordExecution",

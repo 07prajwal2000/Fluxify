@@ -42,7 +42,7 @@ A new route starts with three blocks: an entrypoint, a response block with `http
 
 A block text input is a literal unless it starts with `js:`, and `js:` code must `return` the value. See [Dynamic values and `js:` expressions](/agents/expressions) before you fill a block field.
 
-A new route is **inactive**. Pass `active: true`, or real callers and `call_route` are refused. Activate it only once its canvas is ready.
+A route has two switches. `devActive` is development and is **on** for a new route, so `call_route` can run it straight away. `active` is production and is **off** for a new route: pass `active: true` to serve it to real callers, once its canvas is ready.
 
 ## Update a route
 
@@ -182,7 +182,7 @@ They are two separate switches, each set per environment: `devRecordExecution` a
 | `Fluxify API error 409: A route named "x" already exists in this project ...` | Route names are unique per project. Pick another name. |
 | `Fluxify API error 409: GET /users/:id is already taken by ...` | Another route has this method on the same path. Param names do not count: `/users/:id` and `/users/:userId` are the same path. Other methods on that path are fine. |
 | `Not found: Route not found` | Wrong `routeId`. Use `list_routes`. |
-| `Route is not active — activate it to call it` | `call_route` on an inactive route. Update with `active: true`. |
+| `Route is switched off in development — turn it on to call it` | `call_route` on a route with `devActive: false`. Update with `devActive: true`. |
 | `Missing path param "id"` | `call_route` needs `params` for every `:param`. |
 | `You need the Creator role in this project.` | Ask a project admin. Do not retry. |
 

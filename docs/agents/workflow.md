@@ -39,7 +39,7 @@ A new workflow starts with an entrypoint block and an error handler block, and n
 
 A block text input is a literal unless it starts with `js:`, and `js:` code must `return` the value. See [Dynamic values and `js:` expressions](/agents/expressions) before you fill a block field.
 
-A new workflow is **inactive**. An inactive workflow is not given to the workers, so no trigger can start it. Pass `active: true` once its canvas is ready.
+A workflow has two switches. `devActive` is development and is **on** for a new workflow. `active` is production and is **off** for a new workflow: pass `active: true` once its canvas is ready. A workflow that is off in an environment is not given to that environment's workers, so no trigger can start it there.
 
 ## Update a workflow
 

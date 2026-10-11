@@ -197,7 +197,9 @@ describe("startHeartbeat", () => {
 			() => {},
 			5,
 		);
-		await Bun.sleep(40);
+		// wait for the beats, not a fixed time: a busy runner may fire few timers in 40ms
+		const deadline = Date.now() + 2000;
+		while (beats < 3 && Date.now() < deadline) await Bun.sleep(5);
 		stop();
 		const seen = beats;
 		expect(seen).toBeGreaterThanOrEqual(3);

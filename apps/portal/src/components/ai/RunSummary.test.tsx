@@ -68,8 +68,8 @@ const rows: Row[] = [
 	...step(
 		"r1",
 		"edit_canvas",
-		{ target: { kind: "workflow", id: "wf-1" }, version: 1, ops: [] },
-		{ version: 2 },
+		{ target: { kind: "workflow", id: "wf-1" }, revision: 1, ops: [] },
+		{ revision: 2 },
 	),
 	...step("r1", "save_app_config", { keyName: "API_KEY", value: "x" }, { id: 12 }),
 	...step("r1", "delete_trigger", { triggerId: "tr-1" }, { deleted: "tr-1" }),

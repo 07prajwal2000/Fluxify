@@ -230,6 +230,13 @@ Here's every possible outcome and what the caller receives:
 ::: info Custom Status Codes
 Your workflow can return any HTTP status code you choose using the **Response** block — the defaults above only apply when no status is explicitly set.
 :::
+## Turning a Route On or Off
+
+A route has an **Enabled** switch for each [environment](../concepts/environments.md#turning-a-route-or-workflow-on-or-off),
+in its settings under **Advanced**. A new route is on in **Development** and off
+in **Production**. Callers of your public URL get `404` until you turn
+**Production** on. A route that is off in an environment returns `404` there.
+
 ## Trying a Route in the Playground
 
 The **Playground** sends a real request to your route and shows the response.
@@ -238,7 +245,7 @@ on the route's canvas.
 
 The request goes to the route's [development address](../concepts/environments.md#calling-a-route-on-development),
 so it runs on the development worker with your development values, never on
-production. The URL preview shows your project's address, subdomain included.
+production. The route must be on in **Development**, which a new route is. The URL preview shows your project's address, subdomain included.
 Fluxify adds the development token for you. If no development
 worker is running, the playground says so and cannot send.
 

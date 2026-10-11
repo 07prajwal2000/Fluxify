@@ -36,7 +36,7 @@ const step = (id: string, name: string, input: object, value: JSONValue): ModelM
 	},
 ];
 const edit = (id: string, target: string) =>
-	step(id, "edit_canvas", { target: { kind: "route", id: target }, version: 1, ops: [] }, { version: 2 });
+	step(id, "edit_canvas", { target: { kind: "route", id: target }, revision: 1, ops: [] }, { revision: 2 });
 
 /** A conversation with enough steps for a summary to cover the first ones. */
 const chat = (...early: ModelMessage[][]): ModelMessage[] => [
@@ -83,7 +83,7 @@ describe("the canvas after a summary", () => {
 				execute: async (input: any) => {
 					asked.push(input);
 					if (input.target.id === "gone") throw new Error("no such route");
-					return { version: 7, blocks: [{ key: "kv_set_9", type: "kv_set" }], edges: [] };
+					return { revision: 7, blocks: [{ key: "kv_set_9", type: "kv_set" }], edges: [] };
 				},
 			}),
 		};

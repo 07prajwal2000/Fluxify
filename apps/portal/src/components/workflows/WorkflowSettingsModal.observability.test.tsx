@@ -9,7 +9,9 @@ const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query
 const { toast } = await import("@fluxify/components");
 const { WorkflowSettingsModal } = await import("./WorkflowSettingsModal");
 const { workflowsService } = await import("@/services/workflows");
-const { PROD_RECORDING_HINT } = await import("@/components/settings/ObservabilityTabs");
+const { PROD_ENABLED_HINT, PROD_RECORDING_HINT } = await import(
+	"@/components/settings/ObservabilityTabs"
+);
 
 afterEach(cleanup);
 afterAll(() => GlobalRegistrator.unregister());
@@ -25,6 +27,7 @@ function renderSettings(readOnly = false) {
 		name: "Nightly report",
 		description: "",
 		active: true,
+		devActive: true,
 		timeoutSeconds: 60,
 		tracingEnabled: false,
 		recordExecution: false,
@@ -93,4 +96,22 @@ test("a viewer cannot flip a switch", async () => {
 	const view = renderSettings(true);
 	await click(view.getByRole("tab", { name: "Advanced" }));
 	expect(view.getByRole("checkbox", { name: /Recording/ }).hasAttribute("disabled")).toBe(true);
+});
+
+test("each environment has its own Enabled switch, saved as active and devActive", async () => {
+	const update = spyOn(workflowsService, "update").mockResolvedValue({ id: "w1" } as never);
+	const view = renderSettings();
+	await click(view.getByRole("tab", { name: "Advanced" }));
+
+	expect((view.getByRole("checkbox", { name: /^Enabled/ }) as HTMLInputElement).checked).toBe(true);
+	await click(view.getByRole("checkbox", { name: /^Enabled/ }));
+
+	await click(view.getByRole("tab", { name: "Production" }));
+	expect(view.getByText(PROD_ENABLED_HINT)).toBeTruthy();
+	await click(view.getByRole("checkbox", { name: /^Enabled/ }));
+
+	await click(view.getByRole("button", { name: "Save changes" }));
+	await act(() => new Promise((r) => setTimeout(r, 20)));
+
+	expect(update.mock.calls[0]?.[1]).toMatchObject({ active: false, devActive: false });
 });

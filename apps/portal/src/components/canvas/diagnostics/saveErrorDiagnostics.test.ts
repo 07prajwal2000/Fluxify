@@ -46,7 +46,7 @@ it("turns any other failure into one canvas-wide diagnostic", () => {
 
 describe("a successful save's issues (#673)", () => {
 	const result = {
-		canvasVersion: 2,
+		canvasRevision: 2,
 		issues: [
 			{ severity: "warning", blockId: "b1", message: "db_delete: conditions[0].operator must be one of eq, neq" },
 			{ severity: "warning", blockId: "b2", message: "already shown" },
@@ -66,7 +66,7 @@ describe("a successful save's issues (#673)", () => {
 	});
 
 	it("is empty for a save with no issues", () => {
-		expect(blockDiagnosticsFromSaveResult({ canvasVersion: 2, issues: [] }, graph("b1"), [])).toEqual([]);
+		expect(blockDiagnosticsFromSaveResult({ canvasRevision: 2, issues: [] }, graph("b1"), [])).toEqual([]);
 		expect(blockDiagnosticsFromSaveResult(undefined, graph("b1"), [])).toEqual([]);
 	});
 });

@@ -6,7 +6,7 @@ import { ForbiddenError } from "../../../../../errors/forbidError";
 import { NotFoundError } from "../../../../../errors/notFoundError";
 import * as canvasRepo from "../../../../../modules/canvas/repository";
 import * as customBlockRepo from "../../../custom-blocks/get-canvas-items/repository";
-import getCustomBlockVersion from "../../../custom-blocks/get-canvas-version/service";
+import getCustomBlockVersion from "../../../custom-blocks/get-canvas-revision/service";
 import getRouteVersion from "../service";
 
 let parentExists: ReturnType<typeof spyOn<typeof canvasRepo, "parentExists">>;
@@ -17,13 +17,13 @@ beforeEach(() => {
 	// other files leave spies behind (hasProjectAccess, for one)
 	mock.restore();
 	parentExists = spyOn(canvasRepo, "parentExists").mockResolvedValue(true);
-	spyOn(canvasRepo, "getCanvasVersion").mockResolvedValue(7);
+	spyOn(canvasRepo, "getCanvasRevision").mockResolvedValue(7);
 	spyOn(customBlockRepo, "getCustomBlockById").mockResolvedValue({ projectId: "p1" });
 });
 
 describe("get canvas version (#597)", () => {
 	it("returns a route's version, scoped to the caller's projects", async () => {
-		expect(await getRouteVersion("r-1", viewer)).toEqual({ canvasVersion: 7 });
+		expect(await getRouteVersion("r-1", viewer)).toEqual({ canvasRevision: 7 });
 		expect(parentExists).toHaveBeenCalledWith({ type: "route", id: "r-1" }, ["p1"]);
 	});
 
@@ -33,7 +33,7 @@ describe("get canvas version (#597)", () => {
 	});
 
 	it("lets a viewer read a custom block's version", async () => {
-		expect(await getCustomBlockVersion("cb-1", user, viewer)).toEqual({ canvasVersion: 7 });
+		expect(await getCustomBlockVersion("cb-1", user, viewer)).toEqual({ canvasRevision: 7 });
 	});
 
 	it("forbids a custom block in another project", async () => {

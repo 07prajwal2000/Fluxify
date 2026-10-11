@@ -51,8 +51,8 @@ export type CanvasWorkbenchProps = {
 	/** re-read from the server, for diagnosing a rejected save */
 	reload: () => Promise<CanvasItems>;
 	save: (payload: CanvasSavePayload) => Promise<unknown>;
-	/** the server's canvas version, polled to spot changes made elsewhere (#597) */
-	getVersion: () => Promise<number>;
+	/** the server's canvas revision, polled to spot changes made elsewhere (#597) */
+	getRevision: () => Promise<number>;
 	/** what the compiler reports this canvas as, so its result can be shown */
 	compileTarget: CompileTarget;
 	/** view only: no edits, no Save — for users who may look but not change */
@@ -92,7 +92,7 @@ function CanvasWorkbenchInner({
 	items,
 	reload,
 	save,
-	getVersion,
+	getRevision,
 	compileTarget,
 	enableBlockPicker = false,
 	enablePlayground = false,
@@ -122,7 +122,7 @@ function CanvasWorkbenchInner({
 			return;
 		}
 		// fresh run: drops the last save's errors and anything fixed since
-		// compile errors are about the saved version; saving is how they get fixed
+		// compile errors are about the saved canvas; saving is how they get fixed
 		const shown = diagnostics.revalidate();
 		const errors = shown.filter(
 			(d) => d.severity === "error" && d.source !== COMPILE_SOURCE,
@@ -184,10 +184,10 @@ function CanvasWorkbenchInner({
 		setReloadToken((token) => token + 1);
 	}
 	const stale = useCanvasPoll({
-		version: items.data?.canvasVersion,
+		revision: items.data?.canvasRevision,
 		isDirty: pendingCount > 0,
 		isSaving,
-		getVersion,
+		getRevision,
 		reload: () => void reloadFromServer(),
 	});
 

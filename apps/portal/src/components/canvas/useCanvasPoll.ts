@@ -3,11 +3,11 @@ import { useEffect, useRef, useState } from "react";
 export const CANVAS_POLL_MS = 5000;
 
 export type CanvasPollState = {
-	/** the version the canvas on screen was loaded at; undefined while loading */
-	version: number | undefined;
+	/** the revision the canvas on screen was loaded at; undefined while loading */
+	revision: number | undefined;
 	isDirty: boolean;
 	isSaving: boolean;
-	getVersion: () => Promise<number>;
+	getRevision: () => Promise<number>;
 	/** quiet reload, for a canvas with no unsaved edits */
 	reload: () => unknown;
 };
@@ -17,14 +17,19 @@ export type CanvasPollState = {
  * and returns "stale" for one with unsaved edits so the user decides.
  * `read` gives the state as it is now, since edits or a save may start mid-request.
  */
-export async function pollCanvasVersion(read: () => CanvasPollState): Promise<"stale" | void> {
+export async function pollCanvasRevision(read: () => CanvasPollState): Promise<"stale" | void> {
 	const before = read();
-	if (document.visibilityState !== "visible" || before.isSaving || before.version === undefined) {
+	if (document.visibilityState !== "visible" || before.isSaving || before.revision === undefined) {
 		return;
 	}
-	const remote = await before.getVersion().catch(() => undefined);
+	const remote = await before.getRevision().catch(() => undefined);
 	const now = read();
-	if (remote === undefined || now.isSaving || now.version === undefined || remote <= now.version) {
+	if (
+		remote === undefined ||
+		now.isSaving ||
+		now.revision === undefined ||
+		remote <= now.revision
+	) {
 		return;
 	}
 	if (now.isDirty) return "stale";
@@ -38,8 +43,8 @@ export function useCanvasPoll(state: CanvasPollState) {
 	latest.current = state;
 
 	// a fresh load (a reload, or the refetch after our own save) is the new baseline
-	// biome-ignore lint/correctness/useExhaustiveDependencies: reset on a new version only
-	useEffect(() => setStale(false), [state.version]);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reset on a new revision only
+	useEffect(() => setStale(false), [state.revision]);
 
 	useEffect(() => {
 		let busy = false;
@@ -47,7 +52,7 @@ export function useCanvasPoll(state: CanvasPollState) {
 			if (busy) return;
 			busy = true;
 			try {
-				if ((await pollCanvasVersion(() => latest.current)) === "stale") setStale(true);
+				if ((await pollCanvasRevision(() => latest.current)) === "stale") setStale(true);
 			} finally {
 				busy = false;
 			}

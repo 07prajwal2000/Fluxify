@@ -7,9 +7,9 @@ description: Step by step tool calls that create a background workflow and a cro
 
 Goal: a workflow that runs every day at 02:30 UTC. Fields and rules are in the [Workflow reference](/agents/workflow) and the [Trigger reference](/agents/trigger).
 
-Three things must all be on before anything runs: the trigger is active, it has a workflow, and the workflow is active. Create them in this order so the schedule never starts a half-built workflow.
+Three things must all be on before anything runs: the trigger is active, it has a workflow, and the workflow is on in the environment (`devActive` for development, on by default; `active` for production, off by default). Create them in this order so the schedule never starts a half-built workflow.
 
-## 1. Create the workflow, inactive
+## 1. Create the workflow
 
 Call `save_workflow`:
 
@@ -32,14 +32,14 @@ Call `get_canvas`:
 { "target": { "kind": "workflow", "id": "<workflow id>" } }
 ```
 
-A new workflow has an `entrypoint` and an `error_handler` and no edges. Note the entrypoint id and the `version`.
+A new workflow has an `entrypoint` and an `error_handler` and no edges. Note the entrypoint id and the `revision`.
 
 Call `edit_canvas`:
 
 ```json
 {
   "target": { "kind": "workflow", "id": "<workflow id>" },
-  "version": 0,
+  "revision": 0,
   "validate": true,
   "ops": [
     { "op": "add_block", "ref": "report", "type": "jsrunner",
@@ -62,7 +62,7 @@ Call `save_workflow`:
 { "workflowId": "<workflow id>", "active": true }
 ```
 
-An inactive workflow is not given to the workers, so no trigger can start it.
+A workflow that is off in an environment is not given to that environment's workers, so no trigger can start it there. This step switches production on; development is on already.
 
 ## 4. Create the schedule trigger
 
@@ -161,6 +161,6 @@ A test suite runs the workflow directly, with an input you choose. The schedule 
 | `Invalid input: schedule: A cron expression needs six fields...` | Add the leading seconds field. |
 | `Invalid input: timezone: Use an IANA timezone name...` | Use a name such as `Asia/Kolkata`, not `+05:30`. |
 | `Fluxify API error 409: trigger with that name already exists` | Pick another trigger name. |
-| Nothing runs | Trigger off, no workflow attached, or the workflow is inactive. Check `list_triggers` and `get_workflow`. |
+| Nothing runs | Trigger off, no workflow attached, or the workflow is switched off in that environment. Check `list_triggers` and `get_workflow`. |
 | `disabledReason` is set | The system switched the trigger off. Fix the cause, then save with `active: true`. |
 | Runs fail at once | Look at `get_system_logs` for compile errors, then at the recording. |

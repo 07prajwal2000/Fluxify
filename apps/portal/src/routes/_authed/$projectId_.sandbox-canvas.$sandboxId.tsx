@@ -88,7 +88,7 @@ function SandboxCanvasPage() {
 				items={sandboxesQuery.canvasItems.useQuery(projectId, sandboxId)}
 				compileTarget={{ projectId, resourceType: "sandbox", resourceId: sandboxId }}
 				reload={() => canvas.getCanvasItems(sandboxId)}
-				getVersion={() => canvas.getCanvasVersion(sandboxId)}
+				getRevision={() => canvas.getCanvasRevision(sandboxId)}
 				save={(payload) => save.mutateAsync(payload)}
 				banner={<DevWorkerBanner online={online} />}
 				playgroundContent={

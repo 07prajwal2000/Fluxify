@@ -110,7 +110,7 @@ export const editStep = (i: number): ModelMessage[] => [
 				type: "tool-call",
 				toolCallId: `e${i}`,
 				toolName: "edit_canvas",
-				input: { target: { kind: "route", id: "r1" }, version: i, ops: [] },
+				input: { target: { kind: "route", id: "r1" }, revision: i, ops: [] },
 			},
 		],
 	},
@@ -121,7 +121,7 @@ export const editStep = (i: number): ModelMessage[] => [
 				type: "tool-result",
 				toolCallId: `e${i}`,
 				toolName: "edit_canvas",
-				output: { type: "json", value: { version: i + 1 } },
+				output: { type: "json", value: { revision: i + 1 } },
 			},
 		],
 	},
@@ -135,7 +135,7 @@ export const withCanvas = <A extends { tools: Record<string, Tool> }>(agent: A):
 		get_canvas: tool({
 			inputSchema: z.object({}).passthrough(),
 			execute: async () => ({
-				version: 9,
+				revision: 9,
 				blocks: [{ key: "kv_set_9", type: "kv_set" }],
 				edges: [],
 			}),

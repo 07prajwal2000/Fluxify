@@ -16,7 +16,7 @@ const openapiRouteOptions: DescribeRouteOptions = {
 	tags: ["Custom Blocks"],
 	responses: {
 		200: {
-			description: "Saved (or checked, with dryRun): the new canvasVersion and rule issues",
+			description: "Saved (or checked, with dryRun): the new canvasRevision and rule issues",
 			content: { "application/json": { schema: resolver(saveCanvasResultSchema) } },
 		},
 		400: {

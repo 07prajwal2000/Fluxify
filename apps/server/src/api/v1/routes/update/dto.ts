@@ -10,6 +10,7 @@ export const requestBodySchema = z
 		path: z.string().min(1).regex(ROUTE_REGEX),
 		method: z.enum(HttpMethod, "Must be a HTTP Method"),
 		active: z.boolean(),
+		devActive: z.boolean().optional(),
 		bodySchema: z.any().optional(),
 		querySchema: z.any().optional(),
 		paramsSchema: z.any().optional(),

@@ -27,7 +27,7 @@ const op = (o: any) => {
 export function describeCall(name: string, input: any) {
 	if (name !== "edit_canvas" || !Array.isArray(input?.ops)) return `${name} ${short(input)}`;
 	const flags = ["validate", "auto_layout"].filter((f) => input[f]).join(", ");
-	const head = `edit_canvas ${input.target?.kind} ${input.target?.id} (v${input.version})${flags ? `, ${flags}` : ""}`;
+	const head = `edit_canvas ${input.target?.kind} ${input.target?.id} (v${input.revision})${flags ? `, ${flags}` : ""}`;
 	return [head, ...input.ops.map((o: unknown) => `  • ${op(o)}`)].join("\n");
 }
 

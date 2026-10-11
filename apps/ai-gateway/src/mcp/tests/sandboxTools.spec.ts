@@ -87,16 +87,16 @@ describe("sandbox tools", () => {
 	it("get_canvas and edit_canvas reach a sandbox under its project, and need the project", async () => {
 		const { api, calls } = fakeApi((path) =>
 			path.includes("save-canvas")
-				? { canvasVersion: 2, newKeys: {} }
-				: { canvasVersion: 1, blocks: [{ id: "e1", key: "entrypoint_1", type: "entrypoint", data: {}, position: { x: 0, y: 0 } }], edges: [] },
+				? { canvasRevision: 2, newKeys: {} }
+				: { canvasRevision: 1, blocks: [{ id: "e1", key: "entrypoint_1", type: "entrypoint", data: {}, position: { x: 0, y: 0 } }], edges: [] },
 		);
 		const target = { kind: "sandbox", id: S, projectId: P };
 		await run("get_canvas", { target }, api);
-		await run("edit_canvas", { target, version: 1, ops: [] }, api);
+		await run("edit_canvas", { target, revision: 1, ops: [] }, api);
 		expect(calls.map((c) => c.path)).toEqual([
 			`/v1/projects/${P}/sandboxes/${S}/canvas-items`,
 			`/v1/projects/${P}/sandboxes/${S}/canvas-items`,
-			`/v1/projects/${P}/sandboxes/${S}/save-canvas?expectedVersion=1&dryRun=true`,
+			`/v1/projects/${P}/sandboxes/${S}/save-canvas?expectedRevision=1&dryRun=true`,
 		]);
 		await expect(run("get_canvas", { target: { kind: "sandbox", id: S } }, api)).rejects.toThrow(
 			"A sandbox target needs projectId",

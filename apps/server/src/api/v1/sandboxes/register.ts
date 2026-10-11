@@ -3,11 +3,11 @@ import { errorSchema } from "../../../errors/customError";
 import { validationErrorSchema } from "../../../errors/validationError";
 import zodErrorCallbackParser from "../../../middlewares/zodErrorCallbackParser";
 import { requestBodyValidator } from "../../../modules/canvas/blockDataValidator";
-import { getCanvas, readCanvasVersion, saveCanvas } from "../../../modules/canvas/service";
+import { getCanvas, readCanvasRevision, saveCanvas } from "../../../modules/canvas/service";
 import {
 	canvasChangesSchema,
 	canvasItemsSchema,
-	canvasVersionSchema,
+	canvasRevisionSchema,
 	saveCanvasQuerySchema,
 	saveCanvasResultSchema,
 } from "../../../modules/canvas/types";
@@ -172,12 +172,12 @@ export default {
 		);
 
 		router.get(
-			"/:id/canvas-version",
+			"/:id/canvas-revision",
 			describeRoute(
 				describe(
-					"get-sandbox-canvas-version",
+					"get-sandbox-canvas-revision",
 					"The sandbox canvas's save counter, for spotting changes made elsewhere",
-					json(canvasVersionSchema),
+					json(canvasRevisionSchema),
 				),
 			),
 			creator,
@@ -185,7 +185,7 @@ export default {
 			async (ctx) => {
 				const { projectId, id } = ctx.req.valid("param");
 				await mustOwn(projectId, id, userOf(ctx));
-				return ctx.json(await readCanvasVersion({ type: "sandbox", id }, [projectId]));
+				return ctx.json(await readCanvasRevision({ type: "sandbox", id }, [projectId]));
 			},
 		);
 

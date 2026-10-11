@@ -92,18 +92,18 @@ Prefer `app_config_selector` for secrets. The block receives the key, and reads 
 
 ## Write the code
 
-The code is the block's canvas. Read it first to get the version and the block keys.
+The code is the block's canvas. Read it first to get the revision and the block keys.
 
 ```json
 { "target": { "kind": "custom_block", "id": "<custom block id>" } }
 ```
 
-Then add a `jsrunner` block and wire it between the entrypoint and the end of the chain. Pass the `version` from `get_canvas`.
+Then add a `jsrunner` block and wire it between the entrypoint and the end of the chain. Pass the `revision` from `get_canvas`.
 
 ```json
 {
   "target": { "kind": "custom_block", "id": "<custom block id>" },
-  "version": 0,
+  "revision": 0,
   "ops": [
     { "op": "add_block", "ref": "code", "type": "jsrunner",
       "data": { "value": "const url = getConfig(params.webhook_key);\nconst res = await httpClient.post(url, { text: params.message });\nreturn { ok: res.status === 200 };" },

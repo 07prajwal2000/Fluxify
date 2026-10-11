@@ -14,6 +14,8 @@ export const createSchema = z.object({
 	// A background job is allowed to be slower than a request, but not endless.
 	timeoutSeconds: z.number().int().min(30).max(3600).default(300),
 	active: z.boolean().optional(),
+	/** `active` is production, `devActive` development (#738) */
+	devActive: z.boolean().optional(),
 	...observabilityFields,
 });
 
@@ -28,6 +30,7 @@ export const workflowSchema = z.object({
 	name: z.string().nullable(),
 	description: z.string().nullable(),
 	active: z.boolean().nullable(),
+	devActive: z.boolean(),
 	timeoutSeconds: z.number().int(),
 	/** production's; development has its own pair (#736) */
 	tracingEnabled: z.boolean(),
