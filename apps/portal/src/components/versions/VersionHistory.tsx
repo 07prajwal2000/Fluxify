@@ -1,0 +1,200 @@
+import { Button, Spinner } from "@fluxify/components";
+import { useState } from "react";
+import { TbArrowLeft } from "react-icons/tb";
+import { OpenInSandboxDialog } from "@/components/sandboxes/OpenInSandboxButton";
+import { copyWarnings } from "@/components/sandboxes/openInSandbox";
+import { versionsQuery } from "@/query/versionsQuery";
+import type { Version, VersionKind } from "@/services/versions";
+import { useCanEditProject } from "@/store/auth";
+import { CheckoutDialog } from "./CheckoutDialog";
+import { useVersionTarget } from "./useVersionTarget";
+import { VersionCanvas, versionItems } from "./VersionCanvas";
+import { type VersionAction, VersionList } from "./VersionList";
+import { VersionSettings } from "./VersionSettings";
+
+const hasSchema = (schema: unknown) =>
+	!!schema && Object.keys(schema as Record<string, unknown>).length > 0;
+
+/** The sandbox copy of one version: its own blocks, and what it lacks said as the live copy's does. */
+function SandboxFromVersion({
+	kind,
+	id,
+	projectId,
+	version,
+	onClose,
+	onOpen,
+}: {
+	kind: VersionKind;
+	id: string;
+	projectId: string;
+	version: Version;
+	onClose: () => void;
+	onOpen: (sandboxId: string) => void;
+}) {
+	const { name } = useVersionTarget(kind, id);
+	const { data } = versionsQuery.get.useQuery(kind, id, version.id);
+	if (!data) return null;
+	const settings = data.snapshot.settings as Record<string, unknown>;
+	const middlewares = (settings.middlewares ?? {}) as { before?: string[]; after?: string[] };
+	return (
+		<OpenInSandboxDialog
+			open
+			projectId={projectId}
+			source={{ kind, id, name: `${name} v${version.versionNumber}` }}
+			canvas={versionItems(data.snapshot)}
+			warnings={
+				kind === "route"
+					? copyWarnings({
+							hasMiddlewares:
+								(middlewares.before?.length ?? 0) + (middlewares.after?.length ?? 0) > 0,
+							hasSchemas: [settings.bodySchema, settings.querySchema, settings.paramsSchema].some(
+								hasSchema,
+							),
+						})
+					: []
+			}
+			onOpenChange={(open) => !open && onClose()}
+			onOpen={onOpen}
+		/>
+	);
+}
+
+function SelectedVersion({
+	kind,
+	id,
+	projectId,
+	version,
+}: {
+	kind: VersionKind;
+	id: string;
+	projectId: string;
+	version: Version;
+}) {
+	const { data, isLoading, isError } = versionsQuery.get.useQuery(kind, id, version.id);
+	return (
+		<section className="flex min-h-0 min-w-0 flex-1 flex-col">
+			<div className="border-b border-border px-4 py-2">
+				<p className="text-sm font-medium">
+					<span className="font-mono">v{version.versionNumber}</span> · {version.title}
+				</p>
+				{version.description && <p className="text-xs text-muted">{version.description}</p>}
+			</div>
+			{isLoading ? (
+				<div className="flex flex-1 items-center justify-center">
+					<Spinner />
+				</div>
+			) : isError || !data ? (
+				<div className="flex flex-1 items-center justify-center text-muted">
+					Couldn't load this version.
+				</div>
+			) : (
+				<div className="flex min-h-0 flex-1">
+					<div className="min-w-0 flex-1">
+						{/* keyed: each version opens on its own view */}
+						<VersionCanvas key={version.id} snapshot={data.snapshot} />
+					</div>
+					<aside className="w-80 shrink-0 overflow-y-auto border-l border-border">
+						<VersionSettings
+							kind={kind}
+							projectId={projectId}
+							settings={data.snapshot.settings as Record<string, unknown>}
+						/>
+					</aside>
+				</div>
+			)}
+		</section>
+	);
+}
+
+/**
+ * A route's or workflow's version history (#738): the versions on the left, the
+ * chosen one read-only on the right. Check out and Open in sandbox are for
+ * creators; anyone with access can read.
+ */
+export function VersionHistory({
+	kind,
+	id,
+	projectId,
+	onBackToCanvas,
+	onOpenSandbox,
+}: {
+	kind: VersionKind;
+	id: string;
+	projectId: string;
+	onBackToCanvas: () => void;
+	onOpenSandbox: (sandboxId: string) => void;
+}) {
+	const canEdit = useCanEditProject(projectId);
+	const { data, isLoading, isError } = versionsQuery.list.useQuery(kind, id);
+	const [picked, setPicked] = useState<string>();
+	const [action, setAction] = useState<{ type: VersionAction; version: Version }>();
+
+	if (isLoading) {
+		return (
+			<div className="flex flex-1 items-center justify-center">
+				<Spinner />
+			</div>
+		);
+	}
+	if (isError || !data) {
+		return (
+			<div className="flex flex-1 items-center justify-center text-muted">
+				Couldn't load the versions.
+			</div>
+		);
+	}
+
+	const { versions, uncommitted } = data;
+	const selected =
+		versions.find((v) => v.id === picked) ?? versions.find((v) => v.isHead) ?? versions[0];
+
+	return (
+		<div className="flex min-h-0 flex-1">
+			<aside className="flex w-80 shrink-0 flex-col border-r border-border">
+				<div className="border-b border-border p-2">
+					<Button variant="ghost" size="sm" onPress={onBackToCanvas}>
+						<TbArrowLeft size={14} /> Back to canvas
+					</Button>
+				</div>
+				<div className="min-h-0 flex-1 overflow-y-auto">
+					<VersionList
+						versions={versions}
+						uncommitted={uncommitted}
+						selectedId={selected?.id}
+						canEdit={canEdit}
+						onSelect={setPicked}
+						onOpenCanvas={onBackToCanvas}
+						onAction={(type, version) => setAction({ type, version })}
+					/>
+				</div>
+			</aside>
+			{selected ? (
+				<SelectedVersion kind={kind} id={id} projectId={projectId} version={selected} />
+			) : (
+				<div className="flex min-w-0 flex-1 items-center justify-center p-6 text-center text-sm text-muted">
+					No versions yet. Commit to save the first one.
+				</div>
+			)}
+			{action?.type === "checkout" && (
+				<CheckoutDialog
+					kind={kind}
+					id={id}
+					version={action.version}
+					uncommitted={uncommitted}
+					onClose={() => setAction(undefined)}
+					onCheckedOut={onBackToCanvas}
+				/>
+			)}
+			{action?.type === "sandbox" && (
+				<SandboxFromVersion
+					kind={kind}
+					id={id}
+					projectId={projectId}
+					version={action.version}
+					onClose={() => setAction(undefined)}
+					onOpen={onOpenSandbox}
+				/>
+			)}
+		</div>
+	);
+}

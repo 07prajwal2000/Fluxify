@@ -17,6 +17,7 @@ import { RouteSwitcher } from "@/components/routes/RouteSwitcher";
 import { RouteWorkbenchTabs } from "@/components/routes/RouteWorkbenchTabs";
 import { extractPathParams } from "@/components/routes/routeForm";
 import { OpenInSandboxButton } from "@/components/sandboxes/OpenInSandboxButton";
+import { CommitControls } from "@/components/versions/CommitControls";
 import { createRouteHead, usePageTitle } from "@/lib/seo";
 import { useProjectPackageTypes } from "@/query/projectPackagesQuery";
 import { routesQuery } from "@/query/routesQuery";
@@ -110,8 +111,20 @@ function RouteCanvasPage() {
 						<RouteWorkbenchTabs projectId={projectId} routeId={routeId} />
 					</>
 				}
-				headerActions={
+				headerActions={(canvas) => (
 					<>
+						<CommitControls
+							kind="route"
+							id={routeId}
+							projectId={projectId}
+							canvas={canvas}
+							onOpenHistory={() =>
+								navigate({
+									to: "/$projectId/canvas/$routeId/versions",
+									params: { projectId, routeId },
+								})
+							}
+						/>
 						<OpenInSandboxButton
 							projectId={projectId}
 							onOpen={(sandboxId) =>
@@ -130,7 +143,7 @@ function RouteCanvasPage() {
 							<TbSettings size={16} /> Settings
 						</Button>
 					</>
-				}
+				)}
 			/>
 			{/* mounted only while open: the form seeds its state from the loaded route */}
 			{settingsOpen && (

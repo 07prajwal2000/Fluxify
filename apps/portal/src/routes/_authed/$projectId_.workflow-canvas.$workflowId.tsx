@@ -6,6 +6,7 @@ import z from "zod";
 import { CanvasWorkbench } from "@/components/canvas";
 import { WorkflowWorkbenchTabs } from "@/components/routes/RouteWorkbenchTabs";
 import { OpenInSandboxButton } from "@/components/sandboxes/OpenInSandboxButton";
+import { CommitControls } from "@/components/versions/CommitControls";
 import { WorkflowRunButton, WorkflowRunModal } from "@/components/workflows/WorkflowRunModal";
 import { WorkflowSettingsModal } from "@/components/workflows/WorkflowSettingsModal";
 import { WorkflowSwitcher } from "@/components/workflows/WorkflowSwitcher";
@@ -78,8 +79,20 @@ function WorkflowCanvasPage() {
 						<WorkflowWorkbenchTabs projectId={projectId} workflowId={workflowId} />
 					</>
 				}
-				headerActions={
+				headerActions={(canvas) => (
 					<>
+						<CommitControls
+							kind="workflow"
+							id={workflowId}
+							projectId={projectId}
+							canvas={canvas}
+							onOpenHistory={() =>
+								navigate({
+									to: "/$projectId/workflow-canvas/$workflowId/versions",
+									params: { projectId, workflowId },
+								})
+							}
+						/>
 						<OpenInSandboxButton
 							projectId={projectId}
 							onOpen={(sandboxId) =>
@@ -99,7 +112,7 @@ function WorkflowCanvasPage() {
 							<TbSettings size={16} /> Settings
 						</Button>
 					</>
-				}
+				)}
 			/>
 			{/* mounted only while open: each form seeds its state from the loaded workflow */}
 			{settingsOpen && (

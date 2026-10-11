@@ -29,13 +29,22 @@ export function copyWarnings(route: { hasMiddlewares: boolean; hasSchemas: boole
  * Makes the sandbox "<name> sandbox" and saves the whole canvas into it, entry
  * block wired to the sandbox's own entrypoint. A failed save removes the sandbox
  * again, so there is never a half-copied one. Resolves to the sandbox id.
+ *
+ * `canvas` copies those blocks and edges instead of the source's live ones: a
+ * saved version's (#738).
  */
-export async function openInSandbox(projectId: string, source: SandboxSource) {
+export async function openInSandbox(
+	projectId: string,
+	source: SandboxSource,
+	canvas?: CanvasItems,
+) {
 	const { id } = await sandboxesService.create(projectId, { name: `${source.name} sandbox` });
 	try {
-		const from = await (source.kind === "route" ? routesService : workflowsService).getCanvasItems(
-			source.id,
-		);
+		const from =
+			canvas ??
+			(await (source.kind === "route" ? routesService : workflowsService).getCanvasItems(
+				source.id,
+			));
 		const own = await sandboxesService.getCanvasItems(projectId, id);
 		// the entrypoint and error handler are the sandbox's own; the rest is cloned with new ids
 		const { part } = prepareImport(

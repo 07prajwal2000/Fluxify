@@ -42,8 +42,12 @@ export type CanvasWorkbenchProps = {
 	playgroundContent?: ReactNode;
 	/** the playground's "Track Execution" tab; leave out for users who can't see recordings */
 	trackExecutionContent?: ReactNode;
-	/** Extra header controls owned by the caller — route settings, for one. */
-	headerActions?: ReactNode;
+	/**
+	 * Extra header controls owned by the caller — route settings, for one. A
+	 * function gets the canvas's unsaved-edit state, for a control that must act
+	 * on what is saved (a commit, #738).
+	 */
+	headerActions?: ReactNode | ((canvas: CanvasHeaderState) => ReactNode);
 	/** A notice under the header, above the canvas — a sandbox with no worker to run on, for one. */
 	banner?: ReactNode;
 	/** Replaces the plain title on the left — the route switcher, for one. */
@@ -61,6 +65,14 @@ export type CanvasWorkbenchProps = {
 	focusBlock?: { blockId: string; error?: string };
 	/** increment to open the playground from the page (a replayed run) */
 	playgroundToken?: number;
+};
+
+/** What the header controls may ask of the canvas they sit on. */
+export type CanvasHeaderState = {
+	/** edits made here that are not saved yet */
+	hasUnsavedChanges: boolean;
+	/** saves them, with the usual checks and toasts; true once they are saved */
+	saveChanges: () => Promise<boolean>;
 };
 
 export function toGraph(data: CanvasItems | undefined): CanvasGraph {
@@ -113,13 +125,13 @@ function CanvasWorkbenchInner({
 	const edited = useRef<{ graph: CanvasGraph; changes: ChangeSet } | null>(null);
 	const diagnostics = useBlockDiagnostics();
 
-	async function onSave() {
+	async function onSave(): Promise<boolean> {
 		const current = edited.current;
-		if (!current || isSaving) return;
+		if (!current || isSaving) return false;
 		if (findCycleEdgeIds(current.graph.edges).size > 0) {
 			setCycleFeedbackToken((token) => token + 1);
 			toast.danger("Canvas contains a loop. Remove every red connection before saving.");
-			return;
+			return false;
 		}
 		// fresh run: drops the last save's errors and anything fixed since
 		// compile errors are about the saved canvas; saving is how they get fixed
@@ -130,7 +142,7 @@ function CanvasWorkbenchInner({
 		if (errors > 0) {
 			diagnostics.openPanel();
 			toast.danger(`Fix ${errors} error(s) before saving. See diagnostics.`);
-			return;
+			return false;
 		}
 		setIsSaving(true);
 		try {
@@ -157,6 +169,7 @@ function CanvasWorkbenchInner({
 			else if (log.detail?.status === "failed") {
 				toast.danger(`${saved}, but it did not compile. See diagnostics.`);
 			} else toast.success(saved);
+			return true;
 		} catch (error) {
 			// Both the save and the repaired retry failed — this is for the user.
 			const saveErrors = blockDiagnosticsFromSaveError(error, current.graph);
@@ -167,6 +180,7 @@ function CanvasWorkbenchInner({
 					: `Failed to save canvas (${saveErrors.length} errors)`,
 				{ actionProps: { children: "View diagnostics", onPress: diagnostics.openPanel } },
 			);
+			return false;
 		} finally {
 			setIsSaving(false);
 		}
@@ -195,7 +209,11 @@ function CanvasWorkbenchInner({
 		<div className="flex h-screen w-full flex-col">
 			<header className="flex items-center gap-3 border-b border-border px-4 py-2 text-sm">
 				{headerLeft ?? <span className="font-medium">{title}</span>}
-				<div className="ml-auto flex items-center gap-2">{headerActions}</div>
+				<div className="ml-auto flex items-center gap-2">
+					{typeof headerActions === "function"
+						? headerActions({ hasUnsavedChanges: pendingCount > 0, saveChanges: onSave })
+						: headerActions}
+				</div>
 				{!readOnly && (
 					<Button
 						variant="primary"
