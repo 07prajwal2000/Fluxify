@@ -1,6 +1,6 @@
 import { Breadcrumbs, Button, DeleteButton, Spinner } from "@fluxify/components";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { TbArrowLeft } from "react-icons/tb";
+import { TbArrowLeft, TbPlayerPlay } from "react-icons/tb";
 import { SplitPane } from "@/components/common/SplitPane";
 import { formatDuration } from "@/components/testSuites/CaseResults";
 import { FromTestLink } from "@/components/testSuites/FromTestLink";
@@ -11,6 +11,7 @@ import { recordingsQuery } from "@/query/recordingsQuery";
 import type { RecordedSpan, RecordingTarget } from "@/services/recordings";
 import { OverlayCanvas } from "./OverlayCanvas";
 import { IncompleteChip, OutcomeIcon } from "./RecordedRunList";
+import { type Replay, replayOf } from "./replay";
 import { type SpanActions, SpanDetail } from "./SpanDetail";
 import { type Frame, rootCanvasId, spansAt } from "./spans";
 
@@ -30,12 +31,15 @@ export function RecordedRunViewer({
 	target,
 	runId,
 	onBack,
+	onReplay,
 	initialSelected = null,
 }: {
 	projectId: string;
 	target: RecordingTarget;
 	runId: string;
 	onBack: () => void;
+	/** Send the run's recorded input again (#752); no Replay button without it. */
+	onReplay?: (replay: Replay) => void;
 	/** the block to open on, e.g. the one a failed test case failed in (#627) */
 	initialSelected?: string | null;
 }) {
@@ -55,6 +59,7 @@ export function RecordedRunViewer({
 	const { data: customBlocks } = customBlocksQuery.getAll.useQuery(projectId);
 
 	const spans = run.data?.spans;
+	const replay = onReplay && root ? replayOf(root.spans) : null;
 	const level = useMemo(() => (spans ? spansAt(spans, frame.parentSeq) : []), [spans, frame]);
 	// a run's own level sits on the target's canvas, or an async run's custom block
 	const canvasId = frame.parentSeq === null ? rootCanvasId(spans ?? []) : frame.customBlockId;
@@ -124,6 +129,11 @@ export function RecordedRunViewer({
 						<span>{formatWhen(root.startedAt)}</span>
 						<span>{formatDuration(root.durationMs)}</span>
 						<IncompleteChip run={root} />
+						{replay && onReplay && (
+							<Button size="sm" variant="outline" onPress={() => onReplay(replay)}>
+								<TbPlayerPlay size={14} /> Replay
+							</Button>
+						)}
 						{/* a sandbox keeps its runs until it is deleted: there is nothing to delete one with */}
 						{target.type !== "sandbox" && (
 							<DeleteButton

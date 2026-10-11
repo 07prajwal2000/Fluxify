@@ -93,6 +93,10 @@ Fluxify adds the development token for you; you never see or send it. The answer
 
 Use an `edit_code` op on `db_native_1` (field `js`) with the version `edit_canvas` returned, then `call_sandbox` again. Every call is recorded.
 
+## Start from a route you already have
+
+To debug a real route instead of building a canvas from nothing, copy it into a new sandbox with `copy_blocks`. See [Debug a route in a sandbox](/agents/recipes/debug-route-in-sandbox).
+
 ## 7. Clean up
 
 When you are done, call `delete_sandbox`:

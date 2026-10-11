@@ -21,7 +21,7 @@ What things are:
   secret value in a block.
 - Integration: a connection to a database, KV store, AI provider or queue. Blocks pick one by id.
 - Test suite: a saved request (route) or input (workflow) plus assertions.
-- Sandbox: your own private scratch canvas on development data. Try blocks there (e.g. DB Native to inspect a table) with call_sandbox or run_sandbox, without touching real routes. For a one-off check, run_blocks runs blocks in one call and keeps nothing.
+- Sandbox: your own private scratch canvas on development data. Try blocks there (e.g. DB Native to inspect a table) with call_sandbox or run_sandbox, without touching real routes. For a one-off check, run_blocks runs blocks in one call and keeps nothing. copy_blocks moves blocks between canvases of one project (a route into a sandbox with to: "__new_sandbox__", the fix back into the route); run_blocks with from runs a saved canvas without saving.
 
 Building tips:
 - Call get_block_schemas with no input to see the built-in blocks, then with blockTypes for the

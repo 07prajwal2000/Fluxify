@@ -16,7 +16,14 @@ import {
 import { type Effort, providerOf, thinkingOptions } from "./model";
 import { traceRun } from "./telemetry";
 import { type Limits, withModelTimeouts, withToolTimeouts } from "./timeouts";
-import { closeMatches, isDelete, isRead, type Mode, needsApproval } from "./tools";
+import {
+	closeMatches,
+	copiesIntoRealCanvas,
+	isDelete,
+	isRead,
+	type Mode,
+	needsApproval,
+} from "./tools";
 
 export { type Limit, MAX_STEPS } from "./guards";
 
@@ -309,7 +316,12 @@ export function runAgent({
 		},
 		toolApproval: async ({ toolCall: { toolCallId, toolName, input } }) => {
 			const del = isDelete(toolName);
-			if (!needsApproval(mode, toolName, askBeforeEphemeralRuns) || (!del && allowed.has(toolName)))
+			// a copy into a real canvas asks every time, like a delete, but is not styled as one
+			const every = del || copiesIntoRealCanvas(toolName, input);
+			if (
+				!needsApproval(mode, toolName, askBeforeEphemeralRuns, input) ||
+				(!every && allowed.has(toolName))
+			)
 				return undefined;
 			const call = { toolCallId, toolName, input };
 			const r = await Promise.race([approve({ ...call, isDelete: del }, abortSignal), stopped]);
@@ -318,8 +330,8 @@ export function runAgent({
 				run.approval(call, "denied");
 				return { type: "denied", reason: rejected(toolName, r.reason) };
 			}
-			if (r.always && !del) allowed.add(toolName);
-			run.approval(call, r.always && !del ? "always" : "approved");
+			if (r.always && !every) allowed.add(toolName);
+			run.approval(call, r.always && !every ? "always" : "approved");
 			return "approved";
 		},
 		// Errors already come out of the stream as parts; the default also logs them.

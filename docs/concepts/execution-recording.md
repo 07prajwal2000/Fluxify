@@ -80,6 +80,10 @@ The opened run is drawn on the canvas:
 
 Click a block to see its **input**, **output**, timing, and error if it failed. Click the **Entrypoint** block to see the whole **Request** (headers, query, params, cookies and body) for a route, or the **Trigger** (which trigger fired, and its input or events) for a workflow.
 
+### Replay a run
+
+**Replay** sits next to the run's status. It opens the route's playground, the workflow's Run form, or the sandbox's playground with the run's recorded input already filled in: the method, path, query, headers and body of a request, or the payload of a workflow run. Nothing is sent until you press **Send** or **Run**, so you can change the input first. A run whose input was cut to fit the size limit has no Replay.
+
 ### Custom blocks
 
 A custom block on the canvas can be opened to see the blocks inside it, as they ran. You can keep going into custom blocks inside custom blocks, at any depth. The breadcrumb at the top takes you back up.

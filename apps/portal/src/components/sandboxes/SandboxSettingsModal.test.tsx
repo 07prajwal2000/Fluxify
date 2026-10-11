@@ -17,6 +17,12 @@ async function until<T>(check: () => T, timeout = 1500): Promise<T> {
 		}
 	}
 }
+const navigate = mock();
+const router = await import("@tanstack/react-router");
+mock.module("@tanstack/react-router", () => ({
+	...router,
+	useNavigate: () => navigate,
+}));
 const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query");
 const { triggersService } = await import("@/services/triggers");
 const { sandboxesService } = await import("@/services/sandboxes");
@@ -25,6 +31,7 @@ const { SandboxSettingsModal } = await import("./SandboxSettingsModal");
 afterEach(() => {
 	cleanup();
 	mock.restore();
+	navigate.mockClear();
 });
 afterAll(() => GlobalRegistrator.unregister());
 
@@ -161,6 +168,54 @@ test("General saves the name and the tracing flag", async () => {
 		expect(update).toHaveBeenCalledWith("p1", "s1", {
 			name: "orders v2",
 			settings: { tracingEnabled: true },
+		}),
+	);
+});
+
+test("viewer sees no Danger zone tab", async () => {
+	mount(true);
+	await until(() => {
+		const tabs = [...document.body.querySelectorAll("[role=tab]")];
+		if (!tabs.length) throw new Error("no tabs yet");
+		return tabs;
+	});
+	const tabs = [...document.body.querySelectorAll("[role=tab]")];
+	expect(tabs.some((t) => t.textContent === "Danger zone")).toBe(false);
+});
+
+test("Danger zone opens confirm dialog and deletes sandbox", async () => {
+	const remove = spyOn(sandboxesService, "delete").mockResolvedValue(undefined as never);
+	mount(false);
+	const dangerTab = await until(() => {
+		const found = [...document.body.querySelectorAll("[role=tab]")].find(
+			(t) => t.textContent === "Danger zone",
+		);
+		if (!found) throw new Error("no danger tab yet");
+		return found;
+	});
+	fireEvent.click(dangerTab);
+
+	const deleteBtn = await until(() => {
+		const btn = button("Delete sandbox");
+		if (!btn) throw new Error("no delete sandbox button");
+		return btn;
+	});
+	fireEvent.click(deleteBtn);
+
+	await until(() => {
+		expect(document.body.textContent).toContain("Delete sandbox?");
+		expect(document.body.textContent).toContain("blocks, triggers and recordings will be deleted");
+	});
+
+	const confirmBtn = button("Delete");
+	expect(confirmBtn).toBeDefined();
+	fireEvent.click(confirmBtn!);
+
+	await until(() => expect(remove).toHaveBeenCalledWith("p1", "s1"));
+	await until(() =>
+		expect(navigate).toHaveBeenCalledWith({
+			to: "/$projectId/sandboxes",
+			params: { projectId: "p1" },
 		}),
 	);
 });

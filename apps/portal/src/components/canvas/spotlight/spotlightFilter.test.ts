@@ -71,6 +71,13 @@ const mockCommands: SpotlightCommand[] = [
 		onSelect: () => {},
 	},
 	{
+		id: "resource-sandbox-1",
+		title: "Sandbox: Test Sandbox",
+		category: "Resources",
+		keywords: ["goto", "sandbox", "test"],
+		onSelect: () => {},
+	},
+	{
 		id: "help-docs",
 		title: "Open Documentation",
 		category: "Help",
@@ -151,5 +158,12 @@ describe("filterSpotlightCommands", () => {
 		const { commands } = filterSpotlightCommands(mockCommands, "format");
 		expect(commands.length).toBe(1);
 		expect(commands[0].id).toBe("canvas-format");
+	});
+
+	it("filters sandbox resources in goto mode and general search", () => {
+		const { commands: gotoCmds } = filterSpotlightCommands(mockCommands, "goto test");
+		expect(gotoCmds.some((c) => c.id === "resource-sandbox-1")).toBe(true);
+		const { commands: searchCmds } = filterSpotlightCommands(mockCommands, "sandbox");
+		expect(searchCmds.some((c) => c.id === "resource-sandbox-1")).toBe(true);
 	});
 });

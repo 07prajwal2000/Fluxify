@@ -31,6 +31,7 @@ export function SandboxRunModal({
 	online,
 	isOpen,
 	onOpenChange,
+	initialPayload,
 }: {
 	projectId: string;
 	sandboxId: string;
@@ -38,6 +39,8 @@ export function SandboxRunModal({
 	online: boolean;
 	isOpen: boolean;
 	onOpenChange: (open: boolean) => void;
+	/** a replayed run's payload (#752) */
+	initialPayload?: unknown;
 }) {
 	const run = sandboxesQuery.run.mutation(projectId, sandboxId);
 	return (
@@ -49,6 +52,7 @@ export function SandboxRunModal({
 			isDisabled={!online}
 			disabledReason={DEV_WORKER_MESSAGE}
 			run={(payload) => run.mutateAsync(payload)}
+			initialPayload={initialPayload}
 		/>
 	);
 }

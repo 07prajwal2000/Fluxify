@@ -59,6 +59,8 @@ export type CanvasWorkbenchProps = {
 	readOnly?: boolean;
 	/** open on a block that failed in a test run */
 	focusBlock?: { blockId: string; error?: string };
+	/** increment to open the playground from the page (a replayed run) */
+	playgroundToken?: number;
 };
 
 export function toGraph(data: CanvasItems | undefined): CanvasGraph {
@@ -102,6 +104,7 @@ function CanvasWorkbenchInner({
 	banner,
 	readOnly = false,
 	focusBlock,
+	playgroundToken,
 }: CanvasWorkbenchProps) {
 	const [pendingCount, setPendingCount] = useState(0);
 	const [isSaving, setIsSaving] = useState(false);
@@ -240,6 +243,7 @@ function CanvasWorkbenchInner({
 						focusBlock={focusBlock}
 						cycleFeedbackToken={cycleFeedbackToken}
 						reloadToken={reloadToken}
+						playgroundToken={playgroundToken}
 						onSave={() => void onSave()}
 						onChange={(next, changes) => {
 							edited.current = { graph: next, changes };

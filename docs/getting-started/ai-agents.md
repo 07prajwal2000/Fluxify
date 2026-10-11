@@ -152,7 +152,8 @@ request, runs your code or reaches the internet.
 | `delete_sandbox` | Delete one of your sandboxes | Creator |
 | `call_sandbox` | Send a request to your sandbox on a development worker (real) | Creator |
 | `run_sandbox` | Run your sandbox once as a workflow (real) | Creator |
-| `run_blocks` | Try a few blocks in one call on a development worker and keep nothing: no sandbox, no recording (real). See [Try blocks with an ephemeral run](../agents/recipes/ephemeral-run.md) | Creator |
+| `run_blocks` | Try a few blocks, or a saved canvas with `from`, in one call on a development worker and keep nothing: no sandbox, no recording (real). See [Try blocks with an ephemeral run](../agents/recipes/ephemeral-run.md) | Creator |
+| `copy_blocks` | Copy blocks, or a whole canvas, between canvases of one project, such as a route into a new sandbox. See [Debug a route in a sandbox](../agents/recipes/debug-route-in-sandbox.md) | Creator |
 | `run_test_suite` | Run a test suite (real) | Creator |
 | `add_member` | Add a user to a project | Project Admin |
 | `update_member_role` | Change a member's role | Project Admin |

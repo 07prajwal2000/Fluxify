@@ -23,6 +23,7 @@ export const REF_ICONS: Record<RefType, typeof TbBox> = {
 	integration: TbCloudCog,
 	app_config: TbSquareKey,
 	test_suite: TbFlask,
+	sandbox: TbFlask,
 };
 
 export const CHIP =

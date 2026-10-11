@@ -1,22 +1,30 @@
 import type { ReactNode } from "react";
 import type { ToolPart } from "../agentMessages";
+import { MarkdownViewer } from "../MarkdownViewer";
 import { CallRoutePreview } from "./CallRoutePreview";
 import { ConnectionPreview } from "./ConnectionPreview";
+import { CopyBlocksPreview } from "./CopyBlocksPreview";
 import { DataPreview, hasData } from "./DataPreview";
 import { DeleteCard } from "./DeleteCard";
 import { DocsPreview, isDocsTool } from "./DocsPreview";
 import { isRec } from "./data";
 import { EditCanvasPreview } from "./EditCanvasPreview";
 import { canDraw, GetCanvasPreview } from "./GetCanvasPreview";
+import { KvPreview } from "./KvPreview";
+import { MemberPreview } from "./MemberPreview";
+import { PackagePreview } from "./PackagePreview";
+import { ProjectUpdatePreview } from "./ProjectUpdatePreview";
 import { isRun, RecordingList, RecordingSummary } from "./RecordingPreview";
 import { ResourceCard } from "./ResourceCard";
 import { resourceOf } from "./resourceMeta";
+import { SandboxRunPreview } from "./SandboxRunPreview";
 import {
 	hasConfigFields,
 	IntegrationSchemaPreview,
 	isSchemaDetails,
 	SchemaDetailsPreview,
 } from "./SchemaPreview";
+import { SuiteActionPreview } from "./SuiteActionPreview";
 import { TestRunPreview } from "./TestRunPreview";
 import {
 	AdvancedToolsPreview,
@@ -24,11 +32,16 @@ import {
 	isToolLines,
 	LoadedToolsPreview,
 } from "./ToolListPreview";
-
-const SANDBOX_TOOLS = new Set(["create_sandbox", "run_sandbox", "delete_sandbox"]);
+import { WhoamiPreview } from "./WhoamiPreview";
 
 /** Reads: the agent's `list` / `get`, and every get_* / list_* tool. */
 const isRead = (name: string) => /^(get|list)(_|$)/.test(name);
+
+const isMember = (name: string) =>
+	name === "add_member" || name === "update_member_role" || name === "remove_member";
+const isPackage = (name: string) => name === "install_package" || name === "remove_package";
+const isSuiteAction = (name: string) =>
+	name === "validate_test_suite" || name === "clone_test_suite";
 
 /**
  * The preview of a tool call, or nothing for a tool without one (it shows Raw only).
@@ -36,6 +49,20 @@ const isRead = (name: string) => /^(get|list)(_|$)/.test(name);
  */
 export function previewOf(tool: ToolPart, asking: boolean): ReactNode | null {
 	const { name } = tool;
+	if (name === "copy_blocks") return <CopyBlocksPreview tool={tool} asking={asking} />;
+	if (name === "run_sandbox") return <SandboxRunPreview tool={tool} asking={asking} />;
+	if (isMember(name)) return <MemberPreview tool={tool} asking={asking} />;
+	if (isPackage(name)) return <PackagePreview tool={tool} asking={asking} />;
+	if (name === "update_project") return <ProjectUpdatePreview tool={tool} asking={asking} />;
+	if (isSuiteAction(name)) return <SuiteActionPreview tool={tool} asking={asking} />;
+	if (name === "kv_get") return <KvPreview tool={tool} />;
+	if (name === "whoami" && isRec(tool.output)) return <WhoamiPreview tool={tool} />;
+	if (name === "get_block_schemas" && typeof tool.output === "string")
+		return (
+			<div className="max-h-96 overflow-auto rounded-md border border-border bg-surface px-3 py-2">
+				<MarkdownViewer content={tool.output} />
+			</div>
+		);
 	if (name === "edit_canvas") return <EditCanvasPreview tool={tool} asking={asking} />;
 	if (name === "get_canvas" && canDraw(tool)) return <GetCanvasPreview tool={tool} />;
 	if (name === "list_recordings" && isRec(tool.output)) return <RecordingList tool={tool} />;
@@ -54,10 +81,9 @@ export function previewOf(tool: ToolPart, asking: boolean): ReactNode | null {
 		return <CallRoutePreview tool={tool} />;
 	if (name === "run_test_suite" || name === "get_test_runs") return <TestRunPreview tool={tool} />;
 	const res = resourceOf(name);
-	if (res?.verb === "save") return <ResourceCard tool={tool} asking={asking} />;
+	if (res?.verb === "save" || res?.verb === "create")
+		return <ResourceCard tool={tool} asking={asking} />;
 	if (res?.verb === "delete") return <DeleteCard tool={tool} asking={asking} />;
-	// the rest of the sandbox tools (create, run, delete) answer with plain fields
-	if ((isRead(name) || SANDBOX_TOOLS.has(name)) && hasData(tool.output))
-		return <DataPreview tool={tool} />;
+	if (isRead(name) && hasData(tool.output)) return <DataPreview tool={tool} />;
 	return null;
 }

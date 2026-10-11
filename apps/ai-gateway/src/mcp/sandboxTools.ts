@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { bare } from "./canvasDraft";
+import { copyBlocksTool, loadSource } from "./copyBlocks";
 import { blockKeys, MAX_RESPONSE_CHARS, traceLines, truncate, withBlockKey } from "./routeTools";
 import { type McpTool, pick, projectId } from "./tools";
 
@@ -95,7 +97,7 @@ export const sandboxTools: McpTool[] = [
 	{
 		name: "run_blocks",
 		title: "Run blocks",
-		description: `Try a few blocks in ONE call and leave nothing behind: no sandbox, no recording, no saved canvas. The blocks run once on a development worker with development data, so they can still write it. Give blocks as { ref, type, data } and edges as { from, to, handle? } (from may be "ref.handle"), the way edit_canvas names them, but by refs you choose. The entrypoint and error handler are added for you, and the entrypoint goes to the first block nothing points at. input is the request body the blocks read. Returns status, headers, body (cut at ${MAX_RESPONSE_CHARS} characters), durationMs, and the blocks that ran as trace. A bad graph is refused with the reasons; a failing block comes back as error with its ref, message and stack. It waits timeoutSeconds (1-30; the project's setting by default, 10), then gives up. The run is kept only as one system log (type ephemeral, id returned) that only you can read. Without a development worker it says how to start one. To keep what you build, use a sandbox or a real route.`,
+		description: `Try a few blocks in ONE call and leave nothing behind: no sandbox, no recording, no saved canvas. The blocks run once on a development worker with development data, so they can still write it. Give blocks as { ref, type, data } and edges as { from, to, handle? } (from may be "ref.handle"), the way edit_canvas names them, but by refs you choose. The entrypoint and error handler are added for you, and the entrypoint goes to the first block nothing points at. input is the request body the blocks read. Returns status, headers, body (cut at ${MAX_RESPONSE_CHARS} characters), durationMs, and the blocks that ran as trace. A bad graph is refused with the reasons; a failing block comes back as error with its ref, message and stack. It waits timeoutSeconds (1-30; the project's setting by default, 10), then gives up. The run is kept only as one system log (type ephemeral, id returned) that only you can read. Without a development worker it says how to start one. Instead of blocks, from { kind, id } runs a canvas that already exists (a route, workflow, custom block or your sandbox of this project), or just the blocks named in keys, as it is saved: nothing is changed or kept. Its entrypoint's request is what input, method, path and headers set. To keep what you build, use a sandbox or a real route.`,
 		role: "creator",
 		annotations: RUN,
 		input: {
@@ -110,7 +112,9 @@ export const sandboxTools: McpTool[] = [
 						data: z.record(z.string(), z.unknown()).optional().describe("The block's settings"),
 					}),
 				)
-				.min(1),
+				.min(1)
+				.optional()
+				.describe("Give blocks, or from"),
 			edges: z
 				.array(
 					z.object({
@@ -123,6 +127,11 @@ export const sandboxTools: McpTool[] = [
 					}),
 				)
 				.optional(),
+			from: z
+				.object({ kind: z.enum(["route", "workflow", "custom_block", "sandbox"]), id: z.string() })
+				.optional()
+				.describe("Run this existing canvas instead of blocks"),
+			keys: z.array(z.string()).optional().describe("With from: only these block keys"),
 			input: z.unknown().optional().describe("The request body the blocks read"),
 			method: z
 				.enum(["GET", "POST", "PUT", "PATCH", "DELETE"])
@@ -132,8 +141,25 @@ export const sandboxTools: McpTool[] = [
 			headers: z.record(z.string(), z.string()).optional(),
 			timeoutSeconds: z.number().optional().describe("Seconds to wait, 1-30"),
 		},
-		call: async ({ send }, { projectId: p, input, ...a }) => {
-			const { debugError, debugTrace, ...result } = await send(
+		call: async (api, { projectId: p, input, from, keys, ...a }) => {
+			if (!from === !a.blocks) throw new Error("Give either blocks or from, not both or neither.");
+			let warnings: string[] = [];
+			if (from) {
+				// a saved canvas, as blocks and edges by key; the server adds the entrypoint
+				const src = await loadSource(api, p, from, keys);
+				warnings = src.warnings;
+				a.blocks = src.blocks.map((b) => ({
+					ref: src.keyOf(b),
+					type: b.type,
+					data: b.data,
+				}));
+				a.edges = src.edges.map((e) => ({
+					from: src.keyOf(src.blocks.find((b) => b.id === e.from)!),
+					to: src.keyOf(src.blocks.find((b) => b.id === e.to)!),
+					handle: bare(e.from, e.fromHandle ?? "source"),
+				}));
+			}
+			const { debugError, debugTrace, ...result } = await api.send(
 				"POST",
 				`/v1/projects/${p}/ephemeral-runs`,
 				{ ...a, body: input },
@@ -147,6 +173,7 @@ export const sandboxTools: McpTool[] = [
 				body: truncate(result.body),
 				...(debugError && { error: withBlockKey(refs, debugError) }),
 				...(debugTrace && { trace: traceLines(refs, debugTrace) }),
+				...(warnings.length && { warnings }),
 			};
 		},
 	},
@@ -161,4 +188,5 @@ export const sandboxTools: McpTool[] = [
 		call: async ({ send }, a) =>
 			send("POST", `${base(a)}/${a.sandboxId}/run`, { payload: a.payload }),
 	},
+	copyBlocksTool,
 ];

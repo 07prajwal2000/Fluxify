@@ -6,6 +6,9 @@ import type { ToolPart } from "../agentMessages";
 GlobalRegistrator.register();
 mock.module("@tanstack/react-router", () => ({
 	useParams: () => ({ projectId: "p1" }),
+	useNavigate: () => () => {},
+	useRouter: () => ({}),
+	useMatch: () => undefined,
 	Link: ({ to, children, ...rest }: any) => (
 		<a href={to} {...rest}>
 			{children}

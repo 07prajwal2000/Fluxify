@@ -7,6 +7,7 @@ import type { RecordingTarget } from "@/services/recordings";
 import { RecordedRunList } from "./RecordedRunList";
 import { RecordedRunViewer } from "./RecordedRunViewer";
 import { RecordButton } from "./RecordingControls";
+import type { Replay } from "./replay";
 
 /**
  * Recorded runs of one route or workflow: the record button and the run list,
@@ -19,6 +20,7 @@ export function ExecutionRecordings({
 	emptyHint,
 	initialRunId,
 	onClosed,
+	onReplay,
 }: {
 	projectId: string;
 	target: RecordingTarget;
@@ -27,6 +29,8 @@ export function ExecutionRecordings({
 	initialRunId?: string;
 	/** The run was closed with Back: drop it from the link. */
 	onClosed?: () => void;
+	/** Replay on a run: the host opens its playground or Run form with the recorded input. */
+	onReplay?: (replay: Replay) => void;
 }) {
 	const [runId, setRunId] = useState<string | null>(initialRunId ?? null);
 	const [confirmClear, setConfirmClear] = useState(false);
@@ -41,6 +45,7 @@ export function ExecutionRecordings({
 				projectId={projectId}
 				target={target}
 				runId={runId}
+				onReplay={onReplay}
 				onBack={() => {
 					setRunId(null);
 					onClosed?.();
@@ -99,6 +104,7 @@ export function RecordingsModal({
 	target,
 	emptyHint,
 	initialRunId,
+	onReplay,
 	isOpen,
 	onOpenChange,
 }: {
@@ -107,6 +113,7 @@ export function RecordingsModal({
 	emptyHint: string;
 	/** Start on this run (a link from the playground). */
 	initialRunId?: string;
+	onReplay?: (replay: Replay) => void;
 	isOpen: boolean;
 	onOpenChange: (open: boolean) => void;
 }) {
@@ -125,6 +132,7 @@ export function RecordingsModal({
 								target={target}
 								emptyHint={emptyHint}
 								initialRunId={initialRunId}
+								onReplay={onReplay}
 							/>
 						</Modal.Body>
 					</Modal.Dialog>

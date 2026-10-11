@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { RouteApiPlayground } from "@/components/RouteApiPlayground";
 import { ExecutionRecordings } from "@/components/recordings/ExecutionRecordings";
 import { ExecutionTargetHeader } from "@/components/recordings/ExecutionTargetHeader";
+import type { Replay } from "@/components/recordings/replay";
 import { useProjectApiBaseUrl } from "@/components/settings/SubdomainField";
 import { WorkflowRunModal } from "@/components/workflows/WorkflowRunModal";
 import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
@@ -50,6 +51,8 @@ function ExecutionsPage() {
 
 	const [playgroundOpen, setPlaygroundOpen] = useState(false);
 	const [workflowRunOpen, setWorkflowRunOpen] = useState(false);
+	// a replayed run (#752): its recorded request or payload seeds the form that opens
+	const [replay, setReplay] = useState<Replay | null>(null);
 
 	// Determine active target based on search params or auto-selection
 	const selectedTarget = useMemo(() => {
@@ -165,8 +168,14 @@ function ExecutionsPage() {
 							});
 						}
 					}}
-					onOpenPlayground={() => setPlaygroundOpen(true)}
-					onOpenRunWorkflow={() => setWorkflowRunOpen(true)}
+					onOpenPlayground={() => {
+						setReplay(null);
+						setPlaygroundOpen(true);
+					}}
+					onOpenRunWorkflow={() => {
+						setReplay(null);
+						setWorkflowRunOpen(true);
+					}}
 				/>
 			</div>
 
@@ -181,6 +190,11 @@ function ExecutionsPage() {
 								? "send a request in the API Playground or your HTTP client"
 								: "run the workflow with the Run button or its trigger"
 						}
+						onReplay={(next) => {
+							setReplay(next);
+							if (next.kind === "request") setPlaygroundOpen(true);
+							else setWorkflowRunOpen(true);
+						}}
 					/>
 				</div>
 			)}
@@ -203,6 +217,7 @@ function ExecutionsPage() {
 										routeId={targetId}
 										baseUrl={apiBaseUrl}
 										isFramed={false}
+										replay={replay?.kind === "request" ? replay.state : undefined}
 									/>
 								</Modal.Body>
 							</Modal.Dialog>
@@ -217,6 +232,7 @@ function ExecutionsPage() {
 					name={selectedWorkflow?.name ?? "Untitled"}
 					isOpen={workflowRunOpen}
 					onOpenChange={setWorkflowRunOpen}
+					initialPayload={replay?.kind === "payload" ? replay.payload : undefined}
 				/>
 			)}
 		</div>

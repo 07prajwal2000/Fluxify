@@ -7,6 +7,7 @@ import { docsInput } from "./preview/DocsPreview";
 import { oneLine } from "./preview/data";
 import { ToolBody } from "./preview/ToolBody";
 import { isDone } from "./preview/tool";
+import { copyBlocksHeader, toolSummary } from "./preview/toolHeader";
 
 /** One tool call, folded: name, short input, duration; open for the preview (and the raw JSON). A call that waits for an answer opens by itself. */
 export function ToolRow({
@@ -46,10 +47,22 @@ export function ToolRow({
 				) : (
 					<TbX size={14} className="shrink-0 text-muted" />
 				)}
-				<span className="font-medium text-foreground">{toolTitle(tool)}</span>
-				<span className="min-w-0 flex-1 truncate font-mono text-muted">
-					{canvas ? <CanvasTarget which={canvas} /> : (docsInput(tool) ?? oneLine(tool.input))}
-				</span>
+				{tool.name === "copy_blocks" ? (
+					<span className="min-w-0 flex-1 truncate font-medium text-foreground">
+						{copyBlocksHeader(tool, asking)}
+					</span>
+				) : (
+					<>
+						<span className="font-medium text-foreground">{toolTitle(tool)}</span>
+						<span className="min-w-0 flex-1 truncate font-mono text-muted">
+							{canvas ? (
+								<CanvasTarget which={canvas} />
+							) : (
+								(toolSummary(tool, asking) ?? docsInput(tool) ?? oneLine(tool.input))
+							)}
+						</span>
+					</>
+				)}
 				{ms !== undefined && <span className="shrink-0 text-muted">{(ms / 1000).toFixed(1)}s</span>}
 			</summary>
 			{open && (

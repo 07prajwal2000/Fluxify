@@ -63,6 +63,7 @@ export function RunPayloadModal({
 	run,
 	isDisabled = false,
 	disabledReason,
+	initialPayload,
 }: {
 	heading: string;
 	name: string;
@@ -72,8 +73,16 @@ export function RunPayloadModal({
 	/** Run is off, with `disabledReason` saying why */
 	isDisabled?: boolean;
 	disabledReason?: string;
+	/** Start with this payload (a replayed run, #752): text as is, anything else as JSON. */
+	initialPayload?: unknown;
 }) {
-	const [payload, setPayload] = useState("");
+	const [payload, setPayload] = useState(() =>
+		initialPayload === undefined
+			? ""
+			: typeof initialPayload === "string"
+				? initialPayload
+				: JSON.stringify(initialPayload, null, 2),
+	);
 	const [isPending, setIsPending] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const parsed = parsePayload(payload);
@@ -178,11 +187,13 @@ export function WorkflowRunModal({
 	name,
 	isOpen,
 	onOpenChange,
+	initialPayload,
 }: {
 	workflowId: string;
 	name: string;
 	isOpen: boolean;
 	onOpenChange: (open: boolean) => void;
+	initialPayload?: unknown;
 }) {
 	const run = workflowsQuery.run.mutation(workflowId);
 	return (
@@ -192,6 +203,7 @@ export function WorkflowRunModal({
 			isOpen={isOpen}
 			onOpenChange={onOpenChange}
 			run={(payload) => run.mutateAsync(payload)}
+			initialPayload={initialPayload}
 		/>
 	);
 }

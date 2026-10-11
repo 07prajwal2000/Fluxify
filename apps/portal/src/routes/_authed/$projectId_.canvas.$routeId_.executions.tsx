@@ -5,6 +5,7 @@ import { TbPlayerPlay, TbSettings } from "react-icons/tb";
 import { z } from "zod";
 import { RouteApiPlayground } from "@/components/RouteApiPlayground";
 import { ExecutionRecordings } from "@/components/recordings/ExecutionRecordings";
+import type { Replay } from "@/components/recordings/replay";
 import { RouteSettingsModal } from "@/components/routes/RouteSettingsModal";
 import { RouteSwitcher } from "@/components/routes/RouteSwitcher";
 import { RouteWorkbenchHeader, RouteWorkbenchTabs } from "@/components/routes/RouteWorkbenchTabs";
@@ -53,6 +54,8 @@ function RouteExecutionsPage() {
 	const canEdit = useCanEditProject(projectId);
 	const apiBaseUrl = useProjectApiBaseUrl(projectId);
 	const [playgroundOpen, setPlaygroundOpen] = useState(false);
+	// a replayed run (#752) opens the playground with its recorded request
+	const [replay, setReplay] = useState<Replay & { kind: "request" }>();
 	const [settingsOpen, setSettingsOpen] = useState(false);
 
 	const title = route
@@ -66,7 +69,13 @@ function RouteExecutionsPage() {
 				<RouteSwitcher projectId={projectId} routeId={routeId} />
 				<RouteWorkbenchTabs projectId={projectId} routeId={routeId} />
 				<div className="ml-auto flex items-center gap-2">
-					<Button variant="outline" onPress={() => setPlaygroundOpen(true)}>
+					<Button
+						variant="outline"
+						onPress={() => {
+							setReplay(undefined);
+							setPlaygroundOpen(true);
+						}}
+					>
 						<TbPlayerPlay size={16} /> API Playground
 					</Button>
 					<Button variant="outline" onPress={() => setSettingsOpen(true)}>
@@ -83,6 +92,11 @@ function RouteExecutionsPage() {
 					projectId={projectId}
 					target={{ type: "route", id: routeId }}
 					emptyHint="send a request in the API Playground or your HTTP client"
+					onReplay={(next) => {
+						if (next.kind !== "request") return;
+						setReplay(next);
+						setPlaygroundOpen(true);
+					}}
 				/>
 			</main>
 
@@ -105,6 +119,7 @@ function RouteExecutionsPage() {
 										baseUrl={apiBaseUrl}
 										isFramed={false}
 										enableCache
+										replay={replay?.state}
 									/>
 								</Modal.Body>
 							</Modal.Dialog>

@@ -1,7 +1,9 @@
 import { useParams } from "@tanstack/react-router";
 import { customBlocksQuery } from "@/query/customBlocksQuery";
 import { routesQuery } from "@/query/routesQuery";
+import { sandboxesQuery } from "@/query/sandboxesQuery";
 import { workflowsQuery } from "@/query/workflowsQuery";
+import { useCanEditProject } from "@/store/auth";
 
 export type SpotlightRouteItem = {
 	id: string;
@@ -24,16 +26,23 @@ export type SpotlightCustomBlockItem = {
 	description: string | null;
 };
 
+export type SpotlightSandboxItem = {
+	id: string;
+	name: string;
+};
+
 export type SpotlightResources = {
 	projectId: string;
 	routes: SpotlightRouteItem[];
 	workflows: SpotlightWorkflowItem[];
 	customBlocks: SpotlightCustomBlockItem[];
+	sandboxes: SpotlightSandboxItem[];
 };
 
 export function useSpotlightResources(): SpotlightResources {
 	const params = useParams({ strict: false }) as { projectId?: string };
 	const projectId = params?.projectId ?? "";
+	const canEdit = useCanEditProject(projectId);
 
 	const routesRes = routesQuery.getAll.useQuery({
 		projectId,
@@ -46,6 +55,8 @@ export function useSpotlightResources(): SpotlightResources {
 	});
 
 	const customBlocksRes = customBlocksQuery.getAll.useQuery(projectId);
+
+	const sandboxesRes = sandboxesQuery.getAll.useQuery(projectId, canEdit);
 
 	const routes: SpotlightRouteItem[] = (routesRes.data?.data ?? []).map((r) => ({
 		id: r.id,
@@ -68,10 +79,18 @@ export function useSpotlightResources(): SpotlightResources {
 		description: b.description ?? null,
 	}));
 
+	const sandboxes: SpotlightSandboxItem[] = canEdit
+		? (sandboxesRes.data ?? []).map((s) => ({
+				id: s.id,
+				name: s.name,
+			}))
+		: [];
+
 	return {
 		projectId,
 		routes,
 		workflows,
 		customBlocks,
+		sandboxes,
 	};
 }

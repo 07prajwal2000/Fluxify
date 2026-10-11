@@ -33,7 +33,7 @@ viewers don't.
 | **Canvas** | The same editor as a route or workflow canvas. Add blocks, connect them and **Save**. |
 | **Playground** | Open it from the canvas. Pick any method, type a path, add headers and a body, and press **Send**. You see the status, headers and body of the answer, and an **Open recording** link for the call. Fluxify adds the development token for you and never shows it. |
 | **Run** | Starts the sandbox as a workflow with the JSON (or plain text) you type. |
-| **Runs** | Every recorded run of this sandbox, newest first. Open one to see it on the canvas. |
+| **Runs** | Every recorded run of this sandbox, newest first. Open one to see it on the canvas, or press **Replay** to send the same request again (see below). |
 | **Settings** | **General**: rename the sandbox, and turn **Export traces** on to send its spans to the project's telemetry destination. **Triggers**: the triggers that run this sandbox. Attach one you made on the Triggers page, switch it on or off, or detach it. |
 
 If no development worker is running, a banner says so and **Run** and the
@@ -46,6 +46,23 @@ worker. Only when the development worker has an address of its own does your
 operator set `DEV_WORKER_URL`, for example `http://localhost:5602` when you run
 Fluxify from source.
 :::
+
+## Start from a route or workflow
+
+On a route's or workflow's canvas, **Open in sandbox** copies the whole canvas into a new sandbox named `<name> sandbox` and opens it. The original is not changed, so you can try a fix on development data and copy it back when it works (select the blocks, copy, and paste them on the original canvas).
+
+The copy has the blocks and the connections between them. Some things stay behind, and a dialog tells you before it copies:
+
+| Left behind | Why |
+| :--- | :--- |
+| The route's middlewares | They are route settings, not blocks. |
+| The route's request schemas | They are route settings. A sandbox accepts any body. |
+
+A workflow has neither, so it copies straight away.
+
+## Replay a recorded run
+
+A recorded run of a route, a workflow or a sandbox has a **Replay** button. It opens the route's playground, the Run form of the workflow, or the sandbox's playground, filled in with what the run received: the method, path, query, headers and body of a request, or the payload of a workflow run. Change anything you like and press **Send** or **Run**. Replay never sends anything by itself. A run whose input was too big to keep in full has no Replay.
 
 ## Call it over HTTP
 
@@ -144,6 +161,14 @@ and use sandboxes as you: `list_sandboxes`, `create_sandbox`, `get_canvas` and
 `run_sandbox` to run it as a workflow. The agent never sees the development
 token; Fluxify adds it. See the recipe
 [Inspect data with DB Native in a sandbox](/agents/recipes/inspect-data-in-sandbox).
+
+`copy_blocks` moves blocks between canvases of one project: a route into a new
+sandbox (`to: "__new_sandbox__"`), or the fixed blocks of a sandbox back into
+the route. It copies the blocks you name (or the whole canvas), keeps the
+connections between them, and never copies the entrypoint or the error handler.
+Copying into a route, workflow or custom block asks you to approve first, even
+when the agent runs without asking. See
+[Debug a route in a sandbox](/agents/recipes/debug-route-in-sandbox).
 
 ### A quick try without a sandbox
 
