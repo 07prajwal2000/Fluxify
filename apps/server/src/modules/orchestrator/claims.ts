@@ -1,5 +1,5 @@
 import { logger } from "@fluxify/common";
-import type { NodeType } from "@fluxify/common/orchestrator";
+import type { NodeEnv, NodeType } from "@fluxify/common/orchestrator";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { type DbTransactionType, db } from "../../db";
 import { nodeClaimsEntity, projectSettingsEntity, triggerGroupsEntity } from "../../db/schema";
@@ -36,12 +36,18 @@ export interface ClaimInput {
 	replicas: number;
 	/** How far it may autoscale above `replicas`. Null (or absent) runs exactly `replicas`. */
 	maxReplicas?: number | null;
+	/**
+	 * Which environment its nodes serve (#742). Absent means production — a claim
+	 * from before the column keeps behaving exactly as it did. A development
+	 * claim takes no license slot and never autoscales.
+	 */
+	env?: NodeEnv;
 	/** Optional settings (#429). Absent keys mean their defaults. */
 	metadata?: ClaimMetadata;
 }
 
 export type ClaimPatch = Partial<
-	Pick<ClaimInput, "type" | "groupIds" | "replicas" | "maxReplicas" | "metadata">
+	Pick<ClaimInput, "type" | "groupIds" | "replicas" | "maxReplicas" | "env" | "metadata">
 >;
 
 /** A project owner may only touch their own project's claims. */
@@ -108,12 +114,22 @@ export async function hasRouteClaim(projectId: string): Promise<boolean> {
 	return !!row;
 }
 
-/** Replicas already claimed instance-wide — what the license counts (§7). */
+/**
+ * Replicas already claimed instance-wide — what the license counts (§7).
+ *
+ * A **development** claim's replicas are left out (#742): its nodes hold no
+ * license slot, so counting them would spend a slot that is still free. The
+ * pool still counts them — they are containers on the host like any other.
+ */
 export async function countClaimedReplicas(exceptClaimId?: string): Promise<number> {
+	const where = [
+		sql`${nodeClaimsEntity.env} <> 'development'`,
+		...(exceptClaimId ? [sql`${nodeClaimsEntity.id} <> ${exceptClaimId}`] : []),
+	];
 	const [row] = await db
 		.select({ total: sql<number>`coalesce(sum(${nodeClaimsEntity.replicas}), 0)::int` })
 		.from(nodeClaimsEntity)
-		.where(exceptClaimId ? sql`${nodeClaimsEntity.id} <> ${exceptClaimId}` : undefined);
+		.where(and(...where));
 	return row?.total ?? 0;
 }
 
@@ -157,9 +173,10 @@ async function assertValid(claim: ClaimInput, exceptClaimId?: string) {
 
 /**
  * Whether the instance surface may write this patch (#423). A project's claim
- * is sized and released by the operator, but what it runs and which of that
- * project's trigger groups it serves are the project's own vocabulary and are
- * edited there — so the rule is a refusal, not a silently dropped field.
+ * is sized and released by the operator, but what it runs, which of that
+ * project's trigger groups it serves and whether it serves development are the
+ * project's own vocabulary and are edited there — so the rule is a refusal, not
+ * a silently dropped field.
  *
  * Pure so it can be read and tested without a database; `updateClaim` is the
  * only caller.
@@ -170,8 +187,8 @@ export function instancePatchRefusal(
 	scope: ClaimScope,
 ): string | null {
 	if (!scope.instance || projectId === null) return null;
-	if (!patch.groupIds && !patch.type) return null;
-	return "What a project's claim runs and which trigger groups it serves are edited in that project's settings. From here you can change how many copies it runs, or release it.";
+	if (!patch.groupIds && !patch.type && !patch.env) return null;
+	return "What a project's claim runs, which trigger groups it serves and whether it serves development are edited in that project's settings. From here you can change how many copies it runs, or release it.";
 }
 
 async function loadClaim(claimId: string, scope: ClaimScope) {
@@ -194,6 +211,7 @@ export async function createClaim(input: ClaimInput, actor?: string) {
 		.insert(nodeClaimsEntity)
 		.values({
 			projectId: input.projectId,
+			env: input.env ?? "production",
 			type: input.type,
 			groupIds: input.groupIds,
 			replicas: input.replicas,
@@ -207,6 +225,7 @@ export async function createClaim(input: ClaimInput, actor?: string) {
 		projectId: claim!.projectId,
 		action: "claim_created",
 		detail: {
+			env: claim!.env,
 			type: input.type,
 			groupIds: input.groupIds,
 			replicas: input.replicas,
@@ -216,7 +235,7 @@ export async function createClaim(input: ClaimInput, actor?: string) {
 		},
 	});
 	logger.info(
-		`claim ${claim!.id} created: ${input.type}, ${input.replicas} replica(s)`,
+		`claim ${claim!.id} created: ${input.env ?? "production"} ${input.type}, ${input.replicas} replica(s)`,
 		"ORCHESTRATOR.claims",
 	);
 	return claim!;
@@ -225,9 +244,11 @@ export async function createClaim(input: ClaimInput, actor?: string) {
 /**
  * Changing a claim, which is three different consequences wearing one verb:
  * type and groups reach a running node through the KV assignment it watches, so
- * they apply in place; the replica count adds or removes containers. Which one
- * a change is belongs in the event detail, because a person reading the history
- * later cannot tell from the numbers alone.
+ * they apply in place; the replica count adds or removes containers; the
+ * environment replaces them, because `FLUXIFY_ENV` and the edge rules are fixed
+ * when a container is created. Which one a change is belongs in the event
+ * detail, because a person reading the history later cannot tell from the
+ * numbers alone.
  *
  * A claim's **project is not patchable**. It is baked into the container's env
  * and Traefik labels, so moving it would be a delete and a create with a new
@@ -245,6 +266,9 @@ export async function updateClaim(claimId: string, patch: ClaimPatch, scope: Cla
 		replicas: patch.replicas ?? current.replicas,
 		// `null` in a patch clears the maximum, so only `undefined` keeps it.
 		maxReplicas: patch.maxReplicas === undefined ? current.maxReplicas : patch.maxReplicas,
+		// The environment travels with the claim: `undefined` keeps it, and a
+		// change replaces its containers rather than re-pointing them.
+		env: patch.env ?? current.env,
 		// Per top-level key: a key the patch names is replaced whole, the rest are kept.
 		metadata: { ...current.metadata, ...patch.metadata },
 	};
@@ -253,6 +277,7 @@ export async function updateClaim(claimId: string, patch: ClaimPatch, scope: Cla
 	const [claim] = await db
 		.update(nodeClaimsEntity)
 		.set({
+			env: next.env ?? "production",
 			type: next.type,
 			groupIds: next.groupIds,
 			replicas: next.replicas,
@@ -263,15 +288,20 @@ export async function updateClaim(claimId: string, patch: ClaimPatch, scope: Cla
 		.returning();
 
 	const scaledBy = next.replicas - current.replicas;
+	const envChanged = (next.env ?? "production") !== (current.env ?? "production");
 	await recordEvent({
 		claimId,
 		projectId: current.projectId,
 		action: "claim_updated",
 		detail: {
 			...(scope.via ? { via: scope.via } : {}),
-			appliedLive: next.type !== current.type || patch.groupIds !== undefined,
+			// A change of environment takes the containers with it: `FLUXIFY_ENV`
+			// and the edge rules are fixed when one is created, so the claim's
+			// nodes are replaced rather than reached in place.
+			appliedLive: !envChanged && (next.type !== current.type || patch.groupIds !== undefined),
 			scaledBy,
 			from: {
+				env: current.env,
 				type: current.type,
 				groupIds: current.groupIds,
 				replicas: current.replicas,
@@ -279,6 +309,7 @@ export async function updateClaim(claimId: string, patch: ClaimPatch, scope: Cla
 				metadata: current.metadata,
 			},
 			to: {
+				env: next.env,
 				type: next.type,
 				groupIds: next.groupIds,
 				replicas: next.replicas,

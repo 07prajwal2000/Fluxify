@@ -60,6 +60,7 @@ metadata:
 spec:
   project: shop
   type: workflow
+  env: production
   groups: [shop/orders]
   replicas: 2
   maxReplicas: 6
@@ -69,7 +70,12 @@ spec:
 | Field | Can you change it here? |
 | :--- | :--- |
 | `replicas`, `maxReplicas`, `resources` | Yes. The change is rolled out within a few seconds, exactly as if it was made in the portal. Remove `maxReplicas` to stop autoscaling. |
-| `project`, `type`, `groups` | No. Change these in the project's settings. |
+| `project`, `type`, `env`, `groups` | No. Change these in the project's settings, or in the instance settings for a claim that serves every project. |
+
+`env` is `production` or `development` — a [development
+claim](../production#dev-claims) serves the development paths only, takes no
+license slot and never autoscales, so it has no `maxReplicas` and no
+`ScaledObject` beside its Deployment.
 
 Projects and groups are named by readable keys, not ids:
 

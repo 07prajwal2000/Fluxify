@@ -98,6 +98,7 @@ export async function listManagedNodes(): Promise<ObservedNode[]> {
 			projectId: !projectId || projectId === CATCH_ALL ? null : projectId,
 			host: labels[LABELS.host] ?? null,
 			resources: labels[LABELS.resources] ?? null,
+			env: labels[LABELS.env] === "development" ? "development" : "production",
 			image: container.Image,
 			running: container.State === "running",
 			platformState: container.State,

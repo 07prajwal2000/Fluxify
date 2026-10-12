@@ -3,6 +3,8 @@ import { describe, expect, it } from "bun:test";
 import {
 	buildContainerSpec,
 	containerNameFor,
+	DEV_PATHS,
+	EDGE_PRIORITY,
 	LABELS,
 	MANAGED_LABEL,
 	nodeIdFor,
@@ -13,6 +15,7 @@ import type { DesiredNode } from "../projection";
 const CLAIM = "0192b1c4-1111-7000-8000-000000000001";
 const PROJECT = "0192b1c4-2222-7000-8000-000000000002";
 const GROUP = "0192b1c4-3333-7000-8000-000000000003";
+const HOST = "shop.example.com";
 
 const options: SpecOptions = {
 	image: "fluxify-worker-compiled:latest",
@@ -30,6 +33,7 @@ function desired(overrides: Partial<DesiredNode> = {}): DesiredNode {
 		type: "both",
 		groupIds: [],
 		excludedGroups: [],
+		env: "production",
 		resources: DEFAULT_RESOURCES,
 		placeable: true,
 		reason: null,
@@ -74,6 +78,22 @@ describe("buildContainerSpec", () => {
 	it("never passes the database on — a worker must not be able to reach it", () => {
 		const env = envOf(buildContainerSpec(desired(), options));
 		expect(env.PG_URL).toBeUndefined();
+	});
+
+	it("tells the worker which environment it serves, so its heartbeat can say so", () => {
+		expect(envOf(buildContainerSpec(desired(), options)).FLUXIFY_ENV).toBe("production");
+		expect(envOf(buildContainerSpec(desired({ env: "development" }), options)).FLUXIFY_ENV).toBe(
+			"development",
+		);
+	});
+
+	it("labels the environment, which is how a later pass notices the claim changed", () => {
+		// FLUXIFY_ENV is fixed at creation, so the label is the only thing a pass
+		// can compare against the claim — see `plan.immutableDrift`.
+		expect(labelsOf(buildContainerSpec(desired(), options))[LABELS.env]).toBe("production");
+		expect(
+			labelsOf(buildContainerSpec(desired({ env: "development" }), options))[LABELS.env],
+		).toBe("development");
 	});
 
 	it("joins several groups into the one comma-separated variable the worker reads", () => {
@@ -151,5 +171,71 @@ describe("buildContainerSpec", () => {
 		expect(() => buildContainerSpec(desired({ projectId: "'; drop" }), options)).toThrow();
 		expect(() => buildContainerSpec(desired({ groupIds: ["$(whoami)"] }), options)).toThrow();
 		expect(() => buildContainerSpec(desired({ replicaIndex: -1 }), options)).toThrow();
+	});
+});
+
+/**
+ * Every (environment, scope) pair the edge can be asked for (#742): the fixed
+ * ordering of priorities only holds if all four are written from one place, and
+ * a production and a development claim of the same project must never share a
+ * router or a service.
+ */
+describe("the edge labels, per environment", () => {
+	const labelsFor = (over: Partial<DesiredNode>) =>
+		labelsOf(buildContainerSpec(desired(over), options));
+	const routerOf = (labels: Record<string, string>, name: string) =>
+		labels[`traefik.http.routers.${name}`];
+
+	it("production catch-all: every path, at the bottom of the stack", () => {
+		const labels = labelsFor({});
+		expect(labels["traefik.http.routers.fluxify-worker.rule"]).toBe("PathPrefix(`/`)");
+		expect(labels["traefik.http.routers.fluxify-worker.priority"]).toBe(
+			String(EDGE_PRIORITY.prodCatchAll),
+		);
+	});
+
+	it("production project: its own host, above the catch-all", () => {
+		const labels = labelsFor({ projectId: PROJECT, host: HOST });
+		expect(routerOf(labels, `fluxify-project-${PROJECT}.rule`)).toBe(`Host(\`${HOST}\`)`);
+		expect(routerOf(labels, `fluxify-project-${PROJECT}.priority`)).toBe(
+			String(EDGE_PRIORITY.prodProject),
+		);
+	});
+
+	it("development catch-all: the dev paths alone, above the fixed worker-dev", () => {
+		const labels = labelsFor({ env: "development" });
+		const router = `traefik.http.routers.fluxify-worker-dev`;
+		expect(labels[`${router}.rule`]).toBe(DEV_PATHS);
+		expect(labels[`${router}.priority`]).toBe(String(EDGE_PRIORITY.devCatchAll));
+		expect(labels[`${router}.service`]).toBe("fluxify-worker-dev");
+		expect(labels["traefik.http.services.fluxify-worker-dev.loadbalancer.server.port"]).toBe("5600");
+		// and it does not stand in for the production catch-all
+		expect(labels["traefik.http.routers.fluxify-worker.rule"]).toBeUndefined();
+	});
+
+	it("development project: its own host with the dev paths, above everything else", () => {
+		const labels = labelsFor({ env: "development", projectId: PROJECT, host: HOST });
+		const router = `traefik.http.routers.fluxify-project-${PROJECT}-dev`;
+		expect(labels[`${router}.rule`]).toBe(`Host(\`${HOST}\`) && (${DEV_PATHS})`);
+		expect(labels[`${router}.priority`]).toBe(String(EDGE_PRIORITY.devProject));
+		expect(labels[`${router}.service`]).toBe(`fluxify-project-${PROJECT}-dev`);
+		// production's own router for that project is a different router entirely
+		expect(labels[`traefik.http.routers.fluxify-project-${PROJECT}.rule`]).toBeUndefined();
+	});
+
+	it("keeps a project's production and development services apart, so neither is hidden", () => {
+		const prod = labelsFor({ projectId: PROJECT, host: HOST });
+		const dev = labelsFor({ projectId: PROJECT, host: HOST, env: "development" });
+		const routers = (labels: Record<string, string>) =>
+			Object.keys(labels)
+				.filter((key) => key.endsWith(".rule"))
+				.map((key) => key.replace("traefik.http.routers.", "").replace(".rule", ""));
+		expect(routers(prod)).toEqual([`fluxify-project-${PROJECT}`]);
+		expect(routers(dev)).toEqual([`fluxify-project-${PROJECT}-dev`]);
+	});
+
+	it("leaves a development workflow node off the edge, exactly like a production one", () => {
+		const labels = labelsFor({ type: "workflow", env: "development" });
+		expect(labels["traefik.enable"]).toBeUndefined();
 	});
 });

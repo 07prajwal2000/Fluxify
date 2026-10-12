@@ -105,7 +105,7 @@ export default function registerProjectNodes(app: HonoServer) {
 		"/claims",
 		describeRoute({
 			description:
-				"Claim a workload for this project: a node type, the trigger groups it serves, and how many identical replicas to run. Refused when the license does not allow it, or when a route claim has no subdomain to be reached on. A claim past the pool ceiling is accepted and sits pending.",
+				"Claim a workload for this project: a node type, the environment it serves, the trigger groups it works on, and how many identical replicas to run. Refused when the license does not allow it, or when a claim that serves APIs has no subdomain to be reached on. A claim past the pool ceiling is accepted and sits pending. A development claim takes no license slot, never autoscales, and answers on the development paths only.",
 			operationId: "create-project-claim",
 			tags,
 			responses: { 200: { description: "Claimed", ...json(claimAckSchema) }, ...errors },
@@ -130,7 +130,7 @@ export default function registerProjectNodes(app: HonoServer) {
 		"/claims/:claimId",
 		describeRoute({
 			description:
-				"Change a claim. Type and trigger groups reach a running node through the record it watches, so they apply with no restart; the replica count adds or removes containers, and scaling down drains what it removes. A claim's project cannot be changed — release it and claim again.",
+				"Change a claim. Type and trigger groups reach a running node through the record it watches, so they apply with no restart; the replica count adds or removes containers, and scaling down drains what it removes. Changing the environment replaces the nodes, because a worker's environment is fixed when it starts. A development claim cannot be given a maximum — it never autoscales. A claim's project cannot be changed: release it and claim again.",
 			operationId: "update-project-claim",
 			tags,
 			responses: { 200: { description: "Updated", ...json(claimAckSchema) }, ...errors },

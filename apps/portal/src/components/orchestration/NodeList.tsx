@@ -1,6 +1,6 @@
 import { Chip } from "@fluxify/components";
 import type { NodeView } from "@/services/orchestration";
-import { ago, providerWords, REASON_LABEL, STATE_LABEL, TYPE_LABEL } from "./copy";
+import { ago, DEV_BADGE, providerWords, REASON_LABEL, STATE_LABEL, TYPE_LABEL } from "./copy";
 
 /**
  * One node per row, used by both surfaces.
@@ -36,6 +36,11 @@ export function NodeList({
 						<div className="min-w-0 flex-1">
 							<div className="flex items-center gap-2">
 								<span className="truncate font-mono text-xs text-foreground">{node.id}</span>
+								{node.env === "development" && (
+									<Chip size="sm" color="default">
+										{DEV_BADGE}
+									</Chip>
+								)}
 								<Chip size="sm" color={state.color}>
 									{state.label}
 								</Chip>

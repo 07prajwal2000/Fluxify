@@ -3,10 +3,23 @@ import { useState } from "react";
 import { TbInfoCircle } from "react-icons/tb";
 import type { ClaimView, OrchestrationStatus } from "@/services/orchestration";
 import { type ClaimScale, ClaimScaleFields } from "./ClaimScaleFields";
-import { CONSEQUENCE, providerWords, TYPE_LABEL } from "./copy";
+import { CONSEQUENCE, ENV_LABEL, providerWords, TYPE_LABEL } from "./copy";
 
 /** What a node runs, taken from the wire type so it cannot drift from the API. */
 export type ClaimType = ClaimView["type"];
+/** Which environment it serves, likewise (#742). */
+export type ClaimEnv = ClaimView["env"];
+
+/** What the environment picker offers, in the order it offers it. */
+const ENV_OPTIONS: ClaimEnv[] = ["production", "development"];
+
+/**
+ * Whether the claim being written may autoscale: the platform has to have an
+ * autoscaler at all (Kubernetes), and a development claim never does (#742) —
+ * the API refuses a maximum on one, so the field is not offered.
+ */
+export const autoscalesFor = (provider: string | null, env: ClaimEnv) =>
+	provider === "kubernetes" && env === "production";
 
 /**
  * Asking for a workload, or changing one.
@@ -25,10 +38,38 @@ export type ClaimType = ClaimView["type"];
 /** What the dialog hands back. `maxReplicas` is left out where nothing autoscales. */
 export interface ClaimSubmit {
 	type: ClaimType;
+	env: ClaimEnv;
 	groupIds: string[];
 	replicas: number;
 	maxReplicas?: number | null;
 	metadata: { resources: { cpu: number; memoryMb: number } };
+}
+
+/**
+ * The body a dialog submits, pure so the two rules that are easy to get wrong
+ * are testable without opening a modal: a development claim never carries a
+ * maximum, because it never autoscales and the API refuses one (#742), and a
+ * maximum equal to the floor means "fixed size", which the API spells null.
+ */
+export function claimSubmit(input: {
+	type: ClaimType;
+	env: ClaimEnv;
+	groupIds: string[];
+	replicas: number;
+	/** Whether the platform grows claims on its own at all (Kubernetes). */
+	autoscales: boolean;
+	maxReplicas: number;
+	resources: { cpu: number; memoryMb: number };
+}): ClaimSubmit {
+	const grows = input.autoscales && input.env === "production";
+	return {
+		type: input.type,
+		env: input.env,
+		groupIds: input.groupIds,
+		replicas: input.replicas,
+		...(grows && { maxReplicas: input.maxReplicas > input.replicas ? input.maxReplicas : null }),
+		metadata: { resources: input.resources },
+	};
 }
 
 export interface GroupOption {
@@ -69,6 +110,9 @@ export function ClaimDialog({
 	const [type, setType] = useState<ClaimType>(
 		claim?.type ?? (status.entitlement.types.includes("workflow") ? "workflow" : "both"),
 	);
+	// Production unless the claim already serves development: the safe, ordinary
+	// answer is the one the dialog opens on.
+	const [env, setEnv] = useState<ClaimEnv>(claim?.env ?? "production");
 	const [groupIds, setGroupIds] = useState<string[]>(claim?.groupIds ?? []);
 	const [scale, setScale] = useState<ClaimScale>(() => {
 		const replicas = claim?.replicas ?? 1;
@@ -81,7 +125,7 @@ export function ClaimDialog({
 		};
 	});
 	const replicas = scale.replicas;
-	const autoscales = status.orchestrator.provider === "kubernetes";
+	const autoscales = autoscalesFor(status.orchestrator.provider, env);
 	const node = providerWords(status.orchestrator.provider).node;
 
 	const global = surface === "instance" && (claim ? claim.projectId === null : true);
@@ -154,6 +198,24 @@ export function ClaimDialog({
 								</div>
 							)}
 
+							{!replicasOnly && (
+								<div className="flex flex-col gap-1.5">
+									<CustomSelect
+										label="Which environment?"
+										options={ENV_OPTIONS.map((option) => ({
+											value: option,
+											label: ENV_LABEL[option]!,
+										}))}
+										value={env}
+										onChange={(next) => setEnv(next as ClaimEnv)}
+									/>
+									<Hint>
+										{env === "development" ? CONSEQUENCE.development : CONSEQUENCE.production}
+									</Hint>
+									{env === "development" && claim && <Hint>{CONSEQUENCE.developmentReplaces}</Hint>}
+								</div>
+							)}
+
 							{showGroups && (
 								<div className="flex flex-col gap-1.5">
 									<MultiSelect
@@ -182,15 +244,20 @@ export function ClaimDialog({
 									poolRoom={status.pool.ceiling - (status.pool.requested - (claim?.replicas ?? 0))}
 								/>
 								{autoscales && global && <Hint>{CONSEQUENCE.catchAllScaling}</Hint>}
+								{!autoscales && env === "development" && (
+									<Hint>{CONSEQUENCE.developmentNoAutoscale}</Hint>
+								)}
 								<Hint>{scaleWords ?? CONSEQUENCE.scaleUp(node)}</Hint>
-								{status.entitlement.maxReplicas !== null && (
+								{env === "production" && status.entitlement.maxReplicas !== null && (
 									<Hint>
 										This licence allows {status.entitlement.maxReplicas} node(s) in total, and{" "}
 										{status.pool.requested} are already claimed.
 									</Hint>
 								)}
 								{willPend && <Note>{CONSEQUENCE.pending}</Note>}
-								{status.entitlement.maxReplicas === 1 && <Note>{CONSEQUENCE.singleNode}</Note>}
+								{env === "production" && status.entitlement.maxReplicas === 1 && (
+									<Note>{CONSEQUENCE.singleNode}</Note>
+								)}
 							</div>
 
 							{error && <p className="text-sm text-danger">{error}</p>}
@@ -205,16 +272,17 @@ export function ClaimDialog({
 								isPending={isPending}
 								isDisabled={typeOptions.length === 0}
 								onPress={() =>
-									onSubmit({
-										type,
-										groupIds: showGroups && servesWorkflows ? groupIds : [],
-										replicas,
-										// Equal to the floor means fixed size, which the API spells null.
-										...(autoscales && {
-											maxReplicas: scale.maxReplicas > replicas ? scale.maxReplicas : null,
+									onSubmit(
+										claimSubmit({
+											type,
+											env,
+											groupIds: showGroups && servesWorkflows ? groupIds : [],
+											replicas,
+											autoscales,
+											maxReplicas: scale.maxReplicas,
+											resources: { cpu: scale.cpu, memoryMb: scale.memoryMb },
 										}),
-										metadata: { resources: { cpu: scale.cpu, memoryMb: scale.memoryMb } },
-									})
+									)
 								}
 							>
 								{claim ? "Save changes" : "Claim"}

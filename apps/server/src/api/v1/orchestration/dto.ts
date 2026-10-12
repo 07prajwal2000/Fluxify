@@ -1,5 +1,6 @@
 import {
 	INFRA_PROVIDERS,
+	NODE_ENVS,
 	NODE_REASONS,
 	NODE_STATES,
 	NODE_TYPES,
@@ -26,6 +27,8 @@ export const nodeViewSchema = z.object({
 	/** Null is the catch-all: this node serves every project. */
 	projectId: z.string().nullable(),
 	type: z.enum(NODE_TYPES),
+	/** Which environment it serves (#742). A development node holds no license slot. */
+	env: z.enum(NODE_ENVS),
 	groupIds: z.array(z.string()),
 	excludedGroups: z.array(z.string()),
 	state: z.enum(NODE_STATES),
@@ -56,6 +59,8 @@ export const claimViewSchema = z.object({
 	id: z.string(),
 	projectId: z.string().nullable(),
 	type: z.enum(NODE_TYPES),
+	/** Which environment this claim's nodes serve (#742). Absent means production. */
+	env: z.enum(NODE_ENVS),
 	groupIds: z.array(z.string()),
 	groups: z.array(claimGroupSchema),
 	replicas: z.number().int(),
@@ -174,6 +179,13 @@ export const replicas = z
 export const createClaimBodySchema = z.object({
 	type: z.enum(NODE_TYPES),
 	/**
+	 * Which environment its nodes serve (#742). Production unless chosen: a
+	 * development claim runs workers with `FLUXIFY_ENV=development`, which take
+	 * no license slot, never autoscale, and answer only on the development
+	 * paths. A per-project one needs a subdomain, exactly as a route claim does.
+	 */
+	env: z.enum(NODE_ENVS).default("production"),
+	/**
 	 * Trigger groups this workload serves. Empty on a catch-all claim means
 	 * every group no dedicated claim owns; `*` is not a value.
 	 */
@@ -204,6 +216,12 @@ export const createInstanceClaimBodySchema = createClaimBodySchema.extend({
 export const patchClaimBodySchema = z
 	.object({
 		type: z.enum(NODE_TYPES).optional(),
+		/**
+		 * Which environment its nodes serve (#742). Changing it replaces the
+		 * claim's nodes — `FLUXIFY_ENV` and the edge rules are fixed at creation.
+		 * A development claim cannot have a maximum: it never autoscales.
+		 */
+		env: z.enum(NODE_ENVS).optional(),
 		groupIds: z.array(z.string()).optional(),
 		replicas: replicas.optional(),
 		/** Null clears the maximum, so the claim runs exactly `replicas` again. */

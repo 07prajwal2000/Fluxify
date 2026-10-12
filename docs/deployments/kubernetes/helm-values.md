@@ -136,6 +136,15 @@ devWorker:
   enabled: false
 ```
 
+> [!TIP]
+> **A development claim can take its place.** A claim made for the Development
+> environment answers exactly the same paths, and the orchestrator manages it
+> for you — make one for every project in **Instance settings → Orchestration**,
+> then turn this worker off. See [Development
+> claims](../production#dev-claims). Both can run together while you switch: a
+> project's own development claim answers first, then the claim for every
+> project, and this worker only sees what neither covers.
+
 ## Web traffic {#traffic}
 
 | Setting | What it does | Default |

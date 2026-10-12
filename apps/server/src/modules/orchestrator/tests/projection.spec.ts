@@ -208,6 +208,36 @@ describe("projectDesiredNodes", () => {
 		});
 		expect(nodes[0]!.groupIds).toEqual([]);
 	});
+
+	describe("environments (#742)", () => {
+		it("carries the claim's environment onto every node", () => {
+			const nodes = projectDesiredNodes({
+				claims: [
+					claim({ id: "dev", replicas: 2, env: "development" }),
+					claim({ id: "prod", replicas: 1 }),
+				],
+				maxNodes: 10,
+				entitlement: ENTERPRISE,
+			});
+			expect(nodes.find((n) => n.claimId === "dev")!.env).toBe("development");
+			// A claim written before the column runs production, as it always did.
+			expect(nodes.find((n) => n.claimId === "prod")!.env).toBe("production");
+		});
+
+		it("leaves the groups a development claim names to the catch-all", () => {
+			// Production work still has to run: a dev claim runs the same groups
+			// against development artifacts, so it owns nothing in production.
+			const nodes = projectDesiredNodes({
+				claims: [
+					claim({ id: "catch-all", projectId: null, type: "both", groupIds: [] }),
+					claim({ id: "dev", projectId: "proj-a", groupIds: ["grp-1"], env: "development" }),
+				],
+				maxNodes: 10,
+				entitlement: ENTERPRISE,
+			});
+			expect(nodes.find((n) => n.claimId === "catch-all")!.excludedGroups).toEqual([]);
+		});
+	});
 });
 
 describe("validateClaim", () => {
@@ -290,5 +320,50 @@ describe("validateClaim", () => {
 
 	it("accepts a claim past the pool ceiling — it sits pending instead of being refused", () => {
 		expect(validateClaim({ ...base, replicas: 50 }, context)).toEqual({ ok: true });
+	});
+
+	describe("a development claim (#742)", () => {
+		it("is not refused by a license cap it does not consume", () => {
+			// Community runs one node; a development claim takes no slot, so its
+			// replicas are not counted against the one that is there.
+			const result = validateClaim(
+				{ ...base, projectId: null, type: "both", groupIds: [], replicas: 3, env: "development" },
+				{ entitlement: COMMUNITY, existingReplicas: 1, hasSubdomain: false },
+			);
+			expect(result).toEqual({ ok: true });
+		});
+
+		it("still refuses a production claim for the same replicas", () => {
+			const result = validateClaim(
+				{ ...base, projectId: null, type: "both", groupIds: [], replicas: 3 },
+				{ entitlement: COMMUNITY, existingReplicas: 1, hasSubdomain: false },
+			);
+			expect(result.ok).toBe(false);
+			expect(message(result)).toContain("already claimed");
+		});
+
+		it("needs a subdomain when it serves APIs, like any other claim reached by host", () => {
+			const result = validateClaim(
+				{ ...base, type: "route", groupIds: [], env: "development" },
+				{ ...context, hasSubdomain: false },
+			);
+			expect(result.ok).toBe(false);
+			expect(message(result)).toContain("subdomain");
+		});
+
+		it("does not need one for a workflow claim, which the edge never routes to", () => {
+			expect(validateClaim({ ...base, env: "development" }, { ...context, hasSubdomain: false })).toEqual({
+				ok: true,
+			});
+		});
+
+		it("needs none as a catch-all: it is reached on the development paths alone", () => {
+			expect(
+				validateClaim(
+					{ ...base, projectId: null, type: "both", groupIds: [], env: "development" },
+					{ ...context, hasSubdomain: false },
+				),
+			).toEqual({ ok: true });
+		});
 	});
 });

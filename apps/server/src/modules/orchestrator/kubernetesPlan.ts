@@ -142,6 +142,7 @@ export function podsToNodes(pods: readonly KubeObject[]): ObservedNode[] {
 				replicaIndex,
 				projectId: pod.metadata.labels?.[LABELS.project] ?? null,
 				host: pod.metadata.annotations?.[LABELS.host] ?? null,
+				env: pod.metadata.labels?.[LABELS.env] === "development" ? "development" : "production",
 				image: spec?.containers?.[0]?.image ?? "",
 				running: state === "running",
 				platformState: state,

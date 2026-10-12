@@ -15,6 +15,7 @@ function desired(overrides: Partial<DesiredNode> = {}): DesiredNode {
 		type: "both",
 		groupIds: [],
 		excludedGroups: [],
+		env: "production",
 		resources: DEFAULT_RESOURCES,
 		placeable: true,
 		reason: null,
@@ -30,6 +31,7 @@ function observed(node: DesiredNode, overrides: Partial<ObservedNode> = {}): Obs
 		replicaIndex: node.replicaIndex,
 		projectId: node.projectId,
 		resources: resourcesLabel(node.resources),
+		env: node.env,
 		image: IMAGE,
 		running: true,
 		platformState: "running",
@@ -73,6 +75,15 @@ describe("planReconcile", () => {
 		const node = desired({ projectId: "0192b1c4-2222-7000-8000-000000000002", host: "new.example.com" });
 		const actions = plan([node], [observed(node, { host: "old.example.com" })]);
 		expect(actions[0]).toMatchObject({ kind: "recreate", why: "host old.example.com → new.example.com" });
+	});
+
+	it("recreates a node when its claim's environment changed, which is fixed at creation", () => {
+		const node = desired({ env: "development" });
+		const actions = plan([node], [observed(node, { env: "production" })]);
+		expect(actions[0]).toMatchObject({
+			kind: "recreate",
+			why: "env production → development",
+		});
 	});
 
 	it("recreates a node whose claim was resized, and one created before sizes were labelled", () => {

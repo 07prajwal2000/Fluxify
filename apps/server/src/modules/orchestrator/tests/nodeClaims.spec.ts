@@ -124,6 +124,7 @@ describe("syncNodeClaims", () => {
 		expect(object.spec).toEqual({
 			project: "shop",
 			type: "workflow",
+			env: "production",
 			groups: ["shop/orders"],
 			replicas: 2,
 			resources: { cpu: 1, memoryMb: 1024 },
@@ -135,6 +136,12 @@ describe("syncNodeClaims", () => {
 			reason: "pool_unavailable",
 			conditions: [{ type: "Accepted", status: "True", reason: "InSync" }],
 		});
+	});
+
+	it("says which environment the claim serves, so the resource reads on its own (#742)", async () => {
+		const cluster = fakeCluster();
+		await syncNodeClaims(cluster.api, [claim({ env: "development" })], [node()], [], admin().forward);
+		expect((cluster.store.get(ID)!.spec as { env: string }).env).toBe("development");
 	});
 
 	it("writes nothing on a pass where nothing changed", async () => {
@@ -218,6 +225,21 @@ describe("syncNodeClaims", () => {
 		expect(cluster.status().conditions[0]).toMatchObject({
 			status: "False",
 			message: "type is changed in the portal, not on the NodeClaim",
+		});
+	});
+
+	it("refuses an environment changed on the resource, and puts the claim's back (#742)", async () => {
+		const cluster = fakeCluster();
+		const { forward, asked } = admin();
+		await syncNodeClaims(cluster.api, [claim()], [node()], [], forward);
+		cluster.edit({ env: "development" });
+
+		await syncNodeClaims(cluster.api, [claim()], [node()], [], forward);
+		expect(asked).toEqual([]);
+		expect((cluster.store.get(ID)!.spec as { env: string }).env).toBe("production");
+		expect(cluster.status().conditions[0]).toMatchObject({
+			status: "False",
+			message: "env is changed in the portal, not on the NodeClaim",
 		});
 	});
 

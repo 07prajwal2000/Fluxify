@@ -57,6 +57,10 @@ spec:
                   type: string
                   enum: [route, workflow, both]
                   description: Read-only.
+                env:
+                  type: string
+                  enum: [production, development]
+                  description: Which environment its nodes serve. Read-only.
                 groups:
                   type: array
                   items:

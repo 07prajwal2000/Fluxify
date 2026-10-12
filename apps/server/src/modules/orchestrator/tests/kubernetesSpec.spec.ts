@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { DEFAULT_RESOURCES } from "../claimMetadata";
-import { LABELS, MANAGED_LABEL } from "../containerSpec";
+import { DEV_PATHS, EDGE_PRIORITY, LABELS, MANAGED_LABEL } from "../containerSpec";
 import {
 	buildDeployment,
 	buildIngressRoute,
@@ -45,6 +45,7 @@ const workload = (over: Partial<ClaimWorkload> = {}): ClaimWorkload => ({
 	type: "both",
 	groupIds: [],
 	host: null,
+	env: "production",
 	resources: DEFAULT_RESOURCES,
 	min: 1,
 	max: 1,
@@ -60,6 +61,7 @@ const node = (replicaIndex: number, over: Partial<DesiredNode> = {}): DesiredNod
 	type: "workflow",
 	groupIds: [GROUP],
 	excludedGroups: [],
+	env: "production",
 	resources: DEFAULT_RESOURCES,
 	placeable: true,
 	reason: null,
@@ -99,6 +101,26 @@ describe("claimWorkloads", () => {
 	it("leaves a claim with nothing placeable to the reconciler rather than scaling it to zero", () => {
 		const nodes = [node(0, { placeable: false, reason: "pool_unavailable" })];
 		expect(claimWorkloads(nodes, new Map(), triggers)).toEqual([]);
+	});
+
+	it("carries the claim's environment onto the workload its objects are built from", () => {
+		const [prod] = claimWorkloads([node(0)], new Map(), triggers);
+		expect(prod!.env).toBe("production");
+		const [dev] = claimWorkloads([node(0, { env: "development" })], new Map(), triggers);
+		expect(dev!.env).toBe("development");
+	});
+
+	it("gives a development claim nothing to scale on, backlog or outside queue", () => {
+		const external = new Map([
+			[GROUP, [{ id: TRIGGER_A, type: "kafka" } as ExternalTrigger]],
+		]);
+		const [dev] = claimWorkloads(
+			[node(0, { env: "development" })],
+			new Map([[CLAIM, 6]]),
+			triggers,
+			external,
+		);
+		expect(dev).toMatchObject({ triggerIds: [], externalTriggers: [] });
 	});
 });
 
@@ -180,6 +202,17 @@ describe("buildDeployment", () => {
 		});
 		expect(spec(object).template.metadata.labels[LABELS.project]).toBe(PROJECT);
 	});
+
+	it("tells the pods which environment they serve, and labels it for the reader", () => {
+		expect(container(deployment()).env).toContainEqual({
+			name: "FLUXIFY_ENV",
+			value: "production",
+		});
+		const dev = deployment({ env: "development" });
+		expect(container(dev).env).toContainEqual({ name: "FLUXIFY_ENV", value: "development" });
+		expect(dev.metadata.labels![LABELS.env]).toBe("development");
+		expect(spec(dev).template.metadata.labels[LABELS.env]).toBe("development");
+	});
 });
 
 describe("the edge: Service and IngressRoute", () => {
@@ -194,6 +227,28 @@ describe("the edge: Service and IngressRoute", () => {
 			buildIngressRoute(workload({ projectId: PROJECT, host: "shop.example.com" }), options)!,
 		).routes[0];
 		expect(route).toMatchObject({ match: "Host(`shop.example.com`)", priority: 50 });
+	});
+
+	// The four cases the edge can be asked for (#742), priorities in ascending
+	// order: every path (1), a project's host (50), the dev paths (105) — above
+	// the fixed worker-dev IngressRoute at 100 — a project's host with them (110).
+	it("routes a development catch-all on the dev paths alone, above the fixed worker-dev", () => {
+		const route = spec(buildIngressRoute(workload({ env: "development" }), options)!).routes[0];
+		expect(route).toMatchObject({ match: DEV_PATHS, priority: EDGE_PRIORITY.devCatchAll });
+		expect(route.services).toEqual([{ name: `fluxify-worker-${CLAIM}`, port: 5600 }]);
+	});
+
+	it("routes a development project on its own host with the dev paths", () => {
+		const route = spec(
+			buildIngressRoute(
+				workload({ env: "development", projectId: PROJECT, host: "shop.example.com" }),
+				options,
+			)!,
+		).routes[0];
+		expect(route).toMatchObject({
+			match: `Host(\`shop.example.com\`) && (${DEV_PATHS})`,
+			priority: EDGE_PRIORITY.devProject,
+		});
 	});
 
 	it("puts nothing in front of a claim with no HTTP to serve", () => {
@@ -253,6 +308,14 @@ describe("buildScaledObject", () => {
 		const scaled = buildScaledObject(workload(), options, policy, "abc123");
 		expect(scaled.metadata.annotations).toEqual({ "fluxify.trigger-secrets-hash": "abc123" });
 		expect(buildScaledObject(workload(), options, policy).metadata).not.toHaveProperty("annotations");
+	});
+
+	it("gives a development claim none at all — it runs exactly the replicas it was given", () => {
+		// Nothing may own the Deployment's replica count there: the driver writes
+		// it itself on every pass, from the claim's floor.
+		expect(
+			buildScaledObject(workload({ env: "development", triggerIds: [TRIGGER_A] }), options, policy),
+		).toBeNull();
 	});
 });
 

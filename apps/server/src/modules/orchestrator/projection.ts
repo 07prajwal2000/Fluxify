@@ -1,6 +1,7 @@
 import {
 	groupPair,
 	type NodeEntitlement,
+	type NodeEnv,
 	type NodeReason,
 	type NodeType,
 } from "@fluxify/common/orchestrator";
@@ -37,8 +38,16 @@ export interface Claim {
 	maxReplicas?: number | null;
 	/** Optional settings; see `claimMetadata.ts`. */
 	metadata?: ClaimMetadata | null;
+	/**
+	 * Which environment this claim's nodes serve (#742). Absent means production,
+	 * so a claim from before the column behaves exactly as it did.
+	 */
+	env?: NodeEnv | null;
 	createdAt: Date;
 }
+
+/** The environment a claim's nodes run in, with the absent case spelled out. */
+export const claimEnv = (claim: Pick<Claim, "env">): NodeEnv => claim.env ?? "production";
 
 /**
  * One container that should exist. `(claimId, replicaIndex)` is its identity —
@@ -58,6 +67,12 @@ export interface DesiredNode {
 	 * project settings — the projection itself never reads them.
 	 */
 	host?: string | null;
+	/**
+	 * The environment it serves, from its claim (#742). Decides `FLUXIFY_ENV` on
+	 * the container and which rules the edge routes it by, so a change replaces
+	 * the node rather than reaching it in place.
+	 */
+	env: NodeEnv;
 	/** What the node may use, from its claim, with the defaults filled in. */
 	resources: ClaimResources;
 	/** False when nothing can be created yet: the node is `pending` with `reason`. */
@@ -97,12 +112,17 @@ export function byAge(a: Pick<Claim, "id" | "createdAt">, b: Pick<Claim, "id" | 
  * An exclusion list rather than a positive one, so a group created tomorrow
  * falls to the catch-all with nothing to update. That is what a catch-all is
  * for.
+ *
+ * A **development** claim owns nothing in production (#742): it runs the same
+ * trigger groups against development artifacts, so excluding them would take
+ * those groups' production work away from the catch-all with nothing left to
+ * run it.
  */
 function exclusions(claims: Claim[]): string[] {
 	const pairs = new Set<string>();
 	for (const claim of claims) {
 		if (claim.projectId === null || !SERVES_WORKFLOWS.includes(claim.type)) continue;
-		if (claim.replicas < 1) continue;
+		if (claim.replicas < 1 || claimEnv(claim) === "development") continue;
 		for (const groupId of claim.groupIds) pairs.add(groupPair(claim.projectId, groupId));
 	}
 	return [...pairs].sort();
@@ -160,6 +180,7 @@ export function projectDesiredNodes({
 				type: claim.type,
 				groupIds,
 				excludedGroups: claim.projectId === null ? catchAllExclusions : [],
+				env: claimEnv(claim),
 				resources: claimResources(claim.metadata),
 				placeable: reason === null,
 				reason,
@@ -177,10 +198,12 @@ export function projectDesiredNodes({
  *
  * `hasSubdomain` comes from the project's settings (#340): a route node is
  * reached by a per-project `Host` rule, so without a subdomain there is nothing
- * to route to it and the node would serve no traffic at all.
+ * to route to it and the node would serve no traffic at all. A development
+ * claim is routed the same way (#742) — its host with the development paths —
+ * so it needs one for exactly the same reason.
  */
 export function validateClaim(
-	claim: Pick<Claim, "projectId" | "type" | "groupIds" | "replicas">,
+	claim: Pick<Claim, "projectId" | "type" | "groupIds" | "replicas" | "env">,
 	context: {
 		entitlement: NodeEntitlement;
 		/** Replicas already claimed instance-wide, excluding the claim being written. */
@@ -220,7 +243,11 @@ export function validateClaim(
 			"This project needs a subdomain before it can claim a route node — without one there is no way to route traffic to it",
 		);
 
+	// A development claim costs no license slot (#742): its nodes never serve
+	// production traffic and never hold one, so the instance-wide total the
+	// license caps is not something it can exceed.
 	if (
+		claimEnv(claim) === "production" &&
 		entitlement.maxReplicas !== null &&
 		existingReplicas + claim.replicas > entitlement.maxReplicas
 	)

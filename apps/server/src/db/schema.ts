@@ -1420,6 +1420,9 @@ export const nodeTypeEnum = pgEnum("node_type", [...NODE_TYPES]);
 export const nodeStateEnum = pgEnum("node_state", [...NODE_STATES]);
 export const nodeReasonEnum = pgEnum("node_reason", [...NODE_REASONS]);
 
+/** Which environment a node serves (#732). Declared here because a claim names it too. */
+export const fluxifyEnvEnum = pgEnum("fluxify_env", ["production", "development"]);
+
 /**
  * A request for capacity, and the only thing that ever causes a node to exist.
  * Creating a project provisions nothing.
@@ -1447,6 +1450,15 @@ export const nodeClaimsEntity = pgTable(
 		projectId: varchar("project_id", { length: 50 }).references(() => projectsEntity.id, {
 			onDelete: "cascade",
 		}),
+		/**
+		 * Which environment this claim's nodes serve (#742). A **development**
+		 * claim runs workers with `FLUXIFY_ENV=development`: they take no license
+		 * slot, never autoscale, and are only reached on the development paths
+		 * (`/_sandbox`, `/_/dev`). It is set when the claim is made and travels
+		 * with it — a worker has one environment, so changing it replaces the
+		 * containers rather than re-pointing them.
+		 */
+		env: fluxifyEnvEnum("env").default("production").notNull(),
 		type: nodeTypeEnum("type").notNull(),
 		/**
 		 * Trigger groups a `workflow` or `both` claim serves, enumerated — `*` as a
@@ -1617,7 +1629,6 @@ export const systemLogsEntity = pgTable(
 
 /** how a recorded run or block ended; also a condition block's chosen branch */
 export const traceOutcomeEnum = pgEnum("trace_outcome", ["success", "failure"]);
-export const fluxifyEnvEnum = pgEnum("fluxify_env", ["production", "development"]);
 
 /**
  * One recorded run of a route or workflow with `recordExecution` on. Written by

@@ -1,9 +1,14 @@
 import { logger } from "@fluxify/common";
-import { CATCH_ALL, type NodeType, type ObservedNode } from "@fluxify/common/orchestrator";
+import {
+	CATCH_ALL,
+	type NodeEnv,
+	type NodeType,
+	type ObservedNode,
+} from "@fluxify/common/orchestrator";
 import { type ClaimResources, claimResources } from "./claimMetadata";
 import { LABELS, MANAGED_BY, MANAGED_LABEL } from "./containerSpec";
 import type { KubeApi, KubeObject } from "./drivers/kubernetesApi";
-import type { Claim, DesiredNode } from "./projection";
+import { type Claim, claimEnv, type DesiredNode } from "./projection";
 
 /**
  * `NodeClaim` (#448): a claim as a Kubernetes resource, so `kubectl edit` and
@@ -37,6 +42,13 @@ export interface NodeClaimSpec {
 	/** The project's slug. `*` is the catch-all, serving every project. */
 	project: string;
 	type: NodeType;
+	/**
+	 * Which environment its nodes serve (#742). Read-only here: it decides the
+	 * pods' `FLUXIFY_ENV` and the edge rules that route to them, so changing it
+	 * is a different deployment rather than an edit — release the claim and make
+	 * another one.
+	 */
+	env: NodeEnv;
 	/** `<project slug>/<group name>` each. */
 	groups: string[];
 	replicas: number;
@@ -104,6 +116,7 @@ export function nodeClaimSpec(claim: KeyedClaim): NodeClaimSpec {
 	return {
 		project: claim.keys.project,
 		type: claim.type,
+		env: claimEnv(claim),
 		groups: claim.keys.groups,
 		replicas: claim.replicas,
 		...(claim.maxReplicas != null ? { maxReplicas: claim.maxReplicas } : {}),
@@ -126,6 +139,10 @@ export function readEdit(
 	const row = nodeClaimSpec(claim);
 	if (spec.project !== row.project) return { refusal: `project ${READ_ONLY}` };
 	if (spec.type !== row.type) return { refusal: `type ${READ_ONLY}` };
+	// A resource written before this field existed has no `env` at all, and
+	// saying its environment "was changed" would be wrong — the mismatch is
+	// mirrored back below. Only an edit that names a different one is refused.
+	if (spec.env !== undefined && spec.env !== row.env) return { refusal: `env ${READ_ONLY}` };
 	if (JSON.stringify(spec.groups ?? []) !== JSON.stringify(row.groups))
 		return { refusal: `groups ${READ_ONLY}` };
 

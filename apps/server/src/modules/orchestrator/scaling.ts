@@ -1,7 +1,7 @@
 import type { NodeEntitlement } from "@fluxify/common/orchestrator";
 import type { ScalingPolicy } from "../../lib/instance-settings/schemas";
 import type { ExternalTrigger } from "./kubernetesSpec";
-import { byAge, type Claim } from "./projection";
+import { byAge, type Claim, claimEnv } from "./projection";
 
 /**
  * Autoscaling, as numbers only (#428). A claim's `replicas` is its floor and
@@ -46,7 +46,15 @@ export function desiredReplicas({
 	return Math.max(min, Math.min(max, wanted));
 }
 
-type ScalableClaim = Pick<Claim, "id" | "replicas" | "createdAt" | "maxReplicas">;
+type ScalableClaim = Pick<Claim, "id" | "replicas" | "createdAt" | "maxReplicas" | "env">;
+
+/**
+ * Whether the claim autoscales at all. A **development** claim does not (#742):
+ * it exists so development work has capacity of its own, and how much
+ * development traffic arrives is not a reason to start containers that take no
+ * license slot and serve no production traffic.
+ */
+export const autoscales = (claim: Pick<Claim, "env">) => claimEnv(claim) === "production";
 
 /**
  * The ceiling each claim may grow to — never simply the number the user typed.
@@ -71,7 +79,11 @@ export function scalingCeilings(
 
 	const ceilings = new Map<string, number>();
 	for (const claim of [...claims].sort(byAge)) {
-		const growth = Math.min(Math.max(0, (claim.maxReplicas ?? 0) - claim.replicas), spare);
+		// A development claim takes its floor out of the pool — it is real
+		// capacity — but the room above it is production's to grow into.
+		const growth = autoscales(claim)
+			? Math.min(Math.max(0, (claim.maxReplicas ?? 0) - claim.replicas), spare)
+			: 0;
 		spare -= growth;
 		ceilings.set(claim.id, claim.replicas + growth);
 	}
@@ -80,10 +92,14 @@ export function scalingCeilings(
 
 /** Why a claim's maximum cannot be written, or null. Called beside `validateClaim`. */
 export function scalingRefusal(
-	claim: Pick<Claim, "replicas" | "maxReplicas">,
+	claim: Pick<Claim, "replicas" | "maxReplicas" | "env">,
 	entitlement: NodeEntitlement,
 ): string | null {
 	if (claim.maxReplicas == null) return null;
+	// Refused rather than quietly dropped: a maximum that does nothing is worse
+	// than knowing there is no autoscaling here.
+	if (!autoscales(claim))
+		return "A development claim never autoscales, so it cannot have a maximum — it runs exactly the number of replicas it is given";
 	if (claim.maxReplicas < claim.replicas)
 		return `The maximum (${claim.maxReplicas}) cannot be below the replica count (${claim.replicas})`;
 	if (entitlement.maxReplicas !== null && claim.maxReplicas > claim.replicas)
