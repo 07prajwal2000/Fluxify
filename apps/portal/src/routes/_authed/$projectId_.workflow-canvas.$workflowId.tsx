@@ -62,19 +62,7 @@ function WorkflowCanvasPage() {
 	const canEdit = useCanEditProject(projectId);
 
 	// the canvas command palette's own actions for this target (#739)
-	const spotlight = useTargetSpotlight({
-		kind: "workflow",
-		id: workflowId,
-		projectId,
-		name: workflow?.name || "Untitled",
-		goToHistory: () =>
-			navigate({
-				to: "/$projectId/workflow-canvas/$workflowId/versions",
-				params: { projectId, workflowId },
-			}),
-		openSandbox: (sandboxId) =>
-			navigate({ to: "/$projectId/sandbox-canvas/$sandboxId", params: { projectId, sandboxId } }),
-	});
+	const spotlight = useTargetSpotlight();
 
 	return (
 		<>

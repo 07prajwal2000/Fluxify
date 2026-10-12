@@ -1,4 +1,4 @@
-import { afterAll, afterEach, expect, mock, test } from "bun:test";
+import { afterAll, afterEach, expect, mock, spyOn, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 
 // DOM only for this file; RTL reads `document` on import, so load it after.
@@ -7,10 +7,12 @@ Element.prototype.scrollIntoView = () => {};
 
 const navigate = mock();
 const router = await import("@tanstack/react-router");
+// the entity the page is about; a route/workflow page has one, the layout does not
+let params: Record<string, string> = { projectId: "p1" };
 mock.module("@tanstack/react-router", () => ({
 	...router,
 	useNavigate: () => navigate,
-	useParams: () => ({ projectId: "p1" }),
+	useParams: () => params,
 }));
 mock.module("@/query/projectsQuery", () => ({
 	projectsQuery: {
@@ -62,6 +64,9 @@ mock.module("@/components/canvas/blocks/useCustomBlockDefs", () => ({
 // `screen` stays bound to the document of whichever test file loaded RTL first,
 // so query through what render() returns instead.
 const { cleanup, fireEvent, render } = await import("@testing-library/react");
+const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query");
+const { routesService } = await import("@/services/routes");
+const { middlewaresService } = await import("@/services/middlewares");
 const { ProjectSpotlight } = await import("./ProjectSpotlight");
 
 function setRole(role: "creator" | "viewer") {
@@ -73,8 +78,10 @@ function setRole(role: "creator" | "viewer") {
 
 afterEach(() => {
 	cleanup();
+	mock.restore();
 	navigate.mockClear();
 	basicList.mockClear();
+	params = { projectId: "p1" };
 	authStore.setState((s) => {
 		s.state.acl = {};
 		s.state.userData = { id: "", name: "", email: "", image: "" };
@@ -84,10 +91,22 @@ afterAll(() => GlobalRegistrator.unregister());
 
 function setup(isOpen: boolean, role: "creator" | "viewer" = "creator") {
 	setRole(role);
+	spyOn(routesService, "getById").mockResolvedValue({
+		id: "r1",
+		projectId: "p1",
+		name: "Orders",
+		method: "GET",
+		path: "/orders",
+	} as never);
+	spyOn(middlewaresService, "getForRoute").mockResolvedValue([] as never);
 	const onOpenChange = mock();
 	const onSignOut = mock();
 	const ui = render(
-		<ProjectSpotlight isOpen={isOpen} onOpenChange={onOpenChange} onSignOut={onSignOut} />,
+		<QueryClientProvider
+			client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+		>
+			<ProjectSpotlight isOpen={isOpen} onOpenChange={onOpenChange} onSignOut={onSignOut} />
+		</QueryClientProvider>,
 	);
 	return { onOpenChange, onSignOut, ui };
 }
@@ -106,6 +125,24 @@ test("project commands only, no canvas ones", () => {
 	expect(ui.getByText("Sign out")).toBeTruthy();
 	expect(ui.queryByText("add >")).toBeNull();
 	expect(ui.queryByText(/^Add Block/)).toBeNull();
+});
+
+test("on a route page, the spotlight offers version history, commit and sandbox", () => {
+	params = { projectId: "p1", routeId: "r1" };
+	const { ui } = setup(true);
+	expect(ui.getByText("Go to version history")).toBeTruthy();
+	expect(ui.getByText("Commit…")).toBeTruthy();
+	expect(ui.getByText("Open in sandbox")).toBeTruthy();
+	fireEvent.click(ui.getByText("Go to version history"));
+	expect(navigate).toHaveBeenCalledWith({
+		to: "/$projectId/canvas/$routeId/versions",
+		params: { projectId: "p1", routeId: "r1" },
+	});
+});
+
+test("a project-wide page has no target actions", () => {
+	const { ui } = setup(true);
+	expect(ui.queryByText("Go to version history")).toBeNull();
 });
 
 test("create opens in place, not in a new tab", () => {

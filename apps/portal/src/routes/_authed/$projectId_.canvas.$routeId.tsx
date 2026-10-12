@@ -89,16 +89,7 @@ function RouteCanvasPage() {
 	const items = routesQuery.canvasItems.useQuery(routeId);
 
 	// the canvas command palette's own actions for this target (#739)
-	const spotlight = useTargetSpotlight({
-		kind: "route",
-		id: routeId,
-		projectId,
-		name: route?.name || `${route?.method.toUpperCase()} ${route?.path}`,
-		goToHistory: () =>
-			navigate({ to: "/$projectId/canvas/$routeId/versions", params: { projectId, routeId } }),
-		openSandbox: (sandboxId) =>
-			navigate({ to: "/$projectId/sandbox-canvas/$sandboxId", params: { projectId, sandboxId } }),
-	});
+	const spotlight = useTargetSpotlight();
 
 	return (
 		<>

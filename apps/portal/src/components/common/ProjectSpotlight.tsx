@@ -9,6 +9,7 @@ import {
 	type SpotlightCommand,
 	useSpotlightCommands,
 } from "@/components/canvas/spotlight";
+import { useTargetSpotlight } from "@/components/versions/useTargetSpotlight";
 import { integrationsQuery } from "@/query/integrationsQuery";
 import { projectsQuery } from "@/query/projectsQuery";
 
@@ -31,6 +32,8 @@ export function ProjectSpotlight({ isOpen, onOpenChange, onSignOut }: ProjectSpo
 	);
 	const close = () => onOpenChange(false);
 	const shared = useSpotlightCommands({ actions: [], onClose: close, inPlace: true });
+	// the route/workflow this page is about, if any: version history, commit, sandbox (#739)
+	const target = useTargetSpotlight();
 
 	const extra: SpotlightCommand[] = [
 		{
@@ -94,7 +97,7 @@ export function ProjectSpotlight({ isOpen, onOpenChange, onSignOut }: ProjectSpo
 			},
 		});
 	}
-	const commands = [...shared, ...extra];
+	const commands = [...shared, ...target.commands(), ...extra];
 
 	useEffect(() => {
 		const onKeyDown = (e: KeyboardEvent) => {
@@ -108,12 +111,15 @@ export function ProjectSpotlight({ isOpen, onOpenChange, onSignOut }: ProjectSpo
 	}, [isOpen, onOpenChange]);
 
 	return (
-		<CanvasSpotlight
-			isOpen={isOpen}
-			onOpenChange={onOpenChange}
-			commands={commands}
-			onQueryChange={setQuery}
-		/>
+		<>
+			<CanvasSpotlight
+				isOpen={isOpen}
+				onOpenChange={onOpenChange}
+				commands={commands}
+				onQueryChange={setQuery}
+			/>
+			{target.dialogs}
+		</>
 	);
 }
 

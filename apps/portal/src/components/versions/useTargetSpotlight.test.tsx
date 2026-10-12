@@ -5,21 +5,21 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 GlobalRegistrator.register();
 Element.prototype.scrollIntoView = () => {};
 
+const navigate = mock();
+let params: Record<string, string> = { projectId: "p1", routeId: "r1" };
+const router = await import("@tanstack/react-router");
+mock.module("@tanstack/react-router", () => ({
+	...router,
+	useNavigate: () => navigate,
+	useParams: () => params,
+}));
+
 const { cleanup, fireEvent, render } = await import("@testing-library/react");
 const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query");
 const { authStore } = await import("@/store/auth");
 const { routesService } = await import("@/services/routes");
+const { middlewaresService } = await import("@/services/middlewares");
 const { useTargetSpotlight } = await import("./useTargetSpotlight");
-
-function mount(props: { onGoHistory: () => void; onOpenSandbox: (sandboxId: string) => void }) {
-	return render(
-		<QueryClientProvider
-			client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
-		>
-			<Harness {...props} />
-		</QueryClientProvider>,
-	);
-}
 
 afterEach(cleanup);
 afterAll(() => GlobalRegistrator.unregister());
@@ -32,25 +32,11 @@ function setRole(role: "viewer" | "creator") {
 	});
 }
 
-function Harness({
-	onGoHistory,
-	onOpenSandbox,
-}: {
-	onGoHistory: () => void;
-	onOpenSandbox: (sandboxId: string) => void;
-}) {
-	const spotlight = useTargetSpotlight({
-		kind: "route",
-		id: "r1",
-		projectId: "p1",
-		name: "Orders",
-		goToHistory: onGoHistory,
-		openSandbox: onOpenSandbox,
-	});
-	const commands = spotlight.commands({ hasUnsavedChanges: false, saveChanges: async () => true });
+function Harness() {
+	const spotlight = useTargetSpotlight();
 	return (
 		<>
-			{commands.map((command) => (
+			{spotlight.commands().map((command) => (
 				<button key={command.id} type="button" onClick={command.onSelect}>
 					{command.title}
 				</button>
@@ -60,11 +46,27 @@ function Harness({
 	);
 }
 
-const button = (name: string) =>
-	[...document.body.querySelectorAll("button")].find((b) => b.textContent?.trim() === name)!;
+function mount() {
+	return render(
+		<QueryClientProvider
+			client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+		>
+			<Harness />
+		</QueryClientProvider>,
+	);
+}
+
+const button = (name: string) => {
+	const found = [...document.body.querySelectorAll("button")].find(
+		(b) => b.textContent?.trim() === name,
+	);
+	if (!found) throw new Error(`no button ${name}`);
+	return found;
+};
 
 beforeEach(() => {
 	setRole("creator");
+	params = { projectId: "p1", routeId: "r1" };
 	spyOn(routesService, "getById").mockResolvedValue({
 		id: "r1",
 		projectId: "p1",
@@ -72,41 +74,54 @@ beforeEach(() => {
 		method: "GET",
 		path: "/orders",
 	} as never);
+	spyOn(middlewaresService, "getForRoute").mockResolvedValue([] as never);
 });
 
 test("the target's palette offers version history, commit and sandbox", () => {
-	mount({ onGoHistory: () => {}, onOpenSandbox: () => {} });
+	mount();
 	expect(button("Go to version history")).toBeTruthy();
 	expect(button("Commit…")).toBeTruthy();
 	expect(button("Open in sandbox")).toBeTruthy();
 });
 
 test("Go to version history runs the page's navigation", () => {
-	const go = mock(() => undefined);
-	mount({ onGoHistory: go, onOpenSandbox: () => {} });
+	mount();
 	fireEvent.click(button("Go to version history"));
-	expect(go).toHaveBeenCalled();
+	expect(navigate).toHaveBeenCalledWith({
+		to: "/$projectId/canvas/$routeId/versions",
+		params: { projectId: "p1", routeId: "r1" },
+	});
 });
 
 test("Commit opens the commit dialog", () => {
-	mount({ onGoHistory: () => {}, onOpenSandbox: () => {} });
+	mount();
 	fireEvent.click(button("Commit…"));
 	expect(document.body.textContent).toContain("Commit a version");
 });
 
-test("Open in sandbox prompts, then hands back the new sandbox", () => {
-	mount({ onGoHistory: () => {}, onOpenSandbox: () => {} });
+test("Open in sandbox prompts", () => {
+	mount();
 	fireEvent.click(button("Open in sandbox"));
 	expect(document.body.textContent).toContain("Create sandbox");
 });
 
 test("a viewer is not offered Open in sandbox", () => {
 	setRole("viewer");
-	mount({ onGoHistory: () => {}, onOpenSandbox: () => {} });
+	mount();
 	expect(button("Go to version history")).toBeTruthy();
 	expect(
 		[...document.body.querySelectorAll("button")].some(
 			(b) => b.textContent?.trim() === "Open in sandbox",
+		),
+	).toBe(false);
+});
+
+test("a page with no route or workflow offers none of them", () => {
+	params = { projectId: "p1" };
+	mount();
+	expect(
+		[...document.body.querySelectorAll("button")].some(
+			(b) => b.textContent?.trim() === "Go to version history",
 		),
 	).toBe(false);
 });
