@@ -4,6 +4,7 @@ import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { AdminApi, ToolRole } from "./adminApi";
 import { suiteWithKeys } from "./suiteHooks";
+import { formatIssues, formatToolError } from "./toolErrors";
 
 /**
  * One MCP tool backed by the admin API. `call` goes through `api`, which acts
@@ -42,6 +43,32 @@ const lenientField = (s: z.ZodType) => {
 /** Every tool's input goes through this, for MCP clients and the agent alike. */
 export const lenient = (shape: z.ZodRawShape): z.ZodRawShape =>
 	Object.fromEntries(Object.entries(shape).map(([k, s]) => [k, lenientField(s as z.ZodType)]));
+
+/**
+ * Validates one tool's input the way the MCP layer does, and turns a failure
+ * into a message naming each failing field path and reason (#779). Callers that
+ * get no schema validation from a framework use this before `invokeTool`.
+ */
+export function parseToolArgs(tool: McpTool, args: unknown): any {
+	const parsed = z.object(lenient(tool.input)).safeParse(args);
+	if (!parsed.success) throw new Error(`Invalid input: ${formatIssues(parsed.error.issues)}`);
+	return parsed.data;
+}
+
+/**
+ * Runs one tool and turns an admin API validation failure into a message naming
+ * each failing field path and reason (#779). The one place every save_* tool
+ * reaches before its admin API call; any other error is rethrown unchanged.
+ */
+export async function invokeTool(tool: McpTool, api: AdminApi, args: unknown): Promise<unknown> {
+	try {
+		return await tool.call(api, args);
+	} catch (err) {
+		const detail = formatToolError(err);
+		if (detail) throw new Error(`Invalid input: ${detail}`);
+		throw err;
+	}
+}
 
 export const pick = <T extends Record<string, unknown>>(row: T, keys: (keyof T)[]) =>
 	Object.fromEntries(keys.map((k) => [k, row[k]]));

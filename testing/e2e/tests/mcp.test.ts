@@ -140,6 +140,34 @@ describe("MCP writes", () => {
 		expect(read.isEncrypted).toBe(true);
 	});
 
+	// #779: the save tools must say what a failed input was missing, not make the agent guess
+	it("save_app_config and save_custom_block: a minimal input succeeds, a bad one names each field", async () => {
+		const p = stack.projectId;
+		expect(await call("save_custom_block", { projectId: p, name: uniq("cb_"), label: "Min" })).toEqual({
+			id: expect.any(String),
+		});
+		expect(
+			await call("save_app_config", {
+				projectId: p,
+				keyName: uniq("K_"),
+				value: "v",
+				description: "",
+				isEncrypted: false,
+				encodingType: "plaintext",
+			}),
+		).toEqual({ id: expect.any(Number) });
+
+		const block = await callTool(stack, stack.tokens.creator, "save_custom_block", { projectId: p });
+		expect(block.ok).toBe(false);
+		expect(block.text).toContain("name:");
+		expect(block.text).toContain("label:");
+
+		const config = await callTool(stack, stack.tokens.creator, "save_app_config", { projectId: p });
+		expect(config.ok).toBe(false);
+		expect(config.text).toContain("keyName:");
+		expect(config.text).toContain("value:");
+	});
+
 	it("a connection test really connects", async () => {
 		const result = await call("test_integration_connection", {
 			projectId: stack.projectId,

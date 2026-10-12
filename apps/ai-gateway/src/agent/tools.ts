@@ -7,7 +7,14 @@ import { projectTools } from "../mcp/projectTools";
 import { routeTools } from "../mcp/routeTools";
 import { sandboxTools } from "../mcp/sandboxTools";
 import { testSuiteTools } from "../mcp/testSuiteTools";
-import { envInput, lenient, type McpTool, readTools } from "../mcp/tools";
+import {
+	envInput,
+	invokeTool,
+	lenient,
+	type McpTool,
+	parseToolArgs,
+	readTools,
+} from "../mcp/tools";
 import { versionTools } from "../mcp/versionTools";
 import { writeTools } from "../mcp/writeTools";
 
@@ -205,7 +212,7 @@ export const mcpCall =
 	(name: string, args: unknown, signal?: AbortSignal): Promise<any> => {
 		const t = ALL.find((x) => x.name === name);
 		if (!t) throw new Error(`No tool named ${name}`);
-		return t.call(adminApi(fetcher, auth, t.role, signal), z.object(lenient(t.input)).parse(args));
+		return invokeTool(t, adminApi(fetcher, auth, t.role, signal), parseToolArgs(t, args));
 	};
 
 /**
@@ -245,7 +252,7 @@ export function agentTools(
 			description: t.description,
 			inputSchema: z.object(lenient(shape)),
 			execute: (args, { abortSignal }) =>
-				t.call(adminApi(fetcher, auth, t.role, abortSignal), pin(args)),
+				invokeTool(t, adminApi(fetcher, auth, t.role, abortSignal), pin(args)),
 		});
 	};
 	const tools: Record<string, Tool> = Object.fromEntries(
