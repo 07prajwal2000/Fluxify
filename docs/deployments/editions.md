@@ -43,12 +43,21 @@ Orchestration**. It is how many workers this instance is willing to run, and it
 starts at 2. The smaller of the two wins, so raise the pool when an Enterprise
 license should run more.
 
-Workers that serve the **development** environment never count against the
-edition's limit: a [development worker](./production#dev-workers), or a
-[development claim](./production#dev-claims), takes no license slot at all. So
-Community's one slot can run one production worker and as many development ones
-as you ask for. They do share the node pool, because they are real workers on
-your machine — raise it if development work needs room of its own.
+Workers that serve the **development** environment are outside the edition
+entirely: a [development worker](./production#dev-workers), or a
+[development claim](./production#dev-claims), takes no license slot, on any
+edition. So Community's one slot can run one production worker and as many
+development ones as you ask for.
+
+The edition's other rules are about production capacity too, and they do not
+apply to a development claim either: it may be any worker type and belong to a
+single project even where the edition allows neither — on Community, a
+project's development claim is created where the same claim in production is
+refused.
+
+The **node pool** is the limit a development worker does answer to, because it
+is a real worker on your machine. Raise it (see above) if development work
+needs room of its own.
 
 A claim that asks for more than fits is kept, and its workers wait as pending
 until room frees up. A new instance runs **non-commercial**, so it can run two

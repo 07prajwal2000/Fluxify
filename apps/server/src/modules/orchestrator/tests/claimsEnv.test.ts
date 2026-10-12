@@ -121,6 +121,33 @@ describe("a claim's environment (#742)", () => {
 		});
 	});
 
+	it("writes a project's development claim on community, which refuses the same claim in production", async () => {
+		const projectId = crypto.randomUUID().replaceAll("-", "").slice(0, 20);
+		const groupId = crypto.randomUUID().replaceAll("-", "").slice(0, 20);
+		await client`INSERT INTO projects (id, slug) VALUES (${projectId}, ${`p-${projectId}`})`;
+		await client`INSERT INTO trigger_groups (id, name, project_id) VALUES (${groupId}, 'grp', ${projectId})`;
+		// A claim that serves APIs is reached on the project's own host, in either
+		// environment, so the project has one.
+		await client`INSERT INTO project_settings (id, project_id, key, value) VALUES (${`s-${projectId}`}, ${projectId}, 'settings.routing.subdomain', ${`s-${projectId}`})`;
+		const project = {
+			projectId,
+			// `both` is what community licenses, so this is refused for the project
+			// it names rather than for its type.
+			type: "both" as const,
+			groupIds: [groupId],
+			replicas: 2,
+		};
+
+		// Community licenses the catch-all alone, so this claim is refused...
+		await expect(claims.createClaim(project)).rejects.toThrow(/serve every project/);
+
+		// ...and accepted as development, which spends no slot and is limited by
+		// the pool rather than by the licence.
+		const dev = await claims.createClaim({ ...project, env: "development" });
+		expect(dev).toMatchObject({ projectId, env: "development", replicas: 2 });
+		expect(await claims.countClaimedReplicas(dev.id)).toBe(0);
+	});
+
 	it("refuses a maximum on a development claim, while accepting one where the licence allows it", async () => {
 		await expect(catchAll({ env: "development", maxReplicas: 2 })).rejects.toThrow(
 			/never autoscales/,

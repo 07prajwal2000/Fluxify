@@ -669,10 +669,18 @@ same way, and what changes is only what those workers are.
 |  | Production claim | Development claim |
 | :--- | :--- | :--- |
 | What it serves | Live traffic, on the project's own address | `/_sandbox`, `/_/dev` and `/_/dev/…` only |
-| License slots | One per worker | None |
+| License rules | The edition's worker limit, worker types and per-project rule | None apply, on any edition: no slot is taken, and any type or project is allowed |
 | Autoscaling | Grows with load, where your edition allows it | Never — it runs exactly the copies you give it |
 | Where you reach it | The project's host, or any address for a claim that serves every project | The development paths, on the same addresses |
 
+- **Your edition does not govern one.** A development claim takes no license
+  slot, so the edition's worker limit never counts it; and the edition's other
+  rules — which worker types it includes, and whether it allows a worker for a
+  single project — are about production capacity too, so neither is checked. On
+  Community, a project's development claim is created where the same claim in
+  production is refused. The **node pool** is what limits it, because it is
+  real capacity on your machine: past the pool its copies wait as pending. See
+  [Workers per edition](./editions#workers).
 - **A maximum is refused on one.** Development capacity is what you asked for by
   hand, not something load grows into, so the form hides the field.
 - **A project's development claim needs a subdomain**, for the same reason a
