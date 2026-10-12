@@ -27,9 +27,10 @@ const RUNS = [
 		truncated: false,
 		droppedSpans: 0,
 		parentRunId: null,
-		env: "production" as const,
 		versionId: "version-2",
 		versionNumber: 2,
+		graph: "v2",
+		values: "production" as const,
 		metadata: null,
 	},
 	{
@@ -43,9 +44,10 @@ const RUNS = [
 		truncated: false,
 		droppedSpans: 0,
 		parentRunId: null,
-		env: "development" as const,
 		versionId: null,
 		versionNumber: null,
+		graph: "working copy",
+		values: "development" as const,
 		metadata: null,
 	},
 ];

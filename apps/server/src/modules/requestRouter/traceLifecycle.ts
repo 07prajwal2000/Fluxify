@@ -28,6 +28,8 @@ export type RouteTraceFactory = {
 			routeId: string;
 			projectId: string;
 			routeVersion: string;
+			/** the version this run served (#782); absent for the working copy */
+			versionId?: string;
 			method: string;
 			path: string;
 			sandbox?: boolean;
@@ -42,6 +44,8 @@ type TraceableRoute = {
 	id: string;
 	projectId?: string;
 	routeVersion?: string;
+	/** the version this run served (#782); absent for the working copy */
+	versionId?: string;
 	/** `id` is a sandbox's (#735) */
 	sandbox?: boolean;
 };
@@ -58,6 +62,7 @@ export function startRouteTrace(
 			routeId: route.id,
 			projectId: route.projectId!,
 			routeVersion: route.routeVersion ?? "",
+			versionId: route.versionId,
 			method: payload.method,
 			path: payload.path,
 			tracingEnabled: Boolean(route.tracingEnabled),

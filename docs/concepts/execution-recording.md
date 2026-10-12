@@ -67,11 +67,20 @@ Open a route's or workflow's playground and choose the **Track Execution** tab. 
 The left side lists recorded runs, newest first. Each row shows:
 
 - a ✓ or ✗ for success or failure, and the status code of a route;
+- the **graph** it ran: `v7` for a promoted [version](/concepts/versioning), or **working copy** for the copy you are still editing;
+- the **values** it used, as a **Dev** or **Prod** badge;
 - when the run started and how long it took;
-- a **Dev** or **Prod** badge for the environment it ran in;
 - a **Test** badge if a [test suite](#test-traces) made the run.
 
 Filter by **All runs**, **Test runs** or **Live runs**, and by environment: **All environments**, **Development** or **Production**. Click a run to open it.
+
+::: info Graph and values are two different things
+The **graph** is which version of the route or workflow ran. The **values** are the
+[environment's settings, config and secrets](/concepts/environments#values-per-environment)
+the run used. They usually line up — a production run of a promoted version reads
+**v7 · Prod** — but they can differ, and a
+[production test run](#test-traces) is where they do.
+:::
 
 ### The run on the canvas
 
@@ -107,6 +116,7 @@ Every [test suite](../testing/index.md) run is recorded, **even when Recording i
 - In the test results, **View trace** opens the run a case made. Use it to see exactly which block failed and why.
 - A test trace has a **From test** link back to the suite and case that made it.
 - Blocks that a [hook](../testing/hooks.md) skipped or changed carry a **Mocked** badge, so you can tell made-up values from real ones.
+- A **production** test run reads a promoted version's graph but still uses **development** values, by design, so it never touches production data. It shows that version (for example **v7**) with a **Dev** badge.
 
 Test traces follow the same retention as other runs. Once deleted, the results show **Trace expired**.
 

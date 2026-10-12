@@ -63,7 +63,14 @@ export type TraceRunPayload = {
 	projectId: string;
 	/** Route fields; present on runs originating from an HTTP route. */
 	routeId?: string;
-	/** identifies the graph this run belongs to; resolved by the portal viewer */
+	/**
+	 * The version of the graph this run served (#782): the id of a `canvas_versions`
+	 * row, set by any worker that runs a versioned artifact — production traffic, a
+	 * prod-env test run and the promote gate's candidate run. Absent on a run of the
+	 * working copy, which has no version.
+	 */
+	versionId?: string;
+	/** the artifact's own identity: the compile timestamp in development, the version id in production */
 	routeVersion?: string;
 	method?: string;
 	path?: string;

@@ -248,20 +248,21 @@ describe("Run as workflow, and recordings", () => {
 		);
 		expect(queued.accepted).toBe(true);
 
-		// at least two over HTTP: `served` may have polled more than once
+		// at least two over HTTP: `served` may have polled more than once. An HTTP
+		// run answers with a status code; the workflow run has none.
 		const runs = await until("the runs to be recorded", async () => {
 			const list = await ok(api(stack, "creator", `${SANDBOXES()}/${id}/runs?perPage=50`));
 			const details = await Promise.all(
 				list.data.map((run: any) => ok(api(stack, "creator", `${SANDBOXES()}/${id}/runs/${run.id}`))),
 			);
-			const http = details.filter((run) => run.routeVersion).length;
-			return http >= 2 && details.some((run) => run.workflowVersion) && details;
+			const http = details.filter((run) => run.statusCode != null).length;
+			return http >= 2 && details.some((run) => run.statusCode == null) && details;
 		});
 		for (const run of runs) {
 			expect(run.outcome).toBe("success");
 			expect(run.spans.length).toBeGreaterThan(0);
 		}
-		const workflow = runs.filter((run: any) => run.workflowVersion);
+		const workflow = runs.filter((run: any) => run.statusCode == null);
 		expect(workflow).toHaveLength(1);
 		// the token never reaches a recording
 		expect(JSON.stringify(runs)).not.toContain(token);

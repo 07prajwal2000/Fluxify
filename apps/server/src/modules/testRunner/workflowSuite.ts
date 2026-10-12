@@ -80,6 +80,7 @@ async function runCase(
 			workflowId: boot.workflow.id,
 			// a suite runs the saved graph, not a deployed version
 			workflowVersion: "",
+			versionId: boot.versionId,
 			workflowName: boot.workflow.name,
 		},
 		(run) => send({ type: "record-run", run, caseIndex: item.index, caseName: item.name }),

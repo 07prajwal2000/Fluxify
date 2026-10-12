@@ -310,18 +310,10 @@ export function RecordedRunList({
 							{run.statusCode != null && (
 								<span className="font-mono text-xs text-foreground">{run.statusCode}</span>
 							)}
-							{run.versionNumber != null ? (
-								<span className="shrink-0 font-mono text-[11px] text-foreground">
-									v{run.versionNumber}
-								</span>
-							) : run.env === "development" ? (
-								<span className="shrink-0 text-[11px] text-muted">working copy</span>
-							) : null}
-							{run.env && (
-								<Chip size="sm" color={run.env === "development" ? "accent" : "default"}>
-									{run.env === "development" ? "Dev" : "Prod"}
-								</Chip>
-							)}
+							<span className="shrink-0 font-mono text-[11px] text-foreground">{run.graph}</span>
+							<Chip size="sm" color={run.values === "development" ? "accent" : "default"}>
+								{run.values === "development" ? "Dev" : "Prod"}
+							</Chip>
 							{run.metadata && (
 								<Chip size="sm" color="accent" title={run.metadata.label}>
 									Test

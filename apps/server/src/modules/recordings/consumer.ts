@@ -60,6 +60,8 @@ const runSchema = z
 		routeId: z.string().min(1).max(50).optional(),
 		workflowId: z.string().min(1).max(50).optional(),
 		sandboxId: z.string().min(1).max(50).optional(),
+		/** the version the run served (#782); absent on a working-copy run */
+		versionId: z.uuid().optional(),
 		routeVersion: z.string().max(50).optional(),
 		workflowVersion: z.string().max(50).optional(),
 		startedAtWallMs: time,
@@ -99,18 +101,14 @@ const runSchema = z
 	});
 
 /**
- * The version a run served (#739). Production stamps its artifact's version id
- * as the route or workflow version, while development stamps a compile
- * timestamp and a run from before versions carries one too, so only a
- * production run holding a uuid counts.
+ * The version a run served (#782). A versioned artifact stamps its version id on
+ * every run it produces, whichever worker ran it: production traffic, a prod-env
+ * test run and the promote gate's candidate run all carry it. A run of the
+ * working copy — development traffic, a sandbox — carries none, so it is null.
  */
-function productionVersionId(
-	run: { routeVersion?: string; workflowVersion?: string; sandboxId?: string },
-	env: string,
-) {
-	const version = run.routeVersion ?? run.workflowVersion;
-	return env === "production" && !run.sandboxId && version && z.uuid().safeParse(version).success
-		? version
+function runVersionId(run: { versionId?: string; sandboxId?: string }) {
+	return !run.sandboxId && run.versionId && z.uuid().safeParse(run.versionId).success
+		? run.versionId
 		: null;
 }
 
@@ -184,7 +182,7 @@ export async function persistRecording(payload: unknown): Promise<"stored" | "dr
 				sandboxId: run.sandboxId,
 				routeVersion: run.routeVersion,
 				workflowVersion: run.workflowVersion,
-				versionId: productionVersionId(run, env),
+				versionId: runVersionId(run),
 				startedAt: new Date(run.startedAtWallMs),
 				endedAt: wall(run.endedAt),
 				outcome: run.outcome,

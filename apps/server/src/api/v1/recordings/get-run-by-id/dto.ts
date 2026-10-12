@@ -15,8 +15,6 @@ export const requestQuerySchema = z.object({
 });
 
 export const responseSchema = runSummarySchema.extend({
-	routeVersion: z.string().nullable(),
-	workflowVersion: z.string().nullable(),
 	parentSeq: z.number().nullable(),
 	/** flat, ordered by `seq`; nest them with `parentSeq` */
 	spans: z.array(

@@ -220,6 +220,7 @@ async function executeRun(
 					compiled,
 					{ hooks: hooks.get(suite.id) ?? [], names },
 					deps,
+					candidate?.versionId,
 				);
 				return [suite.id, status] as const;
 			});
@@ -299,6 +300,8 @@ async function runOneSuite(
 	compiled: CompiledSuiteTarget,
 	{ hooks, names }: { hooks: SuiteHook[]; names: Map<string, string> },
 	deps: RunnerDeps,
+	/** the version whose graph ran (#782): the promoted version's or the gate's candidate, absent for the working copy */
+	versionId?: string,
 ): Promise<TestRunStatus> {
 	const startedAt = Date.now();
 	await db
@@ -322,6 +325,7 @@ async function runOneSuite(
 			source: compiled.source,
 			customBlocks: compiled.customBlocks,
 			config,
+			versionId,
 			assertions: (suite.assertions as AssertionType[]) || [],
 			hooks,
 			suite: { id: suite.id, name: suite.name },

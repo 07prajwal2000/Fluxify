@@ -159,7 +159,7 @@ export const projectTools: McpTool[] = [
 	{
 		name: "list_recordings",
 		title: "List recordings",
-		description: `A route's, workflow's or sandbox's recorded runs, newest first: outcome, status code, timing and span count. ${RECORDING_NOTE} Read one run with get_recording.`,
+		description: `A route's, workflow's or sandbox's recorded runs, newest first: outcome, status code, timing and span count. Each run says which graph it ran and which values it used: graph is the version ("v7") or "working copy", and values is "development" or "production". A production-env test run reads graph "v7", values "development" — by design, production tests use development values. ${RECORDING_NOTE} Read one run with get_recording.`,
 		role: "creator",
 		input: {
 			projectId,
@@ -193,7 +193,8 @@ export const projectTools: McpTool[] = [
 						"statusCode",
 						"spanCount",
 						"truncated",
-						"env",
+						"graph",
+						"values",
 					]),
 					testLabel: r.metadata?.label,
 				})),
@@ -205,7 +206,7 @@ export const projectTools: McpTool[] = [
 	{
 		name: "get_recording",
 		title: "Get recording",
-		description: `One recorded run: its fields, test info (metadata), the async runs it forked (childRuns) and its spans in order, one per block that ran, with blockKey (the key get_canvas shows, e.g. response_1; a block deleted since has its blockId uuid instead), outcome, branch, error and truncated / mocked flags. Spans leave out input and output: pass spanSeq for one span in full, or full: true for everything (a run can be 256 KB). ${RECORDING_NOTE}`,
+		description: `One recorded run: its fields, test info (metadata), the async runs it forked (childRuns) and its spans in order, one per block that ran, with blockKey (the key get_canvas shows, e.g. response_1; a block deleted since has its blockId uuid instead), outcome, branch, error and truncated / mocked flags. The run says which graph it ran and which values it used: graph is the version ("v7") or "working copy", and values is "development" or "production". A production-env test run reads graph "v7", values "development" — by design, production tests use development values. Spans leave out input and output: pass spanSeq for one span in full, or full: true for everything (a run can be 256 KB). ${RECORDING_NOTE}`,
 		role: "creator",
 		input: {
 			projectId,

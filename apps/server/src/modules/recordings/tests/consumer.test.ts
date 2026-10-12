@@ -230,29 +230,73 @@ describe("recordings consumer", () => {
 		expect(await list()).toContain(dev.runId);
 	});
 
-	it("stores the version a production run served, and nothing for a development run (#739)", async () => {
+	it("stamps the version any worker ran, and none for the working copy (#782)", async () => {
 		const version = Bun.randomUUIDv7();
 		await sql`INSERT INTO canvas_versions (id, kind, route_id, project_id, version_number, title, snapshot)
 			VALUES (${version}, 'route', 'r-off', 'p1', 1, 'v1', '{"blocks":[],"edges":[],"settings":{"timeoutSeconds":30}}')`;
-
+		await sql`INSERT INTO system_users (id, email) VALUES ('u-782', 'u782@example.com')`;
+		await sql`INSERT INTO sandboxes (id, project_id, user_id, name) VALUES ('s-782', 'p1', 'u-782', 'Sandbox')`;
 		// r-off records on development by default; switch production on for this one
 		await sql`UPDATE routes SET record_execution = true WHERE id = 'r-off'`;
-		const prod = makeRun({ routeId: "r-off", routeVersion: version, env: "production" } as Partial<TraceRunPayload>);
-		const dev = makeRun({ routeId: "r-off", routeVersion: version, env: "development" } as Partial<TraceRunPayload>);
-		// a run from before versions carries a timestamp, which is no version
-		const old = makeRun({ routeId: "r-off", env: "production" } as Partial<TraceRunPayload>);
-		for (const run of [prod, dev, old]) expect(await recordings.persistRecording(run)).toBe("stored");
 
-		expect((await runRow(prod.runId)).version_id).toBe(version);
-		expect((await runRow(dev.runId)).version_id).toBeNull();
-		expect((await runRow(old.runId)).version_id).toBeNull();
+		const testMetadata = (testRunId: string) => ({
+			source: "test" as const,
+			label: "Test: Checkout · Request",
+			testRunId,
+			suiteId: "suite-1",
+			suiteName: "Checkout",
+			caseIndex: 0,
+			caseName: "Request",
+		});
+		const cases: Array<[string, TraceRunPayload, string | null]> = [
+			// production traffic serves the promoted version's graph
+			[
+				"prod run",
+				makeRun({ routeId: "r-off", routeVersion: version, versionId: version, env: "production" }),
+				version,
+			],
+			// a prod-env suite run tested the promoted version on a development worker (#739)
+			[
+				"prod-env test run",
+				makeRun({
+					routeId: "r-off",
+					versionId: version,
+					env: "development",
+					metadata: testMetadata("tr-782"),
+				}),
+				version,
+			],
+			// the promote gate runs the candidate version before it is live
+			[
+				"gate candidate run",
+				makeRun({
+					routeId: "r-off",
+					versionId: version,
+					env: "development",
+					metadata: testMetadata("tr-782b"),
+				}),
+				version,
+			],
+			// development traffic runs the working copy
+			["dev run", makeRun({ routeId: "r-off", env: "development" }), null],
+			// a sandbox is never versioned, even if a version id slips in
+			[
+				"sandbox run",
+				makeRun({ routeId: undefined, sandboxId: "s-782", versionId: version, env: "development" }),
+				null,
+			],
+		];
+		for (const [, run] of cases) expect(await recordings.persistRecording(run)).toBe("stored");
+		for (const [label, run, want] of cases) {
+			expect([label, (await runRow(run.runId)).version_id]).toEqual([label, want]);
+		}
 
-		// the run list says which version, by number
+		// the run list resolves the version number from the version id
 		const { getRecordedRuns } = await import("../../../api/v1/recordings/get-runs/repository");
 		const { result } = await getRecordedRuns("p1", { type: "route", id: "r-off" }, {}, 0, 50);
 		const listed = (id: string) => result.find((run) => run.id === id);
-		expect(listed(prod.runId)).toMatchObject({ versionId: version, versionNumber: 1 });
-		expect(listed(dev.runId)).toMatchObject({ versionId: null, versionNumber: null });
+		expect(listed(cases[0]![1].runId)).toMatchObject({ versionId: version, versionNumber: 1 });
+		expect(listed(cases[3]![1].runId)).toMatchObject({ versionId: null, versionNumber: null });
 		await sql`UPDATE routes SET record_execution = false WHERE id = 'r-off'`;
 	});
 

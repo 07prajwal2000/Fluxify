@@ -465,6 +465,7 @@ function routeDefinition(artifact: RouteArtifact): HttpRoute {
 		tracingEnabled: artifact.tracingEnabled,
 		recordExecution: artifact.recordExecution,
 		routeVersion: artifact.routeVersion,
+		versionId: artifact.versionId,
 	};
 }
 

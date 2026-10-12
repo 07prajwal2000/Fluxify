@@ -206,6 +206,7 @@ async function runRoute(boot: TestBootstrap & RouteTarget, setup: unknown): Prom
 			routeId: boot.route.id,
 			// a suite runs the saved graph, not a deployed version
 			routeVersion: "",
+			versionId: boot.versionId,
 			method: boot.request.method,
 			path: boot.request.path,
 		},
