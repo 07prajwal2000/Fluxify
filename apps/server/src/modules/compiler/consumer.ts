@@ -1,5 +1,6 @@
 import { logger } from "@fluxify/common";
 import { consumeQueue, ensureStreamConsumer } from "@fluxify/common/nats";
+import { syncWorkflowTriggers } from "../../api/v1/triggers/service";
 import { natsConnection } from "../../db/nats";
 import {
 	CHAN_ON_APPCONFIG_CHANGE,
@@ -97,8 +98,14 @@ async function handle(subject: string, request: CompileRequest) {
 			return compileCustomBlock(request.id ?? id);
 		case "middleware":
 			return compileMiddleware(request.id ?? id, request.projectId);
-		case "workflow":
-			return compileWorkflow(request.id ?? id);
+		case "workflow": {
+			// A workflow change is a switch flipping or a version moving as often
+			// as it is a canvas edit. Republish its triggers afterwards so a
+			// schedule or queue artifact only sits where the workflow is live.
+			const workflowId = request.id ?? id;
+			await compileWorkflow(workflowId);
+			return syncWorkflowTriggers(workflowId);
+		}
 		case "sandbox":
 			return compileSandbox(request.id ?? id);
 		case "project-config": {

@@ -25,7 +25,7 @@ test run, both described below.
 | What | Runs on |
 | :--- | :--- |
 | Your public route URLs, called by your users | Production |
-| Triggers, schedules and queued work of your live app | Production |
+| Triggers, schedules and queued work of your live workflows | Each environment where the workflow is switched on |
 | The route playground and **Run** in the portal | Development by default; **Production** when you switch the toggle on |
 | `call_route` from an AI agent | Development |
 | A workflow's **Run** button | Development |
@@ -59,9 +59,13 @@ You can run a production worker and a development worker side by side, on the
 same machine and against the same Fluxify instance, without them stealing work
 from each other.
 
-::: info
-Your triggers are the same in both environments, with the same settings. A
-development worker does not get its own copy or a renamed one.
+::: info One trigger runs wherever its workflow is live
+Your triggers are the same in both environments, with the same settings — a
+development worker does not get its own copy or a renamed one. What decides
+where a trigger runs is the workflow it starts: it runs in each environment
+where that workflow is switched on, with that environment's values. Turn the
+workflow off in an environment and the trigger stops there too. See
+[Where a trigger runs](/concepts/triggers#where-a-trigger-runs).
 :::
 
 ## What a development worker does
