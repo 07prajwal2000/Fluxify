@@ -5,7 +5,7 @@ import { ConflictError } from "../../../../errors/conflictError";
 import { ForbiddenError } from "../../../../errors/forbidError";
 import { NotFoundError } from "../../../../errors/notFoundError";
 import { canAccessProject } from "../../../../lib/acl";
-import { DEV_WORKER_URL, getEnv } from "../../../../lib/env";
+import { getEnv, PROXY_URL } from "../../../../lib/env";
 import { projectHost } from "../../../../lib/hosting";
 import { baseDomain } from "../../../../loaders/instanceSettingsLoader";
 import { projectSettingsCache } from "../../../../loaders/projectSettingsLoader";
@@ -102,41 +102,42 @@ export function fetchRoute(url: URL, init: RequestInit) {
 export const NO_DEV_WORKER = "start a worker with FLUXIFY_ENV=development";
 
 /**
- * The `Host` a call to a fixed dev worker URL must carry for a project with a
- * subdomain (#742). Without a fixed URL the call goes to the project's own
- * address, which is that host already.
+ * The `Host` a call through the proxy must carry for a project with a subdomain
+ * (#742): the proxy routes by it, so it picks that project's worker pool.
+ * Without a proxy URL the call goes to the project's own address, which is that
+ * host already.
  */
 export function devHostHeader(
 	subdomain: unknown,
-	fixedWorkerUrl: string | undefined,
+	proxyUrl: string | undefined,
 ): Record<string, string> {
-	return fixedWorkerUrl && typeof subdomain === "string" && subdomain
+	return proxyUrl && typeof subdomain === "string" && subdomain
 		? { host: projectHost(subdomain, baseDomain()) }
 		: {};
 }
 
 /**
- * `path` on the development worker, and the project's development token to
- * send with it. DEV_WORKER_URL, else the project's address, whose proxy sends
+ * `path` on a development worker, and the project's development token to send
+ * with it. PROXY_URL, else the project's own address, whose proxy sends
  * `/_/dev` and `/_sandbox` to the development worker. The token never leaves
  * the admin: it is not in the answer, and the worker strips it before the
  * blocks run.
  *
- * A project with a subdomain answers dev requests only on that host (#742), so
- * every call to a dev worker goes through here and carries it. Through the
- * project's address the URL is that host already; a fixed DEV_WORKER_URL gets
- * it as the `Host` header.
+ * The admin always reaches development workers through the proxy (#742), never
+ * a single worker: many replicas sit behind it, so only it knows which pool
+ * serves a project. It routes by `Host`, so a project with a subdomain is named
+ * there (#742); through the project's own address the URL is that host already.
  */
 export async function devWorkerTarget(projectId: string, path: string, requestOrigin: string) {
 	if (!(await devWorkerOnline(projectId))) throw new ConflictError(NO_DEV_WORKER);
-	const base = DEV_WORKER_URL ?? specServerUrl(projectId, getEnv("SERVER_URL") || requestOrigin);
+	const base = PROXY_URL ?? specServerUrl(projectId, getEnv("SERVER_URL") || requestOrigin);
 	const { token } = await readDevToken(projectId);
 	const subdomain = projectSettingsCache[projectId]?.["settings.routing.subdomain"];
 	return {
 		url: new URL(path, base),
 		headers: {
 			[DEV_TOKEN_HEADER]: token,
-			...devHostHeader(subdomain, DEV_WORKER_URL),
+			...devHostHeader(subdomain, PROXY_URL),
 		},
 	};
 }

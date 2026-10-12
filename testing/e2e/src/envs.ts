@@ -5,6 +5,12 @@ import type { Subprocess } from "bun";
 export type EnvStack = {
 	url: string;
 	workers: { production: string; development: string };
+	/** the stand-in proxy at PROXY_URL the admin reaches development workers through */
+	proxyUrl: string;
+	/** the two development pools, only when the stack was started with `devPools: 2` */
+	pools?: { a?: string; b?: string };
+	/** the two subdomain projects, one development pool each, when `devPools: 2` */
+	poolProjects?: { a: string; b: string };
 	projectId: string;
 	/** a second project the creator is also a creator in */
 	otherProjectId: string;
@@ -27,9 +33,10 @@ export type EnvStack = {
 let proc: Subprocess<"pipe", "pipe", "inherit"> | undefined;
 
 /** Starts the stack in its own process and waits for it to serve. */
-export async function startEnvStack(): Promise<EnvStack> {
+export async function startEnvStack(options: { devPools?: number } = {}): Promise<EnvStack> {
 	proc = Bun.spawn(["bun", join(import.meta.dir, "envStack.ts")], {
 		cwd: join(import.meta.dir, ".."),
+		env: { ...process.env, ...(options.devPools === 2 ? { E2E_DEV_POOLS: "2" } : {}) },
 		stdin: "pipe",
 		stdout: "pipe",
 		stderr: "inherit",

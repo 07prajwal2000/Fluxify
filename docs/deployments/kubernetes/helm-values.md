@@ -26,6 +26,7 @@ default.
 | Setting | What it does | Default |
 | :--- | :--- | :--- |
 | `url` | The address people open Fluxify at, e.g. `https://fluxify.example.com`. Sign-in only works at this address. | `http://localhost:8080` |
+| `proxyUrl` | The proxy's address as the admin reaches it, for sandboxes, the playground, `call_route`, `Run` and test suites (`PROXY_URL`). The admin calls development workers only through the proxy and lets it route by `Host`, so this is Traefik's in-cluster service, never a single worker. Leave it empty to have admin call the project's own public address instead. | `http://traefik.traefik.svc.cluster.local:80` |
 
 ## Database {#database}
 

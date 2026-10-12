@@ -22,8 +22,8 @@ export const DEV_WORKER_MESSAGE =
 	"No development worker is running. Start a worker with FLUXIFY_ENV=development to try routes and sandboxes.";
 
 /** A sandbox answers on `/_sandbox/<id>`, whatever comes after it. */
-export function sandboxBaseUrl(devWorkerUrl: string, sandboxId: string) {
-	return `${devWorkerUrl.replace(/\/+$/, "")}/_sandbox/${sandboxId}`;
+export function sandboxBaseUrl(baseUrl: string, sandboxId: string) {
+	return `${baseUrl.replace(/\/+$/, "")}/_sandbox/${sandboxId}`;
 }
 
 /**

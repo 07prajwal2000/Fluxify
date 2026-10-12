@@ -22,6 +22,9 @@ spec:
           env:
             - { name: ENABLE_ADMIN, value: "true" }
             - { name: ENABLE_BUILTIN_WORKER, value: "false" }
+            {{- with .Values.proxyUrl }}
+            - { name: PROXY_URL, value: {{ . | quote }} }
+            {{- end }}
             - { name: SEED_USER_EMAIL, value: {{ .Values.admin.seedUserEmail | quote }} }
             {{- if .Values.license.issuerKeySecret }}
             - { name: LICENSE_ISSUER_KEY_PATH, value: /etc/fluxify/license/issuer.pub }

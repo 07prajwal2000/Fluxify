@@ -40,15 +40,15 @@ describe("fetchRoute", () => {
 });
 
 describe("devHostHeader (#742)", () => {
-	it("names the project's subdomain host for a fixed dev worker URL", () => {
-		expect(devHostHeader("shop", "http://localhost:5602")).toEqual({
+	it("names the project's subdomain host so the proxy picks its pool", () => {
+		expect(devHostHeader("shop", "http://proxy.internal")).toEqual({
 			host: expect.stringMatching(/^shop./),
 		});
 	});
 
 	it("adds nothing without a subdomain, or when the call goes through the project's address", () => {
-		expect(devHostHeader(undefined, "http://localhost:5602")).toEqual({});
-		expect(devHostHeader("", "http://localhost:5602")).toEqual({});
+		expect(devHostHeader(undefined, "http://proxy.internal")).toEqual({});
+		expect(devHostHeader("", "http://proxy.internal")).toEqual({});
 		expect(devHostHeader("shop", undefined)).toEqual({});
 	});
 });

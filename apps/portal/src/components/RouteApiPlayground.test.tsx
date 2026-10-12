@@ -103,7 +103,6 @@ async function until<T>(check: () => T, timeout = 1500): Promise<T> {
 
 function mount(
 	online = true,
-	devWorkerUrl?: string,
 	subdomain?: string,
 	devRecordExecution = false,
 	onOpenRecording?: () => void,
@@ -119,7 +118,6 @@ function mount(
 	} as never);
 	spyOn(publicSettingsService, "get").mockResolvedValue({
 		license: { status: "community" },
-		devWorkerUrl,
 		hosting: { baseDomain: "example.test" },
 	} as never);
 	spyOn(projectSettingsKeysService, "getAll").mockResolvedValue(
@@ -139,8 +137,8 @@ function mount(
 	);
 }
 
-test("a project with a subdomain is called on its subdomain even with DEV_WORKER_URL set (#742); the token header is sent, never rendered", async () => {
-	const view = mount(true, "http://localhost:5602/", "billing");
+test("a project with a subdomain is called on its subdomain (#742); the token header is sent, never rendered", async () => {
+	const view = mount(true, "billing");
 	const shown = "http://billing.example.test:5601";
 	await until(() => {
 		if (stub?.baseUrl !== `${shown}/_/dev`) throw new Error("not mounted");
@@ -169,14 +167,14 @@ test("a project with a subdomain is called on its subdomain even with DEV_WORKER
 	});
 
 	const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
-	// DEV_WORKER_URL would be a bare host, which a subdomain project refuses
+	// the browser only ever sees the project's own host, subdomain included
 	expect(url).toBe("http://billing.example.test:5601/_/dev/orders/7");
 	expect((init.headers as Headers).get(DEV_TOKEN_HEADER)).toBe(TOKEN);
 	expect(view.container.textContent).not.toContain(TOKEN);
 });
 
-test("without DEV_WORKER_URL it falls back to the project's API address", async () => {
-	mount(true, undefined);
+test("uses the project's API address", async () => {
+	mount(true);
 	await until(() => {
 		if (!stub?.baseUrl?.endsWith("/_/dev")) throw new Error("not mounted");
 	});
@@ -184,7 +182,7 @@ test("without DEV_WORKER_URL it falls back to the project's API address", async 
 });
 
 test("no development worker: the message, and no way to send", async () => {
-	const view = mount(false, "http://localhost:5602");
+	const view = mount(false);
 	await until(() => expect(view.container.textContent).toContain(DEV_WORKER_MESSAGE));
 	expect(view.queryByTestId("playground")).toBeNull();
 });
@@ -196,7 +194,7 @@ test("a development call shows its recording while development recording is on (
 		pagination: { page: 1, perPage: 20, totalPages: 0, hasNext: false },
 	})) as never);
 	const onOpenRecording = mock(() => undefined);
-	const view = mount(true, undefined, undefined, true, onOpenRecording);
+	const view = mount(true, undefined, true, onOpenRecording);
 	// the canvas's own playground modal is what hosts it there
 	fireEvent.click(view.getByText("Open the canvas playground"));
 	expect(view.getByTestId("canvas-playground").textContent).toBe("open");
@@ -240,7 +238,7 @@ test("a development call shows its recording while development recording is on (
 
 test("a development call keeps no recording link while development recording is off", async () => {
 	spyOn(recordingsService, "getRuns").mockResolvedValue({ data: [] } as never);
-	const view = mount(true, undefined, undefined, false);
+	const view = mount(true, undefined, false);
 	await until(() => {
 		if (!stub?.baseUrl?.endsWith("/_/dev")) throw new Error("not mounted");
 	});

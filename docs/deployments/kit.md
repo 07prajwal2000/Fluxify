@@ -253,14 +253,19 @@ project, so it runs from the very first start, before you have created one.
 | Reached through port `8080` | Yes | Only `/_sandbox` and `/_/dev` |
 
 Port `8080` sends `/_sandbox` and `/_/dev` to the development worker and
-everything else to the production worker, so sandboxes, the playground and
-`call_route` work with no setting. A path that only starts with the same
-letters, such as `/_/devices`, still goes to the production worker. This
+everything else to the production worker, so sandboxes, the playground,
+`call_route` and `Run` work with no setting. A path that only starts with the
+same letters, such as `/_devices`, still goes to the production worker. This
 holds on a project's subdomain too. A project with a subdomain answers
 `/_sandbox` and `/_/dev` only on that subdomain, so keep the subdomain's name
 pointing at port `8080`.
 The development worker does not count against your
 [edition's](./editions#workers) worker limit.
+
+The admin calls the development worker through the same port `8080`. A
+deployment where the admin cannot reach that public address sets `PROXY_URL` to
+the proxy's own address, for example `http://localhost:8080` for the kit's Caddy
+— never to a single worker.
 
 > [!WARNING]
 > Don't set `FLUXIFY_ENV` in the kit's `.env` or with `-e`. The kit sets it on

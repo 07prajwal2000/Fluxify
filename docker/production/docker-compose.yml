@@ -91,6 +91,9 @@ services:
       # Control plane only — the worker service serves user API traffic.
       ENABLE_ADMIN: "true"
       ENABLE_BUILTIN_WORKER: "false"
+      # The admin reaches development workers only through Traefik, which it
+      # shares fluxify_net with; Traefik routes by Host to the right pool.
+      PROXY_URL: "http://traefik"
     # Test suites run user-authored code in child processes of THIS container,
     # so it needs a ceiling. Descriptors are also capped per child at spawn time
     # and this is the backstop for a fleet of them; memory is capped ONLY here.

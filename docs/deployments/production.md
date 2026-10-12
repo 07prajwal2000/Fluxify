@@ -642,10 +642,11 @@ that is a compose service, so `--remove-orphans` leaves it alone.
   too, and a project with a subdomain answers these paths on that subdomain
   only. Sandboxes,
   the playground and `call_route` use your address, so they need no setting.
-- **Its own address (optional).** Set `DEV_WORKER_URL` in `.env` only if the
-  development worker is reached somewhere other than your normal address, for
-  example `https://dev.example.com`. Leave it unset otherwise. It is read by
-  admin; the worker ignores it.
+- **How admin reaches it (optional).** The admin calls development workers only
+  through Traefik (`PROXY_URL=http://traefik`, set in the compose file) and lets
+  Traefik pick the worker pool by `Host`; it never calls a single worker. Leave
+  `PROXY_URL` unset to have admin call the project's own public address instead.
+  It is read by admin; the worker ignores it.
 - **Its settings are fixed.** It gets the NATS, Valkey and encryption-key
   settings from your `.env`, and nothing else; in particular no database
   address.
