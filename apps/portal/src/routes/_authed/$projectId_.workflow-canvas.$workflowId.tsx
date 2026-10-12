@@ -7,6 +7,7 @@ import { WorkflowWorkbenchTabs } from "@/components/routes/RouteWorkbenchTabs";
 import { SettingsSplitButton } from "@/components/sandboxes/SettingsSplitButton";
 import { CommitControls } from "@/components/versions/CommitControls";
 import { ProductionChip } from "@/components/versions/ProductionChip";
+import { useTargetSpotlight } from "@/components/versions/useTargetSpotlight";
 import { WorkflowRunButton, WorkflowRunModal } from "@/components/workflows/WorkflowRunModal";
 import { WorkflowSettingsModal } from "@/components/workflows/WorkflowSettingsModal";
 import { WorkflowSwitcher } from "@/components/workflows/WorkflowSwitcher";
@@ -60,6 +61,21 @@ function WorkflowCanvasPage() {
 	const [runOpen, setRunOpen] = useState(false);
 	const canEdit = useCanEditProject(projectId);
 
+	// the canvas command palette's own actions for this target (#739)
+	const spotlight = useTargetSpotlight({
+		kind: "workflow",
+		id: workflowId,
+		projectId,
+		name: workflow?.name || "Untitled",
+		goToHistory: () =>
+			navigate({
+				to: "/$projectId/workflow-canvas/$workflowId/versions",
+				params: { projectId, workflowId },
+			}),
+		openSandbox: (sandboxId) =>
+			navigate({ to: "/$projectId/sandbox-canvas/$sandboxId", params: { projectId, sandboxId } }),
+	});
+
 	return (
 		<>
 			<CanvasWorkbench
@@ -69,6 +85,7 @@ function WorkflowCanvasPage() {
 				focusBlock={block ? { blockId: block, error } : undefined}
 				readOnly={!canEdit}
 				items={workflowsQuery.canvasItems.useQuery(workflowId)}
+				spotlightCommands={spotlight.commands}
 				compileTarget={{ projectId, resourceType: "workflow", resourceId: workflowId }}
 				reload={() => workflowsService.getCanvasItems(workflowId)}
 				getRevision={() => workflowsService.getCanvasRevision(workflowId)}
@@ -130,6 +147,7 @@ function WorkflowCanvasPage() {
 					onOpenChange={setRunOpen}
 				/>
 			)}
+			{spotlight.dialogs}
 		</>
 	);
 }

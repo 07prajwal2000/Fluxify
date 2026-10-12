@@ -27,6 +27,8 @@ export function ProductionChip({
 		<Link
 			to={to as never}
 			params={params as never}
+			// land on the Production tab, so the click answers "which version is live"
+			search={{ tab: "production" } as never}
 			title={
 				prodVersionNumber
 					? `Production serves v${prodVersionNumber}. Open the production history`

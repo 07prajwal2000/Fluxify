@@ -3,7 +3,7 @@ import { useCanvasActions } from "./actions";
 import type { BlockType } from "./blocks";
 import { CanvasContextMenu, type CanvasContextMenuState, type MenuPosition } from "./contextMenu";
 import { CanvasKeyboardLayer, KeyboardShortcutsModal, useKeyboardShortcuts } from "./keyboard";
-import { CanvasSpotlight, useSpotlightCommands } from "./spotlight";
+import { CanvasSpotlight, type SpotlightCommand, useSpotlightCommands } from "./spotlight";
 
 export type CanvasCommandsProps = {
 	readOnly: boolean;
@@ -19,6 +19,8 @@ export type CanvasCommandsProps = {
 	onAddBlockType?: (type: BlockType) => void;
 	enablePlayground?: boolean;
 	onOpenPlayground?: () => void;
+	/** page-owned spotlight commands, e.g. this target's version history/commit/sandbox (#739) */
+	extraCommands?: SpotlightCommand[];
 };
 
 /**
@@ -41,6 +43,7 @@ export function CanvasCommands({
 	onAddBlockType,
 	enablePlayground,
 	onOpenPlayground,
+	extraCommands,
 }: CanvasCommandsProps) {
 	const [spotlightOpen, setSpotlightOpen] = useState(false);
 	const shortcuts = useKeyboardShortcuts();
@@ -63,6 +66,7 @@ export function CanvasCommands({
 		onOpenPlayground,
 		onOpenShortcuts: shortcuts.open,
 		onClose: () => setSpotlightOpen(false),
+		extraCommands,
 	});
 
 	return (

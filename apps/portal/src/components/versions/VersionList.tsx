@@ -126,11 +126,17 @@ export function VersionList({
 					<button
 						type="button"
 						onClick={onOpenCanvas}
-						className="flex w-full items-center gap-2 border-b border-border px-4 py-3 text-left text-sm hover:bg-surface-secondary"
+						className="group flex w-full items-center gap-2 border-b border-border px-4 py-3 text-left text-sm hover:bg-surface-secondary"
 					>
 						<span className="size-2 shrink-0 rounded-full bg-warning" />
 						<span className="font-medium">Uncommitted changes</span>
-						<span className="ml-auto text-xs text-muted">Open canvas</span>
+						{/* HEAD belongs here while the canvas has work no version holds (#738) */}
+						<span className="rounded-md bg-accent/10 px-1.5 py-0.5 text-[11px] font-medium text-accent">
+							HEAD
+						</span>
+						<span className="ml-auto text-xs font-medium text-accent underline underline-offset-2 group-hover:no-underline">
+							Open canvas
+						</span>
 					</button>
 				</li>
 			)}
@@ -155,9 +161,9 @@ export function VersionList({
 									In production
 								</span>
 							)}
-							{version.isHead && (
+							{version.isHead && !uncommitted && (
 								<span className="rounded-md bg-accent/10 px-1.5 py-0.5 text-[11px] font-medium text-accent">
-									Current
+									HEAD
 								</span>
 							)}
 						</span>

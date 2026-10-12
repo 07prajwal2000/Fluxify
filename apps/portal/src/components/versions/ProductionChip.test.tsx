@@ -12,14 +12,22 @@ mock.module("@tanstack/react-router", () => ({
 	Link: ({
 		to,
 		params,
+		search,
 		children,
 		...rest
 	}: {
 		to: string;
 		params: object;
+		search?: object;
 		children: ReactNode;
 	}) => (
-		<a href={`${to}?${new URLSearchParams(params as Record<string, string>)}`} {...rest}>
+		<a
+			href={`${to}?${new URLSearchParams({
+				...(params as Record<string, string>),
+				...(search as Record<string, string>),
+			})}`}
+			{...rest}
+		>
 			{children}
 		</a>
 	),
@@ -67,6 +75,8 @@ test("a promoted route shows Prod vN, linking to the history", async () => {
 	await until(() => view.getByText("Prod v3"));
 	const link = view.getByText("Prod v3").closest("a");
 	expect(link?.getAttribute("href")).toContain("versions");
+	// it opens the Production tab, so the click shows which version is live (#739)
+	expect(link?.getAttribute("href")).toContain("tab=production");
 });
 
 test("an unpromoted route says so", async () => {

@@ -14,6 +14,8 @@ export const gateSchema = z.object({
 	status: z.enum(["passed", "failed", "warning", "skipped"]),
 	message: z.string(),
 	items: z.array(z.string()).optional(),
+	/** the tests gate's run, so the failed checks can be opened (#739) */
+	runId: z.string().optional(),
 });
 
 export const deploymentSchema = z.object({

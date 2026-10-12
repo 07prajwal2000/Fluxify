@@ -9,6 +9,7 @@ import type { Replay } from "@/components/recordings/replay";
 import { RouteSettingsModal } from "@/components/routes/RouteSettingsModal";
 import { RouteSwitcher } from "@/components/routes/RouteSwitcher";
 import { RouteWorkbenchHeader, RouteWorkbenchTabs } from "@/components/routes/RouteWorkbenchTabs";
+import { ProductionChip } from "@/components/versions/ProductionChip";
 import { createRouteHead, usePageTitle } from "@/lib/seo";
 import { routesQuery } from "@/query/routesQuery";
 import { routesService } from "@/services/routes";
@@ -67,6 +68,7 @@ function RouteExecutionsPage() {
 				<RouteSwitcher projectId={projectId} routeId={routeId} />
 				<RouteWorkbenchTabs projectId={projectId} routeId={routeId} />
 				<div className="ml-auto flex items-center gap-2">
+					<ProductionChip kind="route" id={routeId} projectId={projectId} />
 					<Button
 						variant="outline"
 						onPress={() => {

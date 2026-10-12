@@ -17,6 +17,7 @@ import { extractPathParams } from "@/components/routes/routeForm";
 import { SettingsSplitButton } from "@/components/sandboxes/SettingsSplitButton";
 import { CommitControls } from "@/components/versions/CommitControls";
 import { ProductionChip } from "@/components/versions/ProductionChip";
+import { useTargetSpotlight } from "@/components/versions/useTargetSpotlight";
 import { createRouteHead, usePageTitle } from "@/lib/seo";
 import { useProjectPackageTypes } from "@/query/projectPackagesQuery";
 import { routesQuery } from "@/query/routesQuery";
@@ -87,6 +88,18 @@ function RouteCanvasPage() {
 
 	const items = routesQuery.canvasItems.useQuery(routeId);
 
+	// the canvas command palette's own actions for this target (#739)
+	const spotlight = useTargetSpotlight({
+		kind: "route",
+		id: routeId,
+		projectId,
+		name: route?.name || `${route?.method.toUpperCase()} ${route?.path}`,
+		goToHistory: () =>
+			navigate({ to: "/$projectId/canvas/$routeId/versions", params: { projectId, routeId } }),
+		openSandbox: (sandboxId) =>
+			navigate({ to: "/$projectId/sandbox-canvas/$sandboxId", params: { projectId, sandboxId } }),
+	});
+
 	return (
 		<>
 			<CanvasWorkbench
@@ -97,6 +110,7 @@ function RouteCanvasPage() {
 				focusBlock={block ? { blockId: block, error } : undefined}
 				readOnly={!canEdit}
 				items={items}
+				spotlightCommands={spotlight.commands}
 				compileTarget={{ projectId, resourceType: "route", resourceId: routeId }}
 				playgroundContent={
 					<RouteApiPlayground key={routeId} routeId={routeId} isFramed={false} enableCache />
@@ -152,6 +166,7 @@ function RouteCanvasPage() {
 					readOnly={!canEdit}
 				/>
 			)}
+			{spotlight.dialogs}
 		</>
 	);
 }

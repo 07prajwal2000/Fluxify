@@ -4,6 +4,7 @@ import { TbCopy, TbDotsVertical, TbPlayerPlay, TbPlus, TbSearch, TbTrash } from 
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EnvPicker, type RunEnv } from "@/components/common/EnvPicker";
 import { RouteWorkbenchHeader } from "@/components/routes/RouteWorkbenchTabs";
+import { ProductionChip } from "@/components/versions/ProductionChip";
 import { useVersionTarget } from "@/components/versions/useVersionTarget";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { useProjectPackageTypes } from "@/query/projectPackagesQuery";
@@ -326,6 +327,7 @@ export function TestSuitesWorkbench({
 			<RouteWorkbenchHeader>
 				{headerLeft}
 				<div className="ml-auto flex items-center gap-3">
+					<ProductionChip kind={target.type} id={target.id} projectId={projectId} />
 					<span className="text-xs text-muted">
 						{list.length} suite{list.length === 1 ? "" : "s"}
 					</span>

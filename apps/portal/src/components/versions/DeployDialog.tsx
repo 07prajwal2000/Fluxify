@@ -1,4 +1,5 @@
 import { Button, CloseButton, Modal, toast } from "@fluxify/components";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { DeployComment } from "@/components/ai/DeployComment";
 import { parseApiError } from "@/lib/errorNotifier";
@@ -16,12 +17,14 @@ import { GateList } from "./DeploymentGates";
 export function DeployDialog({
 	kind,
 	id,
+	projectId,
 	version,
 	liveVersionNumber,
 	onClose,
 }: {
 	kind: VersionKind;
 	id: string;
+	projectId: string;
 	version: Version;
 	/** production's version now; a smaller number makes this a rollback */
 	liveVersionNumber: number | null;
@@ -41,12 +44,18 @@ export function DeployDialog({
 
 	const notified = useRef(false);
 	const status = deployment?.status;
+	const queryClient = useQueryClient();
+	const group = kind === "route" ? "routes" : "workflows";
 	useEffect(() => {
 		if (!deployment || status === "pending" || notified.current) return;
 		notified.current = true;
 		if (status === "live") toast.success("Live in production");
 		else toast.danger("The checks failed; production is unchanged");
-	}, [deployment, status]);
+		// the log and the badges only move once the gates have settled
+		void queryClient.invalidateQueries({ queryKey: [group, id, "deployments"] });
+		void queryClient.invalidateQueries({ queryKey: [group, id, "versions"] });
+		void queryClient.invalidateQueries({ queryKey: [group, id, "by-id"] });
+	}, [deployment, status, queryClient, group, id]);
 
 	function close() {
 		// keep watching a pending deployment so the person hears how it ends
@@ -104,7 +113,7 @@ export function DeployDialog({
 												? `v${version.versionNumber} is live in production.`
 												: `v${version.versionNumber} could not go live. Production is unchanged.`}
 									</p>
-									<GateList kind={kind} deployment={deployment} />
+									<GateList kind={kind} id={id} projectId={projectId} deployment={deployment} />
 								</>
 							)}
 						</Modal.Body>

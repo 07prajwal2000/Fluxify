@@ -8,6 +8,7 @@ import {
 	RouteWorkbenchHeader,
 	WorkflowWorkbenchTabs,
 } from "@/components/routes/RouteWorkbenchTabs";
+import { ProductionChip } from "@/components/versions/ProductionChip";
 import { WorkflowRunButton, WorkflowRunModal } from "@/components/workflows/WorkflowRunModal";
 import { WorkflowSettingsModal } from "@/components/workflows/WorkflowSettingsModal";
 import { WorkflowSwitcher } from "@/components/workflows/WorkflowSwitcher";
@@ -71,6 +72,7 @@ function WorkflowExecutionsPage() {
 				<WorkflowSwitcher projectId={projectId} workflowId={workflowId} />
 				<WorkflowWorkbenchTabs projectId={projectId} workflowId={workflowId} />
 				<div className="ml-auto flex items-center gap-2">
+					<ProductionChip kind="workflow" id={workflowId} projectId={projectId} />
 					<WorkflowRunButton
 						projectId={projectId}
 						active={!!workflow?.active}

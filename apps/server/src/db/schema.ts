@@ -534,6 +534,8 @@ export type GateResult = {
 	message: string;
 	/** what the message is about, e.g. the integrations with no production value */
 	items?: string[];
+	/** the tests gate's run, so the failed checks can be opened (#739) */
+	runId?: string;
 };
 
 /**

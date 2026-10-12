@@ -23,6 +23,12 @@ export const deploymentsQuery = {
 				queryFn: () => deploymentsService.list(kind, id),
 				enabled: Boolean(id),
 				refetchOnWindowFocus: false,
+				// while a deployment's gates run, keep the log current so a row
+				// does not sit on "Pending" after it has already gone live (#739)
+				refetchInterval: (query) =>
+					query.state.data?.deployments.some((deployment) => deployment.status === "pending")
+						? DEPLOY_POLL_MS
+						: false,
 			});
 		},
 	},

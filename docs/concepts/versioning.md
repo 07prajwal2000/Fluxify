@@ -144,15 +144,15 @@ The canvas header of a route or workflow has a **Commit** button. A small dot si
 
 ### Version history
 
-**Version history** shows the versions of the route or workflow, newest first, with the canvas of the one you pick next to them.
+**Version history** has two tabs — **Versions** (the default) and **Production** — with the canvas of the version you pick on the right.
 
 - Each version shows its number, title, who saved it and how long ago. Hover over the time to see the exact date and hour.
-- The version the working copy came from is tagged **Current**.
+- The version the working copy came from is tagged **HEAD**.
 - The version production serves is tagged **In production**.
-- At the top is a **Production** panel: the version that is live, and the promote/roll back log. See [The production panel](#the-production-panel).
-- If the working copy has uncommitted changes, the top of the list says **Uncommitted changes**. Select it to go back to the canvas and commit them.
+- The **Production** tab names the version that is live and lists the promote/roll back log. See [The production tab](#the-production-tab).
+- If the working copy has uncommitted changes, the top of the list says **Uncommitted changes**, carries the **HEAD** tag instead (no version does), and links back to the canvas to commit them.
 - The canvas on the right is read-only. You can open a block to read its settings, but nothing can be changed or saved. The path, method, schemas, timeout and middlewares of that version are shown beside it, also read-only.
-- **Back to canvas** takes you to the working copy.
+- **Back to canvas** takes you to the working copy. The settings panel beside the version can be collapsed with the toggle at the right of the header.
 - A route or workflow with no versions yet says "No versions yet. Commit to save the first one."
 
 ### The version menu
@@ -199,19 +199,26 @@ Running the tests can take a while, so with suites the promote stays **pending**
 
 If another promote or roll back is already running for the route or workflow, the dialog says **"A deployment is already in progress"** and nothing changes.
 
-### The production panel
+### The production tab
 
-The **Production** panel sits at the top of **Version history**. It names the version that is live, or says **Not in production yet**, and lists every promote and roll back, newest first:
+The **Production** tab of **Version history** names the version that is live, or says **Not in production yet**, and lists every promote and roll back, newest first:
 
-- The version number, whether it was a **Promote** or a **Rollback**, and its result (**Live**, **Failed**, or **Pending**).
-- The description and who did it.
-- For a failure, **Show failed checks** opens the checks with their reasons.
-
-Select **Production** to collapse or open the panel.
+- The version number, whether it was a **Promote** or a **Rollback**, and its result.
+- Only the promote or roll back serving production now says **Live**; an earlier successful one says **Promoted** or **Rolled back**. A run in progress says **Pending**, and a failed one says **Failed**.
+- The description, who did it, and how long ago. Hover over the time to see the exact date and hour.
+- For a failure, **Show failed checks** opens the checks with their reasons. A failed **Tests** check links straight to that run's results.
 
 ### The production chip
 
-On a route's or workflow's canvas, a small chip in the header shows **Prod vN** for the live version, or **Not in production**. Select it to open the version history, where you can promote another version.
+On a route's or workflow's canvas, and on its Tests, Executions and Versions pages, a small chip in the header shows **Prod vN** for the live version, or **Not in production**. Select it to open the history on its **Production** tab.
+
+### From the command palette
+
+On the canvas, open the command palette (Cmd/Ctrl+K or Cmd/Ctrl+Space) for this route's or workflow's own actions:
+
+- **Go to version history** — opens the history.
+- **Commit…** — opens the commit dialog, saving unsaved edits first.
+- **Open in sandbox** — copies the canvas into a new sandbox. Creators and project admins only.
 
 ### Viewing a version's recordings
 

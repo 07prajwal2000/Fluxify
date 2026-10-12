@@ -40,7 +40,7 @@ const deployment = (extra: object = {}) => ({
 	description: "Health fix",
 	author: "Ada",
 	authorEmail: "ada@x.io",
-	status: "failed",
+	status: "failed" as const,
 	gates: [
 		{ gate: "compile", status: "passed", message: "The version compiles" },
 		{ gate: "tests", status: "failed", message: "1 suite failed" },
@@ -67,9 +67,17 @@ function mount(versions: ReturnType<typeof version>[]) {
 		<QueryClientProvider
 			client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
 		>
-			<ProductionPanel kind="route" id="r1" versions={versions} />
+			<ProductionPanel kind="route" id="r1" projectId="p1" versions={versions} />
 		</QueryClientProvider>,
 	);
+}
+
+function row(n: number) {
+	const found = [
+		...document.body.querySelectorAll('ul[aria-label="Production history"] > li'),
+	].find((li) => li.textContent?.includes(`v${n}`));
+	if (!found) throw new Error(`no row v${n}`);
+	return found;
 }
 
 test("the live version is named, and the log lists each promote", async () => {
@@ -85,6 +93,85 @@ test("the live version is named, and the log lists each promote", async () => {
 	expect(history).toContain("Promote");
 	expect(history).toContain("Health fix");
 	expect(history).toContain("Failed");
+});
+
+test("only the deployment serving production now says Live", async () => {
+	list().mockResolvedValue({
+		deployments: [
+			// newest first: v2 is live now (a rollback to v1 happened before)
+			deployment({ id: "d2", versionId: "v2", versionNumber: 2, status: "live" }),
+			deployment({
+				id: "d1",
+				versionId: "v3",
+				versionNumber: 3,
+				action: "rollback",
+				status: "live",
+			}),
+		],
+	} as never);
+	mount([version(2, true), version(1, false)]);
+	await until(() => row(2));
+	expect(row(2).textContent).toContain("Live");
+	// the earlier successful rollback is not "Live"; it says what it did
+	expect(row(3).textContent).not.toContain("Live");
+	expect(row(3).textContent).toContain("Rolled back");
+});
+
+test("a past successful promote reads as Promoted", async () => {
+	list().mockResolvedValue({
+		deployments: [
+			deployment({ id: "d2", versionId: "v2", versionNumber: 2, status: "live" }),
+			deployment({ id: "d1", versionId: "v3", versionNumber: 3, status: "live" }),
+		],
+	} as never);
+	mount([version(2, true)]);
+	await until(() => row(3));
+	expect(row(3).textContent).toContain("Promoted");
+	expect(row(3).textContent).not.toContain("Live");
+});
+
+test("the row's time carries the exact moment on hover", async () => {
+	list().mockResolvedValue({ deployments: [deployment()] } as never);
+	mount([version(2, true)]);
+	await until(() => row(2));
+	expect(row(2).querySelector("time")?.getAttribute("title")).toBeTruthy();
+});
+
+test("a failed tests gate links straight to the run", async () => {
+	list().mockResolvedValue({
+		deployments: [
+			deployment({
+				id: "d1",
+				status: "failed",
+				gates: [
+					{ gate: "compile", status: "passed", message: "The version compiles" },
+					{
+						gate: "tests",
+						status: "failed",
+						message: "1 suite failed",
+						runId: "run-42",
+					},
+				],
+			}),
+		],
+	} as never);
+	mount([version(2, true)]);
+	const expander = await until(() => {
+		const found = [...document.body.querySelectorAll("button")].find(
+			(b) => b.textContent?.trim() === "Show failed checks",
+		);
+		if (!found) throw new Error("no expander yet");
+		return found;
+	});
+	fireEvent.click(expander);
+	const link = await until(() => {
+		const found = [...document.body.querySelectorAll("a")].find(
+			(a) => a.textContent?.trim() === "Open the failed tests",
+		);
+		if (!found) throw new Error("no link yet");
+		return found;
+	});
+	expect(link.getAttribute("href")).toContain("runId=run-42");
 });
 
 test("a failed promote keeps its reasons, behind an expander", async () => {

@@ -42,11 +42,12 @@ function mount(
 	versions: ReturnType<typeof version>[],
 	canEdit = true,
 	liveVersionNumber: number | null = null,
+	uncommitted = false,
 ) {
 	return render(
 		<VersionList
 			versions={versions}
-			uncommitted={false}
+			uncommitted={uncommitted}
 			selectedId={undefined}
 			canEdit={canEdit}
 			liveVersionNumber={liveVersionNumber}
@@ -55,6 +56,12 @@ function mount(
 			onAction={() => {}}
 		/>,
 	);
+}
+
+function row(n: number) {
+	return [...document.body.querySelectorAll('ul[aria-label="Versions"] > li')].find((li) =>
+		li.textContent?.includes(`v${n}`),
+	)!;
 }
 
 async function openMenu(n: number) {
@@ -79,6 +86,26 @@ const queryMenuItem = (name: string) => {
 	);
 	return found ?? null;
 };
+
+test("the head version carries a HEAD badge while the canvas is clean", () => {
+	mount([version(2, { isHead: true }), version(1)]);
+	expect(row(2).textContent).toContain("HEAD");
+	expect(row(1).textContent).not.toContain("HEAD");
+});
+
+test("HEAD moves to the uncommitted row while there is uncommitted work", () => {
+	mount([version(2, { isHead: true }), version(1)], true, null, true);
+	// no version holds HEAD; the uncommitted row does
+	expect(row(2).textContent).not.toContain("HEAD");
+	const card = [...document.body.querySelectorAll("button")].find((b) =>
+		b.textContent?.includes("Uncommitted changes"),
+	)!;
+	expect(card.textContent).toContain("HEAD");
+	// and its "Open canvas" reads as a link
+	const open = [...card.querySelectorAll("span")].find((s) => s.textContent === "Open canvas")!;
+	expect(open.className).toContain("underline");
+	expect(open.className).toContain("text-accent");
+});
 
 test("the live version carries an In production badge", () => {
 	mount([version(2), version(1, { isProd: true })], true, 1);

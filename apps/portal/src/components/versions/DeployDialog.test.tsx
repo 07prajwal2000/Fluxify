@@ -78,6 +78,7 @@ function mount(liveVersionNumber: number | null = null, versionNumber = 2) {
 			<DeployDialog
 				kind="route"
 				id="r1"
+				projectId="p1"
 				version={version(versionNumber)}
 				liveVersionNumber={liveVersionNumber}
 				onClose={() => {}}

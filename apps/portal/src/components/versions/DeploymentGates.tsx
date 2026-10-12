@@ -1,5 +1,7 @@
 import { cn } from "@fluxify/components";
+import type { ReactNode } from "react";
 import { TbAlertTriangle, TbCheck, TbLoader2, TbMinus, TbX } from "react-icons/tb";
+import { withBasePath } from "@/constants/routes";
 import type { Deployment, DeploymentGate } from "@/services/deployments";
 import type { VersionKind } from "@/services/versions";
 
@@ -46,11 +48,14 @@ function GateRow({
 	status,
 	message,
 	items,
+	link,
 }: {
 	gate: GateKey;
 	status: GateStatus;
 	message?: string;
 	items?: string[];
+	/** a follow-up link under the row, e.g. the tests gate's failed run */
+	link?: ReactNode;
 }) {
 	return (
 		<li className="flex flex-col gap-1">
@@ -72,17 +77,33 @@ function GateRow({
 					))}
 				</ul>
 			)}
+			{link}
 		</li>
 	);
 }
 
 /**
  * The gate list for a deployment. While it is pending every gate shows a
- * spinner; once it settles each row carries its own outcome and message.
+ * spinner; once it settles each row carries its own outcome and message. A
+ * failed tests gate links straight to the run whose checks failed (#739).
  */
-export function GateList({ kind, deployment }: { kind: VersionKind; deployment?: Deployment }) {
+export function GateList({
+	kind,
+	id,
+	projectId,
+	deployment,
+}: {
+	kind: VersionKind;
+	id: string;
+	projectId: string;
+	deployment?: Deployment;
+}) {
 	const pending = !deployment || deployment.status === "pending";
 	const byGate = new Map((deployment?.gates ?? []).map((gate) => [gate.gate, gate]));
+	const suitePath =
+		kind === "route"
+			? `/${projectId}/canvas/${id}/test-suites`
+			: `/${projectId}/workflow-canvas/${id}/test-suites`;
 	return (
 		<ul aria-label="Promote checks" className="flex flex-col gap-2">
 			{gateKeys(kind).map((gate) => {
@@ -94,6 +115,16 @@ export function GateList({ kind, deployment }: { kind: VersionKind; deployment?:
 						status={pending ? "pending" : (result?.status ?? "skipped")}
 						message={result?.message}
 						items={result?.items}
+						link={
+							gate === "tests" && result?.runId ? (
+								<a
+									href={withBasePath(`${suitePath}?runId=${result.runId}`)}
+									className="ml-6 w-fit text-xs font-medium text-accent hover:underline"
+								>
+									Open the failed tests
+								</a>
+							) : undefined
+						}
 					/>
 				);
 			})}

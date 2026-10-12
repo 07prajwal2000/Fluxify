@@ -43,6 +43,7 @@ const { middlewaresService } = await import("@/services/middlewares");
 const { sandboxesService } = await import("@/services/sandboxes");
 const { deploymentsService } = await import("@/services/deployments");
 const { VersionHistory } = await import("./VersionHistory");
+type VersionTab = "versions" | "production";
 
 afterEach(cleanup);
 afterAll(() => GlobalRegistrator.unregister());
@@ -129,7 +130,14 @@ function stub(options: { versions: ReturnType<typeof version>[]; uncommitted?: b
 	spyOn(deploymentsService, "list").mockResolvedValue({ deployments: [] } as never);
 }
 
-function renderHistory() {
+function renderHistory(
+	options: {
+		tab?: VersionTab;
+		settingsOpen?: boolean;
+		onOpenSandbox?: (sandboxId: string) => void;
+		onViewRecordings?: (versionId: string) => void;
+	} = {},
+) {
 	const back = mock(() => undefined);
 	const view = render(
 		<QueryClientProvider
@@ -139,8 +147,12 @@ function renderHistory() {
 				kind="route"
 				id="r1"
 				projectId="p1"
+				tab={options.tab ?? "versions"}
+				onTabChange={() => undefined}
+				settingsOpen={options.settingsOpen ?? true}
 				onBackToCanvas={back}
-				onOpenSandbox={() => undefined}
+				onOpenSandbox={options.onOpenSandbox ?? (() => undefined)}
+				onViewRecordings={options.onViewRecordings}
 			/>
 		</QueryClientProvider>,
 	);
@@ -170,12 +182,26 @@ test("lists the versions newest first, tags the head, and falls back to the emai
 
 	const items = [...document.body.querySelectorAll('ul[aria-label="Versions"] > li')];
 	expect(items.map((li) => li.textContent?.match(/v\d/)?.[0])).toEqual(["v3", "v2", "v1"]);
-	expect(items[1]?.textContent).toContain("Current");
-	expect(items[0]?.textContent).not.toContain("Current");
+	expect(items[1]?.textContent).toContain("HEAD");
+	expect(items[0]?.textContent).not.toContain("HEAD");
 	expect(items[0]?.textContent).toContain("gone@x.io");
 	expect(items[1]?.textContent).toContain("Ada");
 	// the full time is on hover
 	expect(items[1]?.querySelector("time")?.getAttribute("title")).toBeTruthy();
+});
+
+test("versions and production are separate tabs", async () => {
+	stub({ versions: [version(1, { isHead: true })] });
+	const { view } = renderHistory();
+	await until(() => view.getByText("Title 1"));
+	expect(view.getByText("Versions")).toBeTruthy();
+	expect(view.getByText("Production")).toBeTruthy();
+});
+
+test("the Production tab names what production serves", async () => {
+	stub({ versions: [version(2, { isProd: true }), version(1)] });
+	renderHistory({ tab: "production" });
+	await until(() => expect(document.body.textContent).toContain("In production: v2 · Title 2"));
 });
 
 test("work no version holds shows as a row that leads back to the canvas", async () => {
@@ -184,6 +210,18 @@ test("work no version holds shows as a row that leads back to the canvas", async
 	await until(() => view.getByText("Uncommitted changes"));
 	fireEvent.click(view.getByText("Uncommitted changes"));
 	expect(back).toHaveBeenCalled();
+});
+
+test("HEAD moves to the uncommitted row while there is uncommitted work", async () => {
+	stub({ versions: [version(1, { isHead: true })], uncommitted: true });
+	const { view } = renderHistory();
+	await until(() => view.getByText("Uncommitted changes"));
+	const items = [...document.body.querySelectorAll('ul[aria-label="Versions"] > li')];
+	// no version carries HEAD; the uncommitted row does
+	expect(items.some((li) => li.textContent?.includes("HEAD"))).toBe(true);
+	const versionRow = items.find((li) => li.textContent?.includes("v1"))!;
+	expect(versionRow.textContent).not.toContain("HEAD");
+	expect(view.getByText("Uncommitted changes").closest("button")?.textContent).toContain("HEAD");
 });
 
 test("shows no uncommitted row when the working copy is clean", async () => {
@@ -212,6 +250,15 @@ test("the head opens first, read-only: no Save, and its settings are shown as te
 	expect(view.getByLabelText("Version settings").querySelector("input, textarea")).toBeNull();
 	// the canvas has drawn the version's two blocks
 	await until(() => expect(document.body.querySelectorAll(".react-flow__node")).toHaveLength(2));
+});
+
+test("the settings sidebar collapses without losing the version view", async () => {
+	stub({ versions: [version(2, { isHead: true })] });
+	const { view } = renderHistory({ settingsOpen: false });
+	// the canvas is still drawn
+	await until(() => expect(document.body.querySelectorAll(".react-flow__node")).toHaveLength(2));
+	// and the settings panel is gone
+	expect(view.queryByLabelText("Version settings")).toBeNull();
 });
 
 test("the version's canvas is the read-only one: no Save, nothing to drag or undo", async () => {
@@ -282,19 +329,7 @@ test("Open in sandbox copies the chosen version's blocks, not the live canvas", 
 	} as never);
 	const put = spyOn(sandboxesService, "saveCanvas").mockResolvedValue({} as never);
 	const opened = mock((_id: string) => undefined);
-	const view = render(
-		<QueryClientProvider
-			client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
-		>
-			<VersionHistory
-				kind="route"
-				id="r1"
-				projectId="p1"
-				onBackToCanvas={() => undefined}
-				onOpenSandbox={opened}
-			/>
-		</QueryClientProvider>,
-	);
+	const { view } = renderHistory({ onOpenSandbox: opened });
 	await until(() => view.getByText("Title 1"));
 
 	fireEvent.click(button("v1 options"));
@@ -314,7 +349,7 @@ test("Open in sandbox copies the chosen version's blocks, not the live canvas", 
 	expect(payload.changes.blocks.map((b) => b.type)).toEqual(["response"]);
 });
 
-test("the history badges the live version and names production", async () => {
+test("the version list badges the live version", async () => {
 	stub({ versions: [version(2, { isProd: true }), version(1)] });
 	const { view } = renderHistory();
 	await until(() => view.getByText("Title 2"));
@@ -322,26 +357,12 @@ test("the history badges the live version and names production", async () => {
 	const items = [...document.body.querySelectorAll('ul[aria-label="Versions"] > li')];
 	expect(items[0]?.textContent).toContain("In production");
 	expect(items[1]?.textContent).not.toContain("In production");
-	expect(document.body.textContent).toContain("In production: v2 · Title 2");
 });
 
 test("the version menu's View recordings opens that version's runs", async () => {
 	stub({ versions: [version(2, { isProd: true }), version(1)] });
 	const onViewRecordings = mock((_id: string) => undefined);
-	const view = render(
-		<QueryClientProvider
-			client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
-		>
-			<VersionHistory
-				kind="route"
-				id="r1"
-				projectId="p1"
-				onBackToCanvas={() => undefined}
-				onOpenSandbox={() => undefined}
-				onViewRecordings={onViewRecordings}
-			/>
-		</QueryClientProvider>,
-	);
+	const { view } = renderHistory({ onViewRecordings });
 	await until(() => view.getByText("Title 2"));
 	fireEvent.click(button("v2 options"));
 	fireEvent.click(await until(() => view.getByRole("menuitem", { name: "View recordings" })));

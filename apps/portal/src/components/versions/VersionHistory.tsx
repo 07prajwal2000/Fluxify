@@ -1,4 +1,4 @@
-import { Button, Spinner } from "@fluxify/components";
+import { Button, cn, Spinner, Tabs } from "@fluxify/components";
 import { useState } from "react";
 import { TbArrowLeft } from "react-icons/tb";
 import { OpenInSandboxDialog } from "@/components/sandboxes/OpenInSandboxDialog";
@@ -13,6 +13,9 @@ import { useVersionTarget } from "./useVersionTarget";
 import { VersionCanvas, versionItems } from "./VersionCanvas";
 import { type VersionAction, VersionList } from "./VersionList";
 import { VersionSettings } from "./VersionSettings";
+
+/** Which half of the history the left column shows (#739). */
+export type VersionTab = "versions" | "production";
 
 const hasSchema = (schema: unknown) =>
 	!!schema && Object.keys(schema as Record<string, unknown>).length > 0;
@@ -66,11 +69,13 @@ function SelectedVersion({
 	id,
 	projectId,
 	version,
+	settingsOpen,
 }: {
 	kind: VersionKind;
 	id: string;
 	projectId: string;
 	version: Version;
+	settingsOpen: boolean;
 }) {
 	const { data, isLoading, isError } = versionsQuery.get.useQuery(kind, id, version.id);
 	return (
@@ -95,12 +100,19 @@ function SelectedVersion({
 						{/* keyed: each version opens on its own view */}
 						<VersionCanvas key={version.id} snapshot={data.snapshot} />
 					</div>
-					<aside className="w-80 shrink-0 overflow-y-auto border-l border-border">
-						<VersionSettings
-							kind={kind}
-							projectId={projectId}
-							settings={data.snapshot.settings as Record<string, unknown>}
-						/>
+					<aside
+						className={cn(
+							"shrink-0 border-l border-border transition-[width] duration-200",
+							settingsOpen ? "w-80 overflow-y-auto" : "w-0 overflow-hidden border-l-0",
+						)}
+					>
+						{settingsOpen && (
+							<VersionSettings
+								kind={kind}
+								projectId={projectId}
+								settings={data.snapshot.settings as Record<string, unknown>}
+							/>
+						)}
 					</aside>
 				</div>
 			)}
@@ -109,14 +121,18 @@ function SelectedVersion({
 }
 
 /**
- * A route's or workflow's version history (#738): the versions on the left, the
- * chosen one read-only on the right. Check out and Open in sandbox are for
- * creators; anyone with access can read.
+ * A route's or workflow's version history (#738): Versions and Production tabs
+ * on the left, the chosen one read-only on the right. Check out and Open in
+ * sandbox are for creators; anyone with access can read. The right settings
+ * panel collapses from the page header (#739).
  */
 export function VersionHistory({
 	kind,
 	id,
 	projectId,
+	tab,
+	onTabChange,
+	settingsOpen,
 	onBackToCanvas,
 	onOpenSandbox,
 	onViewRecordings,
@@ -124,6 +140,9 @@ export function VersionHistory({
 	kind: VersionKind;
 	id: string;
 	projectId: string;
+	tab: VersionTab;
+	onTabChange: (tab: VersionTab) => void;
+	settingsOpen: boolean;
 	onBackToCanvas: () => void;
 	onOpenSandbox: (sandboxId: string) => void;
 	/** the version menu's "View recordings": opens the executions list filtered to it */
@@ -162,25 +181,52 @@ export function VersionHistory({
 						<TbArrowLeft size={14} /> Back to canvas
 					</Button>
 				</div>
-				<div className="min-h-0 flex-1 overflow-y-auto">
-					<ProductionPanel kind={kind} id={id} versions={versions} />
-					<VersionList
-						versions={versions}
-						uncommitted={uncommitted}
-						selectedId={selected?.id}
-						canEdit={canEdit}
-						liveVersionNumber={liveVersionNumber}
-						onSelect={setPicked}
-						onOpenCanvas={onBackToCanvas}
-						onAction={(type, version) => {
-							if (type === "recordings") onViewRecordings?.(version.id);
-							else setAction({ type, version });
-						}}
-					/>
-				</div>
+				<Tabs
+					selectedKey={tab}
+					onSelectionChange={(key) => onTabChange(key as VersionTab)}
+					variant="secondary"
+					className="flex min-h-0 flex-1 flex-col"
+				>
+					<Tabs.ListContainer className="px-2 pt-2">
+						<Tabs.List aria-label="History">
+							<Tabs.Tab id="versions">
+								Versions
+								<Tabs.Indicator />
+							</Tabs.Tab>
+							<Tabs.Tab id="production">
+								Production
+								<Tabs.Indicator />
+							</Tabs.Tab>
+						</Tabs.List>
+					</Tabs.ListContainer>
+					<Tabs.Panel id="versions" className="min-h-0 flex-1 overflow-y-auto">
+						<VersionList
+							versions={versions}
+							uncommitted={uncommitted}
+							selectedId={selected?.id}
+							canEdit={canEdit}
+							liveVersionNumber={liveVersionNumber}
+							onSelect={setPicked}
+							onOpenCanvas={onBackToCanvas}
+							onAction={(type, version) => {
+								if (type === "recordings") onViewRecordings?.(version.id);
+								else setAction({ type, version });
+							}}
+						/>
+					</Tabs.Panel>
+					<Tabs.Panel id="production" className="min-h-0 flex-1 overflow-y-auto">
+						<ProductionPanel kind={kind} id={id} projectId={projectId} versions={versions} />
+					</Tabs.Panel>
+				</Tabs>
 			</aside>
 			{selected ? (
-				<SelectedVersion kind={kind} id={id} projectId={projectId} version={selected} />
+				<SelectedVersion
+					kind={kind}
+					id={id}
+					projectId={projectId}
+					version={selected}
+					settingsOpen={settingsOpen}
+				/>
 			) : (
 				<div className="flex min-w-0 flex-1 items-center justify-center p-6 text-center text-sm text-muted">
 					No versions yet. Commit to save the first one.
@@ -210,6 +256,7 @@ export function VersionHistory({
 				<DeployDialog
 					kind={kind}
 					id={id}
+					projectId={projectId}
 					version={action.version}
 					liveVersionNumber={liveVersionNumber}
 					onClose={() => setAction(undefined)}
