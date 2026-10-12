@@ -19,6 +19,7 @@ import {
 	getTargetVersion,
 	listTargetVersions,
 } from "../../../modules/versions/service";
+import { NOUN } from "../../../modules/versions/targets";
 import type { HonoServer } from "../../../types";
 import { requireLoggedIn } from "../../auth/middleware";
 
@@ -43,14 +44,22 @@ const failures = (noun: string) => ({
 	},
 });
 
+const TAGS = {
+	route: "Routes",
+	workflow: "Workflows",
+	custom_block: "Custom Blocks",
+	middleware: "Middlewares",
+} as const;
+
 /**
- * Version history for routes and workflows (#738). Registered under `/routes`
- * and `/workflows`, so the two read the same and one place decides who may do
+ * Version history for routes, workflows, custom blocks and middlewares (#738,
+ * #740). Registered under `/routes`, `/workflows`, `/custom-blocks` and
+ * `/middlewares`, so all four read the same and one place decides who may do
  * what: viewers read, creators commit and check out.
  */
 export function registerVersionRoutes(router: HonoServer, kind: CanvasVersionKind) {
-	const noun = kind === "route" ? "Route" : "Workflow";
-	const tags = [kind === "route" ? "Routes" : "Workflows"];
+	const noun = NOUN[kind][0]!.toUpperCase() + NOUN[kind].slice(1);
+	const tags = [TAGS[kind]];
 	const userId = (ctx: { get: (key: "user") => unknown }) =>
 		(ctx.get("user") as { id?: string } | undefined)?.id;
 

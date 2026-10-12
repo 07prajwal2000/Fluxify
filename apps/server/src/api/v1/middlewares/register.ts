@@ -1,8 +1,12 @@
 import { describeRoute, resolver, validator } from "hono-openapi";
 import type z from "zod";
 import zodErrorCallbackParser from "../../../middlewares/zodErrorCallbackParser";
+import { referencesResponseSchema } from "../../../modules/references/dto";
+import { listReferences } from "../../../modules/references/service";
 import type { HonoContext, HonoServer } from "../../../types";
 import { requireLoggedIn, requireProjectAccess } from "../../auth/middleware";
+import { registerDeploymentRoutes } from "../deployments/register";
+import { registerVersionRoutes } from "../versions/register";
 import {
 	createBodySchema,
 	getResponseSchema,
@@ -57,6 +61,22 @@ export default {
 			id,
 			async (ctx) => ctx.json(await service.get(ctx.req.valid("param").id, caller(ctx))),
 		);
+		router.get(
+			"/:id/references",
+			doc(
+				"get-middleware-references",
+				"Everything that uses this middleware: the routes that attach it, in their working copy or their promoted version. Sandboxes are not listed.",
+				referencesResponseSchema,
+			),
+			requireLoggedIn(),
+			id,
+			async (ctx) =>
+				ctx.json(
+					await listReferences("middleware", ctx.req.valid("param").id, ctx.get("acl") || []),
+				),
+		);
+		registerVersionRoutes(router, "middleware");
+		registerDeploymentRoutes(router, "middleware");
 		router.post(
 			"/",
 			doc("create-middleware", "Creates an empty middleware", idResponseSchema),

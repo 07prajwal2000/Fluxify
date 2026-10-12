@@ -494,7 +494,7 @@ describe("gates", () => {
 		expect(res.body.gates.find((g: any) => g.gate === "path").status).toBe("passed");
 	});
 
-	it("warns about custom blocks and middlewares and warns that there are no suites, neither a failure", async () => {
+	it("fails and lists a middleware with no production version, and skips the tests (#740)", async () => {
 		const { as, project } = await setup();
 		const id = await createRoute(as);
 		const v1 = await versioned(as, id, "return 1;");
@@ -505,10 +505,29 @@ describe("gates", () => {
 			WHERE id = ${v1}`;
 
 		const res = await deploy(as, "routes", id, v1);
+		expect(res.body.status).toBe("failed");
+		const byGate = Object.fromEntries(res.body.gates.map((g: any) => [g.gate, g]));
+		expect(byGate.custom_blocks).toMatchObject({
+			status: "failed",
+			items: ['middleware "audit" has no production version'],
+			refs: [{ kind: "middleware", id: middleware, name: "audit" }],
+		});
+		expect(byGate.tests.status).toBe("skipped");
+		expect((await call(as, "GET", `/routes/${id}`)).body.prodVersionId).toBeNull();
+	});
+
+	it("passes with a warning when there are no custom blocks, and warns that there are no suites", async () => {
+		const { as } = await setup();
+		const id = await createRoute(as);
+		const v1 = await versioned(as, id, "return 1;");
+
+		const res = await deploy(as, "routes", id, v1);
 		expect(res.body.status).toBe("live");
 		const byGate = Object.fromEntries(res.body.gates.map((g: any) => [g.gate, g]));
-		expect(byGate.custom_blocks).toMatchObject({ status: "warning", items: ["middleware audit"] });
-		expect(byGate.custom_blocks.message).toContain("current state in production");
+		expect(byGate.custom_blocks).toMatchObject({
+			status: "passed",
+			message: "No custom blocks or middlewares used",
+		});
 		expect(byGate.tests).toMatchObject({
 			status: "warning",
 			message: "No test suites: promoted without tests",

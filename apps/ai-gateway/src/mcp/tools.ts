@@ -343,19 +343,31 @@ export const readTools: McpTool[] = [
 	{
 		name: "get_custom_block",
 		title: "Get custom block",
-		description: "One custom block's inputs and docs. Its code is not included.",
+		description:
+			"One custom block's inputs and docs, which version is live in production (prodVersionNumber), whether the working copy has uncommitted changes, and everything that uses it (references). Its code is not included.",
 		role: "viewer",
 		input: { customBlockId: z.string().describe("Custom block id, from list_custom_blocks") },
-		call: async ({ get }, a) =>
-			pick(await get(`/v1/custom-blocks/${a.customBlockId}`), [
-				"id",
-				"name",
-				"label",
-				"description",
-				"usage",
-				"inputParams",
-				"docs",
-			]),
+		call: async ({ get }, a) => {
+			const [block, used] = await Promise.all([
+				get(`/v1/custom-blocks/${a.customBlockId}`),
+				get(`/v1/custom-blocks/${a.customBlockId}/references`),
+			]);
+			return {
+				...pick(block, [
+					"id",
+					"name",
+					"label",
+					"description",
+					"usage",
+					"inputParams",
+					"docs",
+					"headVersionNumber",
+					"prodVersionNumber",
+					"uncommitted",
+				]),
+				references: used.references,
+			};
+		},
 	},
 	{
 		name: "list_middlewares",
@@ -373,14 +385,26 @@ export const readTools: McpTool[] = [
 	{
 		name: "get_middleware",
 		title: "Get middleware",
-		description: "One middleware and its custom blocks in run order.",
+		description:
+			"One middleware and its custom blocks in run order, which version is live in production (prodVersionNumber), whether the chain has uncommitted changes, and the routes that use it (references).",
 		role: "viewer",
 		input: { middlewareId: z.string().describe("Middleware id, from list_middlewares") },
 		call: async ({ get }, a) => {
-			const m = await get(`/v1/middlewares/${a.middlewareId}`);
+			const [m, used] = await Promise.all([
+				get(`/v1/middlewares/${a.middlewareId}`),
+				get(`/v1/middlewares/${a.middlewareId}/references`),
+			]);
 			return {
-				...pick(m, ["id", "name", "description"]),
+				...pick(m, [
+					"id",
+					"name",
+					"description",
+					"headVersionNumber",
+					"prodVersionNumber",
+					"uncommitted",
+				]),
 				blocks: m.blocks.map((b: any) => pick(b, ["id", "name", "label"])),
+				references: used.references,
 			};
 		},
 	},

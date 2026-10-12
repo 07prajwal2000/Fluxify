@@ -57,6 +57,12 @@ export const listResponseSchema = z.array(
 export const getResponseSchema = middlewareSummary.extend({
 	projectId: z.string(),
 	blocks: z.array(chainBlock),
+	/** the number of the version the working copy came from; null before the first (#740) */
+	headVersionNumber: z.number().int().nullable(),
+	/** the version production runs; null until one is promoted */
+	prodVersionNumber: z.number().int().nullable(),
+	/** the chain has changes no version holds */
+	uncommitted: z.boolean(),
 });
 
 export const routeMiddlewaresResponseSchema = z.object({

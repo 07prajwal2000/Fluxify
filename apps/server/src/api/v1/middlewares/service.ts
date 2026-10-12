@@ -3,10 +3,12 @@ import { eq } from "drizzle-orm";
 import type z from "zod";
 import { db } from "../../../db";
 import { type AuthACL, middlewaresEntity } from "../../../db/schema";
-import { ConflictError } from "../../../errors/conflictError";
 import { ForbiddenError } from "../../../errors/forbidError";
 import { NotFoundError } from "../../../errors/notFoundError";
 import { requestMiddlewareCompile } from "../../../modules/compiler/publisher";
+import { assertNotInUse } from "../../../modules/references/service";
+import { versionNumberOf } from "../../../modules/versions/repository";
+import { hasUncommitted } from "../../../modules/versions/state";
 import { hasProjectAccess } from "../../auth/common";
 import type {
 	createBodySchema,
@@ -26,7 +28,6 @@ import {
 	nameTaken,
 	recompileRoutes,
 	routeCounts,
-	routesUsing,
 	setChain,
 	setRouteMiddlewares,
 } from "./repository";
@@ -75,6 +76,9 @@ export async function get(id: string, caller: Caller): Promise<z.infer<typeof ge
 		name: middleware.name,
 		description: middleware.description,
 		blocks: await getChain(id),
+		headVersionNumber: await versionNumberOf(middleware.headVersionId),
+		prodVersionNumber: await versionNumberOf(middleware.prodVersionId),
+		uncommitted: hasUncommitted(middleware),
 	};
 }
 
@@ -115,14 +119,16 @@ export async function remove(id: string, caller: Caller) {
 	// Refused, not detached for the user (#579): a route artifact names its
 	// middlewares by id, and nothing orders this artifact's drop after those
 	// routes' rebuilds. A route whose rebuild failed would keep naming it and
-	// fail every request.
-	const routes = await routesUsing(id);
-	if (routes.length) {
-		throw new ConflictError(
-			`Remove this middleware from the ${routes.length} route${routes.length === 1 ? "" : "s"} that use it first.`,
+	// fail every request. Production routes count too (#740): a promoted version
+	// can still attach it after the working copy has let go.
+	await db.transaction(async (tx) => {
+		await assertNotInUse(
+			"middleware",
+			{ id, name: middleware.name, projectId: middleware.projectId },
+			tx,
 		);
-	}
-	await db.delete(middlewaresEntity).where(eq(middlewaresEntity.id, id));
+		await tx.delete(middlewaresEntity).where(eq(middlewaresEntity.id, id));
+	});
 	await requestMiddlewareCompile(id, middleware.projectId, "middleware deleted");
 	return { id };
 }

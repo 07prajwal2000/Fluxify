@@ -13,8 +13,15 @@ import { targetTable } from "../versions/repository";
 
 /** Every query in the deployment log goes through here. */
 
+const ownerColumns = {
+	route: deploymentsEntity.routeId,
+	workflow: deploymentsEntity.workflowId,
+	custom_block: deploymentsEntity.customBlockId,
+	middleware: deploymentsEntity.middlewareId,
+} as const;
+
 function ownerColumn(kind: CanvasVersionKind) {
-	return kind === "route" ? deploymentsEntity.routeId : deploymentsEntity.workflowId;
+	return ownerColumns[kind];
 }
 
 export async function insertDeployment(
@@ -38,6 +45,8 @@ export async function insertDeployment(
 			status: "pending",
 			routeId: row.kind === "route" ? targetId : null,
 			workflowId: row.kind === "workflow" ? targetId : null,
+			customBlockId: row.kind === "custom_block" ? targetId : null,
+			middlewareId: row.kind === "middleware" ? targetId : null,
 		})
 		.returning();
 	return created!;
@@ -87,6 +96,8 @@ const withNames = {
 	kind: deploymentsEntity.kind,
 	routeId: deploymentsEntity.routeId,
 	workflowId: deploymentsEntity.workflowId,
+	customBlockId: deploymentsEntity.customBlockId,
+	middlewareId: deploymentsEntity.middlewareId,
 	versionId: deploymentsEntity.versionId,
 	versionNumber: canvasVersionsEntity.versionNumber,
 	action: deploymentsEntity.action,

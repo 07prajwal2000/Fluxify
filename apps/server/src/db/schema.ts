@@ -20,7 +20,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { createSelectSchema } from "drizzle-zod";
 import z from "zod";
-import { CUSTOM_BLOCK_USAGES } from "../lib/customBlockUsage";
+import { CUSTOM_BLOCK_USAGES, type CustomBlockUsage } from "../lib/customBlockUsage";
 import type { ClaimMetadata } from "../modules/orchestrator/claimMetadata";
 import type { DebugError } from "../modules/requestRouter/debugError";
 import { systemUsers } from "./auth-schema";
@@ -63,6 +63,36 @@ const versionHead = () => ({
 		onDelete: "set null",
 	}),
 });
+
+/**
+ * The two owners a version or a deployment can have besides a route or a
+ * workflow (#740). Deleting the block or middleware takes its history with it.
+ */
+const blockOwners = () => ({
+	customBlockId: varchar("custom_block_id", { length: 50 }).references(
+		(): AnyPgColumn => customBlocksListEntity.id,
+		{ onDelete: "cascade" },
+	),
+	middlewareId: varchar("middleware_id", { length: 50 }).references(
+		(): AnyPgColumn => middlewaresEntity.id,
+		{ onDelete: "cascade" },
+	),
+});
+
+/**
+ * A version or a deployment has exactly one owner, and `kind` names it. The
+ * check keeps the two in step, so a row can never point at the wrong table.
+ */
+const oneOwner = (table: {
+	kind: AnyPgColumn;
+	routeId: AnyPgColumn;
+	workflowId: AnyPgColumn;
+	customBlockId: AnyPgColumn;
+	middlewareId: AnyPgColumn;
+}) => sql`(${table.kind} = 'route' and ${table.routeId} is not null and ${table.workflowId} is null and ${table.customBlockId} is null and ${table.middlewareId} is null)
+	or (${table.kind} = 'workflow' and ${table.workflowId} is not null and ${table.routeId} is null and ${table.customBlockId} is null and ${table.middlewareId} is null)
+	or (${table.kind} = 'custom_block' and ${table.customBlockId} is not null and ${table.routeId} is null and ${table.workflowId} is null and ${table.middlewareId} is null)
+	or (${table.kind} = 'middleware' and ${table.middlewareId} is not null and ${table.routeId} is null and ${table.workflowId} is null and ${table.customBlockId} is null)`;
 
 /* ============================================================================
  * 1. GENERAL ENUMS & TYPES
@@ -437,13 +467,13 @@ export const sandboxesEntity = pgTable(
 	(table) => [index("idx_sandboxes_project_user").on(table.projectId, table.userId)],
 );
 
-export const CANVAS_VERSION_KINDS = ["route", "workflow"] as const;
+export const CANVAS_VERSION_KINDS = ["route", "workflow", "custom_block", "middleware"] as const;
 export type CanvasVersionKind = (typeof CANVAS_VERSION_KINDS)[number];
 
 /**
- * What a version keeps of a canvas (#738): the blocks and edges with their ids
- * and keys, and the settings that define the work. Name, description, the
- * on/off switches and observability stay live and are not here.
+ * What a version keeps of a route or workflow canvas (#738): the blocks and
+ * edges with their ids and keys, and the settings that define the work. Name,
+ * description, the on/off switches and observability stay live and are not here.
  */
 export type CanvasSnapshot = {
 	blocks: {
@@ -473,9 +503,30 @@ export type CanvasSnapshot = {
 };
 
 /**
- * A committed version of a route or workflow (#738). Written once and never
- * changed: nothing updates a row here. It goes with its route or workflow, and
- * the author's email stays when the user is gone.
+ * What a custom block's version keeps (#740): its canvas, and the definition
+ * that is not on it: its inputs and where it may run. The name stays live,
+ * because it is the key workers find the block under.
+ */
+export type CustomBlockSnapshot = Omit<CanvasSnapshot, "settings"> & {
+	settings: { inputParams: Record<string, unknown>[] | null; usage: CustomBlockUsage };
+};
+
+/**
+ * What a middleware's version keeps (#740): its chain, the ids of its custom
+ * blocks in run order. It has no canvas, so blocks and edges are always empty.
+ * The name stays live.
+ */
+export type MiddlewareSnapshot = Omit<CanvasSnapshot, "settings"> & {
+	settings: { chain: string[] };
+};
+
+/** What a version row holds, whatever its kind. */
+export type VersionSnapshot = CanvasSnapshot | CustomBlockSnapshot | MiddlewareSnapshot;
+
+/**
+ * A committed version of a route, workflow, custom block or middleware (#738,
+ * #740). Written once and never changed: nothing updates a row here. It goes
+ * with its owner, and the author's email stays when the user is gone.
  */
 export const canvasVersionsEntity = pgTable(
 	"canvas_versions",
@@ -484,17 +535,18 @@ export const canvasVersionsEntity = pgTable(
 			.$defaultFn(() => generateID())
 			.primaryKey(),
 		kind: varchar({ length: 16 }).$type<CanvasVersionKind>().notNull(),
-		/** the target is one of these two, as for test suites; `kind` says which */
+		/** the owner is exactly one of these four; `kind` says which */
 		routeId: varchar("route_id", { length: 50 }).references(() => routesEntity.id, {
 			onDelete: "cascade",
 		}),
 		workflowId: varchar("workflow_id", { length: 50 }).references(() => workflowsEntity.id, {
 			onDelete: "cascade",
 		}),
+		...blockOwners(),
 		projectId: varchar("project_id", { length: 50 })
 			.references(() => projectsEntity.id, { onDelete: "cascade" })
 			.notNull(),
-		/** v1, v2, … per route or workflow */
+		/** v1, v2, … per route, workflow, custom block or middleware */
 		versionNumber: integer("version_number").notNull(),
 		/** the version the working copy came from when this one was committed */
 		parentId: uuid("parent_id").references((): AnyPgColumn => canvasVersionsEntity.id, {
@@ -507,17 +559,18 @@ export const canvasVersionsEntity = pgTable(
 		}),
 		authorEmail: text("author_email"),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
-		snapshot: jsonb("snapshot").$type<CanvasSnapshot>().notNull(),
+		snapshot: jsonb("snapshot").$type<VersionSnapshot>().notNull(),
 	},
 	(table) => [
 		uniqueIndex("uq_canvas_versions_route_number").on(table.routeId, table.versionNumber),
 		uniqueIndex("uq_canvas_versions_workflow_number").on(table.workflowId, table.versionNumber),
-		index("idx_canvas_versions_project_id").on(table.projectId),
-		check(
-			"canvas_versions_one_target",
-			sql`(${table.kind} = 'route' and ${table.routeId} is not null and ${table.workflowId} is null)
-				or (${table.kind} = 'workflow' and ${table.workflowId} is not null and ${table.routeId} is null)`,
+		uniqueIndex("uq_canvas_versions_custom_block_number").on(
+			table.customBlockId,
+			table.versionNumber,
 		),
+		uniqueIndex("uq_canvas_versions_middleware_number").on(table.middlewareId, table.versionNumber),
+		index("idx_canvas_versions_project_id").on(table.projectId),
+		check("canvas_versions_one_target", oneOwner(table)),
 	],
 );
 
@@ -536,12 +589,31 @@ export type GateResult = {
 	items?: string[];
 	/** the tests gate's run, so the failed checks can be opened (#739) */
 	runId?: string;
+	/**
+	 * The things the message is about, with the ids the portal needs to act on
+	 * them (#740): the dependencies with no production version, or the routes and
+	 * workflows whose tests failed.
+	 */
+	refs?: GateRef[];
+};
+
+/** One route, workflow, custom block or middleware a gate names. */
+export type GateRef = {
+	kind: CanvasVersionKind;
+	id: string;
+	name: string;
+	/** a failing suite of that route or workflow */
+	suite?: string;
+	/** why: the first failed check of that suite */
+	reason?: string;
+	/** the run that failed, so its checks can be opened */
+	runId?: string;
 };
 
 /**
  * The log of what went to production (#739): one row per promote or rollback,
- * kept whatever the outcome. It goes with its route or workflow, and the
- * author's email stays when the user is gone.
+ * kept whatever the outcome. It goes with its owner, and the author's email
+ * stays when the user is gone.
  */
 export const deploymentsEntity = pgTable(
 	"deployments",
@@ -550,13 +622,14 @@ export const deploymentsEntity = pgTable(
 			.$defaultFn(() => generateID())
 			.primaryKey(),
 		kind: varchar({ length: 16 }).$type<CanvasVersionKind>().notNull(),
-		/** the target is one of these two, as for versions; `kind` says which */
+		/** the target is exactly one of these four, as for versions; `kind` says which */
 		routeId: varchar("route_id", { length: 50 }).references(() => routesEntity.id, {
 			onDelete: "cascade",
 		}),
 		workflowId: varchar("workflow_id", { length: 50 }).references(() => workflowsEntity.id, {
 			onDelete: "cascade",
 		}),
+		...blockOwners(),
 		projectId: varchar("project_id", { length: 50 })
 			.references(() => projectsEntity.id, { onDelete: "cascade" })
 			.notNull(),
@@ -577,12 +650,10 @@ export const deploymentsEntity = pgTable(
 	(table) => [
 		index("idx_deployments_route").on(table.routeId, table.createdAt.desc()),
 		index("idx_deployments_workflow").on(table.workflowId, table.createdAt.desc()),
+		index("idx_deployments_custom_block").on(table.customBlockId, table.createdAt.desc()),
+		index("idx_deployments_middleware").on(table.middlewareId, table.createdAt.desc()),
 		index("idx_deployments_project_id").on(table.projectId),
-		check(
-			"deployments_one_target",
-			sql`(${table.kind} = 'route' and ${table.routeId} is not null and ${table.workflowId} is null)
-				or (${table.kind} = 'workflow' and ${table.workflowId} is not null and ${table.routeId} is null)`,
-		),
+		check("deployments_one_target", oneOwner(table)),
 	],
 );
 
@@ -1180,6 +1251,8 @@ export const customBlocksListEntity = pgTable(
 		/** #597: +1 on every canvas save, in the same transaction. A save naming an older one is refused. */
 		canvasRevision: integer("canvas_revision").default(0).notNull(),
 		blockKeyCounters: blockKeyCounters(),
+		// #740: development runs this working copy, production its promoted version
+		...versionHead(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		updatedAt: timestamp("updated_at")
 			.defaultNow()
@@ -1212,6 +1285,12 @@ export const middlewaresEntity = pgTable(
 			.notNull(),
 		name: varchar({ length: 255 }).notNull(),
 		description: text(),
+		/**
+		 * +1 whenever the chain changes (#740), like a canvas save on a route: a
+		 * middleware has no canvas, so the chain is what a version holds.
+		 */
+		canvasRevision: integer("canvas_revision").default(0).notNull(),
+		...versionHead(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		updatedAt: timestamp("updated_at")
 			.defaultNow()

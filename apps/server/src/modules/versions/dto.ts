@@ -15,7 +15,7 @@ export const versionParamSchema = z.object({ id: z.uuidv7(), versionId: z.uuidv7
 
 export const versionSchema = z.object({
 	id: z.string(),
-	kind: z.enum(["route", "workflow"]),
+	kind: z.enum(["route", "workflow", "custom_block", "middleware"]),
 	targetId: z.string(),
 	versionNumber: z.number().int(),
 	title: z.string(),

@@ -3,13 +3,13 @@ import type z from "zod";
 import { db } from "../../../../db";
 import { CHAN_ON_CUSTOM_BLOCK_CHANGE, publishMessage } from "../../../../db/redis";
 import type { AuthACL } from "../../../../db/schema";
-import { ConflictError } from "../../../../errors/conflictError";
 import { ForbiddenError } from "../../../../errors/forbidError";
 import { NotFoundError } from "../../../../errors/notFoundError";
 import { dropCustomBlock } from "../../../../modules/compiler/service";
+import { assertNotInUse } from "../../../../modules/references/service";
 import { hasProjectAccess } from "../../../auth/common";
 import type { responseSchema } from "./dto";
-import { deleteCustomBlock, getCustomBlockById, middlewaresUsing } from "./repository";
+import { deleteCustomBlock, getCustomBlockById } from "./repository";
 
 export default async function handleRequest(
 	id: string,
@@ -31,11 +31,13 @@ export default async function handleRequest(
 			throw new ForbiddenError("Cannot delete a custom block originating from a plugin");
 		}
 
-		// #534: the chain row would refuse the delete anyway — say which chains
-		const chains = await middlewaresUsing(id, tx);
-		if (chains.length) {
-			throw new ConflictError(`Remove this block from ${chains.join(", ")} first.`);
-		}
+		// #740: refused while a route, workflow, block, middleware, promoted version or
+		// test hook uses it, and it says which. Sandboxes do not count.
+		await assertNotInUse(
+			"custom_block",
+			{ id, name: existingBlock.name, projectId: existingBlock.projectId! },
+			tx,
+		);
 
 		projectId = existingBlock.projectId!;
 		await deleteCustomBlock(id, tx);

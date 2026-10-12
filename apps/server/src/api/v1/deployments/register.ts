@@ -15,6 +15,7 @@ import {
 	getTargetDeployment,
 	listTargetDeployments,
 } from "../../../modules/deployments/service";
+import { NOUN } from "../../../modules/versions/targets";
 import type { HonoServer } from "../../../types";
 import { requireLoggedIn } from "../../auth/middleware";
 
@@ -39,13 +40,21 @@ const failures = (noun: string) => ({
 	},
 });
 
+const TAGS = {
+	route: "Routes",
+	workflow: "Workflows",
+	custom_block: "Custom Blocks",
+	middleware: "Middlewares",
+} as const;
+
 /**
- * Promote and rollback for routes and workflows (#739), registered under
- * `/routes` and `/workflows`. Viewers read the log; creators deploy.
+ * Promote and rollback for routes, workflows, custom blocks and middlewares
+ * (#739, #740), registered under `/routes`, `/workflows`, `/custom-blocks` and
+ * `/middlewares`. Viewers read the log; creators deploy.
  */
 export function registerDeploymentRoutes(router: HonoServer, kind: CanvasVersionKind) {
-	const noun = kind === "route" ? "Route" : "Workflow";
-	const tags = [kind === "route" ? "Routes" : "Workflows"];
+	const noun = NOUN[kind][0]!.toUpperCase() + NOUN[kind].slice(1);
+	const tags = [TAGS[kind]];
 	const userId = (ctx: { get: (key: "user") => unknown }) =>
 		(ctx.get("user") as { id?: string } | undefined)?.id;
 

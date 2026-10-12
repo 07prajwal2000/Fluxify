@@ -109,7 +109,7 @@ request, runs your code or reaches the internet.
 | `get_route` | One route's settings and request schemas | Viewer |
 | `list_workflows` | A project's workflows | Viewer |
 | `get_workflow` | One workflow's settings | Viewer |
-| `list_versions` | A route's or workflow's [versions](../concepts/versioning.md), newest first, and whether it has uncommitted changes | Viewer |
+| `list_versions` | The [versions](../concepts/versioning.md) of a route, workflow, custom block or middleware, newest first, and whether it has uncommitted changes | Viewer |
 | `get_version` | One version's canvas and settings, read-only | Viewer |
 | `list_triggers` | A project's triggers | Viewer |
 | `get_trigger` | One trigger's settings | Viewer |
@@ -156,7 +156,7 @@ request, runs your code or reaches the internet.
 | `run_sandbox` | Run your sandbox once as a workflow (real) | Creator |
 | `run_blocks` | Try a few blocks, or a saved canvas with `from`, in one call on a development worker and keep nothing: no sandbox, no recording (real). See [Try blocks with an ephemeral run](../agents/recipes/ephemeral-run.md) | Creator |
 | `copy_blocks` | Copy blocks, or a whole canvas, between canvases of one project, such as a route into a new sandbox. See [Debug a route in a sandbox](../agents/recipes/debug-route-in-sandbox.md) | Creator |
-| `commit_version` | Save a route's or workflow's canvas and settings as its next [version](../concepts/versioning.md). It needs a title, and never deploys | Creator |
+| `commit_version` | Save a route's, workflow's or custom block's canvas and settings, or a middleware's chain, as its next [version](../concepts/versioning.md). It needs a title, and never deploys | Creator |
 | `checkout_version` | Bring an earlier version back as the working copy. Uncommitted work is saved first as a new version | Creator |
 | `promote_version` | Put a version live in [production](../concepts/versioning.md#what-production-serves). A person approves it and writes why | Creator |
 | `rollback_version` | Put an older version back live in production. A person approves it and writes why | Creator |

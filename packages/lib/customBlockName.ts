@@ -1,7 +1,7 @@
 /**
  * Project-scoped custom blocks are stored under a namespaced name: the create
  * endpoint prepends this, and the compiled worker's block library is keyed by
- * the stored name (`compiler/service.ts` → `registerLocally`). A canvas that
+ * the stored name (`compiler/customBlocks.ts` → `registerLocally`). A canvas that
  * holds the bare name compiles to "No codegen for block type".
  *
  * Blocks with `sourceType` "inhouse" or "plugin" never go through that endpoint,

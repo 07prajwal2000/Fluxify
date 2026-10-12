@@ -1,11 +1,11 @@
 ---
 title: Versioning
-description: How to save a named version of a route or workflow, look back through its history, bring an earlier version back, and promote a version to production or roll it back.
+description: How to save a named version of a route, workflow, custom block or middleware, look back through its history, bring an earlier version back, and promote a version to production or roll it back.
 ---
 
 # Versioning
 
-A **version** is a named copy of a route or workflow, saved at a moment you choose. Versions give you a history to look back through and a safe way to return to something that worked.
+A **version** is a named copy of a route or workflow, saved at a moment you choose. Versions give you a history to look back through and a safe way to return to something that worked. Custom blocks and middlewares have versions too; see [Custom blocks and middlewares](#custom-blocks-and-middlewares).
 
 Versions are numbered in order for each route or workflow: v1, v2, v3 and so on. Each one has a title, an optional description, the person who saved it and the time.
 
@@ -80,7 +80,7 @@ Production serves one version of each route and workflow: the one you **promoted
 - A route or workflow with no promoted version serves nothing in production, even when its **Production** switch is on. Callers get `404` until you promote one.
 - The switches, the name, recording and tracing are live settings. They apply to production straight away, whichever version is promoted.
 - Triggers start the promoted version of their workflow on production.
-- Custom blocks and middlewares are not versioned yet. Production runs their current state, so changing one changes what production runs.
+- Custom blocks and middlewares have versions too. Production runs the version of each that was promoted, never its latest edit. See [Custom blocks and middlewares](#custom-blocks-and-middlewares).
 
 ### Promoting a version
 
@@ -96,7 +96,7 @@ Production serves one version of each route and workflow: the one you **promoted
 | Compiles | The version still builds. For example, a custom block it used may have been deleted. | Yes |
 | Production values | Every integration and app config key the version's blocks use has a production value. The result lists each one that is missing. | Yes |
 | Path is free | For a route: no other route's promoted version has the same method and path. | Yes |
-| Custom blocks and middlewares | Lists the ones the version uses. They run their current state in production until custom blocks have versions. | No, a warning |
+| Custom blocks and middlewares | Every custom block and middleware the version uses, directly or through another one, is live in production. The result lists each one that is not, with its name. | Yes |
 | Tests | Every test suite of the route or workflow is run against the version you are promoting. See [The tests check](#the-tests-check). | Yes, if any suite fails. A warning if there are no suites. |
 
 ### The tests check
@@ -126,6 +126,62 @@ Every promote and rollback is kept, newest first: the version, whether it was a 
 ### Upgrading from before production versions
 
 Routes and workflows that existed before this feature are not interrupted. Each one starts with a version called **Initial** that holds what it was serving, already live in production. If it already had versions, the new version is called "Live in production at upgrade" and follows the last one. Nothing needs to be done, and production serves exactly what it served before.
+
+Custom blocks and middlewares that existed before they had versions are handled the same way: each starts with an **Initial** version that is already live, so production keeps running exactly what it ran.
+
+## Custom blocks and middlewares
+
+Custom blocks and middlewares have versions, a history and a production version, just like routes and workflows.
+
+**Development always runs a block's latest saved state. Production runs its promoted version.** Editing a custom block, or a middleware's chain, changes development straight away and leaves production alone until you promote a version.
+
+### What a version holds
+
+| Kind | Saved in a version | Stays live |
+| :--- | :--- | :--- |
+| Custom block | Its canvas, its inputs, and where it may run | Its name, label, icon, description and docs |
+| Middleware | The blocks in its chain, in order | Its name and description |
+
+The name stays live because it is how routes find the block.
+
+### It works like a shared library
+
+A custom block or middleware is shared by every route and workflow that uses it. So promoting one, or rolling one back, changes what **every production route and workflow that uses it** does, without promoting any of them.
+
+- Production routes call the block's promoted version. A route you promote later does not pin the block to the version it was tested with.
+- Rolling a route back never touches its blocks, and rolling a block back changes it for everyone who uses it.
+
+### What a promote of a block checks
+
+Promoting a custom block or middleware runs the same checks as any promote, and the tests check works on its users:
+
+- It finds every route and workflow whose **promoted** version uses the block, directly or through other custom blocks or middlewares. Test suites that use the block as a setup, teardown or input hook are included.
+- Each of those runs its own test suites, on its promoted version, with the new block in place. They use your development credentials and values, so nothing touches production data.
+- If any suite fails, the promote fails and production keeps the old version. The result lists each route and suite that failed.
+- If nothing in production uses the block yet, the promote goes through with the warning **"Not used in production yet"**.
+
+A route or workflow you only edited, and have not promoted with the block, is not affected and its suites do not run.
+
+### A route can't go live while its blocks aren't
+
+Before a route or workflow is promoted, every custom block and middleware it uses, and every one those use, must have a promoted version. If one has none, the promote fails and lists each one by name. Promote those first, then promote the route.
+
+The test suites of a route are run with the promoted version of each block, not with the version you are editing. The same goes for a test hook: its promoted version runs in production test runs, so it has to be promoted too.
+
+### Deleting a custom block or middleware
+
+A delete is refused while a route, workflow, custom block, middleware or test suite hook uses it. This includes uses in a promoted version, even if the working copy no longer uses it. The error lists what still uses it.
+
+- Older versions that are not live do not block a delete. Checking one of them out later shows a compile error for the missing block.
+- Sandboxes do not count. A sandbox that uses a deleted block fails when you run it, with the message **Custom block not loaded** and the block's name. Nothing else is affected.
+
+### Where it is used
+
+Each custom block and middleware can list everything that uses it: routes, workflows, other custom blocks, middlewares and test suite hooks, each marked when its promoted version uses it. Sandboxes are not listed. The list is available over the admin API and the AI agent.
+
+::: info
+The portal does not have screens for committing, promoting or listing uses of custom blocks and middlewares yet. Use the admin API or the AI agent for now.
+:::
 
 ## In the portal
 
@@ -190,7 +246,7 @@ The dialog then shows the checks live, one row each, while they run:
 | Compiles | Whether the version still builds |
 | Production values | Whether every integration and app config key has a production value |
 | Production path is free | Routes only: whether another route's live version uses the same method and path |
-| Custom blocks and middlewares | The ones the version uses; a warning, not a stop |
+| Custom blocks and middlewares | Whether everything the version uses is live in production; a failure lists what to promote first |
 | Tests | The result of running every suite against this version |
 
 Each row carries a status: passed, failed, a warning, skipped, or a spinner while it runs. When they all pass the dialog says **Live in production** and the version's badge moves. If one fails, the dialog stays open with the reason and production is unchanged.
@@ -235,7 +291,7 @@ A development run is not tied to a version, because it runs the working copy; on
 
 ## From the API and the AI agent
 
-The AI agent can work with versions using six tools, and each one takes the kind (`route` or `workflow`) and the id.
+The AI agent can work with versions using six tools, and each one takes the kind (`route`, `workflow`, `custom_block` or `middleware`) and the id.
 
 | Tool | What it does |
 | :--- | :--- |
@@ -252,7 +308,9 @@ The AI agent can work with versions using six tools, and each one takes the kind
 The agent never promotes or rolls back unless you ask it to.
 :::
 
-The same actions are available over the admin API. Versions are under the route's or workflow's `/versions` address. Promote and rollback are a `POST` to its `/deployments` address with the version id and a description, and a `GET` there returns the log. A promote that a check stopped answers normally, with the status `failed` and the reasons in `gates`.
+The same actions are available over the admin API. Versions are under the route's, workflow's, custom block's or middleware's `/versions` address. Promote and rollback are a `POST` to its `/deployments` address with the version id and a description, and a `GET` there returns the log. A promote that a check stopped answers normally, with the status `failed` and the reasons in `gates`. When the custom blocks check fails, or the tests of a block's users fail, the gate also carries `refs`: each custom block, middleware, route or suite with its kind, id and name.
+
+A custom block's or middleware's `/references` address lists what uses it. A `DELETE` of one that is still used answers `409` with the same list under `references`. `get_custom_block` and `get_middleware` show the same list, the version production runs and whether there are uncommitted changes.
 
 ::: tip
 Ask the agent to commit when a piece of work is finished and tested. A named version of working code is the easiest thing to come back to when the next change goes wrong.
@@ -266,3 +324,5 @@ Recorded runs from production say which version served them. Runs on development
 
 - [Environments](/concepts/environments): what runs on production and on development.
 - [Workflows](/concepts/workflows): background jobs, which are versioned the same way as routes.
+- [Middlewares](/concepts/middlewares): chains of custom blocks that routes run before and after.
+- [Custom blocks](/blocks/custom-blocks-tutorial): reusable blocks that routes and workflows share.

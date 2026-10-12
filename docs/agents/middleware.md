@@ -12,9 +12,10 @@ A middleware is a named chain of custom blocks. Routes run it **before** or **af
 | Tool | Role | What it does |
 | --- | --- | --- |
 | `list_middlewares` | viewer | Middlewares of a project: id, name, description, `routeCount`, block names. |
-| `get_middleware` | viewer | One middleware with its blocks in run order: id, name, label. |
+| `get_middleware` | viewer | One middleware with its blocks in run order: id, name, label, the version live in production, whether it has uncommitted changes, and the routes that use it (`references`). |
 | `save_middleware` | creator | Create (no `middlewareId`) or update (`middlewareId`). |
-| `delete_middleware` | creator | Deletes a middleware that no route uses. |
+| `delete_middleware` | creator | Deletes a middleware that no route uses, in a working copy or a promoted version. |
+| `commit_version`, `promote_version`, `rollback_version` | creator | Version the middleware's chain with `kind: "middleware"`. Production runs the promoted chain. See [Custom blocks and middlewares](/concepts/versioning#custom-blocks-and-middlewares). |
 
 `save_middleware` only builds the chain. Attach it to a route with `save_route`. See [Attach to a route](#attach-to-a-route).
 
@@ -106,8 +107,8 @@ Variables are shared. A variable set in a middleware, for example the signed-in 
 | `Fluxify API error 409: A middleware named "X" already exists in this project` | Pick another name. |
 | `Invalid input: blocks: Each custom block can appear only once` | Remove the duplicate id from `blocks`. |
 | `Invalid input: Only this project's middleware custom blocks can be chained` | An id is unknown, from another project, or the block has another `usage`. Check with `list_custom_blocks`. |
-| `Fluxify API error 409: Remove this middleware from the N route(s) that use it first.` | `delete_middleware` is refused while routes use the middleware. `list_middlewares` shows `routeCount`. Detach it first: `save_route` with `middlewares` that leave it out. |
-| `Fluxify API error 409: Remove this block from <middlewares> first.` | `delete_custom_block` on a block a chain still uses. Update that middleware first. |
+| `Fluxify API error 409: This middleware is still used by ...` | `delete_middleware` is refused while a route uses the middleware, in its working copy or its promoted version. The message and `get_middleware` name each route. Detach it first: `save_route` with `middlewares` that leave it out, and promote the route if production still uses it. |
+| `Fluxify API error 409: This custom block is still used by ...` | `delete_custom_block` on a block a chain still uses. Update that middleware first, and promote it if production still has the block in its chain. |
 | `Invalid input: A middleware can be added to a route only once` | The same id is in `before` and `after`, or twice in one list. |
 | `Invalid input: Only this project's middlewares can be added to its routes` | An id is unknown or from another project. Check with `list_middlewares`. |
 | `Not found: Middleware not found` | Wrong `middlewareId`. Use `list_middlewares`. |
