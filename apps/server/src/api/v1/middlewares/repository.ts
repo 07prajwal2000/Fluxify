@@ -1,4 +1,4 @@
-import { and, asc, count, eq, inArray } from "drizzle-orm";
+import { and, asc, count, eq, inArray, sql } from "drizzle-orm";
 import { type DbTransactionType, db } from "../../../db";
 import { CHAN_ON_ROUTE_CHANGE, publishMessage } from "../../../db/redis";
 import {
@@ -12,7 +12,7 @@ import {
 import { BadRequestError } from "../../../errors/badRequestError";
 import { ConflictError } from "../../../errors/conflictError";
 import { touchParent } from "../../../modules/canvas/repository";
-import { routeMiddlewareIds } from "../../../modules/versions/snapshot";
+import { chainIds, routeMiddlewareIds } from "../../../modules/versions/snapshot";
 
 /**
  * Queries shared by the middleware endpoints (#534) and the route's own
@@ -92,7 +92,11 @@ export async function getChain(middlewareId: string) {
 		.orderBy(asc(middlewareBlocksEntity.position));
 }
 
-/** replace the whole chain: a reorder is just a save of the new order */
+/**
+ * Replace the whole chain: a reorder is just a save of the new order. The chain
+ * is what a middleware's version holds (#740), so a real change moves its
+ * revision like a canvas save on a route.
+ */
 export async function setChain(
 	middlewareId: string,
 	projectId: string,
@@ -114,9 +118,16 @@ export async function setChain(
 			throw new BadRequestError("Only this project's middleware custom blocks can be chained");
 		}
 	}
+	const stored = await chainIds(middlewareId, tx);
 	await tx
 		.delete(middlewareBlocksEntity)
 		.where(eq(middlewareBlocksEntity.middlewareId, middlewareId));
+	if (!Bun.deepEquals(stored, blockIds)) {
+		await tx
+			.update(middlewaresEntity)
+			.set({ canvasRevision: sql`${middlewaresEntity.canvasRevision} + 1` })
+			.where(eq(middlewaresEntity.id, middlewareId));
+	}
 	if (blockIds.length) {
 		await tx
 			.insert(middlewareBlocksEntity)

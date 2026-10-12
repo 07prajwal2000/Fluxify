@@ -19,6 +19,8 @@ export const ROUTE_VERSIONED_FIELDS = [
 	"timeoutSeconds",
 ] as const;
 export const WORKFLOW_VERSIONED_FIELDS = ["timeoutSeconds"] as const;
+/** a custom block's canvas is versioned too, and moves the revision itself; its name, label, icon and docs are live (#740) */
+export const CUSTOM_BLOCK_VERSIONED_FIELDS = ["inputParams", "usage"] as const;
 
 /**
  * Whether saving `incoming` over `stored` changes a versioned setting. A field

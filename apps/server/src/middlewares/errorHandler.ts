@@ -16,7 +16,7 @@ export function errorHandler(error: any, c: Context) {
 			);
 		}
 		return c.json(
-			{ message: error.message, type: errorType },
+			{ message: error.message, type: errorType, ...error.details },
 			error.httpCode as ContentfulStatusCode,
 		);
 	}

@@ -12,9 +12,10 @@ A custom block is a reusable block with your own JavaScript and typed inputs. `s
 | Tool | Role | What it does |
 | --- | --- | --- |
 | `list_custom_blocks` | viewer | Blocks of a project: id, name, label, description, usage. |
-| `get_custom_block` | viewer | One block: id, name, label, description, usage, `inputParams`, `docs`. Not its code. |
+| `get_custom_block` | viewer | One block: id, name, label, description, usage, `inputParams`, `docs`, the version live in production, whether it has uncommitted changes, and everything that uses it (`references`). Not its code. |
 | `save_custom_block` | creator | Create (no `customBlockId`) or update (`customBlockId`) the details. |
-| `delete_custom_block` | creator | Deletes the block and its code. |
+| `delete_custom_block` | creator | Deletes the block and its code. Refused while a route, workflow, block, middleware or test hook uses it. |
+| `commit_version`, `promote_version`, `rollback_version` | creator | Version the block with `kind: "custom_block"`. See [Versions](#versions). |
 | `get_canvas`, `edit_canvas` | viewer, creator | Read and write the code. `kind` is `"custom_block"`. |
 
 ## Create a custom block
@@ -141,6 +142,15 @@ Add a block whose `type` is the stored name. Put each parameter value in `data`,
 | `async` | The block starts and the flow carries on. Its output is not available. Lost if the server restarts. |
 | `queued` | Saved as a job and run later, possibly on another worker. It survives restarts and may be retried, so make it safe to run twice. Only the params and input are handed over. |
 
+## Versions
+
+A custom block has versions like a route. **Development runs the latest saved state. Production runs the promoted version.** Promoting or rolling back a block changes every production route and workflow that uses it, so its tests gate runs the suites of each of them first. See [Custom blocks and middlewares](/concepts/versioning#custom-blocks-and-middlewares).
+
+- `commit_version` with `kind: "custom_block"` saves its canvas and inputs. `list_versions` and `get_version` read the history.
+- `promote_version` and `rollback_version` always ask a person, who writes the reason.
+- A route that uses a block with no promoted version cannot be promoted: the failure lists the blocks by `id` and `name`. Promote those first.
+- `get_custom_block` shows `references`: each route, workflow, block, middleware or test suite that uses the block, with `inProduction` when its promoted version does.
+
 ## Common errors
 
 | Message | Cause and fix |
@@ -148,7 +158,7 @@ Add a block whose `type` is the stored name. Put each parameter value in `data`,
 | `Invalid input: name: ...` | `name` has a character outside lowercase letters, digits and `_`. |
 | `Invalid input: iconUrl: Invalid premade icon name` | With `icon: "premade-list"`, `iconUrl` must be a premade icon name. |
 | `Fluxify API error 409: custom block with name user_defined.project.X already exists in this project` | Pick another `name`. |
-| `Fluxify API error 409: Remove this block from <middlewares> first.` | On delete: a middleware chain uses the block. Update the middleware first. |
+| `Fluxify API error 409: This custom block is still used by ...` | On delete: the message names each route, workflow, block, middleware or test suite that uses it, in a working copy or a promoted version. Remove the use there first, or promote a version that no longer has it. Sandboxes never block it. |
 | `Fluxify API error 403: Cannot delete a custom block originating from a plugin` | Plugin blocks cannot be deleted. |
 | `Not found: Custom block not found` | Wrong `customBlockId`. Use `list_custom_blocks`. |
 | `No codegen for block type` in `get_system_logs` | A canvas uses the bare name. Use the stored name `user_defined.project.<name>`. |

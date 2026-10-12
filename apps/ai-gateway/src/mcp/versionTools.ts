@@ -5,15 +5,25 @@ import { BASE } from "./canvasTools";
 import { trimCanvas } from "./canvasView";
 import { type McpTool, pick } from "./tools";
 
-const kind = z.enum(["route", "workflow"]).describe("What the version belongs to");
-const id = z.string().describe("The route or workflow id, from list_routes or list_workflows");
+const KINDS = ["route", "workflow", "custom_block", "middleware"] as const;
+type Kind = (typeof KINDS)[number];
+
+const kind = z.enum(KINDS).describe("What the version belongs to");
+const id = z
+	.string()
+	.describe(
+		"The route, workflow, custom block or middleware id, from list_routes, list_workflows, list_custom_blocks or list_middlewares",
+	);
+
+/** Where each versioned kind lives in the admin API; a middleware has no canvas, so it is not in BASE. */
+const ROOT: Record<Kind, string> = { ...BASE, middleware: "/v1/middlewares" };
 const versionId = z.string().describe("Version id, from list_versions");
 
 const COMMIT = { readOnlyHint: false, destructiveHint: false, idempotentHint: false };
 const CHECKOUT = { readOnlyHint: false, destructiveHint: true, idempotentHint: false };
 const DEPLOY = { readOnlyHint: false, destructiveHint: true, idempotentHint: false };
 
-const base = (a: { kind: "route" | "workflow"; id: string }) => `${BASE[a.kind]}/${a.id}/versions`;
+const base = (a: { kind: Kind; id: string }) => `${ROOT[a.kind]}/${a.id}/versions`;
 
 const SUMMARY = [
 	"versionNumber",
@@ -48,17 +58,19 @@ const deployment = (d: Record<string, any>) => ({
 		? {
 				failed: d.gates
 					.filter((g: { status: string }) => g.status === "failed")
-					.map((g: { gate: string; message: string; items?: string[] }) => ({
+					.map((g: { gate: string; message: string; items?: string[]; refs?: unknown[] }) => ({
 						gate: g.gate,
 						message: g.message,
 						...(g.items ? { items: g.items } : {}),
+						// the custom blocks to promote first, or the suites that failed, with ids
+						...(g.refs ? { refs: g.refs } : {}),
 					})),
 			}
 		: {}),
 });
 
 type DeployArgs = {
-	kind: "route" | "workflow";
+	kind: Kind;
 	id: string;
 	versionId: string;
 	note?: string;
@@ -77,7 +89,7 @@ async function deploy(
 	direction: "promote" | "rollback",
 ) {
 	if (direction === "rollback") {
-		const target = await get(`${BASE[a.kind]}/${a.id}`);
+		const target = await get(`${ROOT[a.kind]}/${a.id}`);
 		const wanted = await get(`${base(a)}/${a.versionId}`);
 		const live = target.prodVersionNumber as number | null;
 		if (live === null)
@@ -90,7 +102,7 @@ async function deploy(
 			);
 	}
 	return deployment(
-		await send("POST", `${BASE[a.kind]}/${a.id}/deployments`, {
+		await send("POST", `${ROOT[a.kind]}/${a.id}/deployments`, {
 			versionId: a.versionId,
 			description: deploymentDescription(a.comment, a.note),
 		}),
@@ -99,7 +111,8 @@ async function deploy(
 
 const DEPLOY_NOTE = [
 	"Production serves what is promoted and nothing else: editing the working copy or committing never reaches it.",
-	"Checks run first and any failure stops it, with the reasons: every integration and app config key the version uses needs a production value, and no other route's live version may take the same method and path. Custom blocks and middlewares run their current state in production, which is shown as a warning.",
+	"Checks run first and any failure stops it, with the reasons: every integration and app config key the version uses needs a production value, no other route's live version may take the same method and path, and every custom block and middleware it uses needs a production version of its own (a failure lists them with ids: promote those first).",
+	"A custom block or middleware is versioned like a route and works like a shared library: promoting or rolling one back changes every production route and workflow that uses it, and the checks run the tests of each of them with the new version in place. Development always runs the latest saved state of a block.",
 	"A person approves every call, in every mode, and writes the reason that is saved with it. Never call it unless the user asked you to.",
 ].join(" ");
 
@@ -113,7 +126,7 @@ export const versionTools: McpTool[] = [
 		name: "commit_version",
 		title: "Commit version",
 		description: [
-			"Save the route's or workflow's canvas and settings (path, method, schemas, timeout, middlewares) as its next version, v1, v2, …",
+			"Save the route's, workflow's or custom block's canvas and settings (path, method, schemas, timeout, middlewares; a custom block's inputs), or a middleware's chain, as its next version, v1, v2, …",
 			'Always give a meaningful title that says what the work is ("Add rate limiting"), not "update".',
 			"Committing never deploys or compiles anything; development already runs your edits as you save them.",
 			'Commit when a piece of work is done and tested. Refused with "Nothing to commit" when nothing changed since the last version.',
@@ -137,7 +150,7 @@ export const versionTools: McpTool[] = [
 		name: "list_versions",
 		title: "List versions",
 		description:
-			"A route's or workflow's versions, newest first: number, title, author, time, the version each came from, and which one is the head (the one the working copy came from). uncommitted says the working copy has changes no version holds.",
+			"The versions of a route, workflow, custom block or middleware, newest first: number, title, author, time, the version each came from, which one is the head (the one the working copy came from) and which one is live in production (isProd). uncommitted says the working copy has changes no version holds.",
 		role: "viewer",
 		input: { kind, id },
 		call: async ({ get }, a) => {
@@ -211,7 +224,7 @@ export const versionTools: McpTool[] = [
 		name: "promote_version",
 		title: "Promote version",
 		description: [
-			"Put a version live in production: it is what the route or workflow serves from now on, with production's values.",
+			"Put a version live in production: it is what the route, workflow, custom block or middleware serves from now on, with production's values.",
 			"Promote the version you committed and tested; list_versions shows which one is live (isProd).",
 			DEPLOY_NOTE,
 		].join(" "),

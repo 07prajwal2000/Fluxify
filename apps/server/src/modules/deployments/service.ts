@@ -1,12 +1,18 @@
 import type { z } from "zod";
 import { type DbTransactionType, db } from "../../db";
-import { CHAN_ON_ROUTE_CHANGE, CHAN_ON_WORKFLOW_CHANGE, publishMessage } from "../../db/redis";
 import type { AuthACL, CanvasVersionKind, GateResult } from "../../db/schema";
 import { ConflictError } from "../../errors/conflictError";
 import { ForbiddenError } from "../../errors/forbidError";
 import { NotFoundError } from "../../errors/notFoundError";
 import { canAccessProject } from "../../lib/acl";
-import { findAuthor, findVersion, readTarget, versionNumberOf } from "../versions/repository";
+import {
+	findAuthor,
+	findVersion,
+	ownerOf,
+	readTarget,
+	versionNumberOf,
+} from "../versions/repository";
+import { announceChange, NOT_FOUND } from "../versions/targets";
 import type { deployBodySchema } from "./dto";
 import { runChecks } from "./gates";
 import {
@@ -17,7 +23,7 @@ import {
 	pendingDeployments,
 	setProdVersion,
 } from "./repository";
-import { countSuites, testsGate } from "./testsGate";
+import { planTests, testsGate } from "./testsGate";
 
 /**
  * Promote and rollback (#739). A deployment is written `pending`, its gates
@@ -30,8 +36,6 @@ import { countSuites, testsGate } from "./testsGate";
  * the one in production, and the log says which.
  */
 
-const NOT_FOUND = { route: "Route not found", workflow: "Workflow not found" } as const;
-const CHANGE_CHANNEL = { route: CHAN_ON_ROUTE_CHANGE, workflow: CHAN_ON_WORKFLOW_CHANGE } as const;
 /** a pending deployment older than this is a crashed one, not one in progress */
 const STALE_PENDING_MS = 10 * 60_000;
 
@@ -41,7 +45,7 @@ function present(row: DeploymentRow) {
 	return {
 		id: row.id,
 		kind: row.kind,
-		targetId: (row.routeId ?? row.workflowId)!,
+		targetId: ownerOf(row),
 		versionId: row.versionId,
 		versionNumber: row.versionNumber,
 		action: row.action,
@@ -134,11 +138,20 @@ export async function deployVersion(
 	}
 	const quickPassed = !quick.some((gate) => gate.status === "failed");
 
-	// 3. the tests gate, last; then finish
+	// 3. the tests gate, last; then finish. What it will run is worked out first,
+	// so the request knows whether it has to wait for it.
+	let plan: Awaited<ReturnType<typeof planTests>> | undefined;
+	if (quickPassed) {
+		try {
+			plan = await planTests(gateTarget);
+		} catch {
+			// the gate plans again and reports it
+		}
+	}
 	const finish = async () => {
 		let tests: GateResult;
 		try {
-			tests = await testsGate(gateTarget, started.deployment.id, !quickPassed);
+			tests = await testsGate(gateTarget, started.deployment.id, !quickPassed, plan);
 		} catch (error) {
 			tests = failedGate("tests", "The tests could not run", error);
 		}
@@ -151,10 +164,9 @@ export async function deployVersion(
 			await finishDeployment(started.deployment.id, passed ? "live" : "failed", gates, tx);
 		});
 		// the usual change signal: the compiler republishes production from the new pointer
-		if (passed) await publishMessage(CHANGE_CHANNEL[kind], id);
+		if (passed) await announceChange(kind, id, started.projectId);
 	};
-
-	if (quickPassed && (await countSuites(kind, id)) > 0) {
+	if (quickPassed && plan && plan.runs.length > 0) {
 		// the request has its answer: pending, to be polled
 		finish().catch((error) =>
 			finishDeployment(started.deployment.id, "failed", [

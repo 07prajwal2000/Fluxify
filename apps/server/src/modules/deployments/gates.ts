@@ -1,4 +1,4 @@
-import { BlockTypes, compileGraph } from "@fluxify/blocks";
+import { compileGraph } from "@fluxify/blocks";
 import { and, eq, inArray, isNull, or } from "drizzle-orm";
 import { getAppConfigKeysFromData } from "../../api/v1/integrations/create/service";
 import { findProdPathClash } from "../../api/v1/routes/update/repository";
@@ -6,19 +6,26 @@ import { db } from "../../db";
 import {
 	type CanvasSnapshot,
 	type CanvasVersionKind,
+	customBlocksListEntity,
 	type GateResult,
 	integrationsEntity,
-	middlewaresEntity,
+	type MiddlewareSnapshot,
+	type VersionSnapshot,
 } from "../../db/schema";
 import { loadAppConfigFor } from "../../loaders/appconfigLoader";
 import { configForEnv } from "../../loaders/integrationsLoader";
 import { ensureCustomBlocksRegistered, snapshotGraph } from "../compiler/service";
 import { compileDependencies } from "../packages/service";
+import { missingDependencies, type Uses } from "../references/closure";
+import { loadProdGraph } from "../references/prodGraph";
 
-/**
- * The checks a version passes before it goes to production (#739). Each returns
+/** * The checks a version passes before it goes to production (#739). Each returns
  * a `GateResult`; any `failed` one stops the deployment, and the log keeps all
  * of them. They are plain reads, so they are safe to run again.
+ *
+ * The same checks serve routes, workflows, custom blocks and middlewares (#740),
+ * where they apply: a middleware has no integrations to check, and only a route
+ * has a path.
  */
 
 export type GateTarget = {
@@ -26,7 +33,7 @@ export type GateTarget = {
 	id: string;
 	projectId: string;
 	versionId: string;
-	snapshot: CanvasSnapshot;
+	snapshot: VersionSnapshot;
 };
 
 /** block data keys that hold an integration id */
@@ -107,7 +114,7 @@ export async function valuesGate(target: GateTarget): Promise<GateResult> {
 
 /** No other route's promoted version may take this route's method and path. */
 export async function pathGate(target: GateTarget): Promise<GateResult> {
-	const { path, method } = target.snapshot.settings;
+	const { path, method } = (target.snapshot as CanvasSnapshot).settings;
 	if (!path || !method) return { gate: "path", status: "passed", message: "No path to check" };
 	const clash = await findProdPathClash({ id: target.id, method, path });
 	return clash
@@ -119,49 +126,90 @@ export async function pathGate(target: GateTarget): Promise<GateResult> {
 		: { gate: "path", status: "passed", message: `${method} ${path} is free in production` };
 }
 
-/** Custom blocks and middlewares run their current state until #740 versions them. */
+/** what a version names: the custom blocks it calls, the middlewares it attaches, a chain it holds */
+export function usesOfSnapshot(target: GateTarget): Uses {
+	const { kind, snapshot } = target;
+	const types = new Set(snapshot.blocks.map((block) => block.type));
+	if (kind === "middleware") {
+		return {
+			blockTypes: [],
+			middlewares: [],
+			blockIds: (snapshot as MiddlewareSnapshot).settings.chain,
+		};
+	}
+	const middlewares = (snapshot as CanvasSnapshot).settings.middlewares;
+	return {
+		blockTypes: types,
+		middlewares:
+			kind === "route" ? [...(middlewares?.before ?? []), ...(middlewares?.after ?? [])] : [],
+		blockIds: [],
+	};
+}
+
+/**
+ * A version can only go live while everything it runs is live (#740): a route
+ * that calls a custom block, or attaches a middleware, that has no production
+ * version would answer "Custom block not loaded" on every request. The gate
+ * follows uses of uses through promoted versions, and lists what is missing with
+ * the ids the portal needs to promote each one first. A route's or workflow's
+ * test hooks count: its production test runs call them.
+ */
 export async function customBlocksGate(target: GateTarget): Promise<GateResult> {
-	const builtin = new Set<string>(Object.values(BlockTypes));
-	const custom = new Set(
-		target.snapshot.blocks.map((block) => block.type).filter((type) => !builtin.has(type)),
+	const graph = await loadProdGraph(target.projectId);
+	const uses = usesOfSnapshot(target);
+	const hooks =
+		target.kind === "route" || target.kind === "workflow"
+			? graph.hookSuites.filter((suite) => suite.target.id === target.id).flatMap((s) => s.blockIds)
+			: [];
+	const selfIsBlock = target.kind === "custom_block" || target.kind === "middleware";
+	const missing = missingDependencies(
+		graph,
+		{ ...uses, blockIds: [...uses.blockIds, ...hooks] },
+		selfIsBlock ? target.id : undefined,
 	);
-	const middlewareIds = [
-		...(target.snapshot.settings.middlewares?.before ?? []),
-		...(target.snapshot.settings.middlewares?.after ?? []),
-	];
-	const middlewares = middlewareIds.length
-		? await db
-				.select({ name: middlewaresEntity.name })
-				.from(middlewaresEntity)
-				.where(inArray(middlewaresEntity.id, middlewareIds))
-		: [];
-	const items = [
-		...[...custom].map((name) => `custom block ${name}`),
-		...middlewares.map((row) => `middleware ${row.name}`),
-	];
-	return items.length
+	if (missing.length) {
+		return {
+			gate: "custom_blocks",
+			status: "failed",
+			message: `${missing.length} custom block${missing.length === 1 ? "" : "s or middlewares"} used here ${missing.length === 1 ? "has" : "have"} no production version yet, so this would fail in production. Promote ${missing.length === 1 ? "it" : "them"} first.`,
+			items: missing.map(
+				(dep) =>
+					`${dep.kind === "middleware" ? "middleware" : "custom block"} "${dep.name}" has no production version`,
+			),
+			refs: missing.map((dep) => ({ kind: dep.kind, id: dep.id, name: dep.name })),
+		};
+	}
+	const any =
+		[...uses.blockTypes].some((type) => graph.blocksByName.has(type)) ||
+		[...uses.middlewares].length > 0 ||
+		[...uses.blockIds, ...hooks].length > 0;
+	return any
 		? {
 				gate: "custom_blocks",
-				status: "warning",
-				message:
-					"Custom blocks and middlewares run their current state in production until custom block versions ship",
-				items,
+				status: "passed",
+				message: "Every custom block and middleware it uses is live in production",
 			}
 		: { gate: "custom_blocks", status: "passed", message: "No custom blocks or middlewares used" };
 }
 
 /**
  * The version has to compile, or production would keep serving what it served
- * before while the log said otherwise. Compiling here changes nothing.
+ * before while the log said otherwise. Compiling here changes nothing. A
+ * middleware compiles when every block in its chain still exists.
  */
 export async function compileGate(target: GateTarget): Promise<GateResult> {
 	try {
+		if (target.kind === "middleware") {
+			await assertChainExists(target);
+			return { gate: "compile", status: "passed", message: "The version compiles" };
+		}
 		await ensureCustomBlocksRegistered(target.projectId);
 		const graph = snapshotGraph(target.snapshot);
 		compileGraph(graph.blocks, graph.edges, {
 			projectId: target.projectId,
 			dependencies: await compileDependencies(target.projectId),
 			asWorkflow: target.kind === "workflow",
+			asCustomBlock: target.kind === "custom_block",
 		});
 		return { gate: "compile", status: "passed", message: "The version compiles" };
 	} catch (error) {
@@ -170,6 +218,29 @@ export async function compileGate(target: GateTarget): Promise<GateResult> {
 			status: "failed",
 			message: `The version does not compile: ${error instanceof Error ? error.message : String(error)}`,
 		};
+	}
+}
+
+/** every block in a middleware's chain is a middleware block of this project, or the chain cannot run */
+async function assertChainExists(target: GateTarget) {
+	const chain = (target.snapshot as MiddlewareSnapshot).settings.chain;
+	if (!chain.length) return;
+	const rows = await db
+		.select({ id: customBlocksListEntity.id, usage: customBlocksListEntity.usage })
+		.from(customBlocksListEntity)
+		.where(
+			and(
+				inArray(customBlocksListEntity.id, chain),
+				eq(customBlocksListEntity.projectId, target.projectId),
+			),
+		);
+	const gone = chain.filter(
+		(id) => !rows.some((row) => row.id === id && row.usage === "middleware"),
+	);
+	if (gone.length) {
+		throw new Error(
+			`${gone.length} block${gone.length === 1 ? "" : "s"} in the chain no longer exist${gone.length === 1 ? "s" : ""}`,
+		);
 	}
 }
 

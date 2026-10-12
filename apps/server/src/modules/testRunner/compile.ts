@@ -2,16 +2,21 @@ import { BlockTypes, compileGraph } from "@fluxify/blocks";
 import { logger } from "@fluxify/common";
 import { eq } from "drizzle-orm";
 import { db } from "../../db";
-import type { CanvasSnapshot } from "../../db/schema";
+import type { CanvasSnapshot, CustomBlockSnapshot } from "../../db/schema";
 import {
 	customBlocksListEntity,
 	projectsEntity,
 	routesEntity,
 	workflowsEntity,
 } from "../../db/schema";
-import { loadRouteMiddlewares, resolveMiddlewareIds } from "../compiler/middlewares";
+import {
+	type LibrarySwap,
+	loadRouteMiddlewares,
+	resolveMiddlewareIds,
+} from "../compiler/middlewares";
 import { ensureCustomBlocksRegistered, loadGraph, snapshotGraph } from "../compiler/service";
 import { compileDependencies } from "../packages/service";
+import { readSnapshot } from "../versions/repository";
 import type { SuiteTarget } from "./target";
 
 type Dependencies = Awaited<ReturnType<typeof compileDependencies>>;
@@ -21,8 +26,16 @@ export type CompiledSuiteTarget = Awaited<
 	ReturnType<typeof compileSuiteRoute | typeof compileSuiteWorkflow>
 >;
 
-/** a version's snapshot to run instead of the working copy (#739) */
-export type SuiteCandidate = { versionId: string; snapshot: CanvasSnapshot };
+/**
+ * A version's snapshot to run instead of the working copy (#739). It runs on
+ * production's library (#740): every custom block and middleware as its promoted
+ * version, and `swap` standing in for the one whose promote is being checked.
+ */
+export type SuiteCandidate = {
+	versionId: string;
+	snapshot: CanvasSnapshot;
+	swap?: LibrarySwap;
+};
 
 export function compileSuiteTarget(
 	target: SuiteTarget,
@@ -72,7 +85,9 @@ export async function compileSuiteRoute(routeId: string) {
 		workflow: undefined,
 		source,
 		dependencies,
-		customBlocks: await compileProjectCustomBlocks(route.projectId!, dependencies),
+		customBlocks: await compileLibrary(route.projectId!, dependencies, (row) =>
+			loadGraph({ type: "custom_block", id: row.id }),
+		),
 	};
 }
 
@@ -106,7 +121,9 @@ export async function compileSuiteWorkflow(workflowId: string) {
 		workflow: { ...workflow, name: workflow.name ?? workflowId },
 		source,
 		dependencies,
-		customBlocks: await compileProjectCustomBlocks(workflow.projectId!, dependencies),
+		customBlocks: await compileLibrary(workflow.projectId!, dependencies, (row) =>
+			loadGraph({ type: "custom_block", id: row.id }),
+		),
 	};
 }
 
@@ -147,7 +164,16 @@ async function compileSuiteCandidate(target: SuiteTarget, candidate: SuiteCandid
 		asWorkflow: target.type === "workflow",
 		hooks: true,
 	});
-	const customBlocks = await compileProjectCustomBlocks(projectId, dependencies);
+	const customBlocks = await compileLibrary(projectId, dependencies, async (row) => {
+		const swapped = candidate.swap?.kind === "custom_block" && candidate.swap.id === row.id;
+		const snapshot = swapped
+			? (candidate.swap!.snapshot as CustomBlockSnapshot)
+			: row.prodVersionId
+				? await readSnapshot<CustomBlockSnapshot>(row.prodVersionId)
+				: undefined;
+		// no promoted version: production does not have this block either
+		return snapshot ? snapshotGraph(snapshot) : undefined;
+	});
 	if (target.type === "route") {
 		return {
 			route: {
@@ -160,7 +186,10 @@ async function compileSuiteCandidate(target: SuiteTarget, candidate: SuiteCandid
 				querySchema: settings.querySchema,
 				paramsSchema: settings.paramsSchema,
 				timeoutSeconds: settings.timeoutSeconds,
-				middlewares: await resolveMiddlewareIds(settings.middlewares),
+				middlewares: await resolveMiddlewareIds(settings.middlewares, {
+					production: true,
+					swap: candidate.swap,
+				}),
 			},
 			workflow: undefined,
 			source,
@@ -202,7 +231,9 @@ export function compileInputScript(script: string, dependencies: Dependencies) {
 }
 
 /**
- * Every custom block in the project, compiled and ready to register.
+ * Every custom block in the project, compiled and ready to register. `graphOf`
+ * says which graph of each one runs: its working copy for a development run, its
+ * promoted version (or none) for a production run.
  *
  * A route that calls one only runs if the library holds it, and the child has no
  * database to fetch a missing one from.
@@ -210,19 +241,30 @@ export function compileInputScript(script: string, dependencies: Dependencies) {
  * ponytail: compiles the whole project rather than just the blocks this route
  * reaches. Walk the graph for invocations if a large project makes a run slow.
  */
-async function compileProjectCustomBlocks(projectId: string, dependencies: Dependencies) {
+async function compileLibrary(
+	projectId: string,
+	dependencies: Dependencies,
+	graphOf: (row: {
+		id: string;
+		name: string;
+		prodVersionId: string | null;
+	}) => Promise<ReturnType<typeof snapshotGraph> | undefined>,
+) {
 	const rows = await db
-		.select({ id: customBlocksListEntity.id, name: customBlocksListEntity.name })
+		.select({
+			id: customBlocksListEntity.id,
+			name: customBlocksListEntity.name,
+			prodVersionId: customBlocksListEntity.prodVersionId,
+		})
 		.from(customBlocksListEntity)
 		.where(eq(customBlocksListEntity.projectId, projectId));
 
 	const compiled: Array<{ name: string; source: string }> = [];
 	for (const row of rows) {
 		try {
-			const { blocks, edges } = await loadGraph({
-				type: "custom_block",
-				id: row.id,
-			});
+			const graph = await graphOf(row);
+			if (!graph) continue;
+			const { blocks, edges } = graph;
 			// `param:` placeholders resolve from the invocation, same as the compiler
 			const { source } = compileGraph(blocks, edges, {
 				asCustomBlock: true,

@@ -1,6 +1,10 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { type DbTransactionType, db } from "../../../../db";
 import { customBlocksListEntity } from "../../../../db/schema";
+import {
+	CUSTOM_BLOCK_VERSIONED_FIELDS,
+	versionedSettingsChanged,
+} from "../../../../modules/versions/state";
 
 type UpdateCustomBlockData = Partial<
 	Omit<typeof customBlocksListEntity.$inferInsert, "id" | "projectId" | "name">
@@ -22,9 +26,19 @@ export async function updateCustomBlock(
 	data: UpdateCustomBlockData,
 	tx?: DbTransactionType,
 ) {
-	const updated = await (tx ?? db)
+	const conn = tx ?? db;
+	// inputs are part of a version (#740): a real change moves the revision, like a canvas save
+	const [stored] = await conn
+		.select()
+		.from(customBlocksListEntity)
+		.where(eq(customBlocksListEntity.id, id))
+		.for("update");
+	const bump = !!stored && versionedSettingsChanged(stored, data, CUSTOM_BLOCK_VERSIONED_FIELDS);
+	const updated = await conn
 		.update(customBlocksListEntity)
-		.set(data)
+		.set(
+			bump ? { ...data, canvasRevision: sql`${customBlocksListEntity.canvasRevision} + 1` } : data,
+		)
 		.where(eq(customBlocksListEntity.id, id))
 		.returning();
 	return updated[0];

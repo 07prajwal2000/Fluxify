@@ -3,8 +3,7 @@ import type { z } from "zod";
 import { routeConflictError } from "../../api/v1/routes/routeConflict";
 import { findRouteConflict } from "../../api/v1/routes/update/repository";
 import { type DbTransactionType, db } from "../../db";
-import { CHAN_ON_ROUTE_CHANGE, CHAN_ON_WORKFLOW_CHANGE, publishMessage } from "../../db/redis";
-import type { AuthACL, CanvasVersionKind } from "../../db/schema";
+import type { AuthACL, CanvasSnapshot, CanvasVersionKind } from "../../db/schema";
 import { ConflictError } from "../../errors/conflictError";
 import { ForbiddenError } from "../../errors/forbidError";
 import { NotFoundError } from "../../errors/notFoundError";
@@ -16,22 +15,27 @@ import {
 	insertVersion,
 	listVersions,
 	nextVersionNumber,
+	ownerOf,
 	readTarget,
 	targetTable,
 } from "./repository";
 import { buildSnapshot, restoreSnapshot } from "./snapshot";
 import { hasUncommitted } from "./state";
+import { announceChange, NOT_FOUND } from "./targets";
 
-/**
- * Commit and checkout (#738). Both hold the route's or workflow's row lock for
- * the whole transaction, so version numbers never clash and two checkouts never
+/** * Commit and checkout (#738, #740). Both hold the target's row lock for the
+ * whole transaction, so version numbers never clash and two checkouts never
  * interleave. Neither compiles or deploys anything: commit changes no live
  * state, and checkout only announces the working copy it changed.
  */
 
-const NOT_FOUND = { route: "Route not found", workflow: "Workflow not found" } as const;
-const CHANGE_CHANNEL = { route: CHAN_ON_ROUTE_CHANGE, workflow: CHAN_ON_WORKFLOW_CHANGE } as const;
-
+/** what a checkout could not put back, by kind */
+const SKIPPED = {
+	route: "middleware(s) from that version no longer exist and were not attached.",
+	workflow: "item(s) from that version no longer exist and were not restored.",
+	custom_block: "item(s) from that version no longer exist and were not restored.",
+	middleware: "block(s) from that version no longer exist and were not added to the chain.",
+} as const;
 type Target = NonNullable<Awaited<ReturnType<typeof readTarget>>>;
 type VersionRow = NonNullable<Awaited<ReturnType<typeof findVersion>>>;
 
@@ -44,7 +48,7 @@ function present(
 	return {
 		id: row.id,
 		kind: row.kind,
-		targetId: (row.routeId ?? row.workflowId)!,
+		targetId: ownerOf(row),
 		versionNumber: row.versionNumber,
 		title: row.title,
 		description: row.description,
@@ -139,11 +143,19 @@ export async function checkoutVersion(
 		const uncommitted = hasUncommitted(target);
 		const checkedOut = present(version, version.id, target.prodVersionId);
 		if (!uncommitted && target.headVersionId === version.id) {
-			return { checkedOut, canvasRevision: target.canvasRevision, warnings: [], changed: false };
+			return {
+				checkedOut,
+				canvasRevision: target.canvasRevision,
+				warnings: [],
+				changed: false,
+				projectId: undefined,
+			};
 		}
 
 		// refused before anything is written, so a clash saves nothing either
-		if (kind === "route") await assertNoPathClash(target, version.snapshot.settings, tx);
+		if (kind === "route") {
+			await assertNoPathClash(target, (version.snapshot as CanvasSnapshot).settings, tx);
+		}
 
 		const saved = uncommitted
 			? await writeVersion(
@@ -168,18 +180,15 @@ export async function checkoutVersion(
 				: undefined,
 			checkedOut,
 			canvasRevision,
-			warnings: skipped.length
-				? [
-						`${skipped.length} middleware(s) from that version no longer exist and were not attached.`,
-					]
-				: [],
+			warnings: skipped.length ? [`${skipped.length} ${SKIPPED[kind]}`] : [],
 			changed: true,
+			projectId: target.projectId!,
 		};
 	});
 
-	const { changed, ...result } = outcome;
+	const { changed, projectId, ...result } = outcome;
 	// the usual change signal, so development recompiles the restored canvas
-	if (changed) await publishMessage(CHANGE_CHANNEL[kind], id);
+	if (changed && projectId) await announceChange(kind, id, projectId);
 	return result;
 }
 

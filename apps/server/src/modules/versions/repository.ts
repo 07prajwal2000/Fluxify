@@ -5,7 +5,10 @@ import {
 	type CanvasSnapshot,
 	type CanvasVersionKind,
 	canvasVersionsEntity,
+	customBlocksListEntity,
+	middlewaresEntity,
 	routesEntity,
+	type VersionSnapshot,
 	workflowsEntity,
 } from "../../db/schema";
 
@@ -14,20 +17,41 @@ import {
  * version row: a version is written once.
  */
 
-const tables = { route: routesEntity, workflow: workflowsEntity } as const;
+const tables = {
+	route: routesEntity,
+	workflow: workflowsEntity,
+	custom_block: customBlocksListEntity,
+	middleware: middlewaresEntity,
+} as const;
 
 export function targetTable(kind: CanvasVersionKind) {
 	return tables[kind];
 }
 
+const ownerColumns = {
+	route: canvasVersionsEntity.routeId,
+	workflow: canvasVersionsEntity.workflowId,
+	custom_block: canvasVersionsEntity.customBlockId,
+	middleware: canvasVersionsEntity.middlewareId,
+} as const;
+
 /** The column of `canvas_versions` that points at this kind of target. */
 function ownerColumn(kind: CanvasVersionKind) {
-	return kind === "route" ? canvasVersionsEntity.routeId : canvasVersionsEntity.workflowId;
+	return ownerColumns[kind];
 }
 
+/** The id of the route, workflow, custom block or middleware a version row belongs to. */
+export const ownerOf = (row: {
+	routeId: string | null;
+	workflowId: string | null;
+	customBlockId: string | null;
+	middlewareId: string | null;
+}) => (row.routeId ?? row.workflowId ?? row.customBlockId ?? row.middlewareId)!;
+
 /**
- * The route or workflow row. With `lock`, `FOR UPDATE`: commit and checkout
- * hold it for their whole transaction, so two of them never run side by side.
+ * The route, workflow, custom block or middleware row. With `lock`, `FOR UPDATE`:
+ * commit and checkout hold it for their whole transaction, so two of them never
+ * run side by side.
  */
 export async function readTarget(
 	kind: CanvasVersionKind,
@@ -86,7 +110,7 @@ export async function insertVersion(
 		description: string | null;
 		authorId: string | null;
 		authorEmail: string | null;
-		snapshot: CanvasSnapshot;
+		snapshot: VersionSnapshot;
 	},
 	tx: DbTransactionType,
 ) {
@@ -97,6 +121,8 @@ export async function insertVersion(
 			...row,
 			routeId: row.kind === "route" ? targetId : null,
 			workflowId: row.kind === "workflow" ? targetId : null,
+			customBlockId: row.kind === "custom_block" ? targetId : null,
+			middlewareId: row.kind === "middleware" ? targetId : null,
 		})
 		.returning();
 	return created!;
@@ -107,6 +133,8 @@ const withAuthorName = {
 	kind: canvasVersionsEntity.kind,
 	routeId: canvasVersionsEntity.routeId,
 	workflowId: canvasVersionsEntity.workflowId,
+	customBlockId: canvasVersionsEntity.customBlockId,
+	middlewareId: canvasVersionsEntity.middlewareId,
 	projectId: canvasVersionsEntity.projectId,
 	versionNumber: canvasVersionsEntity.versionNumber,
 	parentId: canvasVersionsEntity.parentId,
@@ -141,11 +169,10 @@ export async function findVersion(
 		.where(eq(canvasVersionsEntity.id, versionId))
 		.limit(1);
 	if (!row) return undefined;
-	const owner = kind === "route" ? row.routeId : row.workflowId;
-	return owner === id ? row : undefined;
+	return row.kind === kind && ownerOf(row) === id ? row : undefined;
 }
 
-/** `vN` of a version, for the one a route or workflow was last committed or checked out at. */
+/** `vN` of a version, for the one a target was last committed or checked out at. */
 export async function versionNumberOf(versionId: string | null, tx?: DbTransactionType) {
 	if (!versionId) return null;
 	const [row] = await (tx ?? db)
@@ -157,12 +184,17 @@ export async function versionNumberOf(versionId: string | null, tx?: DbTransacti
 
 /**
  * What production serves: the snapshot of one version, by id alone. The compiler
- * reads it, and it already holds the id from the row it is compiling.
+ * reads it, and it already holds the id from the row it is compiling. The type
+ * is the caller's to name: a route's or workflow's by default, `CustomBlockSnapshot`
+ * or `MiddlewareSnapshot` where it holds the id of one of those.
  */
-export async function readSnapshot(versionId: string, tx?: DbTransactionType) {
+export async function readSnapshot<T extends VersionSnapshot = CanvasSnapshot>(
+	versionId: string,
+	tx?: DbTransactionType,
+) {
 	const [row] = await (tx ?? db)
 		.select({ snapshot: canvasVersionsEntity.snapshot })
 		.from(canvasVersionsEntity)
 		.where(eq(canvasVersionsEntity.id, versionId));
-	return row?.snapshot;
+	return row?.snapshot as T | undefined;
 }

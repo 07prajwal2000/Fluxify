@@ -140,7 +140,7 @@ describe("production versions (#739)", () => {
 		expect(route.prod_version_id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
 
 		const deployments = await client`SELECT kind, route_id, workflow_id, version_id, action, status, description, author_id, finished_at
-			FROM deployments ORDER BY coalesce(route_id, workflow_id)`;
+			FROM deployments WHERE kind IN ('route', 'workflow') ORDER BY coalesce(route_id, workflow_id)`;
 		expect(deployments).toHaveLength(3);
 		expect(deployments.find((d: { route_id: string }) => d.route_id === "r1")).toMatchObject({
 			kind: "route",
@@ -155,6 +155,6 @@ describe("production versions (#739)", () => {
 	test("a route with no project is left alone, and the migration can run again", async () => {
 		const [orphan] = await client`SELECT prod_version_id FROM routes WHERE id = 'r3'`;
 		expect(orphan.prod_version_id).toBeNull();
-		expect(await client`SELECT id FROM canvas_versions`).toHaveLength(3);
+		expect(await client`SELECT id FROM canvas_versions WHERE kind IN ('route', 'workflow')`).toHaveLength(3);
 	});
 });
