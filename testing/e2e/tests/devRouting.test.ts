@@ -163,16 +163,16 @@ describe("a route at /_/dev on the development worker", () => {
 			const { data } = await runs("development");
 			return data.length > 0 && data;
 		});
-		expect(dev.every((run: any) => run.env === "development")).toBe(true);
+		expect(dev.every((run: any) => run.values === "development")).toBe(true);
 		expect((await runs("production")).data).toEqual([]);
 		// no filter is both; only development ever recorded here
 		const all = (await runs()).data;
 		expect(all.map((run: any) => run.id)).toEqual(expect.arrayContaining(dev.map((run: any) => run.id)));
-		expect(all.every((run: any) => run.env === "development")).toBe(true);
+		expect(all.every((run: any) => run.values === "development")).toBe(true);
 
 		// get one run, and only under its own env
 		const one = `/v1/${PROJECT()}/recordings/route/${routeId}/runs/${dev[0].id}`;
-		expect((await ok(api(stack, "creator", `${one}?env=development`))).env).toBe("development");
+		expect((await ok(api(stack, "creator", `${one}?env=development`))).values).toBe("development");
 		expect((await api(stack, "creator", `${one}?env=production`)).status).toBe(404);
 
 		// and the agent's tools filter the same way

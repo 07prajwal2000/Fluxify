@@ -147,7 +147,9 @@ describe("a queue trigger on a sandbox", () => {
 		});
 		for (const run of runs) {
 			expect(run.outcome).toBe("success");
-			expect(run.workflowVersion).toBeTruthy();
+			// a workflow run answers nothing: no status code, development values
+			expect(run.statusCode).toBeNull();
+			expect(run.values).toBe("development");
 		}
 		expect(outputs(runs).flatMap((o: any) => o.got)).toContainEqual({ id: "1", status: "paid" });
 	});
