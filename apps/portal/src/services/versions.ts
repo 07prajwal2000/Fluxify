@@ -9,7 +9,7 @@ import type {
 import type z from "zod";
 import { httpClient } from "@/lib/http";
 
-export type VersionKind = "route" | "workflow";
+export type VersionKind = "route" | "workflow" | "custom_block" | "middleware";
 export type Version = z.infer<typeof versionSchema>;
 export type VersionList = z.infer<typeof versionListSchema>;
 export type VersionDetail = z.infer<typeof versionDetailSchema>;
@@ -17,9 +17,20 @@ export type CommitBody = z.input<typeof commitBodySchema>;
 export type CheckoutBody = z.input<typeof checkoutBodySchema>;
 export type CheckoutResult = z.infer<typeof checkoutResultSchema>;
 
-/** A route's and a workflow's history hang off the same paths under their own base. */
-const base = (kind: VersionKind, id: string) =>
-	`/v1/${kind === "route" ? "routes" : "workflows"}/${id}/versions`;
+/**
+ * The URL segment each kind lives under (#738, #740). All four kinds share one
+ * history and one deploy contract, so the only thing that varies is this, and
+ * the versions, deployments and references services read it from here too.
+ */
+export const KIND_SEGMENT: Record<VersionKind, string> = {
+	route: "routes",
+	workflow: "workflows",
+	custom_block: "custom-blocks",
+	middleware: "middlewares",
+};
+
+/** A target's history hangs off `/v1/<segment>/<id>/versions`. */
+const base = (kind: VersionKind, id: string) => `/v1/${KIND_SEGMENT[kind]}/${id}/versions`;
 
 export const versionsService = {
 	async list(kind: VersionKind, id: string): Promise<VersionList> {

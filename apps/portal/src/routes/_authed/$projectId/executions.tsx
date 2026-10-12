@@ -227,6 +227,7 @@ function ExecutionsPage() {
 										routeId={targetId}
 										isFramed={false}
 										replay={replay?.kind === "request" ? replay.state : undefined}
+										onOpenRecording={() => setPlaygroundOpen(false)}
 									/>
 								</Modal.Body>
 							</Modal.Dialog>

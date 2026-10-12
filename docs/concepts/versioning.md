@@ -166,11 +166,15 @@ A route or workflow you only edited, and have not promoted with the block, is no
 
 Before a route or workflow is promoted, every custom block and middleware it uses, and every one those use, must have a promoted version. If one has none, the promote fails and lists each one by name. Promote those first, then promote the route.
 
+In the portal, a route or workflow promote that fails this way lists each missing block or middleware with a **Commit & promote** button. Select it to commit that block's work, if it has any, and promote it right there, watching its own checks. There is no chain: this promotes the one you picked, and if it uses others that are not live, they are listed when you promote it. When every one on the list is live, **Try again** re-runs the route's promote.
+
 The test suites of a route are run with the promoted version of each block, not with the version you are editing. The same goes for a test hook: its promoted version runs in production test runs, so it has to be promoted too.
 
 ### Deleting a custom block or middleware
 
 A delete is refused while a route, workflow, custom block, middleware or test suite hook uses it. This includes uses in a promoted version, even if the working copy no longer uses it. The error lists what still uses it.
+
+In the portal, a refused delete keeps its confirmation dialog open and shows the message with the same rows as **Used by**, so you can open what still uses it and remove the use there. The delete goes through once nothing uses it.
 
 - Older versions that are not live do not block a delete. Checking one of them out later shows a compile error for the missing block.
 - Sandboxes do not count. A sandbox that uses a deleted block fails when you run it, with the message **Custom block not loaded** and the block's name. Nothing else is affected.
@@ -179,9 +183,15 @@ A delete is refused while a route, workflow, custom block, middleware or test su
 
 Each custom block and middleware can list everything that uses it: routes, workflows, other custom blocks, middlewares and test suite hooks, each marked when its promoted version uses it. Sandboxes are not listed. The list is available over the admin API and the AI agent.
 
-::: info
-The portal does not have screens for committing, promoting or listing uses of custom blocks and middlewares yet. Use the admin API or the AI agent for now.
-:::
+In the portal, the list is the **Used by** section of the block's or middleware's settings. Each row shows its kind and name and opens it; a test suite opens the tests page of the route or workflow it belongs to. A row is tagged **In production** when that user's promoted version uses the block, and **Working copy** when its working copy does. When nothing uses it, it says **"Not used anywhere yet."**
+
+### Committing and promoting in the portal
+
+The custom block canvas and the middleware editor have the same **Commit** button and **Version history** as a route or workflow. The **Prod vN** chip sits in the header and opens the history on its **Production** tab. Creators commit and promote; viewers can read the history.
+
+**Version history** for a custom block opens its version's canvas beside its inputs and where it may run, all read-only. For a middleware it shows the version's chain, in order, read-only. **Open in sandbox** and **View recordings** are not offered for a block or a middleware: a sandbox and a recorded run belong to a route or a workflow.
+
+Because a block or middleware is shared, its promote dialog says how many production routes and workflows will change, for example **"3 production routes and workflows will change"**. Select it to open the same **Used by** list, so you can see which ones before you promote.
 
 ## In the portal
 
@@ -213,7 +223,7 @@ The canvas header of a route or workflow has a **Commit** button. A small dot si
 
 ### The version menu
 
-Each version has a **⋯** menu.
+Each version has a **⋯** menu. **Open in sandbox** and **View recordings** appear for a route or a workflow only; a custom block's or middleware's menu offers the rest.
 
 | Action | What it does | Who |
 | :--- | :--- | :--- |

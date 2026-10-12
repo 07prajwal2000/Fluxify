@@ -243,6 +243,7 @@ function RoutesPage() {
 										key={pendingPlayground.id}
 										routeId={pendingPlayground.id}
 										isFramed={false}
+										onOpenRecording={() => setPendingPlayground(null)}
 									/>
 								</Modal.Body>
 							</Modal.Dialog>

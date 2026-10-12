@@ -20,10 +20,12 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
 import { CustomBlockIcon, type IconValue } from "@/components/customBlocks/IconPicker";
 import { USAGE_OPTIONS } from "@/components/customBlocks/UsageField";
+import { DeleteBlocked } from "@/components/versions/DeleteBlocked";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
 import { customBlocksQuery } from "@/query/customBlocksQuery";
 import { projectsQuery } from "@/query/projectsQuery";
+import { type Reference, referencesFromDeleteError } from "@/services/references";
 
 export const Route = createFileRoute("/_authed/$projectId/custom-blocks")({
 	head: createRouteHead(
@@ -46,6 +48,8 @@ function CustomBlocksPage() {
 	const remove = customBlocksQuery.remove.mutation(projectId);
 	const navigate = useNavigate();
 	const [pendingDelete, setPendingDelete] = useState<Block | null>(null);
+	// a refused delete (#740): who still uses the block, shown in the dialog
+	const [blocked, setBlocked] = useState<{ message: string; references: Reference[] }>();
 	const [search, setSearch] = useState("");
 
 	const blocks = useMemo(() => {
@@ -211,7 +215,12 @@ function CustomBlocksPage() {
 
 			<ConfirmDialog
 				open={!!pendingDelete}
-				onOpenChange={(o) => !o && setPendingDelete(null)}
+				onOpenChange={(o) => {
+					if (!o) {
+						setPendingDelete(null);
+						setBlocked(undefined);
+					}
+				}}
 				title="Delete custom block?"
 				danger
 				confirmText="Delete"
@@ -219,13 +228,29 @@ function CustomBlocksPage() {
 				onConfirm={() => {
 					if (!pendingDelete) return;
 					remove.mutate(pendingDelete.id, {
-						onSuccess: () => toast.success("Block deleted"),
-						onError: (e) => showErrorNotification(e as Error),
+						onSuccess: () => {
+							toast.success("Block deleted");
+							setPendingDelete(null);
+						},
+						onError: (e) => {
+							const conflict = referencesFromDeleteError(e);
+							if (conflict) setBlocked(conflict);
+							else {
+								showErrorNotification(e as Error);
+								setPendingDelete(null);
+							}
+						},
 					});
-					setPendingDelete(null);
 				}}
 			>
 				Delete <b className="text-foreground">{pendingDelete?.label}</b>? This can't be undone.
+				{blocked && (
+					<DeleteBlocked
+						message={blocked.message}
+						references={blocked.references}
+						projectId={projectId}
+					/>
+				)}
 			</ConfirmDialog>
 		</div>
 	);

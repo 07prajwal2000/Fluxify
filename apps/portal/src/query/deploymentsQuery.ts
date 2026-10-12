@@ -1,10 +1,9 @@
 import { toast } from "@fluxify/components";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type DeployBody, deploymentsService } from "@/services/deployments";
-import type { VersionKind } from "@/services/versions";
+import { KIND_SEGMENT, type VersionKind } from "@/services/versions";
 
-const typeKey = (kind: VersionKind) => (kind === "route" ? "routes" : "workflows");
-const root = (kind: VersionKind, id: string) => [typeKey(kind), id];
+const root = (kind: VersionKind, id: string) => [KIND_SEGMENT[kind], id];
 const listKey = (kind: VersionKind, id: string) => [...root(kind, id), "deployments"];
 
 /** how often a pending deployment is re-read while the dialog shows it */
@@ -56,7 +55,7 @@ export const deploymentsQuery = {
 						// the promoted version changes what is live: the badges, the panel and the chip
 						qc.invalidateQueries({ queryKey: [...root(kind, id), "versions"] }),
 						qc.invalidateQueries({ queryKey: [...root(kind, id), "by-id"] }),
-						qc.invalidateQueries({ queryKey: [typeKey(kind), "list"] }),
+						qc.invalidateQueries({ queryKey: [KIND_SEGMENT[kind], "list"] }),
 					]),
 			});
 		},

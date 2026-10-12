@@ -11,6 +11,7 @@ import { DeployDialog } from "./DeployDialog";
 import { ProductionPanel } from "./ProductionPanel";
 import { useVersionTarget } from "./useVersionTarget";
 import { VersionCanvas, versionItems } from "./VersionCanvas";
+import { VersionChain } from "./VersionChain";
 import { type VersionAction, VersionList } from "./VersionList";
 import { VersionSettings } from "./VersionSettings";
 
@@ -29,7 +30,7 @@ function SandboxFromVersion({
 	onClose,
 	onOpen,
 }: {
-	kind: VersionKind;
+	kind: "route" | "workflow";
 	id: string;
 	projectId: string;
 	version: Version;
@@ -94,6 +95,12 @@ function SelectedVersion({
 				<div className="flex flex-1 items-center justify-center text-muted">
 					Couldn't load this version.
 				</div>
+			) : kind === "middleware" ? (
+				// a middleware's version is its chain, not a canvas (#740)
+				<VersionChain
+					projectId={projectId}
+					chain={(data.snapshot.settings.chain as string[] | undefined) ?? []}
+				/>
 			) : (
 				<div className="flex min-h-0 flex-1">
 					<div className="min-w-0 flex-1">
@@ -201,6 +208,7 @@ export function VersionHistory({
 					</Tabs.ListContainer>
 					<Tabs.Panel id="versions" className="min-h-0 flex-1 overflow-y-auto">
 						<VersionList
+							kind={kind}
 							versions={versions}
 							uncommitted={uncommitted}
 							selectedId={selected?.id}
@@ -242,7 +250,7 @@ export function VersionHistory({
 					onCheckedOut={onBackToCanvas}
 				/>
 			)}
-			{action?.type === "sandbox" && (
+			{action?.type === "sandbox" && (kind === "route" || kind === "workflow") && (
 				<SandboxFromVersion
 					kind={kind}
 					id={id}

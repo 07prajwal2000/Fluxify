@@ -40,3 +40,17 @@ test("commit and checkout post to the version paths", async () => {
 		{ method: "post", url: "/v1/routes/r1/versions/v2/checkout", body: { title: "Saved before" } },
 	]);
 });
+
+test("a custom block's history lives under /custom-blocks and a middleware's under /middlewares (#740)", async () => {
+	calls.length = 0;
+	await versionsService.list("custom_block", "b1");
+	await versionsService.list("middleware", "m1");
+	await versionsService.get("custom_block", "b1", "v1");
+	await versionsService.commit("middleware", "m1", { title: "First" });
+	expect(calls.map((c) => `${c.method} ${c.url}`)).toEqual([
+		"get /v1/custom-blocks/b1/versions",
+		"get /v1/middlewares/m1/versions",
+		"get /v1/custom-blocks/b1/versions/v1",
+		"post /v1/middlewares/m1/versions",
+	]);
+});

@@ -1,5 +1,8 @@
 import { Chip, SchemaEditor, type ValidationSchema } from "@fluxify/components";
+import type { CustomBlockUsage } from "@fluxify/server/src/db/schema";
+import type { CustomBlockInputParam } from "@/components/canvas/panel/blocks/CustomBlockSettings";
 import { Section } from "@/components/common/Section";
+import { usageLabel } from "@/components/customBlocks/UsageField";
 import { describesSomething, EMPTY_SCHEMA } from "@/components/routes/routeForm";
 import { middlewaresQuery } from "@/query/middlewaresQuery";
 import type { VersionKind } from "@/services/versions";
@@ -37,9 +40,10 @@ function MiddlewareNames({ projectId, ids }: { projectId: string; ids: string[] 
 }
 
 /**
- * What a version holds besides its blocks (#738), read-only: the route's path,
- * method, schemas, timeout and middlewares, or a workflow's timeout. Not the
- * live name or switches, which no version keeps.
+ * What a version holds besides its blocks (#738): the route's path, method,
+ * schemas, timeout and middlewares, a workflow's timeout, or a custom block's
+ * inputs and usage. Not the live name or switches, which no version keeps. A
+ * middleware's chain is the version itself, shown in the middle pane.
  */
 export function VersionSettings({
 	kind,
@@ -51,6 +55,9 @@ export function VersionSettings({
 	settings: Settings;
 }) {
 	const middlewares = (settings.middlewares ?? {}) as Phase;
+	const params = Array.isArray(settings.inputParams)
+		? (settings.inputParams as CustomBlockInputParam[])
+		: [];
 	return (
 		<section className="p-4" aria-label="Version settings">
 			{kind === "route" && (
@@ -68,9 +75,30 @@ export function VersionSettings({
 					<Schema title="Request body" value={settings.bodySchema} />
 				</>
 			)}
-			<Section title="Timeout" description="Requests running longer are aborted.">
-				<p className="text-xs">{String(settings.timeoutSeconds ?? "—")} seconds</p>
-			</Section>
+			{(kind === "route" || kind === "workflow") && (
+				<Section title="Timeout" description="Requests running longer are aborted.">
+					<p className="text-xs">{String(settings.timeoutSeconds ?? "—")} seconds</p>
+				</Section>
+			)}
+			{kind === "custom_block" && (
+				<>
+					<Section title="Used for" description="Where this block may be placed.">
+						<p className="text-xs">{usageLabel(settings.usage as CustomBlockUsage)}</p>
+					</Section>
+					<Section title="Input parameters" description={params.length ? "" : "None."}>
+						{params.length > 0 && (
+							<ol className="flex flex-col gap-1 text-xs">
+								{params.map((param) => (
+									<li key={param.name} className="flex items-center gap-2">
+										<span className="font-mono text-muted">{param.name}</span>
+										<span>{param.label}</span>
+									</li>
+								))}
+							</ol>
+						)}
+					</Section>
+				</>
+			)}
 			{kind === "route" && (
 				<>
 					<Section title="Middlewares before" description="Run before the route's own flow.">

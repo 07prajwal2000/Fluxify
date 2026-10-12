@@ -2,6 +2,7 @@ import { Button, Card, Input, toast } from "@heroui/react";
 import clsx from "clsx";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { TbLoader2, TbPlayerPlayFilled } from "react-icons/tb";
+import { FieldInfoButton } from "../JsTextField";
 import { RequestPanel } from "./RequestPanel";
 import { ResponsePanel } from "./ResponsePanel";
 import type {
@@ -300,8 +301,13 @@ export function ApiPlayground({
 						pathRows={pathRows}
 						queryRows={queryRows}
 					/>
+					{/* the where-a-call-goes note, behind an i button so it costs no line (#740) */}
+					{urlNote && (
+						<span className="shrink-0">
+							<FieldInfoButton label="Where this call goes" info={{ content: urlNote }} />
+						</span>
+					)}
 				</div>
-				{urlNote && <p className="mt-1 text-[11px] text-muted">{urlNote}</p>}
 			</div>
 			<div
 				className="min-h-0 flex-1 overflow-hidden"

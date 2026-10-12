@@ -22,7 +22,11 @@ export * from "./history";
 export { uuidv7 } from "./ids";
 export * from "./keyboard";
 export * from "./layout";
-export { CanvasPlaygroundProvider, useCanvasPlayground } from "./PlaygroundContext";
+export {
+	CanvasPlaygroundProvider,
+	useCanvasPlayground,
+	useOptionalCanvasPlayground,
+} from "./PlaygroundContext";
 export { PlaygroundModal } from "./PlaygroundModal";
 export * from "./panel";
 export * from "./spotlight";

@@ -32,3 +32,12 @@ export function useCanvasPlayground(): CanvasPlayground {
 	}
 	return playground;
 }
+
+/**
+ * The same controls, but null where there are none. A playground can be hosted
+ * inside a canvas (whose modal this context owns) or by a page's own modal, and
+ * only the first has a provider above it.
+ */
+export function useOptionalCanvasPlayground(): CanvasPlayground | null {
+	return useContext(CanvasPlaygroundContext);
+}

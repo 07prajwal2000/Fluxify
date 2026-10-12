@@ -1,8 +1,32 @@
 import { afterAll, afterEach, beforeEach, expect, mock, spyOn, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
+import type { ReactNode } from "react";
 
 // DOM only for this file; RTL reads `document` on import, so load it after.
 GlobalRegistrator.register();
+
+// A failed tests gate links to its run through the router, so `Link` is stubbed
+// to keep the path and query the router would resolve, the base path aside.
+const router = await import("@tanstack/react-router");
+mock.module("@tanstack/react-router", () => ({
+	...router,
+	Link: ({
+		to,
+		params,
+		search,
+		children,
+		...rest
+	}: {
+		to: string;
+		params?: Record<string, string>;
+		search?: Record<string, string>;
+		children: ReactNode;
+	}) => (
+		<a href={`${to}?${new URLSearchParams({ ...(params ?? {}), ...(search ?? {}) })}`} {...rest}>
+			{children}
+		</a>
+	),
+}));
 
 const { act, cleanup, fireEvent, render } = await import("@testing-library/react");
 const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query");

@@ -1,9 +1,10 @@
 import { cn } from "@fluxify/components";
+import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { TbAlertTriangle, TbCheck, TbLoader2, TbMinus, TbX } from "react-icons/tb";
-import { withBasePath } from "@/constants/routes";
-import type { Deployment, DeploymentGate } from "@/services/deployments";
+import type { DeployGateRef, Deployment, DeploymentGate } from "@/services/deployments";
 import type { VersionKind } from "@/services/versions";
+import { DependencyRefs, FailureRefs } from "./GateRefs";
 
 type GateKey = DeploymentGate["gate"];
 type GateStatus = DeploymentGate["status"] | "pending";
@@ -48,12 +49,15 @@ function GateRow({
 	status,
 	message,
 	items,
+	refs,
 	link,
 }: {
 	gate: GateKey;
 	status: GateStatus;
 	message?: string;
 	items?: string[];
+	/** what the message is about, with links (#740) */
+	refs?: ReactNode;
 	/** a follow-up link under the row, e.g. the tests gate's failed run */
 	link?: ReactNode;
 }) {
@@ -77,6 +81,7 @@ function GateRow({
 					))}
 				</ul>
 			)}
+			{refs}
 			{link}
 		</li>
 	);
@@ -84,26 +89,43 @@ function GateRow({
 
 /**
  * The gate list for a deployment. While it is pending every gate shows a
- * spinner; once it settles each row carries its own outcome and message. A
- * failed tests gate links straight to the run whose checks failed (#739).
+ * spinner; once it settles each row carries its own outcome and message. The
+ * tests gate names the user whose suite failed and links to it; the
+ * custom_blocks gate names each dependency with no production version and, when
+ * the dialog can act, offers to commit and promote it (#739, #740).
  */
 export function GateList({
 	kind,
 	id,
 	projectId,
 	deployment,
+	onCommitDependency,
+	resolvedDeps,
+	onTryAgain,
+	canPromoteDeps,
 }: {
 	kind: VersionKind;
 	id: string;
 	projectId: string;
 	deployment?: Deployment;
+	/** the custom_blocks gate's "Commit & promote" (#740) */
+	onCommitDependency?: (dependency: DeployGateRef) => void;
+	/** dependencies promoted in this dialog already */
+	resolvedDeps?: Set<string>;
+	/** re-run the original promote once every dependency is live */
+	onTryAgain?: () => void;
+	canPromoteDeps?: boolean;
 }) {
 	const pending = !deployment || deployment.status === "pending";
 	const byGate = new Map((deployment?.gates ?? []).map((gate) => [gate.gate, gate]));
-	const suitePath =
+	// only a route's or a workflow's own run is opened from its own tests gate
+	const suiteTo =
 		kind === "route"
-			? `/${projectId}/canvas/${id}/test-suites`
-			: `/${projectId}/workflow-canvas/${id}/test-suites`;
+			? "/$projectId/canvas/$routeId/test-suites"
+			: kind === "workflow"
+				? "/$projectId/workflow-canvas/$workflowId/test-suites"
+				: null;
+	const suiteParams = kind === "route" ? { projectId, routeId: id } : { projectId, workflowId: id };
 	return (
 		<ul aria-label="Promote checks" className="flex flex-col gap-2">
 			{gateKeys(kind).map((gate) => {
@@ -115,14 +137,32 @@ export function GateList({
 						status={pending ? "pending" : (result?.status ?? "skipped")}
 						message={result?.message}
 						items={result?.items}
+						refs={
+							result?.refs?.length ? (
+								gate === "custom_blocks" && onCommitDependency ? (
+									<DependencyRefs
+										projectId={projectId}
+										refs={result.refs}
+										resolved={resolvedDeps ?? new Set()}
+										canPromote={canPromoteDeps ?? false}
+										onCommitAndPromote={onCommitDependency}
+										onTryAgain={onTryAgain ?? (() => undefined)}
+									/>
+								) : (
+									<FailureRefs projectId={projectId} refs={result.refs} />
+								)
+							) : undefined
+						}
 						link={
-							gate === "tests" && result?.runId ? (
-								<a
-									href={withBasePath(`${suitePath}?runId=${result.runId}`)}
+							gate === "tests" && result?.runId && suiteTo ? (
+								<Link
+									to={suiteTo as never}
+									params={suiteParams as never}
+									search={{ runId: result.runId } as never}
 									className="ml-6 w-fit text-xs font-medium text-accent hover:underline"
 								>
 									Open the failed tests
-								</a>
+								</Link>
 							) : undefined
 						}
 					/>

@@ -5,12 +5,15 @@ import {
 	useCustomBlockParamsTypes,
 	useTestSuiteGlobalTypes,
 } from "@fluxify/components";
-import { createFileRoute, isRedirect, redirect } from "@tanstack/react-router";
+import { createFileRoute, isRedirect, redirect, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { TbSettings } from "react-icons/tb";
 import { CanvasWorkbench } from "@/components/canvas";
 import { CustomBlockSettingsModal } from "@/components/customBlocks/CustomBlockSettingsModal";
 import { CustomBlockSwitcher } from "@/components/customBlocks/CustomBlockSwitcher";
+import { CommitControls } from "@/components/versions/CommitControls";
+import { ProductionChip } from "@/components/versions/ProductionChip";
+import { useTargetSpotlight } from "@/components/versions/useTargetSpotlight";
 import { createRouteHead, usePageTitle } from "@/lib/seo";
 import { customBlocksQuery } from "@/query/customBlocksQuery";
 import { useProjectPackageTypes } from "@/query/projectPackagesQuery";
@@ -54,10 +57,13 @@ export const Route = createFileRoute("/_authed/$projectId_/custom-block-canvas/$
 
 function CustomBlockCanvasPage() {
 	const { projectId, blockId } = Route.useParams();
+	const navigate = useNavigate();
 	useProjectPackageTypes(projectId);
 	const save = customBlocksQuery.saveCanvas.mutation(blockId);
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const canEdit = useCanEditProject(projectId);
+	// the canvas command palette's own actions for this block (#740)
+	const spotlight = useTargetSpotlight();
 
 	// `params.<name>` is only in scope inside this block's own canvas, so the
 	// completions for it are registered here rather than with the static globals.
@@ -87,11 +93,27 @@ function CustomBlockCanvasPage() {
 				getRevision={() => customBlocksService.getCanvasRevision(blockId)}
 				save={(payload) => save.mutateAsync(payload)}
 				headerLeft={<CustomBlockSwitcher projectId={projectId} blockId={blockId} />}
-				headerActions={
-					<Button variant="outline" onPress={() => setSettingsOpen(true)}>
-						<TbSettings size={16} /> Settings
-					</Button>
-				}
+				spotlightCommands={spotlight.commands}
+				headerActions={(canvas) => (
+					<>
+						<ProductionChip kind="custom_block" id={blockId} projectId={projectId} />
+						<CommitControls
+							kind="custom_block"
+							id={blockId}
+							projectId={projectId}
+							canvas={canvas}
+							onOpenHistory={() =>
+								navigate({
+									to: "/$projectId/custom-block-canvas/$blockId/versions",
+									params: { projectId, blockId },
+								})
+							}
+						/>
+						<Button variant="outline" onPress={() => setSettingsOpen(true)}>
+							<TbSettings size={16} /> Settings
+						</Button>
+					</>
+				)}
 			/>
 			{/* mounted only while open: the form seeds its state from the loaded block */}
 			{settingsOpen && (
@@ -103,6 +125,7 @@ function CustomBlockCanvasPage() {
 					readOnly={!canEdit}
 				/>
 			)}
+			{spotlight.dialogs}
 		</>
 	);
 }

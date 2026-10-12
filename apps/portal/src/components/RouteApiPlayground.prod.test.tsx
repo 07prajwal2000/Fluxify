@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeEach, expect, mock, spyOn, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
+import type { ReactNode } from "react";
 
 // DOM only for this file; RTL reads `document` on import, so load it after.
 GlobalRegistrator.register({ url: "http://localhost:5601/" });
@@ -18,6 +19,36 @@ mock.module("@fluxify/components", () => ({
 	ApiPlayground: (props: StubProps) => {
 		stub = props;
 		return <div data-testid="playground">{props.baseUrl}</div>;
+	},
+}));
+
+// The recording link routes with the router, so `Link` is stubbed to keep the
+// path and query the router would resolve, the base path aside.
+const router = await import("@tanstack/react-router");
+mock.module("@tanstack/react-router", () => ({
+	...router,
+	Link: ({
+		to,
+		params,
+		search,
+		children,
+		...rest
+	}: {
+		to: string;
+		params?: Record<string, string>;
+		search?: Record<string, string>;
+		children: ReactNode;
+	}) => {
+		const path = Object.entries(params ?? {}).reduce(
+			(url, [key, value]) => url.replace(`$${key}`, value),
+			to,
+		);
+		const query = new URLSearchParams(search ?? {}).toString();
+		return (
+			<a href={query ? `${path}?${query}` : path} {...rest}>
+				{children}
+			</a>
+		);
 	},
 }));
 

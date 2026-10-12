@@ -18,8 +18,11 @@ import type { z } from "zod";
 import type { CustomBlockInputParam } from "@/components/canvas/panel/blocks/CustomBlockSettings";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Section } from "@/components/common/Section";
+import { DeleteBlocked } from "@/components/versions/DeleteBlocked";
+import { UsedBy } from "@/components/versions/UsedBy";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { customBlocksQuery } from "@/query/customBlocksQuery";
+import { type Reference, referencesFromDeleteError } from "@/services/references";
 import { DocsEditor } from "./DocsEditor";
 import { ICON_URL_MAX, IconPicker, type IconValue } from "./IconPicker";
 import { InputParamsEditor, validateInputParams } from "./InputParamsEditor";
@@ -107,6 +110,8 @@ function CustomBlockSettingsForm({
 	});
 	const [tab, setTab] = useState("general");
 	const [confirmDelete, setConfirmDelete] = useState(false);
+	// a refused delete (#740): who still uses the block, shown in the dialog
+	const [blocked, setBlocked] = useState<{ message: string; references: Reference[] }>();
 	const remove = customBlocksQuery.remove.mutation(projectId);
 	const navigate = useNavigate();
 	// a plugin block is owned by its plugin; the API refuses to delete it
@@ -120,7 +125,11 @@ function CustomBlockSettingsForm({
 				onClose();
 				navigate({ to: "/$projectId/custom-blocks", params: { projectId } });
 			},
-			onError: (error) => showErrorNotification(error as Error),
+			onError: (error) => {
+				const conflict = referencesFromDeleteError(error);
+				if (conflict) setBlocked(conflict);
+				else showErrorNotification(error as Error);
+			},
 		});
 	}
 
@@ -185,6 +194,7 @@ function CustomBlockSettingsForm({
 						{/* a middleware block takes no params (#534) */}
 						{block.usage !== "middleware" && <Tabs.Tab id="inputs">Input parameters</Tabs.Tab>}
 						<Tabs.Tab id="docs">Docs</Tabs.Tab>
+						<Tabs.Tab id="used-by">Used by</Tabs.Tab>
 						{canDelete && <Tabs.Tab id="danger">Danger zone</Tabs.Tab>}
 					</Tabs.List>
 
@@ -238,6 +248,15 @@ function CustomBlockSettingsForm({
 						<DocsEditor value={docs} onChange={setDocs} isDisabled={readOnly} />
 					</Tabs.Panel>
 
+					<Tabs.Panel id="used-by" className="min-h-0 flex-1 overflow-y-auto p-5">
+						<Section
+							title="Used by"
+							description="Routes, workflows, blocks, middlewares and test hooks that use this block. Sandboxes are not listed."
+						>
+							<UsedBy kind="custom_block" id={block.id} projectId={projectId} />
+						</Section>
+					</Tabs.Panel>
+
 					{canDelete && (
 						<Tabs.Panel id="danger" className="min-h-0 flex-1 overflow-y-auto p-5">
 							<Section
@@ -259,7 +278,10 @@ function CustomBlockSettingsForm({
 
 			<ConfirmDialog
 				open={confirmDelete}
-				onOpenChange={setConfirmDelete}
+				onOpenChange={(open) => {
+					setConfirmDelete(open);
+					if (!open) setBlocked(undefined);
+				}}
 				title="Delete custom block?"
 				danger
 				confirmText="Delete"
@@ -267,6 +289,13 @@ function CustomBlockSettingsForm({
 				onConfirm={deleteBlock}
 			>
 				Delete <b className="text-foreground">{block.label}</b>? This can't be undone.
+				{blocked && (
+					<DeleteBlocked
+						message={blocked.message}
+						references={blocked.references}
+						projectId={projectId}
+					/>
+				)}
 			</ConfirmDialog>
 
 			<Modal.Footer className="flex shrink-0 flex-row items-center gap-3 border-t border-border px-5 py-3">

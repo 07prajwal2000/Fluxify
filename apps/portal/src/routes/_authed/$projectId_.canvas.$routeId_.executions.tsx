@@ -1,6 +1,6 @@
 import { Button, CloseButton, Modal, toast } from "@fluxify/components";
 import { createFileRoute, isRedirect, redirect } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { TbPlayerPlay, TbSettings } from "react-icons/tb";
 import { z } from "zod";
 import { RouteApiPlayground } from "@/components/RouteApiPlayground";
@@ -57,6 +57,12 @@ function RouteExecutionsPage() {
 	const [replay, setReplay] = useState<Replay & { kind: "request" }>();
 	const [settingsOpen, setSettingsOpen] = useState(false);
 
+	// The link names the run it opens. ExecutionRecordings reads that id once, on
+	// mount, so this page keys on it; the playground steps aside for the run.
+	useEffect(() => {
+		if (open) setPlaygroundOpen(false);
+	}, [open]);
+
 	const title = route
 		? `${route.method.toUpperCase()} ${route.path} | Route Executions`
 		: "Route Executions | Routes";
@@ -86,7 +92,7 @@ function RouteExecutionsPage() {
 
 			<main className="min-h-0 flex-1">
 				<ExecutionRecordings
-					key={routeId}
+					key={`${routeId}:${open ?? ""}`}
 					initialRunId={open}
 					versionId={version}
 					onClearVersionFilter={() => navigate({ search: {}, replace: true })}
@@ -121,6 +127,7 @@ function RouteExecutionsPage() {
 										isFramed={false}
 										enableCache
 										replay={replay?.state}
+										onOpenRecording={() => setPlaygroundOpen(false)}
 									/>
 								</Modal.Body>
 							</Modal.Dialog>
