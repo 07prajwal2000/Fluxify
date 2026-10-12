@@ -100,6 +100,11 @@ describe("MCP writes", () => {
 			name: `${name}-2`,
 			description: "renamed",
 			blocks: [],
+			// where it stands against its versions, and who uses it (#740)
+			headVersionNumber: null,
+			prodVersionNumber: null,
+			uncommitted: true,
+			references: [],
 		});
 
 		expect(await call("delete_middleware", { middlewareId: id })).toEqual({ deleted: id });
