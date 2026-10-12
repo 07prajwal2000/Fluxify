@@ -9,6 +9,8 @@ import {
 import { applyJitter, assertSchedule, intervalMs } from "@fluxify/common/schedule";
 import { natsConnection, natsName, natsStreamSpec } from "../../db/nats";
 import type { FluxifyEnv } from "../../lib/env";
+import { ENVIRONMENTS } from "../../lib/envValues";
+import { type EnvSwitches, isServedIn } from "../compiler/observability";
 import {
 	ALL_PROJECTS,
 	fireSubject,
@@ -118,6 +120,52 @@ export async function removeSchedule(
 		natsName(SCHEDULES_STREAM, env),
 		natsName(scheduleSubject(projectId, triggerId), env),
 	);
+}
+
+/**
+ * The environments a schedule should fire in: the ones its workflow is live in
+ * (#738, #739). Development where the workflow's `devActive` is on; production
+ * where it is `active` with a promoted version. A trigger that is switched off,
+ * has no schedule, or starts no workflow fires nowhere.
+ */
+export function scheduleEnvironments(
+	trigger: { active: boolean; workflowId: string | null; schedule: string | null },
+	workflow: EnvSwitches | null,
+): FluxifyEnv[] {
+	if (!trigger.active || !trigger.workflowId || !trigger.schedule || !workflow) return [];
+	return ENVIRONMENTS.filter((env) => isServedIn(workflow, env));
+}
+
+/**
+ * Brings one trigger's schedule in line with its workflow in every environment:
+ * published where the workflow is live, removed where it is not. This is the
+ * one place the per-environment decision is made, so a switch that goes off
+ * removes that environment's schedule rather than leaving a fire aimed at a
+ * workflow that no longer runs there.
+ */
+export async function syncSchedule(
+	trigger: ScheduledTrigger,
+	workflow: EnvSwitches | null,
+	active: boolean,
+) {
+	const live = new Set(
+		scheduleEnvironments(
+			{ active, workflowId: trigger.workflowId, schedule: trigger.schedule },
+			workflow,
+		),
+	);
+	await Promise.all(
+		ENVIRONMENTS.map((env) =>
+			live.has(env)
+				? upsertSchedule(trigger, env)
+				: removeSchedule(trigger.projectId, trigger.id, env),
+		),
+	);
+}
+
+/** Removes a trigger's schedule from every environment. */
+export async function removeScheduleEverywhere(projectId: string, triggerId: string) {
+	await Promise.all(ENVIRONMENTS.map((env) => removeSchedule(projectId, triggerId, env)));
 }
 
 /**

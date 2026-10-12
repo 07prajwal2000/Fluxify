@@ -17,6 +17,29 @@ A trigger that runs on the clock rather than on an event is a
 [schedule](/concepts/schedules) — cron expressions, intervals, and one-off
 times are covered there.
 
+## Where a trigger runs
+
+A trigger runs in **every environment where its workflow is live**, and nowhere
+else. Every workflow has one **Enabled** switch per environment — **Development**
+and **Production** — and a trigger follows those switches:
+
+| The workflow is… | The trigger runs… |
+| :--- | :--- |
+| On in development, off in production | On the development worker, with your development values. |
+| On in both | On both workers, each with its own values. Production also needs a [promoted version](/concepts/versioning#what-production-serves) — with the switch on and nothing promoted, the workflow is not actually live there. |
+| Off everywhere | Nowhere. |
+
+Turn the workflow's switch for an environment off and the trigger stops there;
+turn it back on and it starts again. The same is true of the trigger's own
+switch — off stops it in both environments. Nothing has to be restarted.
+
+::: info One trigger, not two
+A trigger is a single thing, the same in both environments. It is not copied or
+renamed per environment — it simply runs wherever the workflow it starts is
+live. Your live callers reach production; a development worker runs the same
+trigger against your development values only when the workflow is on there.
+:::
+
 ## What a workflow receives
 
 A trigger passes the events it collected to the workflow. Inside the canvas you

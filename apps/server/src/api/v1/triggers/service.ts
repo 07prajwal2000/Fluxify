@@ -4,7 +4,7 @@ import { generateID } from "@fluxify/lib";
 import { and, eq, ilike, inArray, type SQL, sql } from "drizzle-orm";
 import type { z } from "zod";
 import { type DbTransactionType, db } from "../../../db";
-import { deleteArtifactEverywhere, putArtifactEverywhere } from "../../../db/natsKv";
+import { deleteArtifact, deleteArtifactEverywhere, putArtifact } from "../../../db/natsKv";
 import { type AuthACL, triggersEntity } from "../../../db/schema";
 import { BadRequestError } from "../../../errors/badRequestError";
 import { ConflictError } from "../../../errors/conflictError";
@@ -12,9 +12,12 @@ import { ForbiddenError } from "../../../errors/forbidError";
 import { NotFoundError } from "../../../errors/notFoundError";
 import { canAccessProject } from "../../../lib/acl";
 import { assertCanUse } from "../../../lib/edition";
+import { ENVIRONMENTS } from "../../../lib/envValues";
 import type { TriggerArtifact } from "../../../modules/compiler/artifacts";
+import { type EnvSwitches, isServedIn } from "../../../modules/compiler/observability";
 import { triggerKey } from "../../../modules/compiler/subjects";
-import { removeSchedule, upsertSchedule } from "../../../modules/schedules/reconciler";
+import { removeScheduleEverywhere, syncSchedule } from "../../../modules/schedules/reconciler";
+import type { ScheduledTrigger } from "../../../modules/schedules/types";
 import { assertConnector } from "./connectors";
 import {
 	type createSchema,
@@ -34,8 +37,10 @@ import {
 	findTriggerById,
 	findTriggerByName,
 	findWorkflow,
+	findWorkflowSwitches,
 	insertTrigger,
 	listTriggers,
+	listTriggersByWorkflow,
 	lockGroupTriggerCount,
 	projectExists,
 	updateTriggerRow,
@@ -205,8 +210,9 @@ export async function deleteTrigger(id: string, acl: AuthACL[], userId: string) 
 
 	// Withdraw before returning: while the artifact is still there, a worker is
 	// still holding a consumer for a trigger the database no longer knows about.
-	// A schedule outliving its row is worse still — nothing would ever stop it.
-	if (existing.type === "schedule") await removeSchedule(existing.projectId, id);
+	// A schedule outliving its row is worse still — nothing would ever stop it,
+	// in either environment, so both are cleared.
+	if (existing.type === "schedule") await removeScheduleEverywhere(existing.projectId, id);
 	else await withdraw(existing.projectId, id);
 	return { id };
 }
@@ -421,9 +427,28 @@ export async function republish(trigger: Trigger) {
 		retryDelayMs: trigger.retryDelayMs,
 		publishedAt: new Date().toISOString(),
 	};
+	// A sandbox is development's alone (#735); a workflow's trigger runs in each
+	// environment that workflow is live in.
 	if (trigger.sandboxId) await publishSandboxTrigger(key, artifact);
-	else await putArtifactEverywhere(key, artifact);
+	else await publishPerEnv(key, artifact, await findWorkflowSwitches(trigger.workflowId!));
 	logger.debug(`[triggers] published ${key}`, "TRIGGERS");
+}
+
+/**
+ * Publishes a trigger to each environment its workflow is live in (#738, #739),
+ * and withdraws it from the others. A queue trigger must not read on a worker
+ * whose environment does not run the workflow — the batch would fail for a
+ * workflow that is not there, and retry forever — and it stops the moment that
+ * environment's switch goes off, exactly as its schedule does.
+ */
+async function publishPerEnv(key: string, artifact: TriggerArtifact, workflow: EnvSwitches | null) {
+	await Promise.all(
+		ENVIRONMENTS.map((env) =>
+			workflow && isServedIn(workflow, env)
+				? putArtifact(key, artifact, env)
+				: deleteArtifact(key, env),
+		),
+	);
 }
 
 export async function withdraw(projectId: string, triggerId: string) {
@@ -434,17 +459,34 @@ export async function withdraw(projectId: string, triggerId: string) {
  * Pause is a purge with the row left inactive, and resume is an upsert. There
  * is no third state: a schedule either exists on the broker or it does not, and
  * the row is what says which it should be.
+ *
+ * A schedule lives in each environment its workflow is live in, so it is
+ * published or removed per environment by `syncSchedule` rather than once.
  */
 async function republishSchedule(trigger: Trigger) {
-	if (!trigger.active || !trigger.schedule) return removeSchedule(trigger.projectId, trigger.id);
-	await upsertSchedule({
+	const schedule: ScheduledTrigger = {
 		id: trigger.id,
 		projectId: trigger.projectId,
 		workflowId: trigger.workflowId,
-		schedule: trigger.schedule,
+		schedule: trigger.schedule ?? "",
 		timezone: trigger.timezone,
 		payload: trigger.payload ?? undefined,
-	});
+	};
+	const workflow = trigger.workflowId ? await findWorkflowSwitches(trigger.workflowId) : null;
+	await syncSchedule(schedule, workflow, trigger.active);
+}
+
+/**
+ * Re-reads a workflow's triggers after the workflow itself moved: a switch was
+ * flipped, or a version was promoted or rolled back. Each trigger is republished
+ * where the workflow is now live and withdrawn where it is not.
+ *
+ * Called from the compiler worker, which already runs on every workflow change,
+ * so a schedule or queue artifact never outlives the switch that put it there.
+ */
+export async function syncWorkflowTriggers(workflowId: string) {
+	const triggers = await listTriggersByWorkflow(workflowId);
+	for (const trigger of triggers) await republish(trigger);
 }
 
 function present(row: Trigger): z.infer<typeof triggerSchema> {

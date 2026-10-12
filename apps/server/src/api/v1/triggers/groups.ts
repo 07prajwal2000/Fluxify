@@ -8,7 +8,7 @@ import { ForbiddenError } from "../../../errors/forbidError";
 import { NotFoundError } from "../../../errors/notFoundError";
 import { canAccessProject } from "../../../lib/acl";
 import { recordGroupRemoval, removeGroupFromClaims } from "../../../modules/orchestrator/claims";
-import { removeSchedule } from "../../../modules/schedules/reconciler";
+import { removeScheduleEverywhere } from "../../../modules/schedules/reconciler";
 import type {
 	createGroupSchema,
 	deleteGroupQuerySchema,
@@ -119,7 +119,7 @@ export async function deleteTriggerGroup(
 	// Same order as a single trigger's write: the row first, then the artifact.
 	for (const trigger of moved) await republish(trigger);
 	for (const trigger of deleted)
-		if (trigger.type === "schedule") await removeSchedule(trigger.projectId, trigger.id);
+		if (trigger.type === "schedule") await removeScheduleEverywhere(trigger.projectId, trigger.id);
 		else await withdraw(trigger.projectId, trigger.id);
 	await recordGroupRemoval(removals, group);
 

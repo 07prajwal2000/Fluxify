@@ -18,6 +18,7 @@ import {
 	triggersEntity,
 	workflowsEntity,
 } from "../../../db/schema";
+import type { FluxifyEnv } from "../../../lib/env";
 
 type TriggerInsert = typeof triggersEntity.$inferInsert;
 
@@ -223,6 +224,29 @@ export async function findWorkflow(id: string, tx?: DbTransactionType) {
 	return row;
 }
 
+/**
+ * The switches that decide where a workflow is live (#738, #739). A trigger
+ * fires in each environment its workflow is served in, so every write reads
+ * these to publish or remove that environment's schedule or queue artifact.
+ */
+export async function findWorkflowSwitches(id: string, tx?: DbTransactionType) {
+	const [row] = await (tx ?? db)
+		.select({
+			active: workflowsEntity.active,
+			devActive: workflowsEntity.devActive,
+			prodVersionId: workflowsEntity.prodVersionId,
+		})
+		.from(workflowsEntity)
+		.where(eq(workflowsEntity.id, id))
+		.limit(1);
+	return row;
+}
+
+/** Every trigger attached to a workflow, as the workflow-change resync needs it. */
+export async function listTriggersByWorkflow(workflowId: string, tx?: DbTransactionType) {
+	return (tx ?? db).select().from(triggersEntity).where(eq(triggersEntity.workflowId, workflowId));
+}
+
 export async function projectExists(id: string, tx?: DbTransactionType) {
 	const [row] = await (tx ?? db)
 		.select({ id: projectsEntity.id })
@@ -280,13 +304,21 @@ export async function listTriggers(
 }
 
 /**
- * Every scheduled trigger that should be firing, across every project.
+ * Every scheduled trigger that should be firing in `env`, across every project.
  *
  * Not project-scoped like the query above it: the reconciler's job is to decide
  * what the broker should hold in total, and a per-project view cannot tell an
  * orphan from a schedule belonging to a project it was not asked about.
+ *
+ * Scoped to the environment, though: a schedule only fires where its workflow
+ * is live (#738, #739), so a boot reconcile for one environment must see
+ * exactly the triggers that belong there — anything else is an orphan to purge.
  */
-export async function listActiveScheduledTriggers(tx?: DbTransactionType) {
+export async function listActiveScheduledTriggers(env: FluxifyEnv, tx?: DbTransactionType) {
+	const served =
+		env === "development"
+			? eq(workflowsEntity.devActive, true)
+			: and(eq(workflowsEntity.active, true), isNotNull(workflowsEntity.prodVersionId));
 	return (tx ?? db)
 		.select({
 			id: triggersEntity.id,
@@ -297,11 +329,13 @@ export async function listActiveScheduledTriggers(tx?: DbTransactionType) {
 			payload: triggersEntity.payload,
 		})
 		.from(triggersEntity)
+		.innerJoin(workflowsEntity, eq(triggersEntity.workflowId, workflowsEntity.id))
 		.where(
 			and(
 				eq(triggersEntity.type, "schedule"),
 				eq(triggersEntity.active, true),
 				isNotNull(triggersEntity.schedule),
+				served,
 			),
 		);
 }

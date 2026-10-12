@@ -1,5 +1,6 @@
 import { logger } from "@fluxify/common";
 import { listActiveScheduledTriggers } from "../api/v1/triggers/repository";
+import { ENVIRONMENTS } from "../lib/envValues";
 import { reconcileSchedules } from "../modules/schedules/reconciler";
 
 /**
@@ -13,22 +14,30 @@ import { reconcileSchedules } from "../modules/schedules/reconciler";
  * fires, and one that fires forever — so neither shows up without being looked
  * for.
  *
+ * Both environments are reconciled (#738). A schedule lives in the NATS
+ * namespace of every environment its workflow is live in, so each environment
+ * gets its own list of what belongs there and its own orphan sweep; a schedule
+ * that is only in development is not an orphan to production's pass.
+ *
  * A failure here does not stop the server: the API still has to serve, and the
  * next boot reconciles again.
  */
 export async function loadSchedules() {
 	try {
-		const triggers = await listActiveScheduledTriggers();
-		await reconcileSchedules(
-			triggers.map((row) => ({
-				id: row.id,
-				projectId: row.projectId,
-				workflowId: row.workflowId,
-				schedule: row.schedule!,
-				timezone: row.timezone,
-				payload: row.payload ?? undefined,
-			})),
-		);
+		for (const env of ENVIRONMENTS) {
+			const triggers = await listActiveScheduledTriggers(env);
+			await reconcileSchedules(
+				triggers.map((row) => ({
+					id: row.id,
+					projectId: row.projectId,
+					workflowId: row.workflowId,
+					schedule: row.schedule!,
+					timezone: row.timezone,
+					payload: row.payload ?? undefined,
+				})),
+				env,
+			);
+		}
 	} catch (error) {
 		logger.error(`[schedules] reconcile failed: ${String(error)}`, "SCHEDULES");
 	}

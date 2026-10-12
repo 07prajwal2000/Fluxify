@@ -168,6 +168,19 @@ schedule comes round, not from the ones you skipped.
 
 Deleting the trigger removes the schedule outright.
 
+## Which environment it runs in
+
+A schedule runs in **every environment where its workflow is live**, so the same
+clock can run on your development worker and your production worker at once —
+each with its own values (your development database, queues and keys for the
+development run). Production only runs it once the workflow's **Production**
+switch is on **and** a version has been promoted; until then the workflow is not
+actually live there and the schedule does not fire there.
+
+Turn the workflow's switch for an environment off and the schedule stops in that
+environment; turn it back on and it resumes. See
+[Where a trigger runs](/concepts/triggers#where-a-trigger-runs).
+
 ## Things that go wrong
 
 | What you see | What it usually is |
