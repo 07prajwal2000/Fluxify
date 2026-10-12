@@ -277,6 +277,29 @@ describe("version tools", () => {
 			).rejects.toThrow("nothing to roll back to");
 		});
 
+		it("rollback_version saves the approver's comment as the deployment description", async () => {
+			const { api, calls } = fakeApi((path) =>
+				path.endsWith("/deployments")
+					? deployment(1, { action: "rollback" })
+					: path.includes("/versions/")
+						? version(1)
+						: routeDetail,
+			);
+			// the comment is injected on resume, not part of the input schema
+			await tool("rollback_version").call(api, {
+				kind: "route",
+				id: R,
+				versionId: `${V}-1`,
+				note: "it broke",
+				comment: "Rolling back the bad promote",
+			});
+			expect(calls.at(-1)).toMatchObject({
+				method: "POST",
+				path: `/v1/routes/${R}/deployments`,
+				body: { description: "Rolling back the bad promote\n\nAgent: it broke" },
+			});
+		});
+
 		it("always ask, and the descriptions say what goes live, the checks and that a person approves", () => {
 			for (const name of ["promote_version", "rollback_version"]) {
 				expect(needsApproval("manual", name)).toBe(true);

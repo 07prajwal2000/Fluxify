@@ -1,15 +1,53 @@
-import { afterAll, afterEach, expect, mock, test } from "bun:test";
+import { afterAll, afterEach, expect, mock, spyOn, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 
 // DOM only for this file; RTL reads `document` on import, so load it after.
 GlobalRegistrator.register();
 
+// the version link goes through the router; the test only needs the anchor
+const router = await import("@tanstack/react-router");
+mock.module("@tanstack/react-router", () => ({
+	...router,
+	Link: ({ to, children, ...rest }: any) => (
+		<a href={to} {...rest}>
+			{children}
+		</a>
+	),
+}));
+
 const { act, cleanup, fireEvent, render, within } = await import("@testing-library/react");
+const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query");
 const { ApprovalBar } = await import("./ApprovalBar");
 const { isDeployTool, isProdCall } = await import("./agentApproval");
+const { versionsService } = await import("@/services/versions");
+
+// the version a promote/rollback names: read for its number and title
+const VERSIONS = {
+	uncommitted: false,
+	versions: [
+		{
+			id: "v-a",
+			kind: "route",
+			targetId: "r1",
+			versionNumber: 3,
+			title: "Add rate limiting",
+			description: null,
+			author: "Ada",
+			authorEmail: "ada@x.io",
+			createdAt: "2026-10-01T10:00:00.000Z",
+			parentId: null,
+			isHead: true,
+			isProd: false,
+		},
+	],
+};
+const list = spyOn(versionsService, "list").mockResolvedValue(VERSIONS as never);
 
 afterEach(cleanup);
-afterAll(() => GlobalRegistrator.unregister());
+afterAll(() => {
+	list.mockRestore();
+	GlobalRegistrator.unregister();
+});
 
 const q = () => within(document.body);
 const call = (id: string, name = "save_route") =>
@@ -30,13 +68,18 @@ function show(calls: Call[]) {
 	const onApprove = mock(async (_mode: string, _comment?: string) => {});
 	const onDecide = mock(async (_d: unknown) => {});
 	render(
-		<ApprovalBar
-			request={calls[0]}
-			calls={calls}
-			onApprove={onApprove}
-			onReject={async () => {}}
-			onDecide={onDecide}
-		/>,
+		<QueryClientProvider
+			client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+		>
+			<ApprovalBar
+				projectId="p1"
+				request={calls[0]}
+				calls={calls}
+				onApprove={onApprove}
+				onReject={async () => {}}
+				onDecide={onDecide}
+			/>
+		</QueryClientProvider>,
 	);
 	return { onApprove, onDecide };
 }
@@ -49,6 +92,23 @@ const disabled = (el: HTMLElement) =>
 	el.getAttribute("aria-disabled") === "true" ||
 	el.hasAttribute("data-disabled");
 const type = (box: HTMLElement, value: string) => fireEvent.change(box, { target: { value } });
+const settle = () => act(() => new Promise((r) => setTimeout(r, 20)));
+/** Not RTL's screen: it stays bound to the DOM of whichever test file loaded RTL first. */
+async function until<T>(check: () => T, timeout = 1500): Promise<T> {
+	const end = Date.now() + timeout;
+	for (;;) {
+		try {
+			return check();
+		} catch (e) {
+			if (Date.now() > end) throw e;
+			await settle();
+		}
+	}
+}
+const openMenu = async (name: string | RegExp) => {
+	fireEvent.click(q().getByRole("button", { name: "More approve options" }));
+	return until(() => q().getByRole("menuitem", { name }));
+};
 
 test("promote and rollback are production calls that need a comment", () => {
 	expect(isDeployTool("promote_version")).toBe(true);
@@ -143,4 +203,36 @@ test("Review all's Approve all skips deployments, and clearing a comment takes t
 		{ toolCallId: "a", approve: true },
 		{ toolCallId: "b", approve: true },
 	]);
+});
+
+test("an empty comment keeps both Approve and Approve with Auto disabled (#778)", async () => {
+	show([call("a", "promote_version")]);
+	expect(disabled(q().getByRole("button", { name: "Approve" }))).toBe(true);
+	const auto = await openMenu("Approve with Auto");
+	expect(disabled(auto)).toBe(true);
+});
+
+test("the typed comment goes with Approve (#778)", async () => {
+	const { onApprove } = show([call("a", "promote_version")]);
+	type(q().getByLabelText("Why is this going live?"), "Fixes the 500s");
+	await press("Approve");
+	expect(onApprove).toHaveBeenCalledWith("manual", "Fixes the 500s");
+});
+
+test("the typed comment goes with Approve with Auto (#778)", async () => {
+	const { onApprove } = show([call("a", "promote_version")]);
+	type(q().getByLabelText("Why is this going live?"), "Fixes the 500s");
+	const auto = await openMenu("Approve with Auto");
+	fireEvent.click(auto);
+	await settle();
+	expect(onApprove).toHaveBeenCalledWith("auto", "Fixes the 500s");
+});
+
+test("a promote shows its version as a link to the read-only canvas, by number and title (#778)", async () => {
+	show([call("a", "promote_version")]);
+	await settle();
+	const link = q().getByText("v3 · Add rate limiting").closest("a");
+	expect(link?.getAttribute("href")).toContain("/$projectId/canvas/$routeId/versions");
+	// the raw uuid never shows
+	expect(q().queryByText(/v-a/)).toBeNull();
 });
