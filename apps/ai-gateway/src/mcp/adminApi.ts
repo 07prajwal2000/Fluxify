@@ -1,4 +1,5 @@
 import { ADMIN_API_URL } from "../lib/env";
+import { formatToolError } from "./toolErrors";
 
 /** Sends one request to the admin API. Swapped in tests to stay in-process. */
 export type AdminFetch = (path: string, init: RequestInit) => Response | Promise<Response>;
@@ -27,14 +28,14 @@ export type AdminApi = {
  * own message is kept where it says something the status does not.
  */
 export function readableError(status: number, body: unknown, role: ToolRole): string {
-	const b = (body ?? {}) as { message?: unknown; errors?: { field: string; message: string }[] };
+	const b = (body ?? {}) as { message?: unknown };
 	const message = typeof b.message === "string" ? b.message : "";
 	switch (status) {
-		case 400:
-			if (Array.isArray(b.errors) && b.errors.length) {
-				return `Invalid input: ${b.errors.map((e) => `${e.field}: ${e.message}`).join("; ")}`;
-			}
-			return `Invalid input${message ? `: ${message}` : "."}`;
+		case 400: {
+			// the zod issues the server sends, each naming its field path and reason (#779)
+			const detail = formatToolError(body);
+			return `Invalid input${detail ? `: ${detail}` : message ? `: ${message}` : "."}`;
+		}
 		case 401:
 			return "Your Fluxify sign-in expired or was revoked. Reconnect the MCP server and sign in again.";
 		case 403:

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { z } from "zod";
 import { type AdminApi, adminApi } from "../adminApi";
+import { invokeTool, parseToolArgs } from "../tools";
 import { optionalFields, writeTools } from "../writeTools";
 
 type Call = { method: string; path: string; body?: unknown };
@@ -121,6 +122,63 @@ describe("write tools", () => {
 		const denied = adminApi(() => Response.json({}, { status: 403 }), {}, "creator");
 		await expect(run("test_integration_connection", { projectId: "p", integrationId: "i1" }, denied)).rejects.toThrow(
 			"You need the Creator role",
+		);
+	});
+});
+
+describe("save_* validation errors (#779)", () => {
+	/** An admin API whose every call answers with one body/status. */
+	const failing = (body: unknown) => adminApi(() => Response.json(body, { status: 400 }), {}, "creator");
+
+	it("save_app_config creates from a minimal input", async () => {
+		const { api, calls } = fakeApi();
+		const args = {
+			projectId: "p",
+			keyName: "GREETING",
+			value: "hello",
+			description: "",
+			isEncrypted: false,
+			encodingType: "plaintext",
+		};
+		expect(await invokeTool(tool("save_app_config"), api, args)).toEqual({ id: "new-id" });
+		const { projectId: _p, ...body } = args;
+		expect(calls[0]).toEqual({ method: "POST", path: "/v1/p/app-config", body });
+	});
+
+	it("save_custom_block creates from a minimal input", async () => {
+		const { api, calls } = fakeApi();
+		const args = { projectId: "p", name: "my_block", label: "My Block" };
+		expect(await invokeTool(tool("save_custom_block"), api, args)).toEqual({ id: "new-id" });
+		expect(calls[0]).toMatchObject({ method: "POST", path: "/v1/custom-blocks" });
+		expect(calls[0].body).toMatchObject(args);
+	});
+
+	it("save_app_config names each failing field from an admin API 400", async () => {
+		const body = {
+			type: "validation",
+			errors: [
+				{ field: "keyName", message: "Too small: expected string to have >=3 characters" },
+				{ field: "values.0.key", message: "Required" },
+			],
+		};
+		await expect(invokeTool(tool("save_app_config"), failing(body), { projectId: "p" })).rejects.toThrow(
+			"Invalid input: keyName: Too small: expected string to have >=3 characters; values[0].key: Required",
+		);
+	});
+
+	it("save_custom_block names each failing field from an admin API 400", async () => {
+		const body = {
+			type: "validation",
+			errors: [{ field: "name", message: "Invalid string: must match /^[a-z0-9_]+$/" }],
+		};
+		await expect(invokeTool(tool("save_custom_block"), failing(body), { projectId: "p" })).rejects.toThrow(
+			"Invalid input: name: Invalid string: must match /^[a-z0-9_]+$/",
+		);
+	});
+
+	it("names an MCP-layer type error with its path", () => {
+		expect(() => parseToolArgs(tool("save_custom_block"), { customBlockId: 5, label: "X" })).toThrow(
+			/customBlockId: /,
 		);
 	});
 });

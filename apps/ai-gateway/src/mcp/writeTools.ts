@@ -56,6 +56,19 @@ const VARIANTS = getIntegrationsGroups()
 const defined = (o: Record<string, unknown>) =>
 	Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined));
 
+/** Marks the fields an API create needs, so the MCP schema says what is required (#779). */
+function requiredToCreate(shape: z.ZodRawShape, names: string[]): z.ZodRawShape {
+	const set = new Set(names);
+	return Object.fromEntries(
+		Object.entries(shape).map(([key, field]) => {
+			if (!set.has(key)) return [key, field];
+			const note = "Required when creating.";
+			const existing = (field as z.ZodType).description;
+			return [key, (field as z.ZodType).describe(existing ? `${existing} ${note}` : note)];
+		}),
+	);
+}
+
 export const writeTools: McpTool[] = [
 	{
 		name: "save_trigger",
@@ -117,10 +130,13 @@ export const writeTools: McpTool[] = [
 		name: "save_custom_block",
 		title: "Save custom block",
 		description:
-			"Create or update a custom block's details: label, description, inputs (inputParams) and docs. Its code is not set here. To create pass projectId, name (lowercase letters, digits, _) and label. name and usage (where it may run, 'flow' by default) cannot change after create.",
+			'Create or update a custom block\'s details: label, description, inputs (inputParams) and docs. Its code is not set here. To create pass projectId, name (lowercase letters, digits, _) and label. name and usage (where it may run, \'flow\' by default) cannot change after create. Required to create: projectId (string), name (string, /^[a-z0-9_]+$/), label (string). Minimal create: { projectId: "p1", name: "my_block", label: "My Block" }.',
 		role: "creator",
 		annotations: SAVE,
-		input: { customBlockId: idArg("Custom block"), ...optionalFields(customBlockBody.shape) },
+		input: {
+			customBlockId: idArg("Custom block"),
+			...requiredToCreate(optionalFields(customBlockBody.shape), ["projectId", "name", "label"]),
+		},
 		call: async ({ send }, { customBlockId, projectId: p, name, usage, ...a }) => {
 			const { id } = customBlockId
 				? await send("PUT", `/v1/custom-blocks/${customBlockId}`, a)
@@ -144,13 +160,19 @@ export const writeTools: McpTool[] = [
 		name: "save_app_config",
 		title: "Save app config",
 		description:
-			"Create or update an app config entry (a setting or secret blocks read). To create pass keyName, value, description, isEncrypted and encodingType ('plaintext' unless the value is already base64 or hex). value is production's: set it only when the user explicitly asks to change production, otherwise set devValue, development's own (null removes it), and syncDev true makes development read value instead. A development run with no devValue and syncDev off fails, naming the key. Encrypt secrets: an encrypted value is never shown again and cannot be decrypted back. On update, fields left out keep their value; keyName and dataType cannot change.",
+			"Create or update an app config entry (a setting or secret blocks read). To create pass keyName, value, description, isEncrypted and encodingType ('plaintext' unless the value is already base64 or hex). value is production's: set it only when the user explicitly asks to change production, otherwise set devValue, development's own (null removes it), and syncDev true makes development read value instead. A development run with no devValue and syncDev off fails, naming the key. Encrypt secrets: an encrypted value is never shown again and cannot be decrypted back. On update, fields left out keep their value; keyName and dataType cannot change. Required to create: keyName (string, 3-100 chars, letters/digits/_), description (string, max 255), value (string, boolean or number), isEncrypted (boolean), encodingType ('plaintext', 'base64' or 'hex'). Minimal create: { projectId: \"p1\", keyName: \"GREETING\", value: \"hello\", description: \"\", isEncrypted: false, encodingType: \"plaintext\" }.",
 		role: "creator",
 		annotations: SAVE,
 		input: {
 			projectId,
 			appConfigId: z.number().int().optional().describe("App config id to update; omit to create"),
-			...optionalFields(appConfigBody.shape),
+			...requiredToCreate(optionalFields(appConfigBody.shape), [
+				"keyName",
+				"description",
+				"value",
+				"isEncrypted",
+				"encodingType",
+			]),
 		},
 		call: async ({ get, send }, { projectId: p, appConfigId, ...a }) => {
 			const base = `/v1/${p}/app-config`;

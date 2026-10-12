@@ -11,7 +11,7 @@ import { projectTools } from "./projectTools";
 import { routeTools } from "./routeTools";
 import { sandboxTools } from "./sandboxTools";
 import { testSuiteTools } from "./testSuiteTools";
-import { lenient, readTools } from "./tools";
+import { invokeTool, lenient, readTools } from "./tools";
 import { versionTools } from "./versionTools";
 import { writeTools } from "./writeTools";
 
@@ -81,7 +81,7 @@ export function createMcpServer(
 				annotations: tool.annotations ?? { readOnlyHint: true },
 			},
 			async (args: unknown) => {
-				const result = await tool.call(api, args);
+				const result = await invokeTool(tool, api, args);
 				const text = typeof result === "string" ? result : JSON.stringify(result);
 				return { content: [{ type: "text", text }] };
 			},
