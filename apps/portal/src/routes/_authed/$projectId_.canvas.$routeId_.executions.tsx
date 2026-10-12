@@ -9,6 +9,7 @@ import type { Replay } from "@/components/recordings/replay";
 import { RouteSettingsModal } from "@/components/routes/RouteSettingsModal";
 import { RouteSwitcher } from "@/components/routes/RouteSwitcher";
 import { RouteWorkbenchHeader, RouteWorkbenchTabs } from "@/components/routes/RouteWorkbenchTabs";
+import { ProductionChip } from "@/components/versions/ProductionChip";
 import { createRouteHead, usePageTitle } from "@/lib/seo";
 import { routesQuery } from "@/query/routesQuery";
 import { routesService } from "@/services/routes";
@@ -19,7 +20,7 @@ export const Route = createFileRoute("/_authed/$projectId_/canvas/$routeId_/exec
 		"Route Executions | Routes",
 		"Inspect and debug recorded executions for an API route.",
 	),
-	validateSearch: z.object({ open: z.string().optional() }),
+	validateSearch: z.object({ open: z.string().optional(), version: z.string().optional() }),
 	beforeLoad: async ({ params, context }) => {
 		try {
 			const route = await context.queryClient.ensureQueryData({
@@ -47,7 +48,7 @@ export const Route = createFileRoute("/_authed/$projectId_/canvas/$routeId_/exec
 
 function RouteExecutionsPage() {
 	const { projectId, routeId } = Route.useParams();
-	const { open } = Route.useSearch();
+	const { open, version } = Route.useSearch();
 	const navigate = Route.useNavigate();
 	const { data: route } = routesQuery.byId.useQuery(routeId);
 	const canEdit = useCanEditProject(projectId);
@@ -67,6 +68,7 @@ function RouteExecutionsPage() {
 				<RouteSwitcher projectId={projectId} routeId={routeId} />
 				<RouteWorkbenchTabs projectId={projectId} routeId={routeId} />
 				<div className="ml-auto flex items-center gap-2">
+					<ProductionChip kind="route" id={routeId} projectId={projectId} />
 					<Button
 						variant="outline"
 						onPress={() => {
@@ -86,6 +88,8 @@ function RouteExecutionsPage() {
 				<ExecutionRecordings
 					key={routeId}
 					initialRunId={open}
+					versionId={version}
+					onClearVersionFilter={() => navigate({ search: {}, replace: true })}
 					onClosed={() => navigate({ search: {}, replace: true })}
 					projectId={projectId}
 					target={{ type: "route", id: routeId }}

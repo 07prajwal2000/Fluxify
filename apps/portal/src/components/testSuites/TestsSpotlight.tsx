@@ -5,15 +5,18 @@ import {
 	matchCombo,
 	useSpotlightCommands,
 } from "@/components/canvas";
+import { useTargetSpotlight } from "@/components/versions/useTargetSpotlight";
 
 /** the spotlight (mod+k) and shortcuts modal of a tests page, route or workflow */
 export function TestsSpotlight() {
 	const [spotlightOpen, setSpotlightOpen] = useState(false);
 	const [shortcutsOpen, setShortcutsOpen] = useState(false);
+	const target = useTargetSpotlight();
 	const spotlightCommands = useSpotlightCommands({
 		actions: [],
 		onOpenShortcuts: () => setShortcutsOpen(true),
 		onClose: () => setSpotlightOpen(false),
+		extraCommands: target.commands(),
 	});
 
 	useEffect(() => {
@@ -35,6 +38,7 @@ export function TestsSpotlight() {
 				commands={spotlightCommands}
 			/>
 			<KeyboardShortcutsModal isOpen={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+			{target.dialogs}
 		</>
 	);
 }

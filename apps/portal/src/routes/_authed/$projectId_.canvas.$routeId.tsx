@@ -16,6 +16,8 @@ import { RouteWorkbenchTabs } from "@/components/routes/RouteWorkbenchTabs";
 import { extractPathParams } from "@/components/routes/routeForm";
 import { SettingsSplitButton } from "@/components/sandboxes/SettingsSplitButton";
 import { CommitControls } from "@/components/versions/CommitControls";
+import { ProductionChip } from "@/components/versions/ProductionChip";
+import { useTargetSpotlight } from "@/components/versions/useTargetSpotlight";
 import { createRouteHead, usePageTitle } from "@/lib/seo";
 import { useProjectPackageTypes } from "@/query/projectPackagesQuery";
 import { routesQuery } from "@/query/routesQuery";
@@ -86,6 +88,9 @@ function RouteCanvasPage() {
 
 	const items = routesQuery.canvasItems.useQuery(routeId);
 
+	// the canvas command palette's own actions for this target (#739)
+	const spotlight = useTargetSpotlight();
+
 	return (
 		<>
 			<CanvasWorkbench
@@ -96,6 +101,7 @@ function RouteCanvasPage() {
 				focusBlock={block ? { blockId: block, error } : undefined}
 				readOnly={!canEdit}
 				items={items}
+				spotlightCommands={spotlight.commands}
 				compileTarget={{ projectId, resourceType: "route", resourceId: routeId }}
 				playgroundContent={
 					<RouteApiPlayground key={routeId} routeId={routeId} isFramed={false} enableCache />
@@ -111,6 +117,7 @@ function RouteCanvasPage() {
 				}
 				headerActions={(canvas) => (
 					<>
+						<ProductionChip kind="route" id={routeId} projectId={projectId} />
 						<CommitControls
 							kind="route"
 							id={routeId}
@@ -150,6 +157,7 @@ function RouteCanvasPage() {
 					readOnly={!canEdit}
 				/>
 			)}
+			{spotlight.dialogs}
 		</>
 	);
 }

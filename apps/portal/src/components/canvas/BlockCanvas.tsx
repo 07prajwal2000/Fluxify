@@ -72,6 +72,7 @@ function CanvasInner({
 	enableBlockPicker = false,
 	enablePlayground = false,
 	enableSpotlight = false,
+	spotlightCommands,
 	playgroundContent,
 	trackExecutionContent,
 	showToolbar = true,
@@ -399,6 +400,7 @@ function CanvasInner({
 													}
 													enablePlayground={enablePlayground}
 													onOpenPlayground={playground.open}
+													extraCommands={spotlightCommands}
 												/>
 												{/* biome-ignore lint/a11y/noStaticElementInteractions: canvas right-click context menu */}
 												<div

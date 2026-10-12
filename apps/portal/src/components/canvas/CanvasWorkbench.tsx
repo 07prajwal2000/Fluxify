@@ -17,6 +17,7 @@ import {
 	SAVE_SOURCE,
 } from "./diagnostics/saveErrorDiagnostics";
 import { type CompileTarget, useCompileDiagnostics } from "./diagnostics/useCompileDiagnostics";
+import type { SpotlightCommand } from "./spotlight/types";
 import type { BlockData, CanvasGraph } from "./types";
 import { useCanvasPoll } from "./useCanvasPoll";
 
@@ -39,6 +40,8 @@ export type CanvasWorkbenchProps = {
 	enablePlayground?: boolean;
 	/** Opt-in only: enables the Spotlight command palette (Cmd/Ctrl+K or Cmd/Ctrl+Space). */
 	enableSpotlight?: boolean;
+	/** Page-owned spotlight commands (this target's version history, commit, sandbox) (#739). */
+	spotlightCommands?: (canvas: CanvasHeaderState) => SpotlightCommand[];
 	playgroundContent?: ReactNode;
 	/** the playground's "Track Execution" tab; leave out for users who can't see recordings */
 	trackExecutionContent?: ReactNode;
@@ -109,6 +112,7 @@ function CanvasWorkbenchInner({
 	enableBlockPicker = false,
 	enablePlayground = false,
 	enableSpotlight = false,
+	spotlightCommands,
 	playgroundContent,
 	trackExecutionContent,
 	headerActions,
@@ -256,6 +260,10 @@ function CanvasWorkbenchInner({
 						enableBlockPicker={enableBlockPicker}
 						enablePlayground={enablePlayground}
 						enableSpotlight={enableSpotlight}
+						spotlightCommands={spotlightCommands?.({
+							hasUnsavedChanges: pendingCount > 0,
+							saveChanges: onSave,
+						})}
 						playgroundContent={playgroundContent}
 						trackExecutionContent={trackExecutionContent}
 						focusBlock={focusBlock}

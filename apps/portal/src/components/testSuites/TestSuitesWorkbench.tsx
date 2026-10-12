@@ -2,7 +2,10 @@ import { Button, cn, Dropdown, Label, Spinner, toast } from "@fluxify/components
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { TbCopy, TbDotsVertical, TbPlayerPlay, TbPlus, TbSearch, TbTrash } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { EnvPicker, type RunEnv } from "@/components/common/EnvPicker";
 import { RouteWorkbenchHeader } from "@/components/routes/RouteWorkbenchTabs";
+import { ProductionChip } from "@/components/versions/ProductionChip";
+import { useVersionTarget } from "@/components/versions/useVersionTarget";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { useProjectPackageTypes } from "@/query/projectPackagesQuery";
 import { routesQuery } from "@/query/routesQuery";
@@ -175,6 +178,8 @@ export function TestSuitesWorkbench({
 	const [pendingClone, setPendingClone] = useState<{ id: string; name: string } | null>(null);
 
 	const route = routesQuery.byId.useQuery(target.type === "route" ? target.id : "");
+	const { prodVersionNumber } = useVersionTarget(target.type, target.id);
+	const [env, setEnv] = useState<RunEnv>("development");
 	const suites = testSuitesQuery.getAll.useQuery(target);
 	const detail = testSuitesQuery.getById.useQuery(target, selectedId);
 	const create = testSuitesQuery.create.mutation(target);
@@ -293,7 +298,7 @@ export function TestSuitesWorkbench({
 
 	async function onRun(suiteIds?: string[]) {
 		try {
-			const { runId: id } = await startRun.mutateAsync(suiteIds);
+			const { runId: id } = await startRun.mutateAsync({ suiteIds, env });
 			setRunId(id);
 		} catch (error) {
 			showErrorNotification(error as Error);
@@ -321,10 +326,17 @@ export function TestSuitesWorkbench({
 		<>
 			<RouteWorkbenchHeader>
 				{headerLeft}
-				<div className="ml-auto flex items-center gap-2">
+				<div className="ml-auto flex items-center gap-3">
+					<ProductionChip kind={target.type} id={target.id} projectId={projectId} />
 					<span className="text-xs text-muted">
 						{list.length} suite{list.length === 1 ? "" : "s"}
 					</span>
+					<EnvPicker
+						env={env}
+						onEnvChange={setEnv}
+						productionDisabled={prodVersionNumber == null}
+						confirm="Runs your production version with development credentials. Production data is never touched."
+					/>
 					<Button
 						variant="outline"
 						isDisabled={list.length === 0 || isRunning}

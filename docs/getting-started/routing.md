@@ -243,11 +243,30 @@ The **Playground** sends a real request to your route and shows the response.
 Open it with the **Playground** button on the Routes page, or the play button
 on the route's canvas.
 
-The request goes to the route's [development address](../concepts/environments.md#calling-a-route-on-development),
-so it runs on the development worker with your development values, never on
-production. The route must be on in **Development**, which a new route is. The URL preview shows your project's address, subdomain included.
-Fluxify adds the development token for you. If no development
-worker is running, the playground says so and cannot send.
+A **Run in Production** toggle sits at the top. It opens on **Development** and
+does not remember your choice, so the next time you open the playground you are
+back on Development.
+
+| Toggle | Where the request goes | What it runs with |
+| :--- | :--- | :--- |
+| **Off** (default, **Development**) | The route's [development address](../concepts/environments.md#calling-a-route-on-development), `/_/dev` + the path | Development worker, development values |
+| **On** (**Production**) | The route's public address, exactly as a caller uses it | Production's promoted version, production values |
+
+Development asks for nothing extra: the route must be on in **Development**,
+which a new route is, and Fluxify adds the development token for you. If no
+development worker is running, the playground says so and cannot send.
+
+Production is offered only once you have
+[promoted a version](../concepts/versioning.md#promoting-a-version). Until then
+the toggle is disabled and says **Not promoted yet**. The first time you switch
+it on, the playground asks you to confirm: **"This calls production: real data,
+real side effects."** A production call really reaches your live route and can
+change real data.
+
+When production recording is on for the route, a production call shows an
+**Open recording** link once the run is recorded, so you can open it on the
+**Executions** page. When recording is off, there is nothing to open and the
+link does not appear.
 
 For `POST` and `PUT` routes, pick a content type on the **Body** tab. The
 editor changes to match it:

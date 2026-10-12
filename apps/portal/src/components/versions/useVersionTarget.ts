@@ -15,6 +15,8 @@ export function useVersionTarget(kind: VersionKind, id: string) {
 				: workflow.data?.name || "Untitled",
 		/** null until the first commit or checkout */
 		headVersionNumber: data?.headVersionNumber ?? null,
+		/** the version production serves (#739); null until the first promote */
+		prodVersionNumber: data?.prodVersionNumber ?? null,
 		/** the working copy holds changes no version does */
 		uncommitted: data?.uncommitted ?? false,
 	};

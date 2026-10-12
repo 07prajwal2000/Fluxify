@@ -102,5 +102,7 @@ export async function testsGate(
 		status: "failed",
 		message: noWorker ?? `${failed} of ${rows.length} test suites did not pass`,
 		items,
+		// so the promotion panel can link straight to the failed checks (#739)
+		runId,
 	};
 }

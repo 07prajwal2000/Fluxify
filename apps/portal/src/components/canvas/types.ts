@@ -1,5 +1,6 @@
 import type { Edge, EdgeTypes, Node, NodeTypes, Viewport } from "@xyflow/react";
 import type { ChangeSet } from "./changes/changeTracker";
+import type { SpotlightCommand } from "./spotlight/types";
 
 /** Arbitrary per-block configuration. Shape is owned by each block type. */
 export type BlockData = Record<string, unknown>;
@@ -68,6 +69,8 @@ export type BlockCanvasProps = {
 	 * Default `false`; enable only from its owning route.
 	 */
 	enableSpotlight?: boolean;
+	/** Page-owned spotlight commands (this target's version history, commit, sandbox). */
+	spotlightCommands?: SpotlightCommand[];
 	/** Playground content rendered in the canvas-owned modal, outside React Flow. */
 	playgroundContent?: React.ReactNode;
 	/** A second "Track Execution" tab in the playground modal; omitted = no tab strip. */

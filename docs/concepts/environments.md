@@ -17,19 +17,28 @@ setting when you start the worker:
 
 ## What runs where
 
-Anything you do to try things out runs on **development**. Only your real
-callers and your live triggers reach **production**.
+Anything you do to try things out runs on **development** by default. Your real
+callers and your live triggers reach **production** — and so do two things you
+ask for on purpose: the playground's **Production** mode and a **Production**
+test run, both described below.
 
 | What | Runs on |
 | :--- | :--- |
 | Your public route URLs, called by your users | Production |
 | Triggers, schedules and queued work of your live app | Production |
-| The route playground and **Run** in the portal | Development |
+| The route playground and **Run** in the portal | Development by default; **Production** when you switch the toggle on |
 | `call_route` from an AI agent | Development |
 | A workflow's **Run** button | Development |
-| Test suites | Development |
+| Test suites | Development by default; **Production** runs test the promoted version (see [Test suites](/testing/#development-and-production-runs)) |
 | Sandboxes and quick block runs | Development |
 | Any route at `/_/dev/<path>` with the [development token](#development-access) | Development |
+
+::: info Production is always opt-in from the portal
+The playground opens on **Development** every time and does not remember a
+switch to Production; it asks you to confirm the first production call. A
+Production test run also asks first, and even then it uses your **development**
+credentials, so it never touches production data.
+:::
 
 The route playground sends its request to the route's `/_/dev` address, with
 your project's development token added for you. You never see the token. The

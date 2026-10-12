@@ -81,6 +81,16 @@ function Run({ run }: { run: Data }) {
 		<div className="flex flex-col gap-2">
 			<p className="flex flex-wrap items-center gap-2 text-sm">
 				<span className="font-medium text-foreground">{str(run.status)}</span>
+				{str(run.env) && (
+					<span className="rounded-md bg-accent/10 px-1.5 py-0.5 text-[11px] font-medium text-accent">
+						{str(run.env) === "production" ? "Prod" : "Dev"}
+					</span>
+				)}
+				{str(run.deploymentId) && (
+					<span className="rounded-md bg-warning/10 px-1.5 py-0.5 text-[11px] font-medium text-warning">
+						Promote check
+					</span>
+				)}
 				{run.passedCount !== undefined && (
 					<span className="text-success">{str(run.passedCount)} passed</span>
 				)}

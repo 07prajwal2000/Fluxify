@@ -65,6 +65,7 @@ export const middlewaresQuery = {
 			return useQuery({
 				queryKey: routeKey(routeId),
 				queryFn: () => middlewaresService.getForRoute(routeId),
+				enabled: Boolean(routeId),
 				refetchOnWindowFocus: false,
 			});
 		},

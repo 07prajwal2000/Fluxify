@@ -48,6 +48,8 @@ export function RecordedRunList({
 	emptyHint,
 	onOpen,
 	showSourceFilter = true,
+	versionId,
+	onClearVersionFilter,
 }: {
 	projectId: string;
 	target: RecordingTarget;
@@ -56,6 +58,10 @@ export function RecordedRunList({
 	onOpen: (run: RecordedRunSummary) => void;
 	/** the All / Test / Live switch; hide it where a target has no test runs (a sandbox) */
 	showSourceFilter?: boolean;
+	/** only production runs that served this version (#739), from the version menu */
+	versionId?: string;
+	/** drops the version filter */
+	onClearVersionFilter?: () => void;
 }) {
 	const [page, setPage] = useState(1);
 	const [outcomeFilter, setOutcomeFilter] = useState<"all" | "success" | "failure">("all");
@@ -84,7 +90,10 @@ export function RecordedRunList({
 		page,
 		true,
 		outcomeFilter === "all" ? undefined : outcomeFilter,
-		sourceFilter === "all" ? {} : { source: sourceFilter },
+		{
+			...(sourceFilter === "all" ? {} : { source: sourceFilter }),
+			...(versionId ? { versionId } : {}),
+		},
 		envFilter === "all" ? undefined : envFilter,
 	);
 	const remove = recordingsQuery.deleteRun.useMutation(projectId, target);
@@ -148,6 +157,20 @@ export function RecordedRunList({
 	const pagination = runs.data?.pagination;
 	return (
 		<div className="space-y-3 p-4">
+			{versionId && (
+				<div className="flex items-center gap-2 rounded-md border border-border bg-background-secondary px-3 py-1.5 text-xs text-muted">
+					<span>Showing the production runs of one version.</span>
+					{onClearVersionFilter && (
+						<button
+							type="button"
+							onClick={onClearVersionFilter}
+							className="text-accent hover:underline"
+						>
+							Show all runs
+						</button>
+					)}
+				</div>
+			)}
 			<div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
 				<div className="flex items-center gap-2">
 					{target.type === "route" && route.data && (
@@ -287,6 +310,13 @@ export function RecordedRunList({
 							{run.statusCode != null && (
 								<span className="font-mono text-xs text-foreground">{run.statusCode}</span>
 							)}
+							{run.versionNumber != null ? (
+								<span className="shrink-0 font-mono text-[11px] text-foreground">
+									v{run.versionNumber}
+								</span>
+							) : run.env === "development" ? (
+								<span className="shrink-0 text-[11px] text-muted">working copy</span>
+							) : null}
 							{run.env && (
 								<Chip size="sm" color={run.env === "development" ? "accent" : "default"}>
 									{run.env === "development" ? "Dev" : "Prod"}

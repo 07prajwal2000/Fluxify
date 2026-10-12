@@ -347,6 +347,9 @@ describe("tests gate", () => {
 		const tests = done.gates.find((g: any) => g.gate === "tests");
 		expect(tests).toMatchObject({ status: "failed", message: "1 of 1 test suites did not pass" });
 		expect(tests.items).toEqual([`${s.name}: Expected Status to eq 200, got: 500`]);
+		// the failing run is named, so the promotion panel can link to it (#739)
+		const [run] = await sql`SELECT id FROM test_runs WHERE route_id = ${id}`;
+		expect(tests.runId).toBe(run!.id);
 		// production keeps what it had
 		expect((await call(as, "GET", `/routes/${id}`)).body.prodVersionId).toBeNull();
 	});

@@ -46,6 +46,8 @@ export type UseSpotlightCommandsOptions = {
 	onClose: () => void;
 	/** Open create pages in this tab. The canvas leaves it off so its unsaved edits survive. */
 	inPlace?: boolean;
+	/** Page-owned commands (e.g. this target's version history, commit, sandbox) (#739). */
+	extraCommands?: SpotlightCommand[];
 };
 
 /** Leaves the canvas, and any unsaved edits on it, where they are. */
@@ -79,6 +81,7 @@ export function useSpotlightCommands({
 	onOpenShortcuts,
 	onClose,
 	inPlace = false,
+	extraCommands,
 }: UseSpotlightCommandsOptions): SpotlightCommand[] {
 	const navigate = useNavigate();
 	const customDefs = useAddableCustomBlockDefs();
@@ -433,9 +436,22 @@ export function useSpotlightCommands({
 			},
 		});
 
+		// 9. Page-owned commands, e.g. this route or workflow's own actions (#739).
+		// The palette closes first, like every other command.
+		for (const command of extraCommands ?? []) {
+			commands.push({
+				...command,
+				onSelect: () => {
+					onClose();
+					command.onSelect();
+				},
+			});
+		}
+
 		return commands;
 	}, [
 		actions,
+		extraCommands,
 		onAddBlock,
 		enablePlayground,
 		onOpenPlayground,
