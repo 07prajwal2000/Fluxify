@@ -66,8 +66,12 @@ type RouteEnvBuild = Pick<
 	| "timeoutSeconds"
 	| "middlewares"
 	| "routeVersion"
+	| "versionId"
 >;
-type WorkflowEnvBuild = Pick<WorkflowArtifact, "source" | "timeoutSeconds" | "workflowVersion">;
+type WorkflowEnvBuild = Pick<
+	WorkflowArtifact,
+	"source" | "timeoutSeconds" | "workflowVersion" | "versionId"
+>;
 
 export async function compileProjectRoutes(projectId: string) {
 	const routes = await db
@@ -184,6 +188,9 @@ export async function compileRoute(routeId: string) {
 				// production's version is the promoted one; development has no version
 				// of its own, so the compile timestamp tells its builds apart
 				routeVersion: production ? route.prodVersionId! : compiledAt,
+				// the version this build serves (#782): production's promoted version,
+				// nothing in development, which runs the working copy
+				versionId: production ? route.prodVersionId! : undefined,
 			};
 		});
 	} catch (error) {
@@ -282,6 +289,7 @@ export async function compileWorkflow(workflowId: string) {
 				).source,
 				timeoutSeconds: production ? snapshot!.settings.timeoutSeconds : workflow.timeoutSeconds,
 				workflowVersion: production ? workflow.prodVersionId! : compiledAt,
+				versionId: production ? workflow.prodVersionId! : undefined,
 			};
 		});
 	} catch (error) {

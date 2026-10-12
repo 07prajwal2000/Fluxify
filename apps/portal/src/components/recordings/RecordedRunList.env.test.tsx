@@ -13,7 +13,7 @@ afterEach(cleanup);
 afterAll(() => GlobalRegistrator.unregister());
 beforeEach(() => mock.restore());
 
-const run = (id: string, env: "development" | "production") => ({
+const run = (id: string, values: "development" | "production") => ({
 	id,
 	outcome: "success" as const,
 	statusCode: 200,
@@ -24,7 +24,10 @@ const run = (id: string, env: "development" | "production") => ({
 	truncated: false,
 	droppedSpans: 0,
 	parentRunId: null,
-	env,
+	versionId: null,
+	versionNumber: null,
+	graph: "working copy",
+	values,
 	metadata: null,
 });
 

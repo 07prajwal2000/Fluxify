@@ -1635,8 +1635,10 @@ export const traceOutcomeEnum = pgEnum("trace_outcome", ["success", "failure"]);
  * the admin's recordings consumer, never by a worker. Deleted after
  * `RECORDING_MAX_AGE_DAYS` by the daily retention job; its spans go with it.
  *
- * `routeVersion` is the compile timestamp in development and the version id in production.
- * `parentRunId` links a run forked by an async custom block back to the span
+ * `routeVersion` / `workflowVersion` are the artifact's own build identity (the compile
+ * timestamp in development, the version id in production); internal only. `versionId`
+ * is the version a run served (#782). `parentRunId` links a run forked by an async
+ * custom block back to the span
  * that started it — no foreign key, the parent may be gone or not yet written.
  */
 export const traceRunsEntity = pgTable(
@@ -1660,9 +1662,10 @@ export const traceRunsEntity = pgTable(
 		routeVersion: varchar("route_version", { length: 50 }),
 		workflowVersion: varchar("workflow_version", { length: 50 }),
 		/**
-		 * The version a production run served (#739): the id of a `canvas_versions`
-		 * row. Null on a development run, which runs the working copy. No foreign
-		 * key: a recording may arrive after, or outlive, its version.
+		 * The version a run served (#782): the id of a `canvas_versions` row, set by
+		 * any worker that runs a versioned artifact — production traffic, a prod-env
+		 * test run and the promote gate's candidate run. Null on a run of the working
+		 * copy. No foreign key: a recording may arrive after, or outlive, its version.
 		 */
 		versionId: uuid("version_id"),
 		startedAt: timestamp("started_at", { withTimezone: true }).notNull(),

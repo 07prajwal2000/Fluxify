@@ -188,7 +188,8 @@ describe("project tools", () => {
 			truncated: false,
 			droppedSpans: 0,
 			parentRunId: null,
-			env: "development",
+			graph: "v2",
+			values: "development",
 			metadata: { source: "test", label: "Suite · case", testRunId: "tr" },
 		};
 		const { api, calls } = fakeApi({ [REC]: { data: [row], pagination: { page: 1, hasNext: false } } });
@@ -214,7 +215,8 @@ describe("project tools", () => {
 					statusCode: null,
 					spanCount: 2,
 					truncated: false,
-					env: "development",
+					graph: "v2",
+					values: "development",
 					testLabel: "Suite · case",
 				},
 			],

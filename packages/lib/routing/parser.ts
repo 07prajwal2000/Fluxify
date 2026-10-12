@@ -14,8 +14,10 @@ export type HttpRoute = {
 	tracingEnabled?: boolean;
 	/** debug recording, persisted for the portal trace viewer; expensive */
 	recordExecution?: boolean;
-	/** identifies the graph a recorded run belongs to, for the portal overlay */
+	/** the artifact's own identity: the compile timestamp in development, the version id in production */
 	routeVersion?: string;
+	/** the version this route runs (#782), absent for the working copy */
+	versionId?: string;
 };
 
 export type RouteTree = {

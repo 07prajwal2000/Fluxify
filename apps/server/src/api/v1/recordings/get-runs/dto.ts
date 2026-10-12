@@ -35,8 +35,11 @@ export const runSummarySchema = z.object({
 	truncated: z.boolean(),
 	droppedSpans: z.number(),
 	parentRunId: z.string().nullable(),
-	env: runEnvSchema,
-	/** the version a production run served (#739); null on a development run, which runs the working copy */
+	/** the environment the run used: "development" or "production" (#782) */
+	values: runEnvSchema,
+	/** the version a run served, resolved from `versionId`: "v7", or "working copy" (#782) */
+	graph: z.string(),
+	/** the version a run served (#782); null on a working-copy run */
 	versionId: z.string().nullable(),
 	/** its `vN`; null with the id, or once the version is gone */
 	versionNumber: z.number().int().nullable(),

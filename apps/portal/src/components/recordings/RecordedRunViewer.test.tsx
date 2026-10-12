@@ -57,10 +57,10 @@ const run = {
 	truncated: false,
 	droppedSpans: 0,
 	parentRunId: null,
-	routeVersion: null,
-	workflowVersion: null,
 	versionId: null,
 	versionNumber: null,
+	graph: "working copy",
+	values: "development",
 	parentSeq: null,
 	childRuns: [],
 	spans: [

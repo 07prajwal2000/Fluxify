@@ -28,6 +28,12 @@ export type TestBootstrap = {
 	config: ProjectConfigPayload;
 	/** the target's timeoutSeconds * 1000, per case — drives the in-band stopper and the watchdog */
 	timeoutMs: number;
+	/**
+	 * The version whose graph the suite runs (#782): the promoted version's, or the
+	 * promote gate's candidate. Absent on a development run, which tests the working
+	 * copy. The child stamps it on each case's run so the recording proves what ran.
+	 */
+	versionId?: string;
 	/** judged in the child, right after the target answers */
 	assertions: AssertionType[];
 	/** the suite's block hooks (#483); `source` is compiled with hook points */

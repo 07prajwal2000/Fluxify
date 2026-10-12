@@ -10,6 +10,8 @@ export type RecordedRoute = {
 	projectId: string;
 	routeId: string;
 	routeVersion: string;
+	/** the version this run served (#782); absent for the working copy */
+	versionId?: string;
 	method: string;
 	path: string;
 	/** `routeId` is a sandbox's id (#735) */
@@ -20,6 +22,8 @@ export type RecordedWorkflow = {
 	projectId: string;
 	workflowId: string;
 	workflowVersion: string;
+	/** the version this run served (#782); absent for the working copy */
+	versionId?: string;
 	workflowName?: string;
 	/** `workflowId` is a sandbox's id (#735) */
 	sandbox?: boolean;
@@ -239,6 +243,7 @@ export class RouteTraceRecorder extends BaseTraceRecorder implements RequestTrac
 			projectId: this.route.projectId,
 			...(this.route.sandbox ? { sandboxId: this.route.routeId } : { routeId: this.route.routeId }),
 			routeVersion: this.route.routeVersion,
+			...(this.route.versionId ? { versionId: this.route.versionId } : {}),
 			method: this.route.method,
 			path: this.route.path,
 		};
@@ -272,6 +277,7 @@ export class WorkflowTraceRecorder extends BaseTraceRecorder implements Workflow
 				? { sandboxId: this.workflow.workflowId }
 				: { workflowId: this.workflow.workflowId }),
 			workflowVersion: this.workflow.workflowVersion,
+			...(this.workflow.versionId ? { versionId: this.workflow.versionId } : {}),
 			...(this.workflow.workflowName ? { workflowName: this.workflow.workflowName } : {}),
 		};
 	}

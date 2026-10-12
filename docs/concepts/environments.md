@@ -221,7 +221,9 @@ To change them, open the route's or workflow's **Settings**, go to
 first. Press **Save changes** and the setting applies right away. It is a live
 setting of the route or workflow, never part of its saved graph.
 
-Each recorded run is marked **Dev** or **Prod** in the run list. The
+Each recorded run is marked with its **graph** (the
+[promoted version](/concepts/versioning#what-production-serves) it served, like
+`v7`, or **working copy**) and its **values** (**Dev** or **Prod**). The
 **Executions** page has an environment filter (**All environments**,
 **Development** or **Production**) so you can look at development runs and
 production runs apart.

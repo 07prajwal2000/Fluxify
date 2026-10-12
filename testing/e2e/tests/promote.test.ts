@@ -195,7 +195,7 @@ describe("promote and rollback on a live route", () => {
 		expect((await api(stack, "viewer", `/v1/routes/${id}/deployments`)).status).toBe(200);
 	}, 120_000);
 
-	it("a production run is recorded with its version, and a development run is not", async () => {
+	it("a production run is recorded with its graph and values, a development run as the working copy", async () => {
 		const id = await newRoute("/recorded");
 		await setScript("routes", id, "return { say: 'one' };");
 		const v1 = await commit(id, "One");
@@ -213,14 +213,19 @@ describe("promote and rollback on a live route", () => {
 			const { data } = await ok(
 				api(stack, "creator", `/v1/${PROJECT()}/recordings/route/${id}/runs?perPage=50`),
 			);
-			return data.some((r: any) => r.env === "production") &&
-				data.some((r: any) => r.env === "development") &&
+			return data.some((r: any) => r.values === "production") &&
+				data.some((r: any) => r.values === "development") &&
 				data;
 		});
-		const prod = runs.find((r: any) => r.env === "production");
-		const dev = runs.find((r: any) => r.env === "development");
-		expect(prod).toMatchObject({ versionId: v1, versionNumber: 1 });
-		expect(dev).toMatchObject({ versionId: null, versionNumber: null });
+		const prod = runs.find((r: any) => r.values === "production");
+		const dev = runs.find((r: any) => r.values === "development");
+		expect(prod).toMatchObject({ graph: "v1", values: "production", versionId: v1, versionNumber: 1 });
+		expect(dev).toMatchObject({
+			graph: "working copy",
+			values: "development",
+			versionId: null,
+			versionNumber: null,
+		});
 	}, 180_000);
 });
 
@@ -380,4 +385,47 @@ describe("the tests gate on a live route", () => {
 		const dev = await mcpTool(stack, stack.tokens.creator, "run_test_suite", { testSuiteId: suiteId });
 		expect(JSON.parse(dev.text)).toMatchObject({ env: "development", status: "passed" });
 	}, 240_000);
+
+	it("a production suite run records the promoted version, with development values (#782)", async () => {
+		const id = await newRoute("/versioned-run");
+		await setScript("routes", id, "return { say: 'one' };");
+		const suiteId = await addSuite(id, "says one", "one");
+		const v1 = await commit(id, "One");
+		const release = await ok(deploy(id, v1, "Release"));
+		const live = await settled(id, release.id);
+		expect(live.status).toBe("live");
+
+		/** the recorded runs of one test run, once they land */
+		const recordingOf = (testRunId: string) =>
+			until("the test run to be recorded", async () => {
+				const { data } = await ok(
+					api(
+						stack,
+						"creator",
+						`/v1/${PROJECT()}/recordings/route/${id}/runs?testRunId=${testRunId}&perPage=50`,
+					),
+				);
+				return data.length > 0 && data;
+			});
+
+		// env production: the promoted graph, run on a development worker with development values
+		const prod = await runSuites(id, "production");
+		expect(prod.body).toMatchObject({ status: "passed" });
+		for (const run of await recordingOf(prod.body.id)) {
+			expect(run).toMatchObject({
+				graph: `v${live.versionNumber}`,
+				values: "development",
+				versionId: v1,
+				versionNumber: live.versionNumber,
+			});
+		}
+
+		// a development run tests the working copy, and says so
+		const dev = await runSuites(id);
+		expect(dev.body).toMatchObject({ status: "passed" });
+		for (const run of await recordingOf(dev.body.id)) {
+			expect(run).toMatchObject({ graph: "working copy", values: "development", versionId: null });
+		}
+		expect(suiteId).toBeTruthy();
+	}, 300_000);
 });

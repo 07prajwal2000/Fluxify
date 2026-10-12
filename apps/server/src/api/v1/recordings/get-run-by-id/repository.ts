@@ -29,8 +29,6 @@ export async function getRecordedRunById(
 			parentRunId: traceRunsEntity.parentRunId,
 			parentSeq: traceRunsEntity.parentSeq,
 			env: traceRunsEntity.env,
-			routeVersion: traceRunsEntity.routeVersion,
-			workflowVersion: traceRunsEntity.workflowVersion,
 			versionId: traceRunsEntity.versionId,
 			versionNumber: canvasVersionsEntity.versionNumber,
 			metadata: traceRunsEntity.metadata,

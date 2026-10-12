@@ -21,12 +21,17 @@ export type RouteArtifact = {
 	/** debug recording, persisted for the portal trace viewer; expensive */
 	recordExecution: boolean;
 	/**
-	 * Identifies the graph a recorded run belongs to. Route versioning is not
-	 * built yet, so this is the compile timestamp — a real, distinct value per
-	 * publish that the portal can resolve a recorded run against. It becomes the
-	 * version id when versioning lands; it travels on the run header, not per span.
+	 * Identifies the artifact's own build: the compile timestamp in development,
+	 * the promoted version id in production (#739). Internal only — the portal
+	 * and agents read `versionId`, never this; it travels on the run header, not
+	 * per span.
 	 */
 	routeVersion: string;
+	/**
+	 * The version of the graph this artifact runs (#782): the promoted version id
+	 * in production, absent in development, which runs the working copy.
+	 */
+	versionId?: string;
 	/** compiled graph source, instantiated by the worker */
 	source: string;
 	/**
@@ -66,6 +71,8 @@ export type WorkflowArtifact = {
 	recordExecution: boolean;
 	/** the compile timestamp, same story as `RouteArtifact.routeVersion` */
 	workflowVersion: string;
+	/** the version this artifact runs (#782), or absent for the working copy */
+	versionId?: string;
 	source: string;
 	compiledAt: string;
 	/** A sandbox (#735) compiled as a workflow: `workflowId` is the sandbox id. */

@@ -190,7 +190,17 @@ describe("GET runs", () => {
 
 		const filtered = await get(`${runsUrl("route", "r1")}?versionId=${v1}`);
 		expect(filtered.body.data.map((run: any) => run.id)).toEqual([onV1]);
-		expect(filtered.body.data[0]).toMatchObject({ versionId: v1, versionNumber: 1 });
+		expect(filtered.body.data[0]).toMatchObject({
+			versionId: v1,
+			versionNumber: 1,
+			graph: "v1",
+			values: "production",
+		});
+
+		// a run of the working copy says so, and its values are its environment
+		const working = await get(`${runsUrl("route", "r1")}`);
+		const noVersion = working.body.data.find((run: any) => run.versionId === null);
+		expect(noVersion).toMatchObject({ graph: "working copy", values: "production" });
 
 		expect((await get(`${runsUrl("route", "r1")}?versionId=not-a-uuid`)).status).toBe(400);
 	});

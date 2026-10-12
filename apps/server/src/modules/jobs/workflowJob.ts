@@ -15,6 +15,8 @@ export type WorkflowTraceFactory = {
 			workflowId: string;
 			projectId: string;
 			workflowVersion: string;
+			/** the version this run served (#782); absent for the working copy */
+			versionId?: string;
 			workflowName: string;
 			sandbox?: boolean;
 		} & TraceSinks,
@@ -64,6 +66,7 @@ export async function runWorkflowJob(job: JobEnvelope, extras?: QueueRunExtras) 
 				workflowId: workflow.artifact.workflowId,
 				projectId: workflow.artifact.projectId,
 				workflowVersion: workflow.artifact.workflowVersion,
+				versionId: workflow.artifact.versionId,
 				workflowName: workflow.artifact.name,
 				tracingEnabled: workflow.artifact.tracingEnabled,
 				recordExecution: workflow.artifact.recordExecution,
