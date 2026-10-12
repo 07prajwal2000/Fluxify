@@ -72,7 +72,13 @@ function open() {
 		<QueryClientProvider
 			client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
 		>
-			<ReviewAllDialog calls={[edit, del]} open onOpenChange={() => {}} onConfirm={() => {}} />
+			<ReviewAllDialog
+				projectId="p1"
+				calls={[edit, del]}
+				open
+				onOpenChange={() => {}}
+				onConfirm={() => {}}
+			/>
 		</QueryClientProvider>,
 	);
 }

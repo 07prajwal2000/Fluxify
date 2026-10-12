@@ -7,6 +7,8 @@ export type SplitButtonItem = {
 	label: string;
 	icon?: ReactNode;
 	onAction: () => void;
+	/** blocks this item alone; the rest of the menu stays reachable */
+	isDisabled?: boolean;
 };
 
 /**
@@ -55,7 +57,12 @@ export function SplitButton({
 				<Dropdown.Popover>
 					<Dropdown.Menu onAction={(key) => items.find((item) => item.id === key)?.onAction()}>
 						{items.map((item) => (
-							<Dropdown.Item key={item.id} id={item.id} textValue={item.label}>
+							<Dropdown.Item
+								key={item.id}
+								id={item.id}
+								textValue={item.label}
+								isDisabled={item.isDisabled}
+							>
 								{item.icon}
 								<Label>{item.label}</Label>
 							</Dropdown.Item>

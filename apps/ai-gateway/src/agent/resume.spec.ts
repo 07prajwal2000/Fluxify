@@ -116,6 +116,18 @@ describe("deployments (#739)", () => {
 		expect(JSON.stringify(s.rows[1].content)).not.toContain("fixes the 500s");
 	});
 
+	it("an approved rollback runs with the person's comment too", async () => {
+		const s = memStore();
+		const m = scripted([["rollback_version"]]);
+		await turn(s, m.agent, { message: "undo it" });
+		expect(await turn(s, m.agent, { approval: { ok: true, comment: "  the last one broke prod  " } })).toBe(
+			"completed",
+		);
+		expect(m.inputs).toEqual([
+			{ name: "rollback_version", input: { comment: "the last one broke prod" } },
+		]);
+	});
+
 	it("an approval with no comment does not run it, and the model is told why", async () => {
 		const s = memStore();
 		const m = scripted([["rollback_version"]]);

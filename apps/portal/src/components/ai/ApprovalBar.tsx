@@ -1,13 +1,17 @@
-import { Button, ButtonGroup, Chip, Dropdown, Label } from "@fluxify/components";
+import { Button, Chip } from "@fluxify/components";
 import { useState } from "react";
-import { TbChevronDown, TbClipboardCheck, TbClock, TbTrash } from "react-icons/tb";
+import { TbClipboardCheck, TbClock, TbTrash } from "react-icons/tb";
+import { SplitButton } from "@/components/common/SplitButton";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import type { Decision, Mode } from "@/services/agentConversations";
-import { type ApprovalRequest, summarizeInput, type ToolRequest } from "./agentApproval";
+import { ApprovalTarget } from "./ApprovalTarget";
+import type { ApprovalRequest, ToolRequest } from "./agentApproval";
 import { DeployComment } from "./DeployComment";
 import { ReviewAllDialog } from "./ReviewAllDialog";
 
 type Props = {
+	/** the project a promote or rollback links its version canvas in */
+	projectId: string;
 	request: ApprovalRequest;
 	/**
 	 * Approve, and the mode the conversation goes on in (manual, or auto for "Approve with Auto").
@@ -27,7 +31,14 @@ type Props = {
  * wants to make, or its finished plan in plan mode. Replaces cards and diffs in
  * the chat; the call itself stays a folded row there.
  */
-export function ApprovalBar({ request, onApprove, onReject, calls = [], onDecide }: Props) {
+export function ApprovalBar({
+	projectId,
+	request,
+	onApprove,
+	onReject,
+	calls = [],
+	onDecide,
+}: Props) {
 	const [busy, setBusy] = useState(false);
 	const [reviewing, setReviewing] = useState(false);
 	// one reason per waiting call, so answering the next one starts empty
@@ -80,9 +91,7 @@ export function ApprovalBar({ request, onApprove, onReject, calls = [], onDecide
 								</Chip>
 							)}
 						</span>
-						<span className="truncate font-mono text-xs text-muted">
-							{summarizeInput(request.name, request.input)}
-						</span>
+						<ApprovalTarget projectId={projectId} name={request.name} input={request.input} />
 					</>
 				)}
 			</div>
@@ -127,25 +136,25 @@ export function ApprovalBar({ request, onApprove, onReject, calls = [], onDecide
 				<Button size="sm" variant="ghost" isDisabled={busy} onPress={() => answer(onReject)}>
 					Reject
 				</Button>
-				<ButtonGroup size="sm" variant="primary" isDisabled={busy || blocked}>
-					<Button onPress={() => answer(() => onApprove("manual", comment))}>Approve</Button>
-					<Dropdown>
-						<Button isIconOnly aria-label="More approve options">
-							<ButtonGroup.Separator />
-							<TbChevronDown size={14} />
-						</Button>
-						<Dropdown.Popover>
-							<Dropdown.Menu onAction={() => answer(() => onApprove("auto", comment))}>
-								<Dropdown.Item id="auto" textValue="Approve with Auto">
-									<Label>Approve with Auto</Label>
-								</Dropdown.Item>
-							</Dropdown.Menu>
-						</Dropdown.Popover>
-					</Dropdown>
-				</ButtonGroup>
+				<SplitButton
+					isDisabled={busy || blocked}
+					onPress={() => answer(() => onApprove("manual", comment))}
+					menuLabel="More approve options"
+					items={[
+						{
+							id: "auto",
+							label: "Approve with Auto",
+							isDisabled: busy || blocked,
+							onAction: () => answer(() => onApprove("auto", comment)),
+						},
+					]}
+				>
+					Approve
+				</SplitButton>
 			</div>
 			{many && reviewing && (
 				<ReviewAllDialog
+					projectId={projectId}
 					calls={calls}
 					open
 					onOpenChange={setReviewing}

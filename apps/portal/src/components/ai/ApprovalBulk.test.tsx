@@ -26,6 +26,7 @@ function show(calls: ReturnType<typeof call>[]) {
 	const onDecide = mock(async (_d: unknown) => {});
 	render(
 		<ApprovalBar
+			projectId="p1"
 			request={calls[0]}
 			calls={calls}
 			onApprove={async () => {}}

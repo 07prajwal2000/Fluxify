@@ -1,11 +1,14 @@
 import { Button, Chip, CloseButton, Modal } from "@fluxify/components";
 import { useState } from "react";
 import type { Decision } from "@/services/agentConversations";
-import { summarizeInput, type ToolRequest } from "./agentApproval";
+import { ApprovalTarget } from "./ApprovalTarget";
+import type { ToolRequest } from "./agentApproval";
 import { DeployComment } from "./DeployComment";
 import { RowPreview } from "./RowPreview";
 
 type Props = {
+	/** the project a promote or rollback links its version canvas in */
+	projectId: string;
 	calls: ToolRequest[];
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
@@ -17,7 +20,7 @@ const omit = (picks: Record<string, boolean>, id: string) =>
 	Object.fromEntries(Object.entries(picks).filter(([key]) => key !== id));
 
 /** Every call that waits, with its own Approve / Reject; sent together on Confirm. */
-export function ReviewAllDialog({ calls, open, onOpenChange, onConfirm }: Props) {
+export function ReviewAllDialog({ projectId, calls, open, onOpenChange, onConfirm }: Props) {
 	const [picks, setPicks] = useState<Record<string, boolean>>({});
 	// promote and rollback each carry their own reason (#739)
 	const [comments, setComments] = useState<Record<string, string>>({});
@@ -90,9 +93,7 @@ export function ReviewAllDialog({ calls, open, onOpenChange, onConfirm }: Props)
 														</Chip>
 													)}
 												</span>
-												<span className="truncate font-mono text-xs text-muted">
-													{summarizeInput(c.name, c.input)}
-												</span>
+												<ApprovalTarget projectId={projectId} name={c.name} input={c.input} />
 											</div>
 											<div className="flex shrink-0 gap-1">
 												<Button
