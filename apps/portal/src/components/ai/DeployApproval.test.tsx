@@ -65,7 +65,7 @@ const call = (id: string, name = "save_route") =>
 type Call = ReturnType<typeof call>;
 
 function show(calls: Call[]) {
-	const onApprove = mock(async (_mode: string, _comment?: string) => {});
+	const onApprove = mock(async (_mode: string | undefined, _comment?: string) => {});
 	const onDecide = mock(async (_d: unknown) => {});
 	render(
 		<QueryClientProvider
@@ -133,7 +133,8 @@ test("a promote shows the Production badge and a comment box, and Approve waits 
 	type(box, "Fixes the 500s on checkout");
 	expect(disabled(q().getByRole("button", { name: "Approve" }))).toBe(false);
 	await press("Approve");
-	expect(onApprove).toHaveBeenCalledWith("manual", "Fixes the 500s on checkout");
+	// plain Approve asks to keep the conversation's mode
+	expect(onApprove).toHaveBeenCalledWith(undefined, "Fixes the 500s on checkout");
 });
 
 test("other calls have no comment box and approve at once", async () => {
@@ -216,7 +217,7 @@ test("the typed comment goes with Approve (#778)", async () => {
 	const { onApprove } = show([call("a", "promote_version")]);
 	type(q().getByLabelText("Why is this going live?"), "Fixes the 500s");
 	await press("Approve");
-	expect(onApprove).toHaveBeenCalledWith("manual", "Fixes the 500s");
+	expect(onApprove).toHaveBeenCalledWith(undefined, "Fixes the 500s");
 });
 
 test("the typed comment goes with Approve with Auto (#778)", async () => {

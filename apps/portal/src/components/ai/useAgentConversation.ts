@@ -194,9 +194,10 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 	/** One handler per slash command; typed by the commands list, so a new command cannot be forgotten. */
 	const slash: Record<SlashName, (args: string) => Promise<void>> = { compact };
 
-	/** Answers the call the run waits on; the run goes on with the mode it picks. */
+	/** Answers the call the run waits on; the run goes on with the mode the answer picks, else the conversation's. */
 	const answer = async (a: ApprovalAnswer) => {
-		const go = { mode: a.mode ?? mode, effort };
+		const chosenMode = a.mode;
+		const effortGo = a.effort ?? effort;
 		// A no ends the row now; the run's own tool-end says the same a moment later.
 		const first = approval?.kind === "tool" ? approval.id : undefined;
 		const noes: { toolCallId?: string; reason?: string }[] =
@@ -214,11 +215,14 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 					endedAt: Date.now(),
 				};
 		if (noes.length) setLive((l) => ({ ...l, results }));
+		// No mode on an answer the user did not pick one for: the server keeps the conversation's, so
+		// approving or rejecting never flips an auto conversation to manual (#784).
 		const { runId } = await agentConversationsService.approve(projectId, conversationId, {
 			...a,
-			...go,
+			...(chosenMode && { mode: chosenMode }),
+			...(effortGo && { effort: effortGo }),
 		});
-		setPicked(go);
+		setPicked({ mode: chosenMode ?? mode, effort: effortGo });
 		setLive({ ...EMPTY_LIVE, results, lastEventAt: Date.now() });
 		setStartedAt(Date.now());
 		setStarted(runId);
@@ -284,12 +288,17 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 				})
 			: answer({ approve: false, reason: text });
 	};
-	/** Answers the listed calls in one go (#704); the rest keep waiting. */
-	const decide = (decisions: Decision[], to: Mode = "manual") => answer({ decisions, mode: to });
-	const approve = (to: Mode, comment?: string) =>
+	/** Answers the listed calls in one go (#704); the rest keep waiting. No `to`: keep the conversation's mode. */
+	const decide = (decisions: Decision[], to?: Mode) =>
+		answer({ decisions, ...(to && { mode: to }) });
+	const approve = (to: Mode | undefined, comment?: string) =>
 		plan
-			? send(START_PLAN, { mode: to })
-			: answer({ approve: true, mode: to, ...(comment?.trim() && { comment: comment.trim() }) });
+			? send(START_PLAN, { mode: to ?? "manual" })
+			: answer({
+					approve: true,
+					...(to && { mode: to }),
+					...(comment?.trim() && { comment: comment.trim() }),
+				});
 	const reject = () => (plan ? Promise.resolve(setDismissed(lastSeq)) : answer({ approve: false }));
 	return {
 		conversation: detail.data?.conversation ?? null,

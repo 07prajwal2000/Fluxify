@@ -171,6 +171,12 @@ describe("mode and effort stick to the conversation", () => {
 		expect(publish.mock.calls[0][0]).toMatchObject({ mode: "auto", effort: "mid" });
 	});
 
+	it("an approve with no mode keeps the conversation's mode (#784)", async () => {
+		await answerApproval(conv({ metadata: { agent: true, mode: "auto" } }), "u", { approve: true });
+		expect(setMeta).not.toHaveBeenCalled();
+		expect(publish.mock.calls[0][0]).toMatchObject({ mode: "auto", approval: { ok: true } });
+	});
+
 	it("get-conversation returns the settings and whether the model thinks", async () => {
 		const meta = { agent: true, mode: "plan", effort: "mid" };
 		expect((await getConversationDetail(conv({ metadata: meta }))).settings).toEqual({

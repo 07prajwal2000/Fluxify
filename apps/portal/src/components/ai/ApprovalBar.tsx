@@ -14,10 +14,10 @@ type Props = {
 	projectId: string;
 	request: ApprovalRequest;
 	/**
-	 * Approve, and the mode the conversation goes on in (manual, or auto for "Approve with Auto").
-	 * `comment` is the reason a promote or rollback needs (#739).
+	 * Approve, and the mode to switch to: `undefined` keeps the conversation's mode,
+	 * `auto` is "Approve with Auto". `comment` is the reason a promote or rollback needs (#739).
 	 */
-	onApprove: (mode: Mode, comment?: string) => Promise<unknown>;
+	onApprove: (mode: Mode | undefined, comment?: string) => Promise<unknown>;
 	/** Turn it down with no reason; typing in the editor turns it down with one. */
 	onReject: () => Promise<unknown>;
 	/** Every call that waits; with 2 or more, Approve all and Review all show up. */
@@ -138,7 +138,7 @@ export function ApprovalBar({
 				</Button>
 				<SplitButton
 					isDisabled={busy || blocked}
-					onPress={() => answer(() => onApprove("manual", comment))}
+					onPress={() => answer(() => onApprove(undefined, comment))}
 					menuLabel="More approve options"
 					items={[
 						{

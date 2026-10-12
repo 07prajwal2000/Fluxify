@@ -136,9 +136,9 @@ test("a promote needs a comment, and Approve sends the typed one with the approv
 	expect(disabled(approveButton())).toBe(false);
 	fireEvent.click(approveButton());
 	await until(() => expect(approve).toHaveBeenCalled());
+	// no mode: plain Approve keeps the conversation's mode (#784)
 	expect(approve).toHaveBeenCalledWith("p1", "c1", {
 		approve: true,
-		mode: "manual",
 		effort: "none",
 		comment: "Fixes the 500s",
 	});

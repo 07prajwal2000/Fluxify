@@ -183,16 +183,12 @@ test("a delete is marked as one", async () => {
 	expect((await bar()).textContent).toContain("Deletes");
 });
 
-test("Approve approves and puts the conversation in manual", async () => {
+test("Approve keeps the conversation's mode and sends no mode (#784)", async () => {
 	open(waiting());
 	await bar();
 	fireEvent.click(q().getByRole("button", { name: "Approve" }));
 	await until(() => expect(approve).toHaveBeenCalled());
-	expect(approve).toHaveBeenCalledWith("p1", "c1", {
-		approve: true,
-		mode: "manual",
-		effort: "none",
-	});
+	expect(approve).toHaveBeenCalledWith("p1", "c1", { approve: true, effort: "none" });
 });
 
 test("Approve with Auto approves and puts the conversation in auto", async () => {
@@ -204,17 +200,12 @@ test("Approve with Auto approves and puts the conversation in auto", async () =>
 	expect(approve).toHaveBeenCalledWith("p1", "c1", { approve: true, mode: "auto", effort: "none" });
 });
 
-test("Reject rejects with no reason", async () => {
+test("Reject keeps the conversation's mode and sends no mode (#784)", async () => {
 	open(waiting());
 	await bar();
 	fireEvent.click(q().getByRole("button", { name: "Reject" }));
 	await until(() => expect(approve).toHaveBeenCalled());
-	expect(approve).toHaveBeenCalledWith("p1", "c1", {
-		approve: false,
-		mode: "manual",
-		effort: "none",
-	});
-	expect(send).not.toHaveBeenCalled();
+	expect(approve).toHaveBeenCalledWith("p1", "c1", { approve: false, effort: "none" });
 });
 
 test("typing while it waits rejects with the text as the reason", async () => {
@@ -226,7 +217,6 @@ test("typing while it waits rejects with the text as the reason", async () => {
 	expect(approve).toHaveBeenCalledWith("p1", "c1", {
 		approve: false,
 		reason: "use /v2 instead",
-		mode: "manual",
 		effort: "none",
 	});
 	expect(send).not.toHaveBeenCalled();
