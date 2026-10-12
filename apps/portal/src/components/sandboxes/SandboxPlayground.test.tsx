@@ -54,10 +54,9 @@ async function until<T>(check: () => T, timeout = 1500): Promise<T> {
 	}
 }
 
-function mount(online = true, devWorkerUrl?: string) {
+function mount(online = true) {
 	spyOn(publicSettingsService, "get").mockResolvedValue({
 		license: { status: "community" },
-		devWorkerUrl,
 	} as never);
 	spyOn(projectSettingsKeysService, "getAll").mockResolvedValue({} as never);
 	spyOn(projectDevTokenService, "get").mockResolvedValue({ token: TOKEN } as never);
@@ -75,54 +74,52 @@ function mount(online = true, devWorkerUrl?: string) {
 
 beforeEach(() => mock.restore());
 
-test("the base URL is DEV_WORKER_URL plus /_sandbox/<id>", () => {
+test("sandboxBaseUrl strips a trailing slash and appends /_sandbox/<id>", () => {
 	expect(sandboxBaseUrl("http://localhost:5602/", "sbx1")).toBe(
 		"http://localhost:5602/_sandbox/sbx1",
 	);
 });
 
-test("a request goes to the dev worker with the token header, which is never rendered", async () => {
-	const view = mount(true, "http://localhost:5602");
+test("a request goes to the project's address with the token header, which is never rendered", async () => {
+	const view = mount(true);
+	const base = window.location.origin;
 	await until(() => {
-		if (!stub || !stub.baseUrl?.includes("localhost:5602")) throw new Error("not mounted");
+		if (stub?.baseUrl !== `${base}/_sandbox/sbx1`) throw new Error("not mounted");
 	});
 	// the dev token is fetched, not painted
 	await until(() => expect(projectDevTokenService.get).toHaveBeenCalled());
-	expect(stub?.baseUrl).toBe("http://localhost:5602/_sandbox/sbx1");
+	expect(stub?.baseUrl).toBe(`${base}/_sandbox/sbx1`);
 	expect(stub?.editableRequest).toBe(true);
 
 	const fetchSpy = spyOn(globalThis, "fetch").mockResolvedValue(
 		new Response('{"ok":true}', { status: 200, headers: { "content-type": "application/json" } }),
 	);
-	await act(async () => {
-		await stub?.onSend({
-			method: "POST",
-			url: "http://localhost:5602/_sandbox/sbx1/orders/7?x=1",
-			path: "/orders/7",
-			pathParams: {},
-			query: { x: "1" },
-			headers: { "Content-Type": "application/json" },
-			body: '{"a":1}',
+	// the token arrives after the first paint, so keep sending until the call goes out
+	for (let attempt = 0; attempt < 40 && fetchSpy.mock.calls.length === 0; attempt++) {
+		await act(async () => {
+			await stub?.onSend({
+				method: "POST",
+				url: `${base}/_sandbox/sbx1/orders/7?x=1`,
+				path: "/orders/7",
+				pathParams: {},
+				query: { x: "1" },
+				headers: { "Content-Type": "application/json" },
+				body: '{"a":1}',
+			});
 		});
-	});
+		await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+	}
+	expect(fetchSpy).toHaveBeenCalled();
 
 	const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
-	expect(url).toBe("http://localhost:5602/_sandbox/sbx1/orders/7?x=1");
+	expect(url).toBe(`${base}/_sandbox/sbx1/orders/7?x=1`);
 	expect(init.method).toBe("POST");
 	expect((init.headers as Headers).get(DEV_TOKEN_HEADER)).toBe(TOKEN);
 	expect(view.container.textContent).not.toContain(TOKEN);
 });
 
-test("without DEV_WORKER_URL it falls back to the project's API address", async () => {
-	mount(true, undefined);
-	await until(() => {
-		if (!stub?.baseUrl?.endsWith("/_sandbox/sbx1")) throw new Error("not mounted");
-	});
-	expect(stub?.baseUrl).toBe(`${window.location.origin}/_sandbox/sbx1`);
-});
-
 test("no development worker: the message, and no way to send", async () => {
-	const view = mount(false, "http://localhost:5602");
+	const view = mount(false);
 	await until(() => expect(view.container.textContent).toContain(DEV_WORKER_MESSAGE));
 	expect(stub).toBeUndefined();
 });

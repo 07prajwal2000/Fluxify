@@ -180,7 +180,6 @@ test("the route playground starts from the replayed request, not the cached one"
 	} as never);
 	spyOn(publicSettingsService, "get").mockResolvedValue({
 		license: { status: "community" },
-		devWorkerUrl: "http://localhost:5602",
 	} as never);
 	spyOn(projectSettingsKeysService, "getAll").mockResolvedValue({} as never);
 	spyOn(projectDevTokenService, "get").mockResolvedValue({ token: "t" } as never);
@@ -207,7 +206,6 @@ test("the route playground starts from the replayed request, not the cached one"
 test("the sandbox playground starts on the replayed method and path", async () => {
 	spyOn(publicSettingsService, "get").mockResolvedValue({
 		license: { status: "community" },
-		devWorkerUrl: "http://localhost:5602",
 	} as never);
 	spyOn(projectSettingsKeysService, "getAll").mockResolvedValue({} as never);
 	spyOn(projectDevTokenService, "get").mockResolvedValue({ token: "t" } as never);

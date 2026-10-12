@@ -1,6 +1,9 @@
-// One admin, one NATS, and a production and a development compiled worker, run
-// as their own process by `envs.ts` (#733). It is a process of its own for the
-// reason `mcpStack.ts` is: the server caches its env on first import.
+// One admin, one NATS, a production compiled worker and one development compiled
+// worker (two with `E2E_DEV_POOLS=2`), run as their own process by `envs.ts`
+// (#733). The admin reaches the development workers only through a host-router
+// that stands in for the deployment's proxy (PROXY_URL, #742). It is a process
+// of its own for the reason `mcpStack.ts` is: the server caches its env on first
+// import.
 //
 // Two data Postgres sit behind the workers, one per environment, and each holds
 // a `whoami` table that names it. The development one keeps its table in a
@@ -81,9 +84,41 @@ const devData = await dataPostgres("fluxify-env-data-dev", "dev-secret");
 }
 await seed(devData.url, "devdata", "development");
 
-// picked before the server loads: it reads DEV_WORKER_URL once, for call_sandbox (#735)
-const devPort = freePort();
-const s = await startAuthServer({ DEV_WORKER_URL: `http://127.0.0.1:${devPort}` });
+// A tiny host-router stands in for the deployment's proxy (#742). The admin
+// reaches development workers only through it (PROXY_URL) and names the project
+// with the Host header, so the router picks the pool by host. `E2E_DEV_POOLS=2`
+// starts a second development worker and gives two subdomain projects a pool
+// each, so a test can prove the router — and the admin — choose the right one.
+// Every answer carries `x-e2e-pool` (a or b) so a caller sees which pool served.
+const POOL_SUBDOMAINS = { a: "poola", b: "poolb" } as const;
+const pools: { a?: string; b?: string } = {};
+const twoPools = process.env.E2E_DEV_POOLS === "2";
+const router = Bun.serve({
+	port: 0,
+	async fetch(request) {
+		const host = (request.headers.get("host") ?? "").toLowerCase();
+		const pool = twoPools && host.startsWith(`${POOL_SUBDOMAINS.b}.`) ? "b" : "a";
+		const target = pools[pool] ?? pools.a;
+		if (!target) return new Response("no development pool is up", { status: 503 });
+		const { pathname, search } = new URL(request.url);
+		try {
+			const answer = await fetch(new URL(`${pathname}${search}`, target), {
+				method: request.method,
+				headers: request.headers,
+				body: request.method === "GET" || request.method === "HEAD" ? undefined : request.body,
+				redirect: "manual",
+			});
+			const headers = new Headers(answer.headers);
+			headers.set("x-e2e-pool", pool);
+			return new Response(answer.body, { status: answer.status, headers });
+		} catch (error) {
+			return new Response(`could not reach the ${pool} pool: ${String(error)}`, { status: 502 });
+		}
+	},
+});
+// read the proxy once, before the server loads: it reads PROXY_URL for every
+// development call (#735, #742)
+const s = await startAuthServer({ PROXY_URL: `http://127.0.0.1:${router.port}` });
 // what a real admin also runs (#735): it writes the runs workers publish, and
 // knows the custom blocks a canvas save may name
 const { startRecordingConsumer } = await import(
@@ -105,6 +140,29 @@ const otherProjectId = await createProject(s);
 await s.db
 	.insert(s.server.accessControlEntity)
 	.values({ userId: creator.id, projectId: otherProjectId, role: "creator" });
+
+// two subdomain projects, one development pool each (#742), only when asked
+const poolProjects = twoPools
+	? { a: await createProject(s), b: await createProject(s) }
+	: undefined;
+if (poolProjects) {
+	const cookie = await signIn(s, creator.email);
+	await s.db.insert(s.server.accessControlEntity).values(
+		(["a", "b"] as const).map((pool) => ({
+			userId: creator.id,
+			projectId: poolProjects[pool],
+			role: "creator" as const,
+		})),
+	);
+	for (const pool of ["a", "b"] as const) {
+		const res = await req(s, `/_/admin/api/v1/projects/${poolProjects[pool]}/settings/keys`, {
+			method: "PUT",
+			cookie,
+			json: { key: "settings.routing.subdomain", value: POOL_SUBDOMAINS[pool] },
+		});
+		if (!res.ok) throw new Error(`pool ${pool} subdomain: ${res.status} ${await res.text()}`);
+	}
+}
 
 async function apiKey(email: string) {
 	const cookie = await signIn(s, email);
@@ -148,7 +206,11 @@ async function worker(env: "production" | "development", port = freePort()) {
 }
 
 const production = await worker("production");
-const development = await worker("development", devPort);
+pools.a = await worker("development");
+// a second development worker is the other project's pool (#742); it is only
+// started when asked, so the default stack keeps one dev node for devWorkerOnline
+if (twoPools) pools.b = await worker("development");
+const development = pools.a;
 
 // the admin API, reachable from the test process
 const server = Bun.serve({ port: 0, fetch: (request) => s.app.fetch(request) });
@@ -157,6 +219,9 @@ console.log(
 	`ENV_STACK ${JSON.stringify({
 		url: `http://127.0.0.1:${server.port}`,
 		workers: { production, development },
+		proxyUrl: `http://127.0.0.1:${router.port}`,
+		pools,
+		poolProjects,
 		projectId,
 		otherProjectId,
 		creatorId: creator.id,
@@ -187,6 +252,7 @@ for await (const _ of Bun.stdin.stream()) {
 for (const child of children) child.kill();
 await Promise.all(children.map((child) => child.exited));
 server.stop(true);
+router.stop(true);
 await stopAuthServer();
 await Promise.all(containers.map((name) => docker.getContainer(name).remove({ force: true }).catch(() => {})));
 process.exit(0);

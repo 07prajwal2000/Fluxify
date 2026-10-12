@@ -87,7 +87,7 @@ You don't have to do this for the usual setups. Each of them starts one for you:
 | [Kit](/deployments/kit#dev-worker) | Runs inside the container, on port `5602`. Port `8080` sends `/_/dev` and `/_sandbox` to it. |
 | [Production stack](/deployments/production#dev-workers) | The `worker-dev` service. |
 | [Kubernetes](/deployments/kubernetes/helm-values#dev-worker) | One pod, from the `devWorker` setting. On by default. |
-| Running Fluxify from source (`bun run dev`) | A second worker on port `5602`, beside the production worker on `5600`. Set `DEV_WORKER_URL=http://localhost:5602` so the playground, `call_route` and sandboxes find it. |
+| Running Fluxify from source (`bun run dev`) | A second worker on port `5602`, beside the production worker on `5600`. Set `PROXY_URL=http://localhost:8080` so the playground, `call_route`, `Run` and sandboxes find it through the local Caddy. |
 
 ::: info
 Every time you save, Fluxify publishes your routes, workflows, custom blocks,
@@ -245,7 +245,7 @@ curl -H "x-fluxify-dev-token: fxd_..." https://your-host/...
 
 | What | Detail |
 | :--- | :--- |
-| Where to find it | Project settings, **Development access**. It also shows your development URL, ending in `/_/dev`. If your team set a separate address for the development worker, the URL starts with it. Otherwise, if the project has a subdomain, the URL uses it, and that is the only address that works. |
+| Where to find it | Project settings, **Development access**. It also shows your development URL, ending in `/_/dev`. That URL is always the project's own address, subdomain included, because the proxy in front picks the development worker from it. |
 | Who can copy it | Creators and project admins. Viewers don't see the section. |
 | Who can rotate it | Project admins only. |
 | What it opens | Development routes and sandboxes of that project. Nothing else. |

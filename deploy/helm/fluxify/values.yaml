@@ -16,6 +16,14 @@ image:
 # The address people open the portal at.
 url: http://localhost:8080
 
+# Where admin reaches the proxy in-cluster (PROXY_URL), for sandboxes, the
+# playground, call_route, Run and test suites (#742). Admin calls development
+# workers only through it and lets it route by Host, so this is Traefik's
+# service, never a single worker. Point it elsewhere if Traefik lives in another
+# namespace, or leave PROXY_URL unset by setting this to "" when admin can reach
+# the project's own public address.
+proxyUrl: http://traefik.traefik.svc.cluster.local:80
+
 # Everything secret, in one Secret named `fluxify-env`, read by admin, the
 # orchestrator, NATS and Valkey. The orchestrator hands the workers the parts
 # they need.

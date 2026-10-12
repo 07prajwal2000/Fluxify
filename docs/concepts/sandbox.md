@@ -39,12 +39,12 @@ viewers don't.
 If no development worker is running, a banner says so and **Run** and the
 playground are switched off until one starts.
 
-::: info Where the portal sends a playground call
-To your project's normal address, at `/_sandbox/<id>/…`. Kit, the production
-compose file and the Helm chart already send that path to the development
-worker. Only when the development worker has an address of its own does your
-operator set `DEV_WORKER_URL`, for example `http://localhost:5602` when you run
-Fluxify from source.
+::: info Where a sandbox call goes
+To your project's normal address, at `/_sandbox/<id>/…`, subdomain included.
+Kit, the production compose file and the Helm chart already send that path to
+the development worker, and pick the right worker from the address. When the
+admin cannot reach that public address, your operator sets `PROXY_URL` to the
+proxy's internal address instead — never to a single worker.
 :::
 
 ## Start from a route or workflow

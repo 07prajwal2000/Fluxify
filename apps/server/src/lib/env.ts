@@ -77,15 +77,26 @@ export const serverEnvSchema = baseEnvSchema.extend({
 			"How many days a recorded run (Execution history) is kept before it is deleted (default 30)",
 		),
 
-	DEV_WORKER_URL: z
+	PROXY_URL: z
 		.string()
 		.optional()
 		.refine((val) => !val || /^https?:\/\/[^\s/]+/.test(val), {
-			message: "DEV_WORKER_URL must be a full URL such as http://localhost:5602",
+			message: "PROXY_URL must be a full URL such as http://localhost:8080",
 		})
 		.describe(
-			"Where the admin and portal reach the development worker (sandboxes, /_/dev routes, call_route). Unset means the same public address as the project's API. Set it when the development worker has an address of its own, for example http://localhost:5602 on a plain local run",
+			"The proxy's address as the admin reaches it (#742). The admin makes every development call through the proxy and lets it pick the worker pool by Host; every caller sends the project's host. It is the proxy, never a single worker. Unset means the project's own public address. Set it when the admin cannot reach that address, for example http://localhost:8080 (the local Caddy) or http://traefik in the production compose stack",
 		),
+
+	// Removed in favour of PROXY_URL (#742). Still declared so a stale deployment
+	// fails loudly at startup instead of silently falling back to a single worker.
+	DEV_WORKER_URL: z
+		.string()
+		.optional()
+		.refine((val) => !val, {
+			message:
+				"DEV_WORKER_URL has been renamed to PROXY_URL — the address of the proxy the admin reaches, never a single development worker. Set PROXY_URL and remove DEV_WORKER_URL",
+		})
+		.describe("Removed; use PROXY_URL"),
 
 	WORKER_PROJECT_ID: z
 		.string()
@@ -422,11 +433,13 @@ export const FLUXIFY_CLAIM_ID = DEV_WORKER ? undefined : getEnv("FLUXIFY_CLAIM_I
 export const MAX_REQUEST_BODY_BYTES = (Number(getEnv("WORKER_MAX_STREAM_SIZE")) || 8192) * 1024;
 
 /**
- * Where the portal sends sandbox calls. Unset gives `undefined`, which the
- * portal reads as "the project's own API address", and that is right wherever
- * the proxy in front already sends `/_sandbox` to the development worker.
+ * The proxy's address as the admin reaches it (#742). The admin builds a
+ * development call's URL from it and sets the `Host` header to the project's
+ * host, so the proxy picks the worker pool that serves that project; many
+ * replicas sit behind it, so a single worker address is never right. Unset
+ * gives `undefined`, and the admin calls the project's own public address.
  */
-export const DEV_WORKER_URL = getEnv("DEV_WORKER_URL")?.trim().replace(/\/+$/, "") || undefined;
+export const PROXY_URL = getEnv("PROXY_URL")?.trim().replace(/\/+$/, "") || undefined;
 
 /** recorded runs older than this many days are deleted by the daily retention job (#254) */
 export const RECORDING_MAX_AGE_DAYS = Number(getEnv("RECORDING_MAX_AGE_DAYS")) || 30;
