@@ -15,6 +15,15 @@ export const NODE_TYPES = ["route", "workflow", "both"] as const;
 export type NodeType = (typeof NODE_TYPES)[number];
 
 /**
+ * The two environments a worker can serve (#732, #742). A claim names one and
+ * its containers are started with `FLUXIFY_ENV` set to it: a development node
+ * takes no license slot, never autoscales, and is only reached on the
+ * development paths. Absent, everywhere, means production.
+ */
+export const NODE_ENVS = ["production", "development"] as const;
+export type NodeEnv = (typeof NODE_ENVS)[number];
+
+/**
  * Every condition a node can be displayed in (§14.4). A container observed but
  * absent from desired state is an orphan the reconciler deletes, so it needs no
  * state of its own.
@@ -171,7 +180,7 @@ export interface NodeHeartbeat {
 	 * The environment this node serves (#732). A development node holds no
 	 * license slot. Absent on a node from before environments: production.
 	 */
-	env?: "production" | "development";
+	env?: NodeEnv;
 }
 
 export interface DepsInstallStatus {
@@ -280,6 +289,12 @@ export interface ObservedNode {
 	host?: string | null;
 	/** `<cpu>/<memoryMb>` as the node was created with, where the platform cannot report it. */
 	resources?: string | null;
+	/**
+	 * The environment it was created for, from the node's own label. A claim's
+	 * environment is baked into its env and its edge rules, so a claim that
+	 * changed environment has to be replaced rather than adjusted.
+	 */
+	env?: NodeEnv | null;
 	image: string;
 	running: boolean;
 	/** The platform's own word: `running`, `created`, `restarting`, `exited`, … */

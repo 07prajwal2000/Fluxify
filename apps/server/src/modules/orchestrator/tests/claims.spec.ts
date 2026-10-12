@@ -19,12 +19,17 @@ describe("what the instance surface may patch", () => {
 		expect(instancePatchRefusal("proj-a", { type: "both" }, instance)).not.toBeNull();
 	});
 
+	it("refuses a project claim's environment (#742)", () => {
+		// A project decides for itself whether it runs development work.
+		expect(instancePatchRefusal("proj-a", { env: "development" }, instance)).not.toBeNull();
+	});
+
 	it("allows a project claim to be resized", () => {
 		expect(instancePatchRefusal("proj-a", { replicas: 3 }, instance)).toBeNull();
 	});
 
 	it("allows a catch-all claim to be changed in full", () => {
-		expect(instancePatchRefusal(null, { type: "both", groupIds: [] }, instance)).toBeNull();
+		expect(instancePatchRefusal(null, { type: "both", groupIds: [], env: "development" }, instance)).toBeNull();
 	});
 
 	it("leaves the project surface alone", () => {

@@ -85,7 +85,7 @@ export default function registerOrchestrationRoutes(app: HonoServer) {
 		"/orchestration/claims",
 		describeRoute({
 			description:
-				"Write a claim from the operator's side. A null project is the catch-all — one workload serving every project, which is the shape a fresh instance is seeded with.",
+				"Write a claim from the operator's side. A null project is the catch-all — one workload serving every project, which is the shape a fresh instance is seeded with. A development catch-all serves the development paths for every project, so it can stand in for the fixed development worker.",
 			operationId: "create-instance-claim",
 			tags,
 			responses: { 200: { description: "Claimed", ...json(claimAckSchema) }, ...errors },
@@ -107,7 +107,7 @@ export default function registerOrchestrationRoutes(app: HonoServer) {
 		"/orchestration/claims/:claimId",
 		describeRoute({
 			description:
-				"Change any claim on the instance: the replica count adds or removes containers, draining what it removes. A project's claim may not have its type or trigger groups changed here — those belong in that project's settings.",
+				"Change any claim on the instance: the replica count adds or removes containers, draining what it removes. A project's claim may not have its type, trigger groups or environment changed here — those belong in that project's settings. A development claim cannot be given a maximum: it never autoscales.",
 			operationId: "update-instance-claim",
 			tags,
 			responses: { 200: { description: "Updated", ...json(claimAckSchema) }, ...errors },

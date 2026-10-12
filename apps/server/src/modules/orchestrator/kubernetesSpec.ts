@@ -3,6 +3,8 @@ import type { ScalingPolicy } from "../../lib/instance-settings/schemas";
 import { TRIGGERS_STREAM, triggerConsumerName } from "../triggers/subjects";
 import {
 	assertWellFormed,
+	DEV_PATHS,
+	EDGE_PRIORITY,
 	isWellFormedId,
 	LABELS,
 	MANAGED_BY,
@@ -159,20 +161,24 @@ export function claimWorkloads(
 	for (const [claimId, nodes] of byClaim) {
 		const placeable = nodes.filter((node) => node.placeable).length;
 		if (placeable === 0) continue;
-		const { projectId, type, groupIds, host, resources } = nodes[0]!;
+		const { projectId, type, groupIds, host, resources, env } = nodes[0]!;
 		// Short of room for its own floor, a claim must not grow either: a pod past
 		// the license exits on boot, and KEDA would start another forever.
 		const max =
 			placeable < nodes.length ? placeable : Math.max(placeable, ceilings.get(claimId) ?? 0);
 		// Only a project's workflow claim names every trigger it runs. A catch-all
 		// would need every trigger in the instance, and `both` mixes HTTP load in.
-		const scalesOnBacklog = type === "workflow" && projectId !== null;
+		// A development claim never scales on anything (#742): its backlog is
+		// development work, and the pods it would add hold no license slot — they
+		// are capacity the operator asked for by hand, not by load.
+		const scalesOnBacklog = type === "workflow" && projectId !== null && env === "production";
 		workloads.push({
 			claimId,
 			projectId,
 			type,
 			groupIds,
 			host: host ?? null,
+			env,
 			resources,
 			min: placeable,
 			max,
@@ -189,6 +195,9 @@ function labels(workload: ClaimWorkload): Record<string, string> {
 	return {
 		[MANAGED_LABEL]: MANAGED_BY,
 		[LABELS.claim]: workload.claimId,
+		// The environment the pods serve (#742): what a development claim's nodes
+		// are, and what a production claim's are not.
+		[LABELS.env]: workload.env,
 		// A catch-all has no project, and `*` is not a valid label value.
 		...(workload.projectId ? { [LABELS.project]: workload.projectId } : {}),
 	};
@@ -326,6 +335,12 @@ export function buildService(
  * host above the catch-all, the catch-all's `PathPrefix(/)` below everything,
  * and the admin's own rule above both. Traefik's resource has a real priority
  * field, which a plain Ingress lacks.
+ *
+ * A **development** claim (#742) is routed on the development paths alone — its
+ * project's host with them, or the catch-all's paths with no host — above the
+ * fixed `worker-dev` IngressRoute (100), so its own pool serves it. A production
+ * and a development claim of one project are separate resources named after
+ * their own claim ids, so neither can collide with the other.
  */
 export function buildIngressRoute(
 	workload: ClaimWorkload,
@@ -334,6 +349,21 @@ export function buildIngressRoute(
 	assertWellFormed(workload);
 	if (!servesHttp(workload)) return null;
 	const catchAll = workload.projectId === null;
+	const dev = workload.env === "development";
+	const match = dev
+		? catchAll
+			? DEV_PATHS
+			: `Host(\`${workload.host}\`) && (${DEV_PATHS})`
+		: catchAll
+			? "PathPrefix(`/`)"
+			: `Host(\`${workload.host}\`)`;
+	const priority = dev
+		? catchAll
+			? EDGE_PRIORITY.devCatchAll
+			: EDGE_PRIORITY.devProject
+		: catchAll
+			? EDGE_PRIORITY.prodCatchAll
+			: EDGE_PRIORITY.prodProject;
 	return {
 		apiVersion: "traefik.io/v1alpha1",
 		kind: "IngressRoute",
@@ -343,8 +373,8 @@ export function buildIngressRoute(
 			routes: [
 				{
 					kind: "Rule",
-					match: catchAll ? "PathPrefix(`/`)" : `Host(\`${workload.host}\`)`,
-					priority: catchAll ? 1 : 50,
+					match,
+					priority,
 					services: [{ name: workloadName(workload.claimId), port: options.trafficPort }],
 				},
 			],
@@ -361,14 +391,19 @@ export function buildIngressRoute(
  * Triggers on an outside queue add KEDA's own scaler for that queue, next to
  * the internal ones. `secretsHash` covers their credentials: KEDA does not
  * notice a Secret change on its own, and a new annotation rebuilds the scalers.
+ *
+ * A **development** claim gets none (#742). It runs exactly the replicas it was
+ * given, so no ScaledObject exists to own its Deployment's replica count —
+ * which is also what lets the driver keep writing that count on every pass.
  */
 export function buildScaledObject(
 	workload: ClaimWorkload,
 	options: KubernetesSpecOptions,
 	policy: ScalingPolicy,
 	secretsHash?: string,
-): KubeObject {
+): KubeObject | null {
 	assertWellFormed(workload);
+	if (workload.env === "development") return null;
 	const badTrigger = [...workload.triggerIds, ...workload.externalTriggers.map((t) => t.id)].find(
 		(id) => !isWellFormedId(id),
 	);

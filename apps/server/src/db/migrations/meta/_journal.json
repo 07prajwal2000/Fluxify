@@ -141,6 +141,13 @@
 			"when": 1791801275053,
 			"tag": "0019_custom_block_versions",
 			"breakpoints": true
+		},
+		{
+			"idx": 20,
+			"version": "7",
+			"when": 1791823700620,
+			"tag": "0020_gifted_black_knight",
+			"breakpoints": true
 		}
 	]
 }

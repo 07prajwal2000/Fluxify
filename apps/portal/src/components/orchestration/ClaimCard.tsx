@@ -2,7 +2,7 @@ import { Button, Chip, DeleteButton } from "@fluxify/components";
 import { Link } from "@tanstack/react-router";
 import { TbExternalLink, TbPencil } from "react-icons/tb";
 import type { ClaimView } from "@/services/orchestration";
-import { TYPE_LABEL } from "./copy";
+import { DEV_BADGE, TYPE_LABEL } from "./copy";
 import { NodeList } from "./NodeList";
 
 /**
@@ -39,6 +39,11 @@ export function ClaimCard({
 						<h3 className="text-sm font-bold text-foreground">
 							{TYPE_LABEL[claim.type] ?? claim.type}
 						</h3>
+						{claim.env === "development" && (
+							<Chip size="sm" color="default">
+								{DEV_BADGE}
+							</Chip>
+						)}
 						<Chip size="sm" color={serving === claim.replicas ? "success" : "warning"}>
 							{serving} of {claim.replicas} serving
 						</Chip>
@@ -48,10 +53,13 @@ export function ClaimCard({
 					</div>
 					<p className="mt-1 text-xs text-muted">
 						{claim.type === "route"
-							? "Serves this project's APIs"
+							? `Serves ${claim.projectId === null ? "every project's" : "this project's"}${
+									claim.env === "development" ? " development APIs" : " APIs"
+								}`
 							: groups.length > 0
 								? `Trigger groups: ${groups.join(", ")}`
 								: "Every trigger group no other node claims"}
+						{claim.env === "development" && " · no licence slot, no autoscaling"}
 					</p>
 					{/* A project's groups belong to that project, so they are read here
 					    and edited there. The link is the whole affordance. */}

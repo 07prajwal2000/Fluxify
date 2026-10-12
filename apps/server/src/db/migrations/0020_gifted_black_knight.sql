@@ -1,0 +1,1 @@
+ALTER TABLE "node_claims" ADD COLUMN "env" "fluxify_env" DEFAULT 'production' NOT NULL;

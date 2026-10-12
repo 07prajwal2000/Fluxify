@@ -28,6 +28,12 @@ export const LABELS = {
 	node: "fluxify.node-id",
 	host: "fluxify.host",
 	resources: "fluxify.resources",
+	/**
+	 * The environment the container was created for (#742). Its `FLUXIFY_ENV` is
+	 * fixed at creation, so the label is how a later pass sees that the claim's
+	 * environment changed and replaces the container instead.
+	 */
+	env: "fluxify.env",
 } as const;
 
 /**
@@ -87,14 +93,99 @@ export interface ContainerSpec {
 /** Nodes that serve HTTP and therefore need the edge to know about them. */
 export const SERVES_HTTP: readonly string[] = ["route", "both"];
 
-/**
- * Where the worker's supervisor answers readiness. It fails on purpose while
- * the worker drains (#336), which is what takes a node off the edge before it stops.
- */
+/** Where the worker's supervisor answers readiness. It fails on purpose while
+ * the worker drains (#336), which is what takes a node off the edge before it stops. */
 export const READY_PATH = "/_/admin/api/healthchecks/ready";
 
+/**
+ * The two paths a development request is served on, matched exactly as the
+ * fixed `worker-dev` service matches them: `/_/dev` but not `/_/devices`.
+ */
+export const DEV_PATHS = "PathPrefix(`/_sandbox`) || Path(`/_/dev`) || PathPrefix(`/_/dev/`)";
+
+/**
+ * Traefik priorities, in one place because they are a single ordering and
+ * splitting them across two files is how two routers end up claiming the same
+ * number.
+ *
+ * A development claim sits above the fixed `worker-dev` service (100), so a
+ * project that asked for dev capacity of its own is served by its own pool
+ * rather than by the fallback. The admin's `/_/admin` rule is also at 100, and
+ * does not compete: its paths and the development paths never overlap. Below
+ * the development rules, production keeps the shape it always had — a project's
+ * host, then the catch-all's everything.
+ */
+export const EDGE_PRIORITY = {
+	devProject: 110,
+	devCatchAll: 105,
+	prodProject: 50,
+	prodCatchAll: 1,
+} as const;
+
+/**
+ * The Traefik labels for a node that serves APIs.
+ *
+ * A catch-all node takes everything, `PathPrefix(/)` at the lowest priority —
+ * the shape the compose `worker` service had. It serves every project, so a
+ * request for a subdomain it does not know is answered by the worker's own 404.
+ *
+ * A project-pinned node is reached on its project's host (#340), at a priority
+ * above the catch-all and below the admin's `/_/admin` rule, which must keep
+ * working on every host. Without a host it gets nothing: `validateClaim`
+ * refuses such a claim, so the only way here is a subdomain removed under it.
+ *
+ * A **development** node (#742) is reached on the development paths alone — the
+ * catch-all of them, or its project's host with them — which is what lets a
+ * dev claim's pool be picked by the host the same way production's is, while a
+ * production request for the same host keeps going to the production node.
+ *
+ * Router and service names are shared by every node of one scope and
+ * environment — all production catch-alls, or one project's development nodes —
+ * which is what makes Traefik load-balance across them instead of routing to
+ * one. A project's development router is named beside its production one, so a
+ * claim of each never collides with the other.
+ */
+function edgeLabels(node: DesiredNode, options: SpecOptions): Record<string, string> {
+	if (!SERVES_HTTP.includes(node.type)) return {};
+	const dev = node.env === "development";
+	if (node.projectId !== null && !node.host) return {};
+	const base = node.projectId === null ? "fluxify-worker" : `fluxify-project-${node.projectId}`;
+	const name = dev ? `${base}-dev` : base;
+	const rule = dev
+		? node.projectId === null
+			? DEV_PATHS
+			: `Host(\`${node.host}\`) && (${DEV_PATHS})`
+		: node.projectId === null
+			? "PathPrefix(`/`)"
+			: `Host(\`${node.host}\`)`;
+	const priority = dev
+		? node.projectId === null
+			? EDGE_PRIORITY.devCatchAll
+			: EDGE_PRIORITY.devProject
+		: node.projectId === null
+			? EDGE_PRIORITY.prodCatchAll
+			: EDGE_PRIORITY.prodProject;
+	return {
+		"traefik.enable": "true",
+		[`traefik.http.routers.${name}.rule`]: rule,
+		[`traefik.http.routers.${name}.priority`]: String(priority),
+		[`traefik.http.routers.${name}.entrypoints`]: "web",
+		[`traefik.http.routers.${name}.service`]: name,
+		[`traefik.http.services.${name}.loadbalancer.server.port`]: String(options.trafficPort),
+		// Health is on its own port, served by the supervisor. Checking the
+		// traffic port would hit an isolated execution process, which does not
+		// describe whether the node is serving.
+		[`traefik.http.services.${name}.loadbalancer.healthcheck.path`]: READY_PATH,
+		[`traefik.http.services.${name}.loadbalancer.healthcheck.port`]: String(options.healthPort),
+		[`traefik.http.services.${name}.loadbalancer.healthcheck.interval`]: "10s",
+	};
+}
+
 /** The part of a node that reaches a platform as names, labels, rules and env. */
-export type Workload = Pick<DesiredNode, "claimId" | "projectId" | "type" | "groupIds" | "host">;
+export type Workload = Pick<
+	DesiredNode,
+	"claimId" | "projectId" | "type" | "groupIds" | "host" | "env"
+>;
 
 export const isWellFormedId = (id: string) => ID_PATTERN.test(id);
 
@@ -135,45 +226,12 @@ export function workerEnv(
 		// Deployment's pods have no name the orchestrator could have written one
 		// under in advance.
 		FLUXIFY_CLAIM_ID: node.claimId,
+		// What it is serving (#742). A development worker holds no license slot
+		// and offers only the development paths; it is the claim's whole reason
+		// for existing, so it is stated rather than left to the image's default.
+		FLUXIFY_ENV: node.env,
 		WORKER_PORT: String(ports.trafficPort),
 		WORKER_HEALTH_PORT: String(ports.healthPort),
-	};
-}
-
-/**
- * The Traefik labels for a node that serves APIs.
- *
- * A catch-all node takes everything, `PathPrefix(/)` at the lowest priority —
- * the shape the compose `worker` service had. It serves every project, so a
- * request for a subdomain it does not know is answered by the worker's own 404.
- *
- * A project-pinned node is reached on its project's host (#340), at a priority
- * above the catch-all and below the admin's `/_/admin` rule, which must keep
- * working on every host. Without a host it gets nothing: `validateClaim`
- * refuses such a claim, so the only way here is a subdomain removed under it.
- *
- * Router and service names are shared by every node of one scope — all
- * catch-alls, or one project's — which is what makes Traefik load-balance
- * across them instead of routing to one.
- */
-function edgeLabels(node: DesiredNode, options: SpecOptions): Record<string, string> {
-	if (!SERVES_HTTP.includes(node.type)) return {};
-	if (node.projectId !== null && !node.host) return {};
-	const name = node.projectId === null ? "fluxify-worker" : `fluxify-project-${node.projectId}`;
-	const rule = node.projectId === null ? "PathPrefix(`/`)" : `Host(\`${node.host}\`)`;
-	return {
-		"traefik.enable": "true",
-		[`traefik.http.routers.${name}.rule`]: rule,
-		[`traefik.http.routers.${name}.priority`]: node.projectId === null ? "1" : "50",
-		[`traefik.http.routers.${name}.entrypoints`]: "web",
-		[`traefik.http.routers.${name}.service`]: name,
-		[`traefik.http.services.${name}.loadbalancer.server.port`]: String(options.trafficPort),
-		// Health is on its own port, served by the supervisor. Checking the
-		// traffic port would hit an isolated execution process, which does not
-		// describe whether the node is serving.
-		[`traefik.http.services.${name}.loadbalancer.healthcheck.path`]: READY_PATH,
-		[`traefik.http.services.${name}.loadbalancer.healthcheck.port`]: String(options.healthPort),
-		[`traefik.http.services.${name}.loadbalancer.healthcheck.interval`]: "10s",
 	};
 }
 
@@ -201,6 +259,7 @@ export function buildContainerSpec(node: DesiredNode, options: SpecOptions): Con
 				[LABELS.replica]: String(node.replicaIndex),
 				[LABELS.project]: node.projectId ?? CATCH_ALL,
 				[LABELS.node]: nodeId,
+				[LABELS.env]: node.env,
 				[LABELS.resources]: resourcesLabel(node.resources),
 				...(node.host ? { [LABELS.host]: node.host } : {}),
 				...edgeLabels(node, options),

@@ -43,12 +43,17 @@ export type PlanAction =
  * deliberately absent: those travel through the assignment record the node
  * watches (§4), which is the entire point of having a seam. The project is here
  * because it is baked into the container's env and its Traefik labels, and
- * labels cannot be changed on a running container.
+ * labels cannot be changed on a running container. The environment is here for
+ * the same reason (#742): `FLUXIFY_ENV` and the edge rules that decide which
+ * paths reach this container are both fixed when it is created.
  */
 function immutableDrift(node: DesiredNode, container: ObservedNode, image: string) {
 	if (container.image !== image) return `image ${container.image} → ${image}`;
 	if ((container.projectId ?? CATCH_ALL) !== (node.projectId ?? CATCH_ALL)) {
 		return `project ${container.projectId ?? CATCH_ALL} → ${node.projectId ?? CATCH_ALL}`;
+	}
+	if ((container.env ?? "production") !== node.env) {
+		return `env ${container.env ?? "production"} → ${node.env}`;
 	}
 	// it is in a Traefik label, which cannot change on a running container
 	if ((container.host ?? null) !== (node.host ?? null)) {

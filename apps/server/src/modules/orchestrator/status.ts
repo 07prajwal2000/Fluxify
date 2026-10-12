@@ -252,6 +252,7 @@ export async function readOrchestrationStatus(projectId?: string): Promise<Orche
 			groupIds: nodeClaimsEntity.groupIds,
 			replicas: nodeClaimsEntity.replicas,
 			maxReplicas: nodeClaimsEntity.maxReplicas,
+			env: nodeClaimsEntity.env,
 			metadata: nodeClaimsEntity.metadata,
 			createdAt: nodeClaimsEntity.createdAt,
 			createdBy: nodeClaimsEntity.createdBy,

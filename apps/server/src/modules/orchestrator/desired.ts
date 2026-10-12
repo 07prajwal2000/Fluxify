@@ -65,6 +65,9 @@ export async function readDesiredState(): Promise<DesiredState> {
 			groupIds: nodeClaimsEntity.groupIds,
 			replicas: nodeClaimsEntity.replicas,
 			maxReplicas: nodeClaimsEntity.maxReplicas,
+			// Which environment the claim's nodes serve (#742): it decides their
+			// `FLUXIFY_ENV`, their edge rules, and that they never autoscale.
+			env: nodeClaimsEntity.env,
 			metadata: nodeClaimsEntity.metadata,
 			createdAt: nodeClaimsEntity.createdAt,
 		})

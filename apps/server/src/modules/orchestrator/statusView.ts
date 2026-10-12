@@ -1,5 +1,6 @@
 import {
 	groupPair,
+	type NodeEnv,
 	type NodeReason,
 	type NodeState,
 	type NodeType,
@@ -54,6 +55,8 @@ export interface ClaimRow {
 	replicas: number;
 	maxReplicas?: number | null;
 	metadata?: ClaimMetadata | null;
+	/** Which environment it serves (#742). Absent means production. */
+	env?: NodeEnv | null;
 	createdAt: Date;
 	createdBy?: string | null;
 }
@@ -66,6 +69,8 @@ export interface NodeView {
 	type: NodeType;
 	groupIds: string[];
 	excludedGroups: string[];
+	/** The environment it serves (#742): development nodes hold no license slot. */
+	env: NodeEnv;
 	state: NodeState;
 	reason: NodeReason | null;
 	image: string | null;
@@ -163,6 +168,7 @@ export function buildClaimViews({
 			type: node.type,
 			groupIds: node.groupIds,
 			excludedGroups: node.excludedGroups,
+			env: node.env,
 			state,
 			reason,
 			image: row?.image ?? null,

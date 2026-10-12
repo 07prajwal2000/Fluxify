@@ -1,6 +1,7 @@
 import {
 	groupPair,
 	type NodeEntitlement,
+	type NodeEnv,
 	type NodeReason,
 	type NodeType,
 } from "@fluxify/common/orchestrator";
@@ -37,8 +38,16 @@ export interface Claim {
 	maxReplicas?: number | null;
 	/** Optional settings; see `claimMetadata.ts`. */
 	metadata?: ClaimMetadata | null;
+	/**
+	 * Which environment this claim's nodes serve (#742). Absent means production,
+	 * so a claim from before the column behaves exactly as it did.
+	 */
+	env?: NodeEnv | null;
 	createdAt: Date;
 }
+
+/** The environment a claim's nodes run in, with the absent case spelled out. */
+export const claimEnv = (claim: Pick<Claim, "env">): NodeEnv => claim.env ?? "production";
 
 /**
  * One container that should exist. `(claimId, replicaIndex)` is its identity —
@@ -58,6 +67,12 @@ export interface DesiredNode {
 	 * project settings — the projection itself never reads them.
 	 */
 	host?: string | null;
+	/**
+	 * The environment it serves, from its claim (#742). Decides `FLUXIFY_ENV` on
+	 * the container and which rules the edge routes it by, so a change replaces
+	 * the node rather than reaching it in place.
+	 */
+	env: NodeEnv;
 	/** What the node may use, from its claim, with the defaults filled in. */
 	resources: ClaimResources;
 	/** False when nothing can be created yet: the node is `pending` with `reason`. */
@@ -97,19 +112,33 @@ export function byAge(a: Pick<Claim, "id" | "createdAt">, b: Pick<Claim, "id" | 
  * An exclusion list rather than a positive one, so a group created tomorrow
  * falls to the catch-all with nothing to update. That is what a catch-all is
  * for.
+ *
+ * A **development** claim owns nothing in production (#742): it runs the same
+ * trigger groups against development artifacts, so excluding them would take
+ * those groups' production work away from the catch-all with nothing left to
+ * run it.
  */
 function exclusions(claims: Claim[]): string[] {
 	const pairs = new Set<string>();
 	for (const claim of claims) {
 		if (claim.projectId === null || !SERVES_WORKFLOWS.includes(claim.type)) continue;
-		if (claim.replicas < 1) continue;
+		if (claim.replicas < 1 || claimEnv(claim) === "development") continue;
 		for (const groupId of claim.groupIds) pairs.add(groupPair(claim.projectId, groupId));
 	}
 	return [...pairs].sort();
 }
 
-/** Why the license refuses a claim outright, before any counting. */
+/**
+ * Why the license refuses a claim outright, before any counting.
+ *
+ * A **development** claim never reaches the license (#742): it holds no slot and
+ * serves no production traffic, so there is nothing for the license to refuse.
+ * Which node types an edition allows and whether it allows per-project ones are
+ * both answers about production capacity — a development claim is limited only
+ * by the pool, on every edition alike.
+ */
 function licenseRefusal(claim: Claim, entitlement: NodeEntitlement): NodeReason | null {
+	if (claimEnv(claim) === "development") return null;
 	if (!entitlement.types.includes(claim.type)) return "not_licensed";
 	if (claim.projectId !== null && !entitlement.perProject) return "not_licensed";
 	return null;
@@ -128,10 +157,20 @@ export function projectDesiredNodes({
 	const ordered = [...claims].sort(byAge);
 
 	const nodes: DesiredNode[] = [];
+	// Two counts, because they answer two different questions. `placed` is the
+	// pool's real capacity, which every node spends whatever it serves;
+	// `licensed` is the slots the license hands out, which only production nodes
+	// spend. Keeping them apart is what makes a development claim free: it can
+	// never take the slot a production node needs, and a production claim can
+	// never leave one of development's replicas pending for want of a slot.
 	let placed = 0;
+	let licensed = 0;
 
 	for (const claim of ordered) {
 		const refusal = licenseRefusal(claim, entitlement);
+		// Which of the two counts this claim's replicas spend. A development
+		// claim spends the pool's only.
+		const licensedNode = claimEnv(claim) === "production";
 		const groupIds = SERVES_WORKFLOWS.includes(claim.type)
 			? claim.groupIds.filter(
 					(id) => !knownGroups || knownGroups.has(groupPair(claim.projectId, id)),
@@ -146,12 +185,15 @@ export function projectDesiredNodes({
 			// requested ≠ current is a state to display, not drift to correct.
 			const reason =
 				refusal ??
-				(entitlement.maxReplicas !== null && placed >= entitlement.maxReplicas
+				(licensedNode && entitlement.maxReplicas !== null && licensed >= entitlement.maxReplicas
 					? "no_license_slot"
 					: placed >= maxNodes
 						? "pool_unavailable"
 						: null);
-			if (reason === null) placed++;
+			if (reason === null) {
+				placed++;
+				if (licensedNode) licensed++;
+			}
 
 			nodes.push({
 				claimId: claim.id,
@@ -160,6 +202,7 @@ export function projectDesiredNodes({
 				type: claim.type,
 				groupIds,
 				excludedGroups: claim.projectId === null ? catchAllExclusions : [],
+				env: claimEnv(claim),
 				resources: claimResources(claim.metadata),
 				placeable: reason === null,
 				reason,
@@ -177,10 +220,19 @@ export function projectDesiredNodes({
  *
  * `hasSubdomain` comes from the project's settings (#340): a route node is
  * reached by a per-project `Host` rule, so without a subdomain there is nothing
- * to route to it and the node would serve no traffic at all.
+ * to route to it and the node would serve no traffic at all. A development
+ * claim is routed the same way (#742) — its host with the development paths —
+ * so it needs one for exactly the same reason.
+ *
+ * A **development** claim answers to no license (#742): the node types an
+ * edition allows, whether it allows per-project claims and how many nodes it
+ * runs in total are all statements about production capacity, and none of them
+ * is spent by a claim that serves development. It is refused for the reasons
+ * every claim is — no replicas, groups it cannot name, no subdomain to be
+ * reached on — and sits `pool_unavailable` past the pool, like anything else.
  */
 export function validateClaim(
-	claim: Pick<Claim, "projectId" | "type" | "groupIds" | "replicas">,
+	claim: Pick<Claim, "projectId" | "type" | "groupIds" | "replicas" | "env">,
 	context: {
 		entitlement: NodeEntitlement;
 		/** Replicas already claimed instance-wide, excluding the claim being written. */
@@ -190,16 +242,17 @@ export function validateClaim(
 ): { ok: true } | { ok: false; message: string } {
 	const { entitlement, existingReplicas, hasSubdomain } = context;
 	const refuse = (message: string) => ({ ok: false as const, message });
+	const development = claimEnv(claim) === "development";
 
 	if (claim.replicas < 1) return refuse("A claim needs at least one replica");
-	if (!entitlement.types.includes(claim.type))
+	if (!development && !entitlement.types.includes(claim.type))
 		return refuse(`This license does not allow a '${claim.type}' node`);
 	// A catch-all claim serves every project, and empty groups already means
 	// "every group no dedicated claim owns". Naming groups on one would be a
 	// narrower thing wearing the word "catch-all" (#423).
 	if (claim.projectId === null && claim.groupIds.length > 0)
 		return refuse("A claim that serves every project cannot be pinned to trigger groups");
-	if (claim.projectId !== null && !entitlement.perProject)
+	if (!development && claim.projectId !== null && !entitlement.perProject)
 		return refuse("This license only allows nodes that serve every project");
 	// Only a project-pinned claim must name its groups. On a catch-all, no
 	// groups means every group no dedicated node owns — which is the default
@@ -220,7 +273,13 @@ export function validateClaim(
 			"This project needs a subdomain before it can claim a route node — without one there is no way to route traffic to it",
 		);
 
+	// A development claim costs no license slot (#742): its nodes never serve
+	// production traffic and never hold one, so the instance-wide total the
+	// license caps is not something it can exceed — and `existingReplicas`
+	// already leaves development replicas out, so the production arithmetic here
+	// is exactly what it was before a development claim existed.
 	if (
+		!development &&
 		entitlement.maxReplicas !== null &&
 		existingReplicas + claim.replicas > entitlement.maxReplicas
 	)

@@ -54,6 +54,19 @@ export const TYPE_LABEL: Record<string, string> = {
 };
 
 /**
+ * Which environment a claim's nodes serve (#742). Production is the default
+ * everywhere and the badge is only worn by the other one, so "Dev" on a card
+ * means something is running that is not serving live traffic.
+ */
+export const ENV_LABEL: Record<string, string> = {
+	production: "Production",
+	development: "Development",
+};
+
+/** The badge a development claim and each of its nodes wear. */
+export const DEV_BADGE = "Dev";
+
+/**
  * What each control does, said plainly before it is used. This is a
  * requirement of the feature rather than polish: provisioning either starts or
  * stops containers, and nobody should discover which one afterwards.
@@ -65,6 +78,13 @@ export const CONSEQUENCE = {
 		`Stops ${node}s. Each one finishes what it is running first, then exits.`,
 	release:
 		"Takes this workload offline. Its nodes stop accepting new work, finish what they are running, and stop.",
+	development:
+		"Runs development work only, on the development paths (/_/dev and /_sandbox). These nodes take no licence slot, so they cost nothing against your limit.",
+	production: "Runs live traffic, on the ordinary address. These nodes use licence slots.",
+	developmentNoAutoscale:
+		"A development claim runs exactly the copies you give it: there is nothing to autoscale, so it has no maximum.",
+	developmentReplaces:
+		"Changing this replaces the claim's nodes. A worker's environment is fixed when it starts, so nothing is re-pointed in place.",
 	pending:
 		"More nodes than the pool allows are recorded and left pending — the operator has to grow the pool before they start.",
 	singleNode:

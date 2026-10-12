@@ -642,6 +642,8 @@ that is a compose service, so `--remove-orphans` leaves it alone.
   too, and a project with a subdomain answers these paths on that subdomain
   only. Sandboxes,
   the playground and `call_route` use your address, so they need no setting.
+  A [development claim](#dev-claims) answers before this worker does, so the
+  two can run side by side while you move over.
 - **How admin reaches it (optional).** The admin calls development workers only
   through Traefik (`PROXY_URL=http://traefik`, set in the compose file) and lets
   Traefik pick the worker pool by `Host`; it never calls a single worker. Leave
@@ -653,7 +655,53 @@ that is a compose service, so `--remove-orphans` leaves it alone.
 - **Don't put `FLUXIFY_ENV=development` in `.env`.** Admin and every production
   worker read that file, so it would turn them all into development workers.
   Leave the setting where the compose file puts it, on `worker-dev` only.
-- **Don't want it?** Delete the `worker-dev` service from the compose file.
+- **Don't want it?** Delete the `worker-dev` service from the compose file. If
+  you still want development work to run, add a [development
+  claim](#dev-claims) for every project instead.
+
+### Giving development its own workers {#dev-claims}
+
+A claim can be made for **Development** as well as Production — the picker is on
+the claim form, and Production is what it opens on. A development claim is an
+ordinary claim: the orchestrator creates, resizes and removes its workers the
+same way, and what changes is only what those workers are.
+
+|  | Production claim | Development claim |
+| :--- | :--- | :--- |
+| What it serves | Live traffic, on the project's own address | `/_sandbox`, `/_/dev` and `/_/dev/…` only |
+| License rules | The edition's worker limit, worker types and per-project rule | None apply, on any edition: no slot is taken, and any type or project is allowed |
+| Autoscaling | Grows with load, where your edition allows it | Never — it runs exactly the copies you give it |
+| Where you reach it | The project's host, or any address for a claim that serves every project | The development paths, on the same addresses |
+
+- **Your edition does not govern one.** A development claim takes no license
+  slot, so the edition's worker limit never counts it; and the edition's other
+  rules — which worker types it includes, and whether it allows a worker for a
+  single project — are about production capacity too, so neither is checked. On
+  Community, a project's development claim is created where the same claim in
+  production is refused. The **node pool** is what limits it, because it is
+  real capacity on your machine: past the pool its copies wait as pending. See
+  [Workers per edition](./editions#workers).
+- **A maximum is refused on one.** Development capacity is what you asked for by
+  hand, not something load grows into, so the form hides the field.
+- **A project's development claim needs a subdomain**, for the same reason a
+  production one does: development requests are told apart by hostname, so
+  without a subdomain there is nowhere to route them. A claim that serves every
+  project needs none — it answers the development paths on every address.
+- **Production work is never affected.** A development claim serves the same
+  trigger groups in development only, so the production worker that serves those
+  groups keeps them.
+- **Changing the environment replaces the claim's workers.** A worker's
+  environment is fixed when it starts, so the old containers drain and new ones
+  take their place.
+
+> [!TIP]
+> **A development claim can replace the fixed development worker.** A
+> **Development** claim for every project answers exactly the same paths as the
+> `worker-dev` service, and the orchestrator manages it for you: make it in
+> **Instance settings → Orchestration**, then delete the `worker-dev` service
+> (Kubernetes: set `devWorker.enabled: false`). Nothing breaks in between — a
+> project's own development claim answers first, then the claim for every
+> project, and the fixed worker only sees what neither of them covers.
 
 ---
 

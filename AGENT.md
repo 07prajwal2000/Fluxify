@@ -186,6 +186,29 @@ Never edit a filter to silence the check without confirming the dependency reall
 **Cause:** A route (and a workflow) has two live switches (#738). `devActive` is development and defaults to **on**; `active` is production and defaults to **off**. Production also needs a promoted version (#739): the prod artifact is built from the snapshot of `prod_version_id`, never from the working copy, and a row with no `prod_version_id` has no prod artifact whatever `active` says. The compiler publishes to each environment's bucket only where it is served and removes it where it is not. A new route therefore answers at `/_/dev/<path>` right away, and 404s on the public path of a production worker.
 **Fix & Best Practices:** For a test or seed that calls the public path: pass `active: true` when creating the route, save the canvas, then commit and promote: `promote(stack, id)` in `testing/e2e/src/envs.ts` (or `POST /v1/routes/:id/versions`, then `POST /v1/routes/:id/deployments`). Promote after the canvas is final; editing it later changes development only. Tests that only call `/_/dev` need nothing. `call_route` and a workflow's manual Run check `devActive`, not `active`. A seeded row inserted straight into the database has no `prod_version_id`: give it a version and set it, or go through the API. **Dependencies (#740).** Custom blocks and middlewares are versioned the same way, and production runs each one's *promoted* version, never its working copy. A route or workflow cannot be promoted while a block or middleware it uses (directly, or through another) has no promoted version: the `custom_blocks` gate fails and lists them by kind, id and name. So a test that calls the public path of a route that uses a block promotes the block first (`promote(stack, blockId, "custom-blocks")` in `testing/e2e/src/envs.ts`, or `POST /v1/custom-blocks/:id/versions` then `POST /v1/custom-blocks/:id/deployments`), then the route; a seeded row inserted straight into the database needs a version and `prod_version_id` for the same reason. Promoting a block runs the tests of every production route that uses it, so give a route's suites a development worker before promoting a block it uses. Bit in #746, #739 and #740 e2e.
 
+### Portal Unit Tests Need `NODE_ENV=test` — `production` Drops `React.act`
+**Issue:** every React Testing Library spec in `apps/portal` dies on the first `render()` with `TypeError: React.act is not a function (In 'React.act(callback)', 'React.act' is undefined)`, thrown from `@testing-library/react`'s `act-compat`. Nothing about the test or the component is wrong. It arrives in bulk — `375 fail` across files nobody touched — because it takes out **every** RTL spec at once.
+**Cause:** React only exports `act` from its development build. Bun's test runner sets `NODE_ENV=test` **only when it is unset**, so a shell that already exports `NODE_ENV=production` (agent sandboxes do; a production build pipeline does) overrides it, React resolves to `react/cjs/react.production.js`, and RTL's `act` shim finds nothing to call. There is no `NODE_ENV` in CI: the variable is simply absent, Bun defaults it, and CI passes.
+**Fix:** set it for the command, on every `bun test` that renders React:
+```bash
+NODE_ENV=test bun test apps/portal/src/components/.../Your.test.tsx
+```
+PowerShell: `$env:NODE_ENV="test"; bun test …`. This includes **committing**: the pre-commit hook runs `bun run test:unit` under your environment, so from a shell that exports `production` the hook fails on portal specs it never touched. Run the commit from a shell where `NODE_ENV` is `test` (or unset) rather than reaching for `--no-verify`.
+A failing `React.act is not a function` means the variable, not your component — do not "fix" it by importing `act` from `react-dom/test-utils`, which only moves the failure.
+
+### `mock.module("@/lib/http")` Leaks Out of the File That Set It
+**Issue:** a spec that stubs `@/lib/http` (or any module a service imports) to fake a request makes *other* spec files fail in the same `bun run test:unit` run — usually as a timeout or a `fetch is not defined`, in a file that was passing on its own. Running that file by itself passes, which is what makes it look like flakiness.
+**Cause:** `mock.module` registers against Bun's module registry for the **whole process**, not the test file, and `test:unit` loads many files into one. A stub left registered replaces the real module for every later file that imports it, including the `axios` client and its interceptors.
+**Fix:** stub the one function the test is about, on the service object, and let `beforeEach(() => mock.restore())` clean up:
+```ts
+import { beforeEach, spyOn } from "bun:test";
+const { orchestrationService } = await import("@/services/orchestration");
+
+beforeEach(() => mock.restore());
+const get = () => spyOn(orchestrationService, "getProject").mockResolvedValue(status);
+```
+`spyOn` on a service method is scoped to that object and restorable; `mock.module` on a shared module is neither. Keep `mock.module` for modules that genuinely cannot be imported in a test process (node-only code in a DOM test), and say why in a comment.
+
 ---
 
 ## Documentation Writing Rules
