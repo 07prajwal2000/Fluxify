@@ -15,12 +15,48 @@ import { useVersionTarget } from "./useVersionTarget";
 /** A page without the canvas has no unsaved edits to save first. */
 const NO_CANVAS: CanvasHeaderState = { hasUnsavedChanges: false, saveChanges: async () => true };
 
+/** The kind and id the current page is about, from whichever param is present. */
+function readTarget(params: {
+	routeId?: string;
+	workflowId?: string;
+	blockId?: string;
+	middlewareId?: string;
+}): { kind: VersionKind; id: string } | undefined {
+	if (params.routeId) return { kind: "route", id: params.routeId };
+	if (params.workflowId) return { kind: "workflow", id: params.workflowId };
+	if (params.blockId) return { kind: "custom_block", id: params.blockId };
+	if (params.middlewareId) return { kind: "middleware", id: params.middlewareId };
+	return undefined;
+}
+
+/** The version history route and its params, per kind (#738, #740). */
+function historyNav(kind: VersionKind, projectId: string, id: string) {
+	if (kind === "route")
+		return {
+			to: "/$projectId/canvas/$routeId/versions",
+			params: { projectId, routeId: id },
+		};
+	if (kind === "workflow")
+		return {
+			to: "/$projectId/workflow-canvas/$workflowId/versions",
+			params: { projectId, workflowId: id },
+		};
+	if (kind === "custom_block")
+		return {
+			to: "/$projectId/custom-block-canvas/$blockId/versions",
+			params: { projectId, blockId: id },
+		};
+	return {
+		to: "/$projectId/middlewares/$middlewareId/versions",
+		params: { projectId, middlewareId: id },
+	};
+}
+
 /**
- * The spotlight commands for the route or workflow the current page is about
- * (#739): go to version history, commit, and open in sandbox — plus the dialogs
- * they open. Reads the target from the route params, so the same actions appear
- * in the canvas palette and in the spotlight on the Tests, Executions and
- * Versions pages. A page with no target (the project-wide pages) gets none.
+ * The spotlight commands for the target the current page is about (#739, #740):
+ * go to version history and commit — plus Open in sandbox, which is a route's and
+ * a workflow's only. Reads the target from the route params, so the same actions
+ * appear in the canvas palette and in the spotlight on the sibling pages.
  */
 export function useTargetSpotlight() {
 	const navigate = useNavigate();
@@ -28,17 +64,22 @@ export function useTargetSpotlight() {
 		projectId?: string;
 		routeId?: string;
 		workflowId?: string;
+		blockId?: string;
+		middlewareId?: string;
 	};
 	const projectId = params.projectId ?? "";
-	const kind: VersionKind | undefined = params.routeId
-		? "route"
-		: params.workflowId
-			? "workflow"
-			: undefined;
-	const id = params.routeId ?? params.workflowId ?? "";
+	const target = readTarget(params);
+	const kind = target?.kind;
+	const id = target?.id ?? "";
 	const canEdit = useCanEditProject(projectId);
 	const { name } = useVersionTarget(kind ?? "route", id);
-	const warnings = useSandboxWarnings({ kind: kind ?? "route", id, name });
+	// Open in sandbox copies a canvas into a sandbox; a block has no canvas to copy
+	const sandboxable = kind === "route" || kind === "workflow";
+	const warnings = useSandboxWarnings({
+		kind: kind === "workflow" ? "workflow" : "route",
+		id,
+		name,
+	});
 
 	const [saveFirst, setSaveFirst] = useState<(() => Promise<boolean>) | undefined>();
 	const [committing, setCommitting] = useState(false);
@@ -54,18 +95,7 @@ export function useTargetSpotlight() {
 				category: "Navigation",
 				keywords: ["history", "versions", "revert", "rollback", "production"],
 				icon: <TbHistory size={15} />,
-				onSelect: () =>
-					navigate(
-						kind === "route"
-							? {
-									to: "/$projectId/canvas/$routeId/versions",
-									params: { projectId, routeId: id },
-								}
-							: {
-									to: "/$projectId/workflow-canvas/$workflowId/versions",
-									params: { projectId, workflowId: id },
-								},
-					),
+				onSelect: () => navigate(historyNav(kind, projectId, id) as never),
 			},
 			{
 				id: "commit",
@@ -81,7 +111,7 @@ export function useTargetSpotlight() {
 				},
 			},
 		];
-		if (canEdit) {
+		if (canEdit && sandboxable) {
 			list.push({
 				id: "open-sandbox",
 				title: "Open in sandbox",
@@ -109,11 +139,11 @@ export function useTargetSpotlight() {
 						}}
 					/>
 				)}
-				{sandboxing && (
+				{sandboxing && sandboxable && (
 					<OpenInSandboxDialog
 						open
 						projectId={projectId}
-						source={{ kind, id, name }}
+						source={{ kind: kind === "workflow" ? "workflow" : "route", id, name }}
 						warnings={warnings}
 						onOpenChange={(open) => !open && setSandboxing(false)}
 						onOpen={(sandboxId) =>

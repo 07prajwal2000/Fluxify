@@ -14,11 +14,13 @@ import { TbEdit, TbFilter, TbPlus, TbSearch } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
 import { blockIcon } from "@/components/middlewares/ChainEditor";
+import { DeleteBlocked } from "@/components/versions/DeleteBlocked";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
 import { middlewaresQuery } from "@/query/middlewaresQuery";
 import { projectsQuery } from "@/query/projectsQuery";
 import type { MiddlewareSummary } from "@/services/middlewares";
+import { type Reference, referencesFromDeleteError } from "@/services/references";
 
 export const Route = createFileRoute("/_authed/$projectId/middlewares")({
 	head: createRouteHead("Middlewares", "Reusable steps that run before or after your routes."),
@@ -38,6 +40,8 @@ function MiddlewaresPage() {
 	const navigate = useNavigate();
 	const [search, setSearch] = useState("");
 	const [pendingDelete, setPendingDelete] = useState<MiddlewareSummary | null>(null);
+	// a refused delete (#740): who still uses the middleware, shown in the dialog
+	const [blocked, setBlocked] = useState<{ message: string; references: Reference[] }>();
 
 	const rows = useMemo(() => {
 		const q = search.trim().toLowerCase();
@@ -171,7 +175,12 @@ function MiddlewaresPage() {
 
 			<ConfirmDialog
 				open={!!pendingDelete}
-				onOpenChange={(o) => !o && setPendingDelete(null)}
+				onOpenChange={(o) => {
+					if (!o) {
+						setPendingDelete(null);
+						setBlocked(undefined);
+					}
+				}}
 				title="Delete middleware?"
 				danger
 				confirmText="Delete"
@@ -179,13 +188,29 @@ function MiddlewaresPage() {
 				onConfirm={() => {
 					if (!pendingDelete) return;
 					remove.mutate(pendingDelete.id, {
-						onSuccess: () => toast.success("Middleware deleted"),
-						onError: (e) => showErrorNotification(e as Error),
+						onSuccess: () => {
+							toast.success("Middleware deleted");
+							setPendingDelete(null);
+						},
+						onError: (e) => {
+							const conflict = referencesFromDeleteError(e);
+							if (conflict) setBlocked(conflict);
+							else {
+								showErrorNotification(e as Error);
+								setPendingDelete(null);
+							}
+						},
 					});
-					setPendingDelete(null);
 				}}
 			>
 				Delete <b className="text-foreground">{pendingDelete?.name}</b>? No route uses it.
+				{blocked && (
+					<DeleteBlocked
+						message={blocked.message}
+						references={blocked.references}
+						projectId={projectId}
+					/>
+				)}
 			</ConfirmDialog>
 		</div>
 	);

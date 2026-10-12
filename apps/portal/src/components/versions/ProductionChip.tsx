@@ -4,9 +4,30 @@ import { TbRocket } from "react-icons/tb";
 import type { VersionKind } from "@/services/versions";
 import { useVersionTarget } from "./useVersionTarget";
 
+/** The version history route and its params, per kind (#740). */
+function historyTarget(kind: VersionKind, projectId: string, id: string) {
+	if (kind === "route")
+		return { to: "/$projectId/canvas/$routeId/versions", params: { projectId, routeId: id } };
+	if (kind === "workflow")
+		return {
+			to: "/$projectId/workflow-canvas/$workflowId/versions",
+			params: { projectId, workflowId: id },
+		};
+	if (kind === "custom_block")
+		return {
+			to: "/$projectId/custom-block-canvas/$blockId/versions",
+			params: { projectId, blockId: id },
+		};
+	return {
+		to: "/$projectId/middlewares/$middlewareId/versions",
+		params: { projectId, middlewareId: id },
+	};
+}
+
 /**
- * The version production serves, in the route or workflow canvas header (#739).
- * It opens the version history, where it can be promoted or rolled back.
+ * The version production serves, in the route, workflow, custom-block or
+ * middleware header (#739, #740). It opens the version history, where it can be
+ * promoted or rolled back.
  */
 export function ProductionChip({
 	kind,
@@ -18,15 +39,11 @@ export function ProductionChip({
 	projectId: string;
 }) {
 	const { prodVersionNumber } = useVersionTarget(kind, id);
-	const to =
-		kind === "route"
-			? "/$projectId/canvas/$routeId/versions"
-			: "/$projectId/workflow-canvas/$workflowId/versions";
-	const params = kind === "route" ? { projectId, routeId: id } : { projectId, workflowId: id };
+	const target = historyTarget(kind, projectId, id);
 	return (
 		<Link
-			to={to as never}
-			params={params as never}
+			to={target.to as never}
+			params={target.params as never}
 			// land on the Production tab, so the click answers "which version is live"
 			search={{ tab: "production" } as never}
 			title={

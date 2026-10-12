@@ -46,6 +46,7 @@ function mount(
 ) {
 	return render(
 		<VersionList
+			kind="route"
 			versions={versions}
 			uncommitted={uncommitted}
 			selectedId={undefined}

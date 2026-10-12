@@ -5,16 +5,16 @@ import type {
 } from "@fluxify/server/src/modules/deployments/dto";
 import type z from "zod";
 import { httpClient } from "@/lib/http";
-import type { VersionKind } from "./versions";
+import { KIND_SEGMENT, type VersionKind } from "./versions";
 
 export type Deployment = z.infer<typeof deploymentSchema>;
 export type DeploymentList = z.infer<typeof deploymentListSchema>;
 export type DeploymentGate = Deployment["gates"][number];
+export type DeployGateRef = NonNullable<DeploymentGate["refs"]>[number];
 export type DeployBody = z.input<typeof deployBodySchema>;
 
 /** A promote and a rollback are the same call on the same path; the server tells them apart. */
-const base = (kind: VersionKind, id: string) =>
-	`/v1/${kind === "route" ? "routes" : "workflows"}/${id}/deployments`;
+const base = (kind: VersionKind, id: string) => `/v1/${KIND_SEGMENT[kind]}/${id}/deployments`;
 
 export const deploymentsService = {
 	/** the log, newest first */

@@ -1,4 +1,5 @@
 import { Input, Label, TextArea, TextField } from "@fluxify/components";
+import type { ReactNode } from "react";
 import { useState } from "react";
 import { FormWizard, SummaryItem } from "@/components/common/FormWizard";
 import { blockIcon, type ChainBlock, ChainEditor } from "@/components/middlewares/ChainEditor";
@@ -17,6 +18,7 @@ export function MiddlewareWizard({
 	submitLabel,
 	isPending,
 	onBack,
+	reviewExtra,
 	onSubmit,
 }: {
 	projectId: string;
@@ -26,6 +28,8 @@ export function MiddlewareWizard({
 	submitLabel: string;
 	isPending: boolean;
 	onBack: () => void;
+	/** extra content on the Review step, e.g. who uses it (#740) */
+	reviewExtra?: ReactNode;
 	onSubmit: (values: MiddlewareValues) => void;
 }) {
 	const [name, setName] = useState(initial.name);
@@ -102,6 +106,7 @@ export function MiddlewareWizard({
 									</ol>
 								)}
 							</div>
+							{reviewExtra}
 						</div>
 					),
 				},

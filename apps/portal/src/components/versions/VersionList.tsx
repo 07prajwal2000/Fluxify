@@ -9,9 +9,12 @@ import {
 	TbRocket,
 } from "react-icons/tb";
 import { getTimeAgo } from "@/lib/datetime";
-import type { Version } from "@/services/versions";
+import type { Version, VersionKind } from "@/services/versions";
 
 export type VersionAction = "checkout" | "sandbox" | "deploy" | "recordings";
+
+/** Open in sandbox and View recordings are a route's and a workflow's, not a block's (#740). */
+const isCanvasKind = (kind: VersionKind) => kind === "route" || kind === "workflow";
 
 /** the name, else the email, else a person no longer in the project */
 const authorOf = (version: Version) => version.author ?? version.authorEmail ?? "Unknown author";
@@ -28,11 +31,13 @@ export function deployAction(version: Version, liveVersionNumber: number | null)
 
 function VersionMenu({
 	version,
+	kind,
 	canEdit,
 	liveVersionNumber,
 	onAction,
 }: {
 	version: Version;
+	kind: VersionKind;
 	canEdit: boolean;
 	liveVersionNumber: number | null;
 	onAction: (action: VersionAction, version: Version) => void;
@@ -66,7 +71,7 @@ function VersionMenu({
 							<Label>Check out</Label>
 						</Dropdown.Item>
 					) : null}
-					{canEdit ? (
+					{canEdit && isCanvasKind(kind) ? (
 						<Dropdown.Item id="sandbox" textValue="Open in sandbox">
 							<TbFlask size={16} />
 							<Label>Open in sandbox</Label>
@@ -78,7 +83,7 @@ function VersionMenu({
 							<Label>{deploy.label}</Label>
 						</Dropdown.Item>
 					) : null}
-					{canEdit ? (
+					{canEdit && isCanvasKind(kind) ? (
 						<Dropdown.Item id="recordings" textValue="View recordings">
 							<TbPlayerRecord size={16} />
 							<Label>View recordings</Label>
@@ -100,6 +105,7 @@ function VersionMenu({
  * version carries an "In production" badge (#739).
  */
 export function VersionList({
+	kind,
 	versions,
 	uncommitted,
 	selectedId,
@@ -109,6 +115,7 @@ export function VersionList({
 	onOpenCanvas,
 	onAction,
 }: {
+	kind: VersionKind;
 	versions: Version[];
 	uncommitted: boolean;
 	selectedId: string | undefined;
@@ -181,6 +188,7 @@ export function VersionList({
 					<div className="pt-2">
 						<VersionMenu
 							version={version}
+							kind={kind}
 							canEdit={canEdit}
 							liveVersionNumber={liveVersionNumber}
 							onAction={onAction}

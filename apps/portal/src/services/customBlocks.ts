@@ -3,6 +3,7 @@ import {
 	type responseSchema as createResponseSchema,
 } from "@fluxify/server/src/api/v1/custom-blocks/create/dto";
 import type { responseSchema as getAllResponseSchema } from "@fluxify/server/src/api/v1/custom-blocks/get-all/dto";
+import type { responseSchema as getByIdResponseSchema } from "@fluxify/server/src/api/v1/custom-blocks/get-by-id/dto";
 import {
 	requestBodySchema as updateRequestSchema,
 	type responseSchema as updateResponseSchema,
@@ -17,6 +18,10 @@ export const customBlocksService = {
 	async getAll(projectId: string): Promise<z.infer<typeof getAllResponseSchema>> {
 		const result = await httpClient.get(`${baseUrl}/list?projectId=${projectId}`);
 		return result.data;
+	},
+	/** one block, with where it stands against its versions (#740) */
+	async getById(id: string): Promise<z.infer<typeof getByIdResponseSchema>> {
+		return (await httpClient.get(`${baseUrl}/${id}`)).data;
 	},
 	async create(
 		data: z.infer<typeof createRequestSchema>,

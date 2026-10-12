@@ -4,9 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import { DeployComment } from "@/components/ai/DeployComment";
 import { parseApiError } from "@/lib/errorNotifier";
 import { deploymentsQuery, watchDeployment } from "@/query/deploymentsQuery";
-import type { Deployment } from "@/services/deployments";
+import type { DeployGateRef, Deployment } from "@/services/deployments";
 import type { Version, VersionKind } from "@/services/versions";
+import { useCanEditProject } from "@/store/auth";
+import { DependencyPromoteDialog } from "./DependencyPromoteDialog";
 import { GateList } from "./DeploymentGates";
+import { UsedByNote } from "./UsedByNote";
+import { useVersionTarget } from "./useVersionTarget";
 
 /**
  * Promotes a version to production, or rolls back to an older one (#739). The
@@ -35,6 +39,12 @@ export function DeployDialog({
 	const [started, setStarted] = useState<Deployment>();
 	const [error, setError] = useState<string>();
 	const deploy = deploymentsQuery.deploy.mutation(kind, id);
+	const canEdit = useCanEditProject(projectId);
+	// what a block or middleware promote says and whose name the dependency dialog pre-fills
+	const { name: subjectName } = useVersionTarget(kind, id);
+	// the custom_blocks gate's dependencies, promoted from inside this dialog (#740)
+	const [dependency, setDependency] = useState<DeployGateRef>();
+	const [resolved, setResolved] = useState<Set<string>>(new Set());
 	const polled = deploymentsQuery.get.useQuery(
 		kind,
 		id,
@@ -67,6 +77,8 @@ export function DeployDialog({
 		const trimmed = description.trim();
 		if (!trimmed || deploy.isPending) return;
 		setError(undefined);
+		// a retry is a new deployment; let its outcome be announced again
+		notified.current = false;
 		deploy.mutate(
 			{ versionId: version.id, description: trimmed },
 			{
@@ -82,59 +94,82 @@ export function DeployDialog({
 		: `Promote v${version.versionNumber} to production`;
 
 	return (
-		<Modal isOpen onOpenChange={(open) => !open && close()}>
-			<Modal.Backdrop>
-				<Modal.Container placement="center">
-					<Modal.Dialog className="w-[32rem] max-w-[92vw]">
-						<Modal.Header className="flex flex-row items-center gap-3">
-							<Modal.Heading className="text-sm font-semibold">{heading}</Modal.Heading>
-							<CloseButton aria-label="Close" className="ml-auto" />
-						</Modal.Header>
-						<Modal.Body className="flex flex-col gap-3">
-							{!started ? (
-								<>
-									<p className="text-xs text-muted">
-										Fluxify runs this version's checks. If they all pass, production switches to v
-										{version.versionNumber}. Nothing changes while they run.
-									</p>
-									<DeployComment
-										value={description}
-										onChange={setDescription}
-										label="Description"
-									/>
-									{error && <p className="text-xs text-danger">{error}</p>}
-								</>
-							) : (
-								<>
-									<p className="text-xs text-muted">
-										{deployment?.status === "pending"
-											? "Running the checks…"
-											: deployment?.status === "live"
-												? `v${version.versionNumber} is live in production.`
-												: `v${version.versionNumber} could not go live. Production is unchanged.`}
-									</p>
-									<GateList kind={kind} id={id} projectId={projectId} deployment={deployment} />
-								</>
-							)}
-						</Modal.Body>
-						<Modal.Footer className="flex flex-row items-center justify-end gap-2">
-							<Button variant="ghost" onPress={close}>
-								{started ? "Close" : "Cancel"}
-							</Button>
-							{!started && (
-								<Button
-									variant="primary"
-									isDisabled={!description.trim()}
-									isPending={deploy.isPending}
-									onPress={submit}
-								>
-									{isRollback ? "Roll back" : "Promote"}
+		<>
+			<Modal isOpen onOpenChange={(open) => !open && close()}>
+				<Modal.Backdrop>
+					<Modal.Container placement="center">
+						<Modal.Dialog className="w-[32rem] max-w-[92vw]">
+							<Modal.Header className="flex flex-row items-center gap-3">
+								<Modal.Heading className="text-sm font-semibold">{heading}</Modal.Heading>
+								<CloseButton aria-label="Close" className="ml-auto" />
+							</Modal.Header>
+							<Modal.Body className="flex flex-col gap-3">
+								{!started ? (
+									<>
+										<p className="text-xs text-muted">
+											Fluxify runs this version's checks. If they all pass, production switches to v
+											{version.versionNumber}. Nothing changes while they run.
+										</p>
+										<DeployComment
+											value={description}
+											onChange={setDescription}
+											label="Description"
+										/>
+										{(kind === "custom_block" || kind === "middleware") && (
+											<UsedByNote kind={kind} id={id} projectId={projectId} />
+										)}
+										{error && <p className="text-xs text-danger">{error}</p>}
+									</>
+								) : (
+									<>
+										<p className="text-xs text-muted">
+											{deployment?.status === "pending"
+												? "Running the checks…"
+												: deployment?.status === "live"
+													? `v${version.versionNumber} is live in production.`
+													: `v${version.versionNumber} could not go live. Production is unchanged.`}
+										</p>
+										<GateList
+											kind={kind}
+											id={id}
+											projectId={projectId}
+											deployment={deployment}
+											onCommitDependency={setDependency}
+											resolvedDeps={resolved}
+											onTryAgain={() => void submit()}
+											canPromoteDeps={canEdit}
+										/>
+									</>
+								)}
+							</Modal.Body>
+							<Modal.Footer className="flex flex-row items-center justify-end gap-2">
+								<Button variant="ghost" onPress={close}>
+									{started ? "Close" : "Cancel"}
 								</Button>
-							)}
-						</Modal.Footer>
-					</Modal.Dialog>
-				</Modal.Container>
-			</Modal.Backdrop>
-		</Modal>
+								{!started && (
+									<Button
+										variant="primary"
+										isDisabled={!description.trim()}
+										isPending={deploy.isPending}
+										onPress={submit}
+									>
+										{isRollback ? "Roll back" : "Promote"}
+									</Button>
+								)}
+							</Modal.Footer>
+						</Modal.Dialog>
+					</Modal.Container>
+				</Modal.Backdrop>
+			</Modal>
+			{dependency && (
+				<DependencyPromoteDialog
+					subjectName={subjectName}
+					dependency={dependency}
+					projectId={projectId}
+					onClose={() => setDependency(undefined)}
+					onPromoted={() => setResolved((previous) => new Set(previous).add(dependency.id))}
+				/>
+			)}
+		</>
 	);
 }

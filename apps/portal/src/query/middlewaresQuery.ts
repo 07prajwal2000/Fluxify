@@ -6,7 +6,9 @@ type CreateBody = Parameters<typeof middlewaresService.create>[0];
 type RouteBody = Parameters<typeof middlewaresService.setForRoute>[1];
 
 const listKey = (projectId: string) => ["middlewares", projectId];
-const itemKey = (id: string) => ["middlewares", "item", id];
+// one key shape for every kind, so a commit or a checkout refreshes the detail
+// through the same `[segment, id, "by-id"]` invalidation (#740)
+const itemKey = (id: string) => ["middlewares", id, "by-id"];
 const routeKey = (routeId: string) => ["middlewares", "route", routeId];
 
 export const middlewaresQuery = {
@@ -24,6 +26,7 @@ export const middlewaresQuery = {
 			return useQuery({
 				queryKey: itemKey(id),
 				queryFn: () => middlewaresService.get(id),
+				enabled: Boolean(id),
 				refetchOnWindowFocus: false,
 			});
 		},

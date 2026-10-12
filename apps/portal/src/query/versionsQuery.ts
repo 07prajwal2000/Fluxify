@@ -2,35 +2,38 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	type CheckoutBody,
 	type CommitBody,
+	KIND_SEGMENT,
 	type VersionKind,
 	versionsService,
 } from "@/services/versions";
 
-const root = (kind: VersionKind, id: string) => [kind === "route" ? "routes" : "workflows", id];
-const listKey = (kind: VersionKind, id: string) => [...root(kind, id), "versions"];
+/** the query-key prefix a target's versions and detail live under (#740) */
+export const versionRoot = (kind: VersionKind, id: string) => [KIND_SEGMENT[kind], id];
+const listKey = (kind: VersionKind, id: string) => [...versionRoot(kind, id), "versions"];
 
 /**
  * What a commit or a checkout leaves stale. A commit moves the history and the
  * head only. A checkout also replaces the canvas and the settings, so everything
- * that shows them is read again: the canvas, the detail, the route lists (the
- * switcher and the Routes page show path and method), the route's middlewares
- * and the last compile result. Inactive queries are refetched too, so the canvas
- * page is fresh by the time it is opened, not after a flash of the old one.
+ * that shows them is read again: the canvas, the detail, the lists (the switcher
+ * and the list pages show name and, for routes, path and method), a route's
+ * middlewares and the last compile result. Inactive queries are refetched too, so
+ * the canvas page is fresh by the time it is opened, not after a flash of the old
+ * one.
  */
 function useRefresh(kind: VersionKind, id: string, checkout: boolean) {
 	const qc = useQueryClient();
-	const group = kind === "route" ? "routes" : "workflows";
+	const segment = KIND_SEGMENT[kind];
 	return () => {
 		const keys = [
 			listKey(kind, id),
-			[...root(kind, id), "by-id"],
-			...(checkout ? [[...root(kind, id), "canvas-items"], [group, "list"], ["middlewares"]] : []),
+			[segment, id, "by-id"],
+			...(checkout ? [[segment, id, "canvas-items"], [segment, "list"], ["middlewares"]] : []),
 		];
 		return Promise.all([
 			...keys.map((queryKey) => qc.invalidateQueries({ queryKey, refetchType: "all" })),
 			checkout
 				? qc.invalidateQueries({
-						// the compile result of this route or workflow: ["system-logs", project, "compile", type, id]
+						// the compile result of this target: ["system-logs", project, "compile", type, id]
 						predicate: ({ queryKey: key }) =>
 							key[0] === "system-logs" && key[2] === "compile" && key[4] === id,
 						refetchType: "all",

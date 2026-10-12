@@ -5,6 +5,7 @@ import { customBlocksService } from "@/services/customBlocks";
 
 const key = (projectId: string) => ["custom-blocks", projectId];
 const canvasKey = (id: string) => ["custom-blocks", id, "canvas-items"];
+const byIdKey = (id: string) => ["custom-blocks", id, "by-id"];
 
 export const customBlocksQuery = {
 	getAll: {
@@ -12,6 +13,17 @@ export const customBlocksQuery = {
 			return useQuery({
 				queryKey: key(projectId),
 				queryFn: () => customBlocksService.getAll(projectId),
+				refetchOnWindowFocus: false,
+			});
+		},
+	},
+	/** one block's detail, where the header's Prod chip and Commit dot read (#740) */
+	byId: {
+		useQuery(id: string) {
+			return useQuery({
+				queryKey: byIdKey(id),
+				queryFn: () => customBlocksService.getById(id),
+				enabled: Boolean(id),
 				refetchOnWindowFocus: false,
 			});
 		},
