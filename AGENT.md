@@ -46,6 +46,15 @@ If you encounter a repeatable issue or bug that might arise in the future, you m
 6. **Check before committing any portal UI:**
    `grep -nE "(bg|text|border|ring)-\[#|zinc-[0-9]|text-(white|black)" <changed files>` — this must return nothing.
 
+### Navigate With the Router's `Link`, Never a Bare `<a href>`
+**Issue:** an internal link written as `<a href="/<projectId>/...">` loads a 404 (or the login page) once the portal is served under its base path.
+**Cause:** the router is created with `basepath: BASE_PATH` (`/_/admin/ui`, `apps/portal/src/main.tsx`). The browser resolves a raw `href` against the origin, so the base path is dropped; TanStack Router's `<Link>` prepends it for you.
+**Rules:**
+1. Route anywhere inside the portal with `<Link to="/$projectId/..." params={{...}} search={{...}}>` from `@tanstack/react-router`. Never hand-build the path.
+2. **Do not put the base path into `to`/`params`/`search`** — the router adds it behind the scenes. `withBasePath(...)` is only for a real URL used outside the router: `window.open`, `target="_blank"`, a download, or an external link.
+3. A query string goes in `search` (`search={{ open: runId }}`), never concatenated onto the path.
+4. A `Link` needs a router in context, so a test that renders one must stub `@tanstack/react-router` (see `components/versions/DeploymentGates.test.tsx`).
+
 ### Monorepo Server to Frontend Package Bleed
 **Issue:** "Module not found: Can't resolve 'child_process'" or similar Node.js built-in errors in Next.js client code.
 **Cause:** Importing utilities (like `canAccess`) or types directly from the root of a server module (e.g., `@fluxify/server`) forces the Next.js bundler to evaluate the server's main barrel file (`index.ts`). This barrel file exports modules that rely on Node.js built-ins (like database schemas, ORMs, and `pg`), breaking the frontend build.

@@ -5,9 +5,11 @@ import {
 	type ApiPlaygroundState,
 	Spinner,
 } from "@fluxify/components";
+import { Link } from "@tanstack/react-router";
 import { useCallback, useState } from "react";
 import { TbPlayerRecord } from "react-icons/tb";
 import { useBlockErrorFocus } from "@/components/canvas/diagnostics/blockErrorFocus";
+import { useOptionalCanvasPlayground } from "@/components/canvas/PlaygroundContext";
 import { EmptyState } from "@/components/common/EmptyState";
 import { EnvPicker, type RunEnv } from "@/components/common/EnvPicker";
 import { findNewRun, recordedRunIds } from "@/components/recordings/latestRun";
@@ -35,6 +37,8 @@ type RouteApiPlaygroundProps = {
 	enableCache?: boolean;
 	/** A recorded request to start from (#752); it replaces the cached state. */
 	replay?: ApiPlaygroundState;
+	/** When the recording link is followed, so a modal host can close itself first. */
+	onOpenRecording?: () => void;
 };
 
 /**
@@ -53,9 +57,13 @@ export function RouteApiPlayground({
 	isFramed,
 	enableCache,
 	replay,
+	onOpenRecording,
 }: RouteApiPlaygroundProps) {
 	const route = routesQuery.byId.useQuery(routeId);
 	const selectBlock = useBlockErrorFocus();
+	// the canvas owns a playground modal of its own (#739); a page that hosts one
+	// hands us onOpenRecording instead
+	const playground = useOptionalCanvasPlayground();
 	const projectId = route.data?.projectId ?? "";
 	// The preview and the request use the project's own address, subdomain
 	// included. Development adds `/_/dev`; production is the bare address.
@@ -83,7 +91,15 @@ export function RouteApiPlayground({
 				const url = request.url.startsWith(devShownUrl)
 					? workerUrl + request.url.slice(devShownUrl.length)
 					: request.url;
-				return sendSandboxRequest({ ...request, url }, token.data.token);
+				// A development call is recorded while the route's devRecordExecution is
+				// on (#736), so its run is watched for exactly as production's is (#739).
+				setLatestRun(null);
+				const before = route.data?.devRecordExecution
+					? new Set(await recordedRunIds(projectId, target))
+					: null;
+				const response = await sendSandboxRequest({ ...request, url }, token.data.token);
+				if (before) void findNewRun(projectId, target, before).then(setLatestRun);
+				return response;
 			}
 			// production: the URL is what it is; the recording link waits for the run
 			setLatestRun(null);
@@ -163,15 +179,27 @@ export function RouteApiPlayground({
 					onStateChange={handleStateChange}
 				/>
 			</div>
-			{latestRun && route.data.recordExecution && (
+			{/* the environment on screen is the one that keeps runs: development records
+			    while devRecordExecution is on, production while recordExecution is (#739) */}
+			{latestRun && (isProd ? route.data.recordExecution : route.data.devRecordExecution) && (
 				<div className="flex shrink-0 items-center gap-3 border-t border-border px-4 py-2 text-xs text-muted">
 					<span>This call was recorded.</span>
-					<a
+					{/* a run is a page of its own, unlike a sandbox's modal. The router carries
+					    both the base path and the ?open=run, so no href is built here (#752) */}
+					<Link
 						className="text-accent hover:underline"
-						href={`/${projectId}/canvas/${routeId}/executions?open=${latestRun}`}
+						to="/$projectId/canvas/$routeId/executions"
+						params={{ projectId, routeId }}
+						search={{ open: latestRun }}
+						// leaving for a recording closes the playground: the canvas's own
+						// modal, the sandbox way, or the host's, through the callback
+						onClick={() => {
+							playground?.close();
+							onOpenRecording?.();
+						}}
 					>
 						Open recording
-					</a>
+					</Link>
 				</div>
 			)}
 		</div>

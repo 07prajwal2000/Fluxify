@@ -1,7 +1,7 @@
 import { cn } from "@fluxify/components";
+import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { TbAlertTriangle, TbCheck, TbLoader2, TbMinus, TbX } from "react-icons/tb";
-import { withBasePath } from "@/constants/routes";
 import type { DeployGateRef, Deployment, DeploymentGate } from "@/services/deployments";
 import type { VersionKind } from "@/services/versions";
 import { DependencyRefs, FailureRefs } from "./GateRefs";
@@ -119,12 +119,13 @@ export function GateList({
 	const pending = !deployment || deployment.status === "pending";
 	const byGate = new Map((deployment?.gates ?? []).map((gate) => [gate.gate, gate]));
 	// only a route's or a workflow's own run is opened from its own tests gate
-	const suitePath =
+	const suiteTo =
 		kind === "route"
-			? `/${projectId}/canvas/${id}/test-suites`
+			? "/$projectId/canvas/$routeId/test-suites"
 			: kind === "workflow"
-				? `/${projectId}/workflow-canvas/${id}/test-suites`
+				? "/$projectId/workflow-canvas/$workflowId/test-suites"
 				: null;
+	const suiteParams = kind === "route" ? { projectId, routeId: id } : { projectId, workflowId: id };
 	return (
 		<ul aria-label="Promote checks" className="flex flex-col gap-2">
 			{gateKeys(kind).map((gate) => {
@@ -153,13 +154,15 @@ export function GateList({
 							) : undefined
 						}
 						link={
-							gate === "tests" && result?.runId && suitePath ? (
-								<a
-									href={withBasePath(`${suitePath}?runId=${result.runId}`)}
+							gate === "tests" && result?.runId && suiteTo ? (
+								<Link
+									to={suiteTo as never}
+									params={suiteParams as never}
+									search={{ runId: result.runId } as never}
 									className="ml-6 w-fit text-xs font-medium text-accent hover:underline"
 								>
 									Open the failed tests
-								</a>
+								</Link>
 							) : undefined
 						}
 					/>

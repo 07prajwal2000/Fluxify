@@ -12,14 +12,16 @@ mock.module("@tanstack/react-router", () => ({
 	Link: ({
 		to,
 		params,
+		search,
 		children,
 		...rest
 	}: {
 		to: string;
 		params?: Record<string, string>;
+		search?: Record<string, string>;
 		children: ReactNode;
 	}) => (
-		<a href={`${to}?${new URLSearchParams(params ?? {})}`} {...rest}>
+		<a href={`${to}?${new URLSearchParams({ ...(params ?? {}), ...(search ?? {}) })}`} {...rest}>
 			{children}
 		</a>
 	),
@@ -147,4 +149,14 @@ test("the warning message a gate carries is shown", () => {
 		gates: [{ gate: "custom_blocks", status: "warning", message: "Not used in production yet" }],
 	});
 	expect(document.body.textContent).toContain("Not used in production yet");
+});
+
+test("a route's own failed run links to its suite history, through the router", () => {
+	mount({ gates: [{ ...TESTS, runId: "run-1" }] });
+	const link = [...document.body.querySelectorAll("a")].find((a) =>
+		a.textContent?.includes("Open the failed tests"),
+	);
+	// no /_/admin/ui prefix: Link adds it, and no hand-built href
+	expect(link?.getAttribute("href")).toContain("/$projectId/canvas/$routeId/test-suites");
+	expect(link?.getAttribute("href")).toContain("runId=run-1");
 });
