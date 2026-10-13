@@ -11,6 +11,7 @@ export { DEFAULT_RULE_EDITORS } from "./rules";
 export { SchemaEditor } from "./SchemaEditor";
 export { SchemaNavigator } from "./SchemaNavigator";
 export { SchemaPreview } from "./SchemaPreview";
+export { SchemaSummary } from "./SchemaSummary";
 export type {
 	ChainType,
 	DataType,
