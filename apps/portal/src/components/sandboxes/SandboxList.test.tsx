@@ -18,8 +18,10 @@ async function until<T>(check: () => T, timeout = 1500): Promise<T> {
 	}
 }
 const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query");
+const { toast } = await import("@fluxify/components");
 const { authStore } = await import("@/store/auth");
 const { sandboxesService } = await import("@/services/sandboxes");
+const { publicSettingsService } = await import("@/services/publicSettings");
 const { SandboxList } = await import("./SandboxList");
 
 afterEach(cleanup);
@@ -35,6 +37,8 @@ const mine = [
 		updatedAt: "2026-10-10T11:00:00.000Z",
 	},
 ];
+
+const two = [mine[0], { ...mine[0], id: "s2", name: "Budget scratch" }];
 
 function setRole(role: "viewer" | "creator") {
 	authStore.setState((s) => {
@@ -65,7 +69,23 @@ const button = (name: string | RegExp) => {
 	return found;
 };
 
-beforeEach(() => setRole("creator"));
+const maxSandboxes = 2;
+
+beforeEach(() => {
+	mock.restore();
+	setRole("creator");
+	spyOn(publicSettingsService, "get").mockResolvedValue({
+		license: {
+			status: "community",
+			canRun: true,
+			canCreate: true,
+			graceEndsAt: null,
+			daysRemaining: null,
+			features: [],
+		},
+		maxSandboxesPerUser: maxSandboxes,
+	});
+});
 
 test("an empty project explains what a sandbox is", async () => {
 	spyOn(sandboxesService, "list").mockResolvedValue([]);
@@ -139,4 +159,82 @@ test("a viewer gets no list, and no request for one is the page's business", asy
 	renderList();
 	await until(() => expect(body().textContent).toContain("for creators and above"));
 	expect(body().textContent).not.toContain("New sandbox");
+});
+
+test("shows how many of the cap the project is using", async () => {
+	spyOn(sandboxesService, "list").mockResolvedValue(mine);
+	renderList();
+	const text = await until(() => {
+		const found = body().textContent ?? "";
+		if (!found.includes("1 / 2")) throw new Error("no counter");
+		return found;
+	});
+	expect(text).toContain("1 / 2");
+});
+
+test("flags the counter when only one slot is left", async () => {
+	spyOn(sandboxesService, "list").mockResolvedValue(mine);
+	renderList();
+	await until(() => {
+		const icon = body().querySelector('[aria-label="Near sandbox limit"]');
+		if (!icon) throw new Error("no icon");
+		return icon;
+	});
+});
+
+test("blocks New sandbox once the cap is reached", async () => {
+	spyOn(sandboxesService, "list").mockResolvedValue(two);
+	renderList();
+	const btn = await until(() => {
+		const el = button("New sandbox") as HTMLButtonElement;
+		if (!el.disabled) throw new Error("not disabled yet");
+		return el;
+	});
+	expect(btn.disabled).toBe(true);
+});
+
+test("warns in the create dialog when this sandbox reaches the cap", async () => {
+	spyOn(sandboxesService, "list").mockResolvedValue(mine);
+	renderList();
+	await until(() => button("New sandbox"));
+	fireEvent.click(button("New sandbox"));
+
+	const text = await until(() => {
+		const found = body().textContent ?? "";
+		if (!found.includes("reaches your limit of 2 sandboxes")) throw new Error("no warning");
+		return found;
+	});
+	expect(text).toContain("Delete one before adding another");
+});
+
+test("a create refused at the cap shows the server's message", async () => {
+	spyOn(sandboxesService, "list").mockResolvedValue(mine);
+	const error = Object.assign(new Error("Request failed with status code 409"), {
+		isAxiosError: true,
+		response: {
+			status: 409,
+			data: {
+				message: "You have reached the limit of 2 sandboxes in this project. Delete one first.",
+			},
+		},
+	});
+	spyOn(sandboxesService, "create").mockRejectedValue(error);
+	const danger = spyOn(toast, "danger").mockImplementation((() => "") as never);
+	renderList();
+	await until(() => button("New sandbox"));
+	fireEvent.click(button("New sandbox"));
+
+	const input = await until(() => {
+		const el = body().querySelector("input[placeholder]") as HTMLInputElement | null;
+		if (!el) throw new Error("no dialog");
+		return el;
+	});
+	fireEvent.change(input, { target: { value: "Third" } });
+	fireEvent.click(button("Create"));
+
+	await until(() =>
+		expect(danger).toHaveBeenCalledWith(
+			"You have reached the limit of 2 sandboxes in this project. Delete one first.",
+		),
+	);
 });

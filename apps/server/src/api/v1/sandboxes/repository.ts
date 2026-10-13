@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq } from "drizzle-orm";
 import { type DbTransactionType, db } from "../../../db";
 import { sandboxesEntity, triggersEntity } from "../../../db/schema";
 
@@ -30,6 +30,15 @@ export async function findSandbox(id: string, tx?: DbTransactionType) {
 		.where(eq(sandboxesEntity.id, id))
 		.limit(1);
 	return row;
+}
+
+/** How many sandboxes one user already keeps in one project, for the per-user cap (#763). */
+export async function countSandboxes(projectId: string, userId: string, tx?: DbTransactionType) {
+	const [row] = await (tx ?? db)
+		.select({ n: count() })
+		.from(sandboxesEntity)
+		.where(and(eq(sandboxesEntity.projectId, projectId), eq(sandboxesEntity.userId, userId)));
+	return row?.n ?? 0;
 }
 
 /** One user's sandboxes in one project, last edited first. No paging: nobody keeps hundreds. */

@@ -11,8 +11,10 @@ import { fireInternalTrigger } from "../../../modules/triggers/publisher";
 import { assertOwnSandbox } from "../triggers/sandboxes";
 import type { runAcceptedSchema, runSchema } from "../workflows/dto";
 import { projectExists, seedDefaultBlocks } from "../workflows/repository";
+import { maxSandboxesPerUser } from "./cap";
 import type { createSchema, patchSchema, sandboxSchema } from "./dto";
 import {
+	countSandboxes,
 	deleteSandboxRow,
 	type findSandbox,
 	insertSandbox,
@@ -41,6 +43,13 @@ export async function createSandbox(
 	const id = await db.transaction(async (tx) => {
 		if (!(await projectExists(projectId, tx)))
 			throw new NotFoundError(`project with id ${projectId} does not exist`);
+		// the cap counts only persistent sandboxes: an ephemeral run never reaches
+		// here, so it can run even when the user is already at the limit (#763)
+		const max = maxSandboxesPerUser();
+		if ((await countSandboxes(projectId, userId, tx)) >= max)
+			throw new ConflictError(
+				`You have reached the limit of ${max} sandboxes in this project. Delete one first.`,
+			);
 		const id = await insertSandbox(
 			{
 				projectId,

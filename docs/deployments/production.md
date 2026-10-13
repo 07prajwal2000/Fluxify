@@ -307,6 +307,24 @@ record at once.
 
 ---
 
+## Sandbox limit {#sandbox-limit}
+
+Each user can keep a limited number of **persistent** sandboxes in each project.
+Once they reach it, creating another is refused until they delete one, and the
+sandbox list shows how many they have, as `N / max`. Ephemeral runs
+(`run_blocks`) save nothing and are never counted.
+
+```env
+# Persistent sandboxes one user may keep in one project (default 20).
+MAX_SANDBOX_PER_USER=20
+```
+
+Set it on the admin service, in the same `.env` it reads (see [Step 1](#env)).
+Workers don't read it. A value that is not a positive integer falls back to the
+default of `20`.
+
+---
+
 ## AI assistant traces {#llm-tracing}
 
 Send a trace of every AI assistant run to [Phoenix](https://phoenix.arize.com),
