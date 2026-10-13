@@ -65,6 +65,14 @@ export function ToolRow({
 				)}
 				{ms !== undefined && <span className="shrink-0 text-muted">{(ms / 1000).toFixed(1)}s</span>}
 			</summary>
+			{/*
+				Rejection reason: always visible under the summary, even when the card is collapsed.
+				A future issue will rework the tool summary UI; this line is intentionally placed here
+				so it won't be overridden by that change.
+			*/}
+			{tool.status === "rejected" && tool.error !== undefined && (
+				<div className="px-3 py-1 text-xs text-muted">Rejected: {tool.error}</div>
+			)}
 			{open && (
 				<div className="border-t border-border px-3 py-2">
 					<ToolBody tool={tool} asking={asking} />

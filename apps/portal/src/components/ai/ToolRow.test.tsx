@@ -262,3 +262,43 @@ test("run_blocks draws the blocks it sent as a canvas under a fold", () => {
 	expect(view.getByText("Blocks sent (2)")).toBeTruthy();
 	expect(view.container.querySelectorAll("pre")).toHaveLength(0);
 });
+
+const rejected = (
+	error: string | undefined,
+	status: ToolPart["status"] = "rejected",
+): ToolPart => ({
+	type: "tool",
+	id: "t1",
+	name: "save_route",
+	title: "Save route",
+	input: { path: "/health" },
+	status,
+	error,
+	startedAt: 1000,
+	endedAt: 2000,
+});
+
+test("a rejected tool shows the reason under the card, always visible even when collapsed", () => {
+	const view = row(rejected("use the staging table instead"));
+	// the card starts folded, yet the reason is already visible
+	expect(view.container.querySelector("details")?.open).toBe(false);
+	expect(view.getByText(/Rejected: use the staging table instead/)).toBeTruthy();
+});
+
+test("a rejected tool with no reason shows 'Rejected: Not approved'", () => {
+	const view = row(rejected("Not approved"));
+	expect(view.getByText(/Rejected: Not approved/)).toBeTruthy();
+});
+
+test("a rejected tool without an error shows no reason line", () => {
+	const view = row(rejected(undefined));
+	expect(view.queryByText(/Rejected:/)).toBeNull();
+});
+
+test("a non-rejected tool (error or done) shows no reason line", () => {
+	const view = row(rejected("some error", "error"));
+	expect(view.queryByText(/Rejected:/)).toBeNull();
+	cleanup();
+	const done = row(rejected(undefined, "done"));
+	expect(done.queryByText(/Rejected:/)).toBeNull();
+});
