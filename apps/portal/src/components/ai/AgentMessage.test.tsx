@@ -14,7 +14,7 @@ mock.module("@tanstack/react-router", () => ({
 }));
 
 const { cleanup, fireEvent, render } = await import("@testing-library/react");
-const { AgentMessage } = await import("./AgentMessage");
+const { AgentMessage, StatusLine } = await import("./AgentMessage");
 
 afterEach(cleanup);
 afterAll(() => GlobalRegistrator.unregister());
@@ -35,6 +35,20 @@ test("a finished thought shows its own time; a blink or an unknown time shows no
 		const b = show(thought(ms));
 		expect(b.getByText("Thought")).toBeTruthy();
 		b.unmount();
+	}
+});
+
+test("the status line names the phase and counts the seconds", () => {
+	const phases = [
+		["queued", "Queued…"],
+		["waiting", "Waiting for model…"],
+		["thinking", "Thinking…"],
+	] as const;
+	for (const [phase, label] of phases) {
+		const r = render(<StatusLine phase={phase} since={Date.now() - 3000} />);
+		expect(r.getByText(new RegExp(label))).toBeTruthy();
+		expect(r.getByText(/3s/)).toBeTruthy();
+		r.unmount();
 	}
 });
 

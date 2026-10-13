@@ -42,6 +42,14 @@ export type AgentEvent =
 	| { type: "compaction"; seq: number; compaction: Compaction }
 	/** A summary is being written (on) or has ended (off): the chat shows "Compacting…" meanwhile. */
 	| { type: "compacting"; seq: number; on: boolean }
+	/**
+	 * A worker picked the job up: the run is no longer queued, the model call is on its way.
+	 * It belongs to no message, so a client always gets it, whatever it already loaded. `at`
+	 * is when the job was picked up, so a reloaded page times the wait from the same moment.
+	 */
+	| { type: "call-start"; seq: number; at: number }
+	/** Reasoning began in the step's model call: the chat's "Thinking…" starts at `at`. */
+	| { type: "reasoning-start"; seq: number; at: number }
 	| { type: "done"; seq: number; status: RunStatus; reason?: StopReason }
 	| { type: "error"; seq: number; message: string };
 
@@ -56,9 +64,12 @@ export const outputFailed = (output: unknown) => {
 
 export const isEnd = (e: AgentEvent) => e.type === "done" || e.type === "error";
 
+/** Events a client needs whatever it already holds: they say what the run is doing, not what it wrote. */
+const unskippable = (e: AgentEvent) => isEnd(e) || e.type === "call-start";
+
 /** The events a client that holds every message up to `afterSeq` still needs. */
 export const unseen = (events: AgentEvent[], afterSeq: number) =>
-	events.filter((e) => isEnd(e) || e.seq > afterSeq);
+	events.filter((e) => unskippable(e) || e.seq > afterSeq);
 
 /** Live previews only: the full value is in the saved message. Keeps a batch far under the NATS payload cap. */
 const MAX_PREVIEW = 4000;
@@ -127,11 +138,18 @@ export function seqTracker(store: AgentStore) {
 }
 
 /** One stream part as an event, or nothing for parts a client does not need. */
-export function toEvent(part: Part, t: { next: number; step: number }): AgentEvent | undefined {
+export function toEvent(
+	part: Part,
+	t: { next: number; step: number },
+	now = Date.now(),
+): AgentEvent | undefined {
 	switch (part.type) {
 		case "start-step":
 			t.step = t.next;
 			return;
+		// The model call is thinking: a hidden (encrypted) one streams no text at all.
+		case "reasoning-start":
+			return { type: "reasoning-start", seq: t.step, at: now };
 		case "text-delta":
 			return { type: "text", seq: t.step, text: part.text };
 		case "reasoning-delta":

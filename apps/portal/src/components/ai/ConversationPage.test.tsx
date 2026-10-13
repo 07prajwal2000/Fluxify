@@ -406,12 +406,13 @@ test("a running /compact says so instead of Thinking…", async () => {
 	expect(q().queryByText(/Thinking…/)).toBeNull();
 });
 
-test("an automatic compaction says Compacting… instead of the Thinking timer, then leaves its line", async () => {
+test("an automatic compaction says Compacting… instead of the run's status line, then leaves its line", async () => {
 	open(detail([user(0, "build it")], "executing"));
-	await until(() => q().getByText(/Thinking…/));
+	// the run row says the job is running, nothing has come back from the model yet
+	await until(() => q().getByText(/Waiting for model…/));
 	await emit({ type: "compacting", seq: 1, on: true });
 	await until(() => q().getByText("Compacting…"));
-	expect(q().queryByText(/Thinking…/)).toBeNull();
+	expect(q().queryByText(/Waiting for model…/)).toBeNull();
 	await emit({ type: "compacting", seq: 1, on: false });
 	await emit({
 		type: "compaction",
@@ -431,7 +432,7 @@ test("an automatic compaction says Compacting… instead of the Thinking timer, 
 		),
 	);
 	expect(q().queryByText("Compacting…")).toBeNull();
-	await until(() => q().getByText(/Thinking…/));
+	await until(() => q().getByText(/Waiting for model…/));
 });
 
 test("scrolling to the top loads the older page, shows a loader, and keeps the scroll position", async () => {

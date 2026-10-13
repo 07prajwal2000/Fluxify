@@ -99,6 +99,14 @@ You can also compact on demand. Type `/` in the message box and pick **/compact*
 
 Compacting is its own step: the agent does not answer after it. You can only compact when no run is active and nothing waits for your approval; otherwise you get a message to wait. A chat that is still short says "Nothing to compact yet". The agent's terminal CLI takes the same `/compact [what to keep]`.
 
-## Thinking time
+## Waiting and thinking time
 
-While the model thinks, the chat shows how long the current model call has been going. Each call has its own timer, so a second think after a tool call starts again from 0. A finished thought shows "Thought for 42s". After a refresh, thoughts that came before tool calls keep their time; a thought that was followed by a text answer shows no time.
+A run that has nothing on screen yet says what it is actually doing, and for how long:
+
+| What is happening | What the chat says |
+| :--- | :--- |
+| The run is in the queue; no worker has picked it up | `Queued…` |
+| A worker has the run, the model call is out, nothing has come back | `Waiting for model…` |
+| The model is reasoning | `Thinking…` |
+
+While the model thinks, the chat shows how long the current model call has been going. Each call has its own timer, so a second think after a tool call starts again from 0. `Thinking…` appears only once the model actually starts reasoning: a model that answers without thinking of its own never shows it. A finished thought shows "Thought for 42s". After a refresh, thoughts that came before tool calls keep their time; a thought that was followed by a text answer shows no time.

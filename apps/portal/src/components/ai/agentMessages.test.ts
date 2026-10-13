@@ -1,7 +1,17 @@
 import { describe, expect, test } from "bun:test";
 import type { AgentEvent } from "@fluxify/ai-gateway/src/agent/runner/events";
 import type { AgentRow } from "@/services/agentConversations";
-import { applyEvent, chatView, EMPTY_LIVE, type Live, messageKey, toMessages } from "./agentMessages";
+import {
+	applyEvent,
+	chatView,
+	type ChatMessage,
+	EMPTY_LIVE,
+	type Live,
+	messageKey,
+	phaseOf,
+	showsNothing,
+	toMessages,
+} from "./agentMessages";
 
 const play = (events: [AgentEvent, number][], live: Live = EMPTY_LIVE) =>
 	events.reduce((l, [e, now]) => applyEvent(l, e, now), live);
@@ -80,6 +90,93 @@ describe("compaction lines", () => {
 		]);
 		expect(new Set(view.map(messageKey)).size).toBe(4);
 		expect(view[1].compaction).toMatchObject({ kind: "summary", before: 102_000, after: 9000 });
+	});
+});
+
+describe("the phase of a run", () => {
+	test("call-start says the job was picked up, and writes no message of its own", () => {
+		const live = play([[{ type: "call-start", seq: -1, at: 1000 }, 1000]]);
+		expect(live).toMatchObject({ pickedUp: true, callStartAt: 1000 });
+		expect(live.messages).toEqual([]);
+	});
+
+	test("reasoning-start says the call is thinking, at the time it began", () => {
+		const live = play([[{ type: "reasoning-start", seq: 1, at: 5000 }, 5000]]);
+		expect(live.reasoningStartedAt).toBe(5000);
+		expect(live.messages).toEqual([]);
+	});
+
+	test("a tool result starts the next call: no thinking until it reasons again", () => {
+		const live = play([
+			[{ type: "reasoning-start", seq: 1, at: 1000 }, 1000],
+			[
+				{ type: "tool-end", seq: 2, toolCallId: "t", toolName: "get_route", status: "done" },
+				9000,
+			],
+		]);
+		expect(live.reasoningStartedAt).toBeUndefined();
+		expect(live.callStartedAt).toBe(9000);
+	});
+
+	test("a provider that sends no reasoning-start still says thinking at its first token", () => {
+		const live = play([
+			[{ type: "call-start", seq: -1, at: 1000 }, 1000],
+			[{ type: "reasoning", seq: 1, text: "hmm" }, 4000],
+		]);
+		expect(live.reasoningStartedAt).toBe(4000);
+		// a later token does not move it
+		expect(play([[{ type: "reasoning", seq: 1, text: " more" }, 7000]], live).reasoningStartedAt).toBe(
+			4000,
+		);
+	});
+});
+
+describe("showsNothing", () => {
+	const say = (role: "user" | "assistant", ...parts: ChatMessage["parts"]): ChatMessage => ({
+		seq: 1,
+		role,
+		parts,
+	});
+	test("true while nothing new is on screen: no text, no tool still running", () => {
+		expect(showsNothing([])).toBe(true);
+		expect(showsNothing([say("user", { type: "text", text: "build it" })])).toBe(true);
+		// reasoning with nothing else is still thinking: the label belongs there
+		expect(showsNothing([say("assistant", { type: "reasoning", text: "hmm" })])).toBe(true);
+	});
+	test("false while a tool runs, and once the model answers", () => {
+		// a call that has not come back yet is the thing on screen
+		expect(
+			showsNothing([say("assistant", { type: "tool", id: "t", name: "get_route", input: {} })]),
+		).toBe(false);
+		expect(showsNothing([say("assistant", { type: "text", text: "here you go" })])).toBe(false);
+		// its result is in: the model is being asked again, with nothing new on screen
+		expect(
+			showsNothing([
+				say("assistant", { type: "tool", id: "t", name: "get_route", input: {}, status: "done" }),
+			]),
+		).toBe(true);
+	});
+});
+
+describe("phaseOf", () => {
+	const at = { pickedUp: false, queuedAt: 100 };
+	test("queued until the job is picked up, by the stream or by the run row", () => {
+		expect(phaseOf(EMPTY_LIVE, at)).toEqual({ phase: "queued", since: 100 });
+		expect(phaseOf(EMPTY_LIVE, { ...at, pickedUp: true })).toEqual({ phase: "waiting", since: 100 });
+		expect(phaseOf({ ...EMPTY_LIVE, pickedUp: true, callStartAt: 500 }, at)).toEqual({
+			phase: "waiting",
+			since: 500,
+		});
+	});
+
+	test("thinking needs a reasoning event of the call in progress, and times from it", () => {
+		const live = { ...EMPTY_LIVE, pickedUp: true, callStartAt: 500, reasoningStartedAt: 900 };
+		expect(phaseOf(live, at)).toEqual({ phase: "thinking", since: 900 });
+		// the next call began at the last tool result: its wait is timed from there
+		expect(phaseOf({ ...live, reasoningStartedAt: undefined, callStartedAt: 800 }, at)).toEqual({
+			phase: "waiting",
+			since: 800,
+		});
 	});
 });
 

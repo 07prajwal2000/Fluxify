@@ -3,10 +3,10 @@ import { useParams } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { usePageTitle } from "@/lib/seo";
-import { AgentMessage, LimitNotice, Thinking } from "./AgentMessage";
+import { AgentMessage, LimitNotice, StatusLine } from "./AgentMessage";
 import { AgentPickers } from "./AgentPickers";
 import { ApprovalBar } from "./ApprovalBar";
-import { type ChatMessage, messageKey } from "./agentMessages";
+import { type ChatMessage, messageKey, showsNothing } from "./agentMessages";
 import { ChatHeader } from "./ChatHeader";
 import { PromptEditor } from "./PromptEditor";
 import { RunSummary } from "./RunSummary";
@@ -16,19 +16,6 @@ import { useScrollToBottom } from "./useScrollToBottom";
 
 /** While something waits for an answer, text in the editor is the reason to turn it down (or the change to the plan). */
 const CHANGE_PLACEHOLDER = "Type a follow-up or change the plan…";
-
-/** The model is working without showing anything new: no text streaming, no tool running. */
-const isThinking = (messages: ChatMessage[]) => {
-	const last = messages.at(-1);
-	const tail = last?.parts.at(-1);
-	if (last?.role === "assistant" && tail?.type === "text" && tail.text) return false;
-	return !(
-		tail?.type === "tool" &&
-		tail.output === undefined &&
-		tail.error === undefined &&
-		tail.status === undefined
-	);
-};
 
 export function ConversationPage() {
 	const { projectId, conversationId } = useParams({
@@ -127,7 +114,8 @@ export function ConversationPage() {
 					{chat.compacting ? (
 						<p className="animate-pulse text-xs text-muted">Compacting…</p>
 					) : (
-						chat.running && isThinking(chat.messages) && <Thinking since={chat.thinkingSince} />
+						chat.running &&
+						showsNothing(chat.messages) && <StatusLine phase={chat.phase} since={chat.phaseSince} />
 					)}
 					{chat.error && <p className="text-sm text-danger">The run failed: {chat.error}</p>}
 					{chat.stopReason && <LimitNotice reason={chat.stopReason} />}

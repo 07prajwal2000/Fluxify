@@ -67,9 +67,14 @@ describe("executeRun", () => {
 		expect(w.m.ran).toEqual([]);
 		expect(w.state.settled).toEqual(["waiting_approval"]);
 		const ev = w.events();
-		expect(ev.map((e) => e.type)).toEqual(["tool-start", "approval", "done"]);
+		// the job was picked up before the model was asked for anything
+		expect(ev.map((e) => e.type)).toEqual(["call-start", "tool-start", "approval", "done"]);
 		// the assistant message holding the call is row 1, after the user message
-		expect(ev[1]).toMatchObject({ type: "approval", seq: 1, toolName: "save_route", isDelete: false });
+		expect(ev.find((e) => e.type === "approval")).toMatchObject({
+			seq: 1,
+			toolName: "save_route",
+			isDelete: false,
+		});
 		expect(ev.at(-1)).toEqual({ type: "done", seq: 1, status: "waiting_approval" });
 		expect(w.rows.map((r) => r.content.role)).toEqual(["user", "assistant"]);
 	});
@@ -173,9 +178,13 @@ describe("executeRun", () => {
 		expect(await go(w, job())).toBe("failed");
 		expect(w.state.run).toBe("failed");
 		expect(w.state.settled).toEqual(["failed"]);
-		expect(w.events()).toEqual([
-			{ type: "error", seq: -1, message: "This project has no AI integration for the agent." },
-		]);
+		// the job was picked up before the build failed
+		expect(w.events().map((e) => e.type)).toEqual(["call-start", "error"]);
+		expect(w.events().at(-1)).toEqual({
+			type: "error",
+			seq: -1,
+			message: "This project has no AI integration for the agent.",
+		});
 	});
 });
 

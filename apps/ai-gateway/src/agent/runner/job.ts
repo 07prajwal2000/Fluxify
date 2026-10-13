@@ -83,6 +83,8 @@ export async function executeRun(job: AgentJob, deps: RunDeps, signal: AbortSign
 	const onError = deps.onError ?? (() => {});
 	const events = batcher((e) => deps.publish(job.runId, e), onError, deps.batchMs);
 	const { t, store } = seqTracker(deps.store);
+	// The job is ours: a client showing the run as queued can stop. No seq of its own.
+	events.push({ type: "call-start", seq: -1, at: Date.now() });
 	let status: RunStatus;
 	let error = "";
 	let reason: StopReason | undefined;
