@@ -31,6 +31,14 @@ export interface KvWatchOptions {
 	 * everything already stored.
 	 */
 	includeExisting?: boolean;
+	/**
+	 * Called when the watch iterator ends (error or clean end) and `stop()` was
+	 * not called — i.e. the broker dropped the watch beneath us. The default logs
+	 * loudly and exits the process: NATS KV is a hard dependency, so carrying on
+	 * with stale state is the worse failure. Override only to inject the handler
+	 * in tests.
+	 */
+	onFatal?: (error: unknown) => void;
 }
 
 export interface KvWatcher {
@@ -147,6 +155,22 @@ export async function openKvBucket<T = unknown>(
 }
 
 /**
+ * Default response to a watch that ended without `stop()`: NATS KV is a hard
+ * dependency, so log the death loudly and exit. The supervisor, a compose
+ * restart policy or Helm then restarts the process and `startWatch` opens a
+ * fresh watch, which replays everything.
+ */
+function defaultOnFatal(bucket: string, filter: string | string[]): (error: unknown) => void {
+	return (error: unknown) => {
+		logger.error(
+			`[nats] kv watch ${bucket}/${filter} ended unexpectedly${error ? `: ${String(error)}` : ""}, exiting process`,
+			"NATS",
+		);
+		process.exit(1);
+	};
+}
+
+/**
  * Replay-then-updates, done deterministically.
  *
  * The v2 client took an `initializedFn` callback; v3 replaced it with an
@@ -165,7 +189,7 @@ async function startWatch<T>(
 	filter: string | string[],
 	onChange: (key: string, value: T | null) => void | Promise<void>,
 	decode: (entry: KvEntry | null) => T | null,
-	{ includeExisting = true }: KvWatchOptions,
+	{ includeExisting = true, onFatal }: KvWatchOptions,
 ): Promise<KvWatcher> {
 	const iterator = await store.watch({
 		key: filter,
@@ -174,6 +198,9 @@ async function startWatch<T>(
 
 	const revisions = new Map<string, number>();
 	let buffer: KvEntry[] | null = includeExisting ? [] : null;
+	let stopped = false;
+
+	const fatal = onFatal ?? defaultOnFatal(bucket, filter);
 
 	async function apply(entry: KvEntry) {
 		const seen = revisions.get(entry.key);
@@ -188,8 +215,13 @@ async function startWatch<T>(
 				if (buffer) buffer.push(entry);
 				else await apply(entry);
 			}
+			// The watch ended on its own rather than from stop(): the broker
+			// dropped us. NATS KV is a hard dependency, so exit and let the
+			// supervisor restart us with a fresh watch instead of serving stale
+			// state.
+			if (!stopped) fatal(undefined);
 		} catch (error) {
-			logger.error(`[nats] kv watch ${bucket}/${filter} ended: ${String(error)}`, "NATS");
+			if (!stopped) fatal(error);
 		}
 	})();
 
@@ -207,6 +239,7 @@ async function startWatch<T>(
 	return {
 		initialized: replay(),
 		stop: async () => {
+			stopped = true;
 			await iterator.stop();
 		},
 	};

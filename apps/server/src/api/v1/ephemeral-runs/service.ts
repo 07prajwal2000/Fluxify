@@ -11,7 +11,7 @@ import {
 import { devWorkerOnline } from "../../../modules/orchestrator/status";
 import { DEBUG_ERROR_HEADER, DEBUG_TOKEN_HEADER } from "../../../modules/requestRouter/debugError";
 import { DEBUG_TRACE_HEADER } from "../../../modules/requestRouter/debugTrace";
-import type { callResultSchema } from "../routes/call/service";
+import { type callResultSchema, NEVER_LOADED_ERROR } from "../routes/call/service";
 import { callDevWorker, NO_DEV_WORKER } from "../sandboxes/call";
 import {
 	DEFAULT_TIMEOUT_SECONDS,
@@ -47,7 +47,7 @@ export async function runTimeoutSeconds(projectId: string, requested?: number) {
  * always has one), so only those are tried again, with a short backoff, inside
  * the same deadline.
  */
-async function callWhenLoaded(
+export async function callWhenLoaded(
 	projectId: string,
 	id: string,
 	body: RunBody,
@@ -60,7 +60,12 @@ async function callWhenLoaded(
 			abortAfterMs: remaining,
 		});
 		const notLoaded = (result.status === 404 || result.status === 401) && !result.debugTrace;
-		if (!notLoaded || Date.now() + wait >= deadline) return result;
+		if (!notLoaded) return result;
+		// Time ran out while the worker still had not loaded this run: a 404/401
+		// with no trace means the artifact never arrived, almost always because
+		// the worker's KV watch is down (#789). Name the cause instead of the
+		// raw 404.
+		if (Date.now() + wait >= deadline) return { ...result, error: NEVER_LOADED_ERROR };
 		await Bun.sleep(wait);
 	}
 }
