@@ -1,4 +1,4 @@
-import { Chip, SchemaEditor, type ValidationSchema } from "@fluxify/components";
+import { Chip, SchemaSummary, type ValidationSchema } from "@fluxify/components";
 import type { CustomBlockUsage } from "@fluxify/server/src/db/schema";
 import type { CustomBlockInputParam } from "@/components/canvas/panel/blocks/CustomBlockSettings";
 import { Section } from "@/components/common/Section";
@@ -10,15 +10,11 @@ import type { VersionKind } from "@/services/versions";
 type Settings = Record<string, unknown>;
 type Phase = { before?: string[]; after?: string[] };
 
-const noop = () => undefined;
-
 function Schema({ title, value }: { title: string; value: unknown }) {
 	const schema = (value ?? EMPTY_SCHEMA) as ValidationSchema;
 	return (
 		<Section title={title} description={describesSomething(schema) ? "" : "None."}>
-			{describesSomething(schema) && (
-				<SchemaEditor value={schema} onChange={noop} isReadOnly showRootTypeSelector={false} />
-			)}
+			{describesSomething(schema) && <SchemaSummary schema={schema} />}
 		</Section>
 	);
 }

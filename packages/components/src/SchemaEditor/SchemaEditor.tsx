@@ -9,7 +9,7 @@ import { DEFAULT_JS } from "./constants";
 import { SchemaEditorProvider, useSchemaEditorContext } from "./context";
 import { InfoNote } from "./InfoNote";
 import { SchemaNavigator } from "./SchemaNavigator";
-import { SchemaPreview } from "./SchemaPreview";
+import { SchemaSummary } from "./SchemaSummary";
 import type { SchemaEditorProps, SchemaEditorRef } from "./types";
 
 type TabKey = "editor" | "js" | "preview";
@@ -108,7 +108,7 @@ const SchemaEditorContent = forwardRef<
 			{showPreview && !isRootJs && (
 				<Tabs.Panel className="pt-4" id="preview">
 					<div className="rounded-[var(--radius)] border border-border p-4">
-						<SchemaPreview schema={schema} />
+						<SchemaSummary schema={schema} />
 					</div>
 				</Tabs.Panel>
 			)}
