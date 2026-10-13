@@ -4,7 +4,11 @@ import type { KV, KvWatchEntry } from "@nats-io/kv";
 import type { NatsConnection } from "@nats-io/nats-core";
 import { openKvBucket } from "../kv";
 
-const nc = {} as NatsConnection;
+let closing = false;
+const nc = {
+	isClosed: () => false,
+	isDraining: () => closing,
+} as unknown as NatsConnection;
 
 /** Resolve once the watch has been ended, errored, or stopped. */
 function deferred() {
@@ -64,6 +68,7 @@ beforeEach(() => {
 	watch = controllableWatch();
 	store = watch.store;
 	fatal = [];
+	closing = false;
 });
 
 describe("kv watch", () => {
@@ -97,5 +102,14 @@ describe("kv watch", () => {
 		await settled();
 		expect(fatal).toHaveLength(1);
 		expect(fatal[0]).toBe(err);
+	});
+
+	it("does not call onFatal when the connection is draining", async () => {
+		const watcher = await watchOne();
+		await watcher.initialized;
+		closing = true;
+		watch.end();
+		await settled();
+		expect(fatal).toHaveLength(0);
 	});
 });

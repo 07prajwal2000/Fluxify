@@ -149,7 +149,7 @@ export async function openKvBucket<T = unknown>(
 		},
 
 		async watch(filter, onChange, watchOptions = {}) {
-			return startWatch(store, name, filter, onChange, decode, watchOptions);
+			return startWatch(nc, store, name, filter, onChange, decode, watchOptions);
 		},
 	};
 }
@@ -184,6 +184,7 @@ function defaultOnFatal(bucket: string, filter: string | string[]): (error: unkn
  * are tracked per key and a lower one is discarded rather than applied on top.
  */
 async function startWatch<T>(
+	nc: NatsConnection,
 	store: KV,
 	bucket: string,
 	filter: string | string[],
@@ -200,7 +201,13 @@ async function startWatch<T>(
 	let buffer: KvEntry[] | null = includeExisting ? [] : null;
 	let stopped = false;
 
-	const fatal = onFatal ?? defaultOnFatal(bucket, filter);
+	const defaultFatal = onFatal ?? defaultOnFatal(bucket, filter);
+	// closeNats() drains the connection, which ends every watch not stopped first:
+	// that is a graceful shutdown, not a broker drop.
+	const fatal = (error: unknown) => {
+		if (nc.isClosed() || nc.isDraining()) return;
+		defaultFatal(error);
+	};
 
 	async function apply(entry: KvEntry) {
 		const seen = revisions.get(entry.key);

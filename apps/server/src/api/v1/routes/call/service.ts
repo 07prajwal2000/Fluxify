@@ -104,8 +104,8 @@ export const NO_DEV_WORKER = "start a worker with FLUXIFY_ENV=development";
 /**
  * Returned when a development-worker call keeps answering 404/401 with no trace
  * until the deadline — the worker loaded nothing for the run at all, almost
- * always because its KV watch is down (#789). Shared by the ephemeral and
- * sandbox call paths so the cause is named wherever it can surface.
+ * always because its KV watch is down (#789). Only the ephemeral run path uses
+ * it today.
  */
 export const NEVER_LOADED_ERROR =
 	"The development worker never loaded this run. Its artifact watch may be down; restart the worker.";
