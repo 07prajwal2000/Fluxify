@@ -1,8 +1,10 @@
-import { type KV, type KvEntry, Kvm, KvWatchInclude } from "@nats-io/kv";
+import { type KV, type KvEntry, Kvm } from "@nats-io/kv";
 import type { NatsConnection } from "@nats-io/nats-core";
-import { logger } from "../logging";
 import { type Codec, jsonCodec } from "./codec";
 import { isWrongLastSequence } from "./errors";
+import { type KvWatcher, type KvWatchOptions, startWatch } from "./kvWatch";
+
+export type { KvWatcher, KvWatchOptions };
 
 /**
  * Typed wrapper over a NATS KV bucket.
@@ -22,32 +24,6 @@ export interface KvBucketOptions {
 	ttlMs?: number;
 	/** Replicas in a clustered NATS. */
 	replicas?: number;
-}
-
-export interface KvWatchOptions {
-	/**
-	 * Replay the current value of every matching key before streaming updates.
-	 * Default true — a watcher that only sees future writes starts out blind to
-	 * everything already stored.
-	 */
-	includeExisting?: boolean;
-	/**
-	 * Called when the watch iterator ends (error or clean end) and `stop()` was
-	 * not called — i.e. the broker dropped the watch beneath us. The default logs
-	 * loudly and exits the process: NATS KV is a hard dependency, so carrying on
-	 * with stale state is the worse failure. Override only to inject the handler
-	 * in tests.
-	 */
-	onFatal?: (error: unknown) => void;
-}
-
-export interface KvWatcher {
-	/**
-	 * Resolves once every pre-existing value has been handed to `onChange`, so a
-	 * caller can await a complete picture before serving traffic.
-	 */
-	initialized: Promise<void>;
-	stop(): Promise<void>;
 }
 
 export interface KvBucket<T> {
@@ -150,104 +126,6 @@ export async function openKvBucket<T = unknown>(
 
 		async watch(filter, onChange, watchOptions = {}) {
 			return startWatch(nc, store, name, filter, onChange, decode, watchOptions);
-		},
-	};
-}
-
-/**
- * Default response to a watch that ended without `stop()`: NATS KV is a hard
- * dependency, so log the death loudly and exit. The supervisor, a compose
- * restart policy or Helm then restarts the process and `startWatch` opens a
- * fresh watch, which replays everything.
- */
-function defaultOnFatal(bucket: string, filter: string | string[]): (error: unknown) => void {
-	return (error: unknown) => {
-		logger.error(
-			`[nats] kv watch ${bucket}/${filter} ended unexpectedly${error ? `: ${String(error)}` : ""}, exiting process`,
-			"NATS",
-		);
-		process.exit(1);
-	};
-}
-
-/**
- * Replay-then-updates, done deterministically.
- *
- * The v2 client took an `initializedFn` callback; v3 replaced it with an
- * `isUpdate` flag on each entry, which cannot answer "the replay is finished"
- * when the replay is empty — no entry ever arrives to carry the flag. So the
- * order here is inverted: start an updates-only watch first and buffer what it
- * yields, read the current values second, then flush. Nothing can slip through
- * the gap, because there is no gap.
- *
- * A buffered update can be older than the value the snapshot read, so revisions
- * are tracked per key and a lower one is discarded rather than applied on top.
- */
-async function startWatch<T>(
-	nc: NatsConnection,
-	store: KV,
-	bucket: string,
-	filter: string | string[],
-	onChange: (key: string, value: T | null) => void | Promise<void>,
-	decode: (entry: KvEntry | null) => T | null,
-	{ includeExisting = true, onFatal }: KvWatchOptions,
-): Promise<KvWatcher> {
-	const iterator = await store.watch({
-		key: filter,
-		include: KvWatchInclude.UpdatesOnly,
-	});
-
-	const revisions = new Map<string, number>();
-	let buffer: KvEntry[] | null = includeExisting ? [] : null;
-	let stopped = false;
-
-	const defaultFatal = onFatal ?? defaultOnFatal(bucket, filter);
-	// closeNats() drains the connection, which ends every watch not stopped first:
-	// that is a graceful shutdown, not a broker drop.
-	const fatal = (error: unknown) => {
-		if (nc.isClosed() || nc.isDraining()) return;
-		defaultFatal(error);
-	};
-
-	async function apply(entry: KvEntry) {
-		const seen = revisions.get(entry.key);
-		if (seen !== undefined && seen >= entry.revision) return;
-		revisions.set(entry.key, entry.revision);
-		await onChange(entry.key, decode(entry));
-	}
-
-	void (async () => {
-		try {
-			for await (const entry of iterator) {
-				if (buffer) buffer.push(entry);
-				else await apply(entry);
-			}
-			// The watch ended on its own rather than from stop(): the broker
-			// dropped us. NATS KV is a hard dependency, so exit and let the
-			// supervisor restart us with a fresh watch instead of serving stale
-			// state.
-			if (!stopped) fatal(undefined);
-		} catch (error) {
-			if (!stopped) fatal(error);
-		}
-	})();
-
-	async function replay() {
-		if (!buffer) return;
-		for await (const key of await store.keys(filter)) {
-			const entry = await store.get(key);
-			if (entry) await apply(entry);
-		}
-		const pending = buffer;
-		buffer = null;
-		for (const entry of pending) await apply(entry);
-	}
-
-	return {
-		initialized: replay(),
-		stop: async () => {
-			stopped = true;
-			await iterator.stop();
 		},
 	};
 }
