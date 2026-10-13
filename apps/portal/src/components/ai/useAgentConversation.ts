@@ -13,7 +13,7 @@ import {
 	type Mode,
 } from "@/services/agentConversations";
 import { type ApprovalRequest, planReply, type ToolRequest, waitingCalls } from "./agentApproval";
-import { applyEvent, chatView, EMPTY_LIVE, type Live } from "./agentMessages";
+import { applyEvent, chatView, EMPTY_LIVE, type Live, phaseOf } from "./agentMessages";
 import { parseSlash, type SlashName } from "./slashCommands";
 
 /** Run statuses a job still holds (or will): the stream is open for these. */
@@ -21,6 +21,8 @@ const ACTIVE = new Set(["queued", "executing"]);
 const EVENTS: AgentEvent["type"][] = [
 	"text",
 	"reasoning",
+	"reasoning-start",
+	"call-start",
 	"tool-start",
 	"tool-end",
 	"approval",
@@ -260,6 +262,22 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 			(streamId === run?.id && !!run?.userQuery?.startsWith("/compact")));
 	const messages = useMemo(() => chatView(rows, live, pending), [rows, live, pending]);
 
+	/**
+	 * What the run is doing while it shows nothing, and since when. `queuedAt` is where the
+	 * wait began: this page's send, else the run row or the last saved row. After a refresh
+	 * the run row says whether the job was picked up, and the replayed events carry their own
+	 * times, so the timer carries on where it was instead of restarting.
+	 */
+	const queuedAt =
+		startedAt ??
+		(Math.max(
+			Date.parse(rows.at(-1)?.createdAt ?? "") || 0,
+			Date.parse(run?.createdAt ?? "") || 0,
+		) ||
+			live.lastEventAt);
+	const pickedUp = streamId !== null && streamId === run?.id && run.status === "executing";
+	const { phase, since: phaseSince } = phaseOf(live, { pickedUp, queuedAt });
+
 	/** What the bar above the editor asks: the call that waits, or a plan in plan mode that is ready to start. */
 	const lastSeq = messages.at(-1)?.seq ?? -1;
 	const plan = !running && !waiting && saved?.mode === "plan" && run?.status === "completed";
@@ -326,19 +344,10 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 		setEffort: (e: Effort) => setPicked((p) => ({ ...p, effort: e })),
 		supportsThinking: saved?.supportsThinking ?? false,
 		lastEventAt: live.lastEventAt,
-		/**
-		 * When the model call in progress began, for the thinking timer: the last tool result
-		 * this page's stream saw, else the run's start; after a refresh, the last saved row (or
-		 * the run's start), which is the same moment. Each call counts from its own start.
-		 */
-		thinkingSince:
-			live.callStartedAt ??
-			startedAt ??
-			(Math.max(
-				Date.parse(rows.at(-1)?.createdAt ?? "") || 0,
-				Date.parse(run?.createdAt ?? "") || 0,
-			) ||
-				live.lastEventAt),
+		/** What the run is doing while nothing shows: queued, waiting on the model, or thinking. */
+		phase,
+		/** When the phase began, for its timer. */
+		phaseSince,
 		/** A /compact job is running: no model turn follows it. */
 		compacting,
 		error: end?.type === "error" ? end.message : null,

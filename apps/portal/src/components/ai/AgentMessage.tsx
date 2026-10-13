@@ -1,7 +1,7 @@
 import type { StopReason } from "@fluxify/ai-gateway/src/agent/agent";
 import { useEffect, useState } from "react";
 import { TbAlertTriangle } from "react-icons/tb";
-import type { ChatMessage, Part, ReasoningPart } from "./agentMessages";
+import type { ChatMessage, Part, Phase, ReasoningPart } from "./agentMessages";
 import { CompactionLine } from "./CompactionLine";
 import { MarkdownViewer } from "./MarkdownViewer";
 import { ToolRow } from "./ToolRow";
@@ -72,8 +72,15 @@ export function AgentMessage({
 	);
 }
 
+/** What the run is doing, in the words the reader needs: waiting to start is not thinking. */
+const PHASE_LABELS: Record<Phase, string> = {
+	queued: "Queued…",
+	waiting: "Waiting for model…",
+	thinking: "Thinking…",
+};
+
 /** `Thinking… 3s` since this model call began, while the model works without showing text. */
-export function Thinking({ since }: { since: number }) {
+export function StatusLine({ phase, since }: { phase: Phase; since: number }) {
 	const [now, setNow] = useState(Date.now());
 	useEffect(() => {
 		const t = setInterval(() => setNow(Date.now()), 1000);
@@ -81,7 +88,7 @@ export function Thinking({ since }: { since: number }) {
 	}, []);
 	return (
 		<p className="animate-pulse text-xs text-muted">
-			Thinking… {Math.max(0, Math.round((now - since) / 1000))}s
+			{PHASE_LABELS[phase]} {Math.max(0, Math.round((now - since) / 1000))}s
 		</p>
 	);
 }

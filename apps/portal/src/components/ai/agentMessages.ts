@@ -52,6 +52,12 @@ export type Live = {
 	end?: EndEvent;
 	/** When the model call in progress began: the last tool result came in. Unset until the first one. */
 	callStartedAt?: number;
+	/** A worker picked the job up: the run is out of the queue. */
+	pickedUp?: boolean;
+	/** When the worker picked the job up, as the gateway timed it. */
+	callStartAt?: number;
+	/** When reasoning began in the model call in progress; cleared when the next call starts. */
+	reasoningStartedAt?: number;
 	/** Results of calls saved before this run began (an approved or rejected one); they ride on the saved row. */
 	results: Record<string, Result>;
 	/** A summary is being written: the status says "Compacting…" instead of the thinking timer. */
@@ -59,6 +65,26 @@ export type Live = {
 };
 
 export const EMPTY_LIVE: Live = { messages: [], lastEventAt: 0, results: {} };
+
+/** What a run is doing while it shows nothing else. */
+export type Phase = "queued" | "waiting" | "thinking";
+
+/**
+ * The phase of a run with nothing on screen, and when it began. "Thinking" needs a reasoning
+ * event of the call in progress, so a model that only streams text never reaches it. Each
+ * phase is timed from its own event (`at`), so a page that reloaded mid-run does not restart
+ * the timer. `pickedUp` is the run row's word for it: a run this page started has none yet.
+ */
+export function phaseOf(
+	live: Live,
+	{ pickedUp, queuedAt }: { pickedUp: boolean; queuedAt: number },
+): { phase: Phase; since: number } {
+	if (live.reasoningStartedAt !== undefined)
+		return { phase: "thinking", since: live.reasoningStartedAt };
+	if (live.pickedUp || pickedUp)
+		return { phase: "waiting", since: live.callStartedAt ?? live.callStartAt ?? queuedAt };
+	return { phase: "queued", since: queuedAt };
+}
 
 type SavedPart = {
 	type: string;
@@ -186,9 +212,21 @@ export const applyEvent = (live: Live, e: AgentEvent, now = Date.now()): Live =>
 			d.messages.push({ seq: e.seq, role: "compaction", parts: [], compaction: e.compaction });
 			return;
 		}
+		// Status, not content: neither writes a message of its own.
+		if (e.type === "call-start") {
+			d.pickedUp = true;
+			d.callStartAt = e.at;
+			return;
+		}
+		if (e.type === "reasoning-start") {
+			d.reasoningStartedAt = e.at;
+			return;
+		}
 		const known = "toolCallId" in e ? findTool(d.messages, e.toolCallId) : undefined;
 		if (e.type === "tool-end") {
 			d.callStartedAt = now;
+			// The call that was thinking is over; the next one has not reasoned yet.
+			d.reasoningStartedAt = undefined;
 			if (!known) {
 				d.results[e.toolCallId] = {
 					status: e.status,
@@ -213,6 +251,8 @@ export const applyEvent = (live: Live, e: AgentEvent, now = Date.now()): Live =>
 		const parts = (d.messages.find(step) as ChatMessage).parts;
 		const last = parts.at(-1);
 		if (e.type === "text" || e.type === "reasoning") {
+			// A provider that sends no reasoning-start still says the call is thinking with its first token.
+			if (e.type === "reasoning") d.reasoningStartedAt ??= now;
 			if (last?.type === e.type) last.text += e.text;
 			else
 				parts.push(
@@ -232,6 +272,22 @@ export const applyEvent = (live: Live, e: AgentEvent, now = Date.now()): Live =>
 			...(e.type === "approval" ? { approval: true } : { startedAt: now }),
 		});
 	});
+
+/**
+ * The run is working without showing anything new: no text streaming, no tool running.
+ * A status label ("Queued…", "Waiting for model…", "Thinking…") is only worth showing then.
+ */
+export function showsNothing(messages: ChatMessage[]) {
+	const last = messages.at(-1);
+	const tail = last?.parts.at(-1);
+	if (last?.role === "assistant" && tail?.type === "text" && tail.text) return false;
+	return !(
+		tail?.type === "tool" &&
+		tail.output === undefined &&
+		tail.error === undefined &&
+		tail.status === undefined
+	);
+}
 
 /**
  * Saved messages, then the message just sent until a saved user row after

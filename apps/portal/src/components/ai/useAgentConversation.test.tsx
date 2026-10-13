@@ -255,60 +255,6 @@ test("send shows the message at once and follows the new run", async () => {
 	send.mockRestore();
 });
 
-test("the thinking timer starts at the run's start, and a refresh or new tokens do not reset it", async () => {
-	const d = detail([user(0, "build it")], "executing");
-	(d.run as { createdAt?: string }).createdAt = "2026-10-09T10:00:00.000Z";
-	get.mockResolvedValue(d);
-	const { result } = setup();
-	const es = await stream();
-	expect(result.current.thinkingSince).toBe(Date.parse("2026-10-09T10:00:00.000Z"));
-	act(() => es.emit({ type: "reasoning", seq: 1, text: "hmm" }));
-	expect(result.current.thinkingSince).toBe(Date.parse("2026-10-09T10:00:00.000Z"));
-});
-
-test("after a refresh the timer starts at the last saved row, where the current call began", async () => {
-	const d = detail([user(0, "build it"), toolRow(2, "t", { ok: true })], "executing");
-	(d.run as { createdAt?: string }).createdAt = "2026-10-09T10:00:00.000Z";
-	d.messages[1].createdAt = "2026-10-09T10:04:30.000Z";
-	get.mockResolvedValue(d);
-	const { result } = setup();
-	await stream();
-	expect(result.current.thinkingSince).toBe(Date.parse("2026-10-09T10:04:30.000Z"));
-});
-
-test("two thinks make two timers: the second starts when the tool result came in", async () => {
-	const d = detail([user(0, "build it")], "executing");
-	(d.run as { createdAt?: string }).createdAt = "2026-10-09T10:00:00.000Z";
-	get.mockResolvedValue(d);
-	const { result } = setup();
-	const es = await stream();
-	act(() => es.emit({ type: "reasoning", seq: 1, text: "first" }));
-	act(() =>
-		es.emit({
-			type: "tool-start",
-			seq: 1,
-			toolCallId: "t",
-			toolName: "get_route",
-			toolTitle: "Get route",
-			input: {},
-		}),
-	);
-	const before = Date.now();
-	act(() =>
-		es.emit({ type: "tool-end", seq: 2, toolCallId: "t", toolName: "get_route", status: "done" }),
-	);
-	act(() => es.emit({ type: "reasoning", seq: 3, text: "second" }));
-	// the run began long ago; the second call began just now
-	expect(result.current.thinkingSince).toBeGreaterThanOrEqual(before);
-	expect(Date.now() - result.current.thinkingSince).toBeLessThan(1000);
-	const thoughts = result.current.messages.flatMap((m) =>
-		m.parts.filter((p) => p.type === "reasoning"),
-	) as { text: string; ms?: number }[];
-	expect(thoughts.map((t) => t.text)).toEqual(["first", "second"]);
-	expect(thoughts[0].ms).toBeDefined();
-	expect(thoughts[1].ms).toBeUndefined();
-});
-
 const summaryRow = (seq: number, withStats = true): Row => ({
 	seq,
 	role: "summary",

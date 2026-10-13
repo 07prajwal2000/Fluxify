@@ -56,8 +56,9 @@ describe("seq tagging", () => {
 		const { t, store: s } = seqTracker(store);
 		await s.append("c", "r", [{ role: "user", content: "hi" }]);
 		expect(t.next).toBe(8);
-		const ev = (p: object) => toEvent(p as never, t);
+		const ev = (p: object, now = 1000) => toEvent(p as never, t, now);
 		expect(ev({ type: "start-step" })).toBeUndefined();
+		expect(ev({ type: "reasoning-start" })).toEqual({ type: "reasoning-start", seq: 8, at: 1000 });
 		expect(ev({ type: "text-delta", text: "ok" })).toEqual({ type: "text", seq: 8, text: "ok" });
 		expect(ev({ type: "tool-call", toolCallId: "a", toolName: "get_route", input: {} })).toMatchObject({
 			type: "tool-start",
@@ -137,13 +138,14 @@ describe("tool-end status", () => {
 });
 
 describe("unseen", () => {
-	it("drops events of messages the client loaded, never the end", () => {
+	it("drops events of messages the client loaded, never the end or a call-start", () => {
 		const events: AgentEvent[] = [
+			{ type: "call-start", seq: -1, at: 1 },
 			{ type: "text", seq: 4, text: "a" },
 			{ type: "text", seq: 5, text: "b" },
 			{ type: "done", seq: 5, status: "completed" },
 		];
-		expect(unseen(events, 4).map((e) => e.seq)).toEqual([5, 5]);
-		expect(unseen(events, 9).map((e) => e.type)).toEqual(["done"]);
+		expect(unseen(events, 4).map((e) => e.seq)).toEqual([-1, 5, 5]);
+		expect(unseen(events, 9).map((e) => e.type)).toEqual(["call-start", "done"]);
 	});
 });
