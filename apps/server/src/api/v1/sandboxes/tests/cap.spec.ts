@@ -16,4 +16,16 @@ describe("sandboxes per user cap", () => {
 		process.env.MAX_SANDBOX_PER_USER = "0";
 		expect(maxSandboxesPerUser()).toBe(20);
 	});
+
+	it("uses only the 1..1000 range, falling back outside it", () => {
+		process.env.MAX_SANDBOX_PER_USER = "1";
+		expect(maxSandboxesPerUser()).toBe(1);
+		process.env.MAX_SANDBOX_PER_USER = "1000";
+		expect(maxSandboxesPerUser()).toBe(1000);
+
+		for (const out of ["-5", "0", "1.5", "1001", "100000"]) {
+			process.env.MAX_SANDBOX_PER_USER = out;
+			expect(`${out}: ${maxSandboxesPerUser()}`).toBe(`${out}: 20`);
+		}
+	});
 });

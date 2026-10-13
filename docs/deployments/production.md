@@ -320,8 +320,8 @@ MAX_SANDBOX_PER_USER=20
 ```
 
 Set it on the admin service, in the same `.env` it reads (see [Step 1](#env)).
-Workers don't read it. A value that is not a positive integer falls back to the
-default of `20`.
+Workers don't read it. Only a whole number between `1` and `1000` is accepted;
+anything else falls back to the default of `20`.
 
 ---
 

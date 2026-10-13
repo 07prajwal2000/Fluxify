@@ -71,7 +71,7 @@ export const serverEnvSchema = baseEnvSchema.extend({
 		.string()
 		.optional()
 		.describe(
-			"How many persistent sandboxes one user may keep in one project (default 20). A value that is not a positive integer falls back to the default",
+			"How many persistent sandboxes one user may keep in one project (default 20). Only 1 to 1000 is accepted; anything else falls back to the default",
 		),
 
 	RECORDING_MAX_AGE_DAYS: z
