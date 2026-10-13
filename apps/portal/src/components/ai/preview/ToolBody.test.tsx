@@ -236,6 +236,16 @@ test("Raw is the same JSON the row always showed, error included; the error stay
 	expect(view.getByRole("alert").textContent).toBe("route is not active");
 });
 
+test("a rejected tool's error notice is hidden; the reason shows in the ToolRow summary instead", () => {
+	const view = show({
+		name: "save_route",
+		input: { path: "/health" },
+		error: "use the staging table instead",
+		status: "rejected",
+	});
+	expect(view.queryByRole("alert")).toBeNull();
+});
+
 test("get_canvas draws the canvas read-only; a compact read stays a plain list", async () => {
 	const blocks = [
 		{ key: "entrypoint_1", type: "entrypoint", data: {} },

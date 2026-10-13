@@ -41,7 +41,9 @@ export function ToolBody({ tool, asking }: { tool: ToolPart; asking: boolean }) 
 				<RawView tool={tool} />
 			) : (
 				<>
-					{tool.error !== undefined && <Notice tone="danger">{tool.error}</Notice>}
+					{tool.error !== undefined && tool.status !== "rejected" && (
+						<Notice tone="danger">{tool.error}</Notice>
+					)}
 					{preview}
 				</>
 			)}
