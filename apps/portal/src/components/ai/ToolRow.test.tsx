@@ -282,12 +282,15 @@ test("a rejected tool shows the reason under the card, always visible even when 
 	const view = row(rejected("use the staging table instead"));
 	// the card starts folded, yet the reason is already visible
 	expect(view.container.querySelector("details")?.open).toBe(false);
-	expect(view.getByText(/Rejected: use the staging table instead/)).toBeTruthy();
+	expect(view.getByText(/Rejected:/)).toBeTruthy();
+	// the user's own words are the highlighted part
+	expect(view.getByText("use the staging table instead").className).toContain("font-semibold");
 });
 
 test("a rejected tool with no reason shows 'Rejected: Not approved'", () => {
 	const view = row(rejected("Not approved"));
-	expect(view.getByText(/Rejected: Not approved/)).toBeTruthy();
+	expect(view.getByText(/Rejected:/)).toBeTruthy();
+	expect(view.getByText("Not approved")).toBeTruthy();
 });
 
 test("a rejected tool without an error shows no reason line", () => {

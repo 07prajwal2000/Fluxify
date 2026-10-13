@@ -33,46 +33,52 @@ export function ToolRow({
 			open={open}
 			onToggle={(e) => setOpen(e.currentTarget.open)}
 		>
-			<summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-1.5">
-				{tool.status === "rejected" ? (
-					<TbBan size={14} aria-label="Rejected" className="shrink-0 text-muted" />
-				) : tool.status === "error" || tool.error !== undefined ? (
-					<TbX size={14} aria-label="Failed" className="shrink-0 text-danger" />
-				) : isDone(tool) ? (
-					<TbCheck size={14} aria-label="Done" className="shrink-0 text-success" />
-				) : asking ? (
-					<TbClock size={14} className="shrink-0 text-warning" />
-				) : running ? (
-					<Spinner size="sm" color="current" />
-				) : (
-					<TbX size={14} className="shrink-0 text-muted" />
-				)}
-				{tool.name === "copy_blocks" ? (
-					<span className="min-w-0 flex-1 truncate font-medium text-foreground">
-						{copyBlocksHeader(tool, asking)}
-					</span>
-				) : (
-					<>
-						<span className="font-medium text-foreground">{toolTitle(tool)}</span>
-						<span className="min-w-0 flex-1 truncate font-mono text-muted">
-							{canvas ? (
-								<CanvasTarget which={canvas} />
-							) : (
-								(toolSummary(tool, asking) ?? docsInput(tool) ?? oneLine(tool.input))
-							)}
+			<summary className="flex cursor-pointer list-none flex-col">
+				<div className="flex items-center gap-2 px-3 py-1.5">
+					{tool.status === "rejected" ? (
+						<TbBan size={14} aria-label="Rejected" className="shrink-0 text-muted" />
+					) : tool.status === "error" || tool.error !== undefined ? (
+						<TbX size={14} aria-label="Failed" className="shrink-0 text-danger" />
+					) : isDone(tool) ? (
+						<TbCheck size={14} aria-label="Done" className="shrink-0 text-success" />
+					) : asking ? (
+						<TbClock size={14} className="shrink-0 text-warning" />
+					) : running ? (
+						<Spinner size="sm" color="current" />
+					) : (
+						<TbX size={14} className="shrink-0 text-muted" />
+					)}
+					{tool.name === "copy_blocks" ? (
+						<span className="min-w-0 flex-1 truncate font-medium text-foreground">
+							{copyBlocksHeader(tool, asking)}
 						</span>
-					</>
+					) : (
+						<>
+							<span className="font-medium text-foreground">{toolTitle(tool)}</span>
+							<span className="min-w-0 flex-1 truncate font-mono text-muted">
+								{canvas ? (
+									<CanvasTarget which={canvas} />
+								) : (
+									(toolSummary(tool, asking) ?? docsInput(tool) ?? oneLine(tool.input))
+								)}
+							</span>
+						</>
+					)}
+					{ms !== undefined && (
+						<span className="shrink-0 text-muted">{(ms / 1000).toFixed(1)}s</span>
+					)}
+				</div>
+				{/*
+					Rejection reason: inside <summary> so it stays visible when the card is collapsed —
+					browsers hide non-summary children of a closed <details>. A future issue will rework
+					the tool summary UI; this line is intentionally placed here so it won't be overridden.
+				*/}
+				{tool.status === "rejected" && tool.error !== undefined && (
+					<div className="px-3 pb-1 text-xs text-muted">
+						Rejected: <span className="font-semibold text-foreground">{tool.error}</span>
+					</div>
 				)}
-				{ms !== undefined && <span className="shrink-0 text-muted">{(ms / 1000).toFixed(1)}s</span>}
 			</summary>
-			{/*
-				Rejection reason: always visible under the summary, even when the card is collapsed.
-				A future issue will rework the tool summary UI; this line is intentionally placed here
-				so it won't be overridden by that change.
-			*/}
-			{tool.status === "rejected" && tool.error !== undefined && (
-				<div className="px-3 py-1 text-xs text-muted">Rejected: {tool.error}</div>
-			)}
 			{open && (
 				<div className="border-t border-border px-3 py-2">
 					<ToolBody tool={tool} asking={asking} />
