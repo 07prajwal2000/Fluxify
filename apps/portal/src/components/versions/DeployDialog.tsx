@@ -2,6 +2,7 @@ import { Button, CloseButton, Modal, toast } from "@fluxify/components";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { DeployComment } from "@/components/ai/DeployComment";
+import { useConfetti } from "@/hooks/useConfetti";
 import { parseApiError } from "@/lib/errorNotifier";
 import { deploymentsQuery, watchDeployment } from "@/query/deploymentsQuery";
 import type { DeployGateRef, Deployment } from "@/services/deployments";
@@ -56,16 +57,23 @@ export function DeployDialog({
 	const status = deployment?.status;
 	const queryClient = useQueryClient();
 	const group = kind === "route" ? "routes" : "workflows";
+	const fireConfetti = useConfetti();
 	useEffect(() => {
 		if (!deployment || status === "pending" || notified.current) return;
 		notified.current = true;
-		if (status === "live") toast.success("Live in production");
-		else toast.danger("The checks failed; production is unchanged");
+		if (status === "live") {
+			if (!isRollback) {
+				fireConfetti(document.querySelector<HTMLElement>('[role="dialog"]'));
+			}
+			toast.success("Live in production");
+		} else {
+			toast.danger("The checks failed; production is unchanged");
+		}
 		// the log and the badges only move once the gates have settled
 		void queryClient.invalidateQueries({ queryKey: [group, id, "deployments"] });
 		void queryClient.invalidateQueries({ queryKey: [group, id, "versions"] });
 		void queryClient.invalidateQueries({ queryKey: [group, id, "by-id"] });
-	}, [deployment, status, queryClient, group, id]);
+	}, [deployment, status, queryClient, group, id, isRollback, fireConfetti]);
 
 	function close() {
 		// keep watching a pending deployment so the person hears how it ends

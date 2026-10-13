@@ -1,6 +1,7 @@
 import { Button, CloseButton, Modal, toast } from "@fluxify/components";
 import { useEffect, useRef, useState } from "react";
 import { DeployComment } from "@/components/ai/DeployComment";
+import { useConfetti } from "@/hooks/useConfetti";
 import { parseApiError } from "@/lib/errorNotifier";
 import { deploymentsQuery } from "@/query/deploymentsQuery";
 import { versionsQuery } from "@/query/versionsQuery";
@@ -49,15 +50,17 @@ export function DependencyPromoteDialog({
 	const deployment = polled.data ?? started;
 
 	const notified = useRef(false);
+	const fireConfetti = useConfetti();
 	const status = deployment?.status;
 	useEffect(() => {
 		if (!deployment || status === "pending" || notified.current) return;
 		notified.current = true;
 		if (status === "live") {
+			fireConfetti(document.querySelector<HTMLElement>('[role="dialog"]'));
 			toast.success(`${dependency.name} is live in production`);
 			onPromoted();
 		}
-	}, [deployment, status, dependency.name, onPromoted]);
+	}, [deployment, status, dependency.name, onPromoted, fireConfetti]);
 
 	async function submit() {
 		const body = description.trim();
