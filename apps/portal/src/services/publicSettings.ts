@@ -38,6 +38,8 @@ export type PublicSettingsResponse = {
 	bunVersion?: string;
 	/** days a recorded run is kept before the retention job deletes it */
 	recordingMaxAgeDays?: number;
+	/** persistent sandboxes one user may keep in one project (#763) */
+	maxSandboxesPerUser?: number;
 };
 
 export const publicSettingsService = {

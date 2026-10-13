@@ -6,6 +6,7 @@ import { getPublicSettings } from "../loaders/instanceSettingsLoader";
 import { orchestrationEnabled } from "../modules/orchestrator/gate";
 import type { HonoServer } from "../types";
 import v1Register from "./v1/register";
+import { maxSandboxesPerUser } from "./v1/sandboxes/cap";
 
 export function mapVersionedAdminRoutes(app: HonoServer) {
 	const router = app.basePath("/_/admin/api");
@@ -21,6 +22,9 @@ export function mapVersionedAdminRoutes(app: HonoServer) {
 			license: currentEntitlement(),
 			orchestration: { enabled: orchestrationEnabled() },
 			recordingMaxAgeDays: RECORDING_MAX_AGE_DAYS,
+			// persistent sandboxes one user may keep in a project (#763), so the
+			// list can show "N / max" and the create button can explain the 409
+			maxSandboxesPerUser: maxSandboxesPerUser(),
 			// the editor loads `@types/bun` at this version
 			bunVersion: Bun.version,
 		}),

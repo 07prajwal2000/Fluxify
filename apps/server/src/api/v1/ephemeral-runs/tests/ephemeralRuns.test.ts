@@ -1,6 +1,6 @@
 // Ephemeral runs (#741) against a real Postgres: a run is checked like a canvas
 // save, leaves no row behind, and its one system log row is its owner's alone.
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "bun:test";
 import {
 	chain,
 	newProject,
@@ -313,5 +313,23 @@ describe("the system log row", () => {
 		expect(left).toContain(fresh);
 		expect(left).not.toContain(old);
 		expect(left).toContain(compile);
+	});
+});
+
+describe("at the persistent sandbox cap", () => {
+	afterEach(() => delete process.env.MAX_SANDBOX_PER_USER);
+
+	it("still runs once, because it saves no sandbox (#763)", async () => {
+		process.env.MAX_SANDBOX_PER_USER = "1";
+		const project = await newProject();
+		const user = await newUser();
+		const before = await rowCounts();
+		state.answers = [ok()];
+
+		const res = await run(project, user, chain);
+
+		expect(res.status).toBe(200);
+		expect(res.body.status).toBe(200);
+		expect((await rowCounts()).sandboxes).toBe(before.sandboxes);
 	});
 });

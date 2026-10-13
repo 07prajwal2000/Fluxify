@@ -2,7 +2,17 @@
 // with it, and which bucket the compiler writes. The artifact store and the
 // change signal are recorded instead of sent; the signal compiles right away,
 // as the compile consumer would.
-import { afterAll, beforeAll, beforeEach, describe, expect, it, mock, spyOn } from "bun:test";
+import {
+	afterAll,
+	afterEach,
+	beforeAll,
+	beforeEach,
+	describe,
+	expect,
+	it,
+	mock,
+	spyOn,
+} from "bun:test";
 import { docker, pullImage, startContainerWithRandomPort } from "@fluxify/adapters/containerTestHelpers";
 import { SQL } from "bun";
 import type Docker from "dockerode";
@@ -353,5 +363,41 @@ describe("recorded runs", () => {
 
 		const other = { user: await newUser() };
 		expect((await call(project, other, `/${id}/runs/${runId}`)).status).toBe(404);
+	});
+});
+
+describe("persistent sandbox cap", () => {
+	afterEach(() => delete process.env.MAX_SANDBOX_PER_USER);
+
+	it("refuses a create at the cap, then allows it again after a delete", async () => {
+		process.env.MAX_SANDBOX_PER_USER = "2";
+		const project = await newProject();
+		const owner = { user: await newUser() };
+		const first = await create(project, owner, "first");
+		await create(project, owner, "second");
+
+		const refused = await call(project, owner, "", "POST", { name: "third" });
+		expect(refused.status).toBe(409);
+		expect(refused.body.message).toBe(
+			"You have reached the limit of 2 sandboxes in this project. Delete one first.",
+		);
+		expect((await call(project, owner)).body.data).toHaveLength(2);
+
+		expect((await call(project, owner, `/${first}`, "DELETE")).status).toBe(200);
+		expect((await call(project, owner, "", "POST", { name: "third" })).status).toBe(200);
+	});
+
+	it("counts per user and per project", async () => {
+		process.env.MAX_SANDBOX_PER_USER = "1";
+		const project = await newProject();
+		const owner = { user: await newUser() };
+		const other = { user: await newUser() };
+		await create(project, owner);
+
+		// another user in the same project keeps their own budget
+		expect((await call(project, other, "", "POST", { name: "theirs" })).status).toBe(200);
+		// the same user in another project keeps theirs too
+		const elsewhere = await newProject();
+		expect((await call(elsewhere, owner, "", "POST", { name: "elsewhere" })).status).toBe(200);
 	});
 });

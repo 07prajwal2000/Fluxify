@@ -67,6 +67,13 @@ export const serverEnvSchema = baseEnvSchema.extend({
 			"How many triggers one trigger group may hold (default 5). Raise it when workers run on machines that can poll more queues",
 		),
 
+	MAX_SANDBOX_PER_USER: z
+		.string()
+		.optional()
+		.describe(
+			"How many persistent sandboxes one user may keep in one project (default 20). Only 1 to 1000 is accepted; anything else falls back to the default",
+		),
+
 	RECORDING_MAX_AGE_DAYS: z
 		.string()
 		.optional()

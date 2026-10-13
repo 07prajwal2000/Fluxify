@@ -12,12 +12,20 @@ the KV blocks or the JS Runner.
 
 | What | Detail |
 | :--- | :--- |
-| How many | As many as you like, per project. They never expire. |
+| How many | Up to **20** per project by default. They never expire; delete one to make room. |
 | Who sees one | Only you. Nobody else in the project can see, open or run your sandboxes, not even an admin. |
 | Who can make one | Creators and project admins. Viewers can't. |
 | Where it runs | On a [development worker](/concepts/environments#what-a-development-worker-does), with your [development values](/concepts/environments#values-per-environment). Never on a production worker. |
 | Recording | **Every run is recorded**, and you can't switch it off. |
 | Tracing | Off by default. Turn it on in the sandbox's settings to send its spans to the project's telemetry destination. |
+
+The limit counts only the sandboxes you keep. An [ephemeral run](/agents/recipes/ephemeral-run)
+saves nothing, so it works even when you are at the limit. The list shows how
+many you have, as **N / 20**, and warns when the last slot is close. Once you are
+at the limit, **New sandbox** is switched off — delete one to make room. An agent
+that asks for another gets *"You have reached the limit of N sandboxes in this
+project. Delete one first."* Your operator can raise the limit for the whole
+instance — see [Sandbox limit](/deployments/production#sandbox-limit).
 
 A sandbox canvas is like a route canvas and a workflow canvas at once. The same
 blocks run whether you call it over HTTP or run it as a workflow.

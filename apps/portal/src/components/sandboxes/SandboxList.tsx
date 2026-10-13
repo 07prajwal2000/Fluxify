@@ -1,8 +1,9 @@
 import { Button, DeleteIconButton, Spinner, Table, toast } from "@fluxify/components";
 import { useState } from "react";
-import { TbEdit, TbFlask, TbPencil, TbPlus } from "react-icons/tb";
+import { TbAlertTriangle, TbEdit, TbFlask, TbPencil, TbPlus } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
+import { usePublicSettings } from "@/hooks/usePublicSettings";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { sandboxesQuery } from "@/query/sandboxesQuery";
 import type { Sandbox } from "@/services/sandboxes";
@@ -18,6 +19,7 @@ export function SandboxList({
 	onOpen: (sandboxId: string) => void;
 }) {
 	const canEdit = useCanEditProject(projectId);
+	const { maxSandboxesPerUser: max } = usePublicSettings();
 
 	const { data, isLoading, isError } = sandboxesQuery.getAll.useQuery(projectId);
 	const create = sandboxesQuery.create.mutation(projectId);
@@ -29,6 +31,8 @@ export function SandboxList({
 	const [pendingDelete, setPendingDelete] = useState<Sandbox | null>(null);
 
 	const rows = data ?? [];
+	const atLimit = max != null && rows.length >= max;
+	const nearLimit = max != null && rows.length >= max - 1;
 
 	if (!canEdit) {
 		return <p className="py-16 text-center text-muted">Sandboxes are for creators and above.</p>;
@@ -43,9 +47,27 @@ export function SandboxList({
 						Your private scratch canvases. Only you can see them, and they never touch a real route.
 					</p>
 				</div>
-				<Button variant="primary" onPress={() => setCreating(true)}>
-					<TbPlus size={16} /> New sandbox
-				</Button>
+				<div className="flex items-center gap-3">
+					{max != null && data ? (
+						<span
+							className="flex items-center gap-1 text-sm text-muted"
+							title="Sandboxes in this project"
+						>
+							{nearLimit ? (
+								<TbAlertTriangle
+									size={14}
+									className="text-warning"
+									role="img"
+									aria-label="Near sandbox limit"
+								/>
+							) : null}
+							{rows.length} / {max}
+						</span>
+					) : null}
+					<Button variant="primary" isDisabled={atLimit} onPress={() => setCreating(true)}>
+						<TbPlus size={16} /> New sandbox
+					</Button>
+				</div>
 			</div>
 
 			{isLoading ? (
@@ -122,6 +144,11 @@ export function SandboxList({
 					title="New sandbox"
 					confirmText="Create"
 					pending={create.isPending}
+					warning={
+						nearLimit
+							? `This reaches your limit of ${max} sandboxes in this project. Delete one before adding another.`
+							: undefined
+					}
 					onClose={() => setCreating(false)}
 					onSubmit={(name) =>
 						create.mutate(

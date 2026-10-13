@@ -11,5 +11,6 @@ export function usePublicSettings() {
 		ssoConfig,
 		authConfig,
 		license: query.data?.license,
+		maxSandboxesPerUser: query.data?.maxSandboxesPerUser,
 	};
 }
