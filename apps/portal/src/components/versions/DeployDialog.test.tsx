@@ -1,6 +1,10 @@
 import { afterAll, afterEach, beforeEach, expect, mock, spyOn, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 
+// Mock canvas-confetti at module level so it's available before dynamic imports.
+const confettiMock = mock(() => undefined);
+mock.module("canvas-confetti", () => ({ default: confettiMock }));
+
 // DOM only for this file; RTL reads `document` on import, so load it after.
 GlobalRegistrator.register();
 
@@ -12,7 +16,10 @@ const { DeployDialog } = await import("./DeployDialog");
 
 afterEach(cleanup);
 afterAll(() => GlobalRegistrator.unregister());
-beforeEach(() => mock.restore());
+beforeEach(() => {
+	mock.restore();
+	confettiMock.mockClear();
+});
 
 const deploy = () => spyOn(deploymentsService, "deploy");
 const poll = () => spyOn(deploymentsService, "get");
@@ -187,4 +194,73 @@ test("a 409 deployment in progress shows as a message", async () => {
 	await until(() =>
 		expect(document.body.textContent).toContain("A deployment is already in progress"),
 	);
+});
+
+test("success fires confetti once", async () => {
+	spyOn(toast, "success").mockImplementation((() => "") as never);
+	deploy().mockResolvedValue(deployment({ status: "live", gates: GATES }) as never);
+	poll().mockResolvedValue(deployment({ status: "live", gates: GATES }) as never);
+	mount();
+	await fillDescription("Go live");
+	fireEvent.click(button("Promote"));
+
+	await until(() => expect(confettiMock).toHaveBeenCalledTimes(1));
+});
+
+test("rollback does not fire confetti", async () => {
+	spyOn(toast, "success").mockImplementation((() => "") as never);
+	const start = deploy().mockResolvedValue(deployment({ status: "live", gates: GATES }) as never);
+	poll().mockResolvedValue(deployment({ status: "live", gates: GATES }) as never);
+	mount(3, 2);
+	await until(() => expect(button("Roll back")).toBeTruthy());
+	await fillDescription("Rolling back");
+	fireEvent.click(button("Roll back"));
+
+	await until(() => expect(start).toHaveBeenCalled());
+	expect(confettiMock).not.toHaveBeenCalled();
+});
+
+test("failed gate does not fire confetti", async () => {
+	deploy().mockResolvedValue(deployment() as never);
+	poll().mockResolvedValue(
+		deployment({
+			status: "failed",
+			gates: [
+				{ gate: "compile", status: "passed", message: "The version compiles" },
+				{
+					gate: "tests",
+					status: "failed",
+					message: "1 suite failed",
+					items: ["Orders suite: expected 200, got 500"],
+				},
+			],
+		}) as never,
+	);
+	mount();
+	await fillDescription("Go live");
+	fireEvent.click(button("Promote"));
+
+	await until(() => expect(document.body.textContent).toContain("could not go live"));
+	expect(confettiMock).not.toHaveBeenCalled();
+});
+
+test("reduced motion does not fire confetti", async () => {
+	const matchMediaSpy = spyOn(window, "matchMedia").mockReturnValue({
+		matches: true,
+		addEventListener: () => {},
+		removeEventListener: () => {},
+	} as never);
+	try {
+		spyOn(toast, "success").mockImplementation((() => "") as never);
+		deploy().mockResolvedValue(deployment({ status: "live", gates: GATES }) as never);
+		poll().mockResolvedValue(deployment({ status: "live", gates: GATES }) as never);
+		mount();
+		await fillDescription("Go live");
+		fireEvent.click(button("Promote"));
+
+		await until(() => expect(document.body.textContent).toContain("v2 is live in production"));
+		expect(confettiMock).not.toHaveBeenCalled();
+	} finally {
+		matchMediaSpy.mockRestore();
+	}
 });

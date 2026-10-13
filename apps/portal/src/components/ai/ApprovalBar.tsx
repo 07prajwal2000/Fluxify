@@ -1,7 +1,8 @@
 import { Button, Chip } from "@fluxify/components";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { TbClipboardCheck, TbClock, TbTrash } from "react-icons/tb";
 import { SplitButton } from "@/components/common/SplitButton";
+import { useConfetti } from "@/hooks/useConfetti";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import type { Decision, Mode } from "@/services/agentConversations";
 import { ApprovalTarget } from "./ApprovalTarget";
@@ -43,6 +44,8 @@ export function ApprovalBar({
 	const [reviewing, setReviewing] = useState(false);
 	// one reason per waiting call, so answering the next one starts empty
 	const [comments, setComments] = useState<Record<string, string>>({});
+	const sectionRef = useRef<HTMLElement>(null);
+	const fireConfetti = useConfetti();
 	const many = request.kind === "tool" && onDecide !== undefined && calls.length > 1;
 	// Approve all never covers a delete or a deployment: those need their own answer.
 	const safe = calls.filter((c) => !c.isDelete && !c.needsComment && c.id);
@@ -59,11 +62,18 @@ export function ApprovalBar({
 			.catch(showErrorNotification)
 			.finally(() => setBusy(false));
 	};
+	const approve = (mode: Mode | undefined) => {
+		if (request.kind === "tool" && request.isProd && request.needsComment) {
+			fireConfetti(sectionRef.current);
+		}
+		answer(() => onApprove(mode, comment));
+	};
 	const del = request.kind === "tool" && request.isDelete;
 	const Icon = del ? TbTrash : request.kind === "plan" ? TbClipboardCheck : TbClock;
 
 	return (
 		<section
+			ref={sectionRef}
 			aria-label="Approval needed"
 			className={`mb-2 flex flex-wrap items-center gap-3 rounded-2xl border px-3 py-2 ${
 				del ? "border-danger/40 bg-danger/10" : "border-warning/40 bg-warning/10"
@@ -138,14 +148,14 @@ export function ApprovalBar({
 				</Button>
 				<SplitButton
 					isDisabled={busy || blocked}
-					onPress={() => answer(() => onApprove(undefined, comment))}
+					onPress={() => approve(undefined)}
 					menuLabel="More approve options"
 					items={[
 						{
 							id: "auto",
 							label: "Approve with Auto",
 							isDisabled: busy || blocked,
-							onAction: () => answer(() => onApprove("auto", comment)),
+							onAction: () => approve("auto"),
 						},
 					]}
 				>
