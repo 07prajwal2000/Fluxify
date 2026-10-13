@@ -1,8 +1,10 @@
-import { type KV, type KvEntry, Kvm, KvWatchInclude } from "@nats-io/kv";
+import { type KV, type KvEntry, Kvm } from "@nats-io/kv";
 import type { NatsConnection } from "@nats-io/nats-core";
-import { logger } from "../logging";
 import { type Codec, jsonCodec } from "./codec";
 import { isWrongLastSequence } from "./errors";
+import { type KvWatcher, type KvWatchOptions, startWatch } from "./kvWatch";
+
+export type { KvWatcher, KvWatchOptions };
 
 /**
  * Typed wrapper over a NATS KV bucket.
@@ -22,24 +24,6 @@ export interface KvBucketOptions {
 	ttlMs?: number;
 	/** Replicas in a clustered NATS. */
 	replicas?: number;
-}
-
-export interface KvWatchOptions {
-	/**
-	 * Replay the current value of every matching key before streaming updates.
-	 * Default true — a watcher that only sees future writes starts out blind to
-	 * everything already stored.
-	 */
-	includeExisting?: boolean;
-}
-
-export interface KvWatcher {
-	/**
-	 * Resolves once every pre-existing value has been handed to `onChange`, so a
-	 * caller can await a complete picture before serving traffic.
-	 */
-	initialized: Promise<void>;
-	stop(): Promise<void>;
 }
 
 export interface KvBucket<T> {
@@ -141,73 +125,7 @@ export async function openKvBucket<T = unknown>(
 		},
 
 		async watch(filter, onChange, watchOptions = {}) {
-			return startWatch(store, name, filter, onChange, decode, watchOptions);
-		},
-	};
-}
-
-/**
- * Replay-then-updates, done deterministically.
- *
- * The v2 client took an `initializedFn` callback; v3 replaced it with an
- * `isUpdate` flag on each entry, which cannot answer "the replay is finished"
- * when the replay is empty — no entry ever arrives to carry the flag. So the
- * order here is inverted: start an updates-only watch first and buffer what it
- * yields, read the current values second, then flush. Nothing can slip through
- * the gap, because there is no gap.
- *
- * A buffered update can be older than the value the snapshot read, so revisions
- * are tracked per key and a lower one is discarded rather than applied on top.
- */
-async function startWatch<T>(
-	store: KV,
-	bucket: string,
-	filter: string | string[],
-	onChange: (key: string, value: T | null) => void | Promise<void>,
-	decode: (entry: KvEntry | null) => T | null,
-	{ includeExisting = true }: KvWatchOptions,
-): Promise<KvWatcher> {
-	const iterator = await store.watch({
-		key: filter,
-		include: KvWatchInclude.UpdatesOnly,
-	});
-
-	const revisions = new Map<string, number>();
-	let buffer: KvEntry[] | null = includeExisting ? [] : null;
-
-	async function apply(entry: KvEntry) {
-		const seen = revisions.get(entry.key);
-		if (seen !== undefined && seen >= entry.revision) return;
-		revisions.set(entry.key, entry.revision);
-		await onChange(entry.key, decode(entry));
-	}
-
-	void (async () => {
-		try {
-			for await (const entry of iterator) {
-				if (buffer) buffer.push(entry);
-				else await apply(entry);
-			}
-		} catch (error) {
-			logger.error(`[nats] kv watch ${bucket}/${filter} ended: ${String(error)}`, "NATS");
-		}
-	})();
-
-	async function replay() {
-		if (!buffer) return;
-		for await (const key of await store.keys(filter)) {
-			const entry = await store.get(key);
-			if (entry) await apply(entry);
-		}
-		const pending = buffer;
-		buffer = null;
-		for (const entry of pending) await apply(entry);
-	}
-
-	return {
-		initialized: replay(),
-		stop: async () => {
-			await iterator.stop();
+			return startWatch(nc, store, name, filter, onChange, decode, watchOptions);
 		},
 	};
 }

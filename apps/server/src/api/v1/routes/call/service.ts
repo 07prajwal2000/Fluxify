@@ -102,6 +102,15 @@ export function fetchRoute(url: URL, init: RequestInit) {
 export const NO_DEV_WORKER = "start a worker with FLUXIFY_ENV=development";
 
 /**
+ * Returned when a development-worker call keeps answering 404/401 with no trace
+ * until the deadline — the worker loaded nothing for the run at all, almost
+ * always because its KV watch is down (#789). Only the ephemeral run path uses
+ * it today.
+ */
+export const NEVER_LOADED_ERROR =
+	"The development worker never loaded this run. Its artifact watch may be down; restart the worker.";
+
+/**
  * The `Host` a call through the proxy must carry for a project with a subdomain
  * (#742): the proxy routes by it, so it picks that project's worker pool.
  * Without a proxy URL the call goes to the project's own address, which is that
