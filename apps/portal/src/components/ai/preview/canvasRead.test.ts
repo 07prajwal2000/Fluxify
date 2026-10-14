@@ -37,8 +37,15 @@ test("the note comes back into the block's data for its settings panel; a sticky
 	expect(blocks?.find((b) => b.key === "note_1")?.data).toEqual({ notes: "a rule" });
 });
 
-test("compact reads and a chosen few blocks cannot be drawn faithfully", () => {
-	expect(canvasFromRead(call({ compact: true }, full))).toBeNull();
+test("a compact read draws the graph with no block data; a chosen few blocks cannot", () => {
+	const compact = canvasFromRead(call({ compact: true }, full));
+	expect(compact?.blocks.map((b) => b.key)).toEqual([
+		"entrypoint_1",
+		"if_1",
+		"response_1",
+		"note_1",
+	]);
+	expect(compact?.blocks.every((b) => Object.keys(b.data).length === 0)).toBe(true);
 	expect(canvasFromRead(call({ blocks: ["if_1"] }, full))).toBeNull();
 });
 

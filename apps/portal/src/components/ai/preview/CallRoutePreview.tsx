@@ -1,7 +1,9 @@
+import { formatDuration } from "@/components/testSuites/CaseResults";
 import type { ToolPart } from "../agentMessages";
 import { BlocksCanvas } from "./BlocksCanvas";
 import { JsonBlock } from "./Collapsible";
 import { type Data, isRec, rec, str } from "./data";
+import { EnvChip } from "./EnvChip";
 import { Notice } from "./Notice";
 import { TraceList } from "./TraceList";
 import { useCurrent } from "./useCurrent";
@@ -40,6 +42,50 @@ function CallError({ error }: { error: unknown }) {
 	);
 }
 
+/** The environment a call ran in. `call_route` and the others run development; the result says so when it can. */
+const envOf = (tool: ToolPart) =>
+	str(rec(tool.output).env) || str(rec(tool.input).env) || "development";
+
+/**
+ * The request line a call made: `call_route` looks its route up for the method
+ * and the filled path; a sandbox or an ephemeral run is given them outright.
+ */
+function useRequestLine(tool: ToolPart) {
+	const input = rec(tool.input);
+	const isRoute = tool.name === "call_route";
+	const { current: route } = useCurrent("call_route", input, isRoute);
+	if (!isRoute) return `${str(input.method) || "GET"} ${str(input.path) || "/"}`;
+	return [
+		str(route?.method) || "Route",
+		route?.path
+			? requestPath(str(route.path), rec(input.params), rec(input.query))
+			: str(input.routeId),
+	].join(" ");
+}
+
+/** The folded row of a call_route (#780): status, the Dev / Prod chip, the request line, and how long it took. */
+export function CallRouteHeader({ tool }: { tool: ToolPart }) {
+	const out = rec(tool.output);
+	const status = typeof out.status === "number" ? out.status : undefined;
+	const request = useRequestLine(tool);
+	return (
+		<span className="inline-flex min-w-0 max-w-full items-center gap-1.5 align-middle">
+			{status !== undefined && (
+				<span
+					className={`shrink-0 rounded-full border px-1.5 text-[11px] font-medium ${statusTone(status)}`}
+				>
+					{status}
+				</span>
+			)}
+			<EnvChip env={envOf(tool)} />
+			<span className="min-w-0 truncate">{request}</span>
+			{typeof out.durationMs === "number" && (
+				<span className="shrink-0">({formatDuration(out.durationMs)})</span>
+			)}
+		</span>
+	);
+}
+
 const LABEL: Record<string, string> = { input: "Request body" };
 
 /**
@@ -50,17 +96,8 @@ const LABEL: Record<string, string> = { input: "Request body" };
 export function CallRoutePreview({ tool }: { tool: ToolPart }) {
 	const input = rec(tool.input);
 	const out = rec(tool.output);
-	const isRoute = tool.name === "call_route";
-	const { current: route } = useCurrent("call_route", input, isRoute);
+	const request = useRequestLine(tool);
 	const status = typeof out.status === "number" ? out.status : undefined;
-	const request = isRoute
-		? [
-				str(route?.method) || "Route",
-				route?.path
-					? requestPath(str(route.path), rec(input.params), rec(input.query))
-					: str(input.routeId),
-			].join(" ")
-		: `${str(input.method) || "GET"} ${str(input.path) || "/"}`;
 	const kind =
 		tool.name === "run_blocks" ? "Ephemeral run" : tool.name === "call_sandbox" ? "Sandbox" : "";
 	const trace = Array.isArray(out.trace) ? (out.trace as string[]) : [];
@@ -76,7 +113,7 @@ export function CallRoutePreview({ tool }: { tool: ToolPart }) {
 				{kind && <span className="text-xs text-muted">{kind}</span>}
 				<code className="font-mono text-foreground">{request}</code>
 				{typeof out.durationMs === "number" && (
-					<span className="text-xs text-muted">{out.durationMs}ms</span>
+					<span className="text-xs text-muted">{formatDuration(out.durationMs)}</span>
 				)}
 			</div>
 			{tool.name === "run_blocks" && <BlocksCanvas input={tool.input} />}

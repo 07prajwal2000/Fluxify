@@ -143,6 +143,7 @@ export function VersionHistory({
 	onBackToCanvas,
 	onOpenSandbox,
 	onViewRecordings,
+	initialVersionId,
 }: {
 	kind: VersionKind;
 	id: string;
@@ -154,10 +155,12 @@ export function VersionHistory({
 	onOpenSandbox: (sandboxId: string) => void;
 	/** the version menu's "View recordings": opens the executions list filtered to it */
 	onViewRecordings?: (versionId: string) => void;
+	/** the version to open on load, from a `?version=` link (#780); the head when absent */
+	initialVersionId?: string;
 }) {
 	const canEdit = useCanEditProject(projectId);
 	const { data, isLoading, isError } = versionsQuery.list.useQuery(kind, id);
-	const [picked, setPicked] = useState<string>();
+	const [picked, setPicked] = useState<string | undefined>(initialVersionId);
 	const [action, setAction] = useState<{ type: VersionAction; version: Version }>();
 
 	if (isLoading) {

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { ToolPart } from "../agentMessages";
-import { MarkdownViewer } from "../MarkdownViewer";
+import { BlockSchemasPreview } from "./BlockSchemasPreview";
 import { CallRoutePreview } from "./CallRoutePreview";
 import { ConnectionPreview } from "./ConnectionPreview";
 import { CopyBlocksPreview } from "./CopyBlocksPreview";
@@ -32,6 +32,7 @@ import {
 	isToolLines,
 	LoadedToolsPreview,
 } from "./ToolListPreview";
+import { VersionCard } from "./VersionCard";
 import { WhoamiPreview } from "./WhoamiPreview";
 
 /** Reads: the agent's `list` / `get`, and every get_* / list_* tool. */
@@ -58,11 +59,8 @@ export function previewOf(tool: ToolPart, asking: boolean): ReactNode | null {
 	if (name === "kv_get") return <KvPreview tool={tool} />;
 	if (name === "whoami" && isRec(tool.output)) return <WhoamiPreview tool={tool} />;
 	if (name === "get_block_schemas" && typeof tool.output === "string")
-		return (
-			<div className="max-h-96 overflow-auto rounded-md border border-border bg-surface px-3 py-2">
-				<MarkdownViewer content={tool.output} />
-			</div>
-		);
+		return <BlockSchemasPreview tool={tool} />;
+	if (name === "get_version" || name === "commit_version") return <VersionCard tool={tool} />;
 	if (name === "edit_canvas") return <EditCanvasPreview tool={tool} asking={asking} />;
 	if (name === "get_canvas" && canDraw(tool)) return <GetCanvasPreview tool={tool} />;
 	if (name === "list_recordings" && isRec(tool.output)) return <RecordingList tool={tool} />;
@@ -75,8 +73,7 @@ export function previewOf(tool: ToolPart, asking: boolean): ReactNode | null {
 	if (name === "get_integration_schema" && hasConfigFields(tool.output))
 		return <IntegrationSchemaPreview tool={tool} />;
 	if (isDocsTool(name) && typeof tool.output === "string") return <DocsPreview tool={tool} />;
-	if (name === "test_integration_connection" && isRec(tool.output))
-		return <ConnectionPreview tool={tool} />;
+	if (name === "test_integration_connection") return <ConnectionPreview tool={tool} />;
 	if (name === "call_route" || name === "call_sandbox" || name === "run_blocks")
 		return <CallRoutePreview tool={tool} />;
 	if (name === "run_test_suite" || name === "get_test_runs") return <TestRunPreview tool={tool} />;

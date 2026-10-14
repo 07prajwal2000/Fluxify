@@ -21,6 +21,7 @@ export const Route = createFileRoute("/_authed/$projectId/middlewares_/$middlewa
 	),
 	validateSearch: z.object({
 		tab: z.enum(["versions", "production"]).optional().catch(undefined),
+		version: z.string().optional(),
 	}),
 	beforeLoad: async ({ params, context }) => {
 		try {
@@ -49,7 +50,8 @@ export const Route = createFileRoute("/_authed/$projectId/middlewares_/$middlewa
 
 function MiddlewareVersionsPage() {
 	const { projectId, middlewareId } = Route.useParams();
-	const tab = Route.useSearch().tab ?? "versions";
+	const { tab: tabParam, version } = Route.useSearch();
+	const tab = tabParam ?? "versions";
 	const navigate = Route.useNavigate();
 	const { data: middleware } = middlewaresQuery.get.useQuery(middlewareId);
 	const [settingsOpen, setSettingsOpen] = useState(true);
@@ -105,6 +107,7 @@ function MiddlewareVersionsPage() {
 					})
 				}
 				onOpenSandbox={() => undefined}
+				initialVersionId={version}
 			/>
 		</div>
 	);

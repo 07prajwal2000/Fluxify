@@ -56,7 +56,36 @@ function Facts({ run }: { run: Record<string, unknown> }) {
 	);
 }
 
-/** list_recordings: one line per run, with a link that opens it instead of its id. */
+/** The last part of a run's uuidv7, opening that run on its target's page (#780). */
+function RecordingIdLink({
+	kind,
+	targetId,
+	runId,
+}: {
+	kind: string;
+	targetId: string;
+	runId: string;
+}) {
+	const { projectId } = useParams({ strict: false }) as { projectId?: string };
+	const label = runId.length > 8 ? `…${runId.slice(-8)}` : runId;
+	if (!projectId || !targetId || !runId || (kind !== "route" && kind !== "workflow"))
+		return <span className="font-mono text-muted">{label}</span>;
+	const to: string = `/${projectId}/${kind === "route" ? "canvas" : "workflow-canvas"}/${targetId}/executions`;
+	return (
+		<Link
+			to={to}
+			search={{ open: runId } as never}
+			target="_blank"
+			rel="noopener noreferrer"
+			className="font-mono text-accent no-underline hover:underline"
+			title="Open this recording in a new tab"
+		>
+			{label}
+		</Link>
+	);
+}
+
+/** list_recordings: one line per run, its short id opening it instead of a separate button. */
 export function RecordingList({ tool }: { tool: ToolPart }) {
 	const input = rec(tool.input);
 	const items = isRec(tool.output) && Array.isArray(tool.output.items) ? tool.output.items : [];
@@ -69,15 +98,15 @@ export function RecordingList({ tool }: { tool: ToolPart }) {
 					return (
 						<li key={str(run.id)}>
 							<span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-								<Facts run={run} />
-								{run.testLabel ? (
-									<span className="text-muted">test: {str(run.testLabel)}</span>
-								) : null}
-								<OpenRecording
+								<RecordingIdLink
 									kind={str(input.kind)}
 									targetId={str(input.targetId)}
 									runId={str(run.id)}
 								/>
+								<Facts run={run} />
+								{run.testLabel ? (
+									<span className="text-muted">test: {str(run.testLabel)}</span>
+								) : null}
 							</span>
 						</li>
 					);

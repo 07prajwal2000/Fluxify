@@ -3,6 +3,7 @@ import { AgentRef } from "../AgentRef";
 import type { ToolPart } from "../agentMessages";
 import type { RefType } from "../agentRefs";
 import { type Data, isRec, oneLine, rec, str } from "./data";
+import { Notice } from "./Notice";
 import { ResourceHeader } from "./ResourceHeader";
 import { LISTED, META, nameOf, readOf, routeLine } from "./resourceMeta";
 
@@ -102,22 +103,37 @@ function Fields({ value, depth = 0 }: { value: Data; depth?: number }) {
 	);
 }
 
-/** The agent's `list`: one list per type asked for, each row with a link that opens it. */
+/** The agent's `list`: one bullet per resource, grouped by type; a type that failed shows its error instead. */
 function Lists({ value }: { value: Data }) {
 	return (
 		<div className="flex flex-col gap-2">
 			{Object.entries(value).map(([key, v]) => {
 				const rows = isRec(v) && "items" in v ? v.items : v;
+				const type = LISTED[key];
+				const error = isRec(v) ? str(v.error) : "";
 				return (
 					<section key={key} className="flex flex-col gap-1">
 						<h4 className="text-xs font-medium text-muted">{key}</h4>
-						{isRows(rows) ? (
-							<Table rows={rows} type={LISTED[key]} />
-						) : isRec(v) ? (
-							<Fields value={v} />
-						) : (
-							<p className="text-xs text-muted">None.</p>
-						)}
+						{error ? (
+							<Notice tone="danger">{error}</Notice>
+						) : isRows(rows) ? (
+							<ul className="flex list-disc flex-col gap-0.5 pl-4 text-xs marker:text-muted">
+								{rows.map((r, i) => (
+									// biome-ignore lint/suspicious/noArrayIndexKey: rows keep their order
+									<li key={i} className="min-w-0 truncate">
+										{type ? (
+											<AgentRef type={type} id={str(r.id)} query={nameOf(type, r)}>
+												{type === "route"
+													? routeLine(r) || nameOf(type, r)
+													: nameOf(type, r) || str(r.id)}
+											</AgentRef>
+										) : (
+											<span className="font-mono text-foreground">{oneLine(r, 120)}</span>
+										)}
+									</li>
+								))}
+							</ul>
+						) : null}
 					</section>
 				);
 			})}

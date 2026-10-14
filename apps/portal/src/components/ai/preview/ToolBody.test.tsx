@@ -246,7 +246,7 @@ test("a rejected tool's error notice is hidden; the reason shows in the ToolRow 
 	expect(view.queryByRole("alert")).toBeNull();
 });
 
-test("get_canvas draws the canvas read-only; a compact read stays a plain list", async () => {
+test("get_canvas draws the canvas read-only; a compact read draws too, marked compact", async () => {
 	const blocks = [
 		{ key: "entrypoint_1", type: "entrypoint", data: {} },
 		{ key: "response_1", type: "response", data: { httpCode: "200" } },
@@ -263,6 +263,7 @@ test("get_canvas draws the canvas read-only; a compact read stays a plain list",
 	expect(view.container.textContent).not.toContain("Double-click");
 	view.unmount();
 
+	// compact has no block data: it still draws, and says so
 	const compact = show({
 		name: "get_canvas",
 		input: { target: { kind: "route", id: "r1" }, compact: true },
@@ -273,6 +274,8 @@ test("get_canvas draws the canvas read-only; a compact read stays a plain list",
 		},
 		status: "done",
 	});
-	expect(compact.container.querySelector("[data-block-key]")).toBeNull();
-	expect(compact.container.textContent).toContain("response_1");
+	await until(() =>
+		expect(compact.container.querySelector('[data-block-key="response_1"]')).not.toBeNull(),
+	);
+	expect(compact.container.textContent).toContain("compact");
 });
