@@ -1,7 +1,7 @@
 import { Chip } from "@fluxify/components";
 import { Link, useParams } from "@tanstack/react-router";
 import { TbGitCommit } from "react-icons/tb";
-import { formatWhen } from "@/components/testSuites/RunResults";
+import { getTimeAgo } from "@/lib/datetime";
 import type { ToolPart } from "../agentMessages";
 import { rec, str } from "./data";
 
@@ -59,7 +59,7 @@ export function VersionCard({ tool }: { tool: ToolPart }) {
 					{out.createdAt !== undefined && (
 						<div className="flex gap-1">
 							<dt>Date</dt>
-							<dd className="text-foreground">{formatWhen(out.createdAt)}</dd>
+							<dd className="text-foreground">{getTimeAgo(str(out.createdAt))}</dd>
 						</div>
 					)}
 				</dl>
