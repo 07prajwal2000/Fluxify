@@ -218,9 +218,15 @@ export async function updateConversation(
 	conversationId: string,
 	patch: { title?: string; pinned?: boolean; archived?: boolean },
 ) {
+	// `archived_at` marks when the archive happened (#721), so retention can age
+	// the chat out; it is stamped on archive and cleared on unarchive.
 	const [row] = await db
 		.update(conversations)
-		.set(patch)
+		.set({
+			...patch,
+			...(patch.archived === true && { archivedAt: new Date() }),
+			...(patch.archived === false && { archivedAt: null }),
+		})
 		.where(eq(conversations.id, conversationId))
 		.returning();
 	return row;
