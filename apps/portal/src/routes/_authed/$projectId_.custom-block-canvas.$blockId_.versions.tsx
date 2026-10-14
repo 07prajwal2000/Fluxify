@@ -19,6 +19,7 @@ export const Route = createFileRoute("/_authed/$projectId_/custom-block-canvas/$
 		),
 		validateSearch: z.object({
 			tab: z.enum(["versions", "production"]).optional().catch(undefined),
+			version: z.string().optional(),
 		}),
 		beforeLoad: async ({ params, context }) => {
 			try {
@@ -48,7 +49,8 @@ export const Route = createFileRoute("/_authed/$projectId_/custom-block-canvas/$
 
 function CustomBlockVersionsPage() {
 	const { projectId, blockId } = Route.useParams();
-	const tab = Route.useSearch().tab ?? "versions";
+	const { tab: tabParam, version } = Route.useSearch();
+	const tab = tabParam ?? "versions";
 	const navigate = Route.useNavigate();
 	const { data: block } = customBlocksQuery.byId.useQuery(blockId);
 	const [settingsOpen, setSettingsOpen] = useState(true);
@@ -92,6 +94,7 @@ function CustomBlockVersionsPage() {
 					})
 				}
 				onOpenSandbox={() => undefined}
+				initialVersionId={version}
 			/>
 		</div>
 	);

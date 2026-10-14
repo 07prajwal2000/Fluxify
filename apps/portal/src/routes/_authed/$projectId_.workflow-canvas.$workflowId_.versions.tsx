@@ -19,9 +19,10 @@ export const Route = createFileRoute("/_authed/$projectId_/workflow-canvas/$work
 		"Workflow Versions | Workflows",
 		"Look back through the saved versions of a workflow and bring one back.",
 	),
-	// the header's Prod chip lands here on the Production tab (#739)
+	// the header's Prod chip lands here on the Production tab (#739); version opens one read-only (#780)
 	validateSearch: z.object({
 		tab: z.enum(["versions", "production"]).optional().catch(undefined),
+		version: z.string().optional(),
 	}),
 	beforeLoad: async ({ params, context }) => {
 		try {
@@ -50,7 +51,8 @@ export const Route = createFileRoute("/_authed/$projectId_/workflow-canvas/$work
 
 function WorkflowVersionsPage() {
 	const { projectId, workflowId } = Route.useParams();
-	const tab = Route.useSearch().tab ?? "versions";
+	const { tab: tabParam, version } = Route.useSearch();
+	const tab = tabParam ?? "versions";
 	const navigate = Route.useNavigate();
 	const { data: workflow } = workflowsQuery.byId.useQuery(workflowId);
 	const [settingsOpen, setSettingsOpen] = useState(true);
@@ -107,6 +109,7 @@ function WorkflowVersionsPage() {
 						search: { version: versionId },
 					})
 				}
+				initialVersionId={version}
 			/>
 		</div>
 	);

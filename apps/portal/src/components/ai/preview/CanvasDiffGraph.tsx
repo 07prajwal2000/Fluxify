@@ -1,3 +1,4 @@
+import { Chip } from "@fluxify/components";
 import { type EdgeProps, type NodeProps, useOnSelectionChange, useReactFlow } from "@xyflow/react";
 import {
 	type ComponentType,
@@ -94,12 +95,15 @@ export default function CanvasDiffGraph({
 	selected,
 	onSelect,
 	panel = false,
+	compact = false,
 }: {
 	diff: CanvasDiff;
 	selected?: string;
 	onSelect: (key: string) => void;
 	/** The block settings panel, opened from a block's hover menu; the canvas is taller to fit it. */
 	panel?: boolean;
+	/** A compact read has no block data: the graph draws, the settings panel cannot. */
+	compact?: boolean;
 }) {
 	const graph = useMemo(() => toGraph(diff), [diff]);
 	const statuses = useMemo<Statuses>(
@@ -111,13 +115,25 @@ export default function CanvasDiffGraph({
 	);
 	return (
 		<StatusContext.Provider value={statuses}>
-			<div className={`${panel ? "h-96" : "h-64"} overflow-hidden rounded-lg border border-border`}>
+			<div
+				className={`${panel ? "h-96" : "h-64"} relative overflow-hidden rounded-lg border border-border`}
+			>
+				{compact && (
+					<span className="absolute right-2 top-2 z-10">
+						<Chip
+							size="sm"
+							title="Renders only the graph, no settings menu: read the full canvas for block settings"
+						>
+							compact
+						</Chip>
+					</span>
+				)}
 				<BlockCanvas
 					graph={graph}
 					mode="readonly"
 					nodeTypes={nodeTypes}
 					edgeTypes={edgeTypes}
-					enablePanel={panel}
+					enablePanel={panel && !compact}
 					enableHistory={false}
 					enableFormat={false}
 					enableClipboard={false}

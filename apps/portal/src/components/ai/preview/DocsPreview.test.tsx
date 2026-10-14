@@ -83,7 +83,7 @@ test("test_integration_connection: connected, or the reason it failed, with a li
 			output: { success: true },
 		}),
 	);
-	expect(ok.container.textContent).toContain("Connected");
+	expect(ok.container.textContent).toContain("Success");
 	expect(ok.container.querySelector('a[href="/p1/integrations/i1"]')).not.toBeNull();
 	cleanup();
 	const bad = show(

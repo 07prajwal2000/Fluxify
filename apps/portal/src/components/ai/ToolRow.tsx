@@ -2,9 +2,11 @@ import { Spinner } from "@fluxify/components";
 import { useEffect, useState } from "react";
 import { TbBan, TbCheck, TbClock, TbX } from "react-icons/tb";
 import { type ToolPart, toolTitle } from "./agentMessages";
+import { CallRouteHeader } from "./preview/CallRoutePreview";
 import { CanvasTarget, canvasOf } from "./preview/CanvasTarget";
 import { docsInput } from "./preview/DocsPreview";
 import { oneLine } from "./preview/data";
+import { SaveAppConfigHeader } from "./preview/SaveAppConfigHeader";
 import { ToolBody } from "./preview/ToolBody";
 import { isDone } from "./preview/tool";
 import { copyBlocksHeader, toolSummary } from "./preview/toolHeader";
@@ -55,13 +57,23 @@ export function ToolRow({
 					) : (
 						<>
 							<span className="font-medium text-foreground">{toolTitle(tool)}</span>
-							<span className="min-w-0 flex-1 truncate font-mono text-muted">
-								{canvas ? (
-									<CanvasTarget which={canvas} />
-								) : (
-									(toolSummary(tool, asking) ?? docsInput(tool) ?? oneLine(tool.input))
-								)}
-							</span>
+							{tool.name === "call_route" ? (
+								<span className="flex min-w-0 flex-1 items-center font-mono text-muted">
+									<CallRouteHeader tool={tool} />
+								</span>
+							) : tool.name === "save_app_config" ? (
+								<span className="flex min-w-0 flex-1 items-center font-mono text-muted">
+									<SaveAppConfigHeader tool={tool} />
+								</span>
+							) : (
+								<span className="min-w-0 flex-1 truncate font-mono text-muted">
+									{canvas ? (
+										<CanvasTarget which={canvas} />
+									) : (
+										(toolSummary(tool, asking) ?? docsInput(tool) ?? oneLine(tool.input))
+									)}
+								</span>
+							)}
 						</>
 					)}
 					{ms !== undefined && (

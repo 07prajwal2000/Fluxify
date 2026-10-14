@@ -39,17 +39,12 @@ function PendingEdit({ input }: { input: Record<string, unknown> }) {
 		return <div className="h-96 animate-pulse rounded-lg bg-surface-secondary" aria-busy />;
 	const data = preview.data;
 	if (!data?.after) {
-		// refused ops or an unreachable server: still show what the ops say
+		// refused ops or an unreachable server: the error alone, no canvas (#780)
 		const reason = data?.error ?? (preview.error as Error | null)?.message;
 		return (
-			<div className="flex flex-col gap-2">
-				<Notice tone="danger">
-					{data
-						? `This edit would be refused: ${reason}`
-						: `Could not preview this edit: ${reason}`}
-				</Notice>
-				<CanvasDiffView diff={diffFromOps(ops)} />
-			</div>
+			<Notice tone="danger">
+				{data ? `This edit would be refused: ${reason}` : `Could not preview this edit: ${reason}`}
+			</Notice>
 		);
 	}
 	return (
@@ -74,7 +69,9 @@ function AppliedEdit({ tool }: { tool: ToolPart }) {
 	);
 }
 
-/** `asking`: it waits for an answer. A call that runs without asking has no "after" to compute: the canvas may already have changed. */
+/** `asking`: it waits for an answer. A call that runs without asking has no "after" to compute: the canvas may already have changed. A failed edit shows only its error. */
 export function EditCanvasPreview({ tool, asking }: { tool: ToolPart; asking: boolean }) {
+	// a failed edit shows only its error: ToolBody puts that error above the preview (#780)
+	if (tool.error !== undefined || tool.status === "error") return null;
 	return asking ? <PendingEdit input={rec(tool.input)} /> : <AppliedEdit tool={tool} />;
 }

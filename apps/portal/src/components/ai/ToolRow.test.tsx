@@ -143,7 +143,7 @@ test("an edit the server would refuse shows why, on top", async () => {
 	ask.mockRestore();
 });
 
-test("when the preview cannot be had, the ops still show what the edit means", async () => {
+test("when the preview cannot be had, the error alone shows — no canvas", async () => {
 	const ask = spyOn(agentConversationsService, "canvasPreview").mockRejectedValue(
 		new Error("boom"),
 	);
@@ -151,9 +151,7 @@ test("when the preview cannot be had, the ops still show what the edit means", a
 	await until(() =>
 		expect(view.getByRole("alert").textContent).toContain("Could not preview this edit: boom"),
 	);
-	await until(() =>
-		expect(view.container.querySelector('[data-block-key="response_1"]')).not.toBeNull(),
-	);
+	expect(view.container.querySelector("[data-block-key]")).toBeNull();
 	ask.mockRestore();
 });
 

@@ -82,7 +82,7 @@ test("the agent's get and list (one tool, a type) link to the resources too", ()
 	expect(many.container.querySelector('a[href="/p1/middlewares/m1"]')).not.toBeNull();
 });
 
-test("list_recordings: a line per run that opens it, no raw id", () => {
+test("list_recordings: a line per run, its short id opening it", () => {
 	const view = show({
 		name: "list_recordings",
 		input: { kind: "route", targetId: "r1" },
@@ -108,8 +108,9 @@ test("list_recordings: a line per run that opens it, no raw id", () => {
 	expect(text).toContain("42ms");
 	expect(text).toContain("rejects a duplicate");
 	expect(text).not.toContain("0199aaaa");
+	expect(text).toContain("…00000001");
 	expect(text).toContain("More runs on the next page");
-	const open = view.getByText("Open recording").closest("a");
+	const open = view.getByText("…00000001").closest("a");
 	expect(open?.getAttribute("href")).toBe("/p1/canvas/r1/executions");
 });
 

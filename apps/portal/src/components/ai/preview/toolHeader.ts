@@ -49,6 +49,52 @@ export function toolSummary(tool: ToolPart, asking = false): string | undefined 
 	const { name } = tool;
 
 	switch (name) {
+		case "list_advanced_tools": {
+			if (!Array.isArray(tool.output)) return undefined;
+			const n = tool.output.length;
+			return `${n} tool${n === 1 ? "" : "s"}`;
+		}
+		case "list": {
+			const types = Array.isArray(input.types) ? input.types.map(str).filter(Boolean) : [];
+			return types.length ? types.join(", ") : undefined;
+		}
+		case "get": {
+			const type = str(input.type);
+			if (!type) return undefined;
+			const id = str(input.id);
+			return id ? `${type} ${id}` : type;
+		}
+		case "get_block_schemas": {
+			const types = Array.isArray(input.blockTypes)
+				? input.blockTypes.map(str).filter(Boolean)
+				: [];
+			return types.length ? types.join(", ") : "All block types";
+		}
+		case "get_version":
+		case "commit_version": {
+			const number = out.versionNumber !== undefined ? `v${str(out.versionNumber)}` : "";
+			const title = str(out.title);
+			return [number, title].filter(Boolean).join(" · ") || str(out.versionId) || undefined;
+		}
+		case "load_tools": {
+			if (!isRec(tool.output)) return undefined;
+			const loaded = Array.isArray(out.loaded) ? out.loaded : [];
+			return `Loaded ${loaded.length} tool${loaded.length === 1 ? "" : "s"}`;
+		}
+		case "list_recordings": {
+			const items = isRec(out) && Array.isArray(out.items) ? out.items : undefined;
+			if (!items) return undefined;
+			return `Listed ${items.length} recording${items.length === 1 ? "" : "s"}`;
+		}
+		case "get_recording": {
+			const parts = [str(input.kind), str(out.outcome)].filter(Boolean);
+			return parts.length ? parts.join(" · ") : undefined;
+		}
+		case "get_integration":
+			return str(out.name) || str(input.integrationId) || undefined;
+		case "test_integration_connection":
+			if (out.success === true) return "Success";
+			return out.success === false || tool.error !== undefined ? "Failure" : undefined;
 		case "create_sandbox":
 			return str(input.name) || undefined;
 		case "get_sandbox":
