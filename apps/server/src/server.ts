@@ -1,9 +1,10 @@
-import { initializeLogger, logger } from "@fluxify/common";
+import { initializeLogger } from "@fluxify/common";
 import { Hono } from "hono";
 import authenticationRouter from "./api/auth/register";
 import { mapVersionedAdminRoutes } from "./api/register";
 import { publishConfiguredLicense } from "./api/v1/instance-settings/license/service";
 import { drizzleInit } from "./db";
+import { natsConnected } from "./db/nats";
 import { initializePubSub } from "./db/pubsub";
 import { initializeRedis, pingRedis } from "./db/redis";
 import type { AccessControlRole } from "./db/schema";
@@ -18,6 +19,12 @@ import {
 	OTLP_LOGGER_LEVEL,
 	validateEnv,
 } from "./lib/env";
+import {
+	beginServerStartup,
+	reportServerSettings,
+	subsystemConnected,
+	subsystemReporter,
+} from "./lib/startupReport";
 import { waitFor } from "./lib/waitFor";
 import { loadAppConfig } from "./loaders/appconfigLoader";
 import { initializeCustomBlocksSubscription, loadCustomBlocks } from "./loaders/customBlocksLoader";
@@ -29,6 +36,7 @@ import { adminCors } from "./middlewares/cors";
 import { errorHandler } from "./middlewares/errorHandler";
 import { adminRateLimit } from "./middlewares/rateLimit";
 import { setSession } from "./middlewares/session";
+import { READY_PATH, STARTUP_PATH } from "./modules/requestRouter/health";
 import { mapRouter } from "./modules/requestRouter/router";
 import "./lib/bigintJson";
 
@@ -42,11 +50,6 @@ const app = new Hono<{
 
 app.use("*", adminCors);
 
-function logSystemDetails() {
-	logger.info(`Admin routes enabled: ${getEnv("ENABLE_ADMIN")}`);
-	logger.info(`Node environment: ${getEnv("ENVIRONMENT")}`);
-}
-
 async function main() {
 	validateEnv();
 	initializeLogger({
@@ -56,19 +59,30 @@ async function main() {
 		otlpHeaders: { [OTLP_AUTH_HEADER_NAME]: OTLP_AUTH_HEADER_VALUE },
 		useOtlp: OTLP_LOGGER_ENABLED === "true",
 	});
-	logSystemDetails();
+	beginServerStartup("fluxify.server");
+	reportServerSettings();
 	const adminRoutesEnabled = getEnv("ENABLE_ADMIN") == "true";
 	// When false, this process is control-plane only — a separate worker node
 	// loads configs/blocks/routes and serves user APIs. Admin still publishes
 	// change events over NATS so that worker hot-reloads.
 	const builtinWorkerEnabled = ENABLE_BUILTIN_WORKER == "true";
-	logger.info(`Builtin worker enabled: ${ENABLE_BUILTIN_WORKER}`);
 	app.onError(errorHandler);
+	// k8s-style probes, same paths the workers use. Registered before the admin
+	// rate-limit/session middleware so a probe is never capped or gated.
+	app.get(STARTUP_PATH, (c) => c.body(null, 200));
+	app.get(READY_PATH, (c) => c.body(null, natsConnected() ? 200 : 503));
 	// Postgres, Redis and NATS may still be starting on a fresh install (#463).
-	const db = await waitFor("Postgres", () => drizzleInit(adminRoutesEnabled));
+	const db = await waitFor(
+		"Postgres",
+		() => drizzleInit(adminRoutesEnabled),
+		30,
+		2_000,
+		subsystemReporter("Postgres"),
+	);
+	if (adminRoutesEnabled) subsystemConnected("Database schema");
 	initializeRedis();
-	await waitFor("Redis", pingRedis);
-	await waitFor("NATS", initializePubSub);
+	await waitFor("Redis", pingRedis, 30, 2_000, subsystemReporter("Redis"));
+	await waitFor("NATS", initializePubSub, 30, 2_000, subsystemReporter("NATS"));
 
 	if (adminRoutesEnabled) {
 		app.use("*", setSession);
@@ -77,6 +91,7 @@ async function main() {
 		// capped by a control-plane limit.
 		app.use("/_/admin/api/*", adminRateLimit);
 		await loadInstanceSettings(); // must precede initializeAuth so sso_config is available
+		subsystemConnected("Instance settings");
 		await publishConfiguredLicense();
 		initializeAuth(db);
 		authenticationRouter.registerHandler(app);

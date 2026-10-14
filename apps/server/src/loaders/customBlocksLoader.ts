@@ -69,7 +69,6 @@ function rebuildCache(blocks: DbBlock[], isSingle: boolean = false) {
 
 export function initializeCustomBlocksSubscription() {
 	subscribeToChannel(CHAN_ON_CUSTOM_BLOCK_CHANGE, async (id) => {
-		logger.info(`Custom block reloaded: ${id || "all"}`);
 		await loadCustomBlocks(id);
 	});
 }

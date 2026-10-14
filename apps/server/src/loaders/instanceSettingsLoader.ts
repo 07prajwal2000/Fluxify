@@ -39,7 +39,6 @@ export async function loadInstanceSettings() {
 		// the new value rather than pick it up on the next call. Imported lazily
 		// so a worker that only watches settings never loads the auth stack.
 		onChange: async (key) => {
-			logger.info(`instance setting '${key}' changed, reloading`);
 			if (key === "sso_config" || key === "auth_config")
 				(await import("../lib/auth")).initializeAuth(db);
 		},

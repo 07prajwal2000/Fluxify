@@ -140,7 +140,7 @@ export function createJobWorker(options: JobWorkerOptions): JobWorker {
 				const consumers: QueueConsumer[] = [];
 				for (const kind of kinds) consumers.push(await consume(projectId, kind));
 				served.set(projectId, consumers);
-				logger.info(
+				logger.debug(
 					`[jobs] worker (${config.mode}) serving ${projectId}: ${kinds.join(", ")}`,
 					"JOBS",
 				);
@@ -157,7 +157,7 @@ export function createJobWorker(options: JobWorkerOptions): JobWorker {
 			if (!consumers) return;
 			served.delete(projectId);
 			await Promise.allSettled(consumers.map((consumer) => consumer.stop()));
-			logger.info(`[jobs] worker stopped serving ${projectId}`, "JOBS");
+			logger.debug(`[jobs] worker stopped serving ${projectId}`, "JOBS");
 		},
 
 		projects: () => [...served.keys()],

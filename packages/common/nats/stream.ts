@@ -110,7 +110,7 @@ export async function ensureStream(nc: NatsConnection, spec: StreamSpec): Promis
 	} catch (error) {
 		if (!isStreamNotFound(error)) throw error;
 		await jsm.streams.add(newStreamConfig(spec));
-		logger.info(`[nats] stream ${spec.name} created`, "NATS");
+		logger.debug(`[nats] stream ${spec.name} created`, "NATS");
 	}
 }
 
@@ -152,7 +152,7 @@ export async function ensureConsumer(
 	} catch (error) {
 		if (!isConsumerNotFound(error)) throw error;
 		await jsm.consumers.add(stream, newConsumerConfig(spec));
-		logger.info(`[nats] consumer ${stream}/${spec.durable} created`, "NATS");
+		logger.debug(`[nats] consumer ${stream}/${spec.durable} created`, "NATS");
 	}
 }
 

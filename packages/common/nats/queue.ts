@@ -195,11 +195,6 @@ export async function consumeQueue<T>(
 		msg.nak(retryDelayMs);
 	}
 
-	logger.info(
-		`[nats] consuming ${label} (concurrency ${concurrency}, ack ${ackMode}, failure ${failure})`,
-		"NATS",
-	);
-
 	return {
 		stop: async () => {
 			await messages.close();
@@ -416,11 +411,6 @@ export async function consumeBatches<T>(
 		logger.warn(`[nats] ${where} failed (attempt ${attempt}), retrying: ${String(error)}`, "NATS");
 		for (const message of batch) message.msg.nak(delayMs);
 	}
-
-	logger.info(
-		`[nats] consuming ${label} in batches (max ${maxMessages} / ${options.maxBytes}B / ${maxWaitMs}ms, concurrency ${concurrency})`,
-		"NATS",
-	);
 
 	return {
 		stop: async () => {

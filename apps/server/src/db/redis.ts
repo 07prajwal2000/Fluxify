@@ -24,7 +24,7 @@ let redisClient: Redis = null!;
 export function initializeRedis(_hotReload?: boolean) {
 	redisClient = createRedisClient();
 	redisClient.connect(() => {
-		logger.info("[Redis] connected");
+		logger.debug("[Redis] connected");
 	});
 }
 

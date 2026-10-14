@@ -165,12 +165,10 @@ function merge(current: Record<string, any>, incoming: Record<string, any>, proj
 export async function loadIntegrations() {
 	await loadFromDB();
 	subscribeToChannel(CHAN_ON_INTEGRATION_CHANGE, async () => {
-		logger.info("integrations reloaded");
 		await loadFromDB();
 		await DbFactory.ResetConnections();
 	});
 	subscribeToChannel(CHAN_ON_APPCONFIG_CHANGE, async () => {
-		logger.info("integrations reloaded");
 		await loadFromDB();
 		await DbFactory.ResetConnections();
 	});

@@ -1,7 +1,8 @@
-import { logger } from "@fluxify/common";
+import { logger, startup } from "@fluxify/common";
 import { serve } from "bun";
 import { closePubSub } from "../src/db/pubsub";
 import { getEnv } from "../src/lib/env";
+import { healthUrl, listenUrl } from "../src/lib/startupReport";
 import { app } from "../src/server";
 
 const port = Number(getEnv("SERVER_PORT")) || 5500;
@@ -11,7 +12,11 @@ const server = serve({
 	port,
 });
 
-logger.info(`standalone server is running at http://${server.hostname}:${server.port}`);
+// main() in server.ts filled the report; this is the one line it could not know.
+startup()
+	.health(healthUrl(server.hostname, server.port ?? port))
+	.listening(listenUrl(server.hostname, server.port ?? port))
+	.render();
 
 // Graceful shutdown. As PID 1 the process must install its OWN signal handlers —
 // the kernel drops default-disposition signals for PID 1, so without these

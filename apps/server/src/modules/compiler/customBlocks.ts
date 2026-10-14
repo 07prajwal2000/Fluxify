@@ -74,7 +74,6 @@ export async function compileMiddleware(id: string, projectId?: string) {
 			? putArtifact(key, artifact(promoted), "production")
 			: deleteArtifact(key, "production"),
 	]);
-	logger.info(`[compiler] published middleware ${working.middleware.name}`, "COMPILER");
 }
 
 export async function compileProjectCustomBlocks(projectId: string) {
@@ -210,7 +209,6 @@ async function compileCustomBlockOrThrow(id: string) {
 		.where(eq(customBlocksListEntity.id, id));
 
 	if (!block) {
-		logger.info(`[compiler] dropping custom block ${id}`, "COMPILER");
 		unregisterLocally(id);
 		return;
 	}
@@ -277,7 +275,6 @@ async function compileCustomBlockOrThrow(id: string) {
 	const failure = working.error ?? promoted?.error;
 	if (failure) throw failure;
 	await logCompiled(resource);
-	logger.info(`[compiler] compiled custom block ${block.name}`, "COMPILER");
 }
 
 export async function dropCustomBlock(projectId: string, id: string) {

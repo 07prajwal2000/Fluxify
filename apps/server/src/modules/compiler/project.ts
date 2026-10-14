@@ -1,4 +1,3 @@
-import { logger } from "@fluxify/common";
 import { db } from "../../db";
 import { projectsEntity } from "../../db/schema";
 import { compileProjectSandboxes } from "./sandbox";
@@ -25,13 +24,9 @@ export async function compileAllProjects() {
 
 export async function compileProject(projectId: string) {
 	await publishProjectConfig(projectId);
-	const blocks = await compileProjectCustomBlocks(projectId);
+	await compileProjectCustomBlocks(projectId);
 	await compileProjectMiddlewares(projectId);
-	const routes = await compileProjectRoutes(projectId);
-	const workflows = await compileProjectWorkflows(projectId);
-	const sandboxes = await compileProjectSandboxes(projectId);
-	logger.info(
-		`[compiler] project ${projectId}: ${routes} routes, ${workflows} workflows, ${sandboxes} sandboxes, ${blocks} custom blocks`,
-		"COMPILER",
-	);
+	await compileProjectRoutes(projectId);
+	await compileProjectWorkflows(projectId);
+	await compileProjectSandboxes(projectId);
 }

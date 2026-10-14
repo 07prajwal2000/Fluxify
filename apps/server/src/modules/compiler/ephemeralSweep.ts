@@ -21,6 +21,6 @@ export async function sweepEphemeralArtifacts(now = Date.now()) {
 		await store.delete(key);
 		swept++;
 	}
-	if (swept) logger.info(`[ephemeral] swept ${swept} leftover artifact(s)`, "EPHEMERAL");
+	if (swept) logger.debug(`[ephemeral] swept ${swept} leftover artifact(s)`, "EPHEMERAL");
 	return swept;
 }

@@ -152,7 +152,7 @@ export class TriggerWorker {
 			},
 		);
 		this.internal.set(projectId, consumer);
-		logger.info(`[triggers] internal consumer listening on ${subject}`, "TRIGGERS");
+		logger.debug(`[triggers] internal consumer listening on ${subject}`, "TRIGGERS");
 	}
 
 	/** Stops one project's internal subject — it was deleted, or moved away. */
@@ -175,7 +175,7 @@ export class TriggerWorker {
 			if (!current) return;
 			await current.consumer.stop();
 			this.running.delete(triggerId);
-			logger.info(`[triggers] stopped consumer for ${triggerId}`, "TRIGGERS");
+			logger.debug(`[triggers] stopped consumer for ${triggerId}`, "TRIGGERS");
 			return;
 		}
 
@@ -244,7 +244,7 @@ export class TriggerWorker {
 				retryDelayMs: artifact.retryDelayMs ?? this.options.retryDelayMs,
 			},
 		);
-		logger.info(
+		logger.debug(
 			`[triggers] consumer for ${artifact.triggerId} -> ${artifact.workflowId} (batch ${artifact.batchSize})`,
 			"TRIGGERS",
 		);

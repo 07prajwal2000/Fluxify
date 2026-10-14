@@ -33,7 +33,7 @@ export async function connectNats(options: NatsConnectOptions = {}): Promise<Nat
 		...opts,
 	});
 	connections.set(connectionName, nc);
-	logger.info(`[nats] connected (${connectionName})`, "NATS");
+	logger.debug(`[nats] connected (${connectionName})`, "NATS");
 	void watchStatus(nc, connectionName);
 	return nc;
 }
