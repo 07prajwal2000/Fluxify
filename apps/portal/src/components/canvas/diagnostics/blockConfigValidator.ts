@@ -218,12 +218,8 @@ export function blockConfigIssues(type: string, data: BlockData): BlockConfigIss
 			if (rows(data).some((row) => isBlank(row.key))) report("warning", "Variable name is empty.");
 			break;
 		case BLOCK_TYPES.arrayops:
-			if (data.useParamAsInput !== true && isBlank(data.datasource)) {
-				report(
-					"warning",
-					"No datasource. Enter the array variable or turn on Use Param.",
-					"General",
-				);
+			if (isBlank(data.datasource)) {
+				report("warning", "No datasource. Enter the array variable.", "General");
 			}
 			break;
 		case BLOCK_TYPES.kv_operations:

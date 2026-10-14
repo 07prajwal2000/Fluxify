@@ -183,8 +183,11 @@ describe("validateBlockConfigs", () => {
 	});
 
 	it("respects use param toggles", () => {
-		expect(severities(BLOCK_TYPES.arrayops, { useParamAsInput: true })).toEqual([]);
+		expect(severities(BLOCK_TYPES.arrayops, { useParamAsInput: true })).toEqual(["warning"]);
 		expect(severities(BLOCK_TYPES.arrayops, { useParamAsInput: false })).toEqual(["warning"]);
+		expect(severities(BLOCK_TYPES.arrayops, { useParamAsInput: true, datasource: "cart" })).toEqual(
+			[],
+		);
 		expect(severities(BLOCK_TYPES.foreachloop, { useParam: false, values: [] })).toEqual(["warning"]);
 		expect(severities(BLOCK_TYPES.foreachloop, { useParam: true, values: [] })).toEqual([]);
 	});
