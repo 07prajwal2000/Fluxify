@@ -33,7 +33,7 @@ async function initializePostgres() {
 			throw error;
 		});
 	if (result[0].connected) {
-		logger.info("postgres database initialized");
+		logger.debug("postgres database initialized");
 	} else {
 		throw new Error("db connection failed");
 	}

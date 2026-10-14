@@ -1,4 +1,4 @@
-import { initializeLogger, logger } from "@fluxify/common";
+import { initializeLogger, logger, startup } from "@fluxify/common";
 import { serve } from "bun";
 import { Hono } from "hono";
 import { closePubSub } from "../src/db/pubsub";
@@ -11,6 +11,13 @@ import {
 	OTLP_LOGGER_ENABLED,
 	OTLP_LOGGER_LEVEL,
 } from "../src/lib/env";
+import {
+	beginServerStartup,
+	healthUrl,
+	localUrl,
+	reportWorkerSettings,
+	subsystemConnected,
+} from "../src/lib/startupReport";
 import { markReady, registerHealthRoutes } from "../src/modules/requestRouter/health";
 import { mapRouter } from "../src/modules/requestRouter/router";
 import { initWorker } from "../src/modules/requestRouter/worker";
@@ -25,6 +32,7 @@ initializeLogger({
 	otlpHeaders: { [OTLP_AUTH_HEADER_NAME]: OTLP_AUTH_HEADER_VALUE },
 	useOtlp: OTLP_LOGGER_ENABLED === "true",
 });
+beginServerStartup("fluxify.worker");
 
 // Serve immediately so the startup probe answers while deps load; the ready
 // probe returns 503 until initWorker() finishes and markReady() flips it.
@@ -36,7 +44,6 @@ const server = serve({
 	port,
 	maxRequestBodySize: MAX_REQUEST_BODY_BYTES,
 });
-logger.info(`request worker running at http://${server.hostname}:${server.port}`);
 
 // Graceful shutdown — registered BEFORE the (slow) initWorker() so a stop during
 // startup is honored too. As PID 1 the process must install its OWN handlers:
@@ -61,10 +68,18 @@ process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT", () => shutdown("SIGINT"));
 
 const parser = await initWorker();
+subsystemConnected("Postgres");
+subsystemConnected("Database schema");
+subsystemConnected("Redis");
+subsystemConnected("NATS");
+reportWorkerSettings();
 
 // HTTP is the only wired transport for now. To add NATS/BullMQ later, build a
 // RequestEnvelope from the incoming message and call dispatch(env, parser) —
 // see src/modules/requestRouter/service.ts. The runtime above stays unchanged.
 await mapRouter(app, parser);
 markReady();
-logger.info("request worker ready — dependencies loaded");
+startup()
+	.health(healthUrl(server.hostname, server.port ?? port))
+	.listening(localUrl(server.hostname, server.port ?? port))
+	.render();

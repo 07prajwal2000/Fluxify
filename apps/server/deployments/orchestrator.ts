@@ -1,10 +1,17 @@
 import { hostname } from "node:os";
-import { initializeLogger, logger } from "@fluxify/common";
+import { initializeLogger, logger, startup } from "@fluxify/common";
 import { db, drizzleInit } from "../src/db";
 import { closeNats, initializeNats, natsConnected } from "../src/db/nats";
 import { nodeClaimsEntity } from "../src/db/schema";
 import { watchLicense } from "../src/lib/edition";
 import { getEnv } from "../src/lib/env";
+import {
+	beginServerStartup,
+	localUrl,
+	reportOrchestratorSettings,
+	subsystemConnected,
+	subsystemReporter,
+} from "../src/lib/startupReport";
 import { waitFor } from "../src/lib/waitFor";
 import { watchInstanceSettings } from "../src/loaders/instanceSettingsLoader";
 import { createDockerDriver } from "../src/modules/orchestrator/drivers/docker";
@@ -68,6 +75,7 @@ const PASSTHROUGH = [
 ];
 
 initializeLogger({ serviceName: "fluxify.orchestrator" });
+beginServerStartup("fluxify.orchestrator");
 
 if (!image) {
 	logger.error(
@@ -79,17 +87,21 @@ if (!image) {
 
 // Postgres and NATS may still be starting (#463); admin owns migrations, so a
 // fresh stack is waited out as well rather than exited.
-await waitFor("Postgres", () => drizzleInit());
+await waitFor("Postgres", () => drizzleInit(), 30, 2_000, subsystemReporter("Postgres"));
 await waitFor(
 	"database schema",
 	() => db.select({ id: nodeClaimsEntity.id }).from(nodeClaimsEntity).limit(1),
 	60,
+	2_000,
+	subsystemReporter("Database schema"),
 );
-await waitFor("NATS", initializeNats);
+await waitFor("NATS", initializeNats, 30, 2_000, subsystemReporter("NATS"));
 // Both arrive over NATS KV: the license decides what may be claimed, the pool
 // ceiling how much of it the host will take. Admin publishes both.
 await watchLicense();
+subsystemConnected("License");
 await watchInstanceSettings();
+subsystemConnected("Instance settings");
 
 const passthroughEnv = Object.fromEntries(
 	PASSTHROUGH.map((key) => [key, process.env[key]]).filter(([, value]) => value !== undefined),
@@ -146,6 +158,8 @@ if (!(await driver.reachable())) {
 	);
 	process.exit(1);
 }
+subsystemConnected(`Platform (${driver.provider})`, String(driver.meta.endpoint));
+reportOrchestratorSettings();
 
 const holder = `${hostname()}:${process.pid}`;
 // Published as the lease value, which is where admin reads it from (§14.5).
@@ -172,9 +186,10 @@ const healthServer = Bun.serve({
 	},
 });
 
-logger.info(
-	`orchestrator ready — reconciling every ${intervalMs}ms, health on http://${healthServer.hostname}:${healthPort}`,
-);
+startup()
+	.health(`${localUrl(healthServer.hostname, healthPort)}/health`)
+	.listening(localUrl(healthServer.hostname, healthPort))
+	.render();
 
 let shuttingDown = false;
 async function shutdown(signal: string) {

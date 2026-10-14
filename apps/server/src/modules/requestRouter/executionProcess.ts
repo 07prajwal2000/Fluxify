@@ -132,7 +132,11 @@ function bootstrap(nextBoot: ExecutionBootstrap) {
 		fetch: handle,
 	});
 	send({ type: "ready" });
-	logger.info(`[execution] serving port ${server.port}`, "WORKER.execution");
+	const host =
+		!server.hostname || server.hostname === "0.0.0.0" || server.hostname === "::"
+			? "localhost"
+			: server.hostname;
+	logger.info(`[execution] serving on http://${host}:${server.port}`, "WORKER.execution");
 }
 
 /**

@@ -1,4 +1,4 @@
-import { logger, MissingEnvValueError } from "@fluxify/common";
+import { MissingEnvValueError } from "@fluxify/common";
 import { eq } from "drizzle-orm";
 import z from "zod";
 import { db } from "../db";
@@ -24,7 +24,6 @@ export async function loadAppConfig() {
 	const configData = await loadAppConfigFor("production");
 	subscribeToChannel(CHAN_ON_APPCONFIG_CHANGE, async () => {
 		appConfigCache = (await loadAppConfigFor("production")).config;
-		logger.info("appconfig reloaded");
 	});
 	appConfigCache = configData.config;
 }

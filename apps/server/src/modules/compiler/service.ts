@@ -1,5 +1,4 @@
 import { compileGraph } from "@fluxify/blocks";
-import { logger } from "@fluxify/common";
 import { and, eq, or } from "drizzle-orm";
 import { db } from "../../db";
 import { deleteArtifactEverywhere } from "../../db/natsKv";
@@ -133,7 +132,6 @@ export async function compileRoute(routeId: string) {
 		.where(eq(routesEntity.id, routeId));
 
 	if (!route || (!isServedIn(route, "development") && !isServedIn(route, "production"))) {
-		logger.info(`[compiler] dropping route ${routeId}`, "COMPILER");
 		if (route?.projectId) {
 			await dropRoute(route.projectId, routeId);
 			await logInactive(
@@ -209,7 +207,6 @@ export async function compileRoute(routeId: string) {
 	};
 	await putPerEnv(routeKey(route.projectId!, routeId), artifact, perEnv, route);
 	await logCompiled(resource);
-	logger.info(`[compiler] compiled route ${route.method} ${route.path}`, "COMPILER");
 }
 
 export async function dropRoute(projectId: string, routeId: string) {
@@ -245,7 +242,6 @@ export async function compileWorkflow(workflowId: string) {
 		.where(eq(workflowsEntity.id, workflowId));
 
 	if (!workflow || (!isServedIn(workflow, "development") && !isServedIn(workflow, "production"))) {
-		logger.info(`[compiler] dropping workflow ${workflowId}`, "COMPILER");
 		if (workflow?.projectId) {
 			await dropWorkflow(workflow.projectId, workflowId);
 			await logInactive(
@@ -308,7 +304,6 @@ export async function compileWorkflow(workflowId: string) {
 	};
 	await putPerEnv(workflowKey(workflow.projectId!, workflowId), artifact, perEnv, workflow);
 	await logCompiled(resource);
-	logger.info(`[compiler] compiled workflow ${workflow.name}`, "COMPILER");
 }
 
 export async function dropWorkflow(projectId: string, workflowId: string) {

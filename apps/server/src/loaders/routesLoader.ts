@@ -1,4 +1,3 @@
-import { logger } from "@fluxify/common";
 import { HttpRouteParser } from "@fluxify/lib";
 import { eq } from "drizzle-orm";
 import { db } from "../db";
@@ -14,7 +13,6 @@ export async function loadRoutes() {
 	const canHotreload = getEnv("HOT_RELOAD_ROUTES") == "true";
 	if (canHotreload) {
 		// register to chan:on-route-change signal from redis event
-		logger.info("routes hot reloading enabled");
 		subscribeToChannel(CHAN_ON_ROUTE_CHANGE, async (id) => {
 			if (id) {
 				await deleteCacheKey(`${id}_GRAPH`);
@@ -24,7 +22,6 @@ export async function loadRoutes() {
 			const fetchedRoutes = await fetchRoutes();
 			// @ts-expect-error
 			parser.rebuildRoutes(fetchedRoutes);
-			logger.info("reloaded routes from db");
 		});
 	}
 

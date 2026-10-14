@@ -1,5 +1,4 @@
 import { compileGraph } from "@fluxify/blocks";
-import { logger } from "@fluxify/common";
 import { eq } from "drizzle-orm";
 import { db } from "../../db";
 import { deleteArtifact, putArtifact } from "../../db/natsKv";
@@ -93,7 +92,6 @@ export async function compileSandbox(sandboxId: string) {
 		),
 	]);
 	await logCompiled(resource);
-	logger.info(`[compiler] compiled sandbox ${sandbox.name}`, "COMPILER");
 }
 
 export async function dropSandbox(projectId: string, sandboxId: string) {

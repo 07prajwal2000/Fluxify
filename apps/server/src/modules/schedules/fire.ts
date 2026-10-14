@@ -79,7 +79,7 @@ export async function startFireConsumer(options: FireConsumerOptions): Promise<Q
 		},
 	);
 
-	logger.info(`[schedules] fire consumer listening on ${filter}`, "SCHEDULES");
+	logger.debug(`[schedules] fire consumer listening on ${filter}`, "SCHEDULES");
 	return consumer;
 }
 

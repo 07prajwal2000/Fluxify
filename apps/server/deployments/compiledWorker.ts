@@ -1,6 +1,6 @@
 import { existsSync, watch } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { initializeLogger, logger } from "@fluxify/common";
+import { initializeLogger, logger, startup } from "@fluxify/common";
 import type { RpcResponder } from "@fluxify/common/nats";
 import type { NodeType } from "@fluxify/common/orchestrator";
 import { closeNats } from "../src/db/nats";
@@ -21,6 +21,13 @@ import {
 	WORKER_MODE,
 	WORKER_PROJECT_ID,
 } from "../src/lib/env";
+import {
+	beginServerStartup,
+	healthUrl,
+	localUrl,
+	reportWorkerSettings,
+	subsystemConnected,
+} from "../src/lib/startupReport";
 import { configuredBaseDomain, watchInstanceSettings } from "../src/loaders/instanceSettingsLoader";
 import type {
 	DepsArtifact,
@@ -72,6 +79,7 @@ initializeLogger({
 	otlpHeaders: { [OTLP_AUTH_HEADER_NAME]: OTLP_AUTH_HEADER_VALUE },
 	useOtlp: OTLP_LOGGER_ENABLED === "true",
 });
+beginServerStartup("fluxify.worker.compiled");
 
 if (!WORKER_PROJECT_ID) {
 	logger.error("WORKER_PROJECT_ID is required — set a project id, or * to serve every project");
@@ -94,7 +102,7 @@ const healthServer = Bun.serve({
 	port: healthPort,
 	fetch: (request) => healthResponse(request) ?? new Response(null, { status: 404 }),
 });
-logger.info(`supervisor health on http://${healthServer.hostname}:${healthPort}`);
+logger.debug(`supervisor health on http://${healthServer.hostname}:${healthPort}`);
 
 const bundledProcess = new URL("./executionProcess.js", import.meta.url);
 const processEntry = existsSync(bundledProcess)
@@ -310,6 +318,8 @@ await watchInstanceSettings((key) => {
 		} satisfies ExecutionMessage);
 });
 await watchLicense();
+subsystemConnected("Instance settings");
+subsystemConnected("License");
 
 /**
  * Join the control plane before any consumer starts: what this node runs comes
@@ -351,6 +361,12 @@ logger.info(
 		: `node ${node.slot.nodeId} holds a license slot — type ${node.type}`,
 	"WORKER.node",
 );
+reportWorkerSettings({
+	mode: node.type,
+	projectId: WORKER_PROJECT_ID,
+	nodeId: node.slot.nodeId,
+	claimId: FLUXIFY_CLAIM_ID,
+});
 
 /**
  * Built here, before the artifact watch: the watch is what tells it which
@@ -400,6 +416,7 @@ const artifactWatch = await watchProjectArtifacts(
 	artifactKindsForMode(node.type),
 );
 await artifactWatch.initialized;
+subsystemConnected("Artifact KV");
 // a fresh node installs every project's packages before it serves anything
 await deps.idle();
 
@@ -418,7 +435,7 @@ if (!existsSync(bundledProcess)) {
 		if (!file?.endsWith(".ts") || file.includes("node_modules")) return;
 		clearTimeout(pending);
 		pending = setTimeout(() => {
-			logger.info(`${file} changed — restarting execution process`, "WORKER.execution");
+			logger.debug(`${file} changed — restarting execution process`, "WORKER.execution");
 			supervisor.replace();
 		}, 300);
 	};
@@ -453,6 +470,8 @@ for (const projectId of servedProjects)
 		fatal(`consumers for project ${projectId}`, error),
 	);
 servingProjects = true;
+subsystemConnected("Job consumers", `${servedProjects.size} project(s)`);
+subsystemConnected("Trigger consumers", `${servedProjects.size} project(s)`);
 logger.info(
 	`serving ${servedProjects.size} project(s) as a ${node.type} node${WORKER_PROJECT_ID === "*" ? " (catch-all)" : ""}`,
 	"WORKER",
@@ -472,7 +491,10 @@ if (jobKindsForMode(node.type).includes(WORKFLOW_JOB)) {
 }
 
 node.serving();
-logger.info(`compiled worker ready — isolated execution process on port ${port}`);
+startup()
+	.health(healthUrl(healthServer.hostname, healthPort))
+	.listening(localUrl(healthServer.hostname, port))
+	.render();
 
 /**
  * Deprovisioning a node means draining it, in this order:

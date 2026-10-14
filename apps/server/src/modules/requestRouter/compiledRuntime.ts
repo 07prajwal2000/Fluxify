@@ -328,7 +328,6 @@ function addRoute(artifact: RouteArtifact) {
 		// with a subdomain the project answers there and nowhere else
 		if (subdomainByProject.has(artifact.projectId)) parser.removeRoute(artifact.routeId);
 		else parser.upsertRoute(definition);
-		logger.info(`[worker] loaded ${artifact.method} ${artifact.path}`, "WORKER.compiled");
 	} catch (error) {
 		// a graph that will not instantiate must not take the other routes down
 		logger.error(
@@ -346,7 +345,6 @@ function addSandbox(artifact: RouteArtifact) {
 			run: instantiateCompiled(artifact.source),
 			validators: {},
 		});
-		logger.info(`[worker] loaded sandbox ${artifact.routeId}`, "WORKER.compiled");
 	} catch (error) {
 		logger.error(
 			`[worker] failed to load sandbox ${artifact.routeId}: ${String(error)}`,
@@ -380,7 +378,6 @@ function addWorkflow(artifact: WorkflowArtifact) {
 			artifact,
 			run: instantiateCompiled(artifact.source),
 		});
-		logger.info(`[worker] loaded workflow ${artifact.name}`, "WORKER.compiled");
 	} catch (error) {
 		// one bad graph must not take the rest of the worker down
 		logger.error(
@@ -411,7 +408,6 @@ function removeRoute(routeId: string) {
 		routes.delete(routeId);
 		parser.removeRoute(routeId);
 		projectParsers.get(compiled.artifact.projectId)?.removeRoute(routeId);
-		logger.info(`[worker] removed route ${routeId}`, "WORKER.compiled");
 	}
 }
 
@@ -444,10 +440,6 @@ function setProjectSubdomain(projectId: string, subdomain: string) {
 		if (subdomain) parser.removeRoute(artifact.routeId);
 		else parser.upsertRoute(routeDefinition(artifact));
 	}
-	logger.info(
-		`[worker] project ${projectId} ${subdomain ? `serves on subdomain ${subdomain}` : "shares the base domain"}`,
-		"WORKER.compiled",
-	);
 }
 
 function routeDefinition(artifact: RouteArtifact): HttpRoute {
@@ -473,7 +465,6 @@ function addCustomBlock(artifact: CustomBlockArtifact) {
 	try {
 		registerCompiledCustomBlock(artifact.projectId, artifact.name, artifact.source, artifact.id);
 		customBlockNamesById.set(artifact.id, { projectId: artifact.projectId, name: artifact.name });
-		logger.info(`[worker] loaded custom block ${artifact.name}`, "WORKER.compiled");
 	} catch (error) {
 		logger.error(
 			`[worker] failed to load custom block ${artifact.id}: ${String(error)}`,
@@ -487,7 +478,6 @@ function removeCustomBlock(id: string) {
 	if (!registered) return;
 	unregisterCustomBlock(registered.projectId, registered.name);
 	customBlockNamesById.delete(id);
-	logger.info(`[worker] removed custom block ${registered.name}`, "WORKER.compiled");
 }
 
 /** already unsealed by the supervisor — the encryption key never enters this thread */
@@ -526,5 +516,4 @@ function applyProjectConfig(artifact: UnsealedProjectConfig) {
 		artifact.projectId,
 		payload.projectSettings?.["settings.routing.subdomain"] ?? "",
 	);
-	logger.info(`[worker] project config applied (${artifact.compiledAt})`, "WORKER.compiled");
 }
