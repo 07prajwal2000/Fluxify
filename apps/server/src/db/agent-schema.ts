@@ -68,6 +68,9 @@ export const agentConversationsEntity = pgTable(
 		/** Archived conversations are hidden from the default list, can't be
 		 *  pinned, and can't receive new messages. */
 		archived: boolean("archived").default(false).notNull(),
+		/** When the conversation was archived (#721). Deletion ages it out;
+		 *  unarchiving clears it. Not `updated_at`, which moves on every change. */
+		archivedAt: timestamp("archived_at"),
 		metadata: jsonb("metadata").$type<Record<string, any>>(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		updatedAt: timestamp("updated_at")

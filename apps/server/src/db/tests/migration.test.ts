@@ -335,6 +335,35 @@ describe("migrateDB", () => {
 		).toEqual([{ tracing_enabled: false, record_execution: false, dev_tracing_enabled: false, dev_record_execution: true }]);
 	});
 
+	test("archived agent chats get archived_at on upgrade (#721)", async () => {
+		const { url, client } = await newDatabase();
+		const folder = mkdtempSync(join(tmpdir(), "fluxify-migrations-"));
+		try {
+			cpSync(MIGRATIONS_FOLDER, folder, { recursive: true });
+			const journalPath = join(folder, "meta/_journal.json");
+			const meta = await Bun.file(journalPath).json();
+			// everything before 0021: the schema without archived_at
+			const from = meta.entries.findIndex(
+				(e: { tag: string }) => e.tag === "0021_agent_conversation_archived_at",
+			);
+			meta.entries = meta.entries.slice(0, from);
+			await Bun.write(journalPath, JSON.stringify(meta));
+			await migrateDB(url, folder);
+		} finally {
+			rmSync(folder, { recursive: true, force: true });
+		}
+		await client`INSERT INTO system_users (id, email, name) VALUES ('u1', 'ada@example.com', 'Ada')`;
+		await client`INSERT INTO projects (id, name, slug) VALUES ('p1', 'Shop', 'shop')`;
+		await client`INSERT INTO agent_conversations (id, user_id, project_id, archived) VALUES ('a', 'u1', 'p1', true), ('b', 'u1', 'p1', false)`;
+		await migrateDB(url);
+
+		// the already-archived chat is aged out from the upgrade; the other stays null
+		expect(await client`SELECT id, archived_at IS NOT NULL AS set FROM agent_conversations ORDER BY id`).toEqual([
+			{ id: "a", set: true },
+			{ id: "b", set: false },
+		]);
+	});
+
 	test("two migrators at once: one applies, the other waits and finds nothing to do", async () => {
 		const { url, client } = await newDatabase();
 		await Promise.all([migrateDB(url), migrateDB(url)]);
