@@ -41,7 +41,7 @@ type Condition = {
 arrayops {
 	operation: "push" | "pop" | "shift" | "unshift" | "filter";  // type of operation to perform
 	value?: any;  // the value to insert (if insert operation is made)
-	useParamAsInput?: boolean;  // use the parameter as the datasource (passed from previous block's output)
+	useParamAsInput?: boolean;  // use the parameter from the previous block's output as the value to insert (for push/unshift), instead of the Value field
 	datasource: string;  // global variable to perform the operation on
 	filterConditions?: Condition[];  // list of conditions which are evaluated
 }

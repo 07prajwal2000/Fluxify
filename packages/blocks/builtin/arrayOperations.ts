@@ -14,7 +14,9 @@ export const arrayOperationsBlockSchema = z
 		useParamAsInput: z
 			.boolean()
 			.optional()
-			.describe("use the parameter as the datasource (passed from previous block's output)"),
+			.describe(
+				"use the parameter from the previous block's output as the value to insert (for push/unshift), instead of the Value field",
+			),
 		datasource: z.string().describe("global variable to perform the operation on"),
 		filterConditions: z
 			.array(conditionSchema)

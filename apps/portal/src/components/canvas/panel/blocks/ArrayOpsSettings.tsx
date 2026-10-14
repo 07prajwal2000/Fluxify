@@ -8,25 +8,22 @@ import { parseConditionList, serializeIfConditions } from "./ifConditions";
 
 /** Array Operations General tab settings: Datasource and Use Param. */
 export function ArrayOpsGeneralSettings({ block }: { block: BlockNode }) {
-	const useParamAsInput = Boolean(block.data.useParamAsInput);
 	return (
 		<div className="flex flex-col gap-4">
-			{!useParamAsInput && (
-				<BlockTextField
-					blockId={block.id}
-					data={block.data}
-					name="datasource"
-					label="Datasource"
-					placeholder="Type or enter variable name"
-					hint="Choose a variable which contains the target array on which operation will be performed"
-				/>
-			)}
+			<BlockTextField
+				blockId={block.id}
+				data={block.data}
+				name="datasource"
+				label="Datasource"
+				placeholder="Type or enter variable name"
+				hint="Choose a variable which contains the target array on which operation will be performed"
+			/>
 			<BlockCheckboxField
 				blockId={block.id}
 				data={block.data}
 				name="useParamAsInput"
 				label="Use Param"
-				description="Use input parameter as the datasource?"
+				description="Use the input from the previous block as the value?"
 			/>
 		</div>
 	);
