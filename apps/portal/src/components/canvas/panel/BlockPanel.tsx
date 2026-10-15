@@ -117,6 +117,17 @@ export function BlockPanel({
 					</div>
 				</div>
 			)}
+			{block && (
+				<button
+					type="button"
+					className="fx-panel__close fx-panel__close--edge"
+					title="Close settings"
+					aria-label="Close settings"
+					onClick={onClose}
+				>
+					<TbChevronsRight />
+				</button>
+			)}
 			{current && (
 				<>
 					<header className="fx-panel__header">
@@ -150,15 +161,6 @@ export function BlockPanel({
 								{current.blockKey}
 							</span>
 						)}
-						<button
-							type="button"
-							className="fx-panel__close"
-							title="Collapse panel"
-							aria-label="Collapse panel"
-							onClick={onClose}
-						>
-							<TbChevronsRight />
-						</button>
 					</header>
 
 					<div className="fx-panel__body">

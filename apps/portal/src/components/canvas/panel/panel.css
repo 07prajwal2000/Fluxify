@@ -200,7 +200,7 @@ html[data-theme="dark"] .fx-panel,
 	justify-content: center;
 	padding: 0;
 	border: none;
-	border-radius: 4px;
+	border-radius: 9999px;
 	background: transparent;
 	color: inherit;
 	cursor: pointer;
@@ -209,6 +209,30 @@ html[data-theme="dark"] .fx-panel,
 
 .fx-panel__close:hover {
 	background: color-mix(in oklab, var(--fx-panel-fg) 12%, transparent);
+}
+
+/* On the settings panel the close button rides the left outline itself, level
+   with the header and clear of the resize knob further down the same edge. */
+.fx-panel__close--edge {
+	position: absolute;
+	top: 12px;
+	left: 0;
+	z-index: 21;
+	border: 1px solid var(--fx-panel-border);
+	background: var(--fx-panel-bg);
+	color: var(--fx-panel-muted);
+	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+	transform: translateX(-50%);
+	transition:
+		background-color 150ms ease,
+		border-color 150ms ease,
+		color 150ms ease;
+}
+
+.fx-panel__close--edge:hover {
+	background: color-mix(in oklab, var(--fx-panel-fg) 8%, var(--fx-panel-bg));
+	border-color: color-mix(in oklab, var(--fx-panel-fg) 40%, var(--fx-panel-bg));
+	color: var(--fx-panel-fg);
 }
 
 /* The body itself does not scroll — the open tab's panel does, so the tab row
