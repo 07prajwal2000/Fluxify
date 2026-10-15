@@ -22,10 +22,10 @@ const SUMMARY_PROMPT = `You compact a conversation between a user and the Fluxif
 - Ids of everything created or changed (routes, workflows, blocks, suites, ...).
 - Current state: what works, what was checked.
 - Open problems and next steps.
-Exact shapes, copied word for word, never paraphrased (tests and edits are written from them):
-- Every response body and error body a route returned, with its status code, and the exact error messages and header names seen.
-- For each canvas being edited: its block keys (response_1), their types, the handles used and the edges (if_1.true → db_insert_1).
-- For each test suite: its id and what it asserts (status, body fields, exact messages).
+Key technical details (concise, do NOT dump full JSON payloads):
+- Every route response and error: its status code, endpoint, and exact error messages seen (concise, no raw JSON blobs).
+- For each test suite: its id, what it asserts, and any failing checks.
+- Do not list blocks or edges for canvases (they are attached automatically).
 Plain text, no preamble.`;
 /** What the user asked the summary to keep (/compact <text>), added to the prompt. */
 const keepPrompt = (keep?: string) =>

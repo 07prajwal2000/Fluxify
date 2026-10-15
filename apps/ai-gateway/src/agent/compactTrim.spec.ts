@@ -168,8 +168,8 @@ describe("the batch", () => {
 	};
 
 	it("stops at the first class when that is enough", async () => {
-		// ~4k tokens of history; the first class is 2k of it; 50% of 6000 is 3000
-		const r = await prompt(6000, 3700);
+		// ~4.8k tokens of history; the first class is 2k of it; 40% of 7000 is 2800
+		const r = await prompt(7000, 4300);
 		const v = seen(r.a);
 		expect([v.rec, v.logs].map(trimmed)).toEqual([true, true]);
 		expect([v.route1, v.route2].map(trimmed)).toEqual([false, false]);
@@ -190,7 +190,7 @@ describe("the batch", () => {
 	});
 
 	it("freezes the class and the cut-off: the same prefix on the next step", async () => {
-		const r = await prompt(6000, 3700);
+		const r = await prompt(7000, 4300);
 		expect(JSON.stringify(r.b)).toBe(JSON.stringify(r.a));
 		expect(r.events).toHaveLength(1);
 	});

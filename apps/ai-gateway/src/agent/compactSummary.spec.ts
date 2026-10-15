@@ -47,14 +47,14 @@ const chat = (...early: ModelMessage[][]): ModelMessage[] => [
 ];
 
 describe("the summary prompt", () => {
-	it("asks for exact shapes copied word for word", async () => {
+	it("asks for concise technical details without raw JSON dumps or duplicate canvas blocks", async () => {
 		const r = recorder();
 		await summarize(r.model, chat(edit("e1", "a")));
 		const p = r.prompts[0];
-		expect(p).toContain("copied word for word, never paraphrased");
-		expect(p).toContain("response body and error body a route returned, with its status code");
-		expect(p).toContain("block keys");
-		expect(p).toContain("test suite: its id and what it asserts");
+		expect(p).toContain("concise, do NOT dump full JSON payloads");
+		expect(p).toContain("Every route response and error: its status code");
+		expect(p).toContain("Do not list blocks or edges for canvases");
+		expect(p).toContain("test suite: its id, what it asserts");
 	});
 
 	it("shows the summarizer route answers, test suites and errors in full, other results clipped", async () => {

@@ -149,22 +149,61 @@ describe("60%: trim old tool results", () => {
 		expect(r.logged[0]).toMatchObject({ kind: "trim", results: 3, tools: { get_route: 3 } });
 	});
 
-	it("keeps the trimmed prefix identical between batches and moves it only on a new crossing", async () => {
+	it("trims once per cycle, no second batch while usage stays between 60% and 80%", async () => {
 		// 3000 of 5000 = 60%: over, then under at step 2, over again at step 3
 		const r = await run(longChat(), { calls: 4, input: [3000, 100, 3000, 3000], context: 5000 });
 		const head = (i: number) => JSON.stringify(r.prompts[i].slice(0, 12));
 		const trimmed = (i: number) =>
 			results(r.prompts[i]).filter((s) => s.startsWith("[result trimmed")).length;
-		// batch 1 before step 1, then frozen while the history grows
+		// batch 1 before step 1, then frozen while the history grows; dipping under 60% does not re-arm
 		expect(trimmed(0)).toBe(3);
 		expect(head(1)).toBe(head(0));
-		expect(head(2)).toBe(head(0)); // under 60% now: armed, but nothing moves
-		// back over 60%: batch 2 moves the cut-off, then it is frozen again
-		expect(trimmed(3)).toBeGreaterThan(3);
-		expect(head(4)).toBe(head(3));
-		// one line per batch
+		expect(head(2)).toBe(head(0));
+		expect(head(3)).toBe(head(0));
+		expect(head(4)).toBe(head(0));
+		// one line per cycle
+		expect(r.shown.match(/\[compacted\] Trimmed/g)).toHaveLength(1);
+		expect(r.logged).toHaveLength(1);
+	});
+
+	it("skips the batch when the gain is under the minimum", async () => {
+		// step 1 can be trimmed, but freeing ~120 tokens is under 9% of 5000 (450 tokens)
+		const smallGain: ModelMessage[] = [
+			{ role: "user", content: "build a route" },
+			...step(1, "get_route", "x".repeat(600)),
+			...[2, 3, 4, 5].flatMap((i) => step(i, "call_route")),
+			{ role: "assistant", content: "built it" },
+			{ role: "user", content: "now test it" },
+		];
+		const r = await run(smallGain, { calls: 1, input: 3400, context: 5000 });
+		expect(r.shown).not.toContain("[compacted] Trimmed");
+		expect(r.logged).toHaveLength(0);
+		expect(results(r.prompts[0]).some((s) => s.startsWith("[result trimmed"))).toBe(false);
+	});
+
+	it("a finished summary re-arms the trim", async () => {
+		// context 5000: 60% = 3000, 80% = 4000
+		// steps 4-7 ensure there are steps after the summary point eligible for the 2nd trim
+		const history: ModelMessage[] = [
+			{ role: "user", content: "build a route" },
+			...[1, 2, 3].flatMap((i) => step(i)),
+			{ role: "user", content: "now test it" },
+			...[4, 5, 6, 7].flatMap((i) => step(i)),
+		];
+		// context 7000: 60% = 4200, 80% = 5600
+		// step 1: used ~4.8k (between 60% and 80%) -> trim batch 1 runs
+		// step 2: input 6000 (>= 80%) -> summary runs and re-arms
+		// step 3: stale usage reset turn
+		// step 4: input 4500 (>= 60%) -> trim batch 2 runs for the next cycle
+		const r = await run(history, {
+			calls: 3,
+			input: [6000, 4500, 4500, 4500],
+			context: 7000,
+		});
 		expect(r.shown.match(/\[compacted\] Trimmed/g)).toHaveLength(2);
-		expect(r.logged).toHaveLength(2);
+		expect(r.shown).toContain("[compacted] Summarized");
+		expect(r.logged.filter((e: any) => e.kind === "trim")).toHaveLength(2);
+		expect(r.logged.filter((e: any) => e.kind === "summary")).toHaveLength(1);
 	});
 
 	it("does not trim again while usage stays over 60% (the summary is the backstop)", async () => {
