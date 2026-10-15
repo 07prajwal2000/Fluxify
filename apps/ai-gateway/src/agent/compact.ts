@@ -19,9 +19,9 @@ export const MAX_CONTEXT_TOKENS = 128_000;
 /** Over this share of the window, old tool results are shortened when the request is built. */
 export const TRIM_AT = 0.6;
 /** A trim batch goes on to the next class of results until the history is under this share. */
-export const TRIM_TO = 0.48;
+export const TRIM_TO = 0.4;
 /** A trim batch is skipped unless it frees at least this share of the window. */
-export const TRIM_MIN_GAIN = 0.06;
+export const TRIM_MIN_GAIN = 0.09;
 /** Over this share, the older turns are replaced by one summary. */
 export const SUMMARY_AT = 0.8;
 

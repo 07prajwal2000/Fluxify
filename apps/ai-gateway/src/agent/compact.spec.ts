@@ -167,7 +167,7 @@ describe("60%: trim old tool results", () => {
 	});
 
 	it("skips the batch when the gain is under the minimum", async () => {
-		// step 1 can be trimmed, but freeing ~120 tokens is under 6% of 5000 (300 tokens)
+		// step 1 can be trimmed, but freeing ~120 tokens is under 9% of 5000 (450 tokens)
 		const smallGain: ModelMessage[] = [
 			{ role: "user", content: "build a route" },
 			...step(1, "get_route", "x".repeat(600)),
