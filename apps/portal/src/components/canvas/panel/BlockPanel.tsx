@@ -2,6 +2,7 @@ import { useRef } from "react";
 import { TbChevronsRight } from "react-icons/tb";
 import "./panel.css";
 import { CustomBlockIcon } from "@/components/customBlocks/IconPicker";
+import { VersionChips } from "@/components/customBlocks/VersionChips";
 import { blockIcon } from "../blocks/blockIconMap";
 import { blockLabels } from "../blocks/blockLabels";
 import { useCustomBlockDefs } from "../blocks/useCustomBlockDefs";
@@ -141,6 +142,8 @@ export function BlockPanel({
 							>
 								{subtitle}
 							</span>
+							{/* which version runs in development and in production (#803) */}
+							{customDef && <VersionChips blockId={customDef.id} className="mt-1" />}
 						</span>
 						{current.blockKey && (
 							<span className="fx-panel__block-id" title={`Block key: ${current.blockKey}`}>

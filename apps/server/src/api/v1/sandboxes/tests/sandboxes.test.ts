@@ -285,9 +285,6 @@ describe("custom blocks", () => {
 		const id = await create(project, owner);
 		const name = `user_defined.project.tag_${short()}`;
 		await sql`INSERT INTO custom_blocks_list (id, name, label, project_id) VALUES (${`c${short()}`}, ${name}, 'Tag', ${project})`;
-		// what the admin's custom block cache does on a change signal
-		const { loadCustomBlocks } = await import("../../../../loaders/customBlocksLoader");
-		await loadCustomBlocks();
 		const block = { id: Bun.randomUUIDv7(), type: name, position: { x: 0, y: 0 }, data: { invoke: "sync" } };
 		const res = await call(project, owner, `/${id}/save-canvas`, "PUT", {
 			actionsToPerform: { blocks: [{ id: block.id, action: "upsert" }], edges: [] },

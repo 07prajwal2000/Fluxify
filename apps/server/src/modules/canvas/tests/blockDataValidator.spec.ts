@@ -1,18 +1,16 @@
 import { describe, expect, it } from "bun:test";
-import { BlockTypes } from "@fluxify/blocks";
+import { BlockTypes, blockDataSchema } from "@fluxify/blocks";
 import { Hono } from "hono";
 import { validator } from "hono-openapi";
 import { blockDataValidator, requestBodyValidator } from "../blockDataValidator";
 import { takeDroppedWarnings } from "../droppedFields";
 import { canvasChangesSchema } from "../types";
-import { customBlockNames } from "../../../loaders/customBlocksLoader";
 import type { CanvasChanges } from "../types";
 
 /**
  * A new block type is registered in several places, and this validator is the
- * one nobody remembers — a block missing here saves nowhere, with only
- * "Unknown block type" to go on. So assert the whole enum rather than the block
- * of the day.
+ * one nobody remembers — a block missing here is saved without its data being
+ * checked at all. So assert the whole enum rather than the block of the day.
  */
 const changes = (type: string, data: Record<string, unknown> = {}): CanvasChanges =>
 	({
@@ -26,13 +24,7 @@ const changes = (type: string, data: Record<string, unknown> = {}): CanvasChange
 describe("every block type the engine knows", () => {
 	for (const type of Object.values(BlockTypes)) {
 		it(`has a schema for ${type}`, () => {
-			// Empty data may be rejected as invalid; what must not happen is the
-			// type itself going unrecognised.
-			try {
-				blockDataValidator(changes(type));
-			} catch (error) {
-				expect((error as Error).message).not.toStartWith("Unknown block type");
-			}
+			expect(blockDataSchema(type)).toBeDefined();
 		});
 	}
 });
@@ -157,16 +149,11 @@ describe("save output to variable", () => {
 	});
 
 	it("rejects it on a custom block too", () => {
-		// a registered custom block skips schema validation, so this is its only check
-		customBlockNames.add("weather_lookup");
-		try {
-			const data = changes("weather_lookup", { saveAsVariable: { enabled: true, name: "9lives" } });
-			expect(messages(() => blockDataValidator(data))).toEqual([
-				"weather_lookup: Variable name must start with a letter, _ or $ and contain only letters, digits, _ and $",
-			]);
-		} finally {
-			customBlockNames.delete("weather_lookup");
-		}
+		// a custom block skips schema validation, so this is its only check
+		const data = changes("weather_lookup", { saveAsVariable: { enabled: true, name: "9lives" } });
+		expect(messages(() => blockDataValidator(data))).toEqual([
+			"weather_lookup: Variable name must start with a letter, _ or $ and contain only letters, digits, _ and $",
+		]);
 	});
 
 	it("keeps the setting when the block's data is normalized (#673)", () => {
@@ -230,15 +217,15 @@ describe("saving keeps the user's data (#679)", () => {
 		});
 	});
 
-	it("keeps custom block data as given", () => {
-		customBlockNames.add("weather_lookup");
-		try {
-			const data = changes("weather_lookup", { city: "Oslo", extra: { deep: 1 } });
-			expect(blockDataValidator(data)).toEqual([]);
-			expect(data.changes.blocks[0]!.data).toEqual({ city: "Oslo", extra: { deep: 1 } });
-		} finally {
-			customBlockNames.delete("weather_lookup");
-		}
+	// #803: no name cache to be stale — a block created a moment ago passes here,
+	// and `saveCanvas` checks the type against the database
+	it("keeps custom block data as given, however new the block", () => {
+		const data = changes("user_defined.project.weather_lookup", {
+			city: "Oslo",
+			extra: { deep: 1 },
+		});
+		expect(blockDataValidator(data)).toEqual([]);
+		expect(data.changes.blocks[0]!.data).toEqual({ city: "Oslo", extra: { deep: 1 } });
 	});
 });
 

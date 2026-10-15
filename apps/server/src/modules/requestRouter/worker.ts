@@ -5,10 +5,6 @@ import { initializePubSub } from "../../db/pubsub";
 import { initializeRedis } from "../../db/redis";
 import { appConfigEntity } from "../../db/schema";
 import { loadAppConfig } from "../../loaders/appconfigLoader";
-import {
-	initializeCustomBlocksSubscription,
-	loadCustomBlocks,
-} from "../../loaders/customBlocksLoader";
 import { loadIntegrations } from "../../loaders/integrationsLoader";
 import { loadProjectSettings } from "../../loaders/projectSettingsLoader";
 import { loadRoutes } from "../../loaders/routesLoader";
@@ -55,8 +51,6 @@ export async function initWorker(): Promise<HttpRouteParser> {
 	await loadAppConfig();
 	await loadIntegrations();
 	await loadProjectSettings();
-	await loadCustomBlocks();
-	initializeCustomBlocksSubscription();
 	const parser = await loadRoutes();
 	logger.info("request worker runtime initialized");
 	return parser;
