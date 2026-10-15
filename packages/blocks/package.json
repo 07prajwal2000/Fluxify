@@ -31,7 +31,7 @@
 		"typescript": "^5.9.2"
 	},
 	"scripts": {
-		"test": "bun test --parallel",
+		"test": "bun test --isolate --timeout 60000",
 		"typecheck": "tsgo --noEmit"
 	},
 	"dependencies": {

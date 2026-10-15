@@ -14,7 +14,7 @@
 		"build": "bun build src/server.ts --outdir=./dist --bundle --target bun --minify --sourcemap=linked --conditions=module",
 		"gather": "bun ./src/scripts/gather.ts",
 		"typecheck": "tsgo --noEmit",
-		"test": "bun test --parallel"
+		"test": "bun test --isolate --timeout 60000"
 	},
 	"peerDependencies": {
 		"typescript": "^6.0.3"

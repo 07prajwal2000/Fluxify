@@ -13,7 +13,7 @@
 	"license": "Apache-2.0",
 	"description": "",
 	"scripts": {
-		"test": "bun test --parallel",
+		"test": "bun test --isolate --timeout 60000",
 		"typecheck": "tsgo --noEmit"
 	},
 	"dependencies": {
