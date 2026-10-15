@@ -119,17 +119,11 @@ const router = Bun.serve({
 // read the proxy once, before the server loads: it reads PROXY_URL for every
 // development call (#735, #742)
 const s = await startAuthServer({ PROXY_URL: `http://127.0.0.1:${router.port}` });
-// what a real admin also runs (#735): it writes the runs workers publish, and
-// knows the custom blocks a canvas save may name
+// what a real admin also runs (#735): it writes the runs workers publish
 const { startRecordingConsumer } = await import(
 	"@fluxify/server/src/modules/recordings/consumer"
 );
 await startRecordingConsumer();
-const { initializeCustomBlocksSubscription, loadCustomBlocks } = await import(
-	"@fluxify/server/src/loaders/customBlocksLoader"
-);
-await loadCustomBlocks();
-initializeCustomBlocksSubscription();
 const projectId = await createProject(s);
 const creator = await createUser(s, "creator", projectId);
 const viewer = await createUser(s, "viewer", projectId);
