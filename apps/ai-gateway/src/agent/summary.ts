@@ -49,7 +49,10 @@ const clip = (v: unknown, max = MAX_PART) => {
 	const s = typeof v === "string" ? v : (JSON.stringify(v) ?? "");
 	return s.length > max ? `${s.slice(0, max)}…` : s;
 };
-const isError = (o: any) => o?.type === "error-text" || o?.type === "error-json";
+const isError = (o: unknown) => {
+	const t = (o as { type?: unknown } | null | undefined)?.type;
+	return t === "error-text" || t === "error-json";
+};
 
 /** The covered messages as plain text, so the summary call needs no tools. */
 const transcript = (messages: ModelMessage[]) =>
@@ -86,10 +89,20 @@ export const canCompact = (messages: ModelMessage[]) => summaryCut(messages) !==
 
 type Target = { kind: string; id: string };
 
-/** Canvases edited in `messages` (edit_canvas calls), and those an earlier summary re-attached. */
+/** Canvases edited in `messages` (successful edit_canvas calls), and those an earlier summary re-attached. */
 function editedTargets(messages: ModelMessage[]) {
 	const found = new Map<string, Target>();
 	const add = (t?: Target) => t?.kind && t.id && found.set(`${t.kind} ${t.id}`, t);
+	const failedCalls = new Set<string>();
+	for (const m of messages) {
+		if (m.role === "tool" && Array.isArray(m.content)) {
+			for (const p of m.content) {
+				if (p.type === "tool-result" && p.toolName === "edit_canvas" && isError(p.output)) {
+					failedCalls.add(p.toolCallId);
+				}
+			}
+		}
+	}
 	for (const m of messages) {
 		if (typeof m.content === "string") {
 			if (m.role === "user" && m.content.startsWith(SUMMARY_HEAD))
@@ -97,7 +110,13 @@ function editedTargets(messages: ModelMessage[]) {
 			continue;
 		}
 		for (const p of m.content)
-			if (p.type === "tool-call" && p.toolName === "edit_canvas") add((p.input as any)?.target);
+			if (
+				p.type === "tool-call" &&
+				p.toolName === "edit_canvas" &&
+				!failedCalls.has(p.toolCallId)
+			) {
+				add((p.input as { target?: Target } | null | undefined)?.target);
+			}
 	}
 	return [...found.values()];
 }

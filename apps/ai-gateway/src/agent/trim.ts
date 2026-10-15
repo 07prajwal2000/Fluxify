@@ -40,10 +40,11 @@ const parsed = (o: unknown) => {
 const TEST_RESULTS = new Set(["run_test_suite", "get_test_runs"]);
 const FAILED_TEST = /"failedChecks":\[\s*"|"status":"(?:failed|error)"|"failedCount":[1-9]/;
 
+const isError = (output: any) => output?.type === "error-text" || output?.type === "error-json";
+
 /** What the model needs to act on a failure: the route's answer, a failing test, any tool error. */
 const neverTrim = (tool: string, output: any) =>
-	output?.type === "error-text" ||
-	output?.type === "error-json" ||
+	isError(output) ||
 	tool === "call_route" ||
 	(TEST_RESULTS.has(tool) && FAILED_TEST.test(text(body(output))));
 
@@ -60,16 +61,30 @@ const labelOf = (tool: string, input: any) =>
  */
 export function keepSet(messages: ModelMessage[]) {
 	const calls = callsOf(messages);
-	const newest = new Map<string, string>();
 	const onCanvas = new Set<string>();
 	const schemas: { id: string; types: string[] }[] = [];
+
+	type CanvasEntry = { id: string; tool: string; success: boolean; index: number };
+	const byTarget = new Map<string, CanvasEntry[]>();
+
+	let toolCallIndex = 0;
 	for (const m of messages) {
 		if (m.role !== "tool") continue;
 		for (const p of m.content) {
 			if (p.type !== "tool-result") continue;
+			toolCallIndex++;
 			const input = calls.get(p.toolCallId)?.input;
-			if (CANVAS.has(p.toolName))
-				newest.set(`${p.toolName} ${input?.target?.kind} ${input?.target?.id}`, p.toolCallId);
+			if (CANVAS.has(p.toolName) && input?.target?.kind && input?.target?.id) {
+				const targetKey = `${input.target.kind} ${input.target.id}`;
+				const list = byTarget.get(targetKey) ?? [];
+				list.push({
+					id: p.toolCallId,
+					tool: p.toolName,
+					success: !isError(p.output),
+					index: toolCallIndex,
+				});
+				byTarget.set(targetKey, list);
+			}
 			if (p.toolName === "get_canvas")
 				for (const b of parsed(p.output)?.blocks ?? []) onCanvas.add(b.type);
 			if (p.toolName === "get_block_schemas")
@@ -79,7 +94,29 @@ export function keepSet(messages: ModelMessage[]) {
 	for (const call of calls.values())
 		if (call.toolName === "edit_canvas")
 			for (const op of call.input?.ops ?? []) if (op?.op === "add_block") onCanvas.add(op.type);
-	const keep = new Set(newest.values());
+
+	const keep = new Set<string>();
+	for (const entries of byTarget.values()) {
+		const edits = entries.filter((e) => e.tool === "edit_canvas");
+		const gets = entries.filter((e) => e.tool === "get_canvas");
+
+		const lastSuccessfulEdit = edits.findLast((e) => e.success);
+		const lastEdit = edits.at(-1);
+
+		if (lastSuccessfulEdit) {
+			keep.add(lastSuccessfulEdit.id);
+			const postEditGet = gets.findLast((g) => g.index > lastSuccessfulEdit.index);
+			if (postEditGet) keep.add(postEditGet.id);
+		} else if (lastEdit) {
+			keep.add(lastEdit.id);
+			const lastGet = gets.at(-1);
+			if (lastGet) keep.add(lastGet.id);
+		} else {
+			const lastGet = gets.at(-1);
+			if (lastGet) keep.add(lastGet.id);
+		}
+	}
+
 	for (const s of schemas) if (s.types.some((t) => onCanvas.has(t))) keep.add(s.id);
 	return keep;
 }
@@ -106,19 +143,40 @@ export function trimOld(
 	const tools: Record<string, number> = {};
 	let results = 0;
 	const out = messages.map((m, i): ModelMessage => {
-		if (m.role !== "tool" || i >= from) return m;
+		if (i >= from) return m;
+
+		if (m.role === "assistant" && typeof m.content !== "string") {
+			let changed = false;
+			const content = m.content.map((p) => {
+				if (p.type !== "tool-call" || p.toolName !== "edit_canvas") return p;
+				if (keep.has(p.toolCallId)) return p;
+				const input = p.input as { ops?: unknown[] } | null | undefined;
+				if (!input?.ops || (Array.isArray(input.ops) && input.ops.length === 0)) return p;
+				changed = true;
+				return {
+					...p,
+					input: { ...input, ops: [] },
+				};
+			});
+			return changed ? { ...m, content } : m;
+		}
+
+		if (m.role !== "tool") return m;
 		return {
 			...m,
 			content: m.content.map((p) => {
 				if (p.type !== "tool-result") return p;
 				const n = chars(p.output);
-				const kept = keep.has(p.toolCallId) || neverTrim(p.toolName, p.output);
+				const isCanvas = CANVAS.has(p.toolName);
+				const kept = isCanvas
+					? keep.has(p.toolCallId)
+					: keep.has(p.toolCallId) || neverTrim(p.toolName, p.output);
 				let value: string;
 				if (kept) {
-					if (n <= HUGE_CHARS || CANVAS.has(p.toolName)) return p;
+					if (n <= HUGE_CHARS || isCanvas) return p;
 					value = headTail(body(p.output), n);
 				} else {
-					if (n < MIN_TRIM_CHARS || (level < 1 && !isFirst(p.toolName))) return p;
+					if (!isCanvas && (n < MIN_TRIM_CHARS || (level < 1 && !isFirst(p.toolName)))) return p;
 					value = `[result trimmed: ${p.toolName}, ${n} chars]`;
 				}
 				const label = labelOf(p.toolName, calls.get(p.toolCallId)?.input);
