@@ -9,6 +9,7 @@ import type Docker from "dockerode";
 
 const { getArtifact } = await import("../../../db/natsKv");
 const { compilePerEnv, putPerEnv } = await import("../observability");
+const { StaticCompileError } = await import("../compileLog");
 
 const IMAGE = "nats:2.14";
 const NAME = "fluxify-per-env-switches-test";
@@ -52,7 +53,9 @@ const observability = {
 	devRecordExecution: true,
 };
 const served = { active: true, devActive: true, prodVersionId: "v1" };
-const perEnv = compilePerEnv({ ...observability, ...served }, () => ({ source: "compiled source" }));
+const { perEnv } = compilePerEnv({ ...observability, ...served }, () => ({
+	source: "compiled source",
+}));
 let n = 0;
 const key = () => `routes/p/r${++n}-${crypto.randomUUID().slice(0, 6)}`;
 const artifact = { routeId: "r", path: "/x" };
@@ -103,13 +106,38 @@ describe("putPerEnv", () => {
 	});
 
 	it("builds only the environments that are served", () => {
-		const built = compilePerEnv(
+		const { perEnv: built } = compilePerEnv(
 			{ ...observability, active: true, devActive: false, prodVersionId: "v1" },
 			(env) => ({ source: env }),
 		);
 		expect(built).toEqual({
 			production: { tracingEnabled: false, recordExecution: false, source: "production" },
 		});
+	});
+
+	// #803: a promoted version that cannot build must not take development down
+	it("publishes development when the production build fails, and keeps production's last build", async () => {
+		const k = key();
+		await putPerEnv(k, artifact, perEnv, served);
+		const resource = { projectId: "p", resourceType: "route" as const, resourceId: "r" };
+		const { perEnv: built, failures } = compilePerEnv({ ...observability, ...served }, (env) => {
+			if (env === "production") throw new StaticCompileError(resource, new Error("No codegen"));
+			return { source: "fresh dev source" };
+		});
+		expect(Object.keys(built)).toEqual(["development"]);
+		expect(Object.keys(failures)).toEqual(["production"]);
+
+		await putPerEnv(k, artifact, built, served, failures);
+		expect((await getArtifact(k, "development"))?.source).toBe("fresh dev source");
+		expect((await getArtifact(k, "production"))?.source).toBe("compiled source");
+	});
+
+	it("still throws what is not a static compile failure, so it is retried", () => {
+		expect(() =>
+			compilePerEnv({ ...observability, ...served }, () => {
+				throw new Error("nats is down");
+			}),
+		).toThrow("nats is down");
 	});
 
 	it("treats a null active (a row from before the column had a default) as off", async () => {

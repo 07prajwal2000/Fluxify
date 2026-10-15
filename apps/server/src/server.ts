@@ -27,7 +27,6 @@ import {
 } from "./lib/startupReport";
 import { waitFor } from "./lib/waitFor";
 import { loadAppConfig } from "./loaders/appconfigLoader";
-import { initializeCustomBlocksSubscription, loadCustomBlocks } from "./loaders/customBlocksLoader";
 import { loadInstanceSettings } from "./loaders/instanceSettingsLoader";
 import { loadIntegrations } from "./loaders/integrationsLoader";
 import { loadProjectSettings } from "./loaders/projectSettingsLoader";
@@ -158,8 +157,6 @@ async function main() {
 		await loadProjectSettings();
 		// hot reload of compiled artifacts is the compiled worker's job; the
 		// builtin worker keeps interpreting so both paths stay exercised
-		await loadCustomBlocks();
-		initializeCustomBlocksSubscription();
 		const parser = await loadRoutes();
 		await mapRouter(app, parser);
 	}

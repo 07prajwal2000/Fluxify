@@ -27,6 +27,7 @@ import { DocsEditor } from "./DocsEditor";
 import { ICON_URL_MAX, IconPicker, type IconValue } from "./IconPicker";
 import { InputParamsEditor, validateInputParams } from "./InputParamsEditor";
 import { UsageField } from "./UsageField";
+import { VersionChips } from "./VersionChips";
 
 /**
  * Same shape as the route canvas' settings modal: everything editable about the
@@ -176,7 +177,10 @@ function CustomBlockSettingsForm({
 					<Modal.Heading className="text-sm font-semibold">Custom block settings</Modal.Heading>
 					<p className="truncate font-mono text-xs text-muted">{block.name}</p>
 				</div>
-				<CloseButton aria-label="Close custom block settings" className="ml-auto" />
+				<div className="ml-auto flex items-center gap-3">
+					<VersionChips blockId={block.id} />
+					<CloseButton aria-label="Close custom block settings" />
+				</div>
 			</Modal.Header>
 
 			<Modal.Body className="min-h-0 flex-1 p-0">

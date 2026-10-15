@@ -2,6 +2,7 @@ import { deleteArtifact, putArtifact } from "../../db/natsKv";
 import type { FluxifyEnv } from "../../lib/env";
 import { ENVIRONMENTS } from "../../lib/envValues";
 import { wantsSpans } from "../requestRouter/traceLifecycle";
+import { StaticCompileError } from "./compileLog";
 
 type Switches = { tracingEnabled: boolean; recordExecution: boolean };
 
@@ -44,34 +45,47 @@ export type PerEnv<T extends object = { source: string }> = Partial<
  * Each served environment's switches and build. `build` makes what is specific
  * to the environment (its source, and the graph that source came from — the
  * working copy in development, the promoted version in production); span code
- * is compiled in only where the environment wants spans. It may throw, before
- * anything is published. An environment that is switched off is not built.
+ * is compiled in only where the environment wants spans. An environment that
+ * is switched off is not built.
+ *
+ * A graph that cannot compile is that environment's result, not the other's
+ * (#803): development runs the working copy and must publish on its own merits,
+ * whatever the promoted version in production does. Anything that is not a
+ * static compile failure (a db or NATS error) still throws, to be retried.
  */
 export function compilePerEnv<T extends object>(
 	row: ObservabilityRow & EnvSwitches,
 	build: (env: FluxifyEnv, tracing: boolean) => T,
 ) {
 	const perEnv: PerEnv<T> = {};
+	const failures: Partial<Record<FluxifyEnv, StaticCompileError>> = {};
 	for (const env of ENVIRONMENTS) {
 		if (!isServedIn(row, env)) continue;
 		const switches = observabilityFor(row, env);
-		perEnv[env] = { ...switches, ...build(env, wantsSpans(switches)) };
+		try {
+			perEnv[env] = { ...switches, ...build(env, wantsSpans(switches)) };
+		} catch (error) {
+			if (!(error instanceof StaticCompileError)) throw error;
+			failures[env] = error;
+		}
 	}
-	return perEnv;
+	return { perEnv, failures };
 }
 
 /**
  * One artifact per bucket: the shared fields, plus what each environment built.
- * An environment the row is not served in loses its artifact.
+ * An environment the row is not served in loses its artifact; one whose build
+ * failed keeps the last good one, as a failed custom block build does.
  */
 export async function putPerEnv<T extends object>(
 	key: string,
 	artifact: object,
 	perEnv: PerEnv<T>,
 	row: EnvSwitches,
+	failed: Partial<Record<FluxifyEnv, unknown>> = {},
 ) {
 	await Promise.all(
-		ENVIRONMENTS.map((env) => {
+		ENVIRONMENTS.filter((env) => !failed[env]).map((env) => {
 			const built = perEnv[env];
 			return isServedIn(row, env) && built
 				? putArtifact(key, { ...artifact, ...built }, env)

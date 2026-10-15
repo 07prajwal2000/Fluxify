@@ -1,10 +1,8 @@
 import { blockDataIssues, blockDataSchema } from "@fluxify/blocks";
 import { variableNameError } from "@fluxify/blocks/variableName";
 import type { Context, Next } from "hono";
-import { BadRequestError } from "../../errors/badRequestError";
 import { ConflictError } from "../../errors/conflictError";
 import { ValidationError } from "../../errors/validationError";
-import { customBlockNames } from "../../loaders/customBlocksLoader";
 import { droppedKeys, rememberDroppedWarnings } from "./droppedFields";
 import type { CanvasIssue } from "./rules";
 import type { CanvasChanges } from "./types";
@@ -53,14 +51,10 @@ export function blockDataValidator(data: CanvasChanges): CanvasIssue[] {
 		const label = typeof given === "string" && given ? given : block.type;
 		if (nameError) errors.push({ field: block.id, message: `${label}: ${nameError}` });
 		const schema = blockDataSchema(block.type);
-		if (!schema) {
-			if (customBlockNames.has(block.type)) {
-				continue;
-			}
-			throw new BadRequestError(
-				`Unknown block type: ${block.type}. Use a built-in block type or a custom block defined in this project.`,
-			);
-		}
+		// not built in: a custom block, which has no schema here. Whether the type
+		// exists is `saveCanvas`'s call, from the database — a cache of names kept
+		// here went stale after a create and refused a block that was just made.
+		if (!schema) continue;
 		const result = schema.safeParse(block.data);
 		if (result.success) {
 			// zod strips keys the block doesn't have; a free-form field says so in its

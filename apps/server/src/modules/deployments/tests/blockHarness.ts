@@ -149,7 +149,6 @@ export async function createStack(prefix: string) {
 	const { natsConnection, natsName } = await import("../../../db/nats");
 	const { EncryptionService } = await import("../../../lib/encryption");
 	const { testRunSubject } = await import("../../testRunner/types");
-	const { loadCustomBlocks } = await import("../../../loaders/customBlocksLoader");
 
 	async function call(as: As, method: string, path: string, body?: unknown) {
 		const res = await app.request(`http://localhost${path}`, {
@@ -207,7 +206,6 @@ export async function createStack(prefix: string) {
 		});
 		expect(res.status).toBe(200);
 		const id = res.body.id as string;
-		await loadCustomBlocks();
 		const full = (await call(as, "GET", `/custom-blocks/${id}`)).body;
 		return { id, name: full.name as string };
 	}
