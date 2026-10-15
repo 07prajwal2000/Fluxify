@@ -104,12 +104,76 @@ describe("trim by importance", () => {
 			...step("tail", "get_route"),
 		];
 		expect([...keepSet(ms)].sort()).toEqual(["a2", "b1"]);
-		// the older canvas is small here, so the size guard keeps it; make it big to see it go
-		const big = ms.map((m, i) => (i === 2 ? bigResult(m) : m));
-		const a = seen(trimOld(big, big.length - 2, { keep: keepSet(big) }).messages);
+		const a = seen(trimOld(ms, ms.length - 2, { keep: keepSet(ms) }).messages);
 		expect(trimmed(a.a1)).toBe(true);
 		expect(trimmed(a.a2)).toBe(false);
 		expect(trimmed(a.b1)).toBe(false);
+	});
+
+	it("keeps the newest successful edit_canvas of each target, trims older edits and empties their ops", () => {
+		const editOp = (type: string) => [{ op: "add_block", type, data: { script: "x".repeat(200) } }];
+		const ms = [
+			user,
+			...step("e1", "edit_canvas", { type: "json", value: { revision: 2, changes: ["added a"] } }, { ...target("a"), revision: 1, ops: editOp("db_native") }),
+			...step("e2", "edit_canvas", { type: "json", value: { revision: 3, changes: ["added b"] } }, { ...target("a"), revision: 2, ops: editOp("kv_get") }),
+			...step("eb1", "edit_canvas", { type: "json", value: { revision: 2, changes: ["added c"] } }, { ...target("b"), revision: 1, ops: editOp("response") }),
+			...step("tail", "get_route"),
+		];
+		expect([...keepSet(ms)].sort()).toEqual(["e2", "eb1"]);
+		const trimmedMs = trimOld(ms, ms.length - 2, { keep: keepSet(ms) }).messages;
+		const s = seen(trimmedMs);
+		expect(trimmed(s.e1)).toBe(true);
+		expect(trimmed(s.e2)).toBe(false);
+		expect(trimmed(s.eb1)).toBe(false);
+
+		// Assistant tool-call ops are trimmed to [] on older superseded edits
+		const assistantCalls = Object.fromEntries(
+			trimmedMs.flatMap((m) =>
+				m.role === "assistant" && typeof m.content !== "string"
+					? m.content.flatMap((p) => (p.type === "tool-call" ? [[p.toolCallId, p.input as any]] : []))
+					: [],
+			),
+		);
+		expect(assistantCalls.e1.ops).toEqual([]);
+		expect(assistantCalls.e2.ops).toEqual(editOp("kv_get"));
+		expect(assistantCalls.eb1.ops).toEqual(editOp("response"));
+	});
+
+	it("trims failed edit_canvas when a subsequent edit succeeds, but keeps it when none succeeded", () => {
+		const msResolved = [
+			user,
+			...step("fail1", "edit_canvas", { type: "error-text", value: "revision conflict" }, { ...target("a"), revision: 1, ops: [] }),
+			...step("ok1", "edit_canvas", { type: "json", value: { revision: 2 } }, { ...target("a"), revision: 2, ops: [] }),
+			...step("tail", "get_route"),
+		];
+		expect([...keepSet(msResolved)].sort()).toEqual(["ok1"]);
+		const a = seen(trimOld(msResolved, msResolved.length - 2, { keep: keepSet(msResolved) }).messages);
+		expect(trimmed(a.fail1)).toBe(true);
+		expect(trimmed(a.ok1)).toBe(false);
+
+		const msUnresolved = [
+			user,
+			...step("fail2", "edit_canvas", { type: "error-text", value: "block error" }, { ...target("b"), revision: 1, ops: [] }),
+			...step("tail", "get_route"),
+		];
+		expect([...keepSet(msUnresolved)].sort()).toEqual(["fail2"]);
+		const b = seen(trimOld(msUnresolved, msUnresolved.length - 2, { keep: keepSet(msUnresolved) }).messages);
+		expect(trimmed(b.fail2)).toBe(false); // kept so agent sees the error
+	});
+
+	it("trims get_canvas before edit_canvas on the same target, but keeps get_canvas after edit_canvas", () => {
+		const ms = [
+			user,
+			...step("g1", "get_canvas", canvasOf("response"), target("a")),
+			...step("e1", "edit_canvas", { type: "json", value: { revision: 2 } }, { ...target("a"), revision: 1, ops: [] }),
+			...step("g2", "get_canvas", canvasOf("response", "db_native"), target("a")),
+			...step("tail", "get_route"),
+		];
+		expect([...keepSet(ms)].sort()).toEqual(["e1", "g2"]);
+		const a = seen(trimOld(ms, ms.length - 2, { keep: keepSet(ms) }).messages);
+		expect(trimmed(a.g1)).toBe(true);
+		expect(trimmed(a.e1)).toBe(false);
+		expect(trimmed(a.g2)).toBe(false);
 	});
 
 	it("keeps block schemas for types on the canvas, trims the ones that are not", () => {

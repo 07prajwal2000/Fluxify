@@ -143,4 +143,23 @@ describe("the canvas after a summary", () => {
 		const withCanvas = await summarize(recorder().model, messages, { tools });
 		expect(withCanvas!.event.after).toBeGreaterThan(plain!.event.after);
 	});
+
+	it("ignores targets where edit_canvas only failed", async () => {
+		const { tools, asked } = canvases();
+		const failedStep = (id: string, targetId: string): ModelMessage[] => [
+			{ role: "assistant", content: [{ type: "tool-call", toolCallId: id, toolName: "edit_canvas", input: { target: { kind: "route", id: targetId }, revision: 1, ops: [] } }] },
+			{ role: "tool", content: [{ type: "tool-result", toolCallId: id, toolName: "edit_canvas", output: { type: "error-text" as const, value: "failed to edit" } }] },
+		];
+		const r = await summarize(
+			recorder().model,
+			chat(failedStep("eFail", "badTarget"), edit("eOk", "goodTarget")),
+			{ tools },
+		);
+		expect(asked).toEqual([
+			{ target: { kind: "route", id: "goodTarget" }, compact: true },
+		]);
+		const text = String(r?.messages[0].content);
+		expect(text).toContain("[canvas route goodTarget]");
+		expect(text).not.toContain("[canvas route badTarget]");
+	});
 });
