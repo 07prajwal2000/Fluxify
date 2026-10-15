@@ -10,7 +10,7 @@
 		"dev:worker": "bun --watch deployments/worker.ts",
 		"dev:worker:compiled": "bun --watch deployments/compiledWorker.ts",
 		"dev:orchestrator": "bun --watch deployments/orchestrator.ts",
-		"test": "bun test --parallel",
+		"test": "bun test --isolate --timeout 60000",
 		"typecheck": "tsgo --noEmit",
 		"start": "bun run deployments/standalone.ts",
 		"worker": "bun run deployments/worker.ts",

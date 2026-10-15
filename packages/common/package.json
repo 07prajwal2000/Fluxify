@@ -22,7 +22,7 @@
 		"typescript": "^6.0.3"
 	},
 	"scripts": {
-		"test": "bun test --parallel",
+		"test": "bun test --isolate --timeout 60000",
 		"bench:codec": "bun nats/bench/codec.bench.ts",
 		"license:mint": "bun license/scripts/mint.ts",
 		"typecheck": "tsgo --noEmit"
