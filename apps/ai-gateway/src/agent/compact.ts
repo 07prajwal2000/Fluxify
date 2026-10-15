@@ -19,7 +19,9 @@ export const MAX_CONTEXT_TOKENS = 128_000;
 /** Over this share of the window, old tool results are shortened when the request is built. */
 export const TRIM_AT = 0.6;
 /** A trim batch goes on to the next class of results until the history is under this share. */
-const TRIM_TO = 0.5;
+export const TRIM_TO = 0.48;
+/** A trim batch is skipped unless it frees at least this share of the window. */
+export const TRIM_MIN_GAIN = 0.06;
 /** Over this share, the older turns are replaced by one summary. */
 export const SUMMARY_AT = 0.8;
 
@@ -30,9 +32,9 @@ type Usage = { inputTokens?: number; outputTokens?: number } | undefined;
  * 60% the old tool results are trimmed in a batch: everything before the last
  * few steps, once, the least useful class first. That cut-off, the class and
  * what is kept then stay put, so the trimmed prefix is identical on every step
- * (the provider can cache it) until usage falls under 60% and crosses it
- * again. A failed summary falls back to a batch. What happened lands in
- * `events` for the stream to show.
+ * (the provider can cache it) until a finished summary re-arms the trim.
+ * A failed summary falls back to a batch. What happened lands in `events` for
+ * the stream to show.
  */
 export function compactor(o: {
 	model: Exclude<LanguageModel, string>;
@@ -59,7 +61,7 @@ export function compactor(o: {
 	let cut = 0;
 	let level: TrimLevel = 1;
 	let keep = new Set<string>();
-	/** A batch may run. Off after one until usage is seen under 60%. */
+	/** A batch may run. Off after one until a finished summary re-arms it. */
 	let armed = true;
 	/** The last step's usage no longer matches the history after a summary. */
 	let stale = false;
@@ -75,14 +77,19 @@ export function compactor(o: {
 			level = 1;
 			t = trimmed();
 		}
-		if (!t.results) return;
+		const before = estimate(o.history, o.instructions);
+		const after = estimate(t.messages, o.instructions);
+		if (!t.results || before - after < TRIM_MIN_GAIN * context) {
+			cut = 0;
+			return;
+		}
 		const event = {
 			type: "compaction" as const,
 			kind: "trim" as const,
 			results: t.results,
 			tools: t.tools,
-			before: estimate(o.history, o.instructions),
-			after: estimate(t.messages, o.instructions),
+			before,
+			after,
 		};
 		events.push(event);
 		trimSpan(event);
@@ -116,8 +123,7 @@ export function compactor(o: {
 				o.onCompacting?.(false);
 			}
 		}
-		if (used < TRIM_AT * context) armed = true;
-		else if (armed) batch();
+		if (armed && used >= TRIM_AT * context) batch();
 		return cut ? trimmed().messages : [...o.history];
 	};
 	return { next, events };
