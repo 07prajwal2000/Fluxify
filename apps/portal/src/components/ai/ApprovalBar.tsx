@@ -1,12 +1,12 @@
 import { Button, Chip } from "@fluxify/components";
 import { useRef, useState } from "react";
-import { TbClipboardCheck, TbClock, TbTrash } from "react-icons/tb";
+import { TbBulb, TbClipboardCheck, TbClock, TbTrash } from "react-icons/tb";
 import { SplitButton } from "@/components/common/SplitButton";
 import { useConfetti } from "@/hooks/useConfetti";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import type { Decision, Mode } from "@/services/agentConversations";
 import { ApprovalTarget } from "./ApprovalTarget";
-import type { ApprovalRequest, ToolRequest } from "./agentApproval";
+import { type ApprovalRequest, SUGGEST_PLAN, type ToolRequest } from "./agentApproval";
 import { DeployComment } from "./DeployComment";
 import { ReviewAllDialog } from "./ReviewAllDialog";
 
@@ -29,8 +29,8 @@ type Props = {
 
 /**
  * Sits above the prompt editor while the agent waits for an answer: a change it
- * wants to make, or its finished plan in plan mode. Replaces cards and diffs in
- * the chat; the call itself stays a folded row there.
+ * wants to make, a suggestion to plan first (#771), or its finished plan in plan
+ * mode. Replaces cards and diffs in the chat; the call itself stays a folded row there.
  */
 export function ApprovalBar({
 	projectId,
@@ -46,11 +46,13 @@ export function ApprovalBar({
 	const [comments, setComments] = useState<Record<string, string>>({});
 	const sectionRef = useRef<HTMLElement>(null);
 	const fireConfetti = useConfetti();
-	const many = request.kind === "tool" && onDecide !== undefined && calls.length > 1;
+	// A suggestion to plan is answered on its own card, never in bulk.
+	const others = calls.filter((c) => c.name !== SUGGEST_PLAN);
+	const many = request.kind === "tool" && onDecide !== undefined && others.length > 1;
 	// Approve all never covers a delete or a deployment: those need their own answer.
-	const safe = calls.filter((c) => !c.isDelete && !c.needsComment && c.id);
-	const deletes = calls.filter((c) => c.isDelete).length;
-	const deploys = calls.filter((c) => c.needsComment).length;
+	const safe = others.filter((c) => !c.isDelete && !c.needsComment && c.id);
+	const deletes = others.filter((c) => c.isDelete).length;
+	const deploys = others.filter((c) => c.needsComment).length;
 	const commentKey = request.kind === "tool" ? (request.id ?? request.name) : "";
 	const comment = comments[commentKey] ?? "";
 	const needsComment = request.kind === "tool" && request.needsComment === true;
@@ -69,7 +71,13 @@ export function ApprovalBar({
 		answer(() => onApprove(mode, comment));
 	};
 	const del = request.kind === "tool" && request.isDelete;
-	const Icon = del ? TbTrash : request.kind === "plan" ? TbClipboardCheck : TbClock;
+	const Icon = del
+		? TbTrash
+		: request.kind === "plan"
+			? TbClipboardCheck
+			: request.kind === "suggest"
+				? TbBulb
+				: TbClock;
 
 	return (
 		<section
@@ -85,6 +93,11 @@ export function ApprovalBar({
 					<>
 						<span className="text-sm font-medium text-foreground">Plan ready</span>
 						<span className="text-xs text-muted">Start it, or type below to change it.</span>
+					</>
+				) : request.kind === "suggest" ? (
+					<>
+						<span className="text-sm font-medium text-foreground">Plan this first?</span>
+						<span className="text-xs text-muted">{request.reason}</span>
 					</>
 				) : (
 					<>
@@ -143,29 +156,43 @@ export function ApprovalBar({
 						)}
 					</>
 				)}
-				<Button size="sm" variant="ghost" isDisabled={busy} onPress={() => answer(onReject)}>
-					Reject
-				</Button>
-				<SplitButton
-					isDisabled={busy || blocked}
-					onPress={() => approve(undefined)}
-					menuLabel="More approve options"
-					items={[
-						{
-							id: "auto",
-							label: "Approve with Auto",
-							isDisabled: busy || blocked,
-							onAction: () => approve("auto"),
-						},
-					]}
-				>
-					Approve
-				</SplitButton>
+				{request.kind === "suggest" ? (
+					<>
+						{/* the run goes on in the conversation's mode; no "always": it asks every time */}
+						<Button size="sm" variant="ghost" isDisabled={busy} onPress={() => approve(undefined)}>
+							Continue anyway
+						</Button>
+						<Button size="sm" variant="primary" isDisabled={busy} onPress={() => approve("plan")}>
+							Switch to plan
+						</Button>
+					</>
+				) : (
+					<>
+						<Button size="sm" variant="ghost" isDisabled={busy} onPress={() => answer(onReject)}>
+							Reject
+						</Button>
+						<SplitButton
+							isDisabled={busy || blocked}
+							onPress={() => approve(undefined)}
+							menuLabel="More approve options"
+							items={[
+								{
+									id: "auto",
+									label: "Approve with Auto",
+									isDisabled: busy || blocked,
+									onAction: () => approve("auto"),
+								},
+							]}
+						>
+							Approve
+						</SplitButton>
+					</>
+				)}
 			</div>
 			{many && reviewing && (
 				<ReviewAllDialog
 					projectId={projectId}
-					calls={calls}
+					calls={others}
 					open
 					onOpenChange={setReviewing}
 					onConfirm={(d) => {

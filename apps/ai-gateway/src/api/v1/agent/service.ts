@@ -17,6 +17,7 @@ import {
 	updateConversation,
 } from "../../../agent/runner/repository";
 import { agentStore } from "../../../agent/store";
+import { todosOf } from "../../../agent/todos";
 import { isDeploy, type Mode } from "../../../agent/tools";
 import { assertRunQuota } from "./rateLimit";
 
@@ -32,13 +33,15 @@ export const getOlderMessages = (conversation: Conversation, beforeSeq: number) 
  * The latest page of saved messages (#645 rows) with `nextBeforeSeq` for the
  * older ones, the active run, if any, and the picker settings: the mode and
  * effort the conversation went on with last, and whether the project's model
- * takes a thinking setting.
+ * takes a thinking setting. `todos` is the agent's todo list (#771), from every
+ * row: the page may not reach back to the update_todos call that wrote it.
  */
 export async function getConversationDetail(conversation: Conversation) {
-	const [{ messages, nextBeforeSeq }, run, supportsThinking] = await Promise.all([
+	const [{ messages, nextBeforeSeq }, run, supportsThinking, rows] = await Promise.all([
 		store().page(conversation.id),
 		conversation.activeRunId ? getRun(conversation.activeRunId) : undefined,
 		projectSupportsThinking(conversation.projectId as string),
+		store().all(conversation.id),
 	]);
 	const { mode = "manual", effort = "none" } = metaOf(conversation);
 	return {
@@ -47,6 +50,7 @@ export async function getConversationDetail(conversation: Conversation) {
 		nextBeforeSeq,
 		run: run ?? null,
 		settings: { mode, effort, supportsThinking },
+		todos: todosOf(rows.map((r) => r.content as { role: string; content: unknown })),
 	};
 }
 

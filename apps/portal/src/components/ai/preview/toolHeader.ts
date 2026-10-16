@@ -1,4 +1,6 @@
+import { SUGGEST_PLAN } from "../agentApproval";
 import type { ToolPart } from "../agentMessages";
+import { TODO_TOOL, todoChange } from "../todos";
 import { isRec, rec, str } from "./data";
 import { isDone } from "./tool";
 
@@ -49,6 +51,10 @@ export function toolSummary(tool: ToolPart, asking = false): string | undefined 
 	const { name } = tool;
 
 	switch (name) {
+		case TODO_TOOL:
+			return todoChange(tool.input);
+		case SUGGEST_PLAN:
+			return str(input.reason) || undefined;
 		case "list_advanced_tools": {
 			if (!Array.isArray(tool.output)) return undefined;
 			const n = tool.output.length;

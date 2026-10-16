@@ -12,9 +12,16 @@ import {
 	type Effort,
 	type Mode,
 } from "@/services/agentConversations";
-import { type ApprovalRequest, planReply, type ToolRequest, waitingCalls } from "./agentApproval";
+import {
+	type ApprovalRequest,
+	planReply,
+	requestOf,
+	type ToolRequest,
+	waitingCalls,
+} from "./agentApproval";
 import { applyEvent, chatView, EMPTY_LIVE, type Live, phaseOf } from "./agentMessages";
 import { parseSlash, type SlashName } from "./slashCommands";
+import { currentTodos } from "./todos";
 
 /** Run statuses a job still holds (or will): the stream is open for these. */
 const ACTIVE = new Set(["queued", "executing"]);
@@ -201,7 +208,7 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 		const chosenMode = a.mode;
 		const effortGo = a.effort ?? effort;
 		// A no ends the row now; the run's own tool-end says the same a moment later.
-		const first = approval?.kind === "tool" ? approval.id : undefined;
+		const first = calls[0]?.id;
 		const noes: { toolCallId?: string; reason?: string }[] =
 			"decisions" in a
 				? a.decisions.filter((d) => !d.approve).map((d) => ({ ...d }))
@@ -261,6 +268,8 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 			!!live.compacting ||
 			(streamId === run?.id && !!run?.userQuery?.startsWith("/compact")));
 	const messages = useMemo(() => chatView(rows, live, pending), [rows, live, pending]);
+	const savedTodos = detail.data?.todos;
+	const todos = useMemo(() => currentTodos(messages, savedTodos), [messages, savedTodos]);
 
 	/**
 	 * What the run is doing while it shows nothing, and since when. `queuedAt` is where the
@@ -283,7 +292,7 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 	const plan = !running && !waiting && saved?.mode === "plan" && run?.status === "completed";
 	const calls = waiting ? waitingCalls(messages) : [];
 	const approval: ApprovalRequest | undefined = waiting
-		? (calls[0] ?? {
+		? ((calls[0] ? requestOf(calls[0]) : undefined) ?? {
 				kind: "tool",
 				name: "the next step",
 				title: "the next step",
@@ -332,6 +341,8 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 		/** Stopped on a call that needs approval. */
 		waiting,
 		approval,
+		/** The agent's todo list (#771), live. */
+		todos,
 		/** Every call that waits, in the model's order. */
 		calls,
 		decide,

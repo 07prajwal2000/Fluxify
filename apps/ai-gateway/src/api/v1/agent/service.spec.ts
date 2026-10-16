@@ -33,6 +33,8 @@ const long = [
 	{ role: "assistant", content: "tested" },
 ];
 const viewOf = mock(async (_id: string) => long.map((message, seq) => ({ message, seq })));
+/** Every row: the todo list (#771) comes from them, not from the page. */
+const allOf = mock(async (_id: string) => [] as { content: unknown }[]);
 /** An assistant message with two calls (a, b) and no results yet. */
 const waiting = [
 	{
@@ -53,7 +55,7 @@ const spies = [
 	supports,
 	spyOn(queue, "purgeRunEvents").mockResolvedValue(undefined as never),
 	spyOn(quota, "assertRunQuota").mockResolvedValue(undefined as never),
-	spyOn(store, "agentStore").mockReturnValue({ page: pageOf, modelView: viewOf } as never),
+	spyOn(store, "agentStore").mockReturnValue({ page: pageOf, modelView: viewOf, all: allOf } as never),
 	spyOn(repo, "getRun").mockResolvedValue({ id: "r1" } as never),
 ];
 afterAll(() => {
@@ -230,6 +232,33 @@ describe("message pages", () => {
 		const d = await getConversationDetail(conv());
 		expect(pageOf).toHaveBeenLastCalledWith("c1");
 		expect(d).toMatchObject({ messages: [], nextBeforeSeq: 7 });
+	});
+
+	it("get-conversation returns the todo list from every row, not just the page (#771)", async () => {
+		const call = (toolCallId: string, input: object) => ({
+			content: {
+				role: "assistant",
+				content: [{ type: "tool-call", toolCallId, toolName: "update_todos", input }],
+			},
+		});
+		const result = (toolCallId: string) => ({
+			content: {
+				role: "tool",
+				content: [{ type: "tool-result", toolCallId, toolName: "update_todos", output: { type: "json" } }],
+			},
+		});
+		allOf.mockResolvedValueOnce([
+			call("w", { items: [{ text: "Build" }, { text: "Test" }] }),
+			result("w"),
+			call("m", { id: "1", status: "done" }),
+			result("m"),
+		]);
+		const d = await getConversationDetail(conv());
+		expect(allOf).toHaveBeenLastCalledWith("c1");
+		expect(d.todos).toEqual([
+			{ id: "1", text: "Build", status: "done" },
+			{ id: "2", text: "Test", status: "pending" },
+		]);
 	});
 
 	it("beforeSeq returns just the page before it", async () => {
