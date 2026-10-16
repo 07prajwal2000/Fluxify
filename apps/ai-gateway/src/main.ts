@@ -4,10 +4,13 @@ import { serve } from "bun";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { registerRoutes } from "./api/register";
+import { initKnowledgeBase } from "./db/knowledge";
 import { AI_GATEWAY_PORT } from "./lib/env";
 import { mapMcpServer } from "./mcp";
 
-export function runMain() {
+export async function runMain() {
+	// the MCP server answers search_docs here, apart from the worker thread
+	await initKnowledgeBase();
 	const app = new Hono<any>();
 
 	app.use(

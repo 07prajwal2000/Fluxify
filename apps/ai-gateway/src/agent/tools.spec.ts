@@ -2,6 +2,7 @@ import { withoutBudget } from "./budget.fixture";
 import { describe, expect, it } from "bun:test";
 import type { ModelMessage } from "ai";
 import { convertArrayToReadableStream, MockLanguageModelV4 } from "ai/test";
+import { buildDocsDB, setDocsDB } from "../db/vector";
 import type { AdminFetch } from "../mcp/adminApi";
 import { approveAll, assertEndsOnUserOrTool, planTools, runAgent } from "./agent";
 import { SUGGEST_PLAN } from "./planning";
@@ -72,6 +73,15 @@ describe("agent tools", () => {
 		// optional for the model: it may leave it out
 		const field = (tools.list_sandboxes.inputSchema as any).shape.projectId;
 		expect(field.safeParse(undefined).success).toBe(true);
+	});
+
+	it("hides the docs tools' projectId and fills in the run's project (#800)", async () => {
+		setDocsDB(buildDocsDB([]));
+		const { tools, calls } = setup(() => []);
+		for (const name of ["search_docs", "read_doc"])
+			expect(Object.keys((tools[name].inputSchema as any).shape)).not.toContain("projectId");
+		await exec(tools.search_docs, { queries: ["x"] });
+		expect(calls.map((c) => c.path)).toEqual([`/v1/${P}/knowledge-sources`]);
 	});
 
 	it("list reads every type for the project in one call and keeps errors per type", async () => {

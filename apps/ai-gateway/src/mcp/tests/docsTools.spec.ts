@@ -1,5 +1,12 @@
 import { beforeAll, describe, expect, it } from "bun:test";
-import { buildDocsDB, chunkPage, INTRO, setDocsDB } from "../../db/vector";
+import {
+	buildDocsDB,
+	chunkPage,
+	INTRO,
+	kbPageSections,
+	setDocsDB,
+	setProjectKB,
+} from "../../db/vector";
 import { docsTools } from "../docsTools";
 
 const page = (title: string, body: string) =>
@@ -91,6 +98,65 @@ describe("docs tools", () => {
 		);
 		expect(await call("read_doc", { page: "concepts/triggers", heading: "Webhooks" })).toBe(
 			`No heading "Webhooks" on concepts/triggers. Headings: ${INTRO} | Cron triggers | Queue triggers`,
+		);
+	});
+});
+
+describe("project knowledge base", () => {
+	const P = "proj-kb";
+	const asked: string[] = [];
+	const api = { get: async (path: string) => asked.push(path) } as never;
+	const kbCall = (name: string, args: object) => tool(name).call(api, args) as Promise<string>;
+
+	beforeAll(() => {
+		setProjectKB(
+			P,
+			kbPageSections("handbook", [
+				{ url: "https://x.dev/guide/billing.md", markdown: "# Billing\n\n## Invoices\n\nInvoices go out monthly." },
+				{ markdown: "---\ntitle: Own title\n---\n\n## Cron triggers\n\nOur cron triggers run at night." },
+				{ url: "https://x.dev/plain", markdown: "No heading at all, just invoices text." },
+			]),
+		);
+	});
+
+	it("gives pages kb/<source>/ paths and a title when they lack one", () => {
+		const secs = kbPageSections("s", [{ url: "https://x.dev/a/b.html", markdown: "# From h1\n\nbody" }]);
+		expect(secs[0]).toMatchObject({ page: "kb/s/a/b", title: "From h1", agent: false, text: "body" });
+		expect(kbPageSections("s", [{ markdown: "plain" }])[0]).toMatchObject({ page: "kb/s/index", title: "s" });
+	});
+
+	it("search_docs merges the project's sections only when given the project", async () => {
+		expect(await call("search_docs", { queries: ["invoices"] })).toBe("No docs matched. Try other words.");
+		const out = await kbCall("search_docs", { queries: ["invoices", "cron"], projectId: P });
+		expect(out).toContain("[page: kb/handbook/guide/billing | Billing > Invoices]");
+		expect(out).toContain("[page: kb/handbook/plain | https://x.dev/plain > (intro)]");
+		expect(out).toContain("[page: kb/handbook/2 | Own title > Cron triggers]");
+		// built-in docs still answer
+		expect(out).toContain("[page: agents/triggers | Trigger reference > Fields]");
+	});
+
+	it("checks project access through the admin API", async () => {
+		asked.length = 0;
+		await kbCall("search_docs", { queries: ["invoices"], projectId: P });
+		expect(asked).toEqual([`/v1/${P}/knowledge-sources`]);
+		const denied = { get: async () => Promise.reject(new Error("You need the Viewer role in this project.")) } as never;
+		await expect(tool("search_docs").call(denied, { queries: ["x"], projectId: P })).rejects.toThrow("Viewer");
+	});
+
+	it("read_doc reads a knowledge base page", async () => {
+		expect(await kbCall("read_doc", { page: "kb/handbook/guide/billing", heading: "Invoices", projectId: P })).toBe(
+			"[page: kb/handbook/guide/billing | Billing > Invoices]\n\nInvoices go out monthly.",
+		);
+		expect(await call("read_doc", { page: "kb/handbook/guide/billing" })).toStartWith("Unknown docs page");
+	});
+
+	it("re-setting a project replaces its sections, and none drops it", async () => {
+		setProjectKB(P, kbPageSections("handbook", [{ markdown: "# Billing\n\n## Invoices\n\nNew text." }]));
+		const out = await kbCall("search_docs", { queries: ["invoices"], projectId: P });
+		expect(out.match(/Invoices\]/g)?.length).toBe(1);
+		setProjectKB(P, []);
+		expect(await kbCall("search_docs", { queries: ["invoices"], projectId: P })).toBe(
+			"No docs matched. Try other words.",
 		);
 	});
 });
