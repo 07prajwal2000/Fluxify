@@ -165,8 +165,19 @@ function ProjectSettingsPage() {
 				</div>
 
 				{/* Right Content */}
-				<div className="flex-1 overflow-y-auto p-8">
-					<div className="max-w-4xl">
+				<div
+					className={cn(
+						"flex-1",
+						activeTab === "ai-connections"
+							? "flex flex-col min-h-0 overflow-hidden p-6"
+							: "overflow-y-auto p-8",
+					)}
+				>
+					<div
+						className={
+							activeTab === "ai-connections" ? "flex flex-col min-h-0 flex-1 w-full" : "max-w-4xl"
+						}
+					>
 						{activeTab === "general" && (
 							<div className="flex flex-col gap-6">
 								<GeneralSettings projectId={projectId} />

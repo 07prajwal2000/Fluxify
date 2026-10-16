@@ -120,6 +120,68 @@ describe("custom knowledge base", () => {
 		expect(hits?.length).toBe(1);
 	});
 
+	it("rejects an oversized page body", async () => {
+		const { status } = await adminCall(stack, stack.tokens.creator, {
+			method: "PUT",
+			path: `${base()}/${pricingId}/pages/0`,
+			body: { markdown: "x".repeat(1_000_001) },
+		});
+		expect(status).toBe(400);
+	});
+
+	it("rejects page editing by a viewer with 403", async () => {
+		const { status } = await adminCall(stack, stack.tokens.viewer, {
+			method: "PUT",
+			path: `${base()}/${pricingId}/pages/0`,
+			body: { markdown: "# Viewer attempt" },
+		});
+		expect(status).toBe(403);
+	});
+
+	it("returns 404 for an invalid page index", async () => {
+		const { status } = await adminCall(stack, stack.tokens.creator, {
+			method: "PUT",
+			path: `${base()}/${pricingId}/pages/999`,
+			body: { markdown: "# Bad index" },
+		});
+		expect(status).toBe(404);
+	});
+
+	it("edits a fetched page and updates search_docs, clearing the edit on refetch", async () => {
+		const { status } = await adminCall(stack, stack.tokens.creator, {
+			method: "PUT",
+			path: `${base()}/${pricingId}/pages/0`,
+			body: { markdown: "# Pricing\n\n## Custom Plans\n\nThe giraffe plan costs 15 euros." },
+		});
+		expect(status).toBe(200);
+
+		const src = await get(pricingId);
+		expect(src.pages[0].edited).toBe(true);
+		expect(src.pages[0].markdown).toContain("giraffe plan");
+		expect(src.pages[0].markdown).not.toContain("zebra plan");
+
+		await eventually(async () => {
+			const text = (await search("giraffe plan")).text;
+			return text.includes("giraffe plan") && !text.includes("zebra plan");
+		});
+
+		const refetchRes = await adminCall(stack, stack.tokens.creator, {
+			method: "POST",
+			path: `${base()}/${pricingId}/refetch`,
+		});
+		expect(refetchRes.status).toBe(200);
+
+		const srcAfter = await get(pricingId);
+		expect(Boolean(srcAfter.pages[0].edited)).toBe(false);
+		expect(srcAfter.pages[0].markdown).toContain("zebra plan");
+		expect(srcAfter.pages[0].markdown).not.toContain("giraffe plan");
+
+		await eventually(async () => {
+			const text = (await search("zebra")).text;
+			return text.includes("zebra plan") && !text.includes("giraffe plan");
+		});
+	});
+
 	it("records a failed fetch instead of failing the save", async () => {
 		const { body } = await create({
 			name: "broken",

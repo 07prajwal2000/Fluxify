@@ -13,7 +13,8 @@ type Row = typeof knowledgeSourcesEntity.$inferSelect;
 
 const view = ({ pages, projectId: _p, createdAt: _c, updatedAt: _u, ...row }: Row) => ({
 	...row,
-	pageCount: pages.length,
+	pageCount: (pages ?? []).length,
+	editedCount: (pages ?? []).filter((p) => p.edited).length,
 });
 
 const byId = (projectId: string, id: string) =>
@@ -142,4 +143,23 @@ export async function previewLlms(
 ) {
 	const md = await fetchMarkdown(url, resolveHeaders(projectId, headers));
 	return { pages: parseLlmsLinks(md, url) };
+}
+
+/** Updates a single page's markdown and marks it edited without refetching. */
+export async function updatePage(
+	projectId: string,
+	id: string,
+	indexParam: string | number,
+	body: { markdown: string },
+) {
+	const old = await find(projectId, id);
+	const idx = typeof indexParam === "number" ? indexParam : Number(indexParam);
+	if (!Number.isInteger(idx) || idx < 0 || idx >= old.pages.length) {
+		throw new NotFoundError("Page not found");
+	}
+	const pages = [...old.pages];
+	pages[idx] = { ...pages[idx], markdown: body.markdown, edited: true };
+	await db.update(knowledgeSourcesEntity).set({ pages }).where(byId(projectId, id));
+	await changed(projectId);
+	return { id };
 }
