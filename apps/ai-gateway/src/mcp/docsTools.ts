@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { allSections, type DocSection, ensureDocsDB, INTRO, searchSections } from "../db/vector";
+import type { AdminApi } from "./adminApi";
 import type { McpTool } from "./tools";
 
 const NOT_BUILT = "The docs index is not built here (bun run --cwd apps/ai-gateway gather).";
@@ -24,17 +25,17 @@ const norm = (p: string) =>
 		.replace(/\.md$/, "")
 		.replace(/(^|\/)$/, "$1index");
 
-async function searchDocs(queries: string[]) {
+async function searchDocs(queries: string[], projectId?: string) {
 	const seen = new Set<string>();
-	const hits = (await Promise.all(queries.map((q) => searchSections(q, HITS_PER_QUERY))))
+	const hits = (await Promise.all(queries.map((q) => searchSections(q, HITS_PER_QUERY, projectId))))
 		.flat()
 		.filter((s) => !seen.has(s.id) && seen.add(s.id));
 	if (!hits.length) return "No docs matched. Try other words.";
 	return `${hits.map(render).join("\n\n---\n\n")}\n\n(read_doc with a page shows its other sections)`;
 }
 
-async function readDoc(page: string, heading?: string) {
-	const all = await allSections();
+async function readDoc(page: string, heading?: string, projectId?: string) {
+	const all = await allSections(projectId);
 	const key = norm(page);
 	const secs = all.filter((s) => s.page.toLowerCase() === key || s.title.toLowerCase() === key);
 	if (!secs.length) {
@@ -42,7 +43,7 @@ async function readDoc(page: string, heading?: string) {
 		const close = [...new Set(all.filter((s) => s.page.includes(word)).map((s) => s.page))];
 		const pages = close.length
 			? close
-			: [...new Set((await searchSections(page, 10)).map((s) => s.page))];
+			: [...new Set((await searchSections(page, 10, projectId)).map((s) => s.page))];
 		return `Unknown docs page "${page}". Close matches: ${pages.slice(0, 5).join(", ") || "none"}.`;
 	}
 	const own = secs.filter((s) => s.page === secs[0].page);
@@ -63,19 +64,31 @@ async function readDoc(page: string, heading?: string) {
 		: `No heading "${heading}" on ${own[0].page}. Headings: ${headings.join(" | ")}`;
 }
 
-/** Docs need the bundled index; a missing one is an answer, not an error. */
+/**
+ * Docs need the bundled index; a missing one is an answer, not an error. A
+ * project's knowledge base is project data: reading its source list through the
+ * admin API checks the caller may view that project (#800).
+ */
 const withIndex =
-	<A>(fn: (a: A) => Promise<string>) =>
-	async (_api: unknown, a: A) => {
+	<A extends { projectId?: string }>(fn: (a: A) => Promise<string>) =>
+	async (api: AdminApi, a: A) => {
 		try {
 			await ensureDocsDB();
 		} catch {
 			return NOT_BUILT;
 		}
+		if (a.projectId) await api.get(`/v1/${a.projectId}/knowledge-sources`);
 		return fn(a);
 	};
 
-/** The Fluxify docs, from the index bundled at build time. Reads no project data. */
+const projectInput = z
+	.string()
+	.optional()
+	.describe(
+		"Also search this project's custom knowledge base. Leave out for the Fluxify docs only",
+	);
+
+/** The Fluxify docs, from the index bundled at build time, plus a project's knowledge base when given one. */
 export const docsTools: McpTool[] = [
 	{
 		name: "search_docs",
@@ -83,8 +96,13 @@ export const docsTools: McpTool[] = [
 		description:
 			"Search the Fluxify docs. Returns the matching sections (page, heading, text). Pass every topic you need in one call.",
 		role: "viewer",
-		input: { queries: z.array(z.string()).min(1).max(5).describe("One entry per topic") },
-		call: withIndex(({ queries }: { queries: string[] }) => searchDocs(queries)),
+		input: {
+			queries: z.array(z.string()).min(1).max(5).describe("One entry per topic"),
+			projectId: projectInput,
+		},
+		call: withIndex(({ queries, projectId }: { queries: string[]; projectId?: string }) =>
+			searchDocs(queries, projectId),
+		),
 	},
 	{
 		name: "read_doc",
@@ -94,9 +112,11 @@ export const docsTools: McpTool[] = [
 		input: {
 			page: z.string().describe("Page path from search_docs (e.g. concepts/triggers) or its title"),
 			heading: z.string().optional().describe("A heading from the outline"),
+			projectId: projectInput,
 		},
-		call: withIndex(({ page, heading }: { page: string; heading?: string }) =>
-			readDoc(page, heading),
+		call: withIndex(
+			({ page, heading, projectId }: { page: string; heading?: string; projectId?: string }) =>
+				readDoc(page, heading, projectId),
 		),
 	},
 ];

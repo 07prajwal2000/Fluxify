@@ -47,6 +47,12 @@ const url = `http://127.0.0.1:${server.port}`;
 // call_route sends to SERVER_URL, the project's public origin
 const s = await startAuthServer({ SERVER_URL: url });
 admin = (request) => s.app.fetch(request);
+// the knowledge base the docs tools search (#800); the built docs index may be missing here
+const vector = await import("@fluxify/ai-gateway/src/db/vector");
+await vector.ensureDocsDB().catch(() => vector.setDocsDB(vector.buildDocsDB([])));
+await (await import("@fluxify/ai-gateway/src/db/knowledge")).initKnowledgeBase();
+// test-only: the docs this suite serves live on localhost; never set in production
+process.env.KNOWLEDGE_ALLOW_PRIVATE_URLS = "true";
 const schema = await import("@fluxify/server/src/db/schema");
 // as boot does: recorded runs reach Postgres only through this consumer
 const { startRecordingConsumer } = await import("@fluxify/server/src/modules/recordings/consumer");

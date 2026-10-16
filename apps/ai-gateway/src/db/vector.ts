@@ -117,14 +117,58 @@ export async function ensureDocsDB() {
 	}
 }
 
-/** Best matching sections, relevant agent-page sections first. */
-export async function searchSections(query: string, limit = 4): Promise<DocSection[]> {
-	const { hits } = await search(docsDB!, {
-		term: query,
-		properties: ["title", "heading", "text"],
-		boost: { heading: 2 },
-		limit: limit * 3,
+/** One Orama index per project's custom knowledge base (#800), built from stored Markdown. */
+const kbDBs = new Map<string, AnyOrama>();
+
+/** A source's stored page as a docs page; one without a frontmatter title gets one. */
+export function kbPageSections(
+	source: string,
+	pages: { url?: string; markdown: string }[],
+): DocSection[] {
+	const seen = new Set<string>();
+	return pages.flatMap((p, i) => {
+		const slug = p.url ? new URL(p.url).pathname.replace(/^\/+|\/+$|\.(md|html?)$/g, "") : "";
+		let path = `kb/${source}/${slug || (pages.length > 1 ? String(i + 1) : "index")}`;
+		if (seen.has(path)) path += `-${i + 1}`;
+		seen.add(path);
+		const title = (p.markdown.match(/^#\s+(.+)$/m)?.[1] ?? p.url ?? source).trim();
+		const raw = extractFrontmatter(p.markdown).title
+			? p.markdown
+			: `---\ntitle: ${title}\n---\n\n${p.markdown}`;
+		return chunkPage(path, raw) ?? [];
 	});
+}
+
+/** Replace a project's knowledge base index; no sections drops it. */
+export function setProjectKB(projectId: string, sections: DocSection[]) {
+	if (sections.length) kbDBs.set(projectId, buildDocsDB(sections));
+	else kbDBs.delete(projectId);
+}
+
+/**
+ * Best matching sections, relevant agent-page sections first. With a project,
+ * its knowledge base hits merge in by score, no boost.
+ */
+export async function searchSections(
+	query: string,
+	limit = 4,
+	projectId?: string,
+): Promise<DocSection[]> {
+	const kb = projectId ? kbDBs.get(projectId) : undefined;
+	const hits = (
+		await Promise.all(
+			[docsDB!, ...(kb ? [kb] : [])].map((db) =>
+				search(db, {
+					term: query,
+					properties: ["title", "heading", "text"],
+					boost: { heading: 2 },
+					limit: limit * 3,
+				}),
+			),
+		)
+	)
+		.flatMap((r) => r.hits)
+		.sort((a, b) => b.score - a.score);
 	const cutoff = (hits[0]?.score ?? 0) * AGENT_MIN_SHARE;
 	const first = (h: (typeof hits)[number]) => (h.document as DocSection).agent && h.score >= cutoff;
 	// hits come sorted by score, and a stable sort keeps that order inside each group
@@ -134,13 +178,14 @@ export async function searchSections(query: string, limit = 4): Promise<DocSecti
 		.map((h) => h.document as DocSection);
 }
 
-/** Every section in the index, in page order. */
-export async function allSections(): Promise<DocSection[]> {
-	if (!allCache) {
-		const res = await search(docsDB!, { term: "", limit: count(docsDB!) });
-		allCache = res.hits
-			.map((h) => h.document as DocSection)
-			.sort((a, b) => a.page.localeCompare(b.page) || a.order - b.order);
-	}
-	return allCache;
+const everySection = async (db: AnyOrama) =>
+	(await search(db, { term: "", limit: count(db) })).hits
+		.map((h) => h.document as DocSection)
+		.sort((a, b) => a.page.localeCompare(b.page) || a.order - b.order);
+
+/** Every section in the index, in page order, then the project's knowledge base. */
+export async function allSections(projectId?: string): Promise<DocSection[]> {
+	allCache ??= await everySection(docsDB!);
+	const kb = projectId ? kbDBs.get(projectId) : undefined;
+	return kb ? [...allCache, ...(await everySection(kb))] : allCache;
 }

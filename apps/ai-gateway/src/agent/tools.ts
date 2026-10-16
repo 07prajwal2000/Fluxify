@@ -37,6 +37,9 @@ const PROJECT_FIELD = z
 	.optional()
 	.describe("This chat's project. Leave it out: it is filled in for you");
 
+/** Tools whose projectId is filled in but left out of the agent's schema. */
+const HIDDEN_PROJECT = new Set(["search_docs", "read_doc"]);
+
 /** What `list` reads: each one only needs the project id. */
 export const LIST_TYPES = {
 	routes: "list_routes",
@@ -251,7 +254,13 @@ export function agentTools(
 	 */
 	const wrap = (t: McpTool): Tool => {
 		const own = "projectId" in t.input;
-		const shape = own ? { ...t.input, projectId: PROJECT_FIELD } : t.input;
+		const { projectId: _, ...rest } = t.input;
+		// the docs tools' projectId only adds the knowledge base (#800): the agent never sees it
+		const shape = !own
+			? t.input
+			: HIDDEN_PROJECT.has(t.name)
+				? rest
+				: { ...rest, projectId: PROJECT_FIELD };
 		const pin = (args: any) => ({
 			...args,
 			...(own && { projectId }),

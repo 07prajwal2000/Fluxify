@@ -5,6 +5,7 @@ import customBlocks from "./custom-blocks/register";
 import ephemeralRuns from "./ephemeral-runs/register";
 import instanceSettings from "./instance-settings/register";
 import integrations from "./integrations/register";
+import knowledgeSources from "./knowledge-sources/register";
 import middlewares from "./middlewares/register";
 import projects from "./projects/register";
 import recordings from "./recordings/register";
@@ -39,6 +40,7 @@ export default {
 		projects.registerHandler(router);
 		appConfig.registerHandler(router);
 		integrations.registerHandler(router);
+		knowledgeSources.registerHandler(router);
 		testSuites.registerHandler(router);
 		recordings.registerHandler(router);
 		customBlocks.registerHandler(router);

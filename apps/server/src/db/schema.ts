@@ -320,6 +320,46 @@ export const integrationsEntity = pgTable(
 	],
 );
 
+export const KNOWLEDGE_SOURCE_TYPES = ["markdown", "url", "llms_txt", "llms_full_txt"] as const;
+export type KnowledgeSourceType = (typeof KNOWLEDGE_SOURCE_TYPES)[number];
+/** One stored page of a knowledge source, already Markdown (#800). */
+export type KnowledgePage = { url?: string; markdown: string };
+
+/**
+ * A project's custom knowledge base source (#800). URL sources are fetched
+ * (GET) at save/refetch time and stored as Markdown `pages`; the AI gateway
+ * indexes them next to the built-in docs.
+ */
+export const knowledgeSourcesEntity = pgTable(
+	"knowledge_sources",
+	{
+		id: uuid()
+			.$defaultFn(() => generateID())
+			.primaryKey(),
+		projectId: varchar("project_id", { length: 50 })
+			.references(() => projectsEntity.id, { onDelete: "cascade" })
+			.notNull(),
+		name: varchar({ length: 100 }).notNull(),
+		type: varchar({ length: 20 }).$type<KnowledgeSourceType>().notNull(),
+		url: text(),
+		/** Header name -> app config key. Never the value itself. */
+		headers: jsonb().$type<Record<string, string>>().default({}).notNull(),
+		/** llms.txt: the linked page URLs to index */
+		selectedPages: jsonb("selected_pages").$type<string[]>().default([]).notNull(),
+		pages: jsonb().$type<KnowledgePage[]>().default([]).notNull(),
+		enabled: boolean().default(true).notNull(),
+		lastFetchedAt: timestamp("last_fetched_at"),
+		/** `ok` | `error`; null until a URL source is first fetched */
+		lastFetchStatus: varchar("last_fetch_status", { length: 10 }),
+		lastFetchError: text("last_fetch_error"),
+		createdAt: timestamp("created_at").defaultNow(),
+		updatedAt: timestamp("updated_at")
+			.defaultNow()
+			.$onUpdate(() => new Date()),
+	},
+	(table) => [uniqueIndex("uq_knowledge_sources_project_name").on(table.projectId, table.name)],
+);
+
 /* ============================================================================
  * 5. ROUTES & WORKFLOW CANVAS
  * ============================================================================ */

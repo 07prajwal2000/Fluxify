@@ -12,6 +12,8 @@ export const CHAN_ON_PROJECT_SETTING_CHANGE = "chan:on-project-setting-change";
 export const CHAN_ON_CUSTOM_BLOCK_CHANGE = "chan:on-custom-block-change";
 export const CHAN_ON_WORKFLOW_CHANGE = "chan:on-workflow-change";
 export const CHAN_ON_SANDBOX_CHANGE = "chan:on-sandbox-change";
+/** A project's knowledge base changed (#800); the data is the project id. */
+export const CHAN_ON_KNOWLEDGE_SOURCE_CHANGE = "chan:on-knowledge-source-change";
 
 /** Connect the pub/sub backend (NATS). Call once at startup before publishing/subscribing. */
 export async function initializePubSub() {
