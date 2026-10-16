@@ -127,6 +127,7 @@
         "@fluxify/lib": "workspace:*",
         "@hono/standard-validator": "^0.2.2",
         "@hono/zod-validator": "^0.8.0",
+        "@modelcontextprotocol/sdk": "^1.29.0",
         "@toon-format/toon": "^2.3.0",
         "better-auth": "1.6.23",
         "dayjs": "^1.11.21",

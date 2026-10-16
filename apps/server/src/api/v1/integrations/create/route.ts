@@ -6,7 +6,7 @@ import zodErrorCallbackParser from "../../../../middlewares/zodErrorCallbackPars
 import type { HonoServer } from "../../../../types";
 import { requireProjectAccess } from "../../../auth/middleware";
 import { requestBodySchema, requestRouteSchema, responseSchema } from "./dto";
-import { requestBodyValidator } from "./middleware";
+import { requestBodyValidator, requireAdminForMcp } from "./middleware";
 import handleRequest from "./service";
 
 const openapiRouteOptions: DescribeRouteOptions = {
@@ -55,6 +55,7 @@ export default function (app: HonoServer) {
 		describeRoute(openapiRouteOptions),
 		requireProjectAccess("creator", { key: "projectId", source: "param" }),
 		validator("param", requestRouteSchema, zodErrorCallbackParser),
+		requireAdminForMcp,
 		validator("json", requestBodySchema, zodErrorCallbackParser),
 		requestBodyValidator,
 		async (c) => {

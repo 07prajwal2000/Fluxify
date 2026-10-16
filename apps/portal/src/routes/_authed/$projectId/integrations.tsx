@@ -83,6 +83,7 @@ function IntegrationsPage() {
 		baas: baasData?.length ?? 0,
 		observability: obsData?.length ?? 0,
 		queue: queueData?.length ?? 0,
+		mcp: 0, // portal form is #822
 	};
 
 	// sync selected group from URL (deep-link support)
