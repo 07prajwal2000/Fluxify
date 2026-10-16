@@ -14,8 +14,10 @@ import {
 	WRAP_UP,
 } from "./guards";
 import { type Effort, providerOf, thinkingOptions } from "./model";
+import { PLAN_RECIPE, type Planning, SUGGEST_PLAN } from "./planning";
 import { traceRun } from "./telemetry";
 import { type Limits, withModelTimeouts, withToolTimeouts } from "./timeouts";
+import { TODO_TOOL } from "./todos";
 import {
 	closeMatches,
 	copiesIntoRealCanvas,
@@ -34,6 +36,8 @@ export const agentPrompt = (
 ) => `You are the Fluxify agent. Fluxify is a low-code backend platform: you build HTTP routes and background workflows as canvases (graphs of blocks).
 
 You work in project ${projectId}. Every tool acts as the signed-in user with their project role. A "You need the X role" error means stop and tell the user.
+
+Size the request first. If it needs several routes, workflows or other resources, spans more than one area, or is vague, your first call is suggest_plan_mode (read_doc ${PLAN_RECIPE}). One or two small, clear changes go ahead without it.
 
 Basics:
 - Route: an HTTP endpoint. Its canvas starts at the entrypoint block and ends at a response block. A new route answers in development at once (devActive is on by default); production needs active: true.
@@ -62,7 +66,11 @@ Only say it is done when the check passed. Stop when the tests pass / the route 
 
 const PLAN_PROMPT = `
 
-Plan mode: you only have read tools. Look at what exists, then reply with a short numbered plan: what you will create or change, and how you will check it. Change nothing now; the user reviews the plan first.`;
+Plan mode: you only have read tools. Look at what exists, then reply with the plan: numbered main tasks with subtasks, each with how you will check it. Change nothing now. End with "Reply 'go ahead' to start. Switch to Auto first if you don't want to approve each change." How to write it: read_doc ${PLAN_RECIPE}.`;
+
+const APPROVED_PROMPT = `
+
+The user approved your plan. First call update_todos with its tasks and subtasks, then work through them one at a time (read_doc ${PLAN_RECIPE}).`;
 
 /** A tool call waiting for the user. */
 export type PendingCall = {
@@ -120,6 +128,8 @@ type Run = {
 	/** Thinking level (`none` turns it off); sent only for models known to support it. */
 	effort?: Effort;
 	approve: Approve;
+	/** Plans and the todo list (#771), shared with the tools; `approved` adds the "work the plan" instructions. */
+	plan?: Planning;
 	/** Asked at the step cap and the token budget; stops when missing. */
 	onLimit?: OnLimit;
 	/** Tools approved for the session with "always"; filled as the user answers. */
@@ -186,6 +196,7 @@ export function runAgent({
 	askBeforeProductionWrites = true,
 	effort,
 	approve,
+	plan,
 	onLimit = async () => false,
 	allowed = new Set(),
 	abortSignal,
@@ -241,7 +252,9 @@ export function runAgent({
 		else stop = { kind, used, limit };
 		return go;
 	};
-	const instructions = agentPrompt(projectId) + (mode === "plan" ? PLAN_PROMPT : "");
+	const instructions =
+		agentPrompt(projectId) +
+		(mode === "plan" ? PLAN_PROMPT : plan?.approved ? APPROVED_PROMPT : "");
 	const timed = withModelTimeouts(model, limits, onRetry ?? (() => {}));
 	let compacting = false;
 	const watchers = new Set<(on: boolean) => void>();
@@ -252,6 +265,7 @@ export function runAgent({
 		context: limits.maxContextTokens,
 		// not the guarded set: the summary's canvas reads are not the model's calls to count
 		tools: withToolTimeouts(tools, limits.toolMs),
+		todos: () => plan?.todos ?? [],
 		abortSignal,
 		onCompacting: (on) => {
 			compacting = on;
@@ -315,6 +329,8 @@ export function runAgent({
 					`No tool named ${name}.${near.length ? ` Close matches: ${near.join(", ")}.` : ""} Use list_advanced_tools to see more.`,
 				);
 			}
+			if (name === TODO_TOOL) throw new Error(`${name} works only after the user approves a plan.`);
+			if (name === SUGGEST_PLAN) throw new Error("You are in plan mode already: write the plan.");
 			if (mode === "plan" && !isRead(name))
 				throw new Error(
 					`${name} changes things; plan mode is read-only. Put it in the plan instead.`,
@@ -329,6 +345,7 @@ export function runAgent({
 			const every =
 				del ||
 				isDeploy(toolName) ||
+				toolName === SUGGEST_PLAN ||
 				copiesIntoRealCanvas(toolName, input) ||
 				(askBeforeProductionWrites && touchesProd(toolName, input) === "write");
 			const prod = { reads: askBeforeProductionReads, writes: askBeforeProductionWrites };

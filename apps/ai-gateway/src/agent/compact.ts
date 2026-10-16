@@ -2,6 +2,7 @@ import type { LanguageModel, ModelMessage, Tool } from "ai";
 import { type Compaction, estimate, type SummaryCompaction } from "./compactStats";
 import { KEEP_STEPS, keepFrom, summarize } from "./summary";
 import { trimSpan } from "./telemetry";
+import type { Todo } from "./todos";
 import { keepSet, type TrimLevel, trimOld } from "./trim";
 
 export {
@@ -43,6 +44,8 @@ export function compactor(o: {
 	context?: number;
 	/** Reads the canvases to re-attach to a summary (get_canvas). */
 	tools?: Record<string, Tool>;
+	/** The todo list now, for the summary to re-attach (#771). */
+	todos?: () => Todo[];
 	abortSignal?: AbortSignal;
 	/** The summary call starts (true) and ends (false): the slow part, which clients show as "Compacting…". */
 	onCompacting?: (on: boolean) => void;

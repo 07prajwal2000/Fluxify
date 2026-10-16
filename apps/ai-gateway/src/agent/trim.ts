@@ -1,5 +1,6 @@
 import type { ModelMessage } from "ai";
 import { chars } from "./compactStats";
+import { TODO_TOOL } from "./todos";
 
 /** Shorter results are not worth a stub. */
 const MIN_TRIM_CHARS = 500;
@@ -57,11 +58,13 @@ const labelOf = (tool: string, input: any) =>
 /**
  * Tool call ids whose results depend on what came later, so they are decided once
  * (at the batch, not on every step): the newest get_canvas and edit_canvas result of
- * each target, and the get_block_schemas results for block types that are on a canvas.
+ * each target, the get_block_schemas results for block types that are on a canvas, and
+ * the latest update_todos result: the whole todo list (#771).
  */
 export function keepSet(messages: ModelMessage[]) {
 	const calls = callsOf(messages);
 	const onCanvas = new Set<string>();
+	let todos: string | undefined;
 	const schemas: { id: string; types: string[] }[] = [];
 
 	type CanvasEntry = { id: string; tool: string; success: boolean; index: number };
@@ -73,6 +76,7 @@ export function keepSet(messages: ModelMessage[]) {
 		for (const p of m.content) {
 			if (p.type !== "tool-result") continue;
 			toolCallIndex++;
+			if (p.toolName === TODO_TOOL && !isError(p.output)) todos = p.toolCallId;
 			const input = calls.get(p.toolCallId)?.input;
 			if (CANVAS.has(p.toolName) && input?.target?.kind && input?.target?.id) {
 				const targetKey = `${input.target.kind} ${input.target.id}`;
@@ -118,6 +122,7 @@ export function keepSet(messages: ModelMessage[]) {
 	}
 
 	for (const s of schemas) if (s.types.some((t) => onCanvas.has(t))) keep.add(s.id);
+	if (todos) keep.add(todos);
 	return keep;
 }
 

@@ -8,6 +8,7 @@ import { type Approve, runAgent } from "../agent";
 import { cacheTokens } from "../cache";
 import { SUMMARY_HEAD } from "../compact";
 import { modelFromEnv } from "../model";
+import type { Planning } from "../planning";
 import { printRun } from "../progress";
 import { type Limits, limitsFromEnv } from "../timeouts";
 import { agentTools, mcpCall } from "../tools";
@@ -18,6 +19,7 @@ import { tasks as BASE_TASKS } from "./tasks";
 import { moreTasks } from "./tasks2";
 import { ephemeralTasks } from "./tasksEphemeral";
 import { moveBlocksTasks } from "./tasksMoveBlocks";
+import { planTasks } from "./tasksPlan";
 import { productionTasks } from "./tasksProduction";
 
 /**
@@ -148,6 +150,8 @@ export async function runTask(task: Task, deps: Deps, signal: AbortSignal): Prom
 	const tool = mcpCall(deps.fetcher, deps.auth);
 	const api = adminApi(deps.fetcher, deps.auth, "creator");
 	const history: ModelMessage[] = [];
+	/** Every message, also those a summary later replaced in `history`: what the checks see. */
+	const all: ModelMessage[] = [];
 	let projectId = "";
 	try {
 		const name = `eval-${task.id}-${Date.now().toString(36)}`;
@@ -159,14 +163,22 @@ export async function runTask(task: Task, deps: Deps, signal: AbortSignal): Prom
 		const ctx: Ctx = { projectId, tool, api, seed: {}, calls: [], env: deps.env };
 		await task.setup?.(ctx);
 
-		const { tools, active, load } = agentTools(deps.fetcher, deps.auth, projectId);
-		// Unattended: auto mode, and the calls that still ask (deletes) are approved and noted.
+		const plan: Planning = { mode: "auto", todos: [] };
+		const { tools, active, load } = agentTools(deps.fetcher, deps.auth, projectId, undefined, plan);
+		// Unattended: auto mode (or the task's modes), and the calls that still ask (deletes) are approved and noted.
 		const approve: Approve = async (call) => {
 			out(`[auto-approved] ${call.toolName}\n`);
 			return { ok: true };
 		};
-		for (const turn of [task.prompt].flat()) {
+		for (const [i, turn] of [task.prompt].flat().entries()) {
 			if (signal.aborted) break;
+			// plan, then not: the plan is approved (#771)
+			const mode = task.modes?.[i] ?? "auto";
+			Object.assign(plan, {
+				approved: plan.mode === "plan" && mode !== "plan",
+				mode,
+				wrote: false,
+			});
 			out(`\n> ${turn}\n`);
 			history.push({ role: "user", content: turn });
 			const result = runAgent({
@@ -177,11 +189,13 @@ export async function runTask(task: Task, deps: Deps, signal: AbortSignal): Prom
 				projectId,
 				history,
 				limits: { ...deps.limits, ...task.limits },
-				mode: "auto",
+				mode,
+				plan,
 				approve,
 				// Unattended: a limit stops the task so runs stay bounded.
 				onLimit: async () => false,
 				abortSignal: signal,
+				onMessages: (list) => void all.push(...list),
 			});
 			await printRun(result, { write: out });
 			const steps = await settle(result.steps, []);
@@ -196,7 +210,8 @@ export async function runTask(task: Task, deps: Deps, signal: AbortSignal): Prom
 		}
 		if (signal.aborted) throw new Error("Stopped by user");
 
-		ctx.calls = toolCalls(history);
+		ctx.calls = toolCalls(all);
+		ctx.todos = plan.todos;
 		ctx.summaries = history.filter(
 			(m) => typeof m.content === "string" && m.content.startsWith(SUMMARY_HEAD),
 		).length;
@@ -262,6 +277,7 @@ const ALL_TASKS = [
 	...ephemeralTasks,
 	...moveBlocksTasks,
 	...productionTasks,
+	...planTasks,
 ];
 
 /** --task ids → tasks, in the suite's order; throws on an unknown id. */

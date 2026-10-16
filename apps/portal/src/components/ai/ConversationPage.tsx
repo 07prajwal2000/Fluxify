@@ -11,6 +11,7 @@ import { ChatHeader } from "./ChatHeader";
 import { PromptEditor } from "./PromptEditor";
 import { RunSummary } from "./RunSummary";
 import { ScrollToBottomButton } from "./ScrollToBottomButton";
+import { TodosButton } from "./TodoList";
 import { useAgentConversation } from "./useAgentConversation";
 import { useScrollToBottom } from "./useScrollToBottom";
 
@@ -163,13 +164,16 @@ export function ConversationPage() {
 								isRunning={chat.running}
 								onStop={() => chat.stop().catch(showErrorNotification)}
 								controls={
-									<AgentPickers
-										mode={chat.mode}
-										onModeChange={chat.setMode}
-										effort={chat.effort}
-										onEffortChange={chat.setEffort}
-										supportsThinking={chat.supportsThinking}
-									/>
+									<>
+										<TodosButton todos={chat.todos} conversationId={conversationId} />
+										<AgentPickers
+											mode={chat.mode}
+											onModeChange={chat.setMode}
+											effort={chat.effort}
+											onEffortChange={chat.setEffort}
+											supportsThinking={chat.supportsThinking}
+										/>
+									</>
 								}
 							/>
 						</>

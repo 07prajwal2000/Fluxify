@@ -1,5 +1,6 @@
 import type { StopReason } from "@fluxify/ai-gateway/src/agent/agent";
 import type { Effort } from "@fluxify/ai-gateway/src/agent/model";
+import type { Todo } from "@fluxify/ai-gateway/src/agent/todos";
 import type { Mode } from "@fluxify/ai-gateway/src/agent/tools";
 import type { EditPreview } from "@fluxify/ai-gateway/src/mcp/canvasPreview";
 import type { AgentConversation } from "@/components/ai/types";
@@ -52,6 +53,8 @@ export type AgentConversationDetail = {
 	/** The conversation's latest run, settled or not. */
 	run: AgentRun | null;
 	settings: AgentSettings;
+	/** The agent's todo list (#771), from every saved row, not just this page. */
+	todos?: Todo[];
 };
 /** Rename, pin or archive; archiving unpins. */
 export type ConversationPatch = { title?: string; pinned?: boolean; archived?: boolean };

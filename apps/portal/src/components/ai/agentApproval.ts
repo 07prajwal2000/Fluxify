@@ -1,6 +1,12 @@
 import { type ChatMessage, type ToolPart, toolTitle } from "./agentMessages";
 
-/** What the approval bar asks about: the call waiting for an answer, or a finished plan in plan mode. */
+/** The agent asks to switch to plan mode (#771); answered with Switch to plan or Continue anyway, never "always". */
+export const SUGGEST_PLAN = "suggest_plan_mode";
+
+/**
+ * What the approval bar asks about: the call waiting for an answer, a suggestion
+ * to plan first, or a finished plan in plan mode.
+ */
 export type ApprovalRequest =
 	| {
 			kind: "tool";
@@ -13,6 +19,7 @@ export type ApprovalRequest =
 			/** promote and rollback (#739): the approver writes why, and it is saved with the deployment */
 			needsComment?: boolean;
 	  }
+	| { kind: "suggest"; reason: string }
 	| { kind: "plan" };
 
 export type ToolRequest = Extract<ApprovalRequest, { kind: "tool" }>;
@@ -60,6 +67,12 @@ export function waitingCalls(messages: ChatMessage[]): ToolRequest[] {
 		needsComment: isDeployTool(call.name),
 	}));
 }
+
+/** A waiting suggest_plan_mode call gets its own card; any other call is asked as it is. */
+export const requestOf = (call: ToolRequest): ApprovalRequest =>
+	call.name === SUGGEST_PLAN
+		? { kind: "suggest", reason: String((call.input as { reason?: unknown })?.reason ?? "") }
+		: call;
 
 /** The first of them: the one a single approval answers. Undefined when none waits. */
 export const waitingCall = (messages: ChatMessage[]): ToolRequest | undefined =>

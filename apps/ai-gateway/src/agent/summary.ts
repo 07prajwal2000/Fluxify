@@ -1,12 +1,15 @@
 import { generateText, type LanguageModel, type ModelMessage, type Tool } from "ai";
 import { estimate, type SummaryCompaction } from "./compactStats";
 import { compactionSpan, telemetryFor } from "./telemetry";
+import { isOpen, type Todo, todoLines } from "./todos";
 
 /** The last steps (assistant turns) always go out verbatim. */
 export const KEEP_STEPS = 3;
 export const SUMMARY_HEAD = "Summary of the earlier conversation:\n";
 /** Where a summary's re-attached canvases start; the summarizer gets fresh ones instead. */
 const CANVAS_HEAD = "\n\nCanvases being edited";
+/** The todo list a summary re-attaches (#771); it ends the summary. */
+const TODO_HEAD = "\n\nCurrent todo list (update_todos; keep working through it):";
 const CANVAS_MARK = /^\[canvas (route|workflow|custom_block) (\S+)\]$/gm;
 
 /** Index of the first message of the last `n` steps, or -1 when there are fewer. */
@@ -179,6 +182,8 @@ async function summarizeNow(
 		instructions?: string;
 		keep?: string;
 		tools?: Record<string, Tool>;
+		/** The todo list now (#771): re-attached while it has open items, so a summary never loses it. */
+		todos?: () => Todo[];
 		abortSignal?: AbortSignal;
 	} = {},
 ) {
@@ -197,7 +202,12 @@ async function summarizeNow(
 	const canvases = opts.tools
 		? await canvasSection(opts.tools, editedTargets(covered), opts.abortSignal)
 		: "";
-	const summary: ModelMessage = { role: "user", content: SUMMARY_HEAD + text.trim() + canvases };
+	const list = opts.todos?.() ?? [];
+	const todos = isOpen(list) ? `${TODO_HEAD}\n${todoLines(list)}` : "";
+	const summary: ModelMessage = {
+		role: "user",
+		content: SUMMARY_HEAD + text.trim() + canvases + todos,
+	};
 	const next = [summary, ...(cut > user ? [messages[user]] : []), ...messages.slice(cut)];
 	const event: SummaryCompaction = {
 		type: "compaction",

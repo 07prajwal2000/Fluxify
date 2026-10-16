@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
+import { SUGGEST_PLAN } from "../agentApproval";
 import type { ToolPart } from "../agentMessages";
+import { TODO_TOOL, todosOf } from "../todos";
 import { BlockSchemasPreview } from "./BlockSchemasPreview";
 import { CallRoutePreview } from "./CallRoutePreview";
 import { ConnectionPreview } from "./ConnectionPreview";
@@ -13,6 +15,7 @@ import { canDraw, GetCanvasPreview } from "./GetCanvasPreview";
 import { KvPreview } from "./KvPreview";
 import { MemberPreview } from "./MemberPreview";
 import { PackagePreview } from "./PackagePreview";
+import { SuggestPlanPreview, TodosPreview } from "./PlanPreviews";
 import { ProjectUpdatePreview } from "./ProjectUpdatePreview";
 import { isRun, RecordingList, RecordingSummary } from "./RecordingPreview";
 import { ResourceCard } from "./ResourceCard";
@@ -50,6 +53,8 @@ const isSuiteAction = (name: string) =>
  */
 export function previewOf(tool: ToolPart, asking: boolean): ReactNode | null {
 	const { name } = tool;
+	if (name === SUGGEST_PLAN) return <SuggestPlanPreview tool={tool} asking={asking} />;
+	if (name === TODO_TOOL && todosOf(tool)) return <TodosPreview tool={tool} />;
 	if (name === "copy_blocks") return <CopyBlocksPreview tool={tool} asking={asking} />;
 	if (name === "run_sandbox") return <SandboxRunPreview tool={tool} asking={asking} />;
 	if (isMember(name)) return <MemberPreview tool={tool} asking={asking} />;

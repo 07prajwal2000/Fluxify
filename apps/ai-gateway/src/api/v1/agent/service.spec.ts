@@ -33,6 +33,8 @@ const long = [
 	{ role: "assistant", content: "tested" },
 ];
 const viewOf = mock(async (_id: string) => long.map((message, seq) => ({ message, seq })));
+/** Every row: the todo list (#771) comes from them, not from the page. */
+const allOf = mock(async (_id: string) => [] as { content: unknown }[]);
 /** An assistant message with two calls (a, b) and no results yet. */
 const waiting = [
 	{
@@ -53,7 +55,7 @@ const spies = [
 	supports,
 	spyOn(queue, "purgeRunEvents").mockResolvedValue(undefined as never),
 	spyOn(quota, "assertRunQuota").mockResolvedValue(undefined as never),
-	spyOn(store, "agentStore").mockReturnValue({ page: pageOf, modelView: viewOf } as never),
+	spyOn(store, "agentStore").mockReturnValue({ page: pageOf, modelView: viewOf, all: allOf } as never),
 	spyOn(repo, "getRun").mockResolvedValue({ id: "r1" } as never),
 ];
 afterAll(() => {
@@ -66,13 +68,45 @@ beforeEach(() => {
 describe("mode and effort stick to the conversation", () => {
 	it("a message saves its mode and effort and runs with them", async () => {
 		await sendMessage(conv(), "u", "hi", "plan", "high");
-		expect(startRun).toHaveBeenCalledWith("c1", "hi", "plan", "high");
+		expect(startRun).toHaveBeenCalledWith("c1", "hi", "plan", "high", false);
 		expect(publish.mock.calls[0][0]).toMatchObject({ mode: "plan", effort: "high" });
 	});
 
 	it("a message without an effort keeps the one the conversation had", async () => {
 		await sendMessage(conv({ metadata: { agent: true, mode: "auto", effort: "low" } }), "u", "hi", "auto");
-		expect(startRun).toHaveBeenCalledWith("c1", "hi", "auto", "low");
+		expect(startRun).toHaveBeenCalledWith("c1", "hi", "auto", "low", false);
+	});
+
+	it("a manual or auto message after a plan-mode run approves the plan (#771)", async () => {
+		const planned = conv({ metadata: { agent: true, mode: "plan" } });
+		await sendMessage(planned, "u", "go ahead", "auto");
+		expect(publish.mock.calls[0][0]).toMatchObject({ mode: "auto", planApproved: true });
+		await sendMessage(planned, "u", "change step 2", "plan");
+		await sendMessage(conv(), "u", "go ahead", "auto");
+		expect(publish.mock.calls[1][0]).not.toHaveProperty("planApproved");
+		expect(publish.mock.calls[2][0]).not.toHaveProperty("planApproved");
+	});
+
+	it("a run that approved a plan keeps it across its approvals (#771)", async () => {
+		const approved = conv({ metadata: { agent: true, mode: "auto", planApproved: true } });
+		await answerApproval(approved, "u", { approve: true });
+		expect(publish.mock.calls[0][0]).toMatchObject({ type: "continue", planApproved: true });
+		await answerApproval(approved, "u", { approve: true, mode: "manual" });
+		expect(setMeta).toHaveBeenCalledWith("c1", { agent: true, mode: "manual", planApproved: true });
+		await answerApproval(approved, "u", { approve: true, mode: "plan" });
+		expect(publish.mock.calls[2][0]).not.toHaveProperty("planApproved");
+		expect(startRun).not.toHaveBeenCalled();
+	});
+
+	it("a plan approval is saved with the run", async () => {
+		await sendMessage(conv({ metadata: { agent: true, mode: "plan" } }), "u", "go ahead", "auto");
+		expect(startRun).toHaveBeenCalledWith("c1", "go ahead", "auto", undefined, true);
+	});
+
+	it("switching to plan from suggest_plan_mode continues the run in plan mode", async () => {
+		await answerApproval(conv(), "u", { approve: true, mode: "plan" });
+		expect(setMeta).toHaveBeenCalledWith("c1", { agent: true, mode: "plan" });
+		expect(publish.mock.calls[0][0]).toMatchObject({ type: "continue", mode: "plan", approval: { ok: true } });
 	});
 
 	it("an approval that picks a mode saves it and the job runs in it", async () => {
@@ -198,6 +232,33 @@ describe("message pages", () => {
 		const d = await getConversationDetail(conv());
 		expect(pageOf).toHaveBeenLastCalledWith("c1");
 		expect(d).toMatchObject({ messages: [], nextBeforeSeq: 7 });
+	});
+
+	it("get-conversation returns the todo list from every row, not just the page (#771)", async () => {
+		const call = (toolCallId: string, input: object) => ({
+			content: {
+				role: "assistant",
+				content: [{ type: "tool-call", toolCallId, toolName: "update_todos", input }],
+			},
+		});
+		const result = (toolCallId: string) => ({
+			content: {
+				role: "tool",
+				content: [{ type: "tool-result", toolCallId, toolName: "update_todos", output: { type: "json" } }],
+			},
+		});
+		allOf.mockResolvedValueOnce([
+			call("w", { items: [{ text: "Build" }, { text: "Test" }] }),
+			result("w"),
+			call("m", { id: "1", status: "done" }),
+			result("m"),
+		]);
+		const d = await getConversationDetail(conv());
+		expect(allOf).toHaveBeenLastCalledWith("c1");
+		expect(d.todos).toEqual([
+			{ id: "1", text: "Build", status: "done" },
+			{ id: "2", text: "Test", status: "pending" },
+		]);
 	});
 
 	it("beforeSeq returns just the page before it", async () => {

@@ -83,6 +83,10 @@ Until promoting a version is available, saving a route or workflow still goes li
 
 A setting you have not changed uses its default. The offline agent CLI reads `AGENT_MAX_STEPS`, `AGENT_MAX_CONTEXT_TOKENS` and `AGENT_TOKEN_BUDGET` from the environment, and those win over the project values.
 
+## Plans and the todo list
+
+For a big request the agent can suggest plan mode, and once you approve a plan it works through it with a todo list. See [Plans and the todo list](/getting-started/ai-agents#plans-and-the-todo-list).
+
 ## Long conversations
 
 A long chat can outgrow the model's context window, so the agent shrinks it for you:

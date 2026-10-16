@@ -30,6 +30,7 @@ function world(messages: ModelMessage[] = chat, summary: () => string = () => "t
 	const sent: AgentEvent[][] = [];
 	const store = {
 		modelView: async () => messages.map((message, seq) => ({ message, seq })),
+		all: async () => messages.map((content, seq) => ({ content, seq })),
 		appendSummary: async (
 			_c: string,
 			_r: string,

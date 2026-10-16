@@ -1,7 +1,9 @@
+import type { ModelMessage } from "ai";
 import { agentPrompt } from "../agent";
 import { summarize } from "../compact";
 import type { RunStatus } from "../store";
 import { withModelTimeouts } from "../timeouts";
+import { todosOf } from "../todos";
 import { batcher, compactionEvent, seqTracker } from "./events";
 import type { RunDeps } from "./job";
 import type { AgentJob } from "./queue";
@@ -23,10 +25,19 @@ export async function executeCompact(job: AgentJob, deps: RunDeps, signal: Abort
 		const view = await store.modelView(job.conversationId);
 		// Only get_canvas is used, for the summary to re-attach the edited canvases; it is always loaded.
 		const { model, limits, tools } = await deps.build(job, new Set());
+		// every row: the list may come from before an earlier summary
+		const rows = await deps.store.all(job.conversationId);
+		const todos = todosOf(rows.map((r) => r.content as ModelMessage));
 		const r = await summarize(
 			withModelTimeouts(model, limits, () => {}),
 			view.map((v) => v.message),
-			{ instructions: agentPrompt(job.projectId), keep: job.keep, tools, abortSignal: signal },
+			{
+				instructions: agentPrompt(job.projectId),
+				keep: job.keep,
+				tools,
+				todos: () => todos,
+				abortSignal: signal,
+			},
 		);
 		if (r) {
 			const covers = Math.max(...view.slice(0, r.event.coversUpTo).map((v) => v.seq));

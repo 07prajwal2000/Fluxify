@@ -17,6 +17,7 @@ import {
 	updateConversation,
 } from "../../../agent/runner/repository";
 import { agentStore } from "../../../agent/store";
+import { todosOf } from "../../../agent/todos";
 import { isDeploy, type Mode } from "../../../agent/tools";
 import { assertRunQuota } from "./rateLimit";
 
@@ -32,13 +33,15 @@ export const getOlderMessages = (conversation: Conversation, beforeSeq: number) 
  * The latest page of saved messages (#645 rows) with `nextBeforeSeq` for the
  * older ones, the active run, if any, and the picker settings: the mode and
  * effort the conversation went on with last, and whether the project's model
- * takes a thinking setting.
+ * takes a thinking setting. `todos` is the agent's todo list (#771), from every
+ * row: the page may not reach back to the update_todos call that wrote it.
  */
 export async function getConversationDetail(conversation: Conversation) {
-	const [{ messages, nextBeforeSeq }, run, supportsThinking] = await Promise.all([
+	const [{ messages, nextBeforeSeq }, run, supportsThinking, rows] = await Promise.all([
 		store().page(conversation.id),
 		conversation.activeRunId ? getRun(conversation.activeRunId) : undefined,
 		projectSupportsThinking(conversation.projectId as string),
+		store().all(conversation.id),
 	]);
 	const { mode = "manual", effort = "none" } = metaOf(conversation);
 	return {
@@ -47,6 +50,7 @@ export async function getConversationDetail(conversation: Conversation) {
 		nextBeforeSeq,
 		run: run ?? null,
 		settings: { mode, effort, supportsThinking },
+		todos: todosOf(rows.map((r) => r.content as { role: string; content: unknown })),
 	};
 }
 
@@ -61,7 +65,9 @@ export async function sendMessage(
 	if (conversation.archived)
 		throw new ConflictError("Cannot send a message to an archived conversation");
 	await assertRunQuota(userId);
-	const runId = await startRun(conversation.id, text, mode, effort);
+	// the mode the last run used; startRun overwrites it
+	const planApproved = metaOf(conversation).mode === "plan" && mode !== "plan";
+	const runId = await startRun(conversation.id, text, mode, effort, planApproved);
 	if (!runId) throw new ConflictError("This conversation already has a run in progress");
 	await publishAgentJob({
 		type: "start",
@@ -72,6 +78,7 @@ export async function sendMessage(
 		mode,
 		effort,
 		message: text,
+		...(planApproved && { planApproved }),
 	});
 	return { runId };
 }
@@ -164,8 +171,15 @@ export async function answerApproval(
 	const meta = metaOf(conversation);
 	const mode = approval.mode ?? meta.mode ?? "manual";
 	const effort = approval.effort ?? meta.effort;
+	// a run that started by approving a plan keeps it across its approvals, unless it moves to plan mode
+	const planApproved = !!meta.planApproved && mode !== "plan";
 	if (mode !== meta.mode || effort !== meta.effort)
-		await setMeta(conversation.id, { agent: true, mode, ...(effort && { effort }) });
+		await setMeta(conversation.id, {
+			agent: true,
+			mode,
+			...(effort && { effort }),
+			...(planApproved && { planApproved }),
+		});
 	// The finished part's `done` must not end the stream of the part that follows.
 	await purgeRunEvents(runId);
 	await publishAgentJob({
@@ -176,6 +190,7 @@ export async function answerApproval(
 		projectId: conversation.projectId as string,
 		mode,
 		effort,
+		...(planApproved && { planApproved }),
 		...(approval.decisions
 			? {
 					decisions: approval.decisions.map((d) => ({
