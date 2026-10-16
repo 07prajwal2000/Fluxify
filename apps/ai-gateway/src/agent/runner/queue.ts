@@ -56,6 +56,8 @@ export type AgentJob = {
 	effort?: Effort;
 	/** start: the user's message. */
 	message?: string;
+	/** start: the last run was plan mode and this one is not, so the user approved the plan (#771). */
+	planApproved?: boolean;
 	/** continue: the answer to the first waiting call. */
 	approval?: { ok: boolean; reason?: string; comment?: string };
 	/** continue: answers to the named calls (#704); the others stay waiting. */

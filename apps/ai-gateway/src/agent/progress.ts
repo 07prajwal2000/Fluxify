@@ -4,6 +4,7 @@ import type { runAgent } from "./agent";
 import { cacheTokens } from "./cache";
 import { type Compaction, compactionLine } from "./compact";
 import { stopMessage } from "./guards";
+import { TODO_TOOL, todoLines } from "./todos";
 
 export type Log = (event: string, data?: Record<string, unknown>) => void;
 /** `paused` holds the status line while the user answers a prompt. */
@@ -181,6 +182,9 @@ export async function printRun(result: ReturnType<typeof runAgent>, out: Out) {
 					chars: size(body),
 					...(failed ? { error: body } : {}),
 				});
+				// the whole list on every write (a guard note wraps it in `result`)
+				const todos = (body as any)?.todos ?? (body as any)?.result?.todos;
+				if (!failed && part.toolName === TODO_TOOL && todos) status.line(todoLines(todos));
 				waiting();
 				break;
 			}

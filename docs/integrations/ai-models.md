@@ -83,6 +83,47 @@ Until promoting a version is available, saving a route or workflow still goes li
 
 A setting you have not changed uses its default. The offline agent CLI reads `AGENT_MAX_STEPS`, `AGENT_MAX_CONTEXT_TOKENS` and `AGENT_TOKEN_BUDGET` from the environment, and those win over the project values.
 
+## Plans and the todo list
+
+The agent has three modes: **Manual** (it asks before each change), **Auto** (it only asks before deletes, deployments and production work) and **Plan** (it only looks around and writes a plan; it changes nothing).
+
+### When the agent suggests a plan
+
+For a bigger request, such as several routes at once, work across more than one area, or a request that is still vague, the agent stops before changing anything and suggests plan mode, with a one-line reason. It waits for your answer in every mode, Auto included:
+
+| You choose | What happens |
+| :--- | :--- |
+| **Switch to plan** | The agent moves to plan mode, looks at what exists and writes the plan. You don't need to send another message. |
+| **Continue anyway** | The agent stays in the mode you were in and does the work without a plan. |
+
+It asks again the next time a request is big; there is no "always" for this question. Small, clear changes go ahead without it.
+
+### The plan
+
+A plan is a numbered list of main tasks, each with short subtasks where they help, including how the agent will check its work. When the work will be ready for production, the last task is to ask you about promoting it. In a plan, "commit" means saving a version, not a git commit. Every plan ends by telling you how to start, for example:
+
+> Reply "go ahead" to start. Switch to Auto first if you don't want to approve each change.
+
+- **To start:** pick Manual or Auto in the mode picker, then reply "go ahead" (or "start"). Sending a message in Manual or Auto right after a plan-mode reply approves the plan.
+- **To change the plan:** stay in plan mode and say what to change. The agent writes a new plan.
+
+### The todo list
+
+Once you approve a plan, the agent turns it into a todo list and works through it one task at a time. Each item is shown as pending, in progress, done or dropped.
+
+| Rule | Value |
+| :--- | :--- |
+| Depth | Main tasks, each with optional subtasks (one level) |
+| Size | Up to 30 items in all, 200 characters each |
+| In progress | One item at a time |
+| A main task with subtasks | Done when all its subtasks are done or dropped |
+
+If you stop the agent and ask for more, it adds the new tasks to the same list. The list is kept with the conversation, so it is still there after a refresh, and a summary of a long chat (see below) keeps it too. When every item is done or dropped, the list is finished and the agent goes back to working without one.
+
+::: tip
+The agent only keeps a todo list for an approved plan. For a small request it just does the work.
+:::
+
 ## Long conversations
 
 A long chat can outgrow the model's context window, so the agent shrinks it for you:

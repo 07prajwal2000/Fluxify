@@ -4,6 +4,7 @@ import type { ModelMessage } from "ai";
 import { convertArrayToReadableStream, MockLanguageModelV4 } from "ai/test";
 import type { AdminFetch } from "../mcp/adminApi";
 import { approveAll, assertEndsOnUserOrTool, planTools, runAgent } from "./agent";
+import { SUGGEST_PLAN } from "./planning";
 import { withToolTimeouts } from "./timeouts";
 import { ADVANCED, CORE, agentTools, titleOf } from "./tools";
 
@@ -121,7 +122,7 @@ describe("agent tools", () => {
 
 	it("starts with only the core, and load_tools adds known advanced tools", async () => {
 		const { tools, active } = setup();
-		expect(active().sort()).toEqual([...CORE].sort());
+		expect(active().sort()).toEqual([...CORE, SUGGEST_PLAN].sort());
 		for (const name of CORE) expect(tools[name]).toBeDefined();
 		expect(ADVANCED.map((t) => t.name)).toContain("delete_route");
 		expect(CORE).toEqual(

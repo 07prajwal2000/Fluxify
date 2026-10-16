@@ -17,6 +17,8 @@ import {
 } from "../mcp/tools";
 import { versionTools } from "../mcp/versionTools";
 import { writeTools } from "../mcp/writeTools";
+import { type Planning, planningTools, SUGGEST_PLAN, todosActive } from "./planning";
+import { TODO_TOOL } from "./todos";
 
 const ALL: McpTool[] = [
 	...readTools,
@@ -89,9 +91,12 @@ export const CORE = [...CORE_MCP, "list", "get", "list_advanced_tools", "load_to
 export type Mode = "manual" | "auto" | "plan";
 export const MODES: Mode[] = ["manual", "auto", "plan"];
 
-/** Reads never ask: the agent's own list/get/meta tools, and MCP tools marked read-only (unmarked = read, as in mcp/index.ts). */
+/**
+ * Reads never ask: the agent's own list/get/meta tools, update_todos (the agent's own list only),
+ * and MCP tools marked read-only (unmarked = read, as in mcp/index.ts).
+ */
 export const isRead = (name: string) => {
-	if (["list", "get", "list_advanced_tools", "load_tools"].includes(name)) return true;
+	if (["list", "get", "list_advanced_tools", "load_tools", TODO_TOOL].includes(name)) return true;
 	const t = ALL.find((x) => x.name === name);
 	return !!t && t.annotations?.readOnlyHint !== false;
 };
@@ -101,6 +106,8 @@ const AGENT_TITLES: Record<string, string> = {
 	get: "Get resource",
 	list_advanced_tools: "List advanced tools",
 	load_tools: "Load tools",
+	[SUGGEST_PLAN]: "Suggest plan mode",
+	[TODO_TOOL]: "Update todo list",
 };
 
 /** The human name of a tool, for chat rows and the approval bar. */
@@ -179,7 +186,7 @@ export function touchesProd(name: string, args: unknown): "read" | "write" | und
 export type ProdAsks = { reads: boolean; writes: boolean };
 
 /**
- * The one ask rule. Deletes and deployments always ask; reads never do. Other calls ask in
+ * The one ask rule. Deletes, deployments and suggest_plan_mode always ask; reads never do. Other calls ask in
  * manual (and plan, where they are not active anyway) but not in auto, so
  * call_route and run_test_suite run unasked in auto despite destructiveHint.
  * `askBeforeEphemeral` is the project's "Ask before ephemeral runs" setting:
@@ -198,6 +205,7 @@ export const needsApproval = (
 	return (
 		isDelete(name) ||
 		isDeploy(name) ||
+		name === SUGGEST_PLAN ||
 		(askBeforeEphemeral && name === EPHEMERAL_RUN_TOOL) ||
 		copiesIntoRealCanvas(name, args) ||
 		(touched === "read" && prod.reads) ||
@@ -217,7 +225,8 @@ export const mcpCall =
 
 /**
  * The agent's tools, all acting as the PAT's user through the admin API.
- * `active()` is what the next step may call: the core plus whatever load_tools added.
+ * `active()` is what the next step may call: the core, suggest_plan_mode, whatever load_tools
+ * added, and update_todos while `plan` offers it (#771; plan mode drops both, see runAgent).
  * `loaded` must outlive one message: the history still says a tool was loaded,
  * so a fresh set per turn left the model calling a tool it could no longer reach (#672).
  */
@@ -226,6 +235,7 @@ export function agentTools(
 	auth: Record<string, string>,
 	projectId: string,
 	loaded = new Set<string>(),
+	plan: Planning = { mode: "manual", todos: [] },
 ) {
 	const run = mcpCall(fetcher, auth);
 	/** Adds an advanced tool to the loaded set; false for a name that is not one. */
@@ -314,7 +324,12 @@ export function agentTools(
 			return { loaded: known, unknown: names.filter((n) => !known.includes(n)) };
 		},
 	});
-	return { tools, active: () => [...CORE, ...loaded], load };
+	Object.assign(tools, planningTools(plan));
+	return {
+		tools,
+		active: () => [...CORE, SUGGEST_PLAN, ...loaded, ...(todosActive(plan) ? [TODO_TOOL] : [])],
+		load,
+	};
 }
 
 /** Up to 5 tool names that share a word with `name` (read_route ~ get_route), for the unknown-tool error. */

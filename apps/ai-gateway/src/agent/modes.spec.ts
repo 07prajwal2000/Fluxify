@@ -193,6 +193,26 @@ describe("cli approver", () => {
 		const s = setup([null]);
 		expect(await s.approve(call("save_route"))).toEqual({ ok: false, reason: "stopped by the user" });
 	});
+
+	it("suggest_plan_mode asks y/n: y switches to plan, n goes on; both approve (#771)", async () => {
+		for (const [answer, switched] of [["y", 1], ["n", 0]] as const) {
+			const prompts: string[] = [];
+			let toPlan = 0;
+			const approve = cliApprover(
+				async (p) => {
+					prompts.push(p);
+					return answer;
+				},
+				() => {},
+				() => {},
+				() => toPlan++,
+			);
+			const suggest = { toolCallId: "c", toolName: "suggest_plan_mode", input: { reason: "big job" }, isDelete: false };
+			expect(await approve(suggest)).toEqual({ ok: true });
+			expect(prompts).toEqual(["\nSwitch to plan mode? big job [y/n] "]);
+			expect(toPlan).toBe(switched);
+		}
+	});
 });
 
 describe("plan then start", () => {

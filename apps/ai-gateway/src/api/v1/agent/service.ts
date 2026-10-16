@@ -61,6 +61,8 @@ export async function sendMessage(
 	if (conversation.archived)
 		throw new ConflictError("Cannot send a message to an archived conversation");
 	await assertRunQuota(userId);
+	// the mode the last run used; startRun overwrites it
+	const planApproved = metaOf(conversation).mode === "plan" && mode !== "plan";
 	const runId = await startRun(conversation.id, text, mode, effort);
 	if (!runId) throw new ConflictError("This conversation already has a run in progress");
 	await publishAgentJob({
@@ -72,6 +74,7 @@ export async function sendMessage(
 		mode,
 		effort,
 		message: text,
+		...(planApproved && { planApproved }),
 	});
 	return { runId };
 }

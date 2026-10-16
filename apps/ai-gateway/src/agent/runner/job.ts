@@ -3,6 +3,7 @@ import { rejected, type StopReason, stopReason } from "../agent";
 import { cacheTokens } from "../cache";
 import { continueConversation, pendingCalls } from "../resume";
 import type { AgentStore, RunStatus } from "../store";
+import { type Todo, todosOf } from "../todos";
 import { loadedTools } from "../tools";
 import { type AgentEvent, batcher, decidedEvent, pump, seqTracker } from "./events";
 import type { AgentJob } from "./queue";
@@ -21,8 +22,15 @@ export type RunDeps = {
 		status: RunStatus,
 		reason?: StopReason,
 	) => Promise<void>;
-	/** The model, tools and limits for the job's project, acting as its user; `loaded`: tools load_tools added earlier in the conversation. */
-	build: (job: AgentJob, loaded: Set<string>) => Promise<Omit<Agent, "approve" | "abortSignal">>;
+	/**
+	 * The model, tools and limits for the job's project, acting as its user; `loaded`: tools
+	 * load_tools added earlier in the conversation; `todos`: the todo list so far (#771).
+	 */
+	build: (
+		job: AgentJob,
+		loaded: Set<string>,
+		todos?: Todo[],
+	) => Promise<Omit<Agent, "approve" | "abortSignal">>;
 	publish: (runId: string, events: AgentEvent[]) => Promise<void>;
 	/** Adds this job's cost to the run (the summary card reads it). */
 	addUsage?: (runId: string, usage: RunUsage) => Promise<void>;
@@ -93,7 +101,8 @@ export async function executeRun(job: AgentJob, deps: RunDeps, signal: AbortSign
 	try {
 		// Every row, summarized or not: a tool loaded before a summary is still loaded.
 		const rows = await deps.store.all(job.conversationId);
-		const agent = await deps.build(job, loadedTools(rows.map((r) => r.content as ModelMessage)));
+		const history = rows.map((r) => r.content as ModelMessage);
+		const agent = await deps.build(job, loadedTools(history), todosOf(history));
 		const r = await continueConversation({
 			store,
 			conversationId: job.conversationId,

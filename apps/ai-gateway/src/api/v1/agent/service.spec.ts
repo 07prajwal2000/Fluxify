@@ -75,6 +75,22 @@ describe("mode and effort stick to the conversation", () => {
 		expect(startRun).toHaveBeenCalledWith("c1", "hi", "auto", "low");
 	});
 
+	it("a manual or auto message after a plan-mode run approves the plan (#771)", async () => {
+		const planned = conv({ metadata: { agent: true, mode: "plan" } });
+		await sendMessage(planned, "u", "go ahead", "auto");
+		expect(publish.mock.calls[0][0]).toMatchObject({ mode: "auto", planApproved: true });
+		await sendMessage(planned, "u", "change step 2", "plan");
+		await sendMessage(conv(), "u", "go ahead", "auto");
+		expect(publish.mock.calls[1][0]).not.toHaveProperty("planApproved");
+		expect(publish.mock.calls[2][0]).not.toHaveProperty("planApproved");
+	});
+
+	it("switching to plan from suggest_plan_mode continues the run in plan mode", async () => {
+		await answerApproval(conv(), "u", { approve: true, mode: "plan" });
+		expect(setMeta).toHaveBeenCalledWith("c1", { agent: true, mode: "plan" });
+		expect(publish.mock.calls[0][0]).toMatchObject({ type: "continue", mode: "plan", approval: { ok: true } });
+	});
+
 	it("an approval that picks a mode saves it and the job runs in it", async () => {
 		await answerApproval(conv(), "u", { approve: true, mode: "auto" });
 		expect(setMeta).toHaveBeenCalledWith("c1", { agent: true, mode: "auto" });

@@ -35,7 +35,7 @@ const LIMIT_KEYS = [
  * tools that call the admin API with a fresh run token for the job's user in
  * the job's project. The session cookie never reaches the worker.
  */
-export const buildAgent: RunDeps["build"] = async (job, loaded) => {
+export const buildAgent: RunDeps["build"] = async (job, loaded, todos = []) => {
 	const integration = await agentIntegration(job.projectId);
 	if (!integration)
 		throw new Error(
@@ -51,11 +51,13 @@ export const buildAgent: RunDeps["build"] = async (job, loaded) => {
 	const askBeforeProductionWrites =
 		(await getProjectSetting(job.projectId, "settings.ai.askBeforeProductionWrites")) !== "false";
 	const token = mintAgentToken(job.userId, job.projectId);
+	const plan = { mode: job.mode, approved: job.planApproved, todos };
 	const { tools, active, load } = agentTools(
 		httpAdminFetch,
 		{ authorization: `Bearer ${token}` },
 		job.projectId,
 		loaded,
+		plan,
 	);
 	return {
 		model: modelFromIntegration(integration),
@@ -69,6 +71,7 @@ export const buildAgent: RunDeps["build"] = async (job, loaded) => {
 		askBeforeProductionReads,
 		askBeforeProductionWrites,
 		effort: job.effort,
+		plan,
 	};
 };
 

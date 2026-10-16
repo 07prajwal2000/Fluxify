@@ -14,6 +14,7 @@ import {
 } from "./agent";
 import { compactionLine, summarize } from "./compact";
 import { effortFromEnv, modelFromEnv } from "./model";
+import { type Planning, SUGGEST_PLAN } from "./planning";
 import { describeCall, type Log, printRun, runLog } from "./progress";
 import { flushTraces, setupTelemetry } from "./telemetry";
 import { limitsFromEnv } from "./timeouts";
@@ -28,7 +29,8 @@ export { printRun, short } from "./progress";
  * summarizes the conversation so far now (text after it tells the summary what to keep), /exit quits;
  * Ctrl+C stops a run (or rejects at an approval prompt), twice at an empty prompt quits.
  * manual asks before every change, auto only before deletes (deletes always ask), plan
- * only reads and writes a plan, then asks Start? (y runs it in auto).
+ * only reads and writes a plan, then asks Start? (y runs it in auto, working through a todo list
+ * that prints on every change). A big request asks "Switch to plan mode? [y/n]" first (#771).
  * Env: AGENT_PROVIDER, AGENT_MODEL, AGENT_API_KEY, AGENT_BASE_URL, FLUXIFY_PAT,
  * AGENT_EFFORT (none|low|mid|high: how hard the model thinks; unset = the model default; ignored by models not known to think),
  * FLUXIFY_URL (the admin server, http://127.0.0.1:$SERVER_PORT by default),
@@ -43,8 +45,18 @@ export { printRun, short } from "./progress";
  * Evals: bun run agent:evals [--task id,...] [--keep] [--no-judge]; env and output in evals/run.ts.
  */
 
-/** What lasts across messages: the conversation, the mode, the tools approved with "a" and the ones load_tools added. */
-type Session = { history: ModelMessage[]; mode: Mode; allowed: Set<string>; loaded: Set<string> };
+/**
+ * What lasts across messages: the conversation, the mode, the tools approved with "a", the ones
+ * load_tools added, the todo list (#771) and the mode of the last message (plan, then not: the plan is approved).
+ */
+type Session = {
+	history: ModelMessage[];
+	mode: Mode;
+	allowed: Set<string>;
+	loaded: Set<string>;
+	plan: Planning;
+	lastMode?: Mode;
+};
 
 type Run = Session & {
 	approve: Approve;
@@ -54,7 +66,7 @@ type Run = Session & {
 };
 
 /** Builds the agent from env and runs the conversation in `history` (ending on the user's message). */
-export function startAgent(projectId: string, { loaded, ...run }: Run) {
+export function startAgent(projectId: string, { loaded, plan, lastMode: _, ...run }: Run) {
 	const pat = process.env.FLUXIFY_PAT;
 	if (!pat) throw new Error("FLUXIFY_PAT is required: a personal access token from the portal");
 	const base = process.env.FLUXIFY_URL || ADMIN_API_URL;
@@ -63,6 +75,7 @@ export function startAgent(projectId: string, { loaded, ...run }: Run) {
 		{ authorization: `Bearer ${pat}` },
 		projectId,
 		loaded,
+		plan,
 	);
 	const model = modelFromEnv(process.env);
 	const limits = limitsFromEnv(process.env);
@@ -74,6 +87,7 @@ export function startAgent(projectId: string, { loaded, ...run }: Run) {
 		projectId,
 		limits,
 		effort: effortFromEnv(process.env),
+		plan,
 		...run,
 	});
 }
@@ -128,10 +142,25 @@ export const limitPrompt = ({ kind, used, limit }: Limit) =>
 /** Reads one line; null when `signal` fires (Ctrl+C). */
 type Ask = (prompt: string, signal?: AbortSignal) => Promise<string | null>;
 
-/** The terminal's approver: shows the call and asks until it gets an answer. Ctrl+C rejects. */
+/**
+ * The terminal's approver: shows the call and asks until it gets an answer. Ctrl+C rejects.
+ * suggest_plan_mode asks y/n instead: y calls `toPlan`, either way the run goes on.
+ */
 export const cliApprover =
-	(ask: Ask, write: (s: string) => void, log: Log): Approve =>
+	(ask: Ask, write: (s: string) => void, log: Log, toPlan?: () => void): Approve =>
 	async (call, signal) => {
+		if (call.toolName === SUGGEST_PLAN) {
+			const reason = (call.input as { reason?: string })?.reason ?? "";
+			for (;;) {
+				const a = await ask(`\nSwitch to plan mode? ${reason} [y/n] `, signal);
+				if (a === null) return { ok: false, reason: "stopped by the user" };
+				const yes = parseYesNo(a);
+				if (yes === undefined) continue;
+				if (yes) toPlan?.();
+				log("approval-result", { name: call.toolName, plan: yes });
+				return { ok: true };
+			}
+		}
 		write(`\n${call.isDelete ? "Delete" : "Approve"} ${describeCall(call.toolName, call.input)}\n`);
 		log("approval-request", { name: call.toolName });
 		for (;;) {
@@ -171,7 +200,7 @@ export function onInterrupt(s: { running: boolean; line: string; armed: boolean 
  * `runOne` returns true when the run was stopped.
  */
 export async function converse(
-	session: Session,
+	session: Pick<Session, "mode">,
 	prompt: string,
 	runOne: (prompt: string) => Promise<boolean>,
 	askStart: () => Promise<NonNullable<ReturnType<typeof parseStart>>>,
@@ -208,6 +237,11 @@ async function turn(
 ) {
 	const write = (s: string) => process.stdout.write(s);
 	session.history.push({ role: "user", content: prompt });
+	Object.assign(session.plan, {
+		mode: session.mode,
+		approved: session.lastMode === "plan" && session.mode !== "plan",
+		wrote: false,
+	});
 	log("prompt", { chars: prompt.length, mode: session.mode });
 	const onRetry = (why: string) => {
 		write(`\n[retry] ${why}\n`);
@@ -221,6 +255,7 @@ async function turn(
 		onRetry,
 	});
 	await printRun(result, { write, tty: process.stdout.isTTY, log, paused });
+	session.lastMode = session.mode;
 	// the exporter batches; a CLI run is short, so send it now
 	await flushTraces();
 }
@@ -254,7 +289,13 @@ async function repl(projectId: string, first: string | undefined, mode: Mode) {
 	console.log(
 		`Log: ${file}\n/mode <manual|auto|plan> switches mode, /compact [what to keep] summarizes, /exit quits. Ctrl+C stops a run.`,
 	);
-	const session: Session = { history: [], mode, allowed: new Set(), loaded: new Set() };
+	const session: Session = {
+		history: [],
+		mode,
+		allowed: new Set(),
+		loaded: new Set(),
+		plan: { mode, todos: [] },
+	};
 	const rl = createInterface({ input: process.stdin, output: process.stdout });
 	// @types/node 26 merges the emitter methods in a way tsgo misses.
 	const events = rl as unknown as EventEmitter;
@@ -315,7 +356,13 @@ async function repl(projectId: string, first: string | undefined, mode: Mode) {
 		session,
 		log,
 		paused: () => prompting,
-		approve: held(cliApprover(ask, write, log)),
+		approve: held(
+			cliApprover(ask, write, log, () => {
+				session.mode = "plan";
+				session.plan.mode = "plan";
+				write("Mode: plan\n");
+			}),
+		),
 		onLimit: held(cliLimit(ask, write, log)),
 	};
 	/** Runs one message under a fresh Ctrl+C scope; true when it was stopped. */

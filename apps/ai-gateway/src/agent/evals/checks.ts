@@ -1,5 +1,7 @@
 import { isDeepStrictEqual } from "node:util";
 import type { AdminApi } from "../../mcp/adminApi";
+import type { Todo } from "../todos";
+import type { Mode } from "../tools";
 
 /** What setup and checks get: the task's fresh project, tools acting as the PAT user, and what the agent did. */
 export type Ctx = {
@@ -14,6 +16,8 @@ export type Ctx = {
 	calls: { name: string; input: unknown }[];
 	/** How many times the conversation was summarized (compaction ran). */
 	summaries?: number;
+	/** The agent's todo list at the end (#771). */
+	todos?: Todo[];
 	env: Record<string, string | undefined>;
 };
 
@@ -25,6 +29,8 @@ export type Task = {
 	title: string;
 	/** Several strings are several user turns of one conversation. */
 	prompt: string | string[];
+	/** The mode of each turn; auto when missing. */
+	modes?: Mode[];
 	/** Env vars the task needs; it is skipped with a reason when one is missing. */
 	needsEnv?: string[];
 	/** Limits for this task over the run's own, e.g. a small context window to force compaction. */
