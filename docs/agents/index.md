@@ -47,6 +47,7 @@ Each recipe is a list of steps. Every step is a tool call with its arguments.
 - [Use an integration in a canvas](/agents/recipes/use-integration-in-canvas): a database integration with its secret, read from a route.
 - [Inspect data with DB Native in a sandbox](/agents/recipes/inspect-data-in-sandbox): look at rows in your own private sandbox on development data, with `call_sandbox`, without making a route.
 - [Try blocks with an ephemeral run](/agents/recipes/ephemeral-run): run a few blocks in one `run_blocks` call on development data, and keep nothing.
+- [Plan and work through a big job](/agents/recipes/plan-and-todos): suggest plan mode for a big request, write the plan, then work through it with `update_todos`.
 - [Debug a route in a sandbox](/agents/recipes/debug-route-in-sandbox): copy a route into your own sandbox with `copy_blocks`, fix it there on development data, and copy the fix back.
 
 ## Replying

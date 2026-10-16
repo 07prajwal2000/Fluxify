@@ -13,6 +13,8 @@ import type { Mode } from "./tools";
 
 /** Offers plan mode to the user (#771). Asks in every mode, never approved for the session. */
 export const SUGGEST_PLAN = "suggest_plan_mode";
+/** The agent recipe for plans and todos (read_doc path). */
+export const PLAN_RECIPE = "agents/recipes/plan-and-todos";
 
 /**
  * What a run knows about plans (#771). `mode` is the run's (the CLI changes it
@@ -32,8 +34,7 @@ export function planningTools(p: Planning): Record<string, Tool> {
 	return {
 		[SUGGEST_PLAN]: tool({
 			title: "Suggest plan mode",
-			description:
-				"Ask the user to switch to plan mode before a big change. The user switches or says to go on; the result says which.",
+			description: `Ask the user to switch to plan mode before a big change. The user switches or says to go on; the result says which. When to call it: read_doc ${PLAN_RECIPE}.`,
 			inputSchema: z.object({
 				reason: z.string().describe("One short sentence: why this needs a plan first"),
 			}),
@@ -45,7 +46,7 @@ export function planningTools(p: Planning): Record<string, Tool> {
 		}),
 		[TODO_TOOL]: tool({
 			title: "Update todo list",
-			description: `Your todo list for the approved plan. items writes the whole list (main tasks, each with optional subtasks, one level; at most ${MAX_TODOS} items in all, ${MAX_TODO_CHARS} characters each). id with status marks one item (ids like "2" or "2.1"). A task with subtasks is done when they all are. One item in_progress at a time. Returns the whole list and the next task.`,
+			description: `Your todo list for the approved plan. items writes the whole list (main tasks, each with optional subtasks, one level; at most ${MAX_TODOS} items in all, ${MAX_TODO_CHARS} characters each). id with status marks one item (ids like "2" or "2.1"). A task with subtasks is done when they all are. One item in_progress at a time. Returns the whole list and the next task. How to use it: read_doc ${PLAN_RECIPE}.`,
 			inputSchema: z.object({
 				items: z
 					.array(

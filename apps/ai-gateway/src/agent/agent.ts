@@ -14,7 +14,7 @@ import {
 	WRAP_UP,
 } from "./guards";
 import { type Effort, providerOf, thinkingOptions } from "./model";
-import { type Planning, SUGGEST_PLAN } from "./planning";
+import { PLAN_RECIPE, type Planning, SUGGEST_PLAN } from "./planning";
 import { traceRun } from "./telemetry";
 import { type Limits, withModelTimeouts, withToolTimeouts } from "./timeouts";
 import { TODO_TOOL } from "./todos";
@@ -52,7 +52,7 @@ Basics:
 - Say "no behaviour change" only after you call the rewired branch with input that takes it (call_route or a test suite), not just any 200.
 - Production serves only a promoted version. Never call promote_version or rollback_version unless the user asks: a person approves each one and writes why.
 - To try a few blocks without saving anything, run_blocks does it in one call (an advanced tool). search_docs when unsure. list_advanced_tools and load_tools give you deletes, members, packages, integrations and more.
-- Big requests: when a request is more than a small change (several canvases or resources, more than one area, or a vague scope), call suggest_plan_mode with a short reason before you edit anything. Small, clear changes go ahead without it.
+- Big request (several canvases or resources, more than one area, or vague)? Call suggest_plan_mode before you edit anything. How: read_doc ${PLAN_RECIPE}.
 
 Referring to resources: when you mention one that exists, write :ref[Label]{type=<type> id=<id>} instead of a bare name or path ("see :ref[GET /users]{type=route id=abc}", not "see the /users api"). The chat shows it as a link. Types: route, workflow, trigger, custom_block, middleware, integration, app_config, test_suite. Take the id from list, get or what a save returned; never invent one.
 
@@ -65,12 +65,11 @@ Only say it is done when the check passed. Stop when the tests pass / the route 
 
 const PLAN_PROMPT = `
 
-Plan mode: you only have read tools. Look at what exists, then reply with the plan: a numbered list of main tasks (what you will create or change, and how you will check it), each with short subtasks where they help. To commit means to save a version (Fluxify versioning), not git. When the work will be ready for production, end with a task "Ask the user about promoting to production". Change nothing now; the user reviews the plan first.
-End every plan by telling the user how to start, e.g. "Reply 'go ahead' to start. Switch to Auto first if you don't want to approve each change."`;
+Plan mode: you only have read tools. Look at what exists, then reply with the plan: numbered main tasks with subtasks, each with how you will check it. Change nothing now. End with "Reply 'go ahead' to start. Switch to Auto first if you don't want to approve each change." How to write it: read_doc ${PLAN_RECIPE}.`;
 
 const APPROVED_PROMPT = `
 
-The user approved your plan. First call update_todos with its tasks and subtasks, then work through them in order: mark an item in_progress when you start it and done once it is checked (dropped if it is no longer needed). When the user asks for more, add it with update_todos.`;
+The user approved your plan. First call update_todos with its tasks and subtasks, then work through them one at a time (read_doc ${PLAN_RECIPE}).`;
 
 /** A tool call waiting for the user. */
 export type PendingCall = {

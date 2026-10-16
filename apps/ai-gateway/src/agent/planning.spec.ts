@@ -124,6 +124,14 @@ describe("update_todos visibility (#771)", () => {
 	it("plan mode offers neither tool", async () => {
 		const r = await go([], { mode: "plan", approved: true, todos: open });
 		expect(offered(r.prompts[0])).toEqual({ todos: false, suggest: false });
+		expect(r.prompts[0].messages[0].content).toContain("read_doc agents/recipes/plan-and-todos");
+	});
+
+	it("both tools point at the recipe, which exists", async () => {
+		const { tools } = agentTools(fetcher, {}, "p");
+		for (const n of ["suggest_plan_mode", "update_todos"])
+			expect(tools[n].description).toContain("read_doc agents/recipes/plan-and-todos");
+		expect(await Bun.file(`${import.meta.dir}/../../../../docs/agents/recipes/plan-and-todos.md`).exists()).toBe(true);
 	});
 });
 
