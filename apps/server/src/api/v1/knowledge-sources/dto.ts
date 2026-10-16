@@ -47,7 +47,7 @@ export const previewResponseSchema = z.object({
 	pages: z.array(z.object({ title: z.string(), url: z.string() })),
 });
 
-const sourceSchema = z.object({
+export const sourceSchema = z.object({
 	id: z.string(),
 	name: z.string(),
 	type: z.enum(KNOWLEDGE_SOURCE_TYPES),
@@ -56,6 +56,7 @@ const sourceSchema = z.object({
 	selectedPages: z.array(z.string()),
 	enabled: z.boolean(),
 	pageCount: z.number(),
+	editedCount: z.number().optional(),
 	lastFetchedAt: z.date().nullable(),
 	lastFetchStatus: z.string().nullable(),
 	lastFetchError: z.string().nullable(),
@@ -63,6 +64,20 @@ const sourceSchema = z.object({
 
 export const listResponseSchema = z.array(sourceSchema);
 export const getResponseSchema = sourceSchema.extend({
-	pages: z.array(z.object({ url: z.string().optional(), markdown: z.string() })),
+	pages: z.array(
+		z.object({
+			url: z.string().optional(),
+			markdown: z.string(),
+			edited: z.boolean().optional(),
+		}),
+	),
 });
 export const idResponseSchema = z.object({ id: z.string() });
+
+export const pageParamSchema = idParamSchema.extend({
+	index: z.string().describe("0-based page index"),
+});
+
+export const pageBodySchema = z.object({
+	markdown: z.string().max(1_000_000),
+});

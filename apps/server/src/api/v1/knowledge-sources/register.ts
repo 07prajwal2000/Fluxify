@@ -9,6 +9,8 @@ import {
 	idParamSchema,
 	idResponseSchema,
 	listResponseSchema,
+	pageBodySchema,
+	pageParamSchema,
 	previewBodySchema,
 	previewResponseSchema,
 	projectParamSchema,
@@ -35,6 +37,8 @@ const creator = requireProjectAccess("creator", { key: "projectId", source: "par
 const project = validator("param", projectParamSchema, zodErrorCallbackParser);
 const id = validator("param", idParamSchema, zodErrorCallbackParser);
 const body = validator("json", bodySchema, zodErrorCallbackParser);
+const pageParam = validator("param", pageParamSchema, zodErrorCallbackParser);
+const pageBody = validator("json", pageBodySchema, zodErrorCallbackParser);
 
 /**
  * A project's custom knowledge base (#800): Markdown, URL and llms.txt sources
@@ -98,6 +102,21 @@ export default {
 			async (c) => {
 				const p = c.req.valid("param");
 				return c.json(await service.update(p.projectId, p.id, c.req.valid("json")));
+			},
+		);
+		router.put(
+			"/:id/pages/:index",
+			doc(
+				"update-knowledge-source-page",
+				"Updates the markdown of a single page of a knowledge source",
+				idResponseSchema,
+			),
+			creator,
+			pageParam,
+			pageBody,
+			async (c) => {
+				const p = c.req.valid("param");
+				return c.json(await service.updatePage(p.projectId, p.id, p.index, c.req.valid("json")));
 			},
 		);
 		router.post(

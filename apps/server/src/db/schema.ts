@@ -323,7 +323,7 @@ export const integrationsEntity = pgTable(
 export const KNOWLEDGE_SOURCE_TYPES = ["markdown", "url", "llms_txt", "llms_full_txt"] as const;
 export type KnowledgeSourceType = (typeof KNOWLEDGE_SOURCE_TYPES)[number];
 /** One stored page of a knowledge source, already Markdown (#800). */
-export type KnowledgePage = { url?: string; markdown: string };
+export type KnowledgePage = { url?: string; markdown: string; edited?: boolean };
 
 /**
  * A project's custom knowledge base source (#800). URL sources are fetched

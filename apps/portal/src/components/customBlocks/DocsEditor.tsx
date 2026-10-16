@@ -26,13 +26,26 @@ export function DocsEditor({
 	value,
 	onChange,
 	isDisabled,
+	mode: controlledMode,
+	onModeChange,
+	defaultMode = "write",
 }: {
 	value: string;
 	onChange: (value: string) => void;
 	isDisabled?: boolean;
+	mode?: "write" | "preview";
+	onModeChange?: (mode: "write" | "preview") => void;
+	defaultMode?: "write" | "preview";
 }) {
 	const ref = useRef<HTMLTextAreaElement>(null);
-	const [mode, setMode] = useState("write");
+	const [internalMode, setInternalMode] = useState<"write" | "preview">(defaultMode);
+	const mode = controlledMode ?? internalMode;
+
+	const handleModeChange = (nextKey: any) => {
+		const next = String(nextKey) as "write" | "preview";
+		setInternalMode(next);
+		onModeChange?.(next);
+	};
 
 	function apply(edit: (value: string, start: number, end: number) => Edit) {
 		const el = ref.current;
@@ -63,7 +76,7 @@ export function DocsEditor({
 		<Tabs
 			variant="secondary"
 			selectedKey={mode}
-			onSelectionChange={(key) => setMode(String(key))}
+			onSelectionChange={handleModeChange}
 			className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-surface"
 		>
 			<div className="flex shrink-0 items-center gap-2 border-b border-border bg-surface-secondary/40 pr-2">
