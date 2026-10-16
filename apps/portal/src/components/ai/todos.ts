@@ -1,9 +1,9 @@
-import { TODO_TOOL, type Todo, type TodoStatus } from "@fluxify/ai-gateway/src/agent/todos";
+import { isOpen, TODO_TOOL, type Todo, type TodoStatus } from "@fluxify/ai-gateway/src/agent/todos";
 import type { ChatMessage, ToolPart } from "./agentMessages";
 import { isRec, rec, str } from "./preview/data";
 
 export type { Todo, TodoStatus };
-export { TODO_TOOL };
+export { isOpen, TODO_TOOL };
 
 const isTodos = (v: unknown): v is Todo[] =>
 	Array.isArray(v) && v.every((t) => isRec(t) && typeof t.id === "string");
@@ -45,4 +45,22 @@ export function todoChange(input: unknown): string | undefined {
 	}
 	const status = STATUS_LABEL[str(i.status) as TodoStatus];
 	return str(i.id) && status ? `Marked ${str(i.id)} ${status}` : undefined;
+}
+
+const DISMISSED = (conversationId: string) => `fluxify:ai-tasks-closed:${conversationId}`;
+
+/** The finished list the user closed in this conversation (its JSON); none when storage fails. */
+export function dismissedList(conversationId: string) {
+	try {
+		return localStorage.getItem(DISMISSED(conversationId));
+	} catch {
+		return null;
+	}
+}
+
+/** Remembers a closed list; a failing storage only means it comes back on reload. */
+export function dismissList(conversationId: string, key: string) {
+	try {
+		localStorage.setItem(DISMISSED(conversationId), key);
+	} catch {}
 }

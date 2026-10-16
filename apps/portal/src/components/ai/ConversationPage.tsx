@@ -165,7 +165,7 @@ export function ConversationPage() {
 								onStop={() => chat.stop().catch(showErrorNotification)}
 								controls={
 									<>
-										<TodosButton todos={chat.todos} />
+										<TodosButton todos={chat.todos} conversationId={conversationId} />
 										<AgentPickers
 											mode={chat.mode}
 											onModeChange={chat.setMode}
