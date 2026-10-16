@@ -161,7 +161,7 @@ describe("custom knowledge base", () => {
 		expect(src.pages[0].markdown).not.toContain("zebra plan");
 
 		await eventually(async () => {
-			const text = (await search("giraffe plan")).text;
+			const text = (await search("giraffe")).text;
 			return text.includes("giraffe plan") && !text.includes("zebra plan");
 		});
 
