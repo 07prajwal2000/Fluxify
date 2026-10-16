@@ -38,6 +38,7 @@ export const NAMES = [
 	"promote_version",
 	"rollback_version",
 	"get",
+	"ext_gh__issue",
 ];
 
 /**

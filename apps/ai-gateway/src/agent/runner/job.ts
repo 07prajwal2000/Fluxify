@@ -30,7 +30,7 @@ export type RunDeps = {
 		job: AgentJob,
 		loaded: Set<string>,
 		todos?: Todo[],
-	) => Promise<Omit<Agent, "approve" | "abortSignal">>;
+	) => Promise<Omit<Agent, "approve" | "abortSignal"> & { close?: () => Promise<unknown> }>;
 	publish: (runId: string, events: AgentEvent[]) => Promise<void>;
 	/** Adds this job's cost to the run (the summary card reads it). */
 	addUsage?: (runId: string, usage: RunUsage) => Promise<void>;
@@ -98,6 +98,7 @@ export async function executeRun(job: AgentJob, deps: RunDeps, signal: AbortSign
 	let reason: StopReason | undefined;
 	let usage: RunUsage | undefined;
 	const startedAt = Date.now();
+	let close: (() => Promise<unknown>) | undefined;
 	try {
 		// Every row, summarized or not: a tool loaded before a summary is still loaded.
 		const rows = await deps.store.all(job.conversationId);
@@ -115,6 +116,7 @@ export async function executeRun(job: AgentJob, deps: RunDeps, signal: AbortSign
 			loadedTools(history),
 			todosOf(history),
 		);
+		close = agent.close;
 		const r = await continueConversation({
 			store,
 			conversationId: job.conversationId,
@@ -134,6 +136,8 @@ export async function executeRun(job: AgentJob, deps: RunDeps, signal: AbortSign
 		status = "failed";
 		await deps.store.setRunStatus(job.runId, "failed").catch(onError);
 	}
+	// the job's external MCP clients (#821), whatever way it ended
+	await close?.().catch(onError);
 	if (status !== "waiting_approval")
 		await rejectPending(
 			store,

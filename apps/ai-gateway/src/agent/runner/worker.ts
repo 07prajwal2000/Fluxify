@@ -4,13 +4,14 @@ import { db, getProjectSetting } from "@fluxify/server";
 import { mintAgentToken } from "@fluxify/server/src/lib/agentToken";
 import { AGENT_CONCURRENT_JOBS } from "../../lib/env";
 import { httpAdminFetch } from "../../mcp/adminApi";
+import { closeServers, openServers, preloadMentioned } from "../external";
 import { modelFromIntegration } from "../model";
 import { agentStore } from "../store";
 import { setupTelemetry } from "../telemetry";
 import { limitsFromProject } from "../timeouts";
 import { agentTools } from "../tools";
 import { executeCompact } from "./compactJob";
-import { agentIntegration } from "./integration";
+import { agentIntegration, agentMcpServers } from "./integration";
 import { executeRun, type RunDeps } from "./job";
 import { startHeartbeat } from "./orphans";
 import {
@@ -52,14 +53,20 @@ export const buildAgent: RunDeps["build"] = async (job, loaded, todos = []) => {
 		(await getProjectSetting(job.projectId, "settings.ai.askBeforeProductionWrites")) !== "false";
 	const token = mintAgentToken(job.userId, job.projectId);
 	const plan = { mode: job.mode, approved: job.planApproved, todos };
+	// one client per allowed server for this job, closed by executeRun when it ends; a summary needs none
+	const servers =
+		job.type === "compact" ? [] : await openServers(await agentMcpServers(job.projectId));
 	const { tools, active, load } = agentTools(
 		httpAdminFetch,
 		{ authorization: `Bearer ${token}` },
 		job.projectId,
 		loaded,
 		plan,
+		servers,
 	);
+	preloadMentioned(servers, job.mentions, load);
 	return {
+		close: () => closeServers(servers),
 		model: modelFromIntegration(integration),
 		tools,
 		active,

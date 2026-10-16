@@ -56,6 +56,8 @@ export type AgentJob = {
 	effort?: Effort;
 	/** start: the user's message. */
 	message?: string;
+	/** start: `mcp` integration ids the message @-mentions (#821); their tools start loaded. */
+	mentions?: string[];
 	/** The last run was plan mode and this one is not, so the user approved the plan (#771); continue jobs of that run carry it too. */
 	planApproved?: boolean;
 	/** continue: the answer to the first waiting call. */

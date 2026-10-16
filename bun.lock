@@ -37,6 +37,7 @@
         "@ai-sdk/otel": "^1.0.137",
         "@arizeai/openinference-core": "^2.8.0",
         "@arizeai/openinference-vercel": "^3.2.4",
+        "@fluxify/adapters": "workspace:*",
         "@fluxify/blocks": "workspace:*",
         "@fluxify/common": "workspace:*",
         "@fluxify/lib": "workspace:*",
@@ -54,7 +55,6 @@
         "zod": "^4.4.3",
       },
       "devDependencies": {
-        "@fluxify/adapters": "workspace:*",
         "@types/bun": "^1.4.0",
         "@types/dockerode": "^4.0.1",
         "dockerode": "^4.0.9",
@@ -172,6 +172,7 @@
         "@langchain/google-genai": "^2.1.17",
         "@langchain/mistralai": "^1.0.4",
         "@langchain/openai": "^1.2.7",
+        "@modelcontextprotocol/sdk": "^1.29.0",
         "@nats-io/jetstream": "3.4.0",
         "@nats-io/nats-core": "3.4.0",
         "@nats-io/transport-node": "3.4.0",
@@ -317,6 +318,17 @@
         "jsonwebtoken": "^9.0.3",
         "mongodb": "7.2.0",
         "mysql2": "^3.18.1",
+      },
+    },
+    "testing/mcp-math": {
+      "name": "@fluxify/mcp-math",
+      "version": "1.0.0",
+      "dependencies": {
+        "@modelcontextprotocol/sdk": "^1.29.0",
+        "zod": "^4.4.3",
+      },
+      "devDependencies": {
+        "@types/bun": "^1.4.0",
       },
     },
   },
@@ -623,6 +635,8 @@
     "@fluxify/e2e": ["@fluxify/e2e@workspace:testing/e2e"],
 
     "@fluxify/lib": ["@fluxify/lib@workspace:packages/lib"],
+
+    "@fluxify/mcp-math": ["@fluxify/mcp-math@workspace:testing/mcp-math"],
 
     "@fluxify/portal": ["@fluxify/portal@workspace:apps/portal"],
 

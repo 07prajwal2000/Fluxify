@@ -30,6 +30,7 @@
 		"@langchain/google-genai": "^2.1.17",
 		"@langchain/mistralai": "^1.0.4",
 		"@langchain/openai": "^1.2.7",
+		"@modelcontextprotocol/sdk": "^1.29.0",
 		"@nats-io/jetstream": "3.4.0",
 		"@nats-io/nats-core": "3.4.0",
 		"@nats-io/transport-node": "3.4.0",

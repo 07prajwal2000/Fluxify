@@ -182,13 +182,22 @@ export function registerAgentRoutes(app: Hono) {
 				text: z.string().min(1),
 				mode: mode.default("manual"),
 				effort: effort.optional(),
+				/** `mcp` integration ids the message @-mentions (#821); ids the project's agent may not use are ignored */
+				mentions: z.array(z.string()).max(20).optional(),
 			}),
 		),
 		async (c) => {
 			const { user, conversation } = await conversationOf(c, "creator");
 			const body = c.req.valid("json");
 			return c.json(
-				await sendMessage(conversation, user.id, body.text, body.mode as never, body.effort),
+				await sendMessage(
+					conversation,
+					user.id,
+					body.text,
+					body.mode as never,
+					body.effort,
+					body.mentions,
+				),
 				202,
 			);
 		},

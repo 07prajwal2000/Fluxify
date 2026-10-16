@@ -9,6 +9,7 @@ import {
 	OpenAIIntegration,
 	OpenTelemetryLogs,
 	RedisIntegration,
+	resolveMcpHeaders,
 } from "@fluxify/adapters";
 import { logger, MissingEnvValueError } from "@fluxify/common";
 import {
@@ -38,6 +39,8 @@ export let kvIntegrationsCache: Record<string, any> = {};
 export let observabilityIntegrationsCache: Record<string, any> = {};
 export let aiIntegrationsCache: Record<string, any> = {};
 export let queueIntegrationsCache: Record<string, any> = {};
+/** mcp integrations as { name, url, headers }, headers resolved; read by the agent (#821). */
+export const mcpIntegrationsCache: Record<string, any> = {};
 
 /**
  * Every cached config carries the id of the project that owns it. Nothing else
@@ -65,7 +68,8 @@ export function findIntegrationConfig(id: string) {
 		kvIntegrationsCache[id] ??
 		observabilityIntegrationsCache[id] ??
 		aiIntegrationsCache[id] ??
-		queueIntegrationsCache[id]
+		queueIntegrationsCache[id] ??
+		mcpIntegrationsCache[id]
 	);
 }
 
@@ -182,6 +186,7 @@ export type IntegrationRow = {
 	devConfig?: unknown;
 	syncDev?: boolean | null;
 	projectId: string | null;
+	name?: string | null;
 };
 
 /**
@@ -205,6 +210,8 @@ export function cacheForGroup(group: string | null) {
 			return aiIntegrationsCache;
 		case integrationsGroupSchema.enum.queue:
 			return queueIntegrationsCache;
+		case integrationsGroupSchema.enum.mcp:
+			return mcpIntegrationsCache;
 		default:
 			return undefined;
 	}
@@ -270,6 +277,12 @@ export function resolveIntegrationConfig(
 	} else if (group === integrationsGroupSchema.enum.queue) {
 		// flat fields, each possibly a `cfg:` reference; there is no url form
 		config = mapIntegrationToConnectionData(appConfig, raw, () => null);
+	} else if (group === integrationsGroupSchema.enum.mcp) {
+		config = {
+			name: integration.name,
+			url: raw.url,
+			headers: resolveMcpHeaders(raw.headers, convertObjectToMap(appConfig)),
+		};
 	}
 
 	if (config) {
