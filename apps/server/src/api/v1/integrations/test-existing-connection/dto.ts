@@ -17,4 +17,6 @@ export const requestQuerySchema = z.object({
 export const responseSchema = z.object({
 	success: z.boolean(),
 	error: z.string().optional(),
+	/** mcp only: what the server exposes */
+	tools: z.array(z.object({ name: z.string(), description: z.string() })).optional(),
 });

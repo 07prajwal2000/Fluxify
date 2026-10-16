@@ -9,6 +9,8 @@ import {
 	kafkaVariantConfigSchema,
 	kvVariantSchema,
 	lokiVariantConfigSchema,
+	mcpVariantConfigSchema,
+	mcpVariantSchema,
 	memcachedVariantConfigSchema,
 	mistralVariantConfigSchema,
 	mongoVariantConfigSchema,
@@ -32,7 +34,8 @@ type Variants =
 	| keyof typeof kvVariantSchema.enum
 	| keyof typeof observabilityVariantSchema.enum
 	| keyof typeof aiVariantSchema.enum
-	| keyof typeof baasVariantSchema.enum;
+	| keyof typeof baasVariantSchema.enum
+	| keyof typeof mcpVariantSchema.enum;
 
 export const humanReadableConnectorNames = {
 	database: "Databases",
@@ -41,6 +44,7 @@ export const humanReadableConnectorNames = {
 	baas: "Backend as a Service",
 	observability: "Observability",
 	queue: "Message queues",
+	mcp: "MCP servers",
 };
 
 export function getIntegrationsGroups() {
@@ -62,6 +66,9 @@ export function getIntegrationsVariants(group: z.infer<typeof integrationsGroupS
 	}
 	if (group === "queue") {
 		return Object.values(queueVariantSchema.options);
+	}
+	if (group === "mcp") {
+		return Object.values(mcpVariantSchema.options);
 	}
 	return [];
 }
@@ -177,6 +184,9 @@ export function getDefaultVariantValue(variant: Variants) {
 			source: "credentials",
 		} as z.infer<typeof rabbitMqVariantConfigSchema>;
 	}
+	if (variant === "http") {
+		return { url: "", headers: [] } as z.infer<typeof mcpVariantConfigSchema>;
+	}
 	return null;
 }
 
@@ -261,6 +271,9 @@ export function getSchema(group: z.infer<typeof integrationsGroupSchema>, varian
 				RabbitMQ: rabbitMqVariantConfigSchema,
 			} as const
 		)[variant as z.infer<typeof queueVariantSchema>];
+	} else if (group === "mcp") {
+		if (!mcpVariantSchema.safeParse(variant).success) return null;
+		schema = mcpVariantConfigSchema;
 	}
 	return schema;
 }

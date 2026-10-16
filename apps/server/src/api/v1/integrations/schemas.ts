@@ -11,8 +11,10 @@ export const integrationsGroupSchema = z.enum([
 	"baas",
 	"observability",
 	"queue",
+	"mcp",
 ]);
 
+export const mcpVariantSchema = z.enum(["http"]);
 export const queueVariantSchema = z.enum(["Kafka", "NATS", "SQS", "RabbitMQ"]);
 export const databaseVariantSchema = z.enum(["PostgreSQL", "MongoDB", "MySQL"]);
 
@@ -354,6 +356,14 @@ export const rabbitMqVariantConfigSchema = z
 			sendTimeoutMs: sendTimeoutMsSchema,
 		}),
 	);
+
+/** External MCP server over Streamable HTTP. Header values may be `cfg:` references. */
+export const mcpVariantConfigSchema = z.object({
+	url: z.string().refine((v) => /^https?:\/\/\S+$/.test(v), {
+		message: "Must be an http:// or https:// URL",
+	}),
+	headers: z.array(z.object({ key: z.string().min(1), value: z.string() })).default([]),
+});
 
 export const databaseTagsSchema = z.enum(["sql", "nosql"]);
 export const aiTagsSchema = z.enum(["llm", "embedding"]);

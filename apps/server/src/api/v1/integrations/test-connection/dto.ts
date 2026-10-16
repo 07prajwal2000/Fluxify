@@ -16,4 +16,6 @@ export const responseSchema = z.object({
 	error: z.string().optional(),
 	/** connected, but something will not work (a MongoDB server with no replica set cannot run transactions) */
 	warning: z.string().optional(),
+	/** mcp only: what the server exposes */
+	tools: z.array(z.object({ name: z.string(), description: z.string() })).optional(),
 });

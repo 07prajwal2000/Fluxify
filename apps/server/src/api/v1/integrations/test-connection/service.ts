@@ -17,6 +17,8 @@ import {
 	PostgresAdapter,
 	RedisIntegration,
 } from "@fluxify/adapters";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import type { z } from "zod";
 import { BadRequestError } from "../../../../errors/badRequestError";
 import { EncryptionService } from "../../../../lib/encryption";
@@ -34,6 +36,7 @@ import {
 	type integrationsGroupSchema,
 	type kvVariantSchema,
 	lokiVariantConfigSchema,
+	type mcpVariantConfigSchema,
 	normalizeObservabilityVariant,
 	type observabilityVariantSchema,
 	openTelemetryVariantConfigSchema,
@@ -124,6 +127,11 @@ async function probeConnection(
 			return testObservibilityConnection(variant, config, appConfigs, signal);
 		case "queue":
 			return testQueueConnection(variant, integrationData, appConfigs);
+		case "mcp":
+			return testMcpConnection(
+				integrationData as z.infer<typeof mcpVariantConfigSchema>,
+				appConfigs,
+			);
 		default:
 			return {
 				success: false,
@@ -322,6 +330,33 @@ export async function testAiConnection(
 		}
 		default:
 			return { success: false, error: "Invalid variant" };
+	}
+}
+
+/** Connects, lists the tools, closes. Header values are never logged. */
+async function testMcpConnection(
+	config: z.infer<typeof mcpVariantConfigSchema>,
+	appConfigs: Map<string, string>,
+) {
+	const headers = Object.fromEntries(
+		config.headers.map((h) => [
+			h.key,
+			h.value.startsWith("cfg:") ? (appConfigs.get(h.value.slice(4)) ?? "") : h.value,
+		]),
+	);
+	const client = new Client({ name: "fluxify", version: "1.0.0" });
+	try {
+		await client.connect(
+			new StreamableHTTPClientTransport(new URL(config.url), { requestInit: { headers } }),
+		);
+		const { tools } = await client.listTools();
+		return {
+			success: true,
+			error: "",
+			tools: tools.map((t) => ({ name: t.name, description: t.description ?? "" })),
+		};
+	} finally {
+		await client.close().catch(() => {});
 	}
 }
 
