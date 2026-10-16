@@ -63,7 +63,7 @@ export async function sendMessage(
 	await assertRunQuota(userId);
 	// the mode the last run used; startRun overwrites it
 	const planApproved = metaOf(conversation).mode === "plan" && mode !== "plan";
-	const runId = await startRun(conversation.id, text, mode, effort);
+	const runId = await startRun(conversation.id, text, mode, effort, planApproved);
 	if (!runId) throw new ConflictError("This conversation already has a run in progress");
 	await publishAgentJob({
 		type: "start",
@@ -167,8 +167,15 @@ export async function answerApproval(
 	const meta = metaOf(conversation);
 	const mode = approval.mode ?? meta.mode ?? "manual";
 	const effort = approval.effort ?? meta.effort;
+	// a run that started by approving a plan keeps it across its approvals, unless it moves to plan mode
+	const planApproved = !!meta.planApproved && mode !== "plan";
 	if (mode !== meta.mode || effort !== meta.effort)
-		await setMeta(conversation.id, { agent: true, mode, ...(effort && { effort }) });
+		await setMeta(conversation.id, {
+			agent: true,
+			mode,
+			...(effort && { effort }),
+			...(planApproved && { planApproved }),
+		});
 	// The finished part's `done` must not end the stream of the part that follows.
 	await purgeRunEvents(runId);
 	await publishAgentJob({
@@ -179,6 +186,7 @@ export async function answerApproval(
 		projectId: conversation.projectId as string,
 		mode,
 		effort,
+		...(planApproved && { planApproved }),
 		...(approval.decisions
 			? {
 					decisions: approval.decisions.map((d) => ({

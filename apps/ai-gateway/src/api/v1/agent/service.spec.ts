@@ -66,13 +66,13 @@ beforeEach(() => {
 describe("mode and effort stick to the conversation", () => {
 	it("a message saves its mode and effort and runs with them", async () => {
 		await sendMessage(conv(), "u", "hi", "plan", "high");
-		expect(startRun).toHaveBeenCalledWith("c1", "hi", "plan", "high");
+		expect(startRun).toHaveBeenCalledWith("c1", "hi", "plan", "high", false);
 		expect(publish.mock.calls[0][0]).toMatchObject({ mode: "plan", effort: "high" });
 	});
 
 	it("a message without an effort keeps the one the conversation had", async () => {
 		await sendMessage(conv({ metadata: { agent: true, mode: "auto", effort: "low" } }), "u", "hi", "auto");
-		expect(startRun).toHaveBeenCalledWith("c1", "hi", "auto", "low");
+		expect(startRun).toHaveBeenCalledWith("c1", "hi", "auto", "low", false);
 	});
 
 	it("a manual or auto message after a plan-mode run approves the plan (#771)", async () => {
@@ -83,6 +83,22 @@ describe("mode and effort stick to the conversation", () => {
 		await sendMessage(conv(), "u", "go ahead", "auto");
 		expect(publish.mock.calls[1][0]).not.toHaveProperty("planApproved");
 		expect(publish.mock.calls[2][0]).not.toHaveProperty("planApproved");
+	});
+
+	it("a run that approved a plan keeps it across its approvals (#771)", async () => {
+		const approved = conv({ metadata: { agent: true, mode: "auto", planApproved: true } });
+		await answerApproval(approved, "u", { approve: true });
+		expect(publish.mock.calls[0][0]).toMatchObject({ type: "continue", planApproved: true });
+		await answerApproval(approved, "u", { approve: true, mode: "manual" });
+		expect(setMeta).toHaveBeenCalledWith("c1", { agent: true, mode: "manual", planApproved: true });
+		await answerApproval(approved, "u", { approve: true, mode: "plan" });
+		expect(publish.mock.calls[2][0]).not.toHaveProperty("planApproved");
+		expect(startRun).not.toHaveBeenCalled();
+	});
+
+	it("a plan approval is saved with the run", async () => {
+		await sendMessage(conv({ metadata: { agent: true, mode: "plan" } }), "u", "go ahead", "auto");
+		expect(startRun).toHaveBeenCalledWith("c1", "go ahead", "auto", undefined, true);
 	});
 
 	it("switching to plan from suggest_plan_mode continues the run in plan mode", async () => {

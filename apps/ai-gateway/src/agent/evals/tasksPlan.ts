@@ -4,8 +4,9 @@ import { type Check, calledTool, expectCall, oneRoute, type Task } from "./check
 
 /** Plan suggestions and the todo list (#771). In its own file so the other task files stay under the FTA cap. */
 
-const NOTES =
-	"Build a small notes API in this project: POST /notes stores { text } in the KV store under a new id and answers { id }; GET /notes/:id answers { id, text } (404 when missing); DELETE /notes/:id removes it and answers 204. Add a test suite for each route.";
+/** Three routes and their suites: big enough for a plan, and needs no database or KV store. */
+const MATH =
+	'Build a small math API in this project: GET /add?a=&b= answers { "sum": a + b }; GET /multiply?a=&b= answers { "product": a * b }; POST /stats takes { "numbers": [...] } and answers { "min", "max", "mean" }. The query values are numbers. Add a test suite for each route.';
 
 /** suggest_plan_mode came before any change. */
 const suggestedFirst: Check = {
@@ -46,19 +47,36 @@ const compacted: Check = {
 			: { pass: false, message: "no summary: lower maxContextTokens" },
 };
 
-const notesWork = [
-	oneRoute("POST", "/notes"),
-	oneRoute("GET", "/notes/:id"),
-	oneRoute("DELETE", "/notes/:id"),
-	expectCall("missing note is a 404", "GET", "/notes/nope", {}, { status: 404 }),
+const mathWorks = [
+	expectCall(
+		"adds",
+		"GET",
+		"/add",
+		{ query: { a: "2", b: "3" } },
+		{ status: 200, body: { sum: 5 } },
+	),
+	expectCall(
+		"multiplies",
+		"GET",
+		"/multiply",
+		{ query: { a: "4", b: "5" } },
+		{ status: 200, body: { product: 20 } },
+	),
+	expectCall(
+		"stats",
+		"POST",
+		"/stats",
+		{ body: { numbers: [1, 2, 6] } },
+		{ status: 200, body: { min: 1, max: 6, mean: 3 } },
+	),
 ];
 
 export const planTasks: Task[] = [
 	{
 		id: "suggest-plan",
 		title: "A request across several routes suggests plan mode first (#771)",
-		prompt: NOTES,
-		checks: [suggestedFirst, ...notesWork],
+		prompt: MATH,
+		checks: [suggestedFirst, ...mathWorks],
 		judge: [
 			"Called suggest_plan_mode with a short reason before editing anything",
 			"After the user chose to continue, built the routes and checked them",
@@ -68,9 +86,9 @@ export const planTasks: Task[] = [
 		id: "plan-todos",
 		title: "An approved plan becomes a todo list the agent finishes, through a compaction (#771)",
 		modes: ["plan", "auto"],
-		prompt: [NOTES, "Go ahead."],
+		prompt: [MATH, "Go ahead."],
 		limits: { maxContextTokens: 20_000 },
-		checks: [calledTool("update_todos"), todosDone, compacted, ...notesWork],
+		checks: [calledTool("update_todos"), todosDone, compacted, ...mathWorks],
 		judge: [
 			"The plan is a numbered list of main tasks and ends by telling the user how to start",
 			"After approval, its first step was update_todos with the plan's tasks",

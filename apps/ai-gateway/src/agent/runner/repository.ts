@@ -15,7 +15,8 @@ import type { Mode } from "../tools";
  * is the accept mode and `metadata.effort` the thinking level of the last message
  * or approval (the picker starts from them, an approval goes on in them).
  */
-export type AgentMeta = { agent: true; mode: Mode; effort?: Effort };
+/** `planApproved`: the active run started by approving a plan (#771); its continue jobs need it too. */
+export type AgentMeta = { agent: true; mode: Mode; effort?: Effort; planApproved?: boolean };
 /** What a run cost: summed over the jobs of a run (a run with approvals is several). */
 export type RunUsage = {
 	steps: number;
@@ -72,6 +73,7 @@ export async function startRun(
 	message: string,
 	mode: Mode,
 	effort?: Effort,
+	planApproved?: boolean,
 ) {
 	const [run] = await db
 		.insert(runs)
@@ -82,7 +84,12 @@ export async function startRun(
 		.set({
 			activeRunId: run.id,
 			status: "running",
-			metadata: { agent: true, mode, ...(effort && { effort }) } satisfies AgentMeta,
+			metadata: {
+				agent: true,
+				mode,
+				...(effort && { effort }),
+				...(planApproved && { planApproved }),
+			} satisfies AgentMeta,
 		})
 		.where(and(eq(conversations.id, conversationId), notInArray(conversations.status, [...LIVE])))
 		.returning({ id: conversations.id });

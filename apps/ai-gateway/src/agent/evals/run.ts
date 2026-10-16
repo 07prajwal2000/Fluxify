@@ -150,6 +150,8 @@ export async function runTask(task: Task, deps: Deps, signal: AbortSignal): Prom
 	const tool = mcpCall(deps.fetcher, deps.auth);
 	const api = adminApi(deps.fetcher, deps.auth, "creator");
 	const history: ModelMessage[] = [];
+	/** Every message, also those a summary later replaced in `history`: what the checks see. */
+	const all: ModelMessage[] = [];
 	let projectId = "";
 	try {
 		const name = `eval-${task.id}-${Date.now().toString(36)}`;
@@ -193,6 +195,7 @@ export async function runTask(task: Task, deps: Deps, signal: AbortSignal): Prom
 				// Unattended: a limit stops the task so runs stay bounded.
 				onLimit: async () => false,
 				abortSignal: signal,
+				onMessages: (list) => void all.push(...list),
 			});
 			await printRun(result, { write: out });
 			const steps = await settle(result.steps, []);
@@ -207,7 +210,7 @@ export async function runTask(task: Task, deps: Deps, signal: AbortSignal): Prom
 		}
 		if (signal.aborted) throw new Error("Stopped by user");
 
-		ctx.calls = toolCalls(history);
+		ctx.calls = toolCalls(all);
 		ctx.todos = plan.todos;
 		ctx.summaries = history.filter(
 			(m) => typeof m.content === "string" && m.content.startsWith(SUMMARY_HEAD),

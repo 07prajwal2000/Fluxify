@@ -34,7 +34,7 @@ export function planningTools(p: Planning): Record<string, Tool> {
 	return {
 		[SUGGEST_PLAN]: tool({
 			title: "Suggest plan mode",
-			description: `Ask the user to switch to plan mode before a big change. The user switches or says to go on; the result says which. When to call it: read_doc ${PLAN_RECIPE}.`,
+			description: `Your first call when a request needs several routes, workflows or other resources, spans more than one area, or is vague: asks the user to switch to plan mode. Not for one or two small changes. The user switches or says to go on; the result says which. More: read_doc ${PLAN_RECIPE}.`,
 			inputSchema: z.object({
 				reason: z.string().describe("One short sentence: why this needs a plan first"),
 			}),

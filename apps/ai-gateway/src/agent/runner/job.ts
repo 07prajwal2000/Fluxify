@@ -3,7 +3,7 @@ import { rejected, type StopReason, stopReason } from "../agent";
 import { cacheTokens } from "../cache";
 import { continueConversation, pendingCalls } from "../resume";
 import type { AgentStore, RunStatus } from "../store";
-import { type Todo, todosOf } from "../todos";
+import { TODO_TOOL, type Todo, todosOf } from "../todos";
 import { loadedTools } from "../tools";
 import { type AgentEvent, batcher, decidedEvent, pump, seqTracker } from "./events";
 import type { AgentJob } from "./queue";
@@ -102,7 +102,19 @@ export async function executeRun(job: AgentJob, deps: RunDeps, signal: AbortSign
 		// Every row, summarized or not: a tool loaded before a summary is still loaded.
 		const rows = await deps.store.all(job.conversationId);
 		const history = rows.map((r) => r.content as ModelMessage);
-		const agent = await deps.build(job, loadedTools(history), todosOf(history));
+		// an approved plan asks for the list only until this run wrote it (a continue job comes after)
+		const since = history.slice(rows.findLastIndex((r) => r.role === "user"));
+		const wrote = since.some(
+			(m) =>
+				Array.isArray(m.content) &&
+				m.content.some((p) => p.type === "tool-call" && p.toolName === TODO_TOOL),
+		);
+		const planApproved = job.planApproved && !wrote;
+		const agent = await deps.build(
+			{ ...job, planApproved },
+			loadedTools(history),
+			todosOf(history),
+		);
 		const r = await continueConversation({
 			store,
 			conversationId: job.conversationId,
