@@ -45,6 +45,7 @@
 		"zod": "^4.1.11"
 	},
 	"devDependencies": {
+		"@fluxify/mcp-math": "workspace:*",
 		"@types/bun": "^1.4.0",
 		"@types/dockerode": "^4.0.1",
 		"@types/memcached": "^2.2.10",

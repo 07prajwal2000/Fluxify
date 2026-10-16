@@ -48,11 +48,13 @@ jobs:
               - 'packages/adapters/**'
               - 'packages/common/**'
               - 'packages/lib/**'
+              - 'testing/mcp-math/**'
               - '.github/workflows/tests.yml'
             adapters:
               - 'packages/adapters/**'
               - 'packages/common/**'
               - 'packages/lib/**'
+              - 'testing/mcp-math/**'
               - '.github/workflows/tests.yml'
             server:
               - 'apps/server/**'
@@ -60,6 +62,7 @@ jobs:
               - 'packages/blocks/**'
               - 'packages/common/**'
               - 'packages/lib/**'
+              - 'testing/mcp-math/**'
               - '.github/workflows/tests.yml'
             ai-gateway:
               - 'apps/ai-gateway/**'
@@ -68,6 +71,7 @@ jobs:
               - 'packages/blocks/**'
               - 'packages/common/**'
               - 'packages/lib/**'
+              - 'testing/mcp-math/**'
               - '.github/workflows/tests.yml'
             e2e:
               - 'testing/e2e/**'
@@ -77,6 +81,7 @@ jobs:
               - 'packages/blocks/**'
               - 'packages/common/**'
               - 'packages/lib/**'
+              - 'testing/mcp-math/**'
               - '.github/workflows/tests.yml'
             mcp-math:
               - 'testing/mcp-math/**'
@@ -90,6 +95,7 @@ jobs:
               - 'packages/blocks/**'
               - 'packages/common/**'
               - 'packages/lib/**'
+              - 'testing/mcp-math/**'
               - '.github/workflows/tests.yml'
 
   test-packages-lib:
