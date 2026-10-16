@@ -21,6 +21,7 @@ const GATES: Record<string, { dir: string; jobs: string[] }> = {
 	},
 	"ai-gateway": { dir: "apps/ai-gateway", jobs: ["test-apps-ai-gateway"] },
 	e2e: { dir: "testing/e2e", jobs: ["test-e2e-graphs"] },
+	"mcp-math": { dir: "testing/mcp-math", jobs: ["test-testing-mcp-math"] },
 	portal: { dir: "apps/portal", jobs: ["test-apps-portal"] },
 };
 

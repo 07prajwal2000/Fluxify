@@ -320,6 +320,17 @@
         "mysql2": "^3.18.1",
       },
     },
+    "testing/mcp-math": {
+      "name": "@fluxify/mcp-math",
+      "version": "1.0.0",
+      "dependencies": {
+        "@modelcontextprotocol/sdk": "^1.29.0",
+        "zod": "^4.4.3",
+      },
+      "devDependencies": {
+        "@types/bun": "^1.4.0",
+      },
+    },
   },
   "trustedDependencies": [
     "esbuild",
@@ -624,6 +635,8 @@
     "@fluxify/e2e": ["@fluxify/e2e@workspace:testing/e2e"],
 
     "@fluxify/lib": ["@fluxify/lib@workspace:packages/lib"],
+
+    "@fluxify/mcp-math": ["@fluxify/mcp-math@workspace:testing/mcp-math"],
 
     "@fluxify/portal": ["@fluxify/portal@workspace:apps/portal"],
 
