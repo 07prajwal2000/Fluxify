@@ -22,6 +22,7 @@ jobs:
       adapters: ${{ steps.filter.outputs.adapters == 'true' || inputs.full }}
       server: ${{ steps.filter.outputs.server == 'true' || inputs.full }}
       e2e: ${{ steps.filter.outputs.e2e == 'true' || inputs.full }}
+      mcp-math: ${{ steps.filter.outputs.mcp-math == 'true' || inputs.full }}
       ai-gateway: ${{ steps.filter.outputs.ai-gateway == 'true' || inputs.full }}
       portal: ${{ steps.filter.outputs.portal == 'true' || inputs.full }}
     steps:
@@ -47,11 +48,13 @@ jobs:
               - 'packages/adapters/**'
               - 'packages/common/**'
               - 'packages/lib/**'
+              - 'testing/mcp-math/**'
               - '.github/workflows/tests.yml'
             adapters:
               - 'packages/adapters/**'
               - 'packages/common/**'
               - 'packages/lib/**'
+              - 'testing/mcp-math/**'
               - '.github/workflows/tests.yml'
             server:
               - 'apps/server/**'
@@ -59,6 +62,7 @@ jobs:
               - 'packages/blocks/**'
               - 'packages/common/**'
               - 'packages/lib/**'
+              - 'testing/mcp-math/**'
               - '.github/workflows/tests.yml'
             ai-gateway:
               - 'apps/ai-gateway/**'
@@ -67,6 +71,7 @@ jobs:
               - 'packages/blocks/**'
               - 'packages/common/**'
               - 'packages/lib/**'
+              - 'testing/mcp-math/**'
               - '.github/workflows/tests.yml'
             e2e:
               - 'testing/e2e/**'
@@ -76,6 +81,10 @@ jobs:
               - 'packages/blocks/**'
               - 'packages/common/**'
               - 'packages/lib/**'
+              - 'testing/mcp-math/**'
+              - '.github/workflows/tests.yml'
+            mcp-math:
+              - 'testing/mcp-math/**'
               - '.github/workflows/tests.yml'
             portal:
               - 'apps/portal/**'
@@ -86,6 +95,7 @@ jobs:
               - 'packages/blocks/**'
               - 'packages/common/**'
               - 'packages/lib/**'
+              - 'testing/mcp-math/**'
               - '.github/workflows/tests.yml'
 
   test-packages-lib:
@@ -185,6 +195,20 @@ jobs:
       - name: Run Server Integration Tests
         run: bun run test:server:integration
 
+  test-testing-mcp-math:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.mcp-math == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Install Dependencies
+        run: bun install
+      - name: Run MCP Math Tests
+        run: bun run --cwd testing/mcp-math test
+
   test-apps-portal:
     needs: detect-changes
     if: needs.detect-changes.outputs.portal == 'true'
@@ -220,7 +244,7 @@ jobs:
   # to be `success`.
   require-all:
     if: ${{ always() && inputs.full }}
-    needs: [detect-changes, test-packages-lib, test-packages-blocks, test-packages-adapters, test-e2e-graphs, test-apps-server-unit, test-apps-server-integration, test-apps-portal, test-apps-ai-gateway]
+    needs: [detect-changes, test-packages-lib, test-packages-blocks, test-packages-adapters, test-e2e-graphs, test-testing-mcp-math, test-apps-server-unit, test-apps-server-integration, test-apps-portal, test-apps-ai-gateway]
     runs-on: ubuntu-latest
     steps:
       - name: Every test job must have succeeded

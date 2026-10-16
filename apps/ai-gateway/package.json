@@ -4,7 +4,7 @@
 	"type": "module",
 	"private": true,
 	"devDependencies": {
-		"@fluxify/adapters": "workspace:*",
+		"@fluxify/mcp-math": "workspace:*",
 		"@types/bun": "^1.4.0",
 		"@types/dockerode": "^4.0.1",
 		"dockerode": "^4.0.9"
@@ -28,6 +28,7 @@
 		"@ai-sdk/otel": "^1.0.137",
 		"@arizeai/openinference-core": "^2.8.0",
 		"@arizeai/openinference-vercel": "^3.2.4",
+		"@fluxify/adapters": "workspace:*",
 		"@fluxify/blocks": "workspace:*",
 		"@fluxify/common": "workspace:*",
 		"@fluxify/lib": "workspace:*",

@@ -1,6 +1,7 @@
 import type { ToolResultPart } from "ai";
 import type { runAgent, StopReason } from "../agent";
 import type { Compaction } from "../compact";
+import { isExternal, serverOf } from "../external";
 import type { Part } from "../progress";
 import type { AgentStore, RunStatus } from "../store";
 import { isDelete, titleOf } from "../tools";
@@ -38,6 +39,8 @@ export type AgentEvent =
 			toolTitle: string;
 			input: unknown;
 			isDelete: boolean;
+			/** The MCP server of an `ext_` tool (#821): the card names it. */
+			server?: string;
 	  }
 	| { type: "compaction"; seq: number; compaction: Compaction }
 	/** A summary is being written (on) or has ended (off): the chat shows "Compacting…" meanwhile. */
@@ -198,6 +201,7 @@ export function toEvent(
 				toolTitle: titleOf(call.toolName),
 				input: call.input,
 				isDelete: isDelete(call.toolName),
+				...(isExternal(call.toolName) && { server: serverOf(call.toolName) }),
 			};
 		}
 	}

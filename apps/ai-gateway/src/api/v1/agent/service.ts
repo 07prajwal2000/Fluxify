@@ -61,6 +61,7 @@ export async function sendMessage(
 	text: string,
 	mode: Mode,
 	effort: Effort | undefined = metaOf(conversation).effort,
+	mentions?: string[],
 ) {
 	if (conversation.archived)
 		throw new ConflictError("Cannot send a message to an archived conversation");
@@ -79,6 +80,7 @@ export async function sendMessage(
 		effort,
 		message: text,
 		...(planApproved && { planApproved }),
+		...(mentions?.length && { mentions }),
 	});
 	return { runId };
 }

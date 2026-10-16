@@ -72,6 +72,22 @@ describe("what asks", () => {
 		expect([...allowed]).toEqual(["save_route"]);
 	});
 
+	it("an external MCP call asks in manual and auto, names its server, and 'always' never covers the next one (#821)", async () => {
+		const servers: (string | undefined)[] = [];
+		const always = (c: PendingCall): Approval => {
+			servers.push(c.server);
+			return { ok: true, always: true };
+		};
+		for (const mode of ["manual", "auto"] as Mode[]) {
+			const allowed = new Set<string>();
+			const r = await run([["ext_gh__issue"], ["ext_gh__issue"]], mode, always, { allowed });
+			expect(r.asked).toEqual(["ext_gh__issue", "ext_gh__issue"]);
+			expect(r.ran).toEqual(["ext_gh__issue", "ext_gh__issue"]);
+			expect([...allowed]).toEqual([]);
+		}
+		expect(servers).toEqual(["gh", "gh", "gh", "gh"]);
+	});
+
 	it("a rejection reason reaches the model as the tool result and the run goes on", async () => {
 		const r = await run([["save_route"]], "manual", () => ({ ok: false, reason: "use /v2" }));
 		expect(r.ran).toEqual([]);

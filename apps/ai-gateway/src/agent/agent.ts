@@ -1,6 +1,7 @@
 import { type LanguageModel, type ModelMessage, NoSuchToolError, streamText, type Tool } from "ai";
 import { anthropicCache } from "./cache";
 import { type Compaction, compactor, type SummaryCompaction } from "./compact";
+import { isExternal, serverOf } from "./external";
 import {
 	budgetLine,
 	guardTools,
@@ -78,6 +79,8 @@ export type PendingCall = {
 	toolName: string;
 	input: unknown;
 	isDelete: boolean;
+	/** The MCP server of an `ext_` tool (#821). */
+	server?: string;
 };
 /**
  * `always` approves the tool for the rest of the session (ignored for deletes and deployments).
@@ -345,6 +348,7 @@ export function runAgent({
 			const every =
 				del ||
 				isDeploy(toolName) ||
+				isExternal(toolName) ||
 				toolName === SUGGEST_PLAN ||
 				copiesIntoRealCanvas(toolName, input) ||
 				(askBeforeProductionWrites && touchesProd(toolName, input) === "write");
@@ -355,7 +359,10 @@ export function runAgent({
 			)
 				return undefined;
 			const call = { toolCallId, toolName, input };
-			const r = await Promise.race([approve({ ...call, isDelete: del }, abortSignal), stopped]);
+			const r = await Promise.race([
+				approve({ ...call, isDelete: del, server: serverOf(toolName) }, abortSignal),
+				stopped,
+			]);
 			if (!r.ok && r.defer) return "user-approval";
 			if (!r.ok) {
 				run.approval(call, "denied");

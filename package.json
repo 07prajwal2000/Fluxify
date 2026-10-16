@@ -52,7 +52,8 @@
 	"workspaces": [
 		"packages/*",
 		"apps/*",
-		"testing/e2e"
+		"testing/e2e",
+		"testing/mcp-math"
 	],
 	"packageManager": "bun@1.4.2",
 	"author": "07prajwal2000",

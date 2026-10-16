@@ -17,6 +17,7 @@ import {
 } from "../mcp/tools";
 import { versionTools } from "../mcp/versionTools";
 import { writeTools } from "../mcp/writeTools";
+import { type ExternalServer, externalTools, isExternal, LIST_MCP_TOOLS } from "./external";
 import { type Planning, planningTools, SUGGEST_PLAN, todosActive } from "./planning";
 import { TODO_TOOL } from "./todos";
 
@@ -89,7 +90,14 @@ const COVERED = new Set<string>([
 /** Everything else loads on demand through load_tools. */
 export const ADVANCED = ALL.filter((t) => !CORE_MCP.includes(t.name) && !COVERED.has(t.name));
 
-export const CORE = [...CORE_MCP, "list", "get", "list_advanced_tools", "load_tools"];
+export const CORE = [
+	...CORE_MCP,
+	"list",
+	"get",
+	"list_advanced_tools",
+	"load_tools",
+	LIST_MCP_TOOLS,
+];
 
 export type Mode = "manual" | "auto" | "plan";
 export const MODES: Mode[] = ["manual", "auto", "plan"];
@@ -99,7 +107,10 @@ export const MODES: Mode[] = ["manual", "auto", "plan"];
  * and MCP tools marked read-only (unmarked = read, as in mcp/index.ts).
  */
 export const isRead = (name: string) => {
-	if (["list", "get", "list_advanced_tools", "load_tools", TODO_TOOL].includes(name)) return true;
+	if (
+		["list", "get", "list_advanced_tools", "load_tools", LIST_MCP_TOOLS, TODO_TOOL].includes(name)
+	)
+		return true;
 	const t = ALL.find((x) => x.name === name);
 	return !!t && t.annotations?.readOnlyHint !== false;
 };
@@ -109,6 +120,7 @@ const AGENT_TITLES: Record<string, string> = {
 	get: "Get resource",
 	list_advanced_tools: "List advanced tools",
 	load_tools: "Load tools",
+	[LIST_MCP_TOOLS]: "List MCP tools",
 	[SUGGEST_PLAN]: "Suggest plan mode",
 	[TODO_TOOL]: "Update todo list",
 };
@@ -116,6 +128,7 @@ const AGENT_TITLES: Record<string, string> = {
 /** The human name of a tool, for chat rows and the approval bar. */
 export const titleOf = (name: string) =>
 	AGENT_TITLES[name] ??
+	(isExternal(name) ? name.replace(/^ext_(.+?)__(.+)$/, "$2 ($1)") : undefined) ??
 	ALL.find((t) => t.name === name)?.title ??
 	name.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
 
@@ -208,6 +221,7 @@ export const needsApproval = (
 	return (
 		isDelete(name) ||
 		isDeploy(name) ||
+		isExternal(name) ||
 		name === SUGGEST_PLAN ||
 		(askBeforeEphemeral && name === EPHEMERAL_RUN_TOOL) ||
 		copiesIntoRealCanvas(name, args) ||
@@ -239,11 +253,14 @@ export function agentTools(
 	projectId: string,
 	loaded = new Set<string>(),
 	plan: Planning = { mode: "manual", todos: [] },
+	/** The project's allowed external MCP servers, open for this job (#821). */
+	servers: ExternalServer[] = [],
 ) {
 	const run = mcpCall(fetcher, auth);
-	/** Adds an advanced tool to the loaded set; false for a name that is not one. */
+	/** Adds an advanced or external tool to the loaded set; false for a name that is not one. */
 	const load = (name: string) => {
-		if (!ADVANCED.some((t) => t.name === name)) return false;
+		const external = isExternal(name) && Object.hasOwn(tools, name);
+		if (!external && !ADVANCED.some((t) => t.name === name)) return false;
 		loaded.add(name);
 		return true;
 	};
@@ -326,14 +343,16 @@ export function agentTools(
 	tools.load_tools = tool({
 		title: AGENT_TITLES.load_tools,
 		description:
-			"Make advanced tools callable from your next step. Names from list_advanced_tools.",
+			"Make advanced tools callable from your next step. Names from list_advanced_tools or list_mcp_tools.",
 		inputSchema: z.object({ names: z.array(z.string()).min(1) }),
 		execute: async ({ names }) => {
 			const known = names.filter(load);
 			return { loaded: known, unknown: names.filter((n) => !known.includes(n)) };
 		},
 	});
-	Object.assign(tools, planningTools(plan));
+	Object.assign(tools, planningTools(plan), externalTools(servers));
+	// loaded in an earlier message from a server that is no longer allowed
+	for (const n of loaded) if (isExternal(n) && !Object.hasOwn(tools, n)) loaded.delete(n);
 	return {
 		tools,
 		active: () => [...CORE, SUGGEST_PLAN, ...loaded, ...(todosActive(plan) ? [TODO_TOOL] : [])],
@@ -355,6 +374,9 @@ export function closeMatches(name: string) {
  * rebuilt from the saved calls: load_tools names, and advanced tools the model
  * called directly (auto-loaded, #699). Unknown names are dropped, as load_tools does.
  */
+/** External names are kept here; agentTools drops those whose server is gone. */
+const loadable = (n: string) => isExternal(n) || ADVANCED.some((t) => t.name === n);
+
 export function loadedTools(history: ModelMessage[]) {
 	const loaded = new Set<string>();
 	for (const m of history) {
@@ -362,12 +384,12 @@ export function loadedTools(history: ModelMessage[]) {
 		for (const p of m.content) {
 			if (p.type !== "tool-call") continue;
 			if (p.toolName !== "load_tools") {
-				if (ADVANCED.some((t) => t.name === p.toolName)) loaded.add(p.toolName);
+				if (loadable(p.toolName)) loaded.add(p.toolName);
 				continue;
 			}
 			const names = (p.input as { names?: unknown })?.names;
 			if (!Array.isArray(names)) continue;
-			for (const n of names) if (ADVANCED.some((t) => t.name === n)) loaded.add(n);
+			for (const n of names) if (loadable(n)) loaded.add(n);
 		}
 	}
 	return loaded;

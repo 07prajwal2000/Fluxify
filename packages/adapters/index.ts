@@ -10,6 +10,7 @@ export * from "./kv/base";
 export * from "./kv/factory";
 export * from "./kv/memcached";
 export * from "./kv/redis";
+export * from "./mcp/client";
 export * from "./observability";
 export * from "./queue/base";
 export * from "./queue/manager";

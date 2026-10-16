@@ -138,6 +138,20 @@ describe("promote and rollback (#739)", () => {
 	});
 });
 
+describe("external MCP tools (#821)", () => {
+	it("ask in auto with every production setting off, and 'always' does not stick", async () => {
+		const allowed = new Set<string>();
+		const always = (): Approval => ({ ok: true, always: true });
+		const r = await run([["ext_gh__issue"], ["ext_gh__issue"]], "auto", always, {
+			allowed,
+			askBeforeProductionReads: false,
+			askBeforeProductionWrites: false,
+		});
+		expect(r.asked).toEqual(["ext_gh__issue", "ext_gh__issue"]);
+		expect([...allowed]).toEqual([]);
+	});
+});
+
 describe("deploymentDescription (#739)", () => {
 	it("is the person's comment, with the agent's note after it", () => {
 		expect(deploymentDescription("Fixes the 500s", "Adds a retry")).toBe(

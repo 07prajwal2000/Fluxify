@@ -1,0 +1,21 @@
+{
+	"name": "@fluxify/mcp-math",
+	"version": "1.0.0",
+	"private": true,
+	"license": "Apache-2.0",
+	"description": "Demo Streamable HTTP MCP server with math tools, for Fluxify's tests.",
+	"type": "module",
+	"exports": {
+		".": "./src/server.ts"
+	},
+	"scripts": {
+		"test": "bun test --timeout 60000"
+	},
+	"dependencies": {
+		"@modelcontextprotocol/sdk": "^1.29.0",
+		"zod": "^4.4.3"
+	},
+	"devDependencies": {
+		"@types/bun": "^1.4.0"
+	}
+}

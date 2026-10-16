@@ -14,11 +14,11 @@ import {
 	OpenAIIntegration,
 	OpenTelemetryLogs,
 	type OtlpSignal,
+	openMcpClient,
 	PostgresAdapter,
 	RedisIntegration,
+	resolveMcpHeaders,
 } from "@fluxify/adapters";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import type { z } from "zod";
 import { BadRequestError } from "../../../../errors/badRequestError";
 import { EncryptionService } from "../../../../lib/encryption";
@@ -338,25 +338,19 @@ async function testMcpConnection(
 	config: z.infer<typeof mcpVariantConfigSchema>,
 	appConfigs: Map<string, string>,
 ) {
-	const headers = Object.fromEntries(
-		config.headers.map((h) => [
-			h.key,
-			h.value.startsWith("cfg:") ? (appConfigs.get(h.value.slice(4)) ?? "") : h.value,
-		]),
-	);
-	const client = new Client({ name: "fluxify", version: "1.0.0" });
+	const client = await openMcpClient({
+		url: config.url,
+		headers: resolveMcpHeaders(config.headers, appConfigs),
+	});
 	try {
-		await client.connect(
-			new StreamableHTTPClientTransport(new URL(config.url), { requestInit: { headers } }),
-		);
-		const { tools } = await client.listTools();
+		const tools = await client.listTools();
 		return {
 			success: true,
 			error: "",
 			tools: tools.map((t) => ({ name: t.name, description: t.description ?? "" })),
 		};
 	} finally {
-		await client.close().catch(() => {});
+		await client.close();
 	}
 }
 
