@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import { redactOAuth } from "../mcp-oauth/store";
 import { databaseConditionEditors, type databaseVariantSchema } from "../schemas";
 import type { responseSchema } from "./dto";
 import { getAllIntegrationsByGroup } from "./repository";
@@ -20,8 +21,8 @@ export default async function handleRequest(
 		name: item.name!,
 		group: item.group!,
 		variant: item.variant!,
-		config: item.config as any,
-		devConfig: (item.devConfig as any) ?? null,
+		config: redactOAuth(item.config) as any,
+		devConfig: (redactOAuth(item.devConfig) as any) ?? null,
 		syncDev: item.syncDev,
 		tags: item.tags ? item.tags.split(",") : undefined,
 		// static per variant, so it never waits on the database being reachable

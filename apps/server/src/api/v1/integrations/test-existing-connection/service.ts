@@ -4,6 +4,7 @@ import { BadRequestError } from "../../../../errors/badRequestError";
 import { NotFoundError } from "../../../../errors/notFoundError";
 import type { FluxifyEnv } from "../../../../lib/env";
 import { ADMIN_CONNECTION_ENV, configForAdminEnv } from "../adminEnv";
+import { mcpOAuthFor } from "../mcp-oauth/store";
 import { CONNECTION_TEST_TIMEOUT_MS, testIntegrationConnection } from "../test-connection/service";
 import type { requestRouteSchema, responseSchema } from "./dto";
 import { getIntegrationById } from "./repository";
@@ -26,6 +27,7 @@ export default async function handleRequest(
 		signal,
 		CONNECTION_TEST_TIMEOUT_MS,
 		env,
+		integration.group === "mcp" ? mcpOAuthFor(integration, env) : undefined,
 	);
 	if (!result.success) {
 		throw new BadRequestError(result.error || "Failed to test connection");

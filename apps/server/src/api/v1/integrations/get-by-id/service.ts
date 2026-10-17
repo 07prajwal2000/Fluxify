@@ -1,5 +1,6 @@
 import type { z } from "zod";
 import { NotFoundError } from "../../../../errors/notFoundError";
+import { redactOAuth } from "../mcp-oauth/store";
 import type { responseSchema } from "./dto";
 import { getIntegrationByID } from "./repository";
 
@@ -16,8 +17,8 @@ export default async function handleRequest(
 		name: integration.name!,
 		group: integration.group!,
 		variant: integration.variant!,
-		config: integration.config as any,
-		devConfig: (integration.devConfig as any) ?? null,
+		config: redactOAuth(integration.config) as any,
+		devConfig: (redactOAuth(integration.devConfig) as any) ?? null,
 		syncDev: integration.syncDev,
 	};
 }

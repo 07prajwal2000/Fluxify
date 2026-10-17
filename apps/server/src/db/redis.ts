@@ -87,3 +87,8 @@ export async function incrCache(key: string): Promise<number> {
 export async function expireCache(key: string, ttl: number): Promise<number> {
 	return redisClient.expire(key, ttl);
 }
+
+/** Reads and deletes in one step, so a second read finds nothing (single-use values). */
+export async function takeCacheKey(key: string): Promise<string> {
+	return (await redisClient.getdel(key)) || "";
+}

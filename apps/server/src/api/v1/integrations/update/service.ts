@@ -9,6 +9,7 @@ import { mapZodErrorToFieldErrors } from "../../../../lib/errors";
 import { getAppConfigKeys } from "../create/repository";
 import { getAppConfigKeysFromData } from "../create/service";
 import { getSchema } from "../helpers";
+import { redactIntegration } from "../mcp-oauth/store";
 import { getIntegrationTags } from "../schemas";
 import type { requestBodySchema, responseSchema } from "./dto";
 import { getIntegrationById, integrationExistByName, updateIntegration } from "./repository";
@@ -42,6 +43,8 @@ export default async function handleRequest(
 			id,
 			{
 				...body,
+				// a normal update never wipes the OAuth connection; only Connect, refresh and Disconnect write it
+				...(integration.group === "mcp" ? sanitizeMcpOAuth(integration, body) : {}),
 				tags: getIntegrationTags(integration.group as any, integration.variant!),
 			},
 			tx,
@@ -52,7 +55,37 @@ export default async function handleRequest(
 		throw new ServerError("Failed to update integration");
 	}
 	await publishMessage(CHAN_ON_INTEGRATION_CHANGE, result.id);
-	return result;
+	return redactIntegration(result);
+}
+
+type McpConfig = { url?: string; auth?: string; oauth?: unknown };
+
+/**
+ * An mcp update never carries tokens in (the client only ever saw their status) and keeps the
+ * stored ones, unless the connection no longer fits: another server, or headers instead of OAuth.
+ */
+function sanitizeMcpOAuth(
+	stored: { config: unknown; devConfig: unknown },
+	body: z.infer<typeof requestBodySchema>,
+) {
+	// an update that leaves `auth` out keeps the stored one, so rewriting the headers cannot sign OAuth out
+	const strip = (config: McpConfig | null | undefined, was: McpConfig | null) => {
+		const { oauth: _status, ...rest } = config ?? {};
+		return { ...rest, auth: rest.auth ?? was?.auth ?? "headers" };
+	};
+	const fits = (was: McpConfig | null, next: McpConfig) =>
+		!!was?.oauth && next.auth === "oauth" && next.url === was.url;
+	const config = strip(body.config, stored.config as McpConfig);
+	const devConfig =
+		body.devConfig == null ? body.devConfig : strip(body.devConfig, stored.devConfig as McpConfig);
+	return {
+		config,
+		devConfig,
+		keepOAuth: {
+			config: fits(stored.config as McpConfig, config),
+			devConfig: devConfig != null && fits(stored.devConfig as McpConfig, devConfig),
+		},
+	};
 }
 
 async function validateAppConfig(

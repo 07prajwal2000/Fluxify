@@ -7,6 +7,7 @@ import registerGetBasicListRoute from "./get-basic-list/route";
 import registerGetByIdRoute from "./get-by-id/route";
 import registerGetMetadataRoute from "./get-metadata/route";
 import registerInspectRoutes from "./inspect/route";
+import registerMcpOAuthRoutes from "./mcp-oauth/route";
 import registerTestConnectionRoute from "./test-connection/route";
 import registerTestExistingConnectionRoute from "./test-existing-connection/route";
 import registerUpdateRoute from "./update/route";
@@ -20,6 +21,7 @@ export default {
 		registerGetByIdRoute(router);
 		registerGetMetadataRoute(router);
 		registerInspectRoutes(router);
+		registerMcpOAuthRoutes(router);
 		registerCreateRoute(router);
 		registerUpdateRoute(router);
 		registerDeleteRoute(router);
