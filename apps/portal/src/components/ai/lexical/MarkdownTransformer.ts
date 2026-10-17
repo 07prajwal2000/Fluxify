@@ -71,6 +71,33 @@ export function insertMarkdownAtSelection(text: string) {
 	}
 }
 
+export function extractMentionsFromText(text: string): string[] {
+	const mentions: string[] = [];
+	for (const m of text.matchAll(REF_PATTERN)) {
+		if (m[2] === "integration") {
+			mentions.push(unquote(m[3]));
+		}
+	}
+	return Array.from(new Set(mentions));
+}
+
+export function extractMentions(editor: LexicalEditor): string[] {
+	const mentions: string[] = [];
+	editor.getEditorState().read(() => {
+		const paragraphs = $getRoot().getChildren() as any[];
+		for (const paragraph of paragraphs) {
+			if ("getChildren" in paragraph && typeof paragraph.getChildren === "function") {
+				for (const node of paragraph.getChildren()) {
+					if ($isResourceNode(node) && node.__resourceType === "integration") {
+						mentions.push(node.__identifier);
+					}
+				}
+			}
+		}
+	});
+	return Array.from(new Set(mentions));
+}
+
 export function lexicalToMarkdown(editor: LexicalEditor): string {
 	let markdown = "";
 	editor.getEditorState().read(() => {
@@ -80,7 +107,9 @@ export function lexicalToMarkdown(editor: LexicalEditor): string {
 			let pText = "";
 			for (const node of paragraph.getChildren()) {
 				pText += $isResourceNode(node)
-					? refText(node.__resourceType as RefType, node.__identifier, node.__name)
+					? node.__resourceType === "integration"
+						? `@${node.__name.replace(/^@/, "")}`
+						: refText(node.__resourceType as RefType, node.__identifier, node.__name)
 					: node.getTextContent();
 			}
 			markdown += pText;

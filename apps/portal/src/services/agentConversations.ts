@@ -104,9 +104,15 @@ export const agentConversationsService = {
 		text: string,
 		mode: Mode,
 		effort?: Effort,
+		mentions?: string[],
 	): Promise<{ runId: string }> {
 		return (
-			await httpClient.post(`${base(projectId)}/${conversationId}/messages`, { text, mode, effort })
+			await httpClient.post(`${base(projectId)}/${conversationId}/messages`, {
+				text,
+				mode,
+				effort,
+				...(mentions && mentions.length > 0 && { mentions }),
+			})
 		).data;
 	},
 	/** /compact: `runId` is the job to follow; null (with a `message`) when there was nothing to compact. */

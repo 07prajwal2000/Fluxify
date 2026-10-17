@@ -7,6 +7,8 @@ import { RiGeminiFill, RiOpenaiFill, RiOpenaiLine, RiRobot2Fill } from "react-ic
 import { SiAnthropic, SiApachekafka, SiNatsdotio, SiRabbitmq, SiRedis } from "react-icons/si";
 import { TbBrandAws, TbBrandFirebase, TbBrandSupabase, TbServer } from "react-icons/tb";
 
+import { VscMcp } from "react-icons/vsc";
+
 const size = 20;
 
 // Keyed by integration variant (server humanReadable variant names).
@@ -29,4 +31,6 @@ export const integrationIcons: Record<string, ReactNode> = {
 	NATS: <SiNatsdotio size={size} />,
 	SQS: <TbBrandAws size={size} />,
 	RabbitMQ: <SiRabbitmq size={size} />,
+	http: <VscMcp size={size} />,
+	mcp: <VscMcp size={size} />,
 };

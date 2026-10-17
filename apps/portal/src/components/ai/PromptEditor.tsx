@@ -18,7 +18,12 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { TbArrowUp, TbAt, TbPlayerStopFilled } from "react-icons/tb";
 import { AgentModelLabel } from "./AgentModel";
 import { EditorEventsPlugin } from "./EditorEventsPlugin";
-import { lexicalToMarkdown, markdownToLexical } from "./lexical/MarkdownTransformer";
+import {
+	extractMentions,
+	extractMentionsFromText,
+	lexicalToMarkdown,
+	markdownToLexical,
+} from "./lexical/MarkdownTransformer";
 import { ResourceNode } from "./lexical/ResourceNode";
 import { ResourcePlugin } from "./lexical/ResourcePlugin";
 import { MentionPopover } from "./MentionPopover";
@@ -39,6 +44,7 @@ function EditorLogicPlugin({
 	onSubmit,
 	onTab,
 	onAtTrigger,
+	onMentionsChange,
 }: {
 	value: string;
 	onChange: (v: string) => void;
@@ -46,6 +52,7 @@ function EditorLogicPlugin({
 	/** Tab; true when it did something (it then does not move focus). */
 	onTab: () => boolean;
 	onAtTrigger: () => void;
+	onMentionsChange?: (mentions: string[]) => void;
 }) {
 	const [editor] = useLexicalComposerContext();
 	const isFirstRender = useRef(true);
@@ -54,20 +61,23 @@ function EditorLogicPlugin({
 		if (isFirstRender.current) {
 			isFirstRender.current = false;
 			markdownToLexical(value, editor);
+			onMentionsChange?.(extractMentions(editor));
 		} else {
 			const currentMarkdown = lexicalToMarkdown(editor);
 			if (value === "" && currentMarkdown !== "") {
 				markdownToLexical(value, editor);
+				onMentionsChange?.(extractMentions(editor));
 			}
 		}
-	}, [value, editor]);
+	}, [value, editor, onMentionsChange]);
 
 	useEffect(() => {
 		return editor.registerUpdateListener(({ editorState, dirtyElements, dirtyLeaves }) => {
 			if (dirtyElements.size === 0 && dirtyLeaves.size === 0) return;
 			onChange(lexicalToMarkdown(editor));
+			onMentionsChange?.(extractMentions(editor));
 		});
-	}, [editor, onChange]);
+	}, [editor, onChange, onMentionsChange]);
 
 	useEffect(() => {
 		return editor.registerCommand(
@@ -127,7 +137,7 @@ type Props = {
 	projectId: string;
 	value: string;
 	onChange: (value: string) => void;
-	onSubmit: (query: string) => void;
+	onSubmit: (query: string, mentions?: string[]) => void;
 	isPending?: boolean;
 	minRows?: number;
 	maxRows?: number;
@@ -162,6 +172,7 @@ export function PromptEditor({
 	const [wasAtTyped, setWasAtTyped] = useState(false);
 	const popoverRef = useRef<HTMLDivElement>(null);
 	const triggerRef = useRef<HTMLButtonElement>(null);
+	const mentionsRef = useRef<string[]>(extractMentionsFromText(value));
 
 	// Typewriter effect
 	const [twPlaceholder, setTwPlaceholder] = useState("");
@@ -232,7 +243,11 @@ export function PromptEditor({
 	};
 	const submit = () => {
 		if (complete()) return;
-		if (canSend) onSubmit(trimmed);
+		if (canSend) {
+			const mentions =
+				mentionsRef.current.length > 0 ? mentionsRef.current : extractMentionsFromText(value);
+			onSubmit(trimmed, mentions);
+		}
 	};
 
 	const initialConfig = {
@@ -279,6 +294,9 @@ export function PromptEditor({
 					<EditorLogicPlugin
 						value={value}
 						onChange={onChange}
+						onMentionsChange={(mentions) => {
+							mentionsRef.current = mentions;
+						}}
 						onSubmit={submit}
 						onTab={complete}
 						onAtTrigger={() => {

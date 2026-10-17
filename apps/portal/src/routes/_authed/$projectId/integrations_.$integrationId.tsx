@@ -17,7 +17,7 @@ import { showErrorNotification } from "@/lib/errorNotifier";
 import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
 import { integrationsQuery } from "@/query/integrationsQuery";
 import { projectsQuery } from "@/query/projectsQuery";
-import { useCanEditProject } from "@/store/auth";
+import { useCanEditProject, useIsProjectAdmin } from "@/store/auth";
 
 export const Route = createFileRoute("/_authed/$projectId/integrations_/$integrationId")({
 	head: createRouteHead("Integration", "View and edit an integration's connection details."),
@@ -31,12 +31,16 @@ function IntegrationDetailsPage() {
 	usePageTitle(formatProjectTitle(project?.name, loaded.data?.name ?? "Integration"));
 	const navigate = useNavigate();
 	const canEdit = useCanEditProject(projectId);
+	const isAdmin = useIsProjectAdmin(projectId);
 	const update = integrationsQuery.update.mutation(projectId);
 	const test = integrationsQuery.testConnection.mutation(projectId);
 	const testProd = integrationsQuery.testProductionConnection.mutation(projectId);
 	const remove = integrationsQuery.remove.mutation(projectId);
 
 	const [name, setName] = useState("");
+	const [testedTools, setTestedTools] = useState<{ name: string; description: string }[] | null>(
+		null,
+	);
 	// null until the saved config is in: a form mounted on an empty config would
 	// seed its tabs and modes from nothing (URL vs credentials, NATS login)
 	const [config, setConfig] = useState<Record<string, unknown> | null>(null);
@@ -110,18 +114,30 @@ function IntegrationDetailsPage() {
 		}
 		const parsed = parseConfig(toTest);
 		if (!parsed) return;
+		const canWrite = group === "mcp" ? isAdmin : canEdit;
 		test.mutate(
 			{ group, variant, config: parsed },
-			{ onSuccess: showTestResult, onError: (e) => showErrorNotification(e as Error) },
+			{
+				onSuccess: (res) => {
+					showTestResult(res);
+					if (res?.tools) setTestedTools(res.tools);
+				},
+				onError: (e) => showErrorNotification(e as Error),
+			},
 		);
 	}
 
 	function testProduction() {
 		testProd.mutate(integrationId, {
-			onSuccess: showTestResult,
+			onSuccess: (res) => {
+				showTestResult(res);
+				if (res?.tools) setTestedTools(res.tools);
+			},
 			onError: (e) => showErrorNotification(e as Error),
 		});
 	}
+
+	const canWrite = group === "mcp" ? isAdmin : canEdit;
 
 	return (
 		<div className="mx-auto flex h-full w-full max-w-4xl flex-col gap-5">
@@ -155,13 +171,19 @@ function IntegrationDetailsPage() {
 					onSyncDevChange={setSyncDev}
 					group={group}
 					variant={variant}
+					readOnly={!canWrite}
+					tools={testedTools ?? undefined}
 				/>
 			</div>
 
 			<div className="flex shrink-0 items-center justify-between border-t border-border pt-3.5">
-				<DeleteButton size="sm" onPress={() => setConfirmDelete(true)}>
-					Delete
-				</DeleteButton>
+				{canWrite ? (
+					<DeleteButton size="sm" onPress={() => setConfirmDelete(true)}>
+						Delete
+					</DeleteButton>
+				) : (
+					<span />
+				)}
 				<div className="flex items-center gap-2">
 					<Button
 						variant="outline"
@@ -185,9 +207,11 @@ function IntegrationDetailsPage() {
 							<span>Test production credentials</span>
 						</Button>
 					)}
-					<Button variant="primary" size="sm" isPending={update.isPending} onPress={save}>
-						Save changes
-					</Button>
+					{canWrite && (
+						<Button variant="primary" size="sm" isPending={update.isPending} onPress={save}>
+							Save changes
+						</Button>
+					)}
 				</div>
 			</div>
 

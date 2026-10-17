@@ -1,16 +1,16 @@
-import { useQuery } from "@tanstack/react-query";
+import { QueryClient, QueryClientContext, useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
-import { Children, type ReactNode } from "react";
+import { Children, type ReactNode, useContext } from "react";
 import {
 	TbBolt,
 	TbBox,
-	TbCloudCog,
 	TbFlask,
 	TbLayersIntersect,
 	TbRoute,
 	TbSquareKey,
 	TbStack2,
 } from "react-icons/tb";
+import { VscMcp } from "react-icons/vsc";
 import { testSuitesService } from "@/services/testSuites";
 import { isRefType, type RefType, refPath } from "./agentRefs";
 
@@ -20,7 +20,7 @@ export const REF_ICONS: Record<RefType, typeof TbBox> = {
 	trigger: TbBolt,
 	custom_block: TbBox,
 	middleware: TbLayersIntersect,
-	integration: TbCloudCog,
+	integration: VscMcp as unknown as typeof TbBox,
 	app_config: TbSquareKey,
 	test_suite: TbFlask,
 	sandbox: TbFlask,
@@ -41,16 +41,22 @@ const textOf = (node: ReactNode): string =>
 		)
 		.join("");
 
+const fallbackClient = new QueryClient();
+
 /** The tests page a suite belongs to is only known once the suite is read. */
 export function useSuiteTarget(id: string, enabled: boolean) {
-	return useQuery({
-		queryKey: ["agent-ref", "test_suite", id],
-		queryFn: () => testSuitesService.getById(id),
-		enabled,
-		retry: false,
-		staleTime: 5 * 60_000,
-		refetchOnWindowFocus: false,
-	});
+	const client = useContext(QueryClientContext) ?? fallbackClient;
+	return useQuery(
+		{
+			queryKey: ["agent-ref", "test_suite", id],
+			queryFn: () => testSuitesService.getById(id),
+			enabled,
+			retry: false,
+			staleTime: 5 * 60_000,
+			refetchOnWindowFocus: false,
+		},
+		client,
+	);
 }
 
 /**
@@ -70,7 +76,12 @@ export function AgentRef({
 	query?: string;
 	children?: ReactNode;
 }) {
-	const { projectId } = useParams({ strict: false }) as { projectId?: string };
+	let projectId: string | undefined;
+	try {
+		projectId = (useParams({ strict: false }) as { projectId?: string })?.projectId;
+	} catch {
+		projectId = undefined;
+	}
 	const label = textOf(children).trim();
 	const ok = isRefType(type) && id !== undefined && String(id) !== "" && Boolean(projectId);
 	const suite = useSuiteTarget(String(id), ok && type === "test_suite");

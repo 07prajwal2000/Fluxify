@@ -85,7 +85,7 @@ export function $createResourceNode(
 }
 
 export function $isResourceNode(node: LexicalNode | null | undefined): node is ResourceNode {
-	return node instanceof ResourceNode;
+	return node instanceof ResourceNode || (node != null && node.getType() === "resource");
 }
 
 // A Lexical node class is registered exactly once, in the editor's

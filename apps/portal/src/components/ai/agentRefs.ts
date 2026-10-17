@@ -22,7 +22,7 @@ export function refText(type: RefType, id: string | number, label: string) {
 }
 
 /** Matches a whole `:ref[Label]{type=… id=…}` (the editor turns these into chips). */
-export const REF_PATTERN = /:ref\[([^\]\n]*)\]\{type=(\w+) id=("[^"\n]*"|[^\s}]+)\}/g;
+export const REF_PATTERN = /:ref\[([^\]\n]*)\]\{type="?(\w+)"? id=("[^"\n]*"|[^\s}]+)\}/g;
 
 /**
  * The portal page of a resource, or undefined when it has none yet. A test suite

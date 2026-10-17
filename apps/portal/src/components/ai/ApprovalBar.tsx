@@ -6,7 +6,14 @@ import { useConfetti } from "@/hooks/useConfetti";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import type { Decision, Mode } from "@/services/agentConversations";
 import { ApprovalTarget } from "./ApprovalTarget";
-import { type ApprovalRequest, SUGGEST_PLAN, type ToolRequest } from "./agentApproval";
+import {
+	type ApprovalRequest,
+	displayToolName,
+	externalServerOf,
+	isExternalTool,
+	SUGGEST_PLAN,
+	type ToolRequest,
+} from "./agentApproval";
 import { DeployComment } from "./DeployComment";
 import { ReviewAllDialog } from "./ReviewAllDialog";
 
@@ -71,6 +78,9 @@ export function ApprovalBar({
 		answer(() => onApprove(mode, comment));
 	};
 	const del = request.kind === "tool" && request.isDelete;
+	const extServer =
+		request.kind === "tool" ? (request.server ?? externalServerOf(request.name)) : undefined;
+	const isExt = request.kind === "tool" && (isExternalTool(request.name) || Boolean(extServer));
 	const Icon = del
 		? TbTrash
 		: request.kind === "plan"
@@ -102,7 +112,12 @@ export function ApprovalBar({
 				) : (
 					<>
 						<span className="flex items-center gap-2 text-sm text-foreground">
-							<span className="font-medium">{request.title}</span>
+							{extServer && (
+								<Chip size="sm" variant="secondary" className="font-mono text-xs">
+									{extServer}
+								</Chip>
+							)}
+							<span className="font-medium">{displayToolName(request)}</span>
 							{del && (
 								<Chip size="sm" color="danger">
 									Deletes
@@ -164,6 +179,20 @@ export function ApprovalBar({
 						</Button>
 						<Button size="sm" variant="primary" isDisabled={busy} onPress={() => approve("plan")}>
 							Switch to plan
+						</Button>
+					</>
+				) : isExt ? (
+					<>
+						<Button size="sm" variant="ghost" isDisabled={busy} onPress={() => answer(onReject)}>
+							Reject
+						</Button>
+						<Button
+							size="sm"
+							variant="primary"
+							isDisabled={busy || blocked}
+							onPress={() => approve(undefined)}
+						>
+							Approve
 						</Button>
 					</>
 				) : (

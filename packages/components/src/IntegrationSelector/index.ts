@@ -1,4 +1,5 @@
-export { IntegrationSelector } from "./IntegrationSelector";
+export type { PickerModalProps as IntegrationPickerModalProps } from "./IntegrationSelector";
+export { IntegrationPickerModal, IntegrationSelector } from "./IntegrationSelector";
 export { integrationIcons } from "./integrationIcons";
 export type {
 	Integration,

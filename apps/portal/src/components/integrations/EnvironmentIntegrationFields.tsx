@@ -14,6 +14,8 @@ export type EnvironmentIntegrationFieldsProps = {
 	setDevField: (path: string, value: unknown) => void;
 	syncDev: boolean;
 	onSyncDevChange: (sync: boolean) => void;
+	readOnly?: boolean;
+	tools?: { name: string; description: string }[];
 };
 
 export function isConfigEmpty(config: Record<string, unknown> | null | undefined): boolean {
@@ -35,6 +37,8 @@ export function EnvironmentIntegrationFields({
 	setDevField,
 	syncDev,
 	onSyncDevChange,
+	readOnly = false,
+	tools,
 }: EnvironmentIntegrationFieldsProps) {
 	const devEmpty = isConfigEmpty(devConfig);
 
@@ -59,13 +63,20 @@ export function EnvironmentIntegrationFields({
 					onName={onName}
 					config={config}
 					setField={setField}
+					readOnly={readOnly}
+					tools={tools}
 				/>
 			</div>
 
 			{/* Toggle & Warning / Development Section */}
 			<div className="flex flex-col gap-4 rounded-xl border border-border bg-surface p-4">
 				<div className="flex items-center justify-between">
-					<Checkbox isSelected={syncDev} onChange={onSyncDevChange} aria-label="Same as production">
+					<Checkbox
+						isSelected={syncDev}
+						onChange={onSyncDevChange}
+						isDisabled={readOnly}
+						aria-label="Same as production"
+					>
 						<Checkbox.Content>
 							<Checkbox.Control>
 								<Checkbox.Indicator />
@@ -119,6 +130,8 @@ export function EnvironmentIntegrationFields({
 							config={devConfig ?? {}}
 							setField={setDevField}
 							hideName
+							readOnly={readOnly}
+							tools={tools}
 						/>
 					</div>
 				)}

@@ -68,10 +68,10 @@ export function ConversationPage() {
 		if (isAtBottom || follow.current) scrollToBottom("auto");
 	}, [chat.messages, chat.running]);
 
-	const submit = (text: string) => {
+	const submit = (text: string, mentions?: string[]) => {
 		follow.current = true;
 		setQuery("");
-		chat.submit(text).catch((err) => {
+		chat.submit(text, mentions).catch((err) => {
 			setQuery(text);
 			showErrorNotification(err);
 		});

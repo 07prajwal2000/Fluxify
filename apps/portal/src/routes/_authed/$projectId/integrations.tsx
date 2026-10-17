@@ -12,7 +12,9 @@ import {
 	TbHeartRateMonitor,
 	TbLock,
 	TbPlugConnected,
+	TbServer,
 } from "react-icons/tb";
+import { VscMcp } from "react-icons/vsc";
 import { z } from "zod";
 import { IntegrationTestButtons } from "@/components/integrations/IntegrationTestButtons";
 import { createDynamicRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
@@ -36,6 +38,7 @@ export const Route = createFileRoute("/_authed/$projectId/integrations")({
 			baas: "BaaS",
 			observability: "Observability",
 			queue: "Message Queues",
+			mcp: "MCP Servers",
 		};
 		const category = search.group ? groupLabels[search.group] || search.group : "All";
 		return {
@@ -57,6 +60,7 @@ const CONNECTORS: { name: string; type: IntegrationGroup; icon: ReactNode }[] = 
 		icon: <TbHeartRateMonitor size={18} />,
 	},
 	{ name: "Queues", type: "queue", icon: <TbArrowsExchange size={18} /> },
+	{ name: "MCP Servers", type: "mcp", icon: <VscMcp size={18} /> },
 ];
 
 function IntegrationsPage() {
@@ -75,6 +79,7 @@ function IntegrationsPage() {
 	const { data: baasData } = integrationsQuery.getAll.useQuery(projectId, "baas");
 	const { data: obsData } = integrationsQuery.getAll.useQuery(projectId, "observability");
 	const { data: queueData } = integrationsQuery.getAll.useQuery(projectId, "queue");
+	const { data: mcpData } = integrationsQuery.getAll.useQuery(projectId, "mcp");
 
 	const counts: Record<IntegrationGroup, number> = {
 		database: dbData?.length ?? 0,
@@ -83,7 +88,7 @@ function IntegrationsPage() {
 		baas: baasData?.length ?? 0,
 		observability: obsData?.length ?? 0,
 		queue: queueData?.length ?? 0,
-		mcp: 0, // portal form is #822
+		mcp: mcpData?.length ?? 0,
 	};
 
 	// sync selected group from URL (deep-link support)

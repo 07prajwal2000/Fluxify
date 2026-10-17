@@ -41,7 +41,7 @@ const EVENTS: AgentEvent["type"][] = [
 export const RETRY_MS = 1000;
 
 /** The mode and effort a message goes out with; what the pickers show unless a send overrides them. */
-type Picks = { mode?: Mode; effort?: Effort };
+type Picks = { mode?: Mode; effort?: Effort; mentions?: string[] };
 
 /** A message typed on the new-chat page, sent once its conversation page loads (with the pickers' values). */
 const queued = new Map<string, { text: string } & Picks>();
@@ -165,20 +165,24 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 	};
 
 	const send = async (text: string, over: Picks = {}) => {
-		const go = { mode: over.mode ?? mode, effort: over.effort ?? effort };
+		const go = { mode: over.mode ?? mode, effort: over.effort ?? effort, mentions: over.mentions };
 		setCompactStarted(false);
 		setStartedAt(Date.now());
 		setPending({ text, afterSeq: top.current });
 		setLive({ ...EMPTY_LIVE, lastEventAt: Date.now() });
 		try {
-			const { runId } = await agentConversationsService.send(
+			const args: [string, string, string, Mode, Effort, string[]?] = [
 				projectId,
 				conversationId,
 				text,
 				go.mode,
 				go.effort,
-			);
-			setPicked(go);
+			];
+			if (go.mentions && go.mentions.length > 0) {
+				args.push(go.mentions);
+			}
+			const { runId } = await agentConversationsService.send(...args);
+			setPicked({ mode: go.mode, effort: go.effort });
 			setStarted(runId);
 		} catch (e) {
 			setPending(null);
@@ -303,10 +307,10 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 			? { kind: "plan" }
 			: undefined;
 	/** Typed text while something waits is the reason the user turns it down; otherwise it is a new message. */
-	const submit = (text: string) => {
+	const submit = (text: string, mentions?: string[]) => {
 		const command = parseSlash(text);
 		if (command) return slash[command.command.name](command.args);
-		if (!waiting) return send(text);
+		if (!waiting) return send(text, { mentions });
 		// Every call that waits is turned down with the text as the reason.
 		const ids = calls.flatMap((c) => (c.id ? [c.id] : []));
 		return ids.length > 1
