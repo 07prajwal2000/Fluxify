@@ -100,8 +100,12 @@ function signInProvider(
 	};
 }
 
-/** The SDK's own message is about the server, never about our tokens. */
-const reason = (e: unknown) => (e instanceof Error ? e.message : String(e));
+/**
+ * What the person sees when the sign in cannot start. Never the SDK's own message: for a server
+ * with no OAuth it can hold that server's whole error page.
+ */
+const CANNOT_START =
+	"Failed to connect. This MCP server may not support OAuth, or it could not be reached.";
 
 /** Step 1: registers a client if there is none, and returns the address to send the person to. */
 export async function connect(projectId: string, id: string, env: Env, userId: string) {
@@ -119,12 +123,10 @@ export async function connect(projectId: string, id: string, env: Env, userId: s
 	};
 	const result = await auth(signInProvider(row, env, redirectUrl, client, flow), {
 		serverUrl: config.url,
-	}).catch((e) => {
-		throw new BadRequestError(`Could not start the sign in: ${reason(e)}`);
+	}).catch(() => {
+		throw new BadRequestError(CANNOT_START);
 	});
-	if (result !== "REDIRECT" || !flow.authorizationUrl) {
-		throw new BadRequestError("This MCP server did not ask for a sign in");
-	}
+	if (result !== "REDIRECT" || !flow.authorizationUrl) throw new BadRequestError(CANNOT_START);
 	const pending: Pending = {
 		projectId,
 		integrationId: id,

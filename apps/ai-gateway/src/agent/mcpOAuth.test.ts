@@ -25,6 +25,8 @@ beforeAll(async () => {
 
 afterAll(async () => {
 	await math?.close();
+	// the compile worker is still acknowledging the saves; closing NATS under it is an unhandled error
+	await Bun.sleep(1500);
 	await stopAuthServer();
 });
 
@@ -80,6 +82,38 @@ describe("connect and callback", () => {
 		const res = await post(`${base()}/${id}/mcp-oauth/connect`, { env: "development" });
 		expect(res.status).toBe(400);
 		expect(JSON.stringify(await res.json())).toContain("production");
+	});
+
+	it("a server without OAuth fails with one short message, not its error page", async () => {
+		// answers every address, the OAuth discovery ones too, with a big HTML page
+		const page = `<!DOCTYPE html><html><body>${"<p>Not the JSON you were looking for</p>".repeat(200)}</body></html>`;
+		const html = Bun.serve({
+			port: 0,
+			fetch: () => new Response(page, { headers: { "content-type": "text/html" } }),
+		});
+		try {
+			const plain = await startMathMcp();
+			for (const url of [`http://127.0.0.1:${html.port}/mcp`, plain.url, "http://127.0.0.1:1/mcp"]) {
+				const res = await post(base(), {
+					name: `plain-${crypto.randomUUID().slice(0, 8)}`,
+					group: "mcp",
+					variant: "http",
+					config: { url, auth: "oauth", headers: [] },
+					syncDev: true,
+				});
+				const { id } = (await res.json()) as { id: string };
+				const connect = await post(`${base()}/${id}/mcp-oauth/connect`, { env: "production" });
+				expect(connect.status).toBe(400);
+				const text = JSON.stringify(await connect.json());
+				expect(text).toContain("Failed to connect");
+				expect(text).toContain("may not support OAuth");
+				expect(text).not.toContain("<");
+				expect(text.length).toBeLessThan(200);
+			}
+			await plain.close();
+		} finally {
+			html.stop(true);
+		}
 	});
 
 	it("needs OAuth switched on and saved first", async () => {

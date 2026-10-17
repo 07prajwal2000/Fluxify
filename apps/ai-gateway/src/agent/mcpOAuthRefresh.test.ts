@@ -31,6 +31,8 @@ beforeAll(async () => {
 
 afterAll(async () => {
 	await math?.close();
+	// the compile worker is still acknowledging the saves; closing NATS under it is an unhandled error
+	await Bun.sleep(1500);
 	await stopAuthServer();
 });
 
