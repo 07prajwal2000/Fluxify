@@ -74,3 +74,4 @@ In the portal's integration form (both create and edit):
 - [**Observability**](./observability.md): Send logs to Loki or OpenTelemetry Logs.
 - [**AI Models**](./ai-models.md): Power the AI assistant with OpenAI, Claude, Gemini, Mistral, or any OpenAI-compatible server.
 - [**Message Queues**](./message-queues.md): Start workflows from messages on a Kafka topic or a NATS JetStream stream.
+- [**MCP Servers**](./mcp-servers.md): Give the AI agent the tools of an external MCP server.
