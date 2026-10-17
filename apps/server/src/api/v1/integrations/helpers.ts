@@ -185,7 +185,7 @@ export function getDefaultVariantValue(variant: Variants) {
 		} as z.infer<typeof rabbitMqVariantConfigSchema>;
 	}
 	if (variant === "http") {
-		return { url: "", headers: [] } as z.infer<typeof mcpVariantConfigSchema>;
+		return { url: "", headers: [], auth: "headers" } as z.infer<typeof mcpVariantConfigSchema>;
 	}
 	return null;
 }

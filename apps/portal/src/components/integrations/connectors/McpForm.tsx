@@ -1,6 +1,7 @@
-import { Button, DeleteIconButton, Input, Label } from "@fluxify/components";
+import { Button, cn, DeleteIconButton, Input, Label } from "@fluxify/components";
 import { TbPlus } from "react-icons/tb";
 import { AppConfigSelector } from "../AppConfigSelector";
+import { McpOAuthConnect, type McpOAuthStatus } from "./McpOAuthConnect";
 import type { ConnectorFormProps } from "./types";
 
 type Header = { key: string; value: string };
@@ -14,7 +15,10 @@ export function McpForm({
 	hideName = false,
 	readOnly = false,
 	tools,
+	oauth,
 }: ConnectorFormProps) {
+	// read from the config, so an edit page that fills it after mounting shows the saved choice
+	const authMode = config.auth === "oauth" ? "oauth" : "headers";
 	const rawHeaders = config.headers;
 	const headers: Header[] = Array.isArray(rawHeaders) ? (rawHeaders as Header[]) : [];
 
@@ -64,39 +68,71 @@ export function McpForm({
 				/>
 			</div>
 
-			<div className="flex flex-col gap-2">
-				<div className="flex flex-col gap-1">
-					<Label>Headers</Label>
-					<p className="text-xs text-muted">Use app config references for secrets</p>
-				</div>
-				{headers.map((h, index) => (
-					<div key={index} className="flex items-center gap-2">
-						<Input
-							className="w-2/5"
-							value={h.key}
-							onChange={(e) => updateHeader(index, e.currentTarget.value, h.value)}
-							placeholder="Header name"
-							aria-label="Header key"
+			<div className="flex flex-col gap-1">
+				<Label>Authentication</Label>
+				<div className="flex rounded-lg border border-border bg-background-secondary p-1">
+					{(["headers", "oauth"] as const).map((mode) => (
+						<button
+							key={mode}
+							type="button"
 							disabled={readOnly}
-						/>
-						<AppConfigSelector
-							projectId={projectId}
-							value={h.value}
-							onChange={(v) => updateHeader(index, h.key, v)}
-							placeholder="Header value"
-							isDisabled={readOnly}
-						/>
-						{!readOnly && (
-							<DeleteIconButton aria-label="Remove header" onPress={() => removeHeader(index)} />
-						)}
-					</div>
-				))}
-				{!readOnly && (
-					<Button size="sm" variant="secondary" className="self-start" onPress={addHeader}>
-						<TbPlus size={14} /> Add header
-					</Button>
-				)}
+							onClick={() => setField("auth", mode)}
+							className={cn(
+								"flex-1 rounded-md py-1 text-xs font-medium transition-all duration-150",
+								authMode === mode
+									? "bg-surface text-foreground shadow-sm"
+									: "text-muted hover:text-foreground",
+							)}
+						>
+							{mode === "oauth" ? "OAuth" : "Headers"}
+						</button>
+					))}
+				</div>
 			</div>
+
+			{authMode === "oauth" && (
+				<McpOAuthConnect
+					projectId={projectId}
+					target={oauth}
+					status={config.oauth as McpOAuthStatus | undefined}
+				/>
+			)}
+
+			{authMode === "headers" && (
+				<div className="flex flex-col gap-2">
+					<div className="flex flex-col gap-1">
+						<Label>Headers</Label>
+						<p className="text-xs text-muted">Use app config references for secrets</p>
+					</div>
+					{headers.map((h, index) => (
+						<div key={index} className="flex items-center gap-2">
+							<Input
+								className="w-2/5"
+								value={h.key}
+								onChange={(e) => updateHeader(index, e.currentTarget.value, h.value)}
+								placeholder="Header name"
+								aria-label="Header key"
+								disabled={readOnly}
+							/>
+							<AppConfigSelector
+								projectId={projectId}
+								value={h.value}
+								onChange={(v) => updateHeader(index, h.key, v)}
+								placeholder="Header value"
+								isDisabled={readOnly}
+							/>
+							{!readOnly && (
+								<DeleteIconButton aria-label="Remove header" onPress={() => removeHeader(index)} />
+							)}
+						</div>
+					))}
+					{!readOnly && (
+						<Button size="sm" variant="secondary" className="self-start" onPress={addHeader}>
+							<TbPlus size={14} /> Add header
+						</Button>
+					)}
+				</div>
+			)}
 
 			{tools !== undefined && (
 				<div className="flex flex-col gap-2 rounded-lg border border-border bg-surface-secondary/40 p-3">

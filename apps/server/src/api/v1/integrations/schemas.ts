@@ -357,8 +357,13 @@ export const rabbitMqVariantConfigSchema = z
 		}),
 	);
 
-/** External MCP server over Streamable HTTP. Header values may be `cfg:` references. */
+/**
+ * External MCP server over Streamable HTTP. Header values may be `cfg:` references.
+ * `auth: "oauth"` signs in through Connect instead; the stored connection (`oauth`) is
+ * written only by Connect, refresh and Disconnect, so it is not part of this schema.
+ */
 export const mcpVariantConfigSchema = z.object({
+	auth: z.enum(["headers", "oauth"]).default("headers"),
 	url: z.string().refine((v) => /^https?:\/\/\S+$/.test(v), {
 		message: "Must be an http:// or https:// URL",
 	}),

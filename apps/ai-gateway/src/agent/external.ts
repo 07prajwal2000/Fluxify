@@ -1,4 +1,4 @@
-import { type McpClient, openMcpClient } from "@fluxify/adapters";
+import { type McpClient, type McpConnection, openMcpClient } from "@fluxify/adapters";
 import { jsonSchema, type Tool, tool } from "ai";
 import { z } from "zod";
 
@@ -12,7 +12,7 @@ export const serverOf = (name: string) =>
 export const LIST_MCP_TOOLS = "list_mcp_tools";
 
 /** An allowed `mcp` integration as the loader caches it (headers resolved: never log them). */
-export type McpConfig = { id: string; name: string; url: string; headers: Record<string, string> };
+export type McpConfig = { id: string; name: string } & McpConnection;
 
 type McpToolInfo = Awaited<ReturnType<McpClient["listTools"]>>[number];
 /** One open server for this job; `error` when it could not be reached. */
@@ -35,12 +35,12 @@ const clean = (s: string) =>
 export async function openServers(configs: McpConfig[]): Promise<ExternalServer[]> {
 	const taken = new Set<string>();
 	return Promise.all(
-		configs.map(async ({ id, name, url, headers }) => {
+		configs.map(async ({ id, name, url, headers, auth, oauth }) => {
 			let short = clean(name);
 			for (let i = 2; taken.has(short); i++) short = `${clean(name)}-${i}`;
 			taken.add(short);
 			try {
-				const client = await openMcpClient({ url, headers });
+				const client = await openMcpClient({ url, headers, auth, oauth });
 				try {
 					return { id, name: short, client, tools: await client.listTools() };
 				} catch (e) {

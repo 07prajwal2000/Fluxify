@@ -3,6 +3,9 @@ import type { AddressInfo } from "node:net";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
+import { createAuthServer, type OAuthControls, type OAuthOptions } from "./oauth";
+
+export type { OAuthControls, OAuthOptions };
 
 export type MathCall = { tool: string; args: unknown };
 
@@ -14,10 +17,19 @@ const ok = (result: number) => ({
 });
 
 // Stateless: a fresh McpServer and transport per request, so no session ids.
+// `oauth` turns on OAuth mode: calls need an access token from the server's own tiny
+// authorization server. Header mode (the default) is unchanged.
 export async function startMathMcp(
-	opts: { port?: number; headers?: Record<string, string>; name?: string } = {},
-): Promise<{ url: string; close(): Promise<void>; calls: MathCall[] }> {
+	opts: {
+		port?: number;
+		headers?: Record<string, string>;
+		name?: string;
+		oauth?: OAuthOptions;
+	} = {},
+): Promise<{ url: string; close(): Promise<void>; calls: MathCall[]; oauth?: OAuthControls }> {
 	const calls: MathCall[] = [];
+	let origin = "";
+	const authServer = opts.oauth && createAuthServer(() => origin, opts.oauth);
 	const required = Object.entries(opts.headers ?? {}).map(([k, v]) => [k.toLowerCase(), v]);
 
 	const buildServer = () => {
@@ -92,10 +104,12 @@ export async function startMathMcp(
 	};
 
 	const handle = async (req: IncomingMessage, res: ServerResponse) => {
+		if (authServer && (await authServer.handle(req, res))) return;
 		if (new URL(req.url ?? "/", "http://localhost").pathname !== "/mcp") {
 			res.writeHead(404).end();
 			return;
 		}
+		if (authServer && !authServer.authorize(req, res)) return;
 		if (required.some(([k, v]) => req.headers[k] !== v)) {
 			res.writeHead(401, { "content-type": "application/json" });
 			res.end(JSON.stringify({ error: "unauthorized" }));
@@ -121,10 +135,12 @@ export async function startMathMcp(
 		http.listen(opts.port ?? 0, "127.0.0.1", () => resolve());
 	});
 	const { port } = http.address() as AddressInfo;
+	origin = `http://127.0.0.1:${port}`;
 
 	return {
-		url: `http://127.0.0.1:${port}/mcp`,
+		url: `${origin}/mcp`,
 		calls,
+		oauth: authServer?.controls,
 		close: () =>
 			new Promise<void>((resolve) => {
 				http.close(() => resolve());

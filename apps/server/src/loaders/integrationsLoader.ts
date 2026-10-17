@@ -12,6 +12,7 @@ import {
 	resolveMcpHeaders,
 } from "@fluxify/adapters";
 import { logger, MissingEnvValueError } from "@fluxify/common";
+import { mcpOAuthFor } from "../api/v1/integrations/mcp-oauth/store";
 import {
 	aiVariantSchema,
 	databaseVariantSchema,
@@ -39,7 +40,12 @@ export let kvIntegrationsCache: Record<string, any> = {};
 export let observabilityIntegrationsCache: Record<string, any> = {};
 export let aiIntegrationsCache: Record<string, any> = {};
 export let queueIntegrationsCache: Record<string, any> = {};
-/** mcp integrations as { name, url, headers }, headers resolved; read by the agent (#821). */
+/**
+ * mcp integrations as { name, url, headers }, headers resolved; read by the agent (#821).
+ * Signed in with OAuth (#824): `auth` is "oauth" and `oauth` is the stored connection,
+ * undefined while nobody has connected. It holds the tokens in a closure, so logging or
+ * serializing an entry shows none of them.
+ */
 export const mcpIntegrationsCache: Record<string, any> = {};
 
 /**
@@ -282,6 +288,8 @@ export function resolveIntegrationConfig(
 			name: integration.name,
 			url: raw.url,
 			headers: resolveMcpHeaders(raw.headers, convertObjectToMap(appConfig)),
+			auth: raw.auth === "oauth" ? "oauth" : undefined,
+			oauth: raw.auth === "oauth" ? mcpOAuthFor(integration, env) : undefined,
 		};
 	}
 

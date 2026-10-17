@@ -6,6 +6,7 @@ import {
 	extractPgConnectionInfo,
 	GeminiIntegration,
 	LokiLogger,
+	type McpOAuth,
 	MemcachedIntegration,
 	MistralIntegration,
 	MongoAdapter,
@@ -64,6 +65,8 @@ export async function testIntegrationConnection(
 	timeoutMs = CONNECTION_TEST_TIMEOUT_MS,
 	/** whose app config values `cfg:` references read */
 	env: FluxifyEnv = ADMIN_CONNECTION_ENV,
+	/** mcp only: the stored OAuth connection of a saved integration */
+	oauth?: McpOAuth,
 ): Promise<Result> {
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	const timeout = new Promise<Result>((resolve) => {
@@ -76,7 +79,7 @@ export async function testIntegrationConnection(
 			timeoutMs,
 		);
 	});
-	const probe = probeConnection(projectId, group, variant, config, signal, env).catch(
+	const probe = probeConnection(projectId, group, variant, config, signal, env, oauth).catch(
 		(error: unknown): Result => ({
 			success: false,
 			error: (error instanceof Error ? error.message : String(error)) || "Connection failed",
@@ -96,6 +99,7 @@ async function probeConnection(
 	config: any,
 	signal: OtlpSignal,
 	env: FluxifyEnv,
+	oauth?: McpOAuth,
 ): Promise<Result> {
 	const schema = getSchema(group, variant);
 	if (!schema) {
@@ -131,6 +135,7 @@ async function probeConnection(
 			return testMcpConnection(
 				integrationData as z.infer<typeof mcpVariantConfigSchema>,
 				appConfigs,
+				oauth,
 			);
 		default:
 			return {
@@ -337,10 +342,13 @@ export async function testAiConnection(
 async function testMcpConnection(
 	config: z.infer<typeof mcpVariantConfigSchema>,
 	appConfigs: Map<string, string>,
+	oauth?: McpOAuth,
 ) {
 	const client = await openMcpClient({
 		url: config.url,
 		headers: resolveMcpHeaders(config.headers, appConfigs),
+		auth: config.auth === "oauth" ? "oauth" : undefined,
+		oauth,
 	});
 	try {
 		const tools = await client.listTools();

@@ -17,6 +17,9 @@ import { httpClient } from "@/lib/http";
 
 const getBaseUrl = (projectId: string) => `/v1/${projectId}/integrations`;
 
+/** Dev and prod connect separately. */
+export type McpOAuthEnv = "development" | "production";
+
 export const integrationService = {
 	async getBasicList(projectId: string): Promise<z.infer<typeof getBasicListResponseSchema>> {
 		const res = await httpClient.get(`${getBaseUrl(projectId)}/list-basic`);
@@ -97,6 +100,18 @@ export const integrationService = {
 	): Promise<z.infer<typeof getMetadataResponseSchema>> {
 		const res = await httpClient.get(`${getBaseUrl(projectId)}/${integrationId}/metadata`);
 		return res.data;
+	},
+	/** Starts signing in to an MCP server; send the browser to the returned address. */
+	async connectMcpOAuth(
+		projectId: string,
+		id: string,
+		env: McpOAuthEnv,
+	): Promise<{ authorizationUrl: string }> {
+		const res = await httpClient.post(`${getBaseUrl(projectId)}/${id}/mcp-oauth/connect`, { env });
+		return res.data;
+	},
+	async disconnectMcpOAuth(projectId: string, id: string, env: McpOAuthEnv): Promise<void> {
+		await httpClient.post(`${getBaseUrl(projectId)}/${id}/mcp-oauth/disconnect`, { env });
 	},
 	createRequestSchema,
 	updateRequestSchema,
