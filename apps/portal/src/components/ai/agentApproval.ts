@@ -18,11 +18,34 @@ export type ApprovalRequest =
 			isProd?: boolean;
 			/** promote and rollback (#739): the approver writes why, and it is saved with the deployment */
 			needsComment?: boolean;
+			/** External MCP server name (#821) */
+			server?: string;
 	  }
 	| { kind: "suggest"; reason: string }
 	| { kind: "plan" };
 
 export type ToolRequest = Extract<ApprovalRequest, { kind: "tool" }>;
+
+/** External MCP tools (#821) are prefixed with ext_<server>__<tool>. */
+export const isExternalTool = (name: string) => name.startsWith("ext_");
+export const externalServerOf = (name: string) =>
+	isExternalTool(name) ? name.slice(4).split("__")[0] : undefined;
+export const externalToolNameOf = (name: string) =>
+	isExternalTool(name) ? name.slice(4).split("__").slice(1).join("__") : name;
+
+/** Displays the tool name: strips (server) suffix and ext_ prefix for external tools. */
+export function displayToolName(tool: { name: string; title?: string; server?: string }) {
+	const server = tool.server ?? externalServerOf(tool.name);
+	if (server && isExternalTool(tool.name)) {
+		const rawName = externalToolNameOf(tool.name);
+		if (tool.title) {
+			const cleaned = tool.title.replace(new RegExp(`\\s*\\(${server}\\)$`), "").trim();
+			if (cleaned) return cleaned;
+		}
+		return rawName;
+	}
+	return toolTitle(tool);
+}
 
 /** Deletes (and removals) ask in every mode; the server uses the same rule. */
 export const isDeleteTool = (name: string) => /^(delete|remove)_/.test(name);
@@ -65,6 +88,7 @@ export function waitingCalls(messages: ChatMessage[]): ToolRequest[] {
 		isDelete: isDeleteTool(call.name),
 		isProd: isProdCall(call.name, call.input),
 		needsComment: isDeployTool(call.name),
+		server: call.server ?? externalServerOf(call.name),
 	}));
 }
 

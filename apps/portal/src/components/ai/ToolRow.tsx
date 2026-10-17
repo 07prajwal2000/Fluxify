@@ -1,7 +1,8 @@
-import { Spinner } from "@fluxify/components";
+import { Chip, Spinner } from "@fluxify/components";
 import { useEffect, useState } from "react";
 import { TbBan, TbCheck, TbClock, TbX } from "react-icons/tb";
-import { type ToolPart, toolTitle } from "./agentMessages";
+import { displayToolName, externalServerOf } from "./agentApproval";
+import type { ToolPart } from "./agentMessages";
 import { CallRouteHeader } from "./preview/CallRoutePreview";
 import { CanvasTarget, canvasOf } from "./preview/CanvasTarget";
 import { docsInput } from "./preview/DocsPreview";
@@ -29,6 +30,7 @@ export function ToolRow({
 	}, [asking]);
 	const canvas = canvasOf(tool);
 	const ms = tool.startedAt && tool.endedAt ? tool.endedAt - tool.startedAt : undefined;
+	const server = tool.server ?? externalServerOf(tool.name);
 	return (
 		<details
 			className="group rounded-lg border border-border bg-surface text-xs"
@@ -56,7 +58,12 @@ export function ToolRow({
 						</span>
 					) : (
 						<>
-							<span className="font-medium text-foreground">{toolTitle(tool)}</span>
+							{server && (
+								<Chip size="sm" variant="secondary" className="font-mono text-xs">
+									{server}
+								</Chip>
+							)}
+							<span className="font-medium text-foreground">{displayToolName(tool)}</span>
 							{tool.name === "call_route" ? (
 								<span className="flex min-w-0 flex-1 items-center font-mono text-muted">
 									<CallRouteHeader tool={tool} />

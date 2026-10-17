@@ -2,6 +2,7 @@ import type { ComponentProps } from "react";
 import { AiForm } from "./connectors/AiForm";
 import { CredentialsUrlForm } from "./connectors/CredentialsUrlForm";
 import { KafkaForm } from "./connectors/KafkaForm";
+import { McpForm } from "./connectors/McpForm";
 import { NatsForm } from "./connectors/NatsForm";
 import { ObservabilityForm } from "./connectors/ObservabilityForm";
 import { SendTimeoutField } from "./connectors/SendTimeoutField";
@@ -117,9 +118,15 @@ export function ConnectorFields({
 	group,
 	variant,
 	...formProps
-}: ComponentProps<typeof KafkaForm> & { group: string; variant: string }) {
+}: ComponentProps<typeof KafkaForm> & {
+	group: string;
+	variant: string;
+	readOnly?: boolean;
+	tools?: { name: string; description: string }[];
+}) {
 	return (
 		<>
+			{group === "mcp" && <McpForm {...formProps} />}
 			{group === "database" && CRED_PLACEHOLDERS[variant] && (
 				<CredentialsUrlForm
 					{...formProps}

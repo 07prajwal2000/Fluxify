@@ -1,8 +1,9 @@
 import { afterAll, afterEach, expect, mock, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 
-// DOM only for this file; RTL reads `document` on import, so load it after.
-GlobalRegistrator.register();
+try {
+	GlobalRegistrator.register();
+} catch {}
 
 mock.module("./AgentModel", () => ({ AgentModelLabel: () => null }));
 
@@ -136,4 +137,21 @@ test("Tab completes a half-typed command like Enter; with nothing to complete it
 	expect(await tab()).toBe(false);
 	document.removeEventListener("set-editor-text", listen);
 	expect(filled).toEqual(["/compact "]);
+});
+
+test("submitting an editor with an integration mention passes the mention ID in onSubmit", async () => {
+	let submittedMentions: string[] | undefined;
+	const onSubmit = (_text: string, mentions?: string[]) => {
+		submittedMentions = mentions;
+	};
+	editor({
+		value: ':ref[github]{type="integration" id="mcp-server-1"}',
+		onSubmit,
+	});
+	const box = document.querySelector("[contenteditable]") as HTMLElement;
+	await act(async () => {
+		fireEvent.keyDown(box, { key: "Enter" });
+	});
+
+	expect(submittedMentions).toEqual(["mcp-server-1"]);
 });

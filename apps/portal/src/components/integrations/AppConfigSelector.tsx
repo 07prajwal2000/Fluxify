@@ -10,6 +10,7 @@ type Props = {
 	description?: string;
 	placeholder?: string;
 	onChange?: (value: string) => void;
+	isDisabled?: boolean;
 };
 
 // Field that holds either a literal value or an app-config reference (`cfg:<key>`)
@@ -21,6 +22,7 @@ export function AppConfigSelector({
 	description,
 	placeholder,
 	onChange,
+	isDisabled = false,
 }: Props) {
 	const [local, setLocal] = useState(value);
 	const [modalOpen, setModalOpen] = useState(false);
@@ -41,34 +43,39 @@ export function AppConfigSelector({
 				className={cn(
 					"flex items-center gap-1 rounded-md border border-border bg-background-secondary pr-1",
 					isConfig && "border-accent/40",
+					isDisabled && "opacity-60 cursor-not-allowed",
 				)}
 			>
 				{isConfig ? (
 					<span className="flex flex-1 items-center gap-2 rounded-l-md bg-accent-soft px-2 py-1.5 text-sm text-accent">
 						<span className="flex-1 truncate font-mono text-xs">{local.slice(4)}</span>
-						<button
-							type="button"
-							aria-label="Clear"
-							onClick={() => set("")}
-							className="text-accent/70 hover:text-accent"
-						>
-							<TbX size={15} />
-						</button>
+						{!isDisabled && (
+							<button
+								type="button"
+								aria-label="Clear"
+								onClick={() => set("")}
+								className="text-accent/70 hover:text-accent"
+							>
+								<TbX size={15} />
+							</button>
+						)}
 					</span>
 				) : (
 					<input
-						className="flex-1 bg-transparent px-2 py-1.5 text-sm text-foreground outline-none placeholder:text-muted"
+						className="flex-1 bg-transparent px-2 py-1.5 text-sm text-foreground outline-none placeholder:text-muted disabled:cursor-not-allowed"
 						placeholder={placeholder}
 						value={local}
 						onChange={(e) => set(e.target.value)}
+						disabled={isDisabled}
 					/>
 				)}
 				<button
 					type="button"
 					aria-label="Use app config value"
 					onClick={() => setModalOpen(true)}
+					disabled={isDisabled}
 					className={cn(
-						"inline-flex size-7 items-center justify-center rounded-md transition-colors",
+						"inline-flex size-7 items-center justify-center rounded-md transition-colors disabled:cursor-not-allowed disabled:opacity-50",
 						isConfig ? "text-accent" : "text-muted hover:text-foreground",
 					)}
 				>

@@ -18,6 +18,8 @@ export type ToolPart = {
 	approval?: boolean;
 	startedAt?: number;
 	endedAt?: number;
+	/** External MCP server name (#821) */
+	server?: string;
 };
 /** "save_route" → "Save route" when the server sent no title. */
 export const toolTitle = (t: { name: string; title?: string }) =>
@@ -167,6 +169,9 @@ export function toMessages(rows: AgentRow[]): ChatMessage[] {
 					id: p.toolCallId ?? "",
 					name: p.toolName ?? "",
 					input: p.input,
+					server:
+						(p as any).server ??
+						(p.toolName?.startsWith("ext_") ? p.toolName.slice(4).split("__")[0] : undefined),
 				};
 				calls.set(tool.id, tool);
 				msg.parts.push(tool);
@@ -244,6 +249,9 @@ export const applyEvent = (live: Live, e: AgentEvent, now = Date.now()): Live =>
 		if (e.type === "approval" && known) {
 			known.approval = true;
 			known.title ??= e.toolTitle;
+			known.server ??=
+				e.server ??
+				(known.name.startsWith("ext_") ? known.name.slice(4).split("__")[0] : undefined);
 			return;
 		}
 		const step = (m: ChatMessage) => m.role === "assistant" && m.seq === e.seq;
@@ -269,6 +277,9 @@ export const applyEvent = (live: Live, e: AgentEvent, now = Date.now()): Live =>
 			name: e.toolName,
 			title: e.toolTitle,
 			input: e.input,
+			server:
+				(e as any).server ??
+				(e.toolName.startsWith("ext_") ? e.toolName.slice(4).split("__")[0] : undefined),
 			...(e.type === "approval" ? { approval: true } : { startedAt: now }),
 		});
 	});

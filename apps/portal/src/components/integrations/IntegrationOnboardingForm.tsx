@@ -18,10 +18,13 @@ import {
 	TbDatabase,
 	TbHeartRateMonitor,
 	TbSearch,
+	TbServer,
 } from "react-icons/tb";
+import { VscMcp } from "react-icons/vsc";
 import { EnterpriseGate, useEnterprise } from "@/components/common/Enterprise";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { integrationsQuery } from "@/query/integrationsQuery";
+import { useIsProjectAdmin } from "@/store/auth";
 import { setPath } from "./ConnectorFields";
 import { EnvironmentIntegrationFields, isConfigEmpty } from "./EnvironmentIntegrationFields";
 import { showTestResult } from "./showTestResult";
@@ -55,6 +58,10 @@ const GROUP_DETAILS: Record<string, { description: string; icon: ReactNode }> = 
 		description: "Start workflows from a message queue",
 		icon: <TbArrowsExchange size={20} />,
 	},
+	mcp: {
+		description: "Connect an external MCP server",
+		icon: <VscMcp size={20} />,
+	},
 };
 
 const variantsOf = (group: string): string[] =>
@@ -86,12 +93,16 @@ export function IntegrationOnboardingForm({
 	const step: Step = variant ? 3 : group ? 2 : 1;
 	// A deep link can skip the gated card on step 2, so gate the form too.
 	const enterprise = useEnterprise();
+	const isAdmin = useIsProjectAdmin(projectId);
 	const locked = isEnterpriseQueue(group, variant) && !enterprise;
 
 	const [defaults] = useState(
 		() => (variant && (getDefaultVariantValue(variant as never) as Record<string, unknown>)) || {},
 	);
 	const [name, setName] = useState("");
+	const [testedTools, setTestedTools] = useState<{ name: string; description: string }[] | null>(
+		null,
+	);
 	const [config, setConfig] = useState(defaults);
 	const [devConfig, setDevConfig] = useState<Record<string, unknown> | null>(null);
 	const [syncDev, setSyncDev] = useState(false);
@@ -181,7 +192,10 @@ export function IntegrationOnboardingForm({
 		test.mutate(
 			{ group, variant, config: parsed.data },
 			{
-				onSuccess: showTestResult,
+				onSuccess: (res) => {
+					showTestResult(res);
+					if (res?.tools) setTestedTools(res.tools);
+				},
 				onError: (error) => showErrorNotification(error as Error),
 			},
 		);
@@ -419,6 +433,11 @@ export function IntegrationOnboardingForm({
 						</p>
 
 						<div className={cn("mt-4", locked && "hidden")}>
+							{group === "mcp" && !isAdmin && (
+								<p className="mb-3 text-xs text-warning">
+									Only project admins can connect MCP servers.
+								</p>
+							)}
 							<EnvironmentIntegrationFields
 								projectId={projectId}
 								group={group}
@@ -431,6 +450,8 @@ export function IntegrationOnboardingForm({
 								setDevField={(path, value) => setDevConfig((c) => setPath(c ?? {}, path, value))}
 								syncDev={syncDev}
 								onSyncDevChange={setSyncDev}
+								readOnly={group === "mcp" && !isAdmin}
+								tools={testedTools ?? undefined}
 							/>
 						</div>
 						{locked && (
@@ -467,7 +488,7 @@ export function IntegrationOnboardingForm({
 							variant="primary"
 							size="sm"
 							isPending={create.isPending}
-							isDisabled={locked}
+							isDisabled={locked || (group === "mcp" && !isAdmin)}
 							onPress={saveIntegration}
 						>
 							Connect {variant}

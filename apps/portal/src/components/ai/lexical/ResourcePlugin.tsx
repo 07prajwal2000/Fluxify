@@ -1,5 +1,6 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import {
+	$getRoot,
 	$getSelection,
 	$insertNodes,
 	$isRangeSelection,
@@ -32,7 +33,11 @@ export function ResourcePlugin(): null {
 			INSERT_RESOURCE_COMMAND,
 			(payload) => {
 				editor.update(() => {
-					const sel = $getSelection();
+					let sel = $getSelection();
+					if (!$isRangeSelection(sel)) {
+						$getRoot().selectEnd();
+						sel = $getSelection();
+					}
 					if ($isRangeSelection(sel) && payload.replaceAt) {
 						let foundAt = false;
 						for (let i = 0; i < 60; i++) {

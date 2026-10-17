@@ -9,9 +9,11 @@ export const projectSettingsKeySchemaMap = {
 	},
 	/** Comma-separated `mcp` integration ids the agent may use (#821). Unknown or deleted ids are skipped at run time. */
 	"settings.ai.agentMcpIntegrations": {
-		schema: z.string().refine((v) => v.split(",").every((id) => z.uuidv7().safeParse(id).success), {
-			message: "Must be a comma-separated list of integration ids",
-		}),
+		schema: z
+			.string()
+			.refine((v) => !v || v.split(",").every((id) => z.uuidv7().safeParse(id).success), {
+				message: "Must be a comma-separated list of integration ids",
+			}),
 		defaultValue: "",
 		dataType: "string",
 	},

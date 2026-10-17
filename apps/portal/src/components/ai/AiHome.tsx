@@ -25,11 +25,11 @@ export function AiHome() {
 	const create = agentConversationsQuery.create.mutation(projectId);
 
 	// The conversation page sends the message, so it can show it and follow the run.
-	const submit = (q: string) =>
+	const submit = (q: string, mentions?: string[]) =>
 		create.mutate(q.split("\n")[0].slice(0, 80), {
 			onSuccess: (conversation) => {
 				setQuery("");
-				queueMessage(conversation.id, q, { mode, effort });
+				queueMessage(conversation.id, q, { mode, effort, mentions });
 				navigate({
 					to: "/$projectId/ai/$conversationId",
 					params: { projectId, conversationId: conversation.id },

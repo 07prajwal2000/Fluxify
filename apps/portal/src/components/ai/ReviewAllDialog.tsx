@@ -2,7 +2,7 @@ import { Button, Chip, CloseButton, Modal } from "@fluxify/components";
 import { useState } from "react";
 import type { Decision } from "@/services/agentConversations";
 import { ApprovalTarget } from "./ApprovalTarget";
-import type { ToolRequest } from "./agentApproval";
+import { displayToolName, externalServerOf, type ToolRequest } from "./agentApproval";
 import { DeployComment } from "./DeployComment";
 import { RowPreview } from "./RowPreview";
 
@@ -80,19 +80,29 @@ export function ReviewAllDialog({ projectId, calls, open, onOpenChange, onConfir
 									<li key={c.id} className="flex flex-col gap-2 py-2">
 										<div className="flex items-center gap-3">
 											<div className="flex min-w-0 flex-1 flex-col gap-0.5">
-												<span className="flex items-center gap-2 text-sm text-foreground">
-													<span className="font-medium">{c.title}</span>
-													{c.isDelete && (
-														<Chip size="sm" color="danger">
-															Deletes
-														</Chip>
-													)}
-													{c.isProd && (
-														<Chip size="sm" color="danger">
-															Production
-														</Chip>
-													)}
-												</span>
+												{(() => {
+													const server = c.server ?? externalServerOf(c.name);
+													return (
+														<span className="flex items-center gap-2 text-sm text-foreground">
+															{server && (
+																<Chip size="sm" variant="secondary" className="font-mono text-xs">
+																	{server}
+																</Chip>
+															)}
+															<span className="font-medium">{displayToolName(c)}</span>
+															{c.isDelete && (
+																<Chip size="sm" color="danger">
+																	Deletes
+																</Chip>
+															)}
+															{c.isProd && (
+																<Chip size="sm" color="danger">
+																	Production
+																</Chip>
+															)}
+														</span>
+													);
+												})()}
 												<ApprovalTarget projectId={projectId} name={c.name} input={c.input} />
 											</div>
 											<div className="flex shrink-0 gap-1">

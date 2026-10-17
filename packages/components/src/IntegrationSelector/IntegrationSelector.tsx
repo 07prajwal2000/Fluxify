@@ -65,11 +65,11 @@ function FieldLabel({ label }: { label: string | ReactNode }) {
 
 // ─── Picker Modal ─────────────────────────────────────────────────────────────
 
-interface PickerModalProps {
+export interface PickerModalProps {
 	isOpen: boolean;
 	onClose: () => void;
 	integrations: Integration[];
-	selectedId: string;
+	selectedId?: string | string[];
 	onSelect: (id: string) => void;
 	createIntegrationUrl?: string;
 	modalSize?: ModalSize;
@@ -78,9 +78,10 @@ interface PickerModalProps {
 	 *  the moment one is added there, and reopening it is not obvious. */
 	onRefresh?: () => void | Promise<void>;
 	isRefreshing?: boolean;
+	closeOnSelect?: boolean;
 }
 
-function PickerModal({
+export function IntegrationPickerModal({
 	isOpen,
 	onClose,
 	integrations,
@@ -91,6 +92,7 @@ function PickerModal({
 	modalHeight,
 	onRefresh,
 	isRefreshing,
+	closeOnSelect = true,
 }: PickerModalProps) {
 	const [search, setSearch] = useState("");
 
@@ -110,9 +112,19 @@ function PickerModal({
 		);
 	}, [integrations, search]);
 
+	const isSelected = useCallback(
+		(id: string) =>
+			Array.isArray(selectedId)
+				? selectedId.includes(id)
+				: Boolean(selectedId && id === selectedId),
+		[selectedId],
+	);
+
 	function handleSelect(id: string) {
 		onSelect(id);
-		onClose();
+		if (closeOnSelect) {
+			onClose();
+		}
 	}
 
 	const hasIntegrations = integrations.length > 0;
@@ -222,7 +234,7 @@ function PickerModal({
 													id={integration.id}
 													className={clsx(
 														"cursor-pointer transition-colors",
-														integration.id === selectedId && "bg-accent/10",
+														isSelected(integration.id) && "bg-accent/10",
 													)}
 												>
 													<Table.Cell>
@@ -259,10 +271,10 @@ function PickerModal({
 														<div className="flex justify-end">
 															<Button
 																size="sm"
-																variant={integration.id === selectedId ? "primary" : "outline"}
+																variant={isSelected(integration.id) ? "primary" : "outline"}
 																onPress={() => handleSelect(integration.id)}
 															>
-																{integration.id === selectedId ? "Selected" : "Select"}
+																{isSelected(integration.id) ? "Selected" : "Select"}
 															</Button>
 														</div>
 													</Table.Cell>
@@ -514,7 +526,7 @@ export function IntegrationSelector({
 			</div>
 
 			{/* Picker Modal */}
-			<PickerModal
+			<IntegrationPickerModal
 				isOpen={pickerOpen}
 				onClose={() => setPickerOpen(false)}
 				integrations={integrations}
