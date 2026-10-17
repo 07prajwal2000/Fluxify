@@ -15,6 +15,8 @@ export const Route = createFileRoute("/_authed/")({
 		tab: z.string().optional(),
 		settingsTab: z.string().optional(),
 		accountTab: z.string().optional(),
+		/** the audit page's project filter; a bad value is dropped, not an error */
+		project: z.string().max(50).optional().catch(undefined),
 	}),
 	head: createDynamicRouteHead(({ search }) => {
 		const tabNames: Record<string, string> = {
@@ -33,7 +35,7 @@ export const Route = createFileRoute("/_authed/")({
 });
 
 function Home() {
-	const { tab, settingsTab, accountTab } = Route.useSearch();
+	const { tab, settingsTab, accountTab, project } = Route.useSearch();
 	const navigate = useNavigate();
 	const { userData } = useAuthStore();
 	const selected = tab ?? "projects";
@@ -118,7 +120,17 @@ function Home() {
 				{selected === "projects" && <ProjectsTab />}
 				{selected === "users" && userData?.isSystemAdmin && <UsersList />}
 				{selected === "instance" && userData?.isSystemAdmin && (
-					<InstanceSettings activeTab={settingsTab ?? "auth"} />
+					<InstanceSettings
+						activeTab={settingsTab ?? "auth"}
+						project={project}
+						onProjectChange={(next) =>
+							navigate({
+								to: "/",
+								search: { tab: "instance", settingsTab: "audit", project: next },
+								replace: true,
+							})
+						}
+					/>
 				)}
 				{selected === "account" && <AccountDetails activeTab={accountTab ?? "profile"} />}
 			</main>

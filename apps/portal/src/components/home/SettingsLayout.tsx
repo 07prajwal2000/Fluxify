@@ -18,6 +18,8 @@ interface SettingsLayoutProps {
 	activeId: string;
 	/** Search params that select a section, so a link or refresh opens it. */
 	searchFor: (id: string) => { tab: string; settingsTab?: string; accountTab?: string };
+	/** a section that needs the full width, such as a table */
+	wide?: boolean;
 	children: ReactNode;
 }
 
@@ -29,6 +31,7 @@ export function SettingsLayout({
 	sections,
 	activeId,
 	searchFor,
+	wide,
 	children,
 }: SettingsLayoutProps) {
 	return (
@@ -70,7 +73,7 @@ export function SettingsLayout({
 					})}
 				</nav>
 				<div className="flex-1 overflow-y-auto p-4 md:p-8">
-					<div className="max-w-4xl">{children}</div>
+					<div className={wide ? undefined : "max-w-4xl"}>{children}</div>
 				</div>
 			</div>
 		</div>

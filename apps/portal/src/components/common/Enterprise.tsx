@@ -27,6 +27,18 @@ export function useEnterpriseSso() {
 	return useFeature("sso");
 }
 
+/**
+ * True when the license includes audit logs. Unlike the others it ignores
+ * `canCreate`: events recorded before a license lapsed stay readable.
+ */
+export function useEnterpriseAuditLogs() {
+	const { data } = publicSettingsQuery.get.useQuery();
+	return data ? hasAuditLogs(data.license) : true;
+}
+
+export const hasAuditLogs = ({ features }: { features: string[] }) =>
+	features.includes("*") || features.includes("auditLogs");
+
 const REASON = "Needs an Enterprise license.";
 
 /** A small "Enterprise" chip, e.g. next to a title. */

@@ -7,6 +7,7 @@ import {
 	TbAlertTriangle,
 	TbCpu,
 	TbFlask,
+	TbHistory,
 	TbKey,
 	TbPackage,
 	TbTopologyStar3,
@@ -20,6 +21,7 @@ import { GeneralSettings } from "@/components/settings/GeneralSettings";
 import { MembersSettings } from "@/components/settings/MembersSettings";
 import { NodesSettings } from "@/components/settings/NodesSettings";
 import { PackagesSettings } from "@/components/settings/PackagesSettings";
+import { ProjectAuditSettings } from "@/components/settings/ProjectAuditSettings";
 import {
 	TELEMETRY_SIGNALS,
 	TelemetryDestinations,
@@ -41,6 +43,7 @@ type SettingsSearch = {
 		| "dev-access"
 		| "nodes"
 		| "members"
+		| "audit-logs"
 		| "experimental"
 		| "danger";
 };
@@ -69,6 +72,7 @@ const SETTINGS_TABS = [
 	// Creators and above; a viewer does not see it, and the API refuses them too.
 	{ id: "dev-access", label: "Development access", icon: TbKey, editorsOnly: true },
 	{ id: "members", label: "Members", icon: TbUsers },
+	{ id: "audit-logs", label: "Audit logs", icon: TbHistory },
 	{ id: "experimental", label: "Experimental", icon: TbFlask },
 	// System admins only: the API refuses a project delete to everyone else.
 	{ id: "danger", label: "Danger Zone", icon: TbAlertTriangle, systemAdminOnly: true },
@@ -202,6 +206,7 @@ function ProjectSettingsPage() {
 						{activeTab === "packages" && <PackagesSettings projectId={projectId} />}
 						{activeTab === "dev-access" && <DevAccessSettings projectId={projectId} />}
 						{activeTab === "members" && <MembersSettings projectId={projectId} />}
+						{activeTab === "audit-logs" && <ProjectAuditSettings projectId={projectId} />}
 						{activeTab === "ai-connections" && <AiConnectionsSettings projectId={projectId} />}
 						{activeTab === "experimental" && <ExperimentalSettings projectId={projectId} />}
 						{activeTab === "danger" && (
