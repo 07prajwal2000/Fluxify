@@ -14,8 +14,12 @@ mock.module("@tanstack/react-router", () => ({
 	useNavigate: () => navigate,
 	useParams: () => params,
 }));
+// keeps the real `remove` etc.: a bare stub here leaks into every later spec
+const actualProjectsQuery = await import("@/query/projectsQuery");
 mock.module("@/query/projectsQuery", () => ({
+	...actualProjectsQuery,
 	projectsQuery: {
+		...actualProjectsQuery.projectsQuery,
 		getAll: {
 			useQuery: () => ({
 				data: {

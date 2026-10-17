@@ -1,6 +1,7 @@
 import type { HonoServer } from "../../../types";
 import registerProjectNodes from "../orchestration/projectRoutes";
 import createProjectRoute from "./create/route";
+import deleteProjectRoute from "./delete/route";
 import getAllProjectRoute from "./get-all/route";
 import getByIdProjectRoute from "./get-by-id/route";
 import registerProjectDevToken from "./settings/dev-token/route";
@@ -18,6 +19,7 @@ export default {
 		getAllProjectRoute(router);
 		getByIdProjectRoute(router);
 		updateProjectRoute(router);
+		deleteProjectRoute(router);
 		registerProjectMembers(router);
 		registerProjectSettingsKeys(router);
 		registerProjectDevToken(router);

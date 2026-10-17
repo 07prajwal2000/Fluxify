@@ -242,7 +242,7 @@ describe("tasks", () => {
 });
 
 describe("runTask", () => {
-	it("creates a project, runs setup, the agent and the checks, then empties and hides the project", async () => {
+	it("creates a project, runs setup, the agent and the checks, then deletes the project", async () => {
 		const d = deps();
 		let setupProject = "";
 		const row = await runTask({ ...healthTask, setup: async (ctx) => void (setupProject = ctx.projectId) }, d, new AbortController().signal);
@@ -251,8 +251,7 @@ describe("runTask", () => {
 		expect(row).toMatchObject({ steps: 2, tokensIn: 20, tokensOut: 10, stop: "stop", judge: "skipped" });
 		const calls = (d as any).calls as Call[];
 		expect(calls[0]).toMatchObject({ method: "POST", path: "/v1/projects" });
-		expect(calls).toContainEqual({ method: "DELETE", path: "/v1/routes/r1" });
-		expect(calls.at(-1)).toEqual({ method: "PUT", path: `/v1/projects/${P}`, body: { hidden: true } });
+		expect(calls.at(-1)).toEqual({ method: "DELETE", path: `/v1/projects/${P}` });
 		const saved = JSON.parse(readFileSync(path.join(d.outDir, "health.json"), "utf8"));
 		expect(saved[0]).toEqual({ role: "user", content: "Build GET /health" });
 		expect(readFileSync(path.join(d.outDir, "health.log"), "utf8")).toContain("PASS ok");
@@ -263,7 +262,7 @@ describe("runTask", () => {
 		const d = deps();
 		const row = await runTask({ ...healthTask, setup: async () => { throw new Error("boom"); } }, d, new AbortController().signal);
 		expect(row).toMatchObject({ error: "boom", stop: "error" });
-		expect((d as any).calls.at(-1)).toMatchObject({ path: `/v1/projects/${P}`, body: { hidden: true } });
+		expect((d as any).calls.at(-1)).toMatchObject({ method: "DELETE", path: `/v1/projects/${P}` });
 	});
 
 	it("answers no at a limit and records it as the stop", async () => {
@@ -275,7 +274,7 @@ describe("runTask", () => {
 	it("--keep leaves the project", async () => {
 		const d = deps({ keep: true });
 		await runTask(healthTask, d, new AbortController().signal);
-		expect((d as any).calls.some((c: Call) => c.method === "PUT")).toBe(false);
+		expect((d as any).calls.some((c: Call) => c.method === "DELETE" && c.path === `/v1/projects/${P}`)).toBe(false);
 	});
 
 	it("skips a task whose env var is missing, without a project", async () => {
@@ -298,7 +297,7 @@ describe("runTask", () => {
 		ctrl.abort(new Error("Stopped by user"));
 		const row = await runTask(healthTask, d, ctrl.signal);
 		expect(row).toMatchObject({ stop: "aborted", checks: [] });
-		expect((d as any).calls.at(-1)).toMatchObject({ body: { hidden: true } });
+		expect((d as any).calls.at(-1)).toMatchObject({ method: "DELETE", path: `/v1/projects/${P}` });
 	});
 
 	it("scores the checklist with the judge model", async () => {

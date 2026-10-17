@@ -45,6 +45,10 @@ export const projectsService = {
 		const result = await httpClient.put(`${baseUrl}/${id}`, data);
 		return result.data;
 	},
+	async remove(id: string): Promise<{ id: string }> {
+		const result = await httpClient.delete(`${baseUrl}/${id}`);
+		return result.data;
+	},
 	async getById(id: string): Promise<z.infer<typeof getByIdResponseSchema>> {
 		const result = await httpClient.get(`${baseUrl}/${id}`);
 		return result.data;

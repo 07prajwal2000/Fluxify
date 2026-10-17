@@ -13,6 +13,18 @@ export const projectsQuery = {
 			});
 		},
 	},
+	remove: {
+		mutation() {
+			const qc = useQueryClient();
+			return useMutation({
+				mutationFn: (id: string) => projectsService.remove(id),
+				onSuccess: (_, id) => {
+					qc.removeQueries({ queryKey: ["projects", id] });
+					qc.invalidateQueries({ queryKey: ["projects", "list"] });
+				},
+			});
+		},
+	},
 	getAll: {
 		useQuery(query: GetAllProjectsQueryParams) {
 			return useQuery({
