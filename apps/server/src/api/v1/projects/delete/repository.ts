@@ -13,7 +13,7 @@ import {
 
 export async function findProjectById(id: string, tx?: DbTransactionType) {
 	const [row] = await (tx ?? db)
-		.select({ id: projectsEntity.id })
+		.select({ id: projectsEntity.id, name: projectsEntity.name, slug: projectsEntity.slug })
 		.from(projectsEntity)
 		.where(eq(projectsEntity.id, id));
 	return row;

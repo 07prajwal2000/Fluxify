@@ -12,6 +12,7 @@ import { BadRequestError } from "../../../../errors/badRequestError";
 import { ForbiddenError } from "../../../../errors/forbidError";
 import { NotFoundError } from "../../../../errors/notFoundError";
 import { getEnv } from "../../../../lib/env";
+import { audit } from "../../../../modules/audit";
 import { configForAdminEnv } from "../adminEnv";
 import { getIntegrationByID } from "../get-by-id/repository";
 import type { mcpVariantConfigSchema } from "../schemas";
@@ -172,6 +173,13 @@ export async function callback(
 		return done("error");
 	}
 	await publishMessage(CHAN_ON_INTEGRATION_CHANGE, pending.integrationId);
+	await audit.record({
+		projectId,
+		resourceType: "integration",
+		resourceId: pending.integrationId,
+		action: "connect",
+		changedFields: ["oauth"],
+	});
 	return done("connected");
 }
 
@@ -180,5 +188,12 @@ export async function disconnect(projectId: string, id: string, env: Env) {
 	const { row } = await load(projectId, id, env);
 	await clearOAuth(row, env);
 	await publishMessage(CHAN_ON_INTEGRATION_CHANGE, id);
+	await audit.record({
+		projectId,
+		resourceType: "integration",
+		resourceId: id,
+		action: "disconnect",
+		changedFields: ["oauth"],
+	});
 	return { connected: false };
 }

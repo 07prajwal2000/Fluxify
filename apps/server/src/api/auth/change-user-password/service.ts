@@ -1,6 +1,7 @@
 import { hashPassword } from "better-auth/crypto";
 import type { z } from "zod";
 import { BadRequestError } from "../../../errors/badRequestError";
+import { audit } from "../../../modules/audit";
 import { revokeSessions } from "../common";
 import type { requestBodySchema, requestParamsSchema } from "./dto";
 import { getCredentialAccount, updateCredentialPassword } from "./repository";
@@ -14,6 +15,12 @@ export default async function handleRequest(
 	}
 
 	await updateCredentialPassword(params.userId, await hashPassword(body.newPassword));
+	await audit.record({
+		resourceType: "user",
+		resourceId: params.userId,
+		action: "update",
+		changedFields: ["password"],
+	});
 	await revokeSessions(params.userId);
 
 	return { message: "Password updated successfully" };

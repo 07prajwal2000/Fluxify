@@ -12,6 +12,7 @@ import { ConflictError } from "../../errors/conflictError";
 import { ForbiddenError } from "../../errors/forbidError";
 import { NotFoundError } from "../../errors/notFoundError";
 import { dbIntegrationsCache } from "../../loaders/integrationsLoader";
+import { audit, projectIdOf } from "../audit";
 import { assignBlockKeys } from "./blockKeys";
 import { type DirectedCanvasEdge, findCycleEdgeIds } from "./cycleDetection";
 import { takeDroppedWarnings } from "./droppedFields";
@@ -30,6 +31,7 @@ import {
 	getProjectCustomBlocks,
 	parentExists,
 	parentKeys,
+	parentTable,
 	touchParent,
 	upsertBlocks,
 	upsertEdges,
@@ -436,6 +438,16 @@ export async function saveCanvas(
 		// a dry run reports the version the canvas is still at
 		result = { canvasRevision: dryRun ? canvasRevision - 1 : canvasRevision, issues, newKeys };
 		if (dryRun) throw DRY_RUN;
+		await audit.record({
+			projectId: projectIdOf(parentTable(parent.type), parent.id, tx),
+			resourceType: parent.type,
+			resourceId: parent.id,
+			action: "update",
+			changedFields: [
+				...(data.changes.blocks.length || deleteBlockIds.length ? ["blocks"] : []),
+				...(data.changes.edges.length || deleteEdgeIds.length ? ["edges"] : []),
+			],
+		});
 	});
 	try {
 		await saving;

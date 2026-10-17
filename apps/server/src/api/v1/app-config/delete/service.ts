@@ -2,6 +2,7 @@ import { db } from "../../../../db";
 import { CHAN_ON_APPCONFIG_CHANGE, publishMessage } from "../../../../db/redis";
 import { BadRequestError } from "../../../../errors/badRequestError";
 import { NotFoundError } from "../../../../errors/notFoundError";
+import { audit } from "../../../../modules/audit";
 import { checkAppConfigExist, deleteAppConfig } from "./repository";
 
 export default async function handleRequest(projectId: string, id: number) {
@@ -17,6 +18,13 @@ export default async function handleRequest(projectId: string, id: number) {
 		if (!result) {
 			throw new BadRequestError("Failed to delete app config");
 		}
+		await audit.record({
+			projectId,
+			resourceType: "app_config",
+			resourceId: String(id),
+			action: "delete",
+			changedFields: [],
+		});
 	});
 	await publishMessage(CHAN_ON_APPCONFIG_CHANGE, "");
 }

@@ -6,6 +6,7 @@ import type { AuthACL } from "../../../../db/schema";
 import { ForbiddenError } from "../../../../errors/forbidError";
 import { NotFoundError } from "../../../../errors/notFoundError";
 import { ServerError } from "../../../../errors/serverError";
+import { audit, changedFields } from "../../../../modules/audit";
 import { hasProjectAccess } from "../../../auth/common";
 import type { requestBodySchema, responseSchema } from "./dto";
 import { getCustomBlockById, updateCustomBlock } from "./repository";
@@ -36,6 +37,13 @@ export default async function handleRequest(
 		if (!updated) {
 			throw new ServerError("Failed to update custom block");
 		}
+		await audit.record({
+			projectId: existingBlock.projectId,
+			resourceType: "custom_block",
+			resourceId: id,
+			action: "update",
+			changedFields: changedFields(existingBlock, data),
+		});
 		return updated;
 	});
 

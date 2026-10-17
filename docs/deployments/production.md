@@ -279,6 +279,24 @@ be waiting at once, times the size of the data each one carries.
 
 ---
 
+## Audit log retention {#audit-log-retention}
+
+With an Enterprise or non-commercial licence, [Audit Logs](../concepts/audit-logs.md)
+record who changed what. Entries are deleted once they are older than **30 days**.
+The cleanup runs once a day.
+
+```env
+# Days an audit log entry is kept before it is deleted (default 30).
+AUDIT_LOG_MAX_AGE_DAYS=30
+```
+
+Set it on the admin service, like the other retention setting below. Workers
+don't read it. Entries travel through NATS first, so JetStream has to be on (it
+already has to be); if NATS is down, the change being logged fails instead of
+going unrecorded.
+
+---
+
 ## Execution history retention {#recording-retention}
 
 A route or workflow with **Execution history** turned on saves every run: each
@@ -826,6 +844,10 @@ provision by hand, but they are what the `-js` flag is for:
 | --- | --- |
 | `fluxify_artifacts` | Compiled routes and workflows, so a worker runs them without a database. |
 | `fluxify_config` | Instance settings and other cross-node config, so a flag change reaches every process. |
+
+Audit events also use a stream of their own, `FLUXIFY_AUDIT`, created on
+demand. If it fills up because the admin has been down for a long time, changes
+that need logging fail until the admin catches up, so nothing goes unrecorded.
 
 `fluxify_config` is a distribution layer, not storage — Postgres remains the
 source of truth, and the admin container rebuilds the bucket from it on every

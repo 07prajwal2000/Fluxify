@@ -5,6 +5,7 @@ import { CHAN_ON_INTEGRATION_CHANGE, publishMessage } from "../../../../db/redis
 import { ConflictError } from "../../../../errors/conflictError";
 import { NotFoundError } from "../../../../errors/notFoundError";
 import { ServerError } from "../../../../errors/serverError";
+import { audit, bodyFields } from "../../../../modules/audit";
 import { getIntegrationTags } from "../schemas";
 import type { requestBodySchema, responseSchema } from "./dto";
 import { createIntegration, getAppConfigKeys, integrationExistByName } from "./repository";
@@ -46,6 +47,13 @@ export default async function handleRequest(
 			},
 			tx,
 		);
+		await audit.record({
+			projectId,
+			resourceType: "integration",
+			resourceId: generatedID,
+			action: "create",
+			changedFields: bodyFields(data),
+		});
 		return generatedID;
 	});
 

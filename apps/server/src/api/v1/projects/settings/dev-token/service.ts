@@ -1,5 +1,6 @@
 import { NotFoundError } from "../../../../../errors/notFoundError";
 import { EncryptionService } from "../../../../../lib/encryption";
+import { audit } from "../../../../../modules/audit";
 import { publishProjectConfig } from "../../../../../modules/compiler/projectConfig";
 import { generateDevToken, hashDevToken } from "../../../../../modules/requestRouter/devToken";
 import { checkProjectExists } from "../keys/get-all/repository";
@@ -39,6 +40,14 @@ export async function rotateDevToken(projectId: string) {
 	await replaceDevToken(projectId, EncryptionService.encrypt(token));
 	// the old hash must leave the dev bucket before the caller hears it changed
 	await publishProjectConfig(projectId);
+	// the event says the token changed, never what it is
+	await audit.record({
+		projectId,
+		resourceType: "project",
+		resourceId: projectId,
+		action: "rotate",
+		changedFields: ["devToken"],
+	});
 	return { token };
 }
 

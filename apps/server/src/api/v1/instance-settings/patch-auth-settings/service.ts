@@ -2,6 +2,7 @@ import { BadRequestError } from "../../../../errors/badRequestError";
 import { assertCanUse } from "../../../../lib/edition";
 import { redactSecrets, ssoConfigSchema } from "../../../../lib/instance-settings/schemas";
 import { publishInstanceSetting } from "../../../../loaders/instanceSettingsLoader";
+import { audit } from "../../../../modules/audit";
 import { getInstanceSettingByKey, upsertInstanceSetting } from "../upsert/repository";
 
 export interface AuthSettingsPayload {
@@ -70,6 +71,13 @@ export default async function handleRequest(payload: AuthSettingsPayload) {
 		key: "auth_config",
 		category: "auth",
 		value: { mode: wantsSso ? "sso_only" : "traditional" },
+	});
+
+	await audit.record({
+		resourceType: "instance_setting",
+		resourceId: "auth",
+		action: "update",
+		changedFields: ["type", ...Object.keys(ssoPatch ?? {}).map((k) => `sso_config.${k}`)],
 	});
 
 	// Each key is published on its own now — KV is per-key, so there is no

@@ -5,6 +5,8 @@ import { CHAN_ON_PROJECT_SETTING_CHANGE, publishMessage } from "../../../../db/r
 import { BadRequestError } from "../../../../errors/badRequestError";
 import { ConflictError } from "../../../../errors/conflictError";
 import { ServerError } from "../../../../errors/serverError";
+import { auditLogsDefaultEnabled } from "../../../../lib/edition";
+import { audit, bodyFields } from "../../../../modules/audit";
 import { requestProjectConfigPublish } from "../../../../modules/compiler/publisher";
 import { createDevToken } from "../settings/dev-token/create";
 import { upsertProjectSettingKey } from "../settings/keys/upsert/repository";
@@ -43,6 +45,20 @@ export default async function handleRequest(
 			await upsertProjectSettingKey(projectId, key, value, tx);
 		}
 
+		// On where the licence allows audit logs; an admin can turn it off (#833).
+		// Off is the absence of the row, the same as a project from before the feature.
+		const auditOn = auditLogsDefaultEnabled();
+		if (auditOn) await upsertProjectSettingKey(projectId, "auditLogs.enabled", "true", tx);
+
+		await audit.record({
+			projectId,
+			resourceType: "project",
+			resourceId: projectId,
+			action: "create",
+			changedFields: bodyFields(data),
+			// nothing committed yet to look up
+			project: { name: project.name, slug, enabled: auditOn },
+		});
 		return projectId;
 	});
 

@@ -162,6 +162,13 @@
 			"when": 1792167729596,
 			"tag": "0022_knowledge_sources",
 			"breakpoints": true
+		},
+		{
+			"idx": 23,
+			"version": "7",
+			"when": 1792269474464,
+			"tag": "0023_audit_events",
+			"breakpoints": true
 		}
 	]
 }

@@ -2,6 +2,7 @@ import type { z } from "zod";
 import { db } from "../../../../db";
 import { CHAN_ON_APPCONFIG_CHANGE, publishMessage } from "../../../../db/redis";
 import { BadRequestError } from "../../../../errors/badRequestError";
+import { audit } from "../../../../modules/audit";
 import type { requestBodySchema, responseSchema } from "./dto";
 import { checkAppConfigsExist, deleteAppConfigBulk } from "./repository";
 
@@ -24,6 +25,14 @@ export default async function handleRequest(
 		if (deletedCount === 0) {
 			throw new BadRequestError("Failed to delete app configs");
 		}
+		await audit.record({
+			projectId,
+			resourceType: "app_config",
+			resourceId: ids.slice(0, 10).join(","),
+			action: "delete",
+			changedFields: [],
+			message: `Deleted ${ids.length} app configs`,
+		});
 	});
 
 	await publishMessage(CHAN_ON_APPCONFIG_CHANGE, "");

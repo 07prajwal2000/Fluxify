@@ -8,6 +8,7 @@ import { ConflictError } from "../../errors/conflictError";
 import { ForbiddenError } from "../../errors/forbidError";
 import { NotFoundError } from "../../errors/notFoundError";
 import { canAccessProject } from "../../lib/acl";
+import { audit } from "../audit";
 import type { checkoutBodySchema, commitBodySchema } from "./dto";
 import {
 	findAuthor,
@@ -124,6 +125,13 @@ export async function commitVersion(
 		const target = await accessTarget(kind, id, acl, "creator", tx, true);
 		if (!hasUncommitted(target)) throw new ConflictError("Nothing to commit");
 		const created = await writeVersion(kind, target, input, userId, tx);
+		await audit.record({
+			projectId: target.projectId,
+			resourceType: kind,
+			resourceId: id,
+			action: "commit",
+			changedFields: ["version"],
+		});
 		return present({ ...created, authorName: null }, created.id, target.prodVersionId);
 	});
 }
@@ -174,6 +182,13 @@ export async function checkoutVersion(
 			.update(table)
 			.set({ canvasRevision, committedRevision: canvasRevision, headVersionId: version.id })
 			.where(eq(table.id, id));
+		await audit.record({
+			projectId: target.projectId,
+			resourceType: kind,
+			resourceId: id,
+			action: "checkout",
+			changedFields: ["version"],
+		});
 		return {
 			savedVersion: saved
 				? present({ ...saved, authorName: null }, null, target.prodVersionId)

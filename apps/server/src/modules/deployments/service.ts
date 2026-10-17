@@ -5,6 +5,7 @@ import { ConflictError } from "../../errors/conflictError";
 import { ForbiddenError } from "../../errors/forbidError";
 import { NotFoundError } from "../../errors/notFoundError";
 import { canAccessProject } from "../../lib/acl";
+import { audit } from "../audit";
 import {
 	findAuthor,
 	findVersion,
@@ -162,6 +163,14 @@ export async function deployVersion(
 			await accessTarget(kind, id, acl, "creator", tx, true);
 			if (passed) await setProdVersion(kind, id, started.deployment.versionId, tx);
 			await finishDeployment(started.deployment.id, passed ? "live" : "failed", gates, tx);
+			await audit.record({
+				projectId: started.projectId,
+				resourceType: kind,
+				resourceId: id,
+				action: started.deployment.action,
+				changedFields: ["prodVersion"],
+				status: passed ? "success" : "failure",
+			});
 		});
 		// the usual change signal: the compiler republishes production from the new pointer
 		if (passed) await announceChange(kind, id, started.projectId);

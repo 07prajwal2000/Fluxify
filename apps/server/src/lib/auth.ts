@@ -10,6 +10,7 @@ import * as authSchemas from "../db/auth-schema";
 import { account, oauthConsent, oauthRefreshToken, systemUsers } from "../db/auth-schema";
 import { deleteCacheKey, getCache, setCache, setCacheEx } from "../db/redis";
 import { accessControlEntity } from "../db/schema";
+import { audit } from "../modules/audit";
 import { ssoOrigins, ssoPlugin } from "./auth.sso.ee";
 import { getEnv } from "./env";
 
@@ -91,6 +92,21 @@ export function initializeAuth(db: DB) {
 			},
 		},
 		databaseHooks: {
+			session: {
+				create: {
+					// A sign-in is the only thing that makes a session (#833). Before, not
+					// after: if the event cannot be published the session is never made.
+					before: async (session) => {
+						await audit.record({
+							resourceType: "session",
+							resourceId: session.userId,
+							action: "login",
+							changedFields: [],
+							actor: { actorId: session.userId, actorEmail: "", source: "portal" },
+						});
+					},
+				},
+			},
 			user: {
 				create: {
 					// Bridge every Better Auth user to the canonical system_users
@@ -121,7 +137,20 @@ export function initializeAuth(db: DB) {
 			// leaves that app's refresh tokens alive. Drop every refresh token the
 			// user no longer consents to; their access tokens cascade with them.
 			after: createAuthMiddleware(async (ctx) => {
-				if (ctx.path !== "/oauth2/delete-consent" || isAPIError(ctx.context.returned)) return;
+				if (isAPIError(ctx.context.returned)) return;
+				// personal access tokens are made and revoked through Better Auth, not our routes (#833)
+				if (ctx.path === "/api-key/create" || ctx.path === "/api-key/delete") {
+					const made = ctx.context.returned as { id?: string } | undefined;
+					const revoked = (ctx.body as { keyId?: string } | undefined)?.keyId;
+					await audit.record({
+						resourceType: "api_key",
+						resourceId: made?.id ?? revoked ?? "",
+						action: ctx.path === "/api-key/create" ? "create" : "delete",
+						changedFields: [],
+					});
+					return;
+				}
+				if (ctx.path !== "/oauth2/delete-consent") return;
 				const session = await getSessionFromCtx(ctx);
 				if (session) await deleteUnconsentedRefreshTokens(db, session.user.id);
 			}),

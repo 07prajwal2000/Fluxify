@@ -11,6 +11,7 @@ import { publishLicenseKey } from "../../../../lib/edition";
 import { EncryptionService } from "../../../../lib/encryption";
 import { getEnv } from "../../../../lib/env";
 import { getSetting } from "../../../../loaders/instanceSettingsLoader";
+import { audit } from "../../../../modules/audit";
 import type { LicenseView, setLicenseBodySchema } from "./dto";
 import { getStoredLicense, saveStoredLicense } from "./repository";
 
@@ -64,6 +65,12 @@ export async function setLicense(body: z.infer<typeof setLicenseBodySchema>, use
 		key: key === null ? null : EncryptionService.encrypt(key),
 		confirmedBy: confirmed ? userId : null,
 		confirmedAt: confirmed ? new Date() : null,
+	});
+	await audit.record({
+		resourceType: "license",
+		resourceId: "instance",
+		action: "update",
+		changedFields: ["edition", ...("key" in body ? ["key"] : [])],
 	});
 	await publishLicenseKey(key ?? undefined);
 	return getLicenseView();

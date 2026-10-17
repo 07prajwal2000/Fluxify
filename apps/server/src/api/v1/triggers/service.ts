@@ -13,6 +13,7 @@ import { NotFoundError } from "../../../errors/notFoundError";
 import { canAccessProject } from "../../../lib/acl";
 import { assertCanUse } from "../../../lib/edition";
 import { ENVIRONMENTS } from "../../../lib/envValues";
+import { audit, bodyFields, changedFields } from "../../../modules/audit";
 import type { TriggerArtifact } from "../../../modules/compiler/artifacts";
 import { type EnvSwitches, isServedIn } from "../../../modules/compiler/observability";
 import { triggerKey } from "../../../modules/compiler/subjects";
@@ -122,6 +123,13 @@ export async function createTrigger(
 			},
 			tx,
 		);
+		await audit.record({
+			projectId: data.projectId,
+			resourceType: "trigger",
+			resourceId: id,
+			action: "create",
+			changedFields: bodyFields(data),
+		});
 		return (await findTriggerById(id, tx))!;
 	});
 
@@ -172,7 +180,7 @@ export async function updateTrigger(
 			tx,
 		);
 
-		return (await updateTriggerRow(
+		const row = (await updateTriggerRow(
 			id,
 			{
 				...data,
@@ -182,6 +190,14 @@ export async function updateTrigger(
 			},
 			tx,
 		))!;
+		await audit.record({
+			projectId: existing.projectId,
+			resourceType: "trigger",
+			resourceId: id,
+			action: "update",
+			changedFields: changedFields(existing, data),
+		});
+		return row;
 	});
 
 	await republish(updated);
@@ -205,6 +221,13 @@ export async function deleteTrigger(id: string, acl: AuthACL[], userId: string) 
 	const existing = await db.transaction(async (tx) => {
 		const trigger = await mustAccess(id, acl, "creator", userId, tx);
 		await deleteTriggerRow(id, tx);
+		await audit.record({
+			projectId: trigger.projectId,
+			resourceType: "trigger",
+			resourceId: id,
+			action: "delete",
+			changedFields: [],
+		});
 		return trigger;
 	});
 
@@ -245,7 +268,15 @@ export async function attachWorkflow(
 		await assertWorkflowInProject(workflowId, existing.projectId, tx);
 		// an enabled trigger with no workflow starts consuming the moment it gets one
 		if (existing.active) await assertConnector({ ...existing, probe: true }, tx);
-		return (await updateTriggerRow(triggerId, { workflowId }, tx))!;
+		const row = (await updateTriggerRow(triggerId, { workflowId }, tx))!;
+		await audit.record({
+			projectId: existing.projectId,
+			resourceType: "trigger",
+			resourceId: triggerId,
+			action: "update",
+			changedFields: ["workflowId"],
+		});
+		return row;
 	});
 	await republish(trigger);
 	return present(trigger);
@@ -261,7 +292,15 @@ export async function detachWorkflow(
 	const trigger = await db.transaction(async (tx) => {
 		const existing = await mustAccess(triggerId, acl, "creator", userId, tx);
 		if (existing.workflowId !== workflowId) return existing;
-		return (await updateTriggerRow(triggerId, { workflowId: null }, tx))!;
+		const row = (await updateTriggerRow(triggerId, { workflowId: null }, tx))!;
+		await audit.record({
+			projectId: existing.projectId,
+			resourceType: "trigger",
+			resourceId: triggerId,
+			action: "update",
+			changedFields: ["workflowId"],
+		});
+		return row;
 	});
 	await republish(trigger);
 	return present(trigger);

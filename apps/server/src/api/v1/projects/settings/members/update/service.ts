@@ -1,5 +1,6 @@
 import type z from "zod";
 import { NotFoundError } from "../../../../../../errors/notFoundError";
+import { audit } from "../../../../../../modules/audit";
 import { updateProjectMemberRole } from "../repository";
 import type { requestBodySchema, requestParamSchema, responseSchema } from "./dto";
 
@@ -12,6 +13,13 @@ export default async function handleRequest(
 	if (!updated) {
 		throw new NotFoundError("ACL not found for user in this project");
 	}
+	await audit.record({
+		projectId,
+		resourceType: "project_member",
+		resourceId: params.userId,
+		action: "update",
+		changedFields: ["role"],
+	});
 	return {
 		id: updated.id!,
 		userId: updated.userId ?? null,

@@ -6,6 +6,7 @@ import {
 	ssoConfigSchema,
 } from "../../../../lib/instance-settings/schemas";
 import { publishInstanceSetting } from "../../../../loaders/instanceSettingsLoader";
+import { audit, bodyFields } from "../../../../modules/audit";
 import { getInstanceSettingByKey, upsertInstanceSetting } from "./repository";
 
 export interface UpsertSettingPayload {
@@ -126,6 +127,14 @@ export default async function handleRequest(payload: UpsertSettingPayload) {
 		category,
 		value: parsedValue as Record<string, unknown>,
 		isPublic,
+	});
+
+	// property names only: an SSO client secret is a name in this list, never a value
+	await audit.record({
+		resourceType: "instance_setting",
+		resourceId: key,
+		action: "update",
+		changedFields: bodyFields(value),
 	});
 
 	// Publish to KV so every instance (incl. this one) converges. The watcher

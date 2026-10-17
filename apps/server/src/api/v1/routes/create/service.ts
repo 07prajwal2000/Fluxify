@@ -5,6 +5,7 @@ import { CHAN_ON_ROUTE_CHANGE, publishMessage } from "../../../../db/redis";
 import { NotFoundError } from "../../../../errors/notFoundError";
 import { prodRecordingWarning } from "../../../../lib/observability";
 import { DEFAULT_CONTENT_TYPES } from "../../../../lib/routeConfig";
+import { audit, bodyFields, changedFields } from "../../../../modules/audit";
 import { patchRouteConfig } from "../routeConfigRepository";
 import { routeConflictError } from "../routeConflict";
 import { findRouteConflict } from "../update/repository";
@@ -45,6 +46,13 @@ export default async function handleRequest(
 			{ acceptedContentTypes: acceptedContentTypes ?? DEFAULT_CONTENT_TYPES },
 			tx,
 		);
+		await audit.record({
+			projectId: data.projectId,
+			resourceType: "route",
+			resourceId: newRouteId,
+			action: "create",
+			changedFields: bodyFields(data),
+		});
 		return {
 			id: newRouteId,
 		};

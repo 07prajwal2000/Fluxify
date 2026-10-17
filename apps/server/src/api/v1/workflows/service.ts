@@ -8,6 +8,7 @@ import { ForbiddenError } from "../../../errors/forbidError";
 import { NotFoundError } from "../../../errors/notFoundError";
 import { canAccessProject } from "../../../lib/acl";
 import { prodRecordingWarning } from "../../../lib/observability";
+import { audit, bodyFields, changedFields } from "../../../modules/audit";
 import { dropWorkflow } from "../../../modules/compiler/service";
 import { versionNumberOf } from "../../../modules/versions/repository";
 import { hasUncommitted } from "../../../modules/versions/state";
@@ -70,6 +71,13 @@ export async function createWorkflow(
 
 		const id = await insertWorkflow({ ...data, id: presetId, createdBy: userId }, tx);
 		if (seedBlocks) await seedDefaultBlocks(id, tx);
+		await audit.record({
+			projectId: data.projectId,
+			resourceType: "workflow",
+			resourceId: id,
+			action: "create",
+			changedFields: bodyFields(data),
+		});
 		return { id };
 	});
 
@@ -91,7 +99,15 @@ export async function updateWorkflow(
 		)
 			throw new ConflictError("workflow with that name already exists");
 
-		return await updateWorkflowRow(id, data, tx);
+		const row = await updateWorkflowRow(id, data, tx);
+		await audit.record({
+			projectId: existing.projectId,
+			resourceType: "workflow",
+			resourceId: id,
+			action: "update",
+			changedFields: changedFields(existing, data),
+		});
+		return row;
 	});
 
 	await publishMessage(CHAN_ON_WORKFLOW_CHANGE, id);
@@ -103,6 +119,13 @@ export async function deleteWorkflow(id: string, acl: AuthACL[] = []) {
 	await db.transaction(async (tx) => {
 		projectId = (await mustAccess(id, acl, "creator", tx)).projectId!;
 		await deleteWorkflowRow(id, tx);
+		await audit.record({
+			projectId,
+			resourceType: "workflow",
+			resourceId: id,
+			action: "delete",
+			changedFields: [],
+		});
 	});
 
 	// Same reason as routes: once the row is gone the compiler cannot resolve
