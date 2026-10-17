@@ -10,6 +10,7 @@ import {
 import { CustomError } from "../../../../errors/customError";
 import { NotFoundError } from "../../../../errors/notFoundError";
 import { ServerError } from "../../../../errors/serverError";
+import { audit } from "../../../../modules/audit";
 import { matchHooks, replaceSuiteHooks } from "../../../../modules/testRunner/hooks";
 import {
 	type SuiteTarget,
@@ -84,6 +85,14 @@ export default async function handleRequest(suite: Suite, projectId: string, tar
 				tx,
 			);
 			await replaceSuiteHooks(id, kept, tx);
+			await audit.record({
+				projectId,
+				resourceType: "test_suite",
+				resourceId: id,
+				action: "copy",
+				changedFields: [],
+				message: `Cloned from test suite ${suite.id}`,
+			});
 		});
 		return { id, droppedHooks: dropped };
 	} catch (err: any) {

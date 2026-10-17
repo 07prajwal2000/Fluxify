@@ -92,6 +92,13 @@ export const AUDITED: Record<string, string> = {
 	"update-knowledge-source-page": `${V}/knowledge-sources/service.ts`,
 	"refetch-knowledge-source": `${V}/knowledge-sources/service.ts`,
 	"delete-knowledge-source": `${V}/knowledge-sources/service.ts`,
+	// test suites and their runs
+	"create-test-suite": `${V}/test-suites/create/service.ts`,
+	"update-test-suite": `${V}/test-suites/update/service.ts`,
+	"delete-test-suite": `${V}/test-suites/delete/service.ts`,
+	"clone-test-suite": `${V}/test-suites/clone/service.ts`,
+	"start-test-run": `${V}/test-suites/start-run/service.ts`,
+	"delete-test-runs": `${V}/test-suites/delete-runs/service.ts`,
 	// custom blocks, middlewares
 	"create-custom-block": `${V}/custom-blocks/create/service.ts`,
 	"update-custom-block": `${V}/custom-blocks/update/service.ts`,
@@ -106,7 +113,7 @@ export const AUDITED: Record<string, string> = {
 };
 
 const RUNS = "runs code and changes no stored configuration";
-const SCOPE = "outside the #832 scope list (test fixtures and run history); log it when asked";
+const SCOPE = "recorded run history, outside the #832 scope list; log it when asked";
 
 /** routes that are deliberately not logged, and why */
 export const SKIPPED: Record<string, string> = {
@@ -115,16 +122,10 @@ export const SKIPPED: Record<string, string> = {
 	"run-sandbox": RUNS,
 	"call-sandbox": RUNS,
 	"run-ephemeral-blocks": `${RUNS} (a scratch sandbox that is rolled back)`,
-	"start-test-run": RUNS,
 	"validate-test-suite": "checks a suite against its last run and changes nothing",
 	"preview-llms-txt": "fetches a page to list its links and changes nothing",
 	"connect-mcp-oauth":
 		"only starts the sign-in; the connection it leads to is recorded when the callback completes it",
-	"create-test-suite": SCOPE,
-	"update-test-suite": SCOPE,
-	"delete-test-suite": SCOPE,
-	"clone-test-suite": SCOPE,
-	"delete-test-runs": SCOPE,
 	"delete-recorded-runs": SCOPE,
 	"delete-recorded-run": SCOPE,
 	"POST /auth/oauth2/register":

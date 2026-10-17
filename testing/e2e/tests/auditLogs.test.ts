@@ -230,6 +230,69 @@ describe("audit logs", () => {
 		}
 	});
 
+	it("records a test suite's create, save, clone, delete and cleared history", async () => {
+		const route = await createRoute(portal, stack.projectId);
+		const target = `/v1/test-suites/route/${route.body.id}`;
+		const made = await admin(stack, portal, "POST", target, { name: "happy", description: "" });
+		expect(made.status).toBe(200);
+		const suiteId = made.body.id as string;
+		const saved = await admin(stack, portal, "PUT", `/v1/test-suites/${suiteId}`, { name: "happier" });
+		expect(saved.status).toBe(200);
+		const cloned = await admin(stack, portal, "POST", `/v1/test-suites/${suiteId}/clone`, {
+			kind: "route",
+			targetId: route.body.id,
+		});
+		expect(cloned.status).toBe(200);
+		const cleared = await admin(
+			stack,
+			portal,
+			"DELETE",
+			`/v1/${stack.projectId}/test-suites/route/${route.body.id}/runs`,
+		);
+		expect(cleared.status).toBe(200);
+		const gone = await admin(stack, portal, "DELETE", `/v1/test-suites/${suiteId}`);
+		expect(gone.status).toBe(200);
+
+		const rows = await db.waitFor("resource_type IN ('test_suite', 'test_run') AND project_id = $1 AND (resource_id = $2 OR resource_id = $3 OR resource_id = $4)", 5, stack.projectId, suiteId, cloned.body.id, route.body.id);
+		expect(rows.map((r) => `${r.resource_type}:${r.action}`).sort()).toEqual([
+			"test_run:delete",
+			"test_suite:copy",
+			"test_suite:create",
+			"test_suite:delete",
+			"test_suite:update",
+		]);
+		expect(rows.find((r) => r.action === "update")!.changed_fields).toContain("name");
+	});
+
+	it("records a middleware's create, save, commit, checkout and delete", async () => {
+		const made = await admin(stack, portal, "POST", "/v1/middlewares", {
+			projectId: stack.projectId,
+			name: `mw-${uniq()}`,
+		});
+		expect(made.status).toBe(200);
+		const id = made.body.id as string;
+		const committed = await admin(stack, portal, "POST", `/v1/middlewares/${id}/versions`, { title: "first" });
+		expect(committed.status).toBe(200);
+		// only a chain change moves the working copy past its last version
+		const block = await admin(stack, portal, "POST", "/v1/custom-blocks", {
+			projectId: stack.projectId,
+			name: `mwblock_${uniq()}`,
+			label: "block",
+			usage: "middleware",
+		});
+		expect(block.status).toBe(200);
+		const chained = await admin(stack, portal, "PUT", `/v1/middlewares/${id}`, { blocks: [block.body.id] });
+		expect(chained.status).toBe(200);
+		const back = await admin(stack, portal, "POST", `/v1/middlewares/${id}/versions/${committed.body.id}/checkout`, {});
+		expect(back.status).toBe(200);
+		expect((await admin(stack, portal, "DELETE", `/v1/middlewares/${id}`)).status).toBe(200);
+
+		await db.waitFor("resource_type = 'middleware' AND resource_id = $1", 1, id);
+		await Bun.sleep(3_000);
+		const rows = await db.rows("resource_type = 'middleware' AND resource_id = $1", id);
+		expect(rows.map((r) => r.action)).toEqual(["create", "commit", "update", "checkout", "delete"]);
+	});
+
 	// last: it takes the broker away for good
 	it("fails the action, and writes nothing, when the event cannot be published", async () => {
 		const name = `lost-${uniq()}`;

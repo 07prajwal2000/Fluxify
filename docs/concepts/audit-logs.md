@@ -33,7 +33,8 @@ A log entry lists *which* settings changed, never their values. If someone chang
 - Projects: creating, renaming, deleting, members, settings, the development token and npm packages
 - Routes and workflows: creating, editing, deleting, saving the canvas, committing versions, switching a version, and promoting to production
 - Triggers and trigger groups
-- Custom blocks and middlewares
+- Custom blocks and middlewares, including their versions (commit and switch)
+- Test suites: creating, saving, cloning, deleting, clearing the run history, and every time a run is started. A run against production says "Ran in production canvas"; running every suite says "Ran all suites"
 - App config
 - Integrations, including the "Test connection" button
 - Sandboxes
@@ -43,7 +44,7 @@ A log entry lists *which* settings changed, never their values. If someone chang
 - Users: creating, changing, resetting a password and deleting
 - Personal access tokens: creating and deleting
 
-Running a route, a workflow or a test is not a change, so it is not recorded. Use [Execution Recording](./execution-recording.md) to look at runs.
+Calling a route or running a workflow or sandbox is not a change, so it is not recorded. Use [Execution Recording](./execution-recording.md) to look at runs.
 
 ## Turn it on or off for a project
 
