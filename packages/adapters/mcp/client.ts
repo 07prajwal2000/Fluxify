@@ -1,4 +1,8 @@
-import { auth, UnauthorizedError } from "@modelcontextprotocol/sdk/client/auth.js";
+import {
+	auth,
+	type OAuthClientProvider,
+	UnauthorizedError,
+} from "@modelcontextprotocol/sdk/client/auth.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import {
 	StreamableHTTPClientTransport,
@@ -34,6 +38,31 @@ export function resolveMcpHeaders(
 	);
 }
 
+const expiring = (oauth: McpOAuth) => {
+	const expiresAt = oauth.state().expiresAt;
+	return !!expiresAt && Date.now() > expiresAt - EXPIRY_MARGIN_MS;
+};
+
+/** One refresh at a time per stored connection in this process: calls that arrive meanwhile wait for it. */
+const refreshing = new WeakMap<McpOAuth, Promise<void>>();
+
+/**
+ * Makes sure the access token is good for the next call. If it is running out, the stored
+ * tokens are read first, since another process may have refreshed already, and only
+ * then is it refreshed here. A 401 later still refreshes, for a token revoked early.
+ */
+function ensureFresh(oauth: McpOAuth, provider: OAuthClientProvider, url: string) {
+	const running = refreshing.get(oauth);
+	if (running) return running;
+	const work = (async () => {
+		if (!expiring(oauth)) return;
+		await oauth.reload();
+		if (expiring(oauth)) await auth(provider, { serverUrl: url });
+	})().finally(() => refreshing.delete(oauth));
+	refreshing.set(oauth, work);
+	return work;
+}
+
 const authFailed = (e: unknown) =>
 	e instanceof UnauthorizedError ||
 	e instanceof OAuthError ||
@@ -51,21 +80,29 @@ export async function openMcpClient({ url, headers = {}, auth: mode, oauth }: Mc
 		work().catch((e) => {
 			throw authProvider && authFailed(e) ? new McpNotConnectedError() : e;
 		});
+	const fresh = async () => {
+		if (oauth && authProvider) await ensureFresh(oauth, authProvider, url);
+	};
 	const client = new Client({ name: "fluxify", version: "1.0.0" });
 	await guard(async () => {
-		// the token's own expiry saves a failed round trip; a 401 covers one revoked early
-		const expiresAt = oauth?.state().expiresAt;
-		if (authProvider && expiresAt && Date.now() > expiresAt - EXPIRY_MARGIN_MS) {
-			await auth(authProvider, { serverUrl: url });
-		}
+		await fresh();
 		await client.connect(
 			new StreamableHTTPClientTransport(new URL(url), { requestInit: { headers }, authProvider }),
 		);
 	});
 	return {
-		listTools: async () => (await guard(() => client.listTools())).tools,
+		listTools: async () =>
+			(
+				await guard(async () => {
+					await fresh();
+					return client.listTools();
+				})
+			).tools,
 		callTool: (name: string, args: Record<string, unknown>, signal?: AbortSignal) =>
-			guard(() => client.callTool({ name, arguments: args }, undefined, { signal })),
+			guard(async () => {
+				await fresh();
+				return client.callTool({ name, arguments: args }, undefined, { signal });
+			}),
 		close: () => client.close().catch(() => {}),
 	};
 }

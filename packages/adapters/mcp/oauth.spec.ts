@@ -55,6 +55,10 @@ function memoryStore(initial: McpOAuthState) {
 		writes: 0,
 		lost: 0,
 		stored: () => stored,
+		/** pretends the access token's time is up, as far as the client can tell */
+		advance: (expiresAt: number) => {
+			stored = { ...stored, expiresAt };
+		},
 		oauth: {
 			state: () => stored,
 			onTokens: async (tokens, from) => {
@@ -131,6 +135,54 @@ describe("mcp client: oauth", () => {
 		math.oauth!.expireAccessTokens();
 		expect((await sum(store.oauth, { a: 5, b: 5 })).content).toEqual([{ type: "text", text: "10" }]);
 		expect(math.oauth!.rejectedRefreshes).toBeGreaterThanOrEqual(rejected);
+	});
+
+	it("a token that runs out between calls is refreshed before the next call, not after a 401", async () => {
+		const state = await signIn();
+		// the server still accepts it; only the stored expiry says it is about to run out
+		const store = memoryStore({ ...state, expiresAt: Date.now() + 60_000 });
+		const client = await openMcpClient({ url: math.url, auth: "oauth", oauth: store.oauth });
+		try {
+			await client.callTool("add", { a: 1, b: 1 });
+			expect(store.writes).toBe(0);
+			store.advance(Date.now() - 1);
+			const refused = math.oauth!.unauthorized;
+			const out = await client.callTool("add", { a: 2, b: 2 });
+			expect(out.content).toEqual([{ type: "text", text: "4" }]);
+			expect(store.writes).toBe(1);
+			expect(math.oauth!.unauthorized).toBe(refused);
+		} finally {
+			await client.close();
+		}
+	});
+
+	it("calls that arrive while it refreshes wait for that one refresh", async () => {
+		const state = await signIn();
+		const store = memoryStore({ ...state, expiresAt: Date.now() - 1 });
+		const refreshes = math.oauth!.refreshes;
+		const outs = await Promise.all([1, 2, 3].map((n) => sum(store.oauth, { a: n, b: n })));
+		expect(outs.map((o) => (o.content as { text: string }[])[0].text)).toEqual(["2", "4", "6"]);
+		expect(store.writes).toBe(1);
+		expect(math.oauth!.refreshes).toBe(refreshes + 1);
+	});
+
+	it("uses tokens another process already refreshed instead of refreshing again", async () => {
+		const state = await signIn();
+		const refreshed = { ...state, version: 2, expiresAt: Date.now() + 3_600_000 };
+		let current: McpOAuthState = { ...state, expiresAt: Date.now() - 1 };
+		const oauth: McpOAuth = {
+			state: () => current,
+			reload: async () => {
+				current = refreshed;
+				return current;
+			},
+			onTokens: async () => {
+				throw new Error("must not refresh");
+			},
+		};
+		const refreshes = math.oauth!.refreshes;
+		expect((await sum(oauth, { a: 6, b: 6 })).content).toEqual([{ type: "text", text: "12" }]);
+		expect(math.oauth!.refreshes).toBe(refreshes);
 	});
 
 	it("revoked tokens fail with a clear not-connected error", async () => {

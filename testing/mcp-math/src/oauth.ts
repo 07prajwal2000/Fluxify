@@ -20,6 +20,8 @@ export type OAuthControls = {
 	refreshes: number;
 	/** refresh attempts with a token that was already rotated or never issued */
 	rejectedRefreshes: number;
+	/** calls to the MCP endpoint turned away with a 401 */
+	unauthorized: number;
 	/** makes every access token issued so far expired (the refresh tokens stay good) */
 	expireAccessTokens(): void;
 	/** forgets every token: the next call must sign in again */
@@ -48,6 +50,7 @@ export function createAuthServer(origin: () => string, opts: OAuthOptions = {}) 
 		grants: 0,
 		refreshes: 0,
 		rejectedRefreshes: 0,
+		unauthorized: 0,
 		expireAccessTokens: () => {
 			for (const token of access.keys()) access.set(token, 0);
 		},
@@ -160,6 +163,7 @@ export function createAuthServer(origin: () => string, opts: OAuthOptions = {}) 
 		const bearer = /^Bearer (.+)$/.exec(req.headers.authorization ?? "")?.[1];
 		const expiresAt = bearer ? access.get(bearer) : undefined;
 		if (expiresAt && expiresAt > Date.now()) return true;
+		controls.unauthorized++;
 		res.writeHead(401, {
 			"content-type": "application/json",
 			"www-authenticate": `Bearer resource_metadata="${origin()}/.well-known/oauth-protected-resource/mcp"`,
