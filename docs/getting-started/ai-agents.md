@@ -168,6 +168,16 @@ request, runs your code or reaches the internet.
 | `remove_package` | Uninstall npm packages | Project Admin |
 | `update_project` | Change a project's name, description or hidden flag | Project Admin |
 
+## Use other MCP servers
+
+The in-app AI agent can also use the tools of other MCP servers, such as a GitHub or docs server. [Add the server](/integrations/mcp-servers) first, then:
+
+1. Open the project's **AI configuration**.
+2. Under **Allowed MCP Servers**, select **Add server** and pick it. Only servers listed here are available to the agent.
+3. In the chat, type `@` and pick a server to have its tools ready from the start of your message. Example: `@github list the open issues`.
+
+You don't have to mention a server. The agent can look through the allowed servers and their tools on its own, and loads the ones it needs.
+
 ## Safety
 
 ::: warning Runs are real
@@ -191,6 +201,7 @@ the short message.
 - **Your client may ask before each change.** Tools that delete or run things
   are marked as such, so most clients ask you first.
 - **Going live is always your call.** `promote_version` and `rollback_version` change what production serves. The in-app agent asks you first in every mode, even in Auto, and you write the reason that is kept in the deployment log. A connected client should ask you too, and the tool descriptions tell it never to promote unless you asked.
+- **Other MCP servers always ask.** Every call the in-app agent makes to an external MCP server waits for your approval, in every mode, even Auto. Choosing "always allow" on one call never skips the question for the next. Check what the call will do before you approve it.
 - **Revoke access any time.** Open **Account → Connected apps** to remove an app,
   or **Account → Access tokens** to delete a token. It stops working at once.
 - **Apps stay signed in for up to 30 days.** A connected app gets a short-lived

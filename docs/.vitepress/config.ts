@@ -388,6 +388,7 @@ export default withMermaid(
 							{ text: "AI Models", link: "/integrations/ai-models" },
 							{ text: "Trace the AI Assistant", link: "/integrations/agent-tracing" },
 							{ text: "Message Queues", link: "/integrations/message-queues" },
+							{ text: "MCP Servers", link: "/integrations/mcp-servers" },
 						],
 					},
 				],
