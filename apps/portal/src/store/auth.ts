@@ -66,6 +66,11 @@ export function useCanEditProject(projectId: string) {
 	});
 }
 
+/** A system admin, the only user the server lets delete a project. */
+export function useIsSystemAdmin() {
+	return authStore(({ state }) => Boolean(state.userData.isSystemAdmin));
+}
+
 /** Project admin on this project, the role the server requires for agent limits. */
 export function useIsProjectAdmin(projectId: string) {
 	return authStore(({ state }) => {

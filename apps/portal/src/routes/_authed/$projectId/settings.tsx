@@ -30,7 +30,7 @@ import { projectMembersQuery } from "@/query/projectMembersQuery";
 import { projectSettingsKeysQuery } from "@/query/projectSettingsKeysQuery";
 import { projectsQuery } from "@/query/projectsQuery";
 import { publicSettingsQuery } from "@/query/publicSettingsQuery";
-import { useCanEditProject } from "@/store/auth";
+import { useCanEditProject, useIsSystemAdmin } from "@/store/auth";
 
 type SettingsSearch = {
 	tab?:
@@ -70,7 +70,8 @@ const SETTINGS_TABS = [
 	{ id: "dev-access", label: "Development access", icon: TbKey, editorsOnly: true },
 	{ id: "members", label: "Members", icon: TbUsers },
 	{ id: "experimental", label: "Experimental", icon: TbFlask },
-	{ id: "danger", label: "Danger Zone", icon: TbAlertTriangle },
+	// System admins only: the API refuses a project delete to everyone else.
+	{ id: "danger", label: "Danger Zone", icon: TbAlertTriangle, systemAdminOnly: true },
 ] as const;
 
 type TabId = (typeof SETTINGS_TABS)[number]["id"];
@@ -84,10 +85,12 @@ function ProjectSettingsPage() {
 
 	const { data: publicSettings } = publicSettingsQuery.get.useQuery();
 	const canEdit = useCanEditProject(projectId);
+	const isSystemAdmin = useIsSystemAdmin();
 	const tabs = SETTINGS_TABS.filter(
 		(tab) =>
 			(!("flag" in tab) || publicSettings?.orchestration?.enabled !== false) &&
-			(!("editorsOnly" in tab) || canEdit),
+			(!("editorsOnly" in tab) || canEdit) &&
+			(!("systemAdminOnly" in tab) || isSystemAdmin),
 	);
 
 	const validTabs = tabs.map((t) => t.id);
@@ -201,7 +204,9 @@ function ProjectSettingsPage() {
 						{activeTab === "members" && <MembersSettings projectId={projectId} />}
 						{activeTab === "ai-connections" && <AiConnectionsSettings projectId={projectId} />}
 						{activeTab === "experimental" && <ExperimentalSettings projectId={projectId} />}
-						{activeTab === "danger" && <DangerZoneSettings projectId={projectId} />}
+						{activeTab === "danger" && (
+							<DangerZoneSettings projectId={projectId} onDeleted={() => navigate({ to: "/" })} />
+						)}
 					</div>
 				</div>
 			</div>

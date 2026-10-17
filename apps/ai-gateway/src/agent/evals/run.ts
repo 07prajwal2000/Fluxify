@@ -24,7 +24,7 @@ import { productionTasks } from "./tasksProduction";
 
 /**
  * Agent evals: each task gets a fresh project, its setup, an agent run, automatic checks,
- * an optional judge, then its project is removed.
+ * an optional judge, then its project is deleted.
  *   bun run agent:evals [--task health,echo] [--keep] [--no-judge]
  * --keep leaves each task's project for debugging. Ctrl+C stops the current task, cleans up
  * and prints the table so far; twice quits at once.
@@ -65,47 +65,15 @@ export const retryRateLimit =
 		}
 	};
 
-/** Delete order matters: triggers before workflows, routes before middlewares before blocks. */
-const CONTENTS = [
-	["list_triggers", "delete_trigger", "triggerId"],
-	["list_routes", "delete_route", "routeId"],
-	["list_workflows", "delete_workflow", "workflowId"],
-	["list_middlewares", "delete_middleware", "middlewareId"],
-	["list_custom_blocks", "delete_custom_block", "customBlockId"],
-	["list_integrations", "delete_integration", "integrationId"],
-	["list_app_config", "delete_app_config", "appConfigId"],
-] as const;
-
 /**
- * The admin API has no project delete, so a task's project is emptied and hidden.
- * Returns what could not be removed.
+ * Deletes the task's project. The server removes everything it owns and stops
+ * its triggers and routes on the workers. Returns what could not be removed.
  */
-// ponytail: empty + hide; call a real DELETE /v1/projects/:id once the server has one
-export async function removeProject(tool: Ctx["tool"], projectId: string) {
-	const errors: string[] = [];
-	for (const [list, del, key] of CONTENTS) {
-		const failed = new Set<string>();
-		for (let round = 0; round < 20; round++) {
-			const out = await tool(list, { projectId }).catch((e: Error) => {
-				errors.push(`${list}: ${e.message}`);
-				return [];
-			});
-			const rows = (Array.isArray(out) ? out : out.items).filter(
-				(r: any) => !failed.has(String(r.id)),
-			);
-			if (!rows.length) break;
-			for (const r of rows) {
-				await tool(del, { projectId, [key]: r.id }).catch((e: Error) => {
-					failed.add(String(r.id));
-					errors.push(`${del} ${r.id}: ${e.message}`);
-				});
-			}
-		}
-	}
-	await tool("update_project", { projectId, hidden: true }).catch((e: Error) =>
-		errors.push(`hide: ${e.message}`),
+export async function removeProject(api: Ctx["api"], projectId: string) {
+	return api.send("DELETE", `/v1/projects/${projectId}`).then(
+		() => [] as string[],
+		(e: Error) => [`delete project: ${e.message}`],
 	);
-	return errors;
 }
 
 /** A stream result's promise rejects when the run failed; that is already printed. */
@@ -242,7 +210,7 @@ export async function runTask(task: Task, deps: Deps, signal: AbortSignal): Prom
 		out(`\n[error] ${row.error}\n`);
 	} finally {
 		if (projectId && !deps.keep) {
-			const errors = await removeProject(tool, projectId);
+			const errors = await removeProject(api, projectId);
 			if (errors.length) out(`\ncleanup left: ${errors.join("; ")}\n`);
 		}
 		row.ms = Date.now() - t0;
