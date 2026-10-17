@@ -4,6 +4,7 @@ import { deleteArtifactEverywhere } from "../../../db/natsKv";
 import { CHAN_ON_SANDBOX_CHANGE, publishMessage } from "../../../db/redis";
 import { ConflictError } from "../../../errors/conflictError";
 import { NotFoundError } from "../../../errors/notFoundError";
+import { audit, bodyFields } from "../../../modules/audit";
 import { dropSandbox } from "../../../modules/compiler/sandbox";
 import { triggerKey } from "../../../modules/compiler/subjects";
 import { devWorkerOnline } from "../../../modules/orchestrator/status";
@@ -60,6 +61,13 @@ export async function createSandbox(
 			tx,
 		);
 		await seedDefaultBlocks(id, tx, "sandbox");
+		await audit.record({
+			projectId,
+			resourceType: "sandbox",
+			resourceId: id,
+			action: "create",
+			changedFields: bodyFields(data),
+		});
 		return id;
 	});
 	await publishMessage(CHAN_ON_SANDBOX_CHANGE, id);
@@ -82,7 +90,7 @@ export async function updateSandbox(
 ) {
 	const updated = await db.transaction(async (tx) => {
 		const existing = await mustOwn(projectId, id, userId, tx);
-		return await updateSandboxRow(
+		const row = await updateSandboxRow(
 			id,
 			{
 				name: data.name,
@@ -90,6 +98,14 @@ export async function updateSandbox(
 			},
 			tx,
 		);
+		await audit.record({
+			projectId,
+			resourceType: "sandbox",
+			resourceId: id,
+			action: "update",
+			changedFields: bodyFields(data),
+		});
+		return row;
 	});
 	// tracing is compiled into the artifact, so a settings change recompiles
 	await publishMessage(CHAN_ON_SANDBOX_CHANGE, id);
@@ -105,6 +121,13 @@ export async function deleteSandbox(projectId: string, id: string, userId: strin
 		await mustOwn(projectId, id, userId, tx);
 		const triggers = await sandboxTriggerIds(id, tx);
 		await deleteSandboxRow(id, tx);
+		await audit.record({
+			projectId,
+			resourceType: "sandbox",
+			resourceId: id,
+			action: "delete",
+			changedFields: [],
+		});
 		return triggers;
 	});
 	await dropSandbox(projectId, id);

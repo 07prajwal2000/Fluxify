@@ -4,6 +4,7 @@ import { putArtifactEverywhere } from "../../db/natsKv";
 import { projectDependenciesEntity } from "../../db/schema";
 import { ConflictError } from "../../errors/conflictError";
 import { projectSettingsCache } from "../../loaders/projectSettingsLoader";
+import { audit } from "../audit";
 import type { DepsArtifact } from "../compiler/artifacts";
 import { requestProjectCompile } from "../compiler/publisher";
 import { depsKey } from "../compiler/subjects";
@@ -92,6 +93,16 @@ export async function changePackages(projectId: string, change: ResolveChange, u
 		throw new ConflictError("The project's packages changed while this was resolving — try again");
 	}
 
+	// package names are public, so they may ride in the message
+	const names = "add" in change ? change.add.map((p) => p.name) : change.remove.map((name) => name);
+	await audit.record({
+		projectId,
+		resourceType: "project",
+		resourceId: projectId,
+		action: "update",
+		changedFields: ["packages"],
+		message: `${"add" in change ? "Installed" : "Removed"}: ${names.join(", ")}`,
+	});
 	const artifact: DepsArtifact = {
 		projectId,
 		version,

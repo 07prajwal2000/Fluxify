@@ -4,6 +4,7 @@ import { db } from "../../../db";
 import { deleteCacheKey, getCache } from "../../../db/redis";
 import { BadRequestError } from "../../../errors/badRequestError";
 import { auth } from "../../../lib/auth";
+import { audit } from "../../../modules/audit";
 import { revokeSessions } from "../common";
 import type { requestParamsSchema } from "./dto";
 import { deleteUser, getUserRole } from "./repository";
@@ -23,6 +24,12 @@ export default async function handleRequest(
 		}
 
 		await deleteUser(params.userId, tx);
+		await audit.record({
+			resourceType: "user",
+			resourceId: params.userId,
+			action: "delete",
+			changedFields: [],
+		});
 		await revokeSessions(params.userId);
 	});
 

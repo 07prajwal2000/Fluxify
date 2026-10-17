@@ -143,6 +143,10 @@ async function main() {
 		// workers publish them and never open the database. Also not caught.
 		const { startRecordingConsumer } = await import("./modules/recordings/consumer");
 		await startRecordingConsumer();
+		// Audit logs (#833, EE) land in Postgres here, and only here. Not caught,
+		// for the same reason: no audit trail is worse than no boot.
+		const { startAuditConsumer } = await import("./modules/audit/consumer");
+		await startAuditConsumer();
 		// Archived agent chats age out a week after archiving (#721). Admin only
 		// for the same reason: it deletes rows, and workers never open Postgres.
 		const { deleteExpiredAgentConversations } = await import("./modules/agents/retention");

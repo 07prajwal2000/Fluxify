@@ -5,6 +5,7 @@ import { CHAN_ON_CUSTOM_BLOCK_CHANGE, publishMessage } from "../../../../db/redi
 import type { AuthACL } from "../../../../db/schema";
 import { ForbiddenError } from "../../../../errors/forbidError";
 import { NotFoundError } from "../../../../errors/notFoundError";
+import { audit } from "../../../../modules/audit";
 import { dropCustomBlock } from "../../../../modules/compiler/service";
 import { assertNotInUse } from "../../../../modules/references/service";
 import { hasProjectAccess } from "../../../auth/common";
@@ -41,6 +42,13 @@ export default async function handleRequest(
 
 		projectId = existingBlock.projectId!;
 		await deleteCustomBlock(id, tx);
+		await audit.record({
+			projectId,
+			resourceType: "custom_block",
+			resourceId: id,
+			action: "delete",
+			changedFields: [],
+		});
 	});
 
 	// same as routes: the compiler can't resolve the project of a row that no

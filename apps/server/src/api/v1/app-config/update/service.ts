@@ -5,6 +5,7 @@ import { BadRequestError } from "../../../../errors/badRequestError";
 import { NotFoundError } from "../../../../errors/notFoundError";
 import { ServerError } from "../../../../errors/serverError";
 import { EncryptionService } from "../../../../lib/encryption";
+import { audit, bodyFields } from "../../../../modules/audit";
 import { nextDevValue, shownValue } from "../storage";
 import type { requestBodySchema, responseSchema } from "./dto";
 import { getConfigById, updateAppConfig } from "./repository";
@@ -38,6 +39,13 @@ export default async function handleRequest(
 		const { keyName: _keyName, devValue: _devValue, ...updates } = body;
 		const cfg = { ...updates, value: updates.value?.toString(), devValue };
 		const updatedConfig = await updateAppConfig(id, projectId, cfg, tx);
+		await audit.record({
+			projectId,
+			resourceType: "app_config",
+			resourceId: String(id),
+			action: "update",
+			changedFields: bodyFields(body),
+		});
 		return updatedConfig;
 	});
 	if (!result) {

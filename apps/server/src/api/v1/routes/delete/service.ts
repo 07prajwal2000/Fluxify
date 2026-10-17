@@ -5,6 +5,7 @@ import type { AuthACL } from "../../../../db/schema";
 import { ForbiddenError } from "../../../../errors/forbidError";
 import { NotFoundError } from "../../../../errors/notFoundError";
 import { canAccessProject } from "../../../../lib/acl";
+import { audit } from "../../../../modules/audit";
 import { dropRoute } from "../../../../modules/compiler/service";
 import type { responseSchema } from "./dto";
 import { deleteRoute, findRouteById } from "./repository";
@@ -25,6 +26,13 @@ export default async function handleRequest(
 		}
 		projectId = existingRoute.projectId!;
 		await deleteRoute(id, tx);
+		await audit.record({
+			projectId,
+			resourceType: "route",
+			resourceId: id,
+			action: "delete",
+			changedFields: [],
+		});
 	});
 	// the compiler resolves a route's project from the database, so once the row
 	// is gone it can no longer work out which artifact key to drop — workers would

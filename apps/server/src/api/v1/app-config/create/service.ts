@@ -5,6 +5,7 @@ import type { AppConfigDataTypes } from "../../../../db/schema";
 import { BadRequestError } from "../../../../errors/badRequestError";
 import { ConflictError } from "../../../../errors/conflictError";
 import { ServerError } from "../../../../errors/serverError";
+import { audit, bodyFields } from "../../../../modules/audit";
 import { storeValue } from "../storage";
 import type { requestBodySchema, responseSchema } from "./dto";
 import { createAppConfig, keyExists } from "./repository";
@@ -27,6 +28,15 @@ export default async function handleRequest(
 			body.devValue = storeValue(body.devValue, body.isEncrypted, body.encodingType);
 		}
 		const dbResult = await createAppConfig({ ...body, projectId }, tx);
+		if (dbResult) {
+			await audit.record({
+				projectId,
+				resourceType: "app_config",
+				resourceId: String(dbResult.id),
+				action: "create",
+				changedFields: bodyFields(body),
+			});
+		}
 		return dbResult;
 	});
 

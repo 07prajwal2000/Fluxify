@@ -7,6 +7,7 @@ import { ConflictError } from "../../../errors/conflictError";
 import { ForbiddenError } from "../../../errors/forbidError";
 import { NotFoundError } from "../../../errors/notFoundError";
 import { canAccessProject } from "../../../lib/acl";
+import { audit, bodyFields } from "../../../modules/audit";
 import { recordGroupRemoval, removeGroupFromClaims } from "../../../modules/orchestrator/claims";
 import { removeScheduleEverywhere } from "../../../modules/schedules/reconciler";
 import type {
@@ -62,6 +63,13 @@ export async function createTriggerGroup(
 		isDefault: false,
 		createdBy: userId,
 	});
+	await audit.record({
+		projectId: data.projectId,
+		resourceType: "trigger_group",
+		resourceId: id,
+		action: "create",
+		changedFields: bodyFields(data),
+	});
 	return { id };
 }
 
@@ -76,6 +84,13 @@ export async function updateTriggerGroup(
 	if (!canAccessProject(acl, group.projectId, "creator")) throw new ForbiddenError();
 	if (group.isDefault) throw new BadRequestError("The default group cannot be edited");
 	await updateGroupRow(id, data);
+	await audit.record({
+		projectId: group.projectId,
+		resourceType: "trigger_group",
+		resourceId: id,
+		action: "update",
+		changedFields: bodyFields(data),
+	});
 	return { id };
 }
 
@@ -112,6 +127,13 @@ export async function deleteTriggerGroup(
 		// user could act on.
 		await deleteGroupRow(id, tx).catch(() => {
 			throw new ConflictError("Move or delete this group's triggers first");
+		});
+		await audit.record({
+			projectId: group.projectId,
+			resourceType: "trigger_group",
+			resourceId: id,
+			action: "delete",
+			changedFields: [],
 		});
 		return { moved, deleted, removals };
 	});

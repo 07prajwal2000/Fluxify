@@ -6,6 +6,7 @@ import { ForbiddenError } from "../../../../errors/forbidError";
 import { NotFoundError } from "../../../../errors/notFoundError";
 import { ServerError } from "../../../../errors/serverError";
 import { canAccessProject } from "../../../../lib/acl";
+import { audit, bodyFields, changedFields } from "../../../../modules/audit";
 import { patchRouteConfig } from "../routeConfigRepository";
 import { routeConflictError } from "../routeConflict";
 import { normalizeParamsSchema } from "../schema-validator";
@@ -35,13 +36,21 @@ export default async function handleRequest(
 		// An undefined field is skipped by the update statement, so an omitted
 		// paramsSchema would leave the previous one behind. Normalise so a path
 		// that no longer declares `:params` writes an explicit null instead.
-		return await updateRoute(
+		const updated = await updateRoute(
 			{
 				id,
 				...normalizeParamsSchema(route),
 			},
 			tx,
 		);
+		await audit.record({
+			projectId: existingRoute.projectId,
+			resourceType: "route",
+			resourceId: id,
+			action: "update",
+			changedFields: changedFields(existingRoute, data),
+		});
+		return updated;
 	});
 	if (!result) {
 		throw new ServerError("Something went wrong while updating the route");

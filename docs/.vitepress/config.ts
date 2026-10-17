@@ -110,6 +110,7 @@ export default withMermaid(
 					items: [
 						{ text: "Overview", link: "/concepts/" },
 						{ text: "App Config", link: "/concepts/app-config" },
+						{ text: "Audit Logs", link: "/concepts/audit-logs" },
 						{ text: "Blocks", link: "/concepts/blocks" },
 						{ text: "Edges", link: "/concepts/edges" },
 						{ text: "Environments", link: "/concepts/environments" },
@@ -199,6 +200,7 @@ export default withMermaid(
 						items: [
 							{ text: "Overview", link: "/concepts/" },
 							{ text: "App Config", link: "/concepts/app-config" },
+							{ text: "Audit Logs", link: "/concepts/audit-logs" },
 							{ text: "Blocks", link: "/concepts/blocks" },
 							{ text: "Edges", link: "/concepts/edges" },
 							{ text: "Environments", link: "/concepts/environments" },

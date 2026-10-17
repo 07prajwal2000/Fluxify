@@ -3,6 +3,7 @@ import type z from "zod";
 import { type DbTransactionType, db } from "../../../../db";
 import { ConflictError } from "../../../../errors/conflictError";
 import { NotFoundError } from "../../../../errors/notFoundError";
+import { audit, bodyFields } from "../../../../modules/audit";
 import type { requestBodySchema, responseSchema } from "./dto";
 import {
 	checkCustomBlockExist,
@@ -37,6 +38,13 @@ export default async function handleRequest(
 		const id = generateID();
 		const newBlockId = await createCustomBlock({ ...data, id }, tx);
 		if (seedDefaultBlocks) await createDependencies(newBlockId, tx);
+		await audit.record({
+			projectId: data.projectId,
+			resourceType: "custom_block",
+			resourceId: newBlockId,
+			action: "create",
+			changedFields: bodyFields(data),
+		});
 		return {
 			id: newBlockId,
 		};

@@ -23,6 +23,7 @@ setting.
 | The Send Message block, to a Redis stream | ✅ | ✅ |
 | External connectors — Kafka, NATS JetStream and Amazon SQS today; SNS, Pub/Sub and Service Bus on the way. Covers their triggers and Send Message blocks | — | ✅ |
 | Single sign-on (OIDC and SAML) | — | ✅ |
+| [Audit Logs](../concepts/audit-logs.md), a record of who changed what | — | ✅ |
 
 A license key says which Enterprise features it includes. Most include all of
 them; the **License** page shows exactly what yours unlocks.

@@ -84,6 +84,16 @@ export const serverEnvSchema = baseEnvSchema.extend({
 			"How many days a recorded run (Execution history) is kept before it is deleted (default 30)",
 		),
 
+	AUDIT_LOG_MAX_AGE_DAYS: z
+		.string()
+		.optional()
+		.refine((val) => !val || (Number.isInteger(Number(val)) && Number(val) > 0), {
+			message: "AUDIT_LOG_MAX_AGE_DAYS must be a positive integer",
+		})
+		.describe(
+			"How many days an audit log entry (Enterprise) is kept before it is deleted (default 30)",
+		),
+
 	PROXY_URL: z
 		.string()
 		.optional()
@@ -450,6 +460,9 @@ export const PROXY_URL = getEnv("PROXY_URL")?.trim().replace(/\/+$/, "") || unde
 
 /** recorded runs older than this many days are deleted by the daily retention job (#254) */
 export const RECORDING_MAX_AGE_DAYS = Number(getEnv("RECORDING_MAX_AGE_DAYS")) || 30;
+
+/** audit log entries older than this many days are deleted by the daily retention job (#833) */
+export const AUDIT_LOG_MAX_AGE_DAYS = Number(getEnv("AUDIT_LOG_MAX_AGE_DAYS")) || 30;
 
 /** furthest ahead a Trigger Workflow block may schedule a run; a bad value fails boot */
 export const SCHEDULE_MAX_HORIZON_MS = parseDurationMs(

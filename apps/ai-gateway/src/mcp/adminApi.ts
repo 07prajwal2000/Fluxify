@@ -4,7 +4,19 @@ import { formatToolError } from "./toolErrors";
 /** Sends one request to the admin API. Swapped in tests to stay in-process. */
 export type AdminFetch = (path: string, init: RequestInit) => Response | Promise<Response>;
 
-export const httpAdminFetch: AdminFetch = (path, init) => fetch(`${ADMIN_API_URL}${path}`, init);
+/**
+ * Every call the MCP server makes is labelled `mcp` for the admin API's audit
+ * trail, even when `auth` is a personal token the caller passed on. A label,
+ * not a security check: any client can send the header, and it only changes
+ * the word in the log. Added here, where the request leaves the process.
+ */
+export const VIA_HEADER = "x-fluxify-via";
+
+export const httpAdminFetch: AdminFetch = (path, init) =>
+	fetch(`${ADMIN_API_URL}${path}`, {
+		...init,
+		headers: { ...(init.headers as Record<string, string>), [VIA_HEADER]: "mcp" },
+	});
 
 /** The project role a tool needs, named in its 403 message. */
 export type ToolRole = "viewer" | "creator" | "project_admin";

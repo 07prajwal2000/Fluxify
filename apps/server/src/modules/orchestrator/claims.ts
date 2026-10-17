@@ -7,6 +7,7 @@ import { BadRequestError } from "../../errors/badRequestError";
 import { NotFoundError } from "../../errors/notFoundError";
 import { nodeEntitlement } from "../../lib/edition";
 import { systemLog } from "../../lib/systemLogs";
+import { audit, bodyFields } from "../audit";
 import type { ClaimMetadata } from "./claimMetadata";
 import { validateClaim } from "./projection";
 import { recordEvent } from "./records";
@@ -220,6 +221,13 @@ export async function createClaim(input: ClaimInput, actor?: string) {
 			createdBy: actor ?? null,
 		})
 		.returning();
+	await audit.record({
+		projectId: claim!.projectId,
+		resourceType: "node_claim",
+		resourceId: claim!.id,
+		action: "create",
+		changedFields: bodyFields(input),
+	});
 	await recordEvent({
 		claimId: claim!.id,
 		projectId: claim!.projectId,
@@ -287,6 +295,13 @@ export async function updateClaim(claimId: string, patch: ClaimPatch, scope: Cla
 		.where(eq(nodeClaimsEntity.id, claimId))
 		.returning();
 
+	await audit.record({
+		projectId: current.projectId,
+		resourceType: "node_claim",
+		resourceId: claimId,
+		action: "update",
+		changedFields: bodyFields(patch),
+	});
 	const scaledBy = next.replicas - current.replicas;
 	const envChanged = (next.env ?? "production") !== (current.env ?? "production");
 	await recordEvent({
@@ -333,6 +348,13 @@ export async function updateClaim(claimId: string, patch: ClaimPatch, scope: Cla
 export async function releaseClaim(claimId: string, scope: ClaimScope = {}) {
 	const claim = await loadClaim(claimId, scope);
 	await db.delete(nodeClaimsEntity).where(eq(nodeClaimsEntity.id, claimId));
+	await audit.record({
+		projectId: claim.projectId,
+		resourceType: "node_claim",
+		resourceId: claimId,
+		action: "delete",
+		changedFields: [],
+	});
 	await recordEvent({
 		claimId,
 		projectId: claim.projectId,

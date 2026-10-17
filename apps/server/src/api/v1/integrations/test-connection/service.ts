@@ -28,6 +28,7 @@ import { missingAppConfigMessage, pickValue } from "../../../../lib/envValues";
 import { parseMongoUrl } from "../../../../lib/parsers/mongodb";
 import { parseMysqlUrl } from "../../../../lib/parsers/mysql";
 import { parsePostgresUrl } from "../../../../lib/parsers/postgres";
+import { audit } from "../../../../modules/audit";
 import { ADMIN_CONNECTION_ENV, SET_ONE } from "../adminEnv";
 import { getAppConfigKeysFromData } from "../create/service";
 import { getSchema } from "../helpers";
@@ -153,7 +154,18 @@ export default async function handleRequest(
 	projectId: string,
 	body: z.infer<typeof requestBodySchema>,
 ): Promise<Result> {
-	return testIntegrationConnection(projectId, body.group, body.variant, body.config);
+	const result = await testIntegrationConnection(projectId, body.group, body.variant, body.config);
+	await audit.record({
+		projectId,
+		resourceType: "integration",
+		resourceId: `${body.group}:${body.variant}`,
+		action: "test",
+		changedFields: [],
+		status: result.success ? "success" : "failure",
+		// the reason a probe failed; scrubbed of anything credential-shaped on the way in
+		...(result.success ? {} : { message: result.error }),
+	});
+	return result;
 }
 
 async function testDatabasesConnection(

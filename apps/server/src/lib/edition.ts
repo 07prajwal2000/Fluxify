@@ -154,6 +154,14 @@ const GATES = {
 		unlicensed: "Your license does not include SSO",
 		community: "SSO needs an enterprise license",
 	},
+	auditLogs: {
+		flag: null,
+		off: "",
+		expired:
+			"The enterprise license has expired. Audit logs keep recording through the grace period, then stop",
+		unlicensed: "Your license does not include audit logs",
+		community: "Audit logs need an enterprise license",
+	},
 } as const satisfies Record<Feature, unknown>;
 
 /**
@@ -192,4 +200,14 @@ function logEdition(license: License, rejected: string | null = null) {
 		console.error(
 			process.env.NO_COLOR ? `\n${text}\n` : `\n${text.replace(/^.*$/gm, "\x1b[31m$&\x1b[0m")}\n`,
 		);
+}
+
+/** Audit logs are recorded while the licence includes them, through the grace period. */
+export function canRecordAudit(e = currentEntitlement()) {
+	return e.canRun && includes(e, FEATURES.auditLogs);
+}
+
+/** What a new project's `auditLogs.enabled` starts as: on only where the licence allows new EE things. */
+export function auditLogsDefaultEnabled(e = currentEntitlement()) {
+	return e.canCreate && includes(e, FEATURES.auditLogs);
 }

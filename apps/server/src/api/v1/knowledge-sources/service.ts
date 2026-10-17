@@ -5,6 +5,7 @@ import { CHAN_ON_KNOWLEDGE_SOURCE_CHANGE, publishMessage } from "../../../db/red
 import { type KnowledgePage, knowledgeSourcesEntity } from "../../../db/schema";
 import { ConflictError } from "../../../errors/conflictError";
 import { NotFoundError } from "../../../errors/notFoundError";
+import { audit, bodyFields } from "../../../modules/audit";
 import type { bodySchema } from "./dto";
 import { fetchMarkdown, ingest, parseLlmsLinks, resolveHeaders } from "./ingest";
 
@@ -82,6 +83,13 @@ export async function create(projectId: string, body: Body) {
 		.insert(knowledgeSourcesEntity)
 		.values({ ...rest, projectId, ...(await fetched(projectId, body)) })
 		.returning({ id: knowledgeSourcesEntity.id });
+	await audit.record({
+		projectId,
+		resourceType: "knowledge_source",
+		resourceId: row.id,
+		action: "create",
+		changedFields: bodyFields(body),
+	});
 	await changed(projectId);
 	return { id: row.id };
 }
@@ -110,6 +118,13 @@ export async function update(projectId: string, id: string, body: Body) {
 			...(refetch && (await fetched(projectId, { ...body, pages: old.pages }))),
 		})
 		.where(byId(projectId, id));
+	await audit.record({
+		projectId,
+		resourceType: "knowledge_source",
+		resourceId: id,
+		action: "update",
+		changedFields: bodyFields(body),
+	});
 	await changed(projectId);
 	return { id };
 }
@@ -117,6 +132,13 @@ export async function update(projectId: string, id: string, body: Body) {
 export async function remove(projectId: string, id: string) {
 	await find(projectId, id);
 	await db.delete(knowledgeSourcesEntity).where(byId(projectId, id));
+	await audit.record({
+		projectId,
+		resourceType: "knowledge_source",
+		resourceId: id,
+		action: "delete",
+		changedFields: [],
+	});
 	await changed(projectId);
 	return { id };
 }
@@ -132,6 +154,13 @@ export async function refetch(projectId: string, id: string) {
 		.update(knowledgeSourcesEntity)
 		.set(await fetched(projectId, body))
 		.where(byId(projectId, id));
+	await audit.record({
+		projectId,
+		resourceType: "knowledge_source",
+		resourceId: id,
+		action: "update",
+		changedFields: ["pages"],
+	});
 	await changed(projectId);
 	return get(projectId, id);
 }
@@ -160,6 +189,13 @@ export async function updatePage(
 	const pages = [...old.pages];
 	pages[idx] = { ...pages[idx], markdown: body.markdown, edited: true };
 	await db.update(knowledgeSourcesEntity).set({ pages }).where(byId(projectId, id));
+	await audit.record({
+		projectId,
+		resourceType: "knowledge_source",
+		resourceId: id,
+		action: "update",
+		changedFields: ["pages"],
+	});
 	await changed(projectId);
 	return { id };
 }

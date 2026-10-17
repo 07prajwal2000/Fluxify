@@ -4,6 +4,7 @@ import { ValidationError } from "../../../errors/validationError";
 import { auth } from "../../../lib/auth";
 import { createSystemUser, getSystemUserByEmail } from "../../../lib/system-users";
 import { getSetting } from "../../../loaders/instanceSettingsLoader";
+import { audit, bodyFields } from "../../../modules/audit";
 import type { requestBodySchema, responseSchema } from "./dto";
 
 export default async function handleRequest(
@@ -34,6 +35,7 @@ export default async function handleRequest(
 			name: data.fullname,
 			isSystemAdmin: data.isSystemAdmin,
 		});
+		await recordUserCreated(su.id, data);
 		return { id: su.id };
 	}
 
@@ -54,5 +56,15 @@ export default async function handleRequest(
 			password: data.password,
 		},
 	});
+	await recordUserCreated(su.id, data);
 	return { id: su.id };
 }
+
+/** the field names of the request, never the email or the password */
+const recordUserCreated = (id: string, data: z.infer<typeof requestBodySchema>) =>
+	audit.record({
+		resourceType: "user",
+		resourceId: id,
+		action: "create",
+		changedFields: bodyFields(data),
+	});

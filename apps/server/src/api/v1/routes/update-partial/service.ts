@@ -8,6 +8,7 @@ import { NotFoundError } from "../../../../errors/notFoundError";
 import { ServerError } from "../../../../errors/serverError";
 import { canAccessProject } from "../../../../lib/acl";
 import { prodRecordingWarning } from "../../../../lib/observability";
+import { audit, bodyFields } from "../../../../modules/audit";
 import { patchRouteConfig } from "../routeConfigRepository";
 import { routeConflictError } from "../routeConflict";
 import { normalizeParamsSchema, validateRouteSchemas } from "../schema-validator";
@@ -112,7 +113,7 @@ export default async function handleRequest(
 			);
 		}
 		applySchemas(patchedRoute, data);
-		return await updateRoute(
+		const updated = await updateRoute(
 			{
 				...patchedRoute,
 				id,
@@ -120,6 +121,14 @@ export default async function handleRequest(
 			} as any,
 			tx,
 		);
+		await audit.record({
+			projectId: existingRoute.projectId,
+			resourceType: "route",
+			resourceId: id,
+			action: "update",
+			changedFields: bodyFields(data),
+		});
+		return updated;
 	});
 	if (!result) {
 		throw new ServerError("Something went wrong while updating the route");

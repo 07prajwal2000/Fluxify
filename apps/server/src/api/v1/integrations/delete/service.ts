@@ -1,6 +1,7 @@
 import { db } from "../../../../db";
 import { CHAN_ON_INTEGRATION_CHANGE, publishMessage } from "../../../../db/redis";
 import { NotFoundError } from "../../../../errors/notFoundError";
+import { audit } from "../../../../modules/audit";
 import { findTriggersByIntegration } from "../../triggers/repository";
 import { withdraw } from "../../triggers/service";
 import { deleteIntegration } from "./repository";
@@ -13,6 +14,13 @@ export default async function handleRequest(projectId: string, id: string) {
 		if ((await deleteIntegration(projectId, id, tx)) === 0) {
 			throw new NotFoundError("Integration not found");
 		}
+		await audit.record({
+			projectId,
+			resourceType: "integration",
+			resourceId: id,
+			action: "delete",
+			changedFields: [],
+		});
 		return using;
 	});
 	for (const trigger of triggers) await withdraw(trigger.projectId, trigger.id);

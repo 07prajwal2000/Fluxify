@@ -125,6 +125,15 @@ export const projectSettingsKeySchemaMap = {
 		defaultValue: "true",
 		dataType: "boolean",
 	},
+	/**
+	 * Audit logs (#833, Enterprise). Absent means off, which is what projects from
+	 * before the feature get. A new project starts on where the licence allows it.
+	 */
+	"auditLogs.enabled": {
+		schema: z.enum(["true", "false"]),
+		defaultValue: "false",
+		dataType: "boolean",
+	},
 	"experimental.workerTimeouts.enabled": {
 		schema: z.enum(["true", "false"]),
 		defaultValue: "false",
@@ -137,6 +146,7 @@ export const adminOnlyProjectSettingKeys: ReadonlySet<string> = new Set([
 	"settings.ai.maxSteps",
 	"settings.ai.maxContextTokens",
 	"settings.ai.tokenBudget",
+	"auditLogs.enabled",
 ]);
 
 export type ProjectSettingsKeyType = keyof typeof projectSettingsKeySchemaMap;

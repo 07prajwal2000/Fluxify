@@ -7,6 +7,7 @@ import {
 	rpcRequest as rpcRequestOn,
 	rpcRespond as rpcRespondOn,
 } from "@fluxify/common/nats";
+import { runWithAuditContext } from "../modules/audit/context";
 import { natsConnection } from "./nats";
 
 /**
@@ -61,8 +62,16 @@ export function rpcRespond<TReq, TRes>(
 	handler: (payload: TReq, caller: RpcCaller) => Promise<TRes>,
 	queue = "fluxify.ops",
 ) {
-	const responder = rpcRespondOn<TReq, TRes, RpcCaller>(natsConnection(), subject, handler, {
-		queue,
-	});
+	const responder = rpcRespondOn<TReq, TRes, RpcCaller>(
+		natsConnection(),
+		subject,
+		// the AI agent's edits arrive here; its user id is the audit actor
+		(payload, caller) =>
+			runWithAuditContext(
+				{ actor: { actorId: caller.userId, actorEmail: "" }, source: "agent" },
+				() => handler(payload, caller),
+			),
+		{ queue },
+	);
 	return responder.stop;
 }

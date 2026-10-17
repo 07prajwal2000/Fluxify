@@ -1,11 +1,35 @@
 import { verifyJwsAccessToken } from "better-auth/oauth2";
 import { db } from "../db";
+import type { AuditSource } from "../modules/audit/types";
 import { AGENT_TOKEN_PREFIX, verifyAgentToken } from "./agentToken";
 import { API_KEY_PREFIX, auth, authIssuerUrl, getUserAccessControls, mcpResourceUrl } from "./auth";
 import { findTokenUser, isOAuthGrantActive } from "./bearerAuthRepository";
 
 /** `projectId`: the token only reaches this project (an agent run token). */
-type Grant = { userId: string; tokenId: string; expiresAt: Date; projectId?: string };
+type Grant = {
+	userId: string;
+	tokenId: string;
+	expiresAt: Date;
+	projectId?: string;
+	/** how the call came in, for the audit trail */
+	source: AuditSource;
+};
+type RawGrant = Omit<Grant, "source">;
+
+/**
+ * Set by the MCP server on every call it forwards (apps/ai-gateway
+ * `mcp/adminApi.ts`), so a personal token an MCP tool passes on is still
+ * labelled `mcp`. A label for the audit trail, not a security check: any
+ * caller can send it, and all it does is change the word in the log.
+ */
+export const VIA_HEADER = "x-fluxify-via";
+
+/** `flx_` is a personal token, `fxa_` an agent run token, any other bearer an OAuth (MCP) token. */
+export function bearerSource(token: string, headers: Headers): AuditSource {
+	if (headers.get(VIA_HEADER)?.toLowerCase() === "mcp") return "mcp";
+	if (token.startsWith(API_KEY_PREFIX)) return "pat";
+	return token.startsWith(AGENT_TOKEN_PREFIX) ? "agent" : "mcp";
+}
 
 /**
  * Turns `Authorization: Bearer <token>` into the same `{ user, session, acl }`
@@ -22,10 +46,10 @@ export async function resolveBearerSession(headers: Headers) {
 		: token.startsWith(AGENT_TOKEN_PREFIX)
 			? agentGrant(token)
 			: await oauthGrant(token);
-	return grant ? loadIdentity(grant) : null;
+	return grant ? loadIdentity({ ...grant, source: bearerSource(token, headers) }) : null;
 }
 
-function agentGrant(token: string): Grant | null {
+function agentGrant(token: string): RawGrant | null {
 	const grant = verifyAgentToken(token);
 	return grant && { ...grant, tokenId: `agent:${grant.projectId}` };
 }
@@ -48,7 +72,7 @@ function scope<U extends { isSystemAdmin: boolean }, A extends { projectId: stri
 	};
 }
 
-async function apiKeyGrant(key: string): Promise<Grant | null> {
+async function apiKeyGrant(key: string): Promise<RawGrant | null> {
 	const result = await auth.api.verifyApiKey({ body: { key } });
 	if (!result.valid || !result.key) return null;
 	return {
@@ -58,7 +82,7 @@ async function apiKeyGrant(key: string): Promise<Grant | null> {
 	};
 }
 
-async function oauthGrant(token: string): Promise<Grant | null> {
+async function oauthGrant(token: string): Promise<RawGrant | null> {
 	const payload = await verifyJwsAccessToken(token, {
 		jwksFetch: () => auth.api.getJwks(),
 		jwksCacheKey: auth,
@@ -73,7 +97,11 @@ async function oauthGrant(token: string): Promise<Grant | null> {
 	// revoking the app (deleting its consent), deleting or disabling the
 	// client, or deleting the user cuts its tokens off at once.
 	if (!(await isOAuthGrantActive(clientId, userId))) return null;
-	return { userId, tokenId: payload.jti ?? clientId, expiresAt: new Date(payload.exp * 1000) };
+	return {
+		userId,
+		tokenId: payload.jti ?? clientId,
+		expiresAt: new Date(payload.exp * 1000),
+	};
 }
 
 async function loadIdentity(grant: Grant) {
@@ -95,5 +123,6 @@ async function loadIdentity(grant: Grant) {
 			userAgent: null,
 		},
 		acl,
+		source: grant.source,
 	};
 }

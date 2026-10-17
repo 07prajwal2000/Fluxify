@@ -7,6 +7,7 @@ import {
 import { BadRequestError } from "../../../../../../errors/badRequestError";
 import { NotFoundError } from "../../../../../../errors/notFoundError";
 import { constructProjectSettingCacheKey } from "../../../../../../lib/project-settings";
+import { audit, forgetProject } from "../../../../../../modules/audit";
 import { hasRouteClaim } from "../../../../../../modules/orchestrator/claims";
 import { getProjectSettingsKeys } from "../get-all/repository";
 import { type ProjectSettingsKeyType, projectSettingsKeySchemaMap } from "../keySchemaMap";
@@ -58,6 +59,16 @@ export default async function handleRequest(
 	}
 
 	await upsertProjectSettingKey(projectId, key, finalValue);
+	forgetProject(projectId);
+	await audit.record({
+		projectId,
+		resourceType: "project",
+		resourceId: projectId,
+		action: "update",
+		changedFields: [key],
+		// switching audit logs off is itself logged, and so is switching them on
+		...(key === "auditLogs.enabled" ? { project: { enabled: true } } : {}),
+	});
 
 	if (key === "settings.ai.agentConnectionId" && finalValue) {
 		await publishMessage(CHAN_ON_INTEGRATION_CHANGE, finalValue);

@@ -5,6 +5,7 @@ import { db } from "../../../db";
 import { type AuthACL, middlewaresEntity } from "../../../db/schema";
 import { ForbiddenError } from "../../../errors/forbidError";
 import { NotFoundError } from "../../../errors/notFoundError";
+import { audit, bodyFields } from "../../../modules/audit";
 import { requestMiddlewareCompile } from "../../../modules/compiler/publisher";
 import { assertNotInUse } from "../../../modules/references/service";
 import { versionNumberOf } from "../../../modules/versions/repository";
@@ -91,6 +92,13 @@ export async function create(data: z.infer<typeof createBodySchema>) {
 			.values(fields)
 			.returning({ id: middlewaresEntity.id });
 		if (blocks?.length) await setChain(row!.id, data.projectId, blocks, tx);
+		await audit.record({
+			projectId: data.projectId,
+			resourceType: "middleware",
+			resourceId: row!.id,
+			action: "create",
+			changedFields: bodyFields(data),
+		});
 		return row!;
 	});
 	// its own artifact (#579); it is on no route yet, so no route recompiles
@@ -107,6 +115,13 @@ export async function update(id: string, data: z.infer<typeof updateBodySchema>,
 			await tx.update(middlewaresEntity).set(fields).where(eq(middlewaresEntity.id, id));
 		}
 		if (blocks) await setChain(id, middleware.projectId, blocks, tx);
+		await audit.record({
+			projectId: middleware.projectId,
+			resourceType: "middleware",
+			resourceId: id,
+			action: "update",
+			changedFields: bodyFields(data),
+		});
 	});
 	// name and chain live in the middleware's own artifact (#579), not in the
 	// routes: one small write, however many routes use it
@@ -128,6 +143,13 @@ export async function remove(id: string, caller: Caller) {
 			tx,
 		);
 		await tx.delete(middlewaresEntity).where(eq(middlewaresEntity.id, id));
+		await audit.record({
+			projectId: middleware.projectId,
+			resourceType: "middleware",
+			resourceId: id,
+			action: "delete",
+			changedFields: [],
+		});
 	});
 	await requestMiddlewareCompile(id, middleware.projectId, "middleware deleted");
 	return { id };
@@ -152,7 +174,16 @@ export async function setForRoute(
 	caller: Caller,
 ) {
 	const projectId = await routeFor(routeId, caller, "creator");
-	await db.transaction((tx) => setRouteMiddlewares(routeId, projectId, data, tx));
+	await db.transaction(async (tx) => {
+		await setRouteMiddlewares(routeId, projectId, data, tx);
+		await audit.record({
+			projectId,
+			resourceType: "route",
+			resourceId: routeId,
+			action: "update",
+			changedFields: ["middlewares"],
+		});
+	});
 	await recompileRoutes([routeId]);
 	return { id: routeId };
 }

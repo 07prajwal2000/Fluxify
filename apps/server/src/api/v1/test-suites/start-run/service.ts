@@ -3,6 +3,7 @@ import { CustomError } from "../../../../errors/customError";
 import { ForbiddenError } from "../../../../errors/forbidError";
 import { NotFoundError } from "../../../../errors/notFoundError";
 import { ServerError } from "../../../../errors/serverError";
+import { audit } from "../../../../modules/audit";
 import { startTestRun, TestRunError } from "../../../../modules/testRunner/runner";
 import type { SuiteTarget } from "../../../../modules/testRunner/target";
 
@@ -18,6 +19,15 @@ export default async function handleRequest(input: {
 		// executeRun catches everything — but a stray handler costs nothing.
 		const { runId, done } = await startTestRun(input);
 		done.catch(() => {});
+		// the run is under way and cannot be rolled back, so this follows it
+		await audit.record({
+			projectId: input.projectId,
+			resourceType: "test_run",
+			resourceId: runId,
+			action: "run",
+			changedFields: input.suiteIds ? ["suiteIds"] : [],
+			message: runMessage(input),
+		});
 		return { runId };
 	} catch (err: unknown) {
 		if (err instanceof TestRunError) {
@@ -27,4 +37,11 @@ export default async function handleRequest(input: {
 		if (err instanceof CustomError) throw err;
 		throw new ServerError(err instanceof Error ? err.message : "Failed to start test run");
 	}
+}
+
+/** a run in production says so in the log; running every suite is worth saying too */
+function runMessage({ suiteIds, env }: { suiteIds?: string[]; env?: string }) {
+	const all = suiteIds ? "" : " all suites";
+	if (env === "production") return `Ran${all} in production canvas`;
+	return all ? `Ran${all}` : undefined;
 }

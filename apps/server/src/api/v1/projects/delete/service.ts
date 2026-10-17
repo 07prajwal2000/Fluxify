@@ -11,6 +11,7 @@ import {
 	publishMessage,
 } from "../../../../db/redis";
 import { NotFoundError } from "../../../../errors/notFoundError";
+import { audit, forgetProject } from "../../../../modules/audit";
 import { dropSandbox } from "../../../../modules/compiler/sandbox";
 import { dropCustomBlock, dropRoute, dropWorkflow } from "../../../../modules/compiler/service";
 import { middlewareKey } from "../../../../modules/compiler/subjects";
@@ -32,12 +33,23 @@ import {
  */
 export default async function handleRequest(id: string): Promise<z.infer<typeof responseSchema>> {
 	const contents = await db.transaction(async (tx) => {
-		if (!(await findProjectById(id, tx))) throw new NotFoundError("Project not found");
+		const project = await findProjectById(id, tx);
+		if (!project) throw new NotFoundError("Project not found");
 		const found = await findProjectContents(id, tx);
 		await clearRestrictedRows(id, tx);
 		await deleteProjectRow(id, tx);
+		// the log row keeps the project's name and slug: the project will not be there to ask
+		await audit.record({
+			projectId: id,
+			resourceType: "project",
+			resourceId: id,
+			action: "delete",
+			changedFields: [],
+			project: { name: project.name ?? undefined, slug: project.slug ?? undefined },
+		});
 		return found;
 	});
+	forgetProject(id);
 
 	// Withdraw after the commit: a consumer must not outlive its row for long.
 	await Promise.all(

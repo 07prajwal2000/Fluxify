@@ -6,6 +6,7 @@ import { NotFoundError } from "../../../../errors/notFoundError";
 import { ServerError } from "../../../../errors/serverError";
 import { ValidationError } from "../../../../errors/validationError";
 import { mapZodErrorToFieldErrors } from "../../../../lib/errors";
+import { audit, changedFields } from "../../../../modules/audit";
 import { getAppConfigKeys } from "../create/repository";
 import { getAppConfigKeysFromData } from "../create/service";
 import { getSchema } from "../helpers";
@@ -49,6 +50,13 @@ export default async function handleRequest(
 			},
 			tx,
 		);
+		await audit.record({
+			projectId,
+			resourceType: "integration",
+			resourceId: id,
+			action: "update",
+			changedFields: changedFields(integration, body),
+		});
 		return updatedIntegration;
 	});
 	if (!result) {

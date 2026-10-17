@@ -1792,3 +1792,39 @@ export const traceSpansEntity = pgTable(
 );
 
 export * from "./agent-schema";
+
+/* ============================================================================
+ * 10. AUDIT LOGS (#833, EE)
+ * ============================================================================ */
+
+/**
+ * Who changed what. Written by the admin's audit consumer in batches, never by
+ * a worker. No foreign keys: a row outlives its project, which is why the
+ * project's name and slug are copied onto it. Property names only, never values.
+ */
+export const auditEventsEntity = pgTable(
+	"audit_events",
+	{
+		/** the event's uuidv7, so a redelivered event lands on the same row */
+		id: uuid().primaryKey(),
+		ts: timestamp({ withTimezone: true }).notNull(),
+		actorId: varchar("actor_id", { length: 100 }).notNull(),
+		actorEmail: varchar("actor_email", { length: 320 }).notNull(),
+		source: varchar({ length: 10 }).notNull(),
+		/** null for instance-level events */
+		projectId: varchar("project_id", { length: 50 }),
+		projectName: varchar("project_name", { length: 200 }),
+		projectSlug: varchar("project_slug", { length: 200 }),
+		resourceType: varchar("resource_type", { length: 50 }).notNull(),
+		resourceId: varchar("resource_id", { length: 100 }).notNull(),
+		action: varchar({ length: 50 }).notNull(),
+		changedFields: jsonb("changed_fields").$type<string[]>().notNull(),
+		status: varchar({ length: 10 }).notNull(),
+		message: text(),
+	},
+	(table) => [
+		index("idx_audit_events_project_ts").on(table.projectId, table.ts),
+		index("idx_audit_events_actor_ts").on(table.actorId, table.ts),
+		index("idx_audit_events_ts").on(table.ts),
+	],
+);

@@ -4,8 +4,10 @@ import { BadRequestError } from "../../../../errors/badRequestError";
 import { CustomError } from "../../../../errors/customError";
 import { NotFoundError } from "../../../../errors/notFoundError";
 import { ServerError } from "../../../../errors/serverError";
+import { audit, bodyFields } from "../../../../modules/audit";
 import { replaceSuiteHooks, validateHooks } from "../../../../modules/testRunner/hooks";
 import { targetOf, targetProject } from "../../../../modules/testRunner/target";
+import { suiteProjectId } from "../audit";
 import { getTestSuiteById } from "../get-by-id/repository";
 import type { requestBodySchema } from "./dto";
 import { testOnlyBlocksOfProject, updateTestSuite } from "./repository";
@@ -49,6 +51,13 @@ export default async function handleRequest(id: string, data: z.infer<typeof req
 				: { id };
 			if (!result) throw new NotFoundError("Test suite not found");
 			if (hooks !== undefined) await replaceSuiteHooks(id, hooks, tx);
+			await audit.record({
+				projectId: suiteProjectId(id),
+				resourceType: "test_suite",
+				resourceId: id,
+				action: "update",
+				changedFields: bodyFields(data),
+			});
 			return result;
 		});
 	} catch (err: any) {
