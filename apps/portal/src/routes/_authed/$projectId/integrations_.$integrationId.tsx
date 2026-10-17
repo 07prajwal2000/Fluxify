@@ -24,6 +24,9 @@ export const Route = createFileRoute("/_authed/$projectId/integrations_/$integra
 	component: IntegrationDetailsPage,
 });
 
+/** the saved config of an environment signs in with OAuth */
+const savedOAuth = (config: unknown) => (config as { auth?: string } | null)?.auth === "oauth";
+
 function IntegrationDetailsPage() {
 	const { projectId, integrationId } = Route.useParams();
 	const { data: project } = projectsQuery.byId.useQuery(projectId);
@@ -35,6 +38,7 @@ function IntegrationDetailsPage() {
 	const update = integrationsQuery.update.mutation(projectId);
 	const test = integrationsQuery.testConnection.mutation(projectId);
 	const testProd = integrationsQuery.testProductionConnection.mutation(projectId);
+	const testSaved = integrationsQuery.testExistingConnection.mutation(projectId);
 	const remove = integrationsQuery.remove.mutation(projectId);
 
 	const [name, setName] = useState("");
@@ -47,6 +51,17 @@ function IntegrationDetailsPage() {
 	const [devConfig, setDevConfig] = useState<Record<string, unknown> | null>(null);
 	const [syncDev, setSyncDev] = useState(false);
 	const [confirmDelete, setConfirmDelete] = useState(false);
+
+	// the MCP server sent the browser back after Connect
+	useEffect(() => {
+		const url = new URL(window.location.href);
+		const result = url.searchParams.get("mcpOAuth");
+		if (!result) return;
+		if (result === "connected") toast.success("Connected");
+		else toast.danger("Could not connect. Try again.");
+		url.searchParams.delete("mcpOAuth");
+		window.history.replaceState(window.history.state, "", url);
+	}, []);
 
 	useEffect(() => {
 		if (!loaded.data) return;
@@ -114,7 +129,17 @@ function IntegrationDetailsPage() {
 		}
 		const parsed = parseConfig(toTest);
 		if (!parsed) return;
-		const canWrite = group === "mcp" ? isAdmin : canEdit;
+		// the sign in is stored with the saved integration, so an OAuth server is tested from there
+		if (group === "mcp" && toTest?.auth === "oauth") {
+			testSaved.mutate(integrationId, {
+				onSuccess: (res) => {
+					showTestResult(res);
+					if (res?.tools) setTestedTools(res.tools);
+				},
+				onError: (e) => showErrorNotification(e as Error),
+			});
+			return;
+		}
 		test.mutate(
 			{ group, variant, config: parsed },
 			{
@@ -173,6 +198,19 @@ function IntegrationDetailsPage() {
 					variant={variant}
 					readOnly={!canWrite}
 					tools={testedTools ?? undefined}
+					oauth={
+						group === "mcp"
+							? {
+									integrationId,
+									canConnect: isAdmin,
+									// what is saved, not what is being edited: Connect works on the saved config
+									saved: {
+										production: savedOAuth(loaded.data.config),
+										development: savedOAuth(loaded.data.devConfig),
+									},
+								}
+							: undefined
+					}
 				/>
 			</div>
 

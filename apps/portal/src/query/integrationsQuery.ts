@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type z from "zod";
-import { integrationService } from "@/services/integrations";
+import { integrationService, type McpOAuthEnv } from "@/services/integrations";
 
 type CreateIntegrationType = z.infer<typeof integrationService.createRequestSchema>;
 type UpdateIntegrationType = z.infer<typeof integrationService.updateRequestSchema>;
@@ -93,6 +93,24 @@ export const integrationsQuery = {
 		mutation(projectId: string) {
 			return useMutation({
 				mutationFn: (id: string) => integrationService.testProductionConnection(projectId, id),
+			});
+		},
+	},
+	connectMcpOAuth: {
+		mutation(projectId: string) {
+			return useMutation({
+				mutationFn: (params: { id: string; env: McpOAuthEnv }) =>
+					integrationService.connectMcpOAuth(projectId, params.id, params.env),
+			});
+		},
+	},
+	disconnectMcpOAuth: {
+		mutation(projectId: string) {
+			const qc = useQueryClient();
+			return useMutation({
+				mutationFn: (params: { id: string; env: McpOAuthEnv }) =>
+					integrationService.disconnectMcpOAuth(projectId, params.id, params.env),
+				onSuccess: () => qc.invalidateQueries({ queryKey: ["integrations", projectId] }),
 			});
 		},
 	},

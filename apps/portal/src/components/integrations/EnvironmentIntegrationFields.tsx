@@ -1,6 +1,7 @@
 import { Checkbox, Label } from "@fluxify/components";
 import { TbAlertTriangle } from "react-icons/tb";
 import { ConnectorFields } from "./ConnectorFields";
+import type { McpOAuthTarget } from "./connectors/types";
 
 export type EnvironmentIntegrationFieldsProps = {
 	projectId: string;
@@ -16,6 +17,12 @@ export type EnvironmentIntegrationFieldsProps = {
 	onSyncDevChange: (sync: boolean) => void;
 	readOnly?: boolean;
 	tools?: { name: string; description: string }[];
+	/** mcp, once the integration is saved: what Connect needs, per environment */
+	oauth?: {
+		integrationId: string;
+		canConnect: boolean;
+		saved: { production: boolean; development: boolean };
+	};
 };
 
 export function isConfigEmpty(config: Record<string, unknown> | null | undefined): boolean {
@@ -39,8 +46,16 @@ export function EnvironmentIntegrationFields({
 	onSyncDevChange,
 	readOnly = false,
 	tools,
+	oauth,
 }: EnvironmentIntegrationFieldsProps) {
 	const devEmpty = isConfigEmpty(devConfig);
+	const target = (env: McpOAuthTarget["env"]): McpOAuthTarget | undefined =>
+		oauth && {
+			integrationId: oauth.integrationId,
+			canConnect: oauth.canConnect,
+			env,
+			saved: oauth.saved[env],
+		};
 
 	return (
 		<div className="flex flex-col gap-6">
@@ -65,6 +80,7 @@ export function EnvironmentIntegrationFields({
 					setField={setField}
 					readOnly={readOnly}
 					tools={tools}
+					oauth={target("production")}
 				/>
 			</div>
 
@@ -132,6 +148,7 @@ export function EnvironmentIntegrationFields({
 							hideName
 							readOnly={readOnly}
 							tools={tools}
+							oauth={target("development")}
 						/>
 					</div>
 				)}
