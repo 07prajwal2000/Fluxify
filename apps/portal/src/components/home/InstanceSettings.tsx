@@ -1,6 +1,8 @@
 import { FiAward, FiGlobe, FiShield } from "react-icons/fi";
-import { TbTopologyStar3 } from "react-icons/tb";
+import { TbHistory, TbTopologyStar3 } from "react-icons/tb";
+import { useEnterpriseAuditLogs } from "@/components/common/Enterprise";
 import { publicSettingsQuery } from "@/query/publicSettingsQuery";
+import { AuditLogSettings } from "./instance-settings/audit/AuditLogSettings";
 import { AuthSettings } from "./instance-settings/auth/AuthSettings";
 import { HostingSettings } from "./instance-settings/hosting/HostingSettings";
 import { LicenseSettings } from "./instance-settings/license/LicenseSettings";
@@ -9,9 +11,18 @@ import { SettingsLayout } from "./SettingsLayout";
 
 interface InstanceSettingsProps {
 	activeTab?: string;
+	/** the audit page's project filter, from `?project=` */
+	project?: string;
+	/** writes the audit page's project filter back to the URL */
+	onProjectChange?: (project: string | undefined) => void;
 }
 
-export function InstanceSettings({ activeTab = "auth" }: InstanceSettingsProps) {
+export function InstanceSettings({
+	activeTab = "auth",
+	project,
+	onProjectChange = () => {},
+}: InstanceSettingsProps) {
+	const showAudit = useEnterpriseAuditLogs();
 	const { data: publicSettings } = publicSettingsQuery.get.useQuery();
 	// Orchestration only shows on a deployment that has an orchestrator. Kit has
 	// none, and a tab whose endpoints answer 404 is worse than no tab.
@@ -23,6 +34,8 @@ export function InstanceSettings({ activeTab = "auth" }: InstanceSettingsProps) 
 		...(showOrchestration
 			? [{ id: "orchestration", label: "Orchestration", icon: TbTopologyStar3 }]
 			: []),
+		// Hidden without the licence feature. The page itself still opens, locked, for a link to it.
+		...(showAudit ? [{ id: "audit", label: "Audit logs", icon: TbHistory }] : []),
 	];
 
 	return (
@@ -33,11 +46,15 @@ export function InstanceSettings({ activeTab = "auth" }: InstanceSettingsProps) 
 			sections={sections}
 			activeId={activeTab}
 			searchFor={(id) => ({ tab: "instance", settingsTab: id })}
+			wide={activeTab === "audit"}
 		>
 			{activeTab === "auth" && <AuthSettings />}
 			{activeTab === "license" && <LicenseSettings />}
 			{activeTab === "orchestration" && <OrchestrationSettings />}
 			{activeTab === "hosting" && <HostingSettings />}
+			{activeTab === "audit" && (
+				<AuditLogSettings project={project} onProjectChange={onProjectChange} />
+			)}
 		</SettingsLayout>
 	);
 }

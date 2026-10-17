@@ -207,6 +207,17 @@ export function canRecordAudit(e = currentEntitlement()) {
 	return e.canRun && includes(e, FEATURES.auditLogs);
 }
 
+/**
+ * Refuses reading the audit log without the feature. Unlike `assertCanUse` it
+ * ignores expiry: events recorded under a licence stay readable after it lapses,
+ * until they age out.
+ */
+export function assertCanReadAudit(e = currentEntitlement()) {
+	if (includes(e, FEATURES.auditLogs)) return;
+	const gate = GATES.auditLogs;
+	throw new ForbiddenError(e.status === "community" ? gate.community : gate.unlicensed);
+}
+
 /** What a new project's `auditLogs.enabled` starts as: on only where the licence allows new EE things. */
 export function auditLogsDefaultEnabled(e = currentEntitlement()) {
 	return e.canCreate && includes(e, FEATURES.auditLogs);
