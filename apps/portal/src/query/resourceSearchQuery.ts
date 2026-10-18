@@ -2,6 +2,7 @@ import { keepPreviousData, useQueries } from "@tanstack/react-query";
 import type { RefType } from "@/components/ai/agentRefs";
 import { findResourceQuery } from "@/query/findResourceQuery";
 import { middlewaresService } from "@/services/middlewares";
+import { sandboxesService } from "@/services/sandboxes";
 import { testSuitesService } from "@/services/testSuites";
 import { triggersService } from "@/services/triggers";
 import { workflowsService } from "@/services/workflows";
@@ -24,8 +25,8 @@ const has = (text: string | null | undefined, term: string) =>
 
 /**
  * What the @ picker lists for `term`: routes, integrations, app config and custom
- * blocks from the project search, plus workflows, triggers, middlewares and test
- * suites from their own list endpoints. An empty term asks nothing.
+ * blocks from the project search, plus workflows, triggers, middlewares, sandboxes
+ * and test suites from their own list endpoints. An empty term asks nothing.
  */
 export function useResourceSearch(projectId: string, term: string) {
 	const q = term.trim();
@@ -78,6 +79,15 @@ export function useResourceSearch(projectId: string, term: string) {
 							name: m.name,
 							description: m.description ?? undefined,
 						})),
+			},
+			{
+				...opts,
+				queryKey: ["mention", projectId, "sandbox", q],
+				queryFn: async (): Promise<Mention[]> =>
+					(await sandboxesService.list(projectId))
+						.filter((s) => has(s.name, q))
+						.slice(0, PER_TYPE)
+						.map((s) => ({ type: "sandbox", id: s.id, name: s.name })),
 			},
 			{
 				...opts,
