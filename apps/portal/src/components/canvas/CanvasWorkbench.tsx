@@ -17,6 +17,7 @@ import {
 	SAVE_SOURCE,
 } from "./diagnostics/saveErrorDiagnostics";
 import { type CompileTarget, useCompileDiagnostics } from "./diagnostics/useCompileDiagnostics";
+import { useExtractCustomBlock } from "./extract/useExtractCustomBlock";
 import type { SpotlightCommand } from "./spotlight/types";
 import type { BlockData, CanvasGraph } from "./types";
 import { useCanvasPoll } from "./useCanvasPoll";
@@ -201,6 +202,14 @@ function CanvasWorkbenchInner({
 		setPendingCount(0);
 		setReloadToken((token) => token + 1);
 	}
+	const extract = useExtractCustomBlock({
+		target: compileTarget,
+		enabled: !readOnly,
+		hasUnsavedChanges: pendingCount > 0,
+		save: onSave,
+		reload,
+		reloadCanvas: reloadFromServer,
+	});
 	const stale = useCanvasPoll({
 		revision: items.data?.canvasRevision,
 		isDirty: pendingCount > 0,
@@ -231,6 +240,7 @@ function CanvasWorkbenchInner({
 			</header>
 
 			{banner}
+			{extract.modal}
 
 			{stale && (
 				<Alert status="warning" className="rounded-none">
@@ -271,6 +281,7 @@ function CanvasWorkbenchInner({
 						reloadToken={reloadToken}
 						playgroundToken={playgroundToken}
 						onSave={() => void onSave()}
+						onExtractSelection={extract.open}
 						onChange={(next, changes) => {
 							edited.current = { graph: next, changes };
 							setPendingCount(changes.blocks.size + changes.edges.size);

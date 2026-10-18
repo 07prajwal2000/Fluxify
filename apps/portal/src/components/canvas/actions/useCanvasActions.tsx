@@ -11,6 +11,7 @@ import {
 	TbExternalLink,
 	TbFileImport,
 	TbNote,
+	TbPackageExport,
 	TbPlus,
 	TbSearch,
 	TbTrash,
@@ -32,6 +33,7 @@ export type CanvasActionId =
 	| "paste"
 	| "duplicate"
 	| "export"
+	| "extract"
 	| "import"
 	| "format"
 	| "delete"
@@ -60,6 +62,8 @@ export type UseCanvasActionsOptions = {
 	onAddBlock?: () => void;
 	onAddNote?: () => void;
 	onOpenSpotlight?: () => void;
+	/** Absent = no extracting here (read-only, or a host without a project). */
+	onExtract?: (blockIds: string[]) => void;
 };
 
 export type CanvasActions = {
@@ -80,6 +84,7 @@ export function useCanvasActions({
 	onAddBlock,
 	onAddNote,
 	onOpenSpotlight,
+	onExtract,
 }: UseCanvasActionsOptions): CanvasActions {
 	const { deleteElements } = useReactFlow();
 	const clipboard = useCanvasClipboard();
@@ -199,6 +204,14 @@ export function useCanvasActions({
 				run: () => clipboard.exportSelection(selectedBlockIds),
 			},
 			{
+				id: "extract",
+				label: "Extract to custom block…",
+				icon: <TbPackageExport size={14} />,
+				available: !readOnly && !!onExtract,
+				disabled: !hasBlocks,
+				run: () => onExtract?.(selectedBlockIds),
+			},
+			{
 				id: "import",
 				label: "Import from file…",
 				combo: "mod+i",
@@ -253,6 +266,7 @@ export function useCanvasActions({
 			onAddBlock,
 			onAddNote,
 			onOpenSpotlight,
+			onExtract,
 			onSave,
 			selectedBlockIds,
 			selectedEdgeIds,

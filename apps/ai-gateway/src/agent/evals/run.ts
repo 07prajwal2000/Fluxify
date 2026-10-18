@@ -18,6 +18,7 @@ import { appendResults, type Row, resultsRow, table } from "./report";
 import { tasks as BASE_TASKS } from "./tasks";
 import { moreTasks } from "./tasks2";
 import { ephemeralTasks } from "./tasksEphemeral";
+import { extractTasks } from "./tasksExtract";
 import { moveBlocksTasks } from "./tasksMoveBlocks";
 import { planTasks } from "./tasksPlan";
 import { productionTasks } from "./tasksProduction";
@@ -244,6 +245,7 @@ const ALL_TASKS = [
 	...moreTasks,
 	...ephemeralTasks,
 	...moveBlocksTasks,
+	...extractTasks,
 	...productionTasks,
 	...planTasks,
 ];

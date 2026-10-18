@@ -68,6 +68,7 @@ const CORE_MCP = [
 	"save_route",
 	"save_workflow",
 	"save_custom_block",
+	"extract_custom_block",
 	"save_trigger",
 	"get_canvas",
 	"edit_canvas",
@@ -165,6 +166,12 @@ export function copiesIntoRealCanvas(name: string, args: unknown) {
 	return to !== "__new_sandbox__" && (to as { kind?: string } | undefined)?.kind !== "sandbox";
 }
 
+/** extract_custom_block with replace rewrites a live canvas, so it asks even in auto (#753). */
+export const replacesRealCanvas = (name: string, args: unknown) => {
+	const replace = (args as { replace?: unknown } | undefined)?.replace;
+	return name === "extract_custom_block" && (replace === true || replace === "true");
+};
+
 /** Tools that take an `env` and read production only when it is "production". */
 const PROD_READ_TOOLS = [
 	// production here is the promoted graph on development data, still a production read (#739)
@@ -225,6 +232,7 @@ export const needsApproval = (
 		name === SUGGEST_PLAN ||
 		(askBeforeEphemeral && name === EPHEMERAL_RUN_TOOL) ||
 		copiesIntoRealCanvas(name, args) ||
+		replacesRealCanvas(name, args) ||
 		(touched === "read" && prod.reads) ||
 		(touched === "write" && prod.writes) ||
 		(!isRead(name) && mode !== "auto")

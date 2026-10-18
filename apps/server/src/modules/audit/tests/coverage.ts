@@ -101,6 +101,8 @@ export const AUDITED: Record<string, string> = {
 	"delete-test-runs": `${V}/test-suites/delete-runs/service.ts`,
 	// custom blocks, middlewares
 	"create-custom-block": `${V}/custom-blocks/create/service.ts`,
+	// audited through the create and canvas-save services it calls
+	"extract-custom-block": `${V}/custom-blocks/create/service.ts`,
 	"update-custom-block": `${V}/custom-blocks/update/service.ts`,
 	"delete-custom-block": `${V}/custom-blocks/delete/service.ts`,
 	"create-middleware": `${V}/middlewares/service.ts`,

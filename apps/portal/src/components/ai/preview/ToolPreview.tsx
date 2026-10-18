@@ -11,6 +11,7 @@ import { DeleteCard } from "./DeleteCard";
 import { DocsPreview, isDocsTool } from "./DocsPreview";
 import { isRec } from "./data";
 import { EditCanvasPreview } from "./EditCanvasPreview";
+import { ExtractCustomBlockPreview } from "./ExtractCustomBlockPreview";
 import { canDraw, GetCanvasPreview } from "./GetCanvasPreview";
 import { KvPreview } from "./KvPreview";
 import { MemberPreview } from "./MemberPreview";
@@ -56,6 +57,8 @@ export function previewOf(tool: ToolPart, asking: boolean): ReactNode | null {
 	if (name === SUGGEST_PLAN) return <SuggestPlanPreview tool={tool} asking={asking} />;
 	if (name === TODO_TOOL && todosOf(tool)) return <TodosPreview tool={tool} />;
 	if (name === "copy_blocks") return <CopyBlocksPreview tool={tool} asking={asking} />;
+	if (name === "extract_custom_block")
+		return <ExtractCustomBlockPreview tool={tool} asking={asking} />;
 	if (name === "run_sandbox") return <SandboxRunPreview tool={tool} asking={asking} />;
 	if (isMember(name)) return <MemberPreview tool={tool} asking={asking} />;
 	if (isPackage(name)) return <PackagePreview tool={tool} asking={asking} />;

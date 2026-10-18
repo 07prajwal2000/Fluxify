@@ -12,6 +12,8 @@ export type CanvasCommandsProps = {
 	/** Scope for the shortcuts: the canvas *and* its side panel. */
 	rootRef: RefObject<HTMLElement | null>;
 	onSave?: () => void;
+	/** Right-click "Extract to custom block…": the host asks for a name and does it. */
+	onExtract?: (blockIds: string[]) => void;
 	/** `at` is the viewport point the menu was opened at, absent for a shortcut. */
 	onAddBlock?: (at?: MenuPosition) => void;
 	onAddNote?: (at?: MenuPosition) => void;
@@ -37,6 +39,7 @@ export function CanvasCommands({
 	menu,
 	rootRef,
 	onSave,
+	onExtract,
 	onAddBlock,
 	onAddNote,
 	enableSpotlight = false,
@@ -54,6 +57,7 @@ export function CanvasCommands({
 	const { list } = useCanvasActions({
 		readOnly,
 		onSave,
+		onExtract,
 		onAddBlock: onAddBlock && (() => onAddBlock(menu.position ?? undefined)),
 		onAddNote: onAddNote && (() => onAddNote(menu.position ?? undefined)),
 		onOpenSpotlight: enableSpotlight ? () => setSpotlightOpen(true) : undefined,

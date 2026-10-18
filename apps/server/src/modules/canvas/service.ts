@@ -44,7 +44,7 @@ type CanvasEdgeWithHandle = DirectedCanvasEdge & {
 	fromHandle?: string | null;
 };
 
-const CHANGE_CHANNEL = {
+export const CHANGE_CHANNEL = {
 	route: CHAN_ON_ROUTE_CHANGE,
 	custom_block: CHAN_ON_CUSTOM_BLOCK_CHANGE,
 	workflow: CHAN_ON_WORKFLOW_CHANGE,
