@@ -145,7 +145,7 @@ test("submitting an editor with an integration mention passes the mention ID in 
 		submittedMentions = mentions;
 	};
 	editor({
-		value: ':ref[github]{type="integration" id="mcp-server-1"}',
+		value: ':ref[@github]{type="integration" id="mcp-server-1"}',
 		onSubmit,
 	});
 	const box = document.querySelector("[contenteditable]") as HTMLElement;
