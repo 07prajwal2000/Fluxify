@@ -33,7 +33,6 @@ import {
 	useHasDiagnosticsProvider,
 } from "./diagnostics";
 import { DEFAULT_EDGE_TYPES, FLOW_EDGE_TYPE } from "./edges";
-import { EdgeHoverProvider } from "./edges/edgeHover";
 import { CanvasHistoryProvider, useCanvasHistory } from "./history";
 import { uuidv7 } from "./ids";
 import { KeyboardShortcutsProvider } from "./keyboard";
@@ -381,124 +380,120 @@ function CanvasInner({
 							<CanvasReadOnlyProvider readOnly={readOnly}>
 								<CanvasPanelProvider value={wrappedPanel}>
 									<QuickAddProvider value={quickAddEnabled ? openPickerFor : null}>
-										<EdgeHoverProvider rootRef={canvasRef}>
-											<div className="fx-canvas-shell" ref={shellRef}>
-												<CanvasCommands
-													readOnly={readOnly}
-													enableKeyboard={enableKeyboard && !readOnly}
-													menu={contextMenu}
-													rootRef={shellRef}
-													onSave={onSave}
-													onExtract={onExtractSelection}
-													onAddBlock={enableBlockPicker && !layoutLocked ? openPickerAt : undefined}
-													onAddNote={
-														enableBlockPicker && !layoutLocked
-															? (at) => addBlock(BLOCK_TYPES.stickynote, at)
-															: undefined
-													}
-													enableSpotlight={enableSpotlight && !readOnly}
-													onAddBlockType={
-														!readOnly && !layoutLocked ? (type) => addBlock(type) : undefined
-													}
-													enablePlayground={enablePlayground}
-													onOpenPlayground={playground.open}
-													extraCommands={spotlightCommands}
-												/>
-												{/* biome-ignore lint/a11y/noStaticElementInteractions: canvas right-click context menu */}
-												<div
-													ref={canvasRef}
-													onContextMenu={contextMenu.openAt}
-													className={[
-														"fx-canvas",
-														readOnly ? "fx-canvas--readonly" : "",
-														className ?? "",
-													]
-														.filter(Boolean)
-														.join(" ")}
+										<div className="fx-canvas-shell" ref={shellRef}>
+											<CanvasCommands
+												readOnly={readOnly}
+												enableKeyboard={enableKeyboard && !readOnly}
+												menu={contextMenu}
+												rootRef={shellRef}
+												onSave={onSave}
+												onExtract={onExtractSelection}
+												onAddBlock={enableBlockPicker && !layoutLocked ? openPickerAt : undefined}
+												onAddNote={
+													enableBlockPicker && !layoutLocked
+														? (at) => addBlock(BLOCK_TYPES.stickynote, at)
+														: undefined
+												}
+												enableSpotlight={enableSpotlight && !readOnly}
+												onAddBlockType={
+													!readOnly && !layoutLocked ? (type) => addBlock(type) : undefined
+												}
+												enablePlayground={enablePlayground}
+												onOpenPlayground={playground.open}
+												extraCommands={spotlightCommands}
+											/>
+											{/* biome-ignore lint/a11y/noStaticElementInteractions: canvas right-click context menu */}
+											<div
+												ref={canvasRef}
+												onContextMenu={contextMenu.openAt}
+												className={[
+													"fx-canvas",
+													readOnly ? "fx-canvas--readonly" : "",
+													className ?? "",
+												]
+													.filter(Boolean)
+													.join(" ")}
+											>
+												<ReactFlow<BlockNode, BlockEdge>
+													nodes={nodes}
+													edges={renderedEdges}
+													nodeTypes={nodeTypes ?? EMPTY_NODE_TYPES}
+													edgeTypes={edgeTypes ?? DEFAULT_EDGE_TYPES}
+													defaultEdgeOptions={DEFAULT_EDGE_OPTIONS}
+													onNodesChange={handleNodesChange}
+													onEdgesChange={handleEdgesChange}
+													onConnect={onConnect}
+													onConnectStart={onConnectStart}
+													onConnectEnd={onConnectEnd}
+													// A handle click opens the picker (its `+`), not click-to-connect.
+													connectOnClick={!quickAddEnabled}
+													onBeforeDelete={onBeforeDelete}
+													isValidConnection={isValidConnection}
+													onNodeDragStart={onNodeDragStart}
+													onNodeDoubleClick={onNodeDoubleClick}
+													onNodeContextMenu={onNodeContextMenu}
+													nodesDraggable={canEditLayout}
+													nodesConnectable={canEditLayout}
+													elementsSelectable={true}
+													deleteKeyCode={readOnly ? null : ["Backspace", "Delete"]}
+													elevateNodesOnSelect={false}
+													zIndexMode="manual"
+													zoomOnScroll={captureScroll}
+													preventScrolling={captureScroll}
+													fitView={fitViewOnInit}
+													defaultViewport={defaultViewport}
+													proOptions={{ hideAttribution: true }}
 												>
-													<ReactFlow<BlockNode, BlockEdge>
-														nodes={nodes}
-														edges={renderedEdges}
-														nodeTypes={nodeTypes ?? EMPTY_NODE_TYPES}
-														edgeTypes={edgeTypes ?? DEFAULT_EDGE_TYPES}
-														defaultEdgeOptions={DEFAULT_EDGE_OPTIONS}
-														onNodesChange={handleNodesChange}
-														onEdgesChange={handleEdgesChange}
-														onConnect={onConnect}
-														onConnectStart={onConnectStart}
-														onConnectEnd={onConnectEnd}
-														// A handle click opens the picker (its `+`), not click-to-connect.
-														connectOnClick={!quickAddEnabled}
-														onBeforeDelete={onBeforeDelete}
-														isValidConnection={isValidConnection}
-														onNodeDragStart={onNodeDragStart}
-														onNodeDoubleClick={onNodeDoubleClick}
-														onNodeContextMenu={onNodeContextMenu}
-														nodesDraggable={canEditLayout}
-														nodesConnectable={canEditLayout}
-														elementsSelectable={true}
-														deleteKeyCode={readOnly ? null : ["Backspace", "Delete"]}
-														elevateNodesOnSelect={false}
-														zIndexMode="manual"
-														zoomOnScroll={captureScroll}
-														preventScrolling={captureScroll}
-														fitView={fitViewOnInit}
-														defaultViewport={defaultViewport}
-														proOptions={{ hideAttribution: true }}
-													>
-														<Background
-															variant={BackgroundVariant.Dots}
-															color="var(--fx-canvas-dot)"
-														/>
-														{showToolbar && (
-															<CanvasToolbar
-																readOnly={readOnly}
-																layoutLocked={layoutLocked}
-																onToggleLayoutLock={() => setLayoutLocked((locked) => !locked)}
-															/>
-														)}
-														{children}
-													</ReactFlow>
-													{/* the AI edits the graph — nothing to offer on a readonly view */}
-													{!readOnly && <AiCanvasButton />}
-													{!readOnly && !layoutLocked && (
-														<CanvasQuickActions
-															enableBlockPicker={enableBlockPicker}
-															enablePlayground={enablePlayground}
-															onOpenBlockPicker={() => openPickerAt()}
-															onAddNote={() => addBlock(BLOCK_TYPES.stickynote)}
-															onOpenPlayground={playground.open}
+													<Background
+														variant={BackgroundVariant.Dots}
+														color="var(--fx-canvas-dot)"
+													/>
+													{showToolbar && (
+														<CanvasToolbar
+															readOnly={readOnly}
+															layoutLocked={layoutLocked}
+															onToggleLayoutLock={() => setLayoutLocked((locked) => !locked)}
 														/>
 													)}
-													{nodes.length === 0 && (
-														<div className="fx-canvas__empty">
-															{readOnly
-																? "Nothing to show."
-																: "Empty canvas — add a block to start."}
-														</div>
-													)}
-												</div>
-												<CanvasOverlays
-													readOnly={readOnly}
-													layoutLocked={layoutLocked}
-													enableBlockPicker={enableBlockPicker}
-													blockPicker={blockPicker}
-													addPickedBlock={addPickedBlock}
-													pending={pending}
-													panel={panel}
-													openBlock={openBlock}
-													diagnostics={diagnostics}
-													handleSelectBlock={handleSelectBlock}
-													enablePlayground={enablePlayground}
-													playgroundContent={
-														<BlockErrorFocusProvider value={showBlockError}>
-															{playgroundContent}
-														</BlockErrorFocusProvider>
-													}
-													trackExecutionContent={trackExecutionContent}
-												/>
+													{children}
+												</ReactFlow>
+												{/* the AI edits the graph — nothing to offer on a readonly view */}
+												{!readOnly && <AiCanvasButton />}
+												{!readOnly && !layoutLocked && (
+													<CanvasQuickActions
+														enableBlockPicker={enableBlockPicker}
+														enablePlayground={enablePlayground}
+														onOpenBlockPicker={() => openPickerAt()}
+														onAddNote={() => addBlock(BLOCK_TYPES.stickynote)}
+														onOpenPlayground={playground.open}
+													/>
+												)}
+												{nodes.length === 0 && (
+													<div className="fx-canvas__empty">
+														{readOnly ? "Nothing to show." : "Empty canvas — add a block to start."}
+													</div>
+												)}
 											</div>
-										</EdgeHoverProvider>
+											<CanvasOverlays
+												readOnly={readOnly}
+												layoutLocked={layoutLocked}
+												enableBlockPicker={enableBlockPicker}
+												blockPicker={blockPicker}
+												addPickedBlock={addPickedBlock}
+												pending={pending}
+												panel={panel}
+												openBlock={openBlock}
+												diagnostics={diagnostics}
+												handleSelectBlock={handleSelectBlock}
+												enablePlayground={enablePlayground}
+												playgroundContent={
+													<BlockErrorFocusProvider value={showBlockError}>
+														{playgroundContent}
+													</BlockErrorFocusProvider>
+												}
+												trackExecutionContent={trackExecutionContent}
+											/>
+										</div>
 									</QuickAddProvider>
 								</CanvasPanelProvider>
 							</CanvasReadOnlyProvider>
