@@ -88,6 +88,8 @@ export type BlockCanvasProps = {
 	/** Save handler for `Ctrl/Cmd+S` and the menu's Save entry. Without it the
 	 *  canvas offers no save — an embedded or preview canvas has none. */
 	onSave?: () => void;
+	/** Extract the selected blocks (ids) into a new custom block; absent hides the action. */
+	onExtractSelection?: (blockIds: string[]) => void;
 	/** The zoom / fit / lock bar. Default `true`; an embed that only shows the graph turns it off. */
 	showToolbar?: boolean;
 	/** Zoom on the scroll wheel, and keep the wheel from scrolling the page. Default `true`; a canvas inside a scrolling page turns it off (drag still pans). */

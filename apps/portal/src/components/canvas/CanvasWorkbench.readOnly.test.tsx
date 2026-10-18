@@ -13,6 +13,7 @@ mock.module("./diagnostics/useCompileDiagnostics", () => ({
 }));
 
 const { cleanup, render, renderHook } = await import("@testing-library/react");
+const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query");
 const { authStore, useCanEditProject } = await import("@/store/auth");
 const { CanvasWorkbench } = await import("./CanvasWorkbench");
 
@@ -58,16 +59,18 @@ function renderWorkbench(
 	headerActions?: React.ComponentProps<typeof CanvasWorkbench>["headerActions"],
 ) {
 	return render(
-		<CanvasWorkbench
-			title="Route canvas"
-			readOnly={readOnly}
-			headerActions={headerActions}
-			items={{ data: undefined, isLoading: true, isError: false, refetch: async () => {} }}
-			compileTarget={{ projectId: "p1", resourceType: "route", resourceId: "r1" }}
-			reload={async () => ({ canvasRevision: 0, blocks: [], edges: [] })}
-			getRevision={async () => 0}
-			save={async () => {}}
-		/>,
+		<QueryClientProvider client={new QueryClient()}>
+			<CanvasWorkbench
+				title="Route canvas"
+				readOnly={readOnly}
+				headerActions={headerActions}
+				items={{ data: undefined, isLoading: true, isError: false, refetch: async () => {} }}
+				compileTarget={{ projectId: "p1", resourceType: "route", resourceId: "r1" }}
+				reload={async () => ({ canvasRevision: 0, blocks: [], edges: [] })}
+				getRevision={async () => 0}
+				save={async () => {}}
+			/>
+		</QueryClientProvider>,
 	);
 }
 

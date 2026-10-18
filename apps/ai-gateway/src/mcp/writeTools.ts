@@ -145,6 +145,30 @@ export const writeTools: McpTool[] = [
 		},
 	},
 	{
+		name: "extract_custom_block",
+		title: "Extract custom block",
+		description:
+			"Turn blocks on a canvas into a new custom block in one call. Pass the canvas (from: { kind: route | workflow | custom_block | sandbox, id }), the block keys from get_canvas, a name (lowercase letters, digits, _) and a label. The new block holds those blocks (the same edges between them) with default details; the previous block's output is its input, and what its last block returns is its output. The selection must be tidy: one entry block, at most one edge into it, and at most one edge out of its single last block, with no other connections to the rest of the canvas. If it is not, the call is refused and says what to clean up: ask the user to tidy the canvas, do not rewire it yourself. replace (default false) swaps the selection on the source canvas for one instance of the new block and asks the user first, even in auto mode. Afterwards edit the details with save_custom_block.",
+		role: "creator",
+		annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+		input: {
+			projectId,
+			from: z.object({
+				kind: z.enum(["route", "workflow", "custom_block", "sandbox"]),
+				id: z.string().describe("The route, workflow, custom block or sandbox id"),
+			}),
+			keys: z.array(z.string()).min(1).describe("Block keys to extract, from get_canvas"),
+			name: z.string().describe("Custom block name: lowercase letters, digits and _"),
+			label: z.string().describe("Name shown in the block picker"),
+			replace: z
+				.boolean()
+				.optional()
+				.describe("Swap the selection for one instance of the new block; default false"),
+		},
+		call: async ({ send }, { from, ...a }) =>
+			send("POST", "/v1/custom-blocks/extract", { ...a, source: from }),
+	},
+	{
 		name: "delete_custom_block",
 		title: "Delete custom block",
 		description: "Delete a custom block and its code.",

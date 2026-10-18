@@ -66,6 +66,22 @@ The **General** tab has an **Execution Mode**:
 
 Like other blocks that produce data, a custom block can **save its output to a variable** so later blocks can read it.
 
+## Turning blocks you already have into a custom block
+
+Built a flow that works in a sandbox or a route and want to reuse it? Select its blocks on the canvas, right-click and choose **Extract to custom block…**. Give it a label (the name fills in for you) and Fluxify creates the custom block with those blocks and the connections between them. Tick **Replace the selection with the new block** to swap the selected blocks for one copy of the new block on the canvas you started from.
+
+The custom block gets the default icon and no input parameters: it receives the output of the block before it as `input`, and returns whatever its last block returns. Open it afterwards to add a description, an icon or input parameters. Unsaved changes on the canvas are saved first.
+
+The selection has to be tidy so the new block is not a tangle:
+
+- One entry block, with at most one connection coming in from outside the selection.
+- At most one connection going out, from the selection's last block.
+- No connections from outside into, or out of, the middle of the selection.
+
+If it is not, nothing is created and the message says what to clean up. If the selection ends in several blocks, the new block has no single output; connect them the way you want afterwards.
+
+The new block is available straight away on development. Like any custom block, it needs a promoted version before a route that uses it can go to production.
+
 ## Good to know
 
 - Custom blocks belong to a project. They are available to every route and workflow in that project, and not to other projects.

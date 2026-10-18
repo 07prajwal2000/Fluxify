@@ -3,6 +3,7 @@ import { registerDeploymentRoutes } from "../deployments/register";
 import { registerVersionRoutes } from "../versions/register";
 import registerCreateRoute from "./create/route";
 import registerDeleteRoute from "./delete/route";
+import registerExtractRoute from "./extract/route";
 import registerGetAllRoute from "./get-all/route";
 import registerGetByIdRoute from "./get-by-id/route";
 import registerGetCanvasItemsRoute from "./get-canvas-items/route";
@@ -21,6 +22,7 @@ export default {
 		registerGetCanvasRevisionRoute(router);
 		registerSaveCanvasRoute(router);
 		registerCreateRoute(router);
+		registerExtractRoute(router);
 		registerUpdateRoute(router);
 		registerDeleteRoute(router);
 		registerReferencesRoute(router);

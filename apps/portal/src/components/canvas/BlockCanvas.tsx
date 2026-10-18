@@ -68,6 +68,7 @@ function CanvasInner({
 	enableContextMenu = true,
 	enableKeyboard = true,
 	onSave,
+	onExtractSelection,
 	enablePanel = true,
 	enableBlockPicker = false,
 	enablePlayground = false,
@@ -388,6 +389,7 @@ function CanvasInner({
 													menu={contextMenu}
 													rootRef={shellRef}
 													onSave={onSave}
+													onExtract={onExtractSelection}
 													onAddBlock={enableBlockPicker && !layoutLocked ? openPickerAt : undefined}
 													onAddNote={
 														enableBlockPicker && !layoutLocked
