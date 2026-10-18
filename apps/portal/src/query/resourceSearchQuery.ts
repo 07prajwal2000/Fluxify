@@ -14,6 +14,8 @@ export type Mention = {
 	label?: string;
 	description?: string;
 	variant?: string;
+	/** An integration's group; `mcp` ones are offered from the allowed-servers list instead. */
+	group?: string;
 };
 
 const PER_TYPE = 10;

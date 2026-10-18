@@ -11,6 +11,9 @@ import {
 import { isRefType, REF_PATTERN, type RefType, refText } from "../agentRefs";
 import { $createResourceNode, $isResourceNode } from "./ResourceNode";
 
+/** An MCP server chip is named `@server` and travels as `@server` plus a mention; any other resource is a `:ref`. */
+const isMcpChip = (type: string, name: string) => type === "integration" && name.startsWith("@");
+
 const unquote = (v: string) => (v.startsWith('"') ? (JSON.parse(v) as string) : v);
 
 /** One line as text and resource nodes: every `:ref[…]{…}` of a known type becomes a chip. */
@@ -74,7 +77,7 @@ export function insertMarkdownAtSelection(text: string) {
 export function extractMentionsFromText(text: string): string[] {
 	const mentions: string[] = [];
 	for (const m of text.matchAll(REF_PATTERN)) {
-		if (m[2] === "integration") {
+		if (isMcpChip(m[2], m[1])) {
 			mentions.push(unquote(m[3]));
 		}
 	}
@@ -88,7 +91,7 @@ export function extractMentions(editor: LexicalEditor): string[] {
 		for (const paragraph of paragraphs) {
 			if ("getChildren" in paragraph && typeof paragraph.getChildren === "function") {
 				for (const node of paragraph.getChildren()) {
-					if ($isResourceNode(node) && node.__resourceType === "integration") {
+					if ($isResourceNode(node) && isMcpChip(node.__resourceType, node.__name)) {
 						mentions.push(node.__identifier);
 					}
 				}
@@ -107,7 +110,7 @@ export function lexicalToMarkdown(editor: LexicalEditor): string {
 			let pText = "";
 			for (const node of paragraph.getChildren()) {
 				pText += $isResourceNode(node)
-					? node.__resourceType === "integration"
+					? isMcpChip(node.__resourceType, node.__name)
 						? `@${node.__name.replace(/^@/, "")}`
 						: refText(node.__resourceType as RefType, node.__identifier, node.__name)
 					: node.getTextContent();

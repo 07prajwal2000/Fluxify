@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { $getRoot, $getSelection, $isRangeSelection, createEditor } from "lexical";
 import { REF_PATTERN, refText } from "../agentRefs";
-import { lexicalToMarkdown, markdownToLexical, setEditorText } from "./MarkdownTransformer";
+import { extractMentionsFromText, lexicalToMarkdown, markdownToLexical, setEditorText } from "./MarkdownTransformer";
 import { ResourceNode } from "./ResourceNode";
 
 const editor = () => createEditor({ nodes: [ResourceNode], onError: (e) => { throw e; } });
@@ -44,4 +44,9 @@ test("setting the text puts the cursor at its end, even when it was at the start
 		return $isRangeSelection(sel) ? sel.anchor.offset : -1;
 	});
 	expect(at).toBe("/compact ".length);
+});
+
+test("only an @server chip travels as a mention; other integrations stay refs", () => {
+	const text = ":ref[@github]{type=integration id=m1} :ref[Postgres]{type=integration id=i1}";
+	expect(extractMentionsFromText(text)).toEqual(["m1"]);
 });

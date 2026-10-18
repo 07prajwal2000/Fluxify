@@ -4,6 +4,7 @@ import { Children, type ReactNode, useContext } from "react";
 import {
 	TbBolt,
 	TbBox,
+	TbCloudCog,
 	TbFlask,
 	TbLayersIntersect,
 	TbRoute,
@@ -20,7 +21,7 @@ export const REF_ICONS: Record<RefType, typeof TbBox> = {
 	trigger: TbBolt,
 	custom_block: TbBox,
 	middleware: TbLayersIntersect,
-	integration: VscMcp as unknown as typeof TbBox,
+	integration: TbCloudCog,
 	app_config: TbSquareKey,
 	test_suite: TbFlask,
 	sandbox: TbFlask,
@@ -89,7 +90,11 @@ export function AgentRef({
 	if (type === "test_suite" && suite.isError) return <>{children}</>;
 
 	const path = refPath(projectId, type, String(id), suite.data);
-	const Icon = REF_ICONS[type];
+	// an MCP server chip is named `@server`
+	const Icon =
+		type === "integration" && label.startsWith("@")
+			? (VscMcp as unknown as typeof TbBox)
+			: REF_ICONS[type];
 	const body = (
 		<>
 			<Icon size={13} className="shrink-0" />
