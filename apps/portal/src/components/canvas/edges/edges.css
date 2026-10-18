@@ -49,14 +49,6 @@
 	stroke-width: 3;
 }
 
-/* Wide invisible stroke: the edge is easy to hover and click. `stroke` so a
-   transparent stroke still takes the pointer. */
-.fx-edge__hit {
-	stroke: transparent;
-	fill: none;
-	pointer-events: stroke;
-}
-
 .fx-edge__actions {
 	position: absolute;
 	display: flex;
