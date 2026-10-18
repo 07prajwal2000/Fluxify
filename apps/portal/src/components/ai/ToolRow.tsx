@@ -7,10 +7,19 @@ import { CallRouteHeader } from "./preview/CallRoutePreview";
 import { CanvasTarget, canvasOf } from "./preview/CanvasTarget";
 import { docsInput } from "./preview/DocsPreview";
 import { oneLine } from "./preview/data";
+import { extractHeader } from "./preview/ExtractCustomBlockPreview";
 import { SaveAppConfigHeader } from "./preview/SaveAppConfigHeader";
 import { ToolBody } from "./preview/ToolBody";
 import { isDone } from "./preview/tool";
 import { copyBlocksHeader, toolSummary } from "./preview/toolHeader";
+
+/** Tools whose whole accordion line is a sentence rather than name + input. */
+const summaryLine = (tool: ToolPart, asking: boolean) =>
+	tool.name === "copy_blocks"
+		? copyBlocksHeader(tool, asking)
+		: tool.name === "extract_custom_block"
+			? extractHeader(tool, asking)
+			: undefined;
 
 /** One tool call, folded: name, short input, duration; open for the preview (and the raw JSON). A call that waits for an answer opens by itself. */
 export function ToolRow({
@@ -52,9 +61,9 @@ export function ToolRow({
 					) : (
 						<TbX size={14} className="shrink-0 text-muted" />
 					)}
-					{tool.name === "copy_blocks" ? (
+					{summaryLine(tool, asking) ? (
 						<span className="min-w-0 flex-1 truncate font-medium text-foreground">
-							{copyBlocksHeader(tool, asking)}
+							{summaryLine(tool, asking)}
 						</span>
 					) : (
 						<>
