@@ -103,6 +103,25 @@ export async function writeRows(s: McpStack): Promise<Row[]> {
 			args: { customBlockId: cb[0] },
 			api: del(`/v1/custom-blocks/${cb[1]}`),
 		},
+		// an allowed call needs a canvas with blocks to extract; the role check is what this row covers
+		{
+			tool: "extract_custom_block",
+			args: {
+				projectId: p,
+				from: { kind: "route", id: ids.route },
+				keys: ["jsrunner_1"],
+				name: "extracted",
+				label: "Extracted",
+			},
+			api: post("/v1/custom-blocks/extract", {
+				projectId: p,
+				source: { kind: "route", id: ids.route },
+				keys: ["jsrunner_1"],
+				name: "extracted",
+				label: "Extracted",
+			}),
+			deniedOnly: true,
+		},
 		{
 			tool: "save_app_config",
 			args: { projectId: p, ...configBody() },
