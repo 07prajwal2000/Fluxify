@@ -1,4 +1,5 @@
 import { renderCompactSchema } from "@fluxify/blocks";
+import { ValidationSchemaZod } from "@fluxify/blocks/schema";
 import { getDefaultVariantValue, getSchema } from "@fluxify/server/src/api/v1/integrations/helpers";
 import { integrationsGroupSchema } from "@fluxify/server/src/api/v1/integrations/schemas";
 import { requestBodySchema as routeCreate } from "@fluxify/server/src/api/v1/routes/create/dto";
@@ -7,7 +8,6 @@ import {
 	createSchema as workflowCreate,
 	patchSchema as workflowPatch,
 } from "@fluxify/server/src/api/v1/workflows/dto";
-import { ValidationSchemaZod } from "@fluxify/server/src/lib/validationSchemaZod";
 import { z } from "zod";
 import type { AdminApi } from "./adminApi";
 import { read, type Target } from "./canvasTools";

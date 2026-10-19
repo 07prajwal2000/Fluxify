@@ -52,6 +52,8 @@ export type EmitNode = {
 	cases(handle: string, order: string[]): { to: string; run: string }[];
 	/** record this terminal block's output, then return it from its block function */
 	complete(output: string): string;
+	/** declare `expr` once per compiled artifact, evaluated when it is instantiated; returns the variable holding it */
+	hoist(expr: string): string;
 	/** JS expression for a value from block data (`js:` prefixed ones are evaluated) */
 	value(raw: unknown): string;
 	/** JS expression running user `code` with `extras` as its `input`, inlined into the compiled function */
@@ -219,6 +221,7 @@ export function compileGraph(
 	const errorHandler = blocks.find((b) => b.type === BlockTypes.errorHandler);
 
 	let counter = 0;
+	const hoisted: string[] = [];
 	const blockFunctionNames = new Map<string, string>();
 	const reachable = new Set<string>();
 	const visiting = new Set<string>();
@@ -479,6 +482,11 @@ return ${result};`;
 				return JSON.stringify(raw);
 			},
 			js,
+			hoist(expr) {
+				const name = `$h_${counter++}`;
+				hoisted.push(`const ${name} = ${expr};`);
+				return name;
+			},
 		});
 
 		return `// ${block.type} ${id}
@@ -506,6 +514,7 @@ ${spans.wrap(`${emitBeforeHook(block.type, blockId, support, (h) => continueTo(h
 		COMPILED_ROUTE_FACTORY,
 		PRELUDE,
 		imports.declarations,
+		...hoisted,
 		"const $endSuccess = (output) => ({ successful: true, continueIfFail: true, output });",
 		"const $endFailure = (error) => ({ successful: false, continueIfFail: false, error });",
 		"const $endBody = () => undefined;",

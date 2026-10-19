@@ -1,16 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import { scopeFor } from "@fluxify/blocks";
 import { z } from "zod";
-import { ValidationSchemaZod } from "./validationSchemaZod";
-
-export class ValidationError extends Error {
-	payload: any;
-	constructor(payload: any) {
-		super("Validation failed");
-		this.name = "ValidationError";
-		this.payload = payload;
-	}
-}
+import { scopeFor } from "../scope";
 
 export type ParserContext = {
 	/** Trusted validators run against these request-scoped vars. */
@@ -19,17 +9,6 @@ export type ParserContext = {
 };
 
 type CompiledValidator = (input: any, scope: any) => Promise<unknown>;
-
-export type CompiledRequestSchema = {
-	validate(requestData: any, context: ParserContext): Promise<ParseResult>;
-};
-
-type ParseResult = {
-	success: boolean;
-	/** coerced input with defaults filled in; only set on success */
-	data?: unknown;
-	errors?: Array<{ path: string; property: string; errors: any[] }>;
-};
 
 /**
  * The source is part of the persisted route definition, never request input.
@@ -254,62 +233,4 @@ export function buildZodSchema(schemaDef: any, coerce = false): z.ZodTypeAny {
 	return zSchema;
 }
 
-const validationContext = new AsyncLocalStorage<ParserContext>();
-
-function formatResult(result: z.ZodSafeParseResult<unknown>): ParseResult {
-	if (result.success) return { success: true, data: result.data };
-	const errors = result.error.issues.map((issue) => {
-		let customErrorObj = null;
-		try {
-			customErrorObj = JSON.parse(issue.message);
-		} catch {
-			// Not a JSON string (standard zod error message).
-		}
-		return {
-			path: issue.path.join("."),
-			property: issue.path[issue.path.length - 1]?.toString() || "",
-			errors: customErrorObj ? [customErrorObj] : [issue.message],
-		};
-	});
-	return { success: false, errors };
-}
-
-/** Compile the definition once at artifact load, then validate many requests. */
-export function compileRequestSchema(
-	schemaJson: any,
-	{ coerce = false }: Pick<ParserContext, "coerce"> = {},
-): CompiledRequestSchema {
-	// Validate schema JSON itself against DB Zod schema
-	const parsedDef = ValidationSchemaZod.safeParse(schemaJson);
-	if (!parsedDef.success) {
-		return {
-			async validate() {
-				return {
-					success: false,
-					errors: [
-						{ path: "schema", property: "schema", errors: ["Invalid schema definition format"] },
-					],
-				};
-			},
-		};
-	}
-
-	const executableSchema = buildZodSchema(parsedDef.data, coerce);
-	return {
-		async validate(requestData: any, context: ParserContext): Promise<ParseResult> {
-			// A cached schema is shared by concurrent requests. The JS refinement reads
-			// its own async-local context, so parallel requests cannot leak vars.
-			return validationContext.run(context, async () =>
-				formatResult(await executableSchema.safeParseAsync(requestData)),
-			);
-		},
-	};
-}
-
-export const parseRequestSchema = async (
-	schemaJson: any,
-	requestData: any,
-	context: ParserContext,
-) => {
-	return compileRequestSchema(schemaJson, context).validate(requestData, context);
-};
+export const validationContext = new AsyncLocalStorage<ParserContext>();

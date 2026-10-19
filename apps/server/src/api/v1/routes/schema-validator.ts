@@ -1,5 +1,5 @@
+import { ValidationSchemaZod } from "@fluxify/blocks/schema";
 import { z } from "zod";
-import { ValidationSchemaZod } from "../../../lib/validationSchemaZod";
 
 /** Path variables declared in a route path: "/users/:id/posts/:postId" => ["id", "postId"] */
 export function extractPathParams(path: string): string[] {

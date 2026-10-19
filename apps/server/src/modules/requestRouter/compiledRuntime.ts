@@ -11,11 +11,11 @@ import {
 	runWithMiddlewares,
 	unregisterById,
 } from "@fluxify/blocks";
+import { type CompiledRequestSchema, compileRequestSchema } from "@fluxify/blocks/schema";
 import { logger } from "@fluxify/common";
 import { type HttpRoute, HttpRouteParser } from "@fluxify/lib";
 import type { FluxifyEnv } from "../../lib/env";
 import { DEFAULT_BASE_DOMAIN, isPortalOrigin, subdomainOf } from "../../lib/hosting";
-import { type CompiledRequestSchema, compileRequestSchema } from "../../lib/schemaParser";
 import { hydrateAppConfig } from "../../loaders/appconfigLoader";
 import {
 	dbIntegrationsCache,

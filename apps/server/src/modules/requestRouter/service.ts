@@ -13,6 +13,11 @@ import type {
 	TriggerContext,
 } from "@fluxify/blocks";
 import {
+	type CompiledRequestSchema,
+	parseRequestSchema,
+	ValidationError,
+} from "@fluxify/blocks/schema";
+import {
 	type AbstractLogger,
 	ConsoleLoggerProvider,
 	HttpClient,
@@ -23,11 +28,6 @@ import type { Context } from "hono";
 import { getCookie, setCookie } from "hono/cookie";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import jwt from "jsonwebtoken";
-import {
-	type CompiledRequestSchema,
-	parseRequestSchema,
-	ValidationError,
-} from "../../lib/schemaParser";
 import { getAppConfig } from "../../loaders/appconfigLoader";
 import {
 	dbIntegrationsCache,
