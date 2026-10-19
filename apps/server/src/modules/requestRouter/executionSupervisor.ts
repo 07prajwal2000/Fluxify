@@ -13,6 +13,7 @@ import type { ArtifactEntry } from "./compiledRuntime";
 import { executionRuntimeEnvironment } from "./executionEnvironment";
 import { ExecutionWatchdog } from "./executionWatchdog";
 import { markNotReady, markReady } from "./health";
+import type { PluginBlockRef } from "./pluginLoader";
 import type { ExecutionBootstrap, ExecutionEvent, ExecutionMessage } from "./threadTypes";
 
 /**
@@ -59,6 +60,8 @@ export interface ExecutionSupervisorOptions {
 	baseDomain: () => string;
 	/** Whether any project loaded here asks for execution timeouts. */
 	timeoutsEnabled: () => boolean;
+	/** Where this node's plugin block code is, read at every spawn. */
+	pluginRefs?: () => PluginBlockRef[];
 }
 
 export interface ExecutionSupervisor {
@@ -82,6 +85,12 @@ export interface ExecutionSupervisor {
 	 * process. If the new child dies before it is ready, the old one keeps serving.
 	 */
 	replace(): Promise<void>;
+	/**
+	 * Re-reads `pluginRefs`. A block whose version changed means a `replace()`:
+	 * ESM cannot be unloaded, so the fresh child imports the new version. Anything
+	 * else (a plugin installed or removed) goes to the running child as is.
+	 */
+	pluginRefsChanged(): Promise<void>;
 }
 
 export function createExecutionSupervisor(
@@ -98,6 +107,10 @@ export function createExecutionSupervisor(
 	let candidate: { child: any; settle: (ready: boolean) => void } | undefined;
 	let replacing: Promise<void> | undefined;
 	let replaceAgain = false;
+	/** `projectId:type` -> version, as handed to the running child */
+	let refVersions = new Map<string, string>();
+	const versionsOf = (refs: PluginBlockRef[]) =>
+		new Map(refs.map((ref) => [`${ref.projectId}:${ref.type}`, ref.version]));
 
 	/**
 	 * Jobs handed to the child, waiting on its reply. The broker's ack is driven
@@ -191,6 +204,8 @@ export function createExecutionSupervisor(
 
 	function spawn() {
 		spawnedAt = Date.now();
+		const pluginRefs = options.pluginRefs?.() ?? [];
+		refVersions = versionsOf(pluginRefs);
 		const bootstrap: ExecutionBootstrap = {
 			projectId: options.projectId,
 			port: options.port,
@@ -201,6 +216,7 @@ export function createExecutionSupervisor(
 			debugKey: options.debugKey,
 			env: options.env ?? "production",
 			artifacts: options.artifacts(),
+			pluginRefs,
 			workerTimeoutsEnabled: options.timeoutsEnabled(),
 			maxRequestBodyBytes: options.maxRequestBodyBytes,
 			scheduleHorizonMs: options.scheduleHorizonMs,
@@ -256,9 +272,11 @@ export function createExecutionSupervisor(
 			await old.exited;
 			return;
 		}
+		const oldVersions = refVersions;
 		spawn();
 		const fresh = execution;
 		if (!(await awaitCandidate(fresh))) {
+			refVersions = oldVersions;
 			logger.error(
 				"replacement execution process died before it was ready — keeping the old one",
 				"WORKER.execution",
@@ -276,24 +294,38 @@ export function createExecutionSupervisor(
 		if (!exited) old.kill(9);
 	}
 
+	function replace() {
+		// one swap at a time; changes landing mid-swap coalesce into one more
+		if (replacing) {
+			replaceAgain = true;
+			return replacing;
+		}
+		replacing = (async () => {
+			do {
+				replaceAgain = false;
+				await swap();
+			} while (replaceAgain);
+		})().finally(() => {
+			replacing = undefined;
+		});
+		return replacing;
+	}
+
 	return {
 		start: spawn,
+		replace,
 
-		replace() {
-			// one swap at a time; changes landing mid-swap coalesce into one more
-			if (replacing) {
-				replaceAgain = true;
-				return replacing;
-			}
-			replacing = (async () => {
-				do {
-					replaceAgain = false;
-					await swap();
-				} while (replaceAgain);
-			})().finally(() => {
-				replacing = undefined;
+		pluginRefsChanged() {
+			const refs = options.pluginRefs?.() ?? [];
+			const upgraded = refs.some((ref) => {
+				const running = refVersions.get(`${ref.projectId}:${ref.type}`);
+				return running !== undefined && running !== ref.version;
 			});
-			return replacing;
+			// the fresh child reads the whole set at spawn
+			if (upgraded) return replace();
+			refVersions = versionsOf(refs);
+			execution?.send({ type: "plugin-refs", refs } satisfies ExecutionMessage);
+			return Promise.resolve();
 		},
 
 		send(message) {

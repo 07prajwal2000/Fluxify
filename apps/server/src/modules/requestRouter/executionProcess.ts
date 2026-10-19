@@ -30,6 +30,7 @@ import { DEBUG_TRACE_HEADER, encodeDebugTrace } from "./debugTrace";
 import { DEV_TOKEN_HEADER } from "./devToken";
 import { executionRuntimeEnvironment } from "./executionEnvironment";
 import { createHttpContext } from "./httpContext";
+import { setPluginRefs } from "./pluginLoader";
 import {
 	dispatch,
 	envelopeFromHttp,
@@ -55,7 +56,12 @@ process.argv = [];
 process.execArgv = [];
 
 process.on("message", (message: ExecutionMessage) => {
-	if (message.type === "bootstrap") return bootstrap(message.bootstrap);
+	if (message.type === "bootstrap") {
+		return void bootstrap(message.bootstrap).catch((error) => {
+			logger.error(`execution process failed to start: ${String(error)}`, "WORKER.execution");
+			process.exit(1);
+		});
+	}
 	if (message.type === "artifact") {
 		applyArtifactUpdate(message.entry.key, message.entry.value);
 		// a rotated credential or moved endpoint must not keep exporting through
@@ -65,6 +71,7 @@ process.on("message", (message: ExecutionMessage) => {
 	}
 	if (message.type === "job") return void executeJob(message.job);
 	if (message.type === "base-domain") return setBaseDomain(message.baseDomain);
+	if (message.type === "plugin-refs") return setPluginRefs(message.refs);
 	setMonitoring(message.enabled);
 });
 
@@ -81,7 +88,7 @@ async function executeJob(job: JobEnvelope) {
 	}
 }
 
-function bootstrap(nextBoot: ExecutionBootstrap) {
+async function bootstrap(nextBoot: ExecutionBootstrap) {
 	if (boot) throw new Error("execution process was bootstrapped twice");
 	boot = nextBoot;
 	initializeLogger({
@@ -93,7 +100,9 @@ function bootstrap(nextBoot: ExecutionBootstrap) {
 	});
 	setBaseDomain(boot.baseDomain);
 	setTrustedOrigins(boot.trustedOrigins);
-	initCompiledRuntime(boot.artifacts, boot.databaseIdleTimeoutMs);
+	setPluginRefs(boot.pluginRefs);
+	// plugin code is imported before ready, so no request meets a half-loaded route
+	await initCompiledRuntime(boot.artifacts, boot.databaseIdleTimeoutMs);
 	ready = true;
 	asyncExecutor = new AsyncExecutor(boot.asyncExecutor, (error) =>
 		logger.error(`async dispatch failed: ${String(error)}`, "WORKER.execution"),

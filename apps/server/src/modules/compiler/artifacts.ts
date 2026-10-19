@@ -40,6 +40,12 @@ export type RouteArtifact = {
 	 * small key instead of every route that uses it.
 	 */
 	middlewares?: RouteMiddlewareIds;
+	/**
+	 * Programmable (plugin) block types the graph calls, from the compiler's
+	 * `pluginBlocks`. The worker imports their code before it loads this
+	 * artifact. Absent on older artifacts and on graphs that call none.
+	 */
+	pluginBlocks?: string[];
 	compiledAt: string;
 	/**
 	 * A sandbox (#735) compiled as a route: `routeId` is the sandbox id. Served
@@ -74,6 +80,8 @@ export type WorkflowArtifact = {
 	/** the version this artifact runs (#782), or absent for the working copy */
 	versionId?: string;
 	source: string;
+	/** as on `RouteArtifact` */
+	pluginBlocks?: string[];
 	compiledAt: string;
 	/** A sandbox (#735) compiled as a workflow: `workflowId` is the sandbox id. */
 	sandbox?: true;
@@ -100,6 +108,8 @@ export type CustomBlockArtifact = {
 	name: string;
 	projectId: string;
 	source: string;
+	/** as on `RouteArtifact` */
+	pluginBlocks?: string[];
 	compiledAt: string;
 };
 
