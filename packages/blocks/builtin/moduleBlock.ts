@@ -48,11 +48,11 @@ export async function invokeRouted(
 	}
 }
 
-const ALL_MODES = customBlockInvokeSchema.unwrap().options;
-
 function assertInvokable(node: EmitNode, meta: BlockMeta, mode: string, outs: readonly string[]) {
 	const label = `Block ${node.block.id} (${node.block.type})`;
-	const allowed: readonly string[] = meta.invoke ?? ALL_MODES;
+	const allowed: readonly string[] =
+		// read at call time: customBlock -> compiler -> this module is an import cycle
+		meta.invoke ?? customBlockInvokeSchema.unwrap().options;
 	if (!allowed.includes(mode))
 		throw new Error(`${label} cannot be invoked ${mode}; allowed: ${allowed.join(", ")}`);
 	// the caller never learns the outcome, so there is no branch to take
