@@ -321,19 +321,32 @@ export function enqueueCustomBlock(
 	});
 }
 
+/** data keys the engine owns on every library block; the rest of `data` is the block's params */
+const BLOCK_DATA_KEYS = ["blockName", "blockDescription", "invoke", "saveAsVariable"] as const;
+
+/**
+ * The data keys the engine owns on a programmable block: the shared ones plus
+ * `order`, the canvas branch order of an `allowMultiple` handle. None reaches
+ * the block as a param, so a plugin cannot declare a param by these names.
+ * A canvas custom block keeps getting `order`: it may be one of its inputs.
+ */
+export const MODULE_BLOCK_DATA_KEYS = [...BLOCK_DATA_KEYS, "order"] as const;
+
 /** the pieces of a call to a library block: mode, then `(ctx, name, args, id)` */
-export function emitBlockCall(node: EmitNode) {
-	const { blockName, blockDescription, invoke, saveAsVariable, ...params } = (node.block.data ??
-		{}) as Record<string, unknown>;
+export function emitBlockCall(node: EmitNode, reserved: readonly string[] = BLOCK_DATA_KEYS) {
+	const data = (node.block.data ?? {}) as Record<string, unknown>;
+	const params = Object.fromEntries(
+		Object.entries(data).filter(([key]) => !reserved.includes(key)),
+	);
 	// the callee reads its configuration as `params` and the value flowing into
 	// this block as `input` — one meaning each, at every depth of its graph
 	const args = `{ params: ${emitJsObject(params, node)}, input: ${node.in} }`;
 	const call = `(ctx, ${JSON.stringify(node.block.type)}, ${args}, ${JSON.stringify(node.block.id)})`;
-	return { mode: customBlockInvokeSchema.parse(invoke), call };
+	return { mode: customBlockInvokeSchema.parse(data.invoke), call };
 }
 
-export function emitCustomBlock(node: EmitNode) {
-	const { mode, call } = emitBlockCall(node);
+export function emitCustomBlock(node: EmitNode, reserved?: readonly string[]) {
+	const { mode, call } = emitBlockCall(node, reserved);
 
 	if (mode === "queued") {
 		return `lib.enqueue${call};\n${node.next()}`;

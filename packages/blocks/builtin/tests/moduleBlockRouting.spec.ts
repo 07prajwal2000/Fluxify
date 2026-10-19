@@ -179,4 +179,19 @@ describe("canvas custom blocks are unchanged", () => {
 		);
 		expect(source).not.toContain("invokeRouted");
 	});
+
+	it("still pass a param named order, which only module blocks reserve", async () => {
+		registerCustomBlock(
+			PROJECT,
+			"canvas-order",
+			[block("a", BlockTypes.entrypoint), block("b", BlockTypes.jsrunner, { value: "return params.order" }), block("c", BlockTypes.response, { httpCode: "200" })],
+			[edge("a", "b"), edge("b", "c")],
+		);
+		const { run } = compile(
+			[block("1", BlockTypes.entrypoint), block("2", "canvas-order", { order: ["x"] }), respond("3")],
+			[edge("1", "2"), edge("2", "3")],
+			{},
+		);
+		expect((await run(ctx(), {})).output.body).toMatchObject({ body: ["x"] });
+	});
 });

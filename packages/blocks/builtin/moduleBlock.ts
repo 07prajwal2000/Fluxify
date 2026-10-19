@@ -8,6 +8,7 @@ import {
 	emitBlockCall,
 	emitCustomBlock,
 	lookupBlock,
+	MODULE_BLOCK_DATA_KEYS,
 	tracedBlock,
 } from "./customBlock";
 import { type ExecuteHandle, emitBodyHandles } from "./executeHandle";
@@ -72,11 +73,11 @@ function assertInvokable(node: EmitNode, meta: BlockMeta, mode: string, outs: re
 
 /** a programmable block: checks its invoke mode, then leaves by the handle `run` returned */
 export function emitModuleBlock(node: EmitNode, meta: BlockMeta) {
-	const { mode, call } = emitBlockCall(node);
+	const { mode, call } = emitBlockCall(node, MODULE_BLOCK_DATA_KEYS);
 	const outs: readonly string[] = meta.handles?.out ?? ["source"];
 	assertInvokable(node, meta, mode, outs);
 	// async and queued fire and move on, exactly like a canvas custom block
-	if (mode !== "sync") return emitCustomBlock(node);
+	if (mode !== "sync") return emitCustomBlock(node, MODULE_BLOCK_DATA_KEYS);
 
 	const r = node.v("r");
 	const handles = node.v("handles");

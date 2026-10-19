@@ -145,6 +145,11 @@ describe("executeHandle: allowMultiple", () => {
 		expect(await body(run, 1)).toEqual(["c:1", "a:1", "b:1"]);
 	});
 
+	it("keeps the canvas branch order out of the block's params", async () => {
+		const { run } = fanned(async ({ params }) => ({ output: params }), three, ["c"]);
+		expect(await body(run)).toEqual({});
+	});
+
 	it("puts a failing branch's error in its slot and finishes the others", async () => {
 		const { run } = fanned(
 			async ({ executeHandle }) => {
