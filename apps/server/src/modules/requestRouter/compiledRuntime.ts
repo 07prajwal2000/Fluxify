@@ -2,6 +2,7 @@ import { DbConnectionManager, KvFactory, QueueProducerFactory } from "@fluxify/a
 import {
 	type BlockOutput,
 	type Context,
+	closeCtxPools,
 	customBlockCount,
 	instantiateCompiled,
 	type Middleware,
@@ -276,6 +277,7 @@ export async function shutdownCompiledRuntime() {
 	// consumers first: their in-flight batches still hold database leases
 	await shutdownQueueTriggers();
 	await QueueProducerFactory.closeAll();
+	await closeCtxPools();
 	await dbConnectionManager?.close();
 	dbConnectionManager = undefined;
 	setDbConnectionManager();

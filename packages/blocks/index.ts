@@ -10,6 +10,7 @@ export * from "./builtin/arrayOperations";
 export * from "./builtin/blockAiDescriptions";
 export * from "./builtin/blockSchemasMap";
 export * from "./builtin/compactSchemas";
+export { closeCtxPools } from "./builtin/ctxPool";
 export * from "./builtin/customBlock";
 export * from "./builtin/db/count";
 export * from "./builtin/db/delete";

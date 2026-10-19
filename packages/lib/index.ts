@@ -3,6 +3,7 @@ export * from "./constants/httpcode";
 export * from "./customBlockName";
 export * from "./evaluators/condition";
 export * from "./httpClient";
+export * from "./leasedResources";
 export * from "./logger";
 export * from "./objects/deepfreeze";
 export * from "./random/id";

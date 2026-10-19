@@ -5,6 +5,7 @@ import { type HandleSpec, handleSpecSchema } from "../blockHandles";
 import type { BlockDTOType, EdgeDTOSchemaType } from "../builderTypes";
 import { compileGraph, type EmitNode, emitJsObject, instantiateCompiled } from "../compiler";
 import { enqueueJob } from "../jobs";
+import { withCtxPool } from "./ctxPool";
 import { withCtxSpan } from "./ctxSpan";
 import type { ExecuteHandle } from "./executeHandle";
 
@@ -143,11 +144,12 @@ export function registerModuleBlock(
 	if (meta?.handles)
 		meta = { ...meta, handles: handleSpecSchema.parse(meta.handles) as HandleSpec };
 	const wrapped: CompiledCustomBlock = async (ctx, args?: CustomBlockArgs) => {
+		const pooled = withCtxPool(withCtxSpan(ctx), type);
 		try {
 			const result = await run({
 				params: args?.params ?? {},
 				input: args?.input,
-				ctx: withCtxSpan(ctx),
+				ctx: pooled.ctx,
 				executeHandle: args?.executeHandle,
 			});
 			return {
@@ -158,6 +160,8 @@ export function registerModuleBlock(
 			};
 		} catch (error) {
 			return { successful: false, continueIfFail: false, error };
+		} finally {
+			pooled.release();
 		}
 	};
 	registerBlock(projectId, type, { run: wrapped, id, source: "module", meta });
