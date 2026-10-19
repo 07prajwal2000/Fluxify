@@ -142,7 +142,7 @@ export type BlockTraceSpan = {
 };
 
 /** `blockType` of a `ctx.span` child */
-export const CTX_SPAN_TYPE = "span";
+export { CTX_SPAN_TYPE } from "@fluxify/sdk";
 
 /** a nested graph invoked by one block, for the duration of that invocation */
 export type CustomBlockScope = {

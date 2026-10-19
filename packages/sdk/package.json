@@ -1,0 +1,33 @@
+{
+	"name": "@fluxify/sdk",
+	"version": "2026.10.2001",
+	"description": "Write programmable blocks (plugins) for Fluxify.",
+	"type": "module",
+	"license": "Apache-2.0",
+	"author": "07prajwal2000",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Fluxify-rest/Fluxify.git",
+		"directory": "packages/sdk"
+	},
+	"exports": {
+		".": "./index.ts",
+		"./blocks": "./blocks.ts"
+	},
+	"//": "The workspace consumes the TS source. `bun run build` writes the npm package to dist/ (its own package.json pointing at the built files); pack and publish from there.",
+	"scripts": {
+		"build": "bun run scripts/build.ts",
+		"pack": "bun run build && cd dist && bun pm pack",
+		"version": "bun run scripts/version.ts",
+		"test": "bun test --timeout 60000",
+		"typecheck": "tsgo --noEmit"
+	},
+	"peerDependencies": {
+		"zod": "^4.0.0"
+	},
+	"devDependencies": {
+		"@types/bun": "^1.4.0",
+		"@typescript/native-preview": "^7.0.0-dev.20260219.1",
+		"zod": "^4.0.17"
+	}
+}

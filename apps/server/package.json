@@ -35,6 +35,7 @@
 	"description": "",
 	"devDependencies": {
 		"@fluxify/mcp-math": "workspace:*",
+		"@fluxify/sdk": "workspace:*",
 		"@types/bun": "^1.4.0",
 		"@types/dockerode": "^4.0.1",
 		"@types/flexsearch": "^0.7.42",
