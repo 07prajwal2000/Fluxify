@@ -171,7 +171,7 @@ export function customBlockNames(projectId: string) {
 		.map((key) => key.slice(prefix.length));
 }
 
-function lookup(context: Context, name: string): CompiledCustomBlock {
+export function lookupBlock(context: Context, name: string): CompiledCustomBlock {
 	const entry = getBlockEntry(context.projectId, name);
 	if (!entry) throw new Error(`Custom block not loaded: ${name}`);
 	return entry.run;
@@ -182,7 +182,12 @@ function lookup(context: Context, name: string): CompiledCustomBlock {
  * land flat in the parent trace with nothing saying which block invoked them or
  * which canvas their block ids belong to. `blockId` is the invoking block.
  */
-function traced(context: Context, name: string, blockId: string | undefined, detached: boolean) {
+export function tracedBlock(
+	context: Context,
+	name: string,
+	blockId: string | undefined,
+	detached: boolean,
+) {
 	if (!context.trace || !blockId) return { context, close: () => {} };
 	const scope = context.trace.enterCustomBlock({
 		blockId,
@@ -217,9 +222,9 @@ export async function runCustomBlock(
 	input: unknown,
 	blockId: string,
 ): Promise<BlockOutput> {
-	const scope = traced(context, name, blockId, false);
+	const scope = tracedBlock(context, name, blockId, false);
 	try {
-		return await lookup(context, name)(scope.context, { params: {}, input });
+		return await lookupBlock(context, name)(scope.context, { params: {}, input });
 	} catch (error) {
 		// only an unloaded block throws here; its graph catches its own failures
 		return { successful: false, continueIfFail: false, error: String(error) };
@@ -235,9 +240,9 @@ export async function invokeCustomBlock(
 	args: CustomBlockArgs,
 	blockId?: string,
 ) {
-	const scope = traced(context, name, blockId, false);
+	const scope = tracedBlock(context, name, blockId, false);
 	try {
-		const result = await lookup(context, name)(scope.context, args);
+		const result = await lookupBlock(context, name)(scope.context, args);
 		// The callee catches its own failures rather than throwing: its graph ends
 		// in `$endFailure`, which returns `{ successful: false, error }`. Reading
 		// only `output` swallowed that — a throw inside a sync custom block became
@@ -263,8 +268,8 @@ export function invokeCustomBlockAsync(
 	args: CustomBlockArgs,
 	blockId?: string,
 ) {
-	const scope = traced(context, name, blockId, true);
-	lookup(context, name)(scope.context, args)
+	const scope = tracedBlock(context, name, blockId, true);
+	lookupBlock(context, name)(scope.context, args)
 		.then((result) => {
 			// a block reports failure as a result, not a rejection (see invokeCustomBlock)
 			if (result?.successful === false && !result.continueIfFail) throw result.error;
@@ -303,21 +308,25 @@ export function enqueueCustomBlock(
 	});
 }
 
-export function emitCustomBlock(node: EmitNode) {
+/** the pieces of a call to a library block: mode, then `(ctx, name, args, id)` */
+export function emitBlockCall(node: EmitNode) {
 	const { blockName, blockDescription, invoke, saveAsVariable, ...params } = (node.block.data ??
 		{}) as Record<string, unknown>;
-	const mode = customBlockInvokeSchema.parse(invoke);
-	const name = JSON.stringify(node.block.type);
 	// the callee reads its configuration as `params` and the value flowing into
 	// this block as `input` — one meaning each, at every depth of its graph
 	const args = `{ params: ${emitJsObject(params, node)}, input: ${node.in} }`;
-	const id = JSON.stringify(node.block.id);
+	const call = `(ctx, ${JSON.stringify(node.block.type)}, ${args}, ${JSON.stringify(node.block.id)})`;
+	return { mode: customBlockInvokeSchema.parse(invoke), call };
+}
+
+export function emitCustomBlock(node: EmitNode) {
+	const { mode, call } = emitBlockCall(node);
 
 	if (mode === "queued") {
-		return `lib.enqueue(ctx, ${name}, ${args}, ${id});\n${node.next()}`;
+		return `lib.enqueue${call};\n${node.next()}`;
 	}
 	if (mode === "async") {
-		return `lib.invokeAsync(ctx, ${name}, ${args}, ${id});\n${node.next()}`;
+		return `lib.invokeAsync${call};\n${node.next()}`;
 	}
-	return `${node.in} = await lib.invoke(ctx, ${name}, ${args}, ${id});\n${node.next()}`;
+	return `${node.in} = await lib.invoke${call};\n${node.next()}`;
 }
