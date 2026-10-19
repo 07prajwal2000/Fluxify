@@ -1,4 +1,4 @@
-import { getOutputHandles } from "./blockHandles";
+import { getOutputHandles, type HandleSpec } from "./blockHandles";
 import { BlockTypes } from "./blockTypes";
 
 /**
@@ -36,8 +36,8 @@ export function hookSupport(blockType: string): HookSupport {
  * Where a skipped block's made-up output goes: its own outgoing branches.
  * The first is the default. Empty for a terminal block — the skip ends the chain.
  */
-export function skipBranches(blockType: string): string[] {
-	return getOutputHandles(blockType).filter(
+export function skipBranches(blockType: string, spec?: HandleSpec): string[] {
+	return getOutputHandles(blockType, spec).filter(
 		(h) => h === "source" || h === "success" || h === "failure",
 	);
 }
@@ -54,9 +54,10 @@ export function emitBeforeHook(
 	blockId: string,
 	support: HookSupport,
 	skipTo: (handle: string) => string,
+	spec?: HandleSpec,
 ) {
 	if (support === "none") return "";
-	const branches = skipBranches(type);
+	const branches = skipBranches(type, spec);
 	const skip =
 		support === "input"
 			? [

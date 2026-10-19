@@ -1,4 +1,5 @@
 import { BlockTypes } from "@fluxify/blocks";
+import { type HandleSpecs, isBodyHandle } from "@fluxify/blocks/blockHandles";
 import type { CanvasIssue, RulesInput } from "./rules";
 
 /**
@@ -14,8 +15,6 @@ import type { CanvasIssue, RulesInput } from "./rules";
  *   orchestrate branch. A workflow or custom block may end anywhere.
  */
 const BRANCHING = new Set<string>([BlockTypes.if, BlockTypes.db_exists]);
-/** the chain wired here is a body, not the way on: its open end is by design */
-const BODY_HANDLES = new Set(["executor", "orchestrate"]);
 const ROOTS = new Set<string>([BlockTypes.entrypoint, BlockTypes.errorHandler]);
 
 /** edges persist the handle as `<blockId>-<kind>`; agent-built ones may say just `<kind>` */
@@ -24,14 +23,19 @@ const handleOf = (from: string | null | undefined, handle?: string | null) =>
 
 type Block = RulesInput["blocks"][number];
 
-function walk(starts: string[], edges: RulesInput["edges"], skipBodies: boolean) {
+/** a body handle's chain is not the way on: its open end is by design */
+function walk(
+	starts: string[],
+	edges: RulesInput["edges"],
+	isBody?: (from: string, handle: string) => boolean,
+) {
 	const seen = new Set(starts);
 	const queue = [...starts];
 	while (queue.length) {
 		const id = queue.pop()!;
 		for (const e of edges) {
 			if (e.from !== id || (e.to && seen.has(e.to))) continue;
-			if (skipBodies && BODY_HANDLES.has(handleOf(e.from, e.fromHandle))) continue;
+			if (isBody?.(e.from, handleOf(e.from, e.fromHandle))) continue;
 			if (!e.to) continue;
 			seen.add(e.to);
 			queue.push(e.to);
@@ -40,7 +44,11 @@ function walk(starts: string[], edges: RulesInput["edges"], skipBodies: boolean)
 	return seen;
 }
 
-export function reachabilityIssues({ kind, blocks, edges }: RulesInput): CanvasIssue[] {
+/** `specs`: handle specs of plugin types; none reach admin until P1 (#857) */
+export function reachabilityIssues(
+	{ kind, blocks, edges }: RulesInput,
+	specs: HandleSpecs = {},
+): CanvasIssue[] {
 	const entry = blocks.find((b) => b.type === BlockTypes.entrypoint);
 	if (!entry) return [];
 	const name = (b: Block) => b.key ?? b.id;
@@ -50,15 +58,20 @@ export function reachabilityIssues({ kind, blocks, edges }: RulesInput): CanvasI
 		blockId: b.id,
 	});
 
+	const specOf = (id: string) => specs[blocks.find((b) => b.id === id)?.type ?? ""];
+	const isBody = (from: string, handle: string) => isBodyHandle(handle, specOf(from));
+	// a spec'd [success, failure] block branches like `if`
+	const branching = (b: Block) => BRANCHING.has(b.type ?? "") || specOf(b.id)?.out.length === 2;
+
 	const roots = blocks.filter((b) => ROOTS.has(b.type ?? "")).map((b) => b.id);
-	const live = walk(roots, edges, false);
+	const live = walk(roots, edges);
 	const out = blocks
 		.filter((b) => !live.has(b.id) && b.type !== BlockTypes.sticky_note)
 		.map((b) => warn(b, `${name(b)} is not connected to the flow, so it never runs.`));
 	if (kind !== "route") return out;
 
-	const main = walk([entry.id], edges, true);
-	const reach = walk([entry.id], edges, false);
+	const main = walk([entry.id], edges, isBody);
+	const reach = walk([entry.id], edges);
 	if (!blocks.some((b) => b.type === BlockTypes.response && reach.has(b.id))) {
 		out.push(
 			warn(
@@ -68,7 +81,7 @@ export function reachabilityIssues({ kind, blocks, edges }: RulesInput): CanvasI
 		);
 	}
 	for (const b of blocks) {
-		if (!BRANCHING.has(b.type ?? "") || !main.has(b.id)) continue;
+		if (!branching(b) || !main.has(b.id)) continue;
 		for (const handle of ["success", "failure"]) {
 			const open = !edges.some((e) => e.from === b.id && handleOf(b.id, e.fromHandle) === handle);
 			if (open)

@@ -1,4 +1,4 @@
-import { BlockTypes, FAN_OUT_HANDLES } from "@fluxify/blocks";
+import { BlockTypes } from "@fluxify/blocks";
 import { type DbTransactionType, db } from "../../db";
 import {
 	CHAN_ON_CUSTOM_BLOCK_CHANGE,
@@ -16,6 +16,7 @@ import { audit, projectIdOf } from "../audit";
 import { assignBlockKeys } from "./blockKeys";
 import { type DirectedCanvasEdge, findCycleEdgeIds } from "./cycleDetection";
 import { takeDroppedWarnings } from "./droppedFields";
+import { assertOutputHandles } from "./handleRules";
 import { assertJoinsSupported } from "./joinSupport";
 import { assertSendMessageLicensed } from "./queueLicense";
 import {
@@ -138,35 +139,6 @@ async function canvasBlocksAfterSave(
 	for (const block of data.changes.blocks) blocks.set(block.id, block);
 	for (const id of deleteBlockIds) blocks.delete(id);
 	return [...blocks.values()];
-}
-
-/** The runtime takes the first edge it finds for an output handle (fan-out
- * handles, whose edges are parallel branches, excepted). Rejecting
- * fan-out here protects every canvas writer, not only AI writers. */
-async function assertCanvasHasNoHandleFanOut(
-	parent: CanvasParent,
-	data: CanvasChanges,
-	deleteBlockIds: string[],
-	deleteEdgeIds: string[],
-	tx: DbTransactionType,
-) {
-	const seen = new Map<string, string>();
-	for (const edge of await canvasEdgesAfterSave(parent, data, deleteBlockIds, deleteEdgeIds, tx)) {
-		if (!edge.from) continue;
-		const rawHandle = edge.fromHandle ?? "source";
-		const handle = rawHandle.startsWith(`${edge.from}-`)
-			? rawHandle.slice(edge.from.length + 1)
-			: rawHandle;
-		if (FAN_OUT_HANDLES.includes(handle)) continue;
-		const key = `${edge.from}|${handle}`;
-		const first = seen.get(key);
-		if (first) {
-			throw new BadRequestError(
-				`Canvas has multiple outgoing edges on block ${edge.from}'s ${handle} handle (${first}, ${edge.id}).`,
-			);
-		}
-		seen.set(key, edge.id);
-	}
 }
 
 /**
@@ -391,7 +363,6 @@ export async function saveCanvas(
 		await assertNoCustomBlockRecursion(parent, data, deleteBlockIds, tx);
 		await assertEdgeTargetsExist(parent, data, deleteBlockIds, tx);
 		await assertCanvasHasNoCycles(parent, data, deleteBlockIds, deleteEdgeIds, tx);
-		await assertCanvasHasNoHandleFanOut(parent, data, deleteBlockIds, deleteEdgeIds, tx);
 		const dbTypeOf = (connection: string) => dbIntegrationsCache[connection]?.dbType;
 		const blocksAfterSave = await canvasBlocksAfterSave(parent, data, deleteBlockIds, tx);
 		const edgesAfterSave = await canvasEdgesAfterSave(
@@ -401,6 +372,9 @@ export async function saveCanvas(
 			deleteEdgeIds,
 			tx,
 		);
+		const typeOf = new Map(blocksAfterSave.map((b) => [b.id, b.type]));
+		// no spec source on admin yet: plugin manifests arrive with P1 (#857)
+		assertOutputHandles((id) => typeOf.get(id), edgesAfterSave);
 		assertTransactionWiring(blocksAfterSave, edgesAfterSave, dbTypeOf);
 		assertJoinsSupported(blocksAfterSave, dbTypeOf);
 		const { keyOf, newKeys } = await assignBlockKeys(parent, data.changes.blocks, tx);

@@ -1,12 +1,20 @@
+import type { HandleSpecs } from "./blockHandles";
 import { BlockTypes } from "./blockTypes";
 import { handleSide, layoutBand, splitIntoBands } from "./layoutLanes";
 
 export {
 	BODY_HANDLES,
 	FAN_OUT_HANDLES,
+	getOutputHandles,
 	HANDLE_SIDE,
 	type HandleKind,
 	type HandleSide,
+	type HandleSpec,
+	type HandleSpecs,
+	handleCorner,
+	isBodyHandle,
+	isFanOutHandle,
+	sideOf,
 	sortByOrder,
 } from "./blockHandles";
 
@@ -71,6 +79,8 @@ export type LayoutOptions = {
 	 * new are returned.
 	 */
 	changedIds?: Iterable<string>;
+	/** Handle specs of non-builtin types in the graph; a type left out lays out as builtin. */
+	handleSpecs?: HandleSpecs;
 };
 
 export type LayoutPositions = Record<string, { x: number; y: number }>;
@@ -137,7 +147,7 @@ const BAND_SPACING = 48;
 export function layoutGraph(
 	nodes: LayoutNode[],
 	edges: LayoutEdge[],
-	{ nodeSpacing = 24, layerSpacing = 64, changedIds }: LayoutOptions = {},
+	{ nodeSpacing = 24, layerSpacing = 64, changedIds, handleSpecs }: LayoutOptions = {},
 ): LayoutPositions {
 	const laidOut = nodes.filter((node) => node.type !== BlockTypes.sticky_note);
 	if (laidOut.length === 0) return {};
@@ -165,7 +175,14 @@ export function layoutGraph(
 	for (const band of splitIntoBands(laidOut, graphEdges)) {
 		const inBand = new Set(band.map((n) => n.id));
 		const bandEdges = graphEdges.filter((e) => inBand.has(e.from) && inBand.has(e.to));
-		const { tops, height } = layoutBand(band, bandEdges, layers, heightOf, nodeSpacing);
+		const { tops, height } = layoutBand(
+			band,
+			bandEdges,
+			layers,
+			heightOf,
+			nodeSpacing,
+			handleSpecs,
+		);
 		for (const node of band) {
 			positions[node.id] = {
 				x: columnX.get(layers.get(node.id) ?? 0)!,

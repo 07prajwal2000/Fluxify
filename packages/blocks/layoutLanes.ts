@@ -1,9 +1,12 @@
 import {
-	BODY_HANDLES,
 	getOutputHandles,
 	HANDLE_SIDE,
 	type HandleKind,
 	type HandleSide,
+	type HandleSpec,
+	type HandleSpecs,
+	isBodyHandle,
+	sideOf,
 } from "./blockHandles";
 import { BlockTypes } from "./blockTypes";
 import type { LayoutEdge, LayoutNode } from "./layout";
@@ -13,11 +16,22 @@ const HANDLE_KINDS = Object.keys(HANDLE_SIDE) as HandleKind[];
 const handleKind = (handleId: string) =>
 	HANDLE_KINDS.find((candidate) => handleId.endsWith(`-${candidate}`));
 
-/** Which side of the block a handle id (`<blockId>-<kind>`) sits on. */
-export function handleSide(handleId: string): HandleSide {
+/** Which side of the block a handle id (`<blockId>-<kind>`) sits on; `spec` is the block's. */
+export function handleSide(handleId: string, spec?: HandleSpec): HandleSide {
+	if (spec) {
+		const names = [...spec.in, ...spec.out, ...spec.body.map((b) => b.name)];
+		const name = names.find((n) => handleId === n || handleId.endsWith(`-${n}`));
+		return name ? sideOf(name, spec) : "right";
+	}
 	const kind = handleKind(handleId);
 	return kind ? HANDLE_SIDE[kind] : "right";
 }
+
+/** an edge's handle name: ids persist as `<blockId>-<name>`, agent-built ones may say just `<name>` */
+const handleOf = (edge: LayoutEdge) => {
+	const handle = edge.fromHandle ?? "source";
+	return handle.startsWith(`${edge.from}-`) ? handle.slice(edge.from.length + 1) : handle;
+};
 
 /** Roots sort entrypoint flow first, error handler flow last, anything else between. */
 const ROOT_RANK: Record<string, number> = {
@@ -71,15 +85,14 @@ export function splitIntoBands(nodes: LayoutNode[], edges: LayoutEdge[]): Layout
  * above the rest, then the handle's place among the parent's outputs, then its
  * place in a fan-out branch list (listed first, the default case last).
  */
-function branchKey(edge: LayoutEdge, parent: LayoutNode): number[] {
-	const handle = edge.fromHandle ?? `${edge.from}-source`;
+function branchKey(edge: LayoutEdge, parent: LayoutNode, spec?: HandleSpec): number[] {
 	const data = (parent.data ?? {}) as { order?: unknown; defaultCase?: unknown };
 	const order = Array.isArray(data.order) ? (data.order as string[]) : [];
 	const listed = order.indexOf(edge.to);
-	const outputs = getOutputHandles(parent.type ?? "");
-	const kind = handleKind(handle) ?? "source";
+	const outputs = getOutputHandles(parent.type ?? "", spec);
+	const kind = handleOf(edge);
 	return [
-		BODY_HANDLES.includes(kind) ? -1 : 0,
+		isBodyHandle(kind, spec) ? -1 : 0,
 		outputs.indexOf(kind),
 		edge.to === data.defaultCase ? order.length + 1 : listed === -1 ? order.length : listed,
 	];
@@ -106,6 +119,7 @@ export function layoutBand(
 	layers: Map<string, number>,
 	heightOf: (n: LayoutNode) => number,
 	gap: number,
+	specs: HandleSpecs = {},
 ): { tops: Map<string, number>; height: number } {
 	const byId = new Map(band.map((n) => [n.id, n]));
 	const out = new Map<string, LayoutEdge[]>();
@@ -126,16 +140,16 @@ export function layoutBand(
 		const known = lanes.get(id);
 		if (known) return known;
 		const parent = byId.get(id)!;
+		const spec = specs[parent.type ?? ""];
 		const seen = new Set<string>();
 		const branches = (out.get(id) ?? [])
 			.filter((e) => e.to !== id && !isJoin(e.to) && !seen.has(e.to) && seen.add(e.to))
 			.sort(
 				(a, b) =>
-					compareKeys(branchKey(a, parent), branchKey(b, parent)) ||
+					compareKeys(branchKey(a, parent, spec), branchKey(b, parent, spec)) ||
 					byPosition(byId.get(a.to)!, byId.get(b.to)!),
 			);
-		const isBody = (e: LayoutEdge) =>
-			BODY_HANDLES.includes(handleKind(e.fromHandle ?? "") ?? "source");
+		const isBody = (e: LayoutEdge) => isBodyHandle(handleOf(e), spec);
 		const result = {
 			body: branches.filter(isBody).map((e) => byId.get(e.to)!),
 			main: branches.filter((e) => !isBody(e)).map((e) => byId.get(e.to)!),

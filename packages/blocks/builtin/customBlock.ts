@@ -1,6 +1,7 @@
 import { logger } from "@fluxify/common";
 import z from "zod";
 import type { BlockOutput, Context } from "../baseBlock";
+import { type HandleSpec, handleSpecSchema } from "../blockHandles";
 import type { BlockDTOType, EdgeDTOSchemaType } from "../builderTypes";
 import { compileGraph, type EmitNode, emitJsObject, instantiateCompiled } from "../compiler";
 import { enqueueJob } from "../jobs";
@@ -51,7 +52,7 @@ export type BlockEntry = {
 };
 
 export type BlockMeta = {
-	handles?: { in?: string[]; out?: string[]; body?: string[] };
+	handles?: HandleSpec;
 	invoke?: z.infer<typeof customBlockInvokeSchema>[];
 };
 
@@ -134,6 +135,9 @@ export function registerModuleBlock(
 	meta?: BlockMeta,
 	id?: string,
 ) {
+	// a bad manifest fails here, at register, not when a canvas first routes on it
+	if (meta?.handles)
+		meta = { ...meta, handles: handleSpecSchema.parse(meta.handles) as HandleSpec };
 	const wrapped: CompiledCustomBlock = async (ctx, args?: CustomBlockArgs) => {
 		try {
 			const result = await run({ params: args?.params ?? {}, input: args?.input, ctx });
