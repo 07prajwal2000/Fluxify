@@ -8,7 +8,14 @@ import { BlockToolbar, useHoverIntent } from "./BlockToolbar";
 import { BlockHandle, type BlockHandleProps } from "./handles/BlockHandle";
 import { HANDLE_CONFIG, type HandleSide } from "./handles/handleConfig";
 
+/**
+ * `compact`: rounded square, name underneath (blocks with at most one input and one output).
+ * `container`: taller card whose body handle sits top-right, apart from the rest.
+ */
+export type BlockVariant = "default" | "compact" | "container";
+
 export type BaseBlockProps = {
+	variant?: BlockVariant;
 	blockId: string;
 	/** Block type key, e.g. `httprequest`. Exposed as `data-block-type`. */
 	blockType: string;
@@ -60,6 +67,7 @@ const RAIL_SIDES: HandleSide[] = ["left", "right", "top", "bottom"];
  * (flex, space-around per edge). Wrap it to build a concrete block type.
  */
 export function BaseBlock({
+	variant = "default",
 	blockId,
 	blockType,
 	position,
@@ -89,7 +97,14 @@ export function BaseBlock({
 			data-block-type={blockType}
 			data-x={position?.x}
 			data-y={position?.y}
-			className={["fx-block", statusClass, selected ? "fx-block--selected" : "", className ?? ""]
+			title={variant !== "default" ? name : undefined}
+			className={[
+				"fx-block",
+				variant !== "default" && `fx-block--${variant}`,
+				statusClass,
+				selected ? "fx-block--selected" : "",
+				className ?? "",
+			]
 				.filter(Boolean)
 				.join(" ")}
 		>
@@ -164,7 +179,9 @@ export function BaseBlock({
 			)}
 			<span className="fx-block__text">
 				<span className="fx-block__name">{name}</span>
-				{description && <span className="fx-block__description">{description}</span>}
+				{description && variant === "default" && (
+					<span className="fx-block__description">{description}</span>
+				)}
 			</span>
 			{body}
 			{RAIL_SIDES.map((side) =>

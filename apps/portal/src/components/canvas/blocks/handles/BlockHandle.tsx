@@ -38,10 +38,12 @@ export function BlockHandle({ blockId, kind, color, label, className }: BlockHan
 			isConnectable={isConnectable}
 			title={showAdd ? `${label ?? config.label} — click to add a block` : (label ?? config.label)}
 			aria-label={`${label ?? config.label} handle`}
+			data-label={label ?? config.label}
 			className={[
 				"fx-handle",
 				`fx-handle--${config.shape}`,
 				`fx-handle--${config.side}`,
+				`fx-handle--${kind}`,
 				isConnectable ? "" : "fx-handle--full",
 				showAdd ? "fx-handle--add" : "",
 				className ?? "",

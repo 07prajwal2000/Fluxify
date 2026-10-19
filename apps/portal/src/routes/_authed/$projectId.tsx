@@ -9,10 +9,10 @@ import {
 } from "@tanstack/react-router";
 import { isAxiosError } from "axios";
 import { useState } from "react";
-import { TbArrowLeft, TbChevronDown, TbLogout, TbSearch, TbSettings, TbUser } from "react-icons/tb";
+import { TbArrowLeft, TbLogout, TbSearch, TbSettings, TbUser } from "react-icons/tb";
 import { comboLabel } from "@/components/canvas/actions/combo";
 import { ProjectSpotlight } from "@/components/common/ProjectSpotlight";
-import { NAV_KEYS, visibleNav } from "@/components/common/projectNav";
+import { NAV_KEYS, visibleNavGroups } from "@/components/common/projectNav";
 import { authClient } from "@/lib/auth";
 import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
 import { projectsQuery } from "@/query/projectsQuery";
@@ -98,9 +98,6 @@ function ProjectLayout() {
 	const active = location.pathname.includes("/settings")
 		? "settings"
 		: (NAV_KEYS.find((key) => location.pathname.includes(`/${key}`)) ?? "routes");
-	// A group opens itself when one of its pages is on screen, and stays open
-	// after that unless the user closes it.
-	const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 	const [spotlightOpen, setSpotlightOpen] = useState(false);
 
 	const initials = userData?.name
@@ -161,9 +158,11 @@ function ProjectLayout() {
 								</Kbd>
 							}
 						/>
-						{visibleNav(canEdit).map((item) => {
-							if (!("children" in item))
-								return (
+						{visibleNavGroups(canEdit).map((group, index) => (
+							<div key={group[0].key} className="flex flex-col gap-1">
+								{/* the rail is icons only until hovered; the rule still reads as a gap */}
+								{index > 0 && <div className="mx-1 my-1 h-px bg-border" />}
+								{group.map((item) => (
 									<NavButton
 										key={item.key}
 										icon={item.icon}
@@ -171,47 +170,9 @@ function ProjectLayout() {
 										isActive={active === item.key}
 										onClick={() => navigate({ to: item.to, params: { projectId } })}
 									/>
-								);
-
-							const holdsActive = item.children.some((child) => child.key === active);
-							const isOpen = openGroups[item.key] ?? holdsActive;
-							return (
-								<div key={item.key} className="flex flex-col gap-1">
-									<NavButton
-										icon={item.icon}
-										label={item.label}
-										// stays lit while one of its pages is open — the rail is icons
-										// only until it is hovered, so the child row cannot say it
-										isActive={holdsActive}
-										onClick={() => setOpenGroups((groups) => ({ ...groups, [item.key]: !isOpen }))}
-										trailing={
-											<TbChevronDown
-												size={14}
-												className={cn(
-													"ml-auto shrink-0 transition-transform duration-200",
-													isOpen && "rotate-180",
-												)}
-											/>
-										}
-									/>
-									{/* the labels are hidden while the rail is collapsed, so the
-									    children only make sense once it has expanded */}
-									{isOpen && (
-										<div className="hidden flex-col gap-1 border-l border-border pl-2 group-hover:flex">
-											{item.children.map((child) => (
-												<NavButton
-													key={child.key}
-													icon={child.icon}
-													label={child.label}
-													isActive={active === child.key}
-													onClick={() => navigate({ to: child.to, params: { projectId } })}
-												/>
-											))}
-										</div>
-									)}
-								</div>
-							);
-						})}
+								))}
+							</div>
+						))}
 					</nav>
 				</div>
 

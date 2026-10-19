@@ -478,8 +478,8 @@ html[data-theme="dark"] .fx-block,
    file from a non-canvas module (a block preview, say) is enough to flip that
    order and turn the inbound bar into an oval. */
 .fx-handle--circle.react-flow__handle {
-	width: 10px;
-	height: 10px;
+	width: 8px;
+	height: 8px;
 	border-radius: 9999px;
 }
 
@@ -501,7 +501,7 @@ html[data-theme="dark"] .fx-block,
 }
 
 .fx-handle.react-flow__handle:hover {
-	box-shadow: 0 0 0 3px color-mix(in oklab, currentColor 25%, transparent);
+	box-shadow: 0 0 0 1.5px color-mix(in oklab, currentColor 25%, transparent);
 }
 
 /* Already at its connection limit — no longer a drop target. */
@@ -510,30 +510,37 @@ html[data-theme="dark"] .fx-block,
 }
 
 /* Output that can take another edge: a `+` inside the socket, shown when the
-   block is hovered or selected. The socket grows to fit it. */
+   block is hovered or selected. The socket keeps its layout size and scales up
+   instead (scale never moves its siblings), so hovering never shifts the rail. */
+.fx-handle--add.react-flow__handle {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	transition:
+		scale 160ms ease,
+		box-shadow 160ms ease;
+}
+
 .fx-handle__plus {
-	display: none;
+	width: 6px;
+	height: 6px;
+	opacity: 0;
 	pointer-events: none;
 	color: var(--fx-block-bg, #111113);
+	transition: opacity 160ms ease;
 }
 
 .react-flow__node:hover .fx-handle--add.react-flow__handle,
 .react-flow__node.selected .fx-handle--add.react-flow__handle,
 .fx-handle--add.react-flow__handle:focus-visible {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	width: 16px;
-	height: 16px;
-	cursor: pointer;
+	scale: 2;
 }
 
 .react-flow__node:hover .fx-handle--add .fx-handle__plus,
 .react-flow__node.selected .fx-handle--add .fx-handle__plus,
 .fx-handle--add:focus-visible .fx-handle__plus {
-	display: block;
-	width: 12px;
-	height: 12px;
+	opacity: 1;
 }
 
 /* Invisible ring around the socket, so the pointer doesn't need to hit the
@@ -541,6 +548,76 @@ html[data-theme="dark"] .fx-block,
 .fx-handle.react-flow__handle::before {
 	content: "";
 	position: absolute;
-	inset: -14px;
+	inset: -8px;
 	border-radius: 9999px;
+}
+
+/* Compact: rounded square, icon centred, name underneath (truncated; the full
+   name and description are the tooltip). The label hangs below the box, so the
+   handles stay centred on the square. */
+.fx-block--compact {
+	flex-direction: column;
+	justify-content: center;
+	width: 64px;
+	height: 64px;
+	padding: 0;
+	border-radius: 16px;
+}
+
+.fx-block--compact .fx-block__icon {
+	width: 32px;
+	height: 32px;
+}
+
+/* Icons carry a fixed svg size, so resize the svg itself. */
+.fx-block--compact .fx-block__icon svg {
+	width: 24px;
+	height: 24px;
+}
+
+.fx-block--compact .fx-block__text {
+	position: absolute;
+	top: 100%;
+	left: 50%;
+	flex: none;
+	width: 96px;
+	margin-top: 6px;
+	text-align: center;
+	transform: translateX(-50%);
+}
+
+/* Container: name only, centred on the card. The body handle sits on the top edge
+   above the icon; the outputs stay on the right like any other block. */
+.fx-block--container .fx-block__text {
+	position: absolute;
+	inset: 0 38px;
+	justify-content: center;
+	text-align: center;
+}
+
+.fx-block--container .fx-block__rail--top {
+	justify-content: flex-start;
+	padding-left: 18px;
+}
+
+/* Success/failure sockets: the block's own label (true, exists, committed…) sits just outside. */
+:is(.fx-block--compact, .fx-block--container)
+:is(.fx-handle--success, .fx-handle--failure).react-flow__handle::after {
+	content: attr(data-label);
+	position: absolute;
+	left: 16px;
+	color: var(--fx-block-muted);
+	font-size: 9px;
+	line-height: 1;
+	white-space: nowrap;
+	pointer-events: none;
+}
+
+/* The label is a child of the socket, so undo its hover scale to keep the text size. */
+:is(.react-flow__node:hover, .react-flow__node.selected)
+	:is(.fx-block--compact, .fx-block--container)
+	:is(.fx-handle--success, .fx-handle--failure).react-flow__handle::after {
+	left: 10px;
+	scale: 0.5;
+	transform-origin: left center;
 }

@@ -1,4 +1,3 @@
-import { Input, Label, TextArea, TextField } from "@fluxify/components";
 import { useReactFlow } from "@xyflow/react";
 import { type KeyboardEvent, useCallback, useState } from "react";
 import { useCanvasChanges } from "../changes/ChangesContext";
@@ -49,6 +48,12 @@ export type BlockFieldProps = {
 	placeholder: string;
 };
 
+/**
+ * The name and description live in the panel header, as plain inputs that look
+ * like text until hovered or focused (HeroUI's inputs are too tall for a header).
+ * Styles: `.fx-panel__field` in panel.css.
+ */
+
 /** The block's name. */
 export function BlockNameInput({ blockId, data, placeholder }: BlockFieldProps) {
 	const { value, editable, onChange, commit } = useBlockField(blockId, "blockName", data);
@@ -58,33 +63,35 @@ export function BlockNameInput({ blockId, data, placeholder }: BlockFieldProps) 
 	}, []);
 
 	return (
-		<TextField
-			fullWidth
-			variant="secondary"
-			isDisabled={!editable}
+		<input
+			className="fx-panel__field fx-panel__name"
+			aria-label="Block name"
+			title={editable ? "Click to rename" : value || placeholder}
+			readOnly={!editable}
 			value={value}
-			onChange={onChange}
-		>
-			<Label>Name</Label>
-			<Input placeholder={placeholder} onBlur={commit} onKeyDown={onKeyDown} />
-		</TextField>
+			placeholder={placeholder}
+			onChange={(event) => onChange(event.target.value)}
+			onBlur={commit}
+			onKeyDown={onKeyDown}
+		/>
 	);
 }
 
-/** The block's description — two lines, growable. */
+/** The block's description — grows with its text, up to a few lines. */
 export function BlockDescriptionField({ blockId, data, placeholder }: BlockFieldProps) {
 	const { value, editable, onChange, commit } = useBlockField(blockId, "blockDescription", data);
 
 	return (
-		<TextField
-			fullWidth
-			variant="secondary"
-			isDisabled={!editable}
+		<textarea
+			className="fx-panel__field fx-panel__type"
+			aria-label="Block description"
+			title={editable ? "Click to edit the description" : value || placeholder}
+			readOnly={!editable}
+			rows={1}
 			value={value}
-			onChange={onChange}
-		>
-			<Label>Description</Label>
-			<TextArea rows={2} placeholder={placeholder} onBlur={commit} />
-		</TextField>
+			placeholder={placeholder}
+			onChange={(event) => onChange(event.target.value)}
+			onBlur={commit}
+		/>
 	);
 }

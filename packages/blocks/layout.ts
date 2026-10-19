@@ -2,6 +2,7 @@ import { BlockTypes } from "./blockTypes";
 import { handleSide, layoutBand, splitIntoBands } from "./layoutLanes";
 
 export {
+	BODY_HANDLES,
 	FAN_OUT_HANDLES,
 	HANDLE_SIDE,
 	type HandleKind,

@@ -10,12 +10,15 @@ export type BlockDefinition = {
 	handles: HandleKind[];
 	/** Optional icon tint. */
 	tint?: string;
+	/** Socket names that differ from the generic ones (Success, Failure, Body…): tooltip and card label. */
+	handleLabels?: Partial<Record<HandleKind, string>>;
 	category: "Core" | "Flow" | "Database" | "KV" | "Queue" | "HTTP" | "Logging" | "Misc";
 };
 
 const GREEN = "var(--success)";
 const VIOLET = "var(--accent)";
 const RED = "var(--danger)";
+const AMBER = "var(--warning)";
 
 /** Inbound + one outbound "next" — the shape almost every block has. */
 const STD: HandleKind[] = ["target", "source"];
@@ -52,12 +55,21 @@ export const BLOCK_CATALOG: Record<BlockType, BlockDefinition> = {
 		name: "If",
 		description: "Branch on a condition",
 		handles: ["target", "success", "failure"],
+		handleLabels: {
+			success: "true",
+			failure: "false",
+		},
+		tint: GREEN,
 		category: "Flow",
 	},
 	[BLOCK_TYPES.forloop]: {
 		name: "For Loop",
 		description: "Repeat the body a fixed number of times",
 		handles: LOOP,
+		handleLabels: {
+			executor: "Each round",
+			source: "Done",
+		},
 		tint: GREEN,
 		category: "Flow",
 	},
@@ -65,6 +77,10 @@ export const BLOCK_CATALOG: Record<BlockType, BlockDefinition> = {
 		name: "Foreach Loop",
 		description: "Repeat the body for every item in a list",
 		handles: LOOP,
+		handleLabels: {
+			executor: "Each item",
+			source: "Done",
+		},
 		tint: VIOLET,
 		category: "Flow",
 	},
@@ -72,6 +88,10 @@ export const BLOCK_CATALOG: Record<BlockType, BlockDefinition> = {
 		name: "Orchestrator",
 		description: "Run the connected chains at the same time",
 		handles: ["target", "source", "orchestrate"],
+		handleLabels: {
+			orchestrate: "Branches",
+			source: "Done",
+		},
 		tint: VIOLET,
 		category: "Flow",
 	},
@@ -166,60 +186,78 @@ export const BLOCK_CATALOG: Record<BlockType, BlockDefinition> = {
 		name: "Get Single Record",
 		description: "Fetch one row matching a filter",
 		handles: STD,
+		tint: GREEN,
 		category: "Database",
 	},
 	[BLOCK_TYPES.db_exists]: {
 		name: "Row Exists",
 		description: "Branch on whether a row matches a filter",
 		handles: ["target", "success", "failure"],
+		handleLabels: {
+			success: "exists",
+			failure: "not exists",
+		},
+		tint: GREEN,
 		category: "Database",
 	},
 	[BLOCK_TYPES.db_count]: {
 		name: "Count Records",
 		description: "Count the rows matching a filter",
 		handles: STD,
+		tint: GREEN,
 		category: "Database",
 	},
 	[BLOCK_TYPES.db_getall]: {
 		name: "Get All Records",
 		description: "Fetch every row matching a filter",
 		handles: STD,
+		tint: GREEN,
 		category: "Database",
 	},
 	[BLOCK_TYPES.db_insert]: {
 		name: "Insert New Record",
 		description: "Insert a single row",
 		handles: STD,
+		tint: VIOLET,
 		category: "Database",
 	},
 	[BLOCK_TYPES.db_insertbulk]: {
 		name: "Insert Bulk Records",
 		description: "Insert many rows at once",
 		handles: STD,
+		tint: VIOLET,
 		category: "Database",
 	},
 	[BLOCK_TYPES.db_update]: {
 		name: "Update Record(s)",
 		description: "Update rows matching a filter",
 		handles: STD,
+		tint: AMBER,
 		category: "Database",
 	},
 	[BLOCK_TYPES.db_delete]: {
 		name: "Delete Record(s)",
 		description: "Delete rows matching a filter",
 		handles: STD,
+		tint: RED,
 		category: "Database",
 	},
 	[BLOCK_TYPES.db_native]: {
 		name: "Native Database",
 		description: "Run a raw query against the database",
 		handles: STD,
+		tint: VIOLET,
 		category: "Database",
 	},
 	[BLOCK_TYPES.db_transaction]: {
-		name: "Database Transaction",
+		name: "DB Transaction",
 		description: "Run the body in one transaction",
 		handles: ["target", "success", "failure", "executor"],
+		handleLabels: {
+			success: "committed",
+			failure: "rolled back",
+			executor: "Transaction",
+		},
 		tint: GREEN,
 		category: "Database",
 	},
@@ -246,6 +284,10 @@ export const BLOCK_CATALOG: Record<BlockType, BlockDefinition> = {
 		name: "Send Message",
 		description: "Publish to Kafka, NATS, SQS or a Redis stream",
 		handles: ["target", "success", "failure"],
+		handleLabels: {
+			success: "sent",
+			failure: "failed",
+		},
 		category: "Queue",
 	},
 	[BLOCK_TYPES.consolelog]: {
@@ -271,6 +313,11 @@ export const BLOCK_CATALOG: Record<BlockType, BlockDefinition> = {
 		name: "Retry",
 		description: "Run the body again when it fails",
 		handles: ["target", "success", "failure", "executor"],
+		handleLabels: {
+			success: "success",
+			failure: "failed",
+			executor: "Attempt",
+		},
 		tint: GREEN,
 		category: "Flow",
 	},

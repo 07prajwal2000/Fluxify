@@ -113,7 +113,7 @@ test("if: the true branch sits above the false branch, whatever order they arriv
 	expect(at(p, "t")).toBeLessThan(at(p, "f"));
 });
 
-test("a top-handle child sits above the parent's right-hand children", () => {
+test("a body-handle child sits above the parent's right-hand children", () => {
 	const nodes = [
 		bare("e", BlockTypes.entrypoint),
 		bare("loop", BlockTypes.forloop),
@@ -259,4 +259,26 @@ test("a block two branches converge on sits after the lanes, centred between its
 	expect(p.join!.x).toBeGreaterThan(p.b2!.x);
 	expect(at(p, "join")).toBe((at(p, "a") + at(p, "b2")) / 2);
 	expect(at(p, "a")).toBeLessThan(at(p, "b"));
+});
+
+test("a body chain sits above its block; the block's own flow stays on its row", () => {
+	const nodes = [
+		bare("e", BlockTypes.entrypoint),
+		bare("loop", BlockTypes.forloop),
+		bare("after", BlockTypes.jsrunner),
+		bare("body", BlockTypes.jsrunner),
+		bare("body2", BlockTypes.jsrunner),
+	];
+	const edges = [
+		edge("e", "loop"),
+		edge("loop", "after", "source"),
+		edge("loop", "body", "executor"),
+		edge("body", "body2"),
+	];
+	const p = layoutGraph(nodes, edges);
+	expect(at(p, "after")).toBe(at(p, "loop"));
+	expect(at(p, "body")).toBeLessThan(at(p, "loop"));
+	// no next block connected yet: the body still stays above the row, leaving it free
+	const alone = layoutGraph(nodes.filter((n) => n.id !== "after"), edges.filter((x) => x.to !== "after"));
+	expect(at(alone, "body")).toBeLessThan(at(alone, "loop"));
 });

@@ -6,6 +6,7 @@ import type { CanvasItems, CanvasSavePayload } from "@/services/canvas";
 import { emptyGraph } from "./adapters";
 import { BlockCanvas } from "./BlockCanvas";
 import { createBlockNodeTypes } from "./blocks";
+import { CanvasResourceContext } from "./CanvasResourceContext";
 import { type ChangeSet, saveWithDoctor } from "./changes";
 import { findCycleEdgeIds } from "./cycleDetection";
 import { CanvasDiagnosticsProvider, useBlockDiagnostics } from "./diagnostics";
@@ -98,7 +99,9 @@ const nodeTypes = createBlockNodeTypes();
 export function CanvasWorkbench(props: CanvasWorkbenchProps) {
 	return (
 		<CanvasDiagnosticsProvider>
-			<CanvasWorkbenchInner {...props} />
+			<CanvasResourceContext.Provider value={props.compileTarget.resourceType}>
+				<CanvasWorkbenchInner {...props} />
+			</CanvasResourceContext.Provider>
 		</CanvasDiagnosticsProvider>
 	);
 }
