@@ -5,6 +5,7 @@ If you encounter a repeatable issue or bug that might arise in the future, you m
 
 ## Runtime & Package Management
 **CRITICAL:** Always use `bun` — `bun run`, `bun install`, `bun test`, and `bun` to execute JS/TS files. Never `npm`, `yarn`, or `pnpm`.
+**Run every test with `NODE_ENV=test`** (`NODE_ENV=test bun test …`, PowerShell: `$env:NODE_ENV="test"; bun test …`), not just portal specs. Agent shells often export `production`, which breaks React specs and changes behaviour elsewhere (see the Portal Unit Tests section below).
 
 ## Frontend Location — `apps/portal` ONLY
 **CRITICAL:** The frontend is `apps/portal`.
