@@ -5,6 +5,7 @@ import { type HandleSpec, handleSpecSchema } from "../blockHandles";
 import type { BlockDTOType, EdgeDTOSchemaType } from "../builderTypes";
 import { compileGraph, type EmitNode, emitJsObject, instantiateCompiled } from "../compiler";
 import { enqueueJob } from "../jobs";
+import type { ExecuteHandle } from "./executeHandle";
 
 export const customBlockInvokeSchema = z
 	.enum(["sync", "async", "queued"])
@@ -121,6 +122,8 @@ export type ModuleBlockRun = (args: {
 	params: Record<string, any>;
 	input?: any;
 	ctx: Context;
+	/** runs a body handle's chain; a block without body handles gets one that throws */
+	executeHandle?: ExecuteHandle;
 }) => ModuleBlockResult | Promise<ModuleBlockResult>;
 
 /**
@@ -140,7 +143,12 @@ export function registerModuleBlock(
 		meta = { ...meta, handles: handleSpecSchema.parse(meta.handles) as HandleSpec };
 	const wrapped: CompiledCustomBlock = async (ctx, args?: CustomBlockArgs) => {
 		try {
-			const result = await run({ params: args?.params ?? {}, input: args?.input, ctx });
+			const result = await run({
+				params: args?.params ?? {},
+				input: args?.input,
+				ctx,
+				executeHandle: args?.executeHandle,
+			});
 			return {
 				successful: true,
 				continueIfFail: false,
@@ -209,7 +217,12 @@ export function tracedBlock(
  * flowing into the calling block. They stay apart inside the callee — `params`
  * is its configuration at any depth, `input` is the previous block's output.
  */
-export type CustomBlockArgs = { params: Record<string, any>; input?: any };
+export type CustomBlockArgs = {
+	params: Record<string, any>;
+	input?: any;
+	/** sync programmable blocks only: never serialized, a queued job has no run to call back into */
+	executeHandle?: ExecuteHandle;
+};
 
 /**
  * Run a custom block and hand back its whole result rather than its output —

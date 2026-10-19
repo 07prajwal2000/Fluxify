@@ -18,6 +18,7 @@ import { emitRollbackDb } from "./builtin/db/rollback";
 import { emitTransactionDb, runTransactionDb, TransactionRollback } from "./builtin/db/transaction";
 import { emitUpdateDb, runUpdateDb } from "./builtin/db/update";
 import { emitEntrypoint } from "./builtin/entrypoint";
+import { bodyHandles } from "./builtin/executeHandle";
 import { emitGetVar } from "./builtin/getVar";
 import { emitGetHttpCookie } from "./builtin/http/getHttpCookie";
 import { emitGetHttpHeader } from "./builtin/http/getHttpHeader";
@@ -128,6 +129,7 @@ export const compilerLib = {
 	invokeAsync: invokeCustomBlockAsync,
 	enqueue: enqueueCustomBlock,
 	invokeRouted,
+	bodyHandles,
 	fireWorkflow,
 	scheduleWorkflow,
 	cancelSchedule,
