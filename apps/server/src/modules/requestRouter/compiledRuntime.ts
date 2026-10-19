@@ -2,12 +2,13 @@ import { DbConnectionManager, KvFactory, QueueProducerFactory } from "@fluxify/a
 import {
 	type BlockOutput,
 	type Context,
+	customBlockCount,
 	instantiateCompiled,
 	type Middleware,
 	type RouteMiddlewares,
 	registerCompiledCustomBlock,
 	runWithMiddlewares,
-	unregisterCustomBlock,
+	unregisterById,
 } from "@fluxify/blocks";
 import { logger } from "@fluxify/common";
 import { type HttpRoute, HttpRouteParser } from "@fluxify/lib";
@@ -90,8 +91,6 @@ const workflows = new Map<string, CompiledWorkflow>();
 const sandboxes = new Map<string, CompiledRoute>();
 /** each project's development token hash; only a development config carries one */
 const devTokenHashes = new Map<string, string | undefined>();
-/** custom block artifact id -> where it is registered, so a delete can unregister it */
-const customBlockNamesById = new Map<string, { projectId: string; name: string }>();
 /** middleware id -> its chain (#579); a route artifact names them by id */
 const middlewares = new Map<string, Middleware>();
 let dbConnectionManager: DbConnectionManager | undefined;
@@ -262,7 +261,7 @@ export function initCompiledRuntime(entries: ArtifactEntry[], databaseIdleTimeou
 	});
 
 	logger.info(
-		`[worker] compiled runtime ready — ${routes.size} routes, ${workflows.size} workflows, ${customBlockNamesById.size} custom blocks`,
+		`[worker] compiled runtime ready — ${routes.size} routes, ${workflows.size} workflows, ${customBlockCount()} custom blocks`,
 		"WORKER.compiled",
 	);
 }
@@ -287,9 +286,7 @@ function applyArtifact(key: string, value: any | null) {
 		case "route":
 			return value ? addRoute(value as RouteArtifact) : removeRoute(artifactId(key));
 		case "custom-block":
-			return value
-				? addCustomBlock(value as CustomBlockArtifact)
-				: removeCustomBlock(artifactId(key));
+			return value ? addCustomBlock(value as CustomBlockArtifact) : unregisterById(artifactId(key));
 		case "middleware":
 			return value
 				? addMiddleware(value as MiddlewareArtifact)
@@ -464,20 +461,12 @@ function routeDefinition(artifact: RouteArtifact): HttpRoute {
 function addCustomBlock(artifact: CustomBlockArtifact) {
 	try {
 		registerCompiledCustomBlock(artifact.projectId, artifact.name, artifact.source, artifact.id);
-		customBlockNamesById.set(artifact.id, { projectId: artifact.projectId, name: artifact.name });
 	} catch (error) {
 		logger.error(
 			`[worker] failed to load custom block ${artifact.id}: ${String(error)}`,
 			"WORKER.compiled",
 		);
 	}
-}
-
-function removeCustomBlock(id: string) {
-	const registered = customBlockNamesById.get(id);
-	if (!registered) return;
-	unregisterCustomBlock(registered.projectId, registered.name);
-	customBlockNamesById.delete(id);
 }
 
 /** already unsealed by the supervisor — the encryption key never enters this thread */

@@ -2,7 +2,7 @@ import {
 	compileGraph,
 	hasCustomBlock,
 	registerCompiledCustomBlock,
-	unregisterCustomBlock,
+	unregisterById,
 } from "@fluxify/blocks";
 import { logger } from "@fluxify/common";
 import { and, eq, ne } from "drizzle-orm";
@@ -87,24 +87,6 @@ export async function compileProjectCustomBlocks(projectId: string) {
 
 /** custom blocks being compiled right now — see `ensureCustomBlocksRegistered` */
 const inFlight = new Set<string>();
-/** what each custom block id is registered as, so a rename or delete can undo it */
-const registeredNames = new Map<string, { projectId: string; name: string }>();
-
-function registerLocally(id: string, projectId: string, name: string, source: string) {
-	const previous = registeredNames.get(id);
-	// a rename would otherwise leave the old name resolving to this block forever
-	if (previous && previous.name !== name) unregisterCustomBlock(projectId, previous.name);
-	registerCompiledCustomBlock(projectId, name, source);
-	registeredNames.set(id, { projectId, name });
-}
-
-function unregisterLocally(id: string) {
-	const registered = registeredNames.get(id);
-	if (!registered) return;
-	unregisterCustomBlock(registered.projectId, registered.name);
-	registeredNames.delete(id);
-}
-
 /**
  * Makes sure every custom block of a project is in this process's library
  * before something that may call one is compiled.
@@ -209,7 +191,7 @@ async function compileCustomBlockOrThrow(id: string) {
 		.where(eq(customBlocksListEntity.id, id));
 
 	if (!block) {
-		unregisterLocally(id);
+		unregisterById(id);
 		return;
 	}
 	// test-only (#483): the test runner compiles it itself; workers never get it,
@@ -250,7 +232,8 @@ async function compileCustomBlockOrThrow(id: string) {
 	// this block resolves it from here. Only its name matters in this process, so
 	// a working copy that does not compile does not hide a promoted one that does.
 	const local = working.source ?? promoted?.source;
-	if (local !== undefined) registerLocally(block.id, block.projectId!, block.name, local);
+	if (local !== undefined)
+		registerCompiledCustomBlock(block.projectId!, block.name, local, block.id);
 
 	const key = customBlockKey(block.projectId!, block.id);
 	const artifact = (source: string): CustomBlockArtifact => ({
@@ -278,6 +261,6 @@ async function compileCustomBlockOrThrow(id: string) {
 }
 
 export async function dropCustomBlock(projectId: string, id: string) {
-	unregisterLocally(id);
+	unregisterById(id);
 	await deleteArtifactEverywhere(customBlockKey(projectId, id));
 }

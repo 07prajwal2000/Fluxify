@@ -31,17 +31,61 @@ export type CompiledCustomBlock = (ctx: Context, input?: any) => Promise<any>;
  * keep working unchanged, and a nested block shares its caller's context, so it
  * stays in the caller's project.
  */
-const customBlockLibrary = new Map<string, CompiledCustomBlock>();
-/** key -> the block's own id, so a trace can say which canvas a nested span belongs to (#254) */
-const customBlockIds = new Map<string, string>();
+const customBlockLibrary = new Map<string, BlockEntry>();
+/** resource id -> library key, so a rename or delete can find what the id was registered as */
+const keysById = new Map<string, string>();
 
-const customBlockKey = (projectId: string, name: string) => `${projectId}:${name}`;
+/**
+ * One library entry. `source` says how `run` was produced: a compiled canvas,
+ * or a plain JS module (programmable blocks). It is not the stored block's
+ * `sourceType` (user-defined / inhouse / plugin), which says where the row came
+ * from — an inhouse block is still a canvas. `meta` is stored for the handle
+ * router and the compile-time invoke check; nothing reads it yet.
+ */
+export type BlockEntry = {
+	run: CompiledCustomBlock;
+	/** the resource id (canvas custom block id, later the plugin id); a trace names it */
+	id?: string;
+	source: "canvas" | "module";
+	meta?: BlockMeta;
+};
 
-function publish(projectId: string, name: string, run: CompiledCustomBlock, id?: string) {
-	const key = customBlockKey(projectId, name);
-	customBlockLibrary.set(key, run);
-	if (id) customBlockIds.set(key, id);
-	else customBlockIds.delete(key);
+export type BlockMeta = {
+	handles?: { in?: string[]; out?: string[]; body?: string[] };
+	invoke?: z.infer<typeof customBlockInvokeSchema>[];
+};
+
+const customBlockKey = (projectId: string, type: string) => `${projectId}:${type}`;
+
+/**
+ * Publish a block under `type`. An entry with an id replaces whatever that id
+ * was registered as before, so a rename never leaves the old type resolving.
+ */
+export function registerBlock(projectId: string, type: string, entry: BlockEntry) {
+	const key = customBlockKey(projectId, type);
+	const previous = entry.id && keysById.get(entry.id);
+	if (previous && previous !== key) customBlockLibrary.delete(previous);
+	unregisterBlock(projectId, type);
+	customBlockLibrary.set(key, entry);
+	if (entry.id) keysById.set(entry.id, key);
+}
+
+export function unregisterBlock(projectId: string, type: string) {
+	const key = customBlockKey(projectId, type);
+	const id = customBlockLibrary.get(key)?.id;
+	if (id && keysById.get(id) === key) keysById.delete(id);
+	customBlockLibrary.delete(key);
+}
+
+/** drop whatever `id` is registered as; ids are unique across projects */
+export function unregisterById(id: string) {
+	const key = keysById.get(id);
+	if (key) customBlockLibrary.delete(key);
+	keysById.delete(id);
+}
+
+export function getBlockEntry(projectId: string, type: string) {
+	return customBlockLibrary.get(customBlockKey(projectId, type));
 }
 
 /** compile a custom block's graph once and publish it to the worker */
@@ -53,7 +97,7 @@ export function registerCustomBlock(
 	id?: string,
 ) {
 	const { run, source } = compileGraph(blocks, edges, { asCustomBlock: true, projectId });
-	publish(projectId, name, run, id);
+	registerBlock(projectId, name, { run, id, source: "canvas" });
 	return source;
 }
 
@@ -67,18 +111,53 @@ export function registerCompiledCustomBlock(
 	source: string,
 	id?: string,
 ) {
-	publish(projectId, name, instantiateCompiled(source), id);
+	registerBlock(projectId, name, { run: instantiateCompiled(source), id, source: "canvas" });
 }
 
-export function unregisterCustomBlock(projectId: string, name: string) {
-	const key = customBlockKey(projectId, name);
-	customBlockLibrary.delete(key);
-	customBlockIds.delete(key);
+/** What a module block's `run` returns: its output, and the handle to leave by (routed in R3). */
+export type ModuleBlockResult = { output?: unknown; handle?: string };
+export type ModuleBlockRun = (args: {
+	params: Record<string, any>;
+	input?: any;
+	ctx: Context;
+}) => ModuleBlockResult | Promise<ModuleBlockResult>;
+
+/**
+ * Publish a plain JS function as a block. A throw comes back as
+ * `{ successful: false, error }`, the way a canvas block's `$endFailure`
+ * reports, so every invoke mode handles both sources the same.
+ */
+export function registerModuleBlock(
+	projectId: string,
+	type: string,
+	run: ModuleBlockRun,
+	meta?: BlockMeta,
+	id?: string,
+) {
+	const wrapped: CompiledCustomBlock = async (ctx, args?: CustomBlockArgs) => {
+		try {
+			const result = await run({ params: args?.params ?? {}, input: args?.input, ctx });
+			return {
+				successful: true,
+				continueIfFail: false,
+				output: result?.output,
+				handle: result?.handle,
+			};
+		} catch (error) {
+			return { successful: false, continueIfFail: false, error };
+		}
+	};
+	registerBlock(projectId, type, { run: wrapped, id, source: "module", meta });
 }
+
+export const unregisterCustomBlock = unregisterBlock;
 
 export function hasCustomBlock(projectId: string, name: string) {
 	return customBlockLibrary.has(customBlockKey(projectId, name));
 }
+
+/** every block loaded in this worker, across projects */
+export const customBlockCount = () => customBlockLibrary.size;
 
 /** the names one project has loaded */
 export function customBlockNames(projectId: string) {
@@ -89,9 +168,9 @@ export function customBlockNames(projectId: string) {
 }
 
 function lookup(context: Context, name: string): CompiledCustomBlock {
-	const compiled = customBlockLibrary.get(customBlockKey(context.projectId, name));
-	if (!compiled) throw new Error(`Custom block not loaded: ${name}`);
-	return compiled;
+	const entry = getBlockEntry(context.projectId, name);
+	if (!entry) throw new Error(`Custom block not loaded: ${name}`);
+	return entry.run;
 }
 
 /**
@@ -105,7 +184,7 @@ function traced(context: Context, name: string, blockId: string | undefined, det
 		blockId,
 		name,
 		detached,
-		customBlockId: customBlockIds.get(customBlockKey(context.projectId, name)),
+		customBlockId: getBlockEntry(context.projectId, name)?.id,
 	});
 	// a detached invocation records into its own trace, so it needs its own
 	// context — mutating the caller's would follow the request back out
@@ -181,15 +260,18 @@ export function invokeCustomBlockAsync(
 	blockId?: string,
 ) {
 	const scope = traced(context, name, blockId, true);
-	lookup(context, name)(scope.context, args).then(
-		() => scope.close("success"),
-		(error) => {
+	lookup(context, name)(scope.context, args)
+		.then((result) => {
+			// a block reports failure as a result, not a rejection (see invokeCustomBlock)
+			if (result?.successful === false && !result.continueIfFail) throw result.error;
+			scope.close("success");
+		})
+		.catch((error) => {
 			scope.close("failure", error);
 			logger.error(`Async custom block '${name}' failed`, "BLOCKS.customBlock", {
 				error,
 			});
-		},
-	);
+		});
 }
 
 /**
