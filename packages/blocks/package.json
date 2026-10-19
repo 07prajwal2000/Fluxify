@@ -13,6 +13,7 @@
 		"./imports": "./imports.ts",
 		"./layout": "./layout.ts",
 		"./literalExpressions": "./literalExpressions.ts",
+		"./schema": "./schema/index.ts",
 		"./testHooks": "./testHooks.ts",
 		"./transactionRules": "./transactionRules.ts",
 		"./variableName": "./variableName.ts"

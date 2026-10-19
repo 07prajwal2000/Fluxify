@@ -73,7 +73,7 @@ function assertInvokable(node: EmitNode, meta: BlockMeta, mode: string, outs: re
 
 /** a programmable block: checks its invoke mode, then leaves by the handle `run` returned */
 export function emitModuleBlock(node: EmitNode, meta: BlockMeta) {
-	const { mode, call } = emitBlockCall(node, MODULE_BLOCK_DATA_KEYS);
+	const { mode, call } = emitBlockCall(node, MODULE_BLOCK_DATA_KEYS, meta.schemaParams);
 	const outs: readonly string[] = meta.handles?.out ?? ["source"];
 	assertInvokable(node, meta, mode, outs);
 	// async and queued fire and move on, exactly like a canvas custom block

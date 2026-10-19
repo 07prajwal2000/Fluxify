@@ -1,8 +1,8 @@
 import type { ComponentType, ReactNode } from "react";
 
 /**
- * The wire format is the one `apps/server/src/lib/validationSchemaZod.ts`
- * accepts and `schemaParser.ts` compiles to Zod. Anything this editor writes
+ * The wire format is the one `packages/blocks/schema/validationSchemaZod.ts`
+ * accepts and `packages/blocks/schema` compiles to Zod. Anything this editor writes
  * that the parser does not read is dead weight, so the rule types below are
  * kept in step with `applyRules`.
  */

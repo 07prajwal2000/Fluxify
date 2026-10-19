@@ -5,6 +5,7 @@ import { type HandleSpec, handleSpecSchema } from "../blockHandles";
 import type { BlockDTOType, EdgeDTOSchemaType } from "../builderTypes";
 import { compileGraph, type EmitNode, emitJsObject, instantiateCompiled } from "../compiler";
 import { enqueueJob } from "../jobs";
+import { compileSchema } from "../schema/schemaCache";
 import { withCtxPool } from "./ctxPool";
 import { withCtxSpan } from "./ctxSpan";
 import type { ExecuteHandle } from "./executeHandle";
@@ -57,6 +58,8 @@ export type BlockEntry = {
 export type BlockMeta = {
 	handles?: HandleSpec;
 	invoke?: z.infer<typeof customBlockInvokeSchema>[];
+	/** param names of type `schema`: `run` gets each as `{ zod, schema }` (R7), not the raw definition */
+	schemaParams?: string[];
 };
 
 const customBlockKey = (projectId: string, type: string) => `${projectId}:${type}`;
@@ -120,6 +123,22 @@ export function registerCompiledCustomBlock(
 
 /** What a module block's `run` returns: its output, and the handle to leave by (routed in R3). */
 export type ModuleBlockResult = { output?: unknown; handle?: string };
+
+/**
+ * Hand a block its `schema` params as `{ zod, schema }`. Emitted code already
+ * did that for a sync call; an async or queued call carries the plain
+ * definition (a job payload is JSON), so it is converted here, through the same
+ * cache, which also covers a block run by hand.
+ */
+function withSchemas(params: Record<string, any>, names: string[] = []) {
+	if (!names.length) return params;
+	const out = { ...params };
+	for (const name of names) {
+		const value = out[name];
+		if (value && typeof value === "object" && !("zod" in value)) out[name] = compileSchema(value);
+	}
+	return out;
+}
 export type ModuleBlockRun = (args: {
 	params: Record<string, any>;
 	input?: any;
@@ -147,7 +166,7 @@ export function registerModuleBlock(
 		const pooled = withCtxPool(withCtxSpan(ctx), type);
 		try {
 			const result = await run({
-				params: args?.params ?? {},
+				params: withSchemas(args?.params ?? {}, meta?.schemaParams),
 				input: args?.input,
 				ctx: pooled.ctx,
 				executeHandle: args?.executeHandle,
@@ -338,14 +357,48 @@ const BLOCK_DATA_KEYS = ["blockName", "blockDescription", "invoke", "saveAsVaria
 export const MODULE_BLOCK_DATA_KEYS = [...BLOCK_DATA_KEYS, "order"] as const;
 
 /** the pieces of a call to a library block: mode, then `(ctx, name, args, id)` */
-export function emitBlockCall(node: EmitNode, reserved: readonly string[] = BLOCK_DATA_KEYS) {
+/**
+ * A `schema` param as `{ zod, schema }`. A stored definition is compiled when
+ * the artifact is instantiated (hoisted, so every request shares it); a `js:`
+ * expression is only known per request, so it compiles then, through the same
+ * cache.
+ */
+function emitSchemaParam(value: unknown, node: EmitNode, name: string) {
+	if (value && typeof value === "object" && !Array.isArray(value)) {
+		// fail the compile, naming the block, rather than the first request
+		try {
+			compileSchema(value);
+		} catch (error) {
+			throw new Error(
+				`Block ${node.block.id} (${node.block.type}) param '${name}': ${(error as Error).message}`,
+			);
+		}
+		return node.hoist(`lib.compileSchema(${JSON.stringify(value)})`);
+	}
+	if (typeof value === "string" && value.startsWith("js:"))
+		return `lib.compileSchema(${node.value(value)})`;
+	if (value == null) return "null";
+	throw new Error(
+		`Block ${node.block.id} (${node.block.type}) param '${name}' must be a schema definition or a js: expression`,
+	);
+}
+
+export function emitBlockCall(
+	node: EmitNode,
+	reserved: readonly string[] = BLOCK_DATA_KEYS,
+	schemaParams: readonly string[] = [],
+) {
 	const data = (node.block.data ?? {}) as Record<string, unknown>;
 	const params = Object.fromEntries(
 		Object.entries(data).filter(([key]) => !reserved.includes(key)),
 	);
 	// the callee reads its configuration as `params` and the value flowing into
 	// this block as `input` — one meaning each, at every depth of its graph
-	const args = `{ params: ${emitJsObject(params, node)}, input: ${node.in} }`;
+	const fields = Object.entries(params).map(
+		([key, item]) =>
+			`${JSON.stringify(key)}: ${schemaParams.includes(key) ? emitSchemaParam(item, node, key) : emitJsObject(item, node)}`,
+	);
+	const args = `{ params: { ${fields.join(", ")} }, input: ${node.in} }`;
 	const call = `(ctx, ${JSON.stringify(node.block.type)}, ${args}, ${JSON.stringify(node.block.id)})`;
 	return { mode: customBlockInvokeSchema.parse(data.invoke), call };
 }

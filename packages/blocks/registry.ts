@@ -52,6 +52,7 @@ import {
 // type-only: the compiler imports this module for its tables, so a value
 // import back the other way would close the cycle
 import type { EmitNode } from "./compiler";
+import { compileSchema } from "./schema/schemaCache";
 import { scopeFor } from "./scope";
 
 /**
@@ -128,6 +129,7 @@ export const compilerLib = {
 	invoke: invokeCustomBlock,
 	invokeAsync: invokeCustomBlockAsync,
 	enqueue: enqueueCustomBlock,
+	compileSchema,
 	invokeRouted,
 	bodyHandles,
 	fireWorkflow,
