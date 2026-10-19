@@ -34,6 +34,7 @@ import { emitCloudLogs, runCloudLog } from "./builtin/log/cloudLogs";
 import { emitConsoleLog, runConsoleLog } from "./builtin/log/console";
 import { emitForLoop } from "./builtin/loops/for";
 import { emitForEachLoop } from "./builtin/loops/foreach";
+import { invokeRouted } from "./builtin/moduleBlock";
 import { emitOrchestrator } from "./builtin/orchestrator";
 import { emitSendMessage, runSendMessage, runSendMessageRaw } from "./builtin/queue/sendMessage";
 import { emitResponse } from "./builtin/response";
@@ -126,6 +127,7 @@ export const compilerLib = {
 	invoke: invokeCustomBlock,
 	invokeAsync: invokeCustomBlockAsync,
 	enqueue: enqueueCustomBlock,
+	invokeRouted,
 	fireWorkflow,
 	scheduleWorkflow,
 	cancelSchedule,

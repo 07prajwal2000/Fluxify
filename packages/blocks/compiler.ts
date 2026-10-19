@@ -1,12 +1,12 @@
 import { type BlockOutput, type Context, outputVariableName } from "./baseBlock";
-import { type HandleSpecs, isFanOutHandle, sortByOrder } from "./blockHandles";
+import { isFanOutHandle, sortByOrder } from "./blockHandles";
 import { BlockTypes } from "./blockTypes";
 import type { BlockDTOType, EdgeDTOSchemaType, EdgesType } from "./builderTypes";
-import { emitCustomBlock, hasCustomBlock } from "./builtin/customBlock";
-import { emitWorkflowEnd } from "./builtin/response";
+import { type BlockMetas, handleSpecsOf } from "./builtin/moduleBlock";
+import { emitterFor } from "./emitterFor";
 import { type HoistedImport, hoistImports } from "./imports";
 import { assertInstalled, importTarget, type ProjectDependencies } from "./packageImports";
-import { compilerLib, emitters } from "./registry";
+import { compilerLib } from "./registry";
 import { scopeFor } from "./scope";
 import { blockSpans } from "./spans";
 import { emitAfterHook, emitBeforeHook, hookSupport } from "./testHooks";
@@ -167,8 +167,11 @@ export type CompileOptions = {
 	 * untraced callers, and test runs are where per-block recording will land.
 	 */
 	tracing?: boolean;
-	/** Handle specs of non-builtin types (plugin manifests); a type left out resolves as builtin. */
-	handleSpecs?: HandleSpecs;
+	/**
+	 * Programmable blocks by type (plugin manifests): their handles and invoke
+	 * modes. The one source for both, since admin compiles without plugin code.
+	 */
+	blockMeta?: BlockMetas;
 };
 
 /**
@@ -198,12 +201,13 @@ export function compileGraph(
 		asCustomBlock = false,
 		asWorkflow = false,
 		dependencies,
-		handleSpecs = {},
+		blockMeta = {},
 		hooks = false,
 		projectId,
 		tracing = true,
 	}: CompileOptions = {},
 ) {
+	const handleSpecs = handleSpecsOf(blockMeta);
 	const byId = new Map(blocks.map((b) => [b.id, b]));
 	const edgeMap = buildEdgeMap(edges);
 	const entry = blocks.find((b) => b.type === BlockTypes.entrypoint);
@@ -374,14 +378,7 @@ export function compileGraph(
 	function emitBlock(id: string): string {
 		const block = byId.get(id);
 		if (!block) throw new Error(`Block not found: ${id}`);
-		// anything not built in is a custom block, resolved from the worker-global
-		// library it was compiled into rather than being inlined here
-		const emitter =
-			projectId && hasCustomBlock(projectId, block.type)
-				? emitCustomBlock
-				: asWorkflow && block.type === BlockTypes.response
-					? emitWorkflowEnd
-					: emitters[block.type as BlockTypes];
+		const emitter = emitterFor(block, { metas: blockMeta, projectId, asWorkflow });
 		if (!emitter) throw new Error(`No codegen for block type: ${block.type}`);
 		const blockId = JSON.stringify(block.id);
 		const support = hooks ? hookSupport(block.type) : "none";
@@ -396,7 +393,8 @@ export function compileGraph(
 				block.type === BlockTypes.db_exists ||
 				block.type === BlockTypes.db_transaction ||
 				block.type === BlockTypes.retry ||
-				block.type === BlockTypes.queue_send;
+				block.type === BlockTypes.queue_send ||
+				handleSpecs[block.type]?.out.length === 2;
 			const branch =
 				branching && (handle === "success" || handle === "failure") ? handle : undefined;
 			const continuation = to
