@@ -1,4 +1,5 @@
 import type { BlockTrace, BlockTraceSpan, CustomBlockScope } from "@fluxify/blocks";
+import { logger } from "@fluxify/common";
 import type { TraceRunPayload, TraceSpanMetadata, TraceSpanRecord } from "@fluxify/common/otlp";
 import { userStack } from "../requestRouter/debugError";
 
@@ -80,6 +81,8 @@ export abstract class BaseTraceRecorder implements BlockTrace {
 		truncated: false,
 	};
 	private completed = false;
+	/** spans recorded after the run was sent (a late `executeHandle` call); see `late` */
+	private lateSpans = 0;
 
 	constructor(
 		protected readonly onComplete: (run: TraceRunPayload) => void,
@@ -160,7 +163,11 @@ export abstract class BaseTraceRecorder implements BlockTrace {
 	}
 
 	private record(span: BlockTraceSpan, scope: TraceScope): void {
-		if (this.completed || this.state.spans.length >= MAX_SPANS_PER_RUN) {
+		if (this.completed) {
+			this.late();
+			return;
+		}
+		if (this.state.spans.length >= MAX_SPANS_PER_RUN) {
 			this.drop();
 			return;
 		}
@@ -200,6 +207,24 @@ export abstract class BaseTraceRecorder implements BlockTrace {
 		this.state.bytes += bytes;
 		this.state.spans.push(record);
 		if (record.truncated) this.state.truncated = true;
+	}
+
+	/**
+	 * The run is already sent, so the span is lost. Counted, and logged once per
+	 * run after a beat so the count covers the burst.
+	 * ponytail: spans arriving after that beat go uncounted; no second warning.
+	 */
+	private late() {
+		if (this.lateSpans++ > 0) return;
+		setTimeout(
+			() =>
+				logger.warn(
+					`${this.lateSpans} span(s) recorded after the trace completed were dropped`,
+					"TELEMETRY.routeRecorder",
+					{ runId: this.runId, count: this.lateSpans },
+				),
+			250,
+		).unref?.();
 	}
 
 	private drop() {
@@ -377,6 +402,8 @@ function spanMetadata(span: BlockTraceSpan): Pick<TraceSpanRecord, "metadata"> {
 		...(span.mocked ? { mocked: span.mocked } : {}),
 		...(span.position ? { position: span.position } : {}),
 		...(span.next ? { next: span.next } : {}),
+		...(span.owner ? { owner: span.owner } : {}),
+		...(span.parent ? { parent: span.parent } : {}),
 	};
 	return Object.keys(metadata).length ? { metadata } : {};
 }

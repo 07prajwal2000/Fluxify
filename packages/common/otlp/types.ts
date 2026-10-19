@@ -56,6 +56,10 @@ export type TraceSpanMetadata = {
 	position?: { x: number; y: number };
 	/** the block a Switch handed off to (#628): its case edges share one handle */
 	next?: string;
+	/** the programmable block whose `executeHandle` ran this span (R5): nest it under that block */
+	owner?: string;
+	/** a `ctx.span` child nested in another: that span's `blockId` (R5) */
+	parent?: string;
 };
 
 export type TraceRunPayload = {

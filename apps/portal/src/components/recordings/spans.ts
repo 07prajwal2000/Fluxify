@@ -114,3 +114,46 @@ export function overlayGraph(saved: CanvasGraph, level: RecordedSpan[]) {
 		lost,
 	};
 }
+
+/** `blockType` of a span a programmable block opened with `ctx.span` (R5) */
+export const CTX_SPAN_TYPE = "span";
+
+export type NestedSpan = { span: RecordedSpan; depth: number };
+
+/**
+ * A level's spans as an indented list. Two things nest under a span (R5):
+ * a `ctx.span` child (under the block, or under the `ctx.span` named by its
+ * `metadata.parent`), and a span run through a block's `executeHandle` (under
+ * the latest span of its `metadata.owner` that started before it, since a block
+ * in a loop has one span per iteration). The canvas still draws the flat level.
+ */
+export function nestSpans(level: RecordedSpan[], all: RecordedSpan[]): NestedSpan[] {
+	const started = (span: RecordedSpan) => Date.parse(span.startedAt);
+	const byStart = (a: RecordedSpan, b: RecordedSpan) => started(a) - started(b) || a.seq - b.seq;
+	const owners = new Map<number, RecordedSpan>();
+	for (const span of level) {
+		const owner = span.metadata?.owner;
+		if (!owner) continue;
+		const found = level
+			.filter((s) => s.blockId === owner && s.seq !== span.seq && started(s) <= started(span))
+			.sort(byStart)
+			.at(-1);
+		if (found) owners.set(span.seq, found);
+	}
+	const childrenOf = (span: RecordedSpan) =>
+		[
+			...all.filter(
+				(s) =>
+					s.blockType === CTX_SPAN_TYPE &&
+					(s.metadata?.parent ? s.metadata.parent === span.blockId : s.parentSeq === span.seq),
+			),
+			...level.filter((s) => owners.get(s.seq)?.seq === span.seq),
+		].sort(byStart);
+	const out: NestedSpan[] = [];
+	const walk = (span: RecordedSpan, depth: number) => {
+		out.push({ span, depth });
+		for (const child of childrenOf(span)) walk(child, depth + 1);
+	};
+	for (const span of level) if (!owners.has(span.seq)) walk(span, 0);
+	return out;
+}

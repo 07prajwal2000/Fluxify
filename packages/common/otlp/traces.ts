@@ -222,9 +222,22 @@ export function exportRun(provider: BasicTracerProvider, run: TraceRunPayload): 
 	// guarantees a parent context exists when its children are built.
 	const ordered = [...run.spans].sort((a, b) => a.startedAt - b.startedAt || a.seq - b.seq);
 
+	// R5 nesting, both resolved against spans that started earlier: a `ctx.span`
+	// child by its parent's unique id, a body-chain span by its owner block's
+	// latest span (a block in a loop has one per iteration)
+	const ctxSpans = new Map(
+		run.spans.filter((s) => s.blockType === "span").map((s) => [s.blockId, s.seq]),
+	);
+	const latestOfBlock = new Map<string, number>();
+
 	for (const record of ordered) {
-		const parent =
-			(record.parentSeq !== undefined ? contexts.get(record.parentSeq) : undefined) ?? rootContext;
+		const { owner, parent: ctxParent } = record.metadata ?? {};
+		const parentSeq =
+			(ctxParent === undefined ? undefined : ctxSpans.get(ctxParent)) ??
+			(owner === undefined ? undefined : latestOfBlock.get(owner)) ??
+			record.parentSeq;
+		const parent = (parentSeq !== undefined ? contexts.get(parentSeq) : undefined) ?? rootContext;
+		latestOfBlock.set(record.blockId, record.seq);
 
 		staged.traceId = traceIdFor(run.runId);
 		staged.spanId = spanIdFor(run.runId, record.seq);

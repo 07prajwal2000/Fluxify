@@ -50,6 +50,9 @@ const spanMetadataSchema = z.object({
 		.optional(),
 	position: z.object({ x: z.number().finite(), y: z.number().finite() }).optional(),
 	next: z.string().max(50).optional(),
+	/** R5: nesting; `parent` is a `ctx.span` id (a uuid), `owner` a block id */
+	owner: z.string().max(50).optional(),
+	parent: z.string().max(50).optional(),
 });
 
 /** Only what the insert relies on; anything else is stored as it came. */
