@@ -40,6 +40,9 @@ export type HandleKind =
 	| "orchestrate"
 	| "case";
 
+/** Handles that start a nested chain: drawn above the "next" handle, and their branch sorts first. */
+export const BODY_HANDLES: readonly string[] = ["executor", "orchestrate"];
+
 /** The only output handles that may carry more than one edge: each edge is its own branch. */
 export const FAN_OUT_HANDLES: readonly string[] = ["orchestrate", "case"];
 

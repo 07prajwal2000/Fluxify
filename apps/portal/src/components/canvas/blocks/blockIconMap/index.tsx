@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { FaHeading, FaMapSigns } from "react-icons/fa";
+import { FaHeading } from "react-icons/fa";
 import { FaArrowRightFromBracket, FaArrowRightToBracket } from "react-icons/fa6";
 import { IoLogoJavascript } from "react-icons/io";
 import { LuDatabaseZap } from "react-icons/lu";
@@ -24,6 +24,7 @@ import {
 	TbPlugConnected,
 	TbRepeat,
 	TbRocket,
+	TbRouteAltLeft,
 	TbSend,
 	TbSwitch3,
 	TbTerminal2,
@@ -40,7 +41,7 @@ export const BLOCK_ICON_MAP: Record<BlockType, ReactNode> = {
 	[BLOCK_TYPES.response]: <FaArrowRightFromBracket size={SIZE} />,
 	[BLOCK_TYPES.errorHandler]: <MdOutlineReportGmailerrorred size={SIZE} />,
 	[BLOCK_TYPES.stickynote]: <TbNote size={SIZE} />,
-	[BLOCK_TYPES.if]: <FaMapSigns size={SIZE} />,
+	[BLOCK_TYPES.if]: <TbRouteAltLeft size={SIZE} style={{ rotate: "90deg" }} />,
 	[BLOCK_TYPES.forloop]: <TbInfinity size={SIZE} />,
 	[BLOCK_TYPES.foreachloop]: <TbInfinity size={SIZE} />,
 	[BLOCK_TYPES.orchestrator]: <TbArrowsSplit2 size={SIZE} />,

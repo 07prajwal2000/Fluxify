@@ -7,6 +7,7 @@ import { blockIcon } from "../blocks/blockIconMap";
 import { blockLabels } from "../blocks/blockLabels";
 import { useCustomBlockDefs } from "../blocks/useCustomBlockDefs";
 import type { BlockNode } from "../types";
+import { BlockDescriptionField, BlockNameInput } from "./BlockIdentityFields";
 import { BlockSettings } from "./BlockSettings";
 import { blockSettingsTabs } from "./blockSettingsRegistry";
 import { useBlockPanelResize } from "./useBlockPanelResize";
@@ -56,12 +57,8 @@ export function BlockPanel({
 	const current = block ?? shown.current;
 
 	const type = current?.type ?? "unknown";
-	const { name, description, definition, custom } = blockLabels(type, current?.data);
-	// A custom block: the label titles the panel and the identifier sits under it,
-	// since that is what flows and `param:` references are written against.
+	const { name, definition } = blockLabels(type, current?.data);
 	const customDef = useCustomBlockDefs().find((def) => def.name === type);
-	const title = custom ? name : (customDef?.label ?? name);
-	const subtitle = customDef ? customDef.name : description;
 	const tabs = blockSettingsTabs(current?.type);
 
 	const {
@@ -142,17 +139,25 @@ export function BlockPanel({
 							)}
 						</span>
 						<span className="fx-panel__titles">
-							{/* Renaming lives in the General tab; the header only shows it. */}
-							<span className="fx-panel__name" title={title}>
-								{title}
-							</span>
-							{/* What the block does — or, for a custom block, what it is called. */}
-							<span
-								className="fx-panel__type"
-								title={customDef ? `Block type: ${subtitle}` : subtitle}
-							>
-								{subtitle}
-							</span>
+							{/* Both read as text until hovered; clicking edits in place. */}
+							<BlockNameInput
+								key={`${current.id}-name`}
+								blockId={current.id}
+								data={current.data}
+								placeholder={customDef?.label ?? definition.name}
+							/>
+							<BlockDescriptionField
+								key={`${current.id}-description`}
+								blockId={current.id}
+								data={current.data}
+								placeholder={customDef?.description ?? definition.description}
+							/>
+							{/* A custom block is referenced by this identifier, so it stays visible. */}
+							{customDef && (
+								<span className="fx-panel__ident" title={`Block type: ${customDef.name}`}>
+									{customDef.name}
+								</span>
+							)}
 							{/* which version runs in development and in production (#803) */}
 							{customDef && <VersionChips blockId={customDef.id} className="mt-1" />}
 						</span>

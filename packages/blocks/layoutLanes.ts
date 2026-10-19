@@ -1,4 +1,10 @@
-import { getOutputHandles, HANDLE_SIDE, type HandleKind, type HandleSide } from "./blockHandles";
+import {
+	BODY_HANDLES,
+	getOutputHandles,
+	HANDLE_SIDE,
+	type HandleKind,
+	type HandleSide,
+} from "./blockHandles";
 import { BlockTypes } from "./blockTypes";
 import type { LayoutEdge, LayoutNode } from "./layout";
 
@@ -13,7 +19,6 @@ export function handleSide(handleId: string): HandleSide {
 	return kind ? HANDLE_SIDE[kind] : "right";
 }
 
-const SIDE_RANK: Record<HandleSide, number> = { top: -1, left: 0, right: 0, bottom: 1 };
 /** Roots sort entrypoint flow first, error handler flow last, anything else between. */
 const ROOT_RANK: Record<string, number> = {
 	[BlockTypes.entrypoint]: 0,
@@ -62,8 +67,8 @@ export function splitIntoBands(nodes: LayoutNode[], edges: LayoutEdge[]): Layout
 }
 
 /**
- * Where a branch sits among its siblings: the side of the parent's handle (top
- * above, bottom below), the handle's place among the parent's outputs, then its
+ * Where a branch sits among its siblings: body handles (executor, orchestrate)
+ * above the rest, then the handle's place among the parent's outputs, then its
  * place in a fan-out branch list (listed first, the default case last).
  */
 function branchKey(edge: LayoutEdge, parent: LayoutNode): number[] {
@@ -72,10 +77,10 @@ function branchKey(edge: LayoutEdge, parent: LayoutNode): number[] {
 	const order = Array.isArray(data.order) ? (data.order as string[]) : [];
 	const listed = order.indexOf(edge.to);
 	const outputs = getOutputHandles(parent.type ?? "");
+	const kind = handleKind(handle) ?? "source";
 	return [
-		// a lone top handle (executor, orchestrate) is drawn on the right instead
-		outputs.length === 1 ? 0 : SIDE_RANK[handleSide(handle)],
-		outputs.indexOf(handleKind(handle) ?? "source"),
+		BODY_HANDLES.includes(kind) ? -1 : 0,
+		outputs.indexOf(kind),
 		edge.to === data.defaultCase ? order.length + 1 : listed === -1 ? order.length : listed,
 	];
 }
@@ -112,8 +117,12 @@ export function layoutBand(
 	}
 	const isJoin = (id: string) => (parents.get(id)?.length ?? 0) > 1;
 
-	const lanes = new Map<string, LayoutNode[]>();
-	const lanesOf = (id: string) => {
+	// A block's flow stays on its own row; whatever hangs off a body handle
+	// (executor, orchestrate) goes above it, so the row's next column stays free
+	// for the chain that carries on after the block.
+	type Lanes = { body: LayoutNode[]; main: LayoutNode[] };
+	const lanes = new Map<string, Lanes>();
+	const lanesOf = (id: string): Lanes => {
 		const known = lanes.get(id);
 		if (known) return known;
 		const parent = byId.get(id)!;
@@ -124,11 +133,18 @@ export function layoutBand(
 				(a, b) =>
 					compareKeys(branchKey(a, parent), branchKey(b, parent)) ||
 					byPosition(byId.get(a.to)!, byId.get(b.to)!),
-			)
-			.map((e) => byId.get(e.to)!);
-		lanes.set(id, branches);
-		return branches;
+			);
+		const isBody = (e: LayoutEdge) =>
+			BODY_HANDLES.includes(handleKind(e.fromHandle ?? "") ?? "source");
+		const result = {
+			body: branches.filter(isBody).map((e) => byId.get(e.to)!),
+			main: branches.filter((e) => !isBody(e)).map((e) => byId.get(e.to)!),
+		};
+		lanes.set(id, result);
+		return result;
 	};
+	const stackOf = (sizes: number[]) =>
+		sizes.reduce((sum, h) => sum + h, 0) + gap * Math.max(0, sizes.length - 1);
 
 	// A lane is as tall as the block or the lanes it fans out into, whichever is more.
 	const slots = new Map<string, number>();
@@ -137,10 +153,14 @@ export function layoutBand(
 		if (known !== undefined) return known;
 		if (path.has(n.id)) return heightOf(n);
 		path.add(n.id);
-		const kids = lanesOf(n.id).map((k) => slotOf(k, path));
+		const { body, main } = lanesOf(n.id);
+		const bodySize = stackOf(body.map((k) => slotOf(k, path)));
+		const mainSize = stackOf(main.map((k) => slotOf(k, path)));
 		path.delete(n.id);
-		const stacked = kids.reduce((sum, h) => sum + h, 0) + gap * Math.max(0, kids.length - 1);
-		slots.set(n.id, Math.max(heightOf(n), stacked));
+		// Slots are centred on the block, so reserve the larger side on both.
+		const up = Math.max(heightOf(n), mainSize) / 2 + (bodySize ? gap + bodySize : 0);
+		const down = Math.max(heightOf(n), mainSize) / 2;
+		slots.set(n.id, 2 * Math.max(up, down));
 		return slots.get(n.id)!;
 	};
 
@@ -153,14 +173,22 @@ export function layoutBand(
 			const above = (parents.get(node.id) ?? []).flatMap((p) => centre.get(p) ?? []);
 			centre.set(node.id, above.length ? (Math.min(...above) + Math.max(...above)) / 2 : 0);
 		}
-		const kids = lanesOf(node.id).filter((k) => !centre.has(k.id));
-		const sizes = kids.map((k) => slotOf(k, new Set()));
-		const stacked = sizes.reduce((sum, h) => sum + h, 0) + gap * Math.max(0, kids.length - 1);
-		let top = centre.get(node.id)! - stacked / 2;
-		kids.forEach((kid, i) => {
-			centre.set(kid.id, top + sizes[i]! / 2);
-			top += sizes[i]! + gap;
-		});
+		const lanes = lanesOf(node.id);
+		const place = (kids: LayoutNode[], from: number) => {
+			let top = from;
+			for (const kid of kids) {
+				const size = slotOf(kid, new Set());
+				centre.set(kid.id, top + size / 2);
+				top += size + gap;
+			}
+		};
+		const main = lanes.main.filter((k) => !centre.has(k.id));
+		const body = lanes.body.filter((k) => !centre.has(k.id));
+		const mainSize = stackOf(main.map((k) => slotOf(k, new Set())));
+		const mid = centre.get(node.id)!;
+		place(main, mid - mainSize / 2);
+		const bodySize = stackOf(body.map((k) => slotOf(k, new Set())));
+		place(body, mid - Math.max(mainSize, heightOf(node)) / 2 - gap - bodySize);
 	}
 
 	// Lanes never overlap, but a converged block's own flow can land on one: push down.

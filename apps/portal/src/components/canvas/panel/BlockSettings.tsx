@@ -1,11 +1,9 @@
 import { Tabs } from "@fluxify/components";
 import { Children, isValidElement, type ReactNode, useState } from "react";
 import { TbAlertCircle, TbAlertTriangle, TbInfoCircle } from "react-icons/tb";
-import { blockLabels } from "../blocks/blockLabels";
 import { useBlockDiagnostics } from "../diagnostics";
 import { diagnosticSourceLabel } from "../diagnostics/types";
 import type { BlockNode } from "../types";
-import { BlockDescriptionField, BlockNameInput } from "./BlockIdentityFields";
 import { DocsTab } from "./docs/DocsTab";
 import { SaveOutputField, savesOutput } from "./SaveOutputField";
 
@@ -64,29 +62,33 @@ export type BlockSettingsProps = {
 };
 
 /**
- * Tabbed settings for the open block. General (name + description) is always
- * there and always first; a block adds its own tabs, or appends to General by
- * declaring a tab with that name.
+ * Tabbed settings for the open block. General is always
+ * a block adds its own tabs, or appends to General by declaring a tab with that
+ * name. General is hidden when it has nothing in it, unless it is all there is:
+ * then it says so. Docs is always last and never the default.
  */
 export function BlockSettings({ block, initialTab, openSeq, children }: BlockSettingsProps) {
 	const { generalExtras, blockTabs } = splitTabs(children);
-	const { definition } = blockLabels(block.type ?? "unknown", block.data);
 	const { forBlock } = useBlockDiagnostics();
 	const diagnostics = forBlock(block.id);
 	const hasDiagnostics = diagnostics.length > 0;
+	const saves = savesOutput(block.type, block.data);
+	const showGeneral =
+		generalExtras.length > 0 || saves || (blockTabs.length === 0 && !hasDiagnostics);
+	const firstTab = showGeneral ? GENERAL_TAB : (blockTabs[0]?.props.name ?? DIAGNOSTICS_TAB);
 
 	// the picked tab survives edits; only a new open resets it
 	const request = `${block.id}|${initialTab ?? ""}|${openSeq ?? 0}`;
-	const [picked, setPicked] = useState({ request, tab: initialTab ?? GENERAL_TAB });
-	const wanted = picked.request === request ? picked.tab : (initialTab ?? GENERAL_TAB);
+	const [picked, setPicked] = useState({ request, tab: initialTab ?? firstTab });
+	const wanted = picked.request === request ? picked.tab : (initialTab ?? firstTab);
 	// a tab can vanish (last issue fixed, method without a body): fall back to
 	// General for good, so the tab coming back later doesn't pull focus to it
 	const exists =
-		wanted === GENERAL_TAB ||
+		(wanted === GENERAL_TAB && showGeneral) ||
 		wanted === DOCS_TAB ||
 		(wanted === DIAGNOSTICS_TAB && hasDiagnostics) ||
 		blockTabs.some((t) => t.props.name === wanted);
-	const selectedTab = exists ? wanted : GENERAL_TAB;
+	const selectedTab = exists ? wanted : firstTab;
 	if (picked.request !== request || picked.tab !== selectedTab) {
 		setPicked({ request, tab: selectedTab });
 	}
@@ -104,10 +106,12 @@ export function BlockSettings({ block, initialTab, openSeq, children }: BlockSet
 			    collection, and it positions itself against the tab it is in. */}
 			<Tabs.ListContainer>
 				<Tabs.List>
-					<Tabs.Tab id={GENERAL_TAB}>
-						{GENERAL_TAB}
-						<Tabs.Indicator />
-					</Tabs.Tab>
+					{showGeneral && (
+						<Tabs.Tab id={GENERAL_TAB}>
+							{GENERAL_TAB}
+							<Tabs.Indicator />
+						</Tabs.Tab>
+					)}
 					{blockTabs.map((tab) => (
 						<Tabs.Tab key={tab.props.name} id={tab.props.name}>
 							{tab.props.title ?? tab.props.name}
@@ -133,25 +137,15 @@ export function BlockSettings({ block, initialTab, openSeq, children }: BlockSet
 			</Tabs.ListContainer>
 
 			<Tabs.Panel id={GENERAL_TAB} className="fx-panel__tab-panel">
-				<BlockNameInput
-					key={`${block.id}-name`}
-					blockId={block.id}
-					data={block.data}
-					placeholder={definition.name}
-				/>
-				<BlockDescriptionField
-					key={`${block.id}-description`}
-					blockId={block.id}
-					data={block.data}
-					placeholder={definition.description}
-				/>
-				{generalExtras.length > 0 && <hr className="fx-panel__divider" />}
 				{generalExtras}
-				{savesOutput(block.type, block.data) && (
+				{saves && (
 					<>
-						<hr className="fx-panel__divider" />
+						{generalExtras.length > 0 && <hr className="fx-panel__divider" />}
 						<SaveOutputField block={block} />
 					</>
+				)}
+				{!saves && generalExtras.length === 0 && (
+					<p className="text-xs text-muted">This block has no settings.</p>
 				)}
 			</Tabs.Panel>
 			{blockTabs.map((tab) => (

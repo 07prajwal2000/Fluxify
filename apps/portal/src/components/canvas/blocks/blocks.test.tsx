@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { blockToNode, nodeToBlock } from "../adapters";
 import { splitChildren } from "./BaseBlock";
-import { createBlockNodeTypes } from "./BlockNode";
+import { blockVariant, createBlockNodeTypes } from "./BlockNode";
 import {
 	BLOCK_CATALOG,
 	blockDefinition,
@@ -213,4 +213,18 @@ test("only the inbound and fan-out sockets accept multiple connections", () => {
 			expect(config.maxConnections).toBe(1);
 		}
 	}
+});
+
+test("card variant follows the sockets: body handle = container, plain in/out = compact", () => {
+	const variant = (type: string) => blockVariant(type, blockDefinition(type).handles);
+	expect(variant(BLOCK_TYPES.forloop)).toBe("container");
+	expect(variant(BLOCK_TYPES.retry)).toBe("container");
+	expect(variant(BLOCK_TYPES.jsrunner)).toBe("compact");
+	expect(variant(BLOCK_TYPES.entrypoint)).toBe("compact");
+	expect(variant(BLOCK_TYPES.response)).toBe("compact");
+	expect(variant(BLOCK_TYPES.if)).toBe("compact");
+	expect(variant(BLOCK_TYPES.db_exists)).toBe("compact");
+	expect(variant(BLOCK_TYPES.switch)).toBe("default");
+	expect(variant(BLOCK_TYPES.db_getsingle)).toBe("compact");
+	expect(variant(BLOCK_TYPES.kv_raw)).toBe("compact");
 });
