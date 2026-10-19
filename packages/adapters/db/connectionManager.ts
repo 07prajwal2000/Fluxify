@@ -1,6 +1,11 @@
 import { createHash } from "node:crypto";
+import {
+	LeasedResources,
+	type LeasedResourcesOptions,
+	type ResourceSpec,
+	type ResourceTimer,
+} from "@fluxify/lib";
 import { SQL } from "bun";
-import { Kysely } from "kysely";
 import { MongoClient } from "mongodb";
 import { createPool, type Pool } from "mysql2";
 import {
@@ -13,9 +18,6 @@ import {
 import { buildMongoUrl, MongoAdapter } from "./mongoDbAdapter";
 import { MYSQL_POOL_OPTIONS, MySqlAdapter } from "./mySqlAdapter";
 import { PostgresAdapter } from "./postgresAdapter";
-
-const DEFAULT_DRAIN_TIMEOUT_MS = 30_000;
-const DEFAULT_IDLE_TIMEOUT_MS = 7.5 * 60_000;
 
 export type ManagedDbConnection = {
 	type: DbType;
@@ -37,77 +39,32 @@ export type DbConnectionFactory = (
 	fingerprint: string,
 ) => ManagedDbConnection;
 
-export type DbConnectionTimer = {
-	setTimeout(handler: () => void, timeoutMs: number): unknown;
-	clearTimeout(handle: unknown): void;
-};
+export type DbConnectionTimer = ResourceTimer;
 
-export type DbConnectionManagerOptions = {
-	drainTimeoutMs?: number;
-	idleTimeoutMs?: number;
-	timer?: DbConnectionTimer;
-};
-
-const systemTimer: DbConnectionTimer = {
-	setTimeout: (handler, timeoutMs) => setTimeout(handler, timeoutMs),
-	clearTimeout: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
-};
-
-type Entry = {
-	integrationId: string;
-	fingerprint: string;
-	connection: ManagedDbConnection;
-	leases: number;
-	retired: boolean;
-	drainTimer?: unknown;
-	idleTimer?: unknown;
-	closePromise?: Promise<void>;
-};
+export type DbConnectionManagerOptions = LeasedResourcesOptions;
 
 /**
  * Owns the database clients for one execution runtime. Factories borrow a
  * client while keeping adapter and transaction state request-local.
  */
 export class DbConnectionManager {
-	private readonly active = new Map<string, Entry>();
-	private readonly retiring = new Set<Entry>();
+	private readonly resources: LeasedResources<ManagedDbConnection>;
 
 	constructor(
 		private readonly createConnection: DbConnectionFactory = createManagedConnection,
 		options: DbConnectionManagerOptions = {},
 	) {
-		this.drainTimeoutMs = options.drainTimeoutMs ?? DEFAULT_DRAIN_TIMEOUT_MS;
-		this.idleTimeoutMs = options.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS;
-		this.timer = options.timer ?? systemTimer;
+		this.resources = new LeasedResources(options);
 	}
-
-	private readonly drainTimeoutMs: number;
-	private readonly idleTimeoutMs: number;
-	private readonly timer: DbConnectionTimer;
 
 	borrow(integrationId: string, config: Connection): DbConnectionLease {
 		const fingerprint = connectionFingerprint(config);
-		let entry = this.active.get(integrationId);
-		if (!entry || entry.fingerprint !== fingerprint) {
-			entry = this.replace(integrationId, config, fingerprint, entry);
-		}
-
-		this.cancelIdleClose(entry);
-		entry.leases += 1;
-		let released = false;
-		return {
-			connection: entry.connection,
-			release: () => {
-				if (released) return;
-				released = true;
-				entry!.leases -= 1;
-				if (entry!.retired && entry!.leases === 0) {
-					void this.closeEntry(entry!);
-				} else if (entry!.leases === 0) {
-					this.scheduleIdleClose(entry!);
-				}
-			},
-		};
+		const lease = this.resources.acquire(
+			integrationId,
+			fingerprint,
+			this.spec(integrationId, config, fingerprint),
+		);
+		return { connection: lease.value, release: lease.release };
 	}
 
 	/**
@@ -115,106 +72,41 @@ export class DbConnectionManager {
 	 * the old client starts draining, so new requests never borrow stale config.
 	 */
 	synchronize(configurations: Record<string, Connection>) {
-		for (const [integrationId, entry] of this.active) {
+		for (const [integrationId, current] of this.resources.fingerprints()) {
 			const config = configurations[integrationId];
 			if (!config) {
-				this.active.delete(integrationId);
-				this.retire(entry);
+				this.resources.remove(integrationId);
 				continue;
 			}
 
 			const fingerprint = connectionFingerprint(config);
-			if (entry.fingerprint !== fingerprint) {
-				this.replace(integrationId, config, fingerprint, entry);
+			if (current !== fingerprint) {
+				this.resources.replace(
+					integrationId,
+					fingerprint,
+					this.spec(integrationId, config, fingerprint),
+				);
 			}
 		}
 	}
 
-	async close() {
-		const entries = [...this.active.values(), ...this.retiring];
-		this.active.clear();
-		this.retiring.clear();
-		for (const entry of entries) {
-			entry.retired = true;
-			if (entry.drainTimer) this.timer.clearTimeout(entry.drainTimer);
-			this.cancelIdleClose(entry);
-		}
-		await Promise.all(entries.map((entry) => this.closeEntry(entry)));
+	close() {
+		return this.resources.close();
 	}
 
 	getStats() {
-		return {
-			active: this.active.size,
-			retiring: this.retiring.size,
-			leases: [...this.active.values(), ...this.retiring].reduce(
-				(total, entry) => total + entry.leases,
-				0,
-			),
-		};
+		return this.resources.getStats();
 	}
 
-	private replace(
+	private spec(
 		integrationId: string,
 		config: Connection,
 		fingerprint: string,
-		previous?: Entry,
-	) {
-		// Create before replacing the map entry: a bad replacement leaves the
-		// current known-good client available to requests.
-		const connection = this.createConnection(integrationId, config, fingerprint);
-		const entry: Entry = {
-			integrationId,
-			fingerprint,
-			connection,
-			leases: 0,
-			retired: false,
+	): ResourceSpec<ManagedDbConnection> {
+		return {
+			create: () => this.createConnection(integrationId, config, fingerprint),
+			destroy: (connection) => connection.close(),
 		};
-		this.active.set(integrationId, entry);
-		if (previous) this.retire(previous);
-		return entry;
-	}
-
-	private retire(entry: Entry) {
-		if (entry.retired) return;
-		entry.retired = true;
-		this.retiring.add(entry);
-		if (entry.leases === 0) {
-			void this.closeEntry(entry);
-			return;
-		}
-		entry.drainTimer = this.timer.setTimeout(
-			() => void this.closeEntry(entry),
-			this.drainTimeoutMs,
-		);
-	}
-
-	private scheduleIdleClose(entry: Entry) {
-		if (this.idleTimeoutMs <= 0 || entry.retired) return;
-		this.cancelIdleClose(entry);
-		entry.idleTimer = this.timer.setTimeout(() => {
-			entry.idleTimer = undefined;
-			if (entry.leases !== 0 || entry.retired) return;
-			if (this.active.get(entry.integrationId) !== entry) return;
-			this.active.delete(entry.integrationId);
-			this.retire(entry);
-		}, this.idleTimeoutMs);
-	}
-
-	private cancelIdleClose(entry: Entry) {
-		if (entry.idleTimer) this.timer.clearTimeout(entry.idleTimer);
-		entry.idleTimer = undefined;
-	}
-
-	private closeEntry(entry: Entry) {
-		if (entry.closePromise) return entry.closePromise;
-		if (entry.drainTimer) this.timer.clearTimeout(entry.drainTimer);
-		this.cancelIdleClose(entry);
-		entry.closePromise = Promise.resolve(entry.connection.close())
-			.catch(() => undefined)
-			.then(() => {
-				this.retiring.delete(entry);
-			});
-		return entry.closePromise;
 	}
 }
 

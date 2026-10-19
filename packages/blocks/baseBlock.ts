@@ -218,7 +218,17 @@ export interface Context {
 	lifetime?: { ended: boolean };
 	/** programmable blocks only (R5): times `fn` as a child span of the calling block */
 	span?: <T>(name: string, fn: () => T | Promise<T>) => Promise<T>;
+	/** programmable blocks only (R6): a client kept across requests, closed when idle; see `ctxPool.ts` */
+	pool?: <T>(kind: string, key: unknown, options: CtxPoolOptions<T>) => Promise<T>;
 }
+
+export type CtxPoolOptions<T> = {
+	/** builds the client from `key` on first use (and again after it was closed or `key` changed) */
+	create(key: any): T | Promise<T>;
+	destroy?(client: T): unknown;
+	/** unused time before the client closes; default 7.5 minutes, `0` keeps it until shutdown */
+	idleMs?: number;
+};
 
 export enum HttpCookieSameSite {
 	Empty = "",
