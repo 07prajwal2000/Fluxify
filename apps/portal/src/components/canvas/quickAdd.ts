@@ -1,4 +1,4 @@
-import { FAN_OUT_HANDLES } from "@fluxify/blocks/layout";
+import { isFanOutHandle } from "@fluxify/blocks/layout";
 import type { XYPosition } from "@xyflow/react";
 import { blockDefinition } from "./blocks/blockCatalog";
 import { HANDLE_CONFIG, type HandleKind, handleId } from "./blocks/handles/handleConfig";
@@ -171,7 +171,8 @@ export function quickAdd(
 	const second = edge(node.id, handleId(node.id, out), to.id, old.targetHandle ?? "");
 
 	// Fan-out blocks key their branches by target id: the new block takes B's slot.
-	const fanOut = FAN_OUT_HANDLES.includes(kindOf(from.id, old.sourceHandle));
+	// builtin only: the portal gets plugin handle specs with U2 (#863)
+	const fanOut = isFanOutHandle(kindOf(from.id, old.sourceHandle));
 	const withOrder = deselected.map((item) =>
 		fanOut && item.id === from.id ? { ...item, data: retarget(item.data, to.id, node.id) } : item,
 	);

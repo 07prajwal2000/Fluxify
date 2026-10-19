@@ -1,22 +1,26 @@
-import { getOutputHandles } from "@fluxify/blocks/blockHandles";
+import { getOutputHandles, type HandleSpec, isFanOutHandle } from "@fluxify/blocks/blockHandles";
 import { blockKeyPrefix, blockKeyPrefixOf } from "@fluxify/blocks/blockKeys";
 import { BlockTypes } from "@fluxify/blocks/blockTypes";
 import type { CanvasItems } from "./canvasNormalize";
 
 /** Blocks the runtime enters itself; nothing may point at them, and they stay. */
 export const STRUCTURAL = new Set<string>([BlockTypes.entrypoint, BlockTypes.errorHandler]);
-const FAN_OUT = new Set(["orchestrate", "case"]);
 
 export const bare = (from: string, h: string) =>
 	h.startsWith(`${from}-`) ? h.slice(from.length + 1) : h;
 
 /** "if_1.success → db_insert_1"; the handle is left out for a block with only one. */
-export const edgeText = (from: string, type: string, handle: string, to: string) =>
-	`${from}${getOutputHandles(type).length > 1 ? `.${handle}` : ""} → ${to}`;
+export const edgeText = (
+	from: string,
+	type: string,
+	handle: string,
+	to: string,
+	spec?: HandleSpec,
+) => `${from}${getOutputHandles(type, spec).length > 1 ? `.${handle}` : ""} → ${to}`;
 
 /** The handle a connect uses: the one given, or the from block's default. */
-export function resolveHandle(type: string, from: string, given?: string) {
-	const handles = getOutputHandles(type);
+export function resolveHandle(type: string, from: string, given?: string, spec?: HandleSpec) {
+	const handles = getOutputHandles(type, spec);
 	if (given) {
 		const h = bare(from, given.trim());
 		if (!handles.includes(h)) {
@@ -131,9 +135,10 @@ export class Draft {
 		if (STRUCTURAL.has(target.type))
 			throw new Error(`connect: nothing may point at the ${target.type} block.`);
 		if (from === to) throw new Error("connect: a block cannot connect to itself.");
+		// no spec source in the gateway yet: plugin manifests reach it with P1 (#857)
 		const h = resolveHandle(source.type, this.name(from), given);
 		const taken = [...this.edges.values()].find((e) => e.from === from && e.handle === h);
-		if (taken && taken.to !== to && !FAN_OUT.has(h)) {
+		if (taken && taken.to !== to && !isFanOutHandle(h)) {
 			throw new Error(
 				`connect: ${this.name(from)}'s ${h} handle already goes to ${this.name(taken.to)}. Disconnect it first, in the same call.`,
 			);

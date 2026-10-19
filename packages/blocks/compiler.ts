@@ -1,5 +1,5 @@
 import { type BlockOutput, type Context, outputVariableName } from "./baseBlock";
-import { FAN_OUT_HANDLES, sortByOrder } from "./blockHandles";
+import { type HandleSpecs, isFanOutHandle, sortByOrder } from "./blockHandles";
 import { BlockTypes } from "./blockTypes";
 import type { BlockDTOType, EdgeDTOSchemaType, EdgesType } from "./builderTypes";
 import { emitCustomBlock, hasCustomBlock } from "./builtin/customBlock";
@@ -167,6 +167,8 @@ export type CompileOptions = {
 	 * untraced callers, and test runs are where per-block recording will land.
 	 */
 	tracing?: boolean;
+	/** Handle specs of non-builtin types (plugin manifests); a type left out resolves as builtin. */
+	handleSpecs?: HandleSpecs;
 };
 
 /**
@@ -196,6 +198,7 @@ export function compileGraph(
 		asCustomBlock = false,
 		asWorkflow = false,
 		dependencies,
+		handleSpecs = {},
 		hooks = false,
 		projectId,
 		tracing = true,
@@ -248,7 +251,8 @@ export function compileGraph(
 				countByHandle.set(edge.handle, (countByHandle.get(edge.handle) ?? 0) + 1);
 			}
 			for (const [handle, count] of countByHandle) {
-				if (count > 1 && !FAN_OUT_HANDLES.includes(handle)) edgeTo(id, handle);
+				const spec = handleSpecs[byId.get(id)?.type ?? ""];
+				if (count > 1 && !isFanOutHandle(handle, spec)) edgeTo(id, handle);
 			}
 		}
 	}
@@ -470,7 +474,7 @@ return ${result};`;
 
 		return `// ${block.type} ${id}
 async function ${blockFunctionName(id)}($state, $input, $end) {
-${spans.wrap(`${emitBeforeHook(block.type, blockId, support, (h) => continueTo(h, false))}${code}`)}
+${spans.wrap(`${emitBeforeHook(block.type, blockId, support, (h) => continueTo(h, false), handleSpecs[block.type])}${code}`)}
 }`;
 	}
 

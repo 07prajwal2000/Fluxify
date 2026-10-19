@@ -1,4 +1,4 @@
-import { FAN_OUT_HANDLES } from "@fluxify/blocks/blockHandles";
+import { isFanOutHandle } from "@fluxify/blocks/blockHandles";
 import { BlockTypes } from "@fluxify/blocks/blockTypes";
 import { STARTER_POSITIONS } from "@fluxify/blocks/layout";
 import { generateID } from "@fluxify/lib/random/id";
@@ -201,7 +201,8 @@ export function canvasChangesFromPayload(
 		const fromHandle = fullHandle(from, handle, "source");
 		// a fan-out handle (switch case, orchestrate) holds one edge per branch:
 		// a new branch is added beside the others, never in place of them
-		if (FAN_OUT_HANDLES.includes(fromHandle.slice(from.length + 1))) return;
+		// no spec source in the gateway yet: plugin manifests reach it with P1 (#857)
+		if (isFanOutHandle(fromHandle.slice(from.length + 1))) return;
 		for (const edge of existing.edges) {
 			if (edge.from !== from || (edge.fromHandle ?? "") !== fromHandle) continue;
 			if (edge.to !== keepTo) deletedEdgeIds.add(edge.id);

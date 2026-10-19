@@ -117,6 +117,7 @@ Call again with blockTypes for each block's fields, handles, output and an examp
 			? renderCompactSchema(block.jsonSchema)
 			: "{} // no configuration";
 		// #673: what valid data looks like, and what the next block gets as `input`
+		// builtin types only here; plugin specs reach the gateway with P1 (#857)
 		const handles = getOutputHandles(type);
 		return `${type} ${schema}
 Handles (connect from): ${handles.join(", ") || "none, it ends the flow"}

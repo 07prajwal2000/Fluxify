@@ -1,5 +1,5 @@
 import { BlockTypes } from "@fluxify/blocks";
-import { getOutputHandles } from "@fluxify/blocks/blockHandles";
+import { getOutputHandles, type HandleSpec } from "@fluxify/blocks/blockHandles";
 import { generateID } from "@fluxify/lib";
 import { db } from "../../../db";
 import { BadRequestError } from "../../../errors/badRequestError";
@@ -20,8 +20,8 @@ const STRUCTURAL = new Set<string>([BlockTypes.entrypoint, BlockTypes.errorHandl
 const ROLLBACK = new Error("ephemeral canvas rolled back");
 
 /** The handle an edge leaves a block on: the one given, or the block's only (or `source`) one. */
-function handleFor(ref: string, type: string, given?: string) {
-	const handles = getOutputHandles(type);
+function handleFor(ref: string, type: string, given?: string, spec?: HandleSpec) {
+	const handles = getOutputHandles(type, spec);
 	const list = handles.join(", ") || "none: it ends the flow";
 	if (given) {
 		if (!handles.includes(given))
@@ -64,6 +64,7 @@ function translate({ blocks, edges }: Pick<RunBody, "blocks" | "edges">) {
 					`edges[${i}]: no block "${ref}". Refs: ${[...byRef.keys()].join(", ")}.`,
 				);
 		if (from === to) throw new BadRequestError(`edges[${i}]: a block cannot connect to itself.`);
+		// no spec source on admin yet: plugin manifests arrive with P1 (#857)
 		const handle = handleFor(fromRef, from!.type, edge.handle ?? dotted);
 		return {
 			id: generateID(),

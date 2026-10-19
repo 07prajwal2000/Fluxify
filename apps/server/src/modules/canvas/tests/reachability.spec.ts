@@ -78,3 +78,47 @@ describe("canvas reachability (#704)", () => {
 		expect(run("route", ["jsrunner"], [])).toEqual([]);
 	});
 });
+
+describe("canvas reachability with a handle spec (R2 #848)", () => {
+	const specs = {
+		agent: {
+			in: ["target"],
+			out: ["success", "failure"] as ["success", "failure"],
+			body: [
+				{ name: "tools", corner: "bottom-left" as const, allowMultiple: true },
+				{ name: "model", corner: "top-right" as const },
+			],
+		},
+	};
+	const runSpec = (edges: [string, string, string?][]) =>
+		reachabilityIssues(
+			{
+				kind: "route",
+				usageOf: new Map(),
+				blocks: ["entrypoint", "agent", "response", "jsrunner"].map((t) => block(t, t)),
+				edges: edges.map(([from, to, h]) => ({ from, to, fromHandle: `${from}-${h ?? "source"}` })),
+			},
+			specs,
+		).map((i) => i.message);
+
+	it("treats body handles as bodies and warns on an open spec'd branch", () => {
+		expect(
+			runSpec([
+				["entrypoint", "agent"],
+				["agent", "jsrunner", "tools"],
+				["agent", "response", "success"],
+			]),
+		).toEqual(["agent_1.failure is not connected: the flow stops there with no response."]);
+	});
+
+	it("does not follow a body chain to the response for the main flow", () => {
+		expect(
+			runSpec([
+				["entrypoint", "agent"],
+				["agent", "response", "model"],
+				["agent", "jsrunner", "success"],
+				["agent", "jsrunner", "failure"],
+			]),
+		).toEqual([]);
+	});
+});

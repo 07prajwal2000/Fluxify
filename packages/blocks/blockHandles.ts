@@ -1,3 +1,4 @@
+import z from "zod";
 import { BlockTypes } from "./blockTypes";
 
 /**
@@ -26,9 +27,78 @@ export const BLOCK_OUTPUT_HANDLES: Record<string, readonly string[]> = {
 	[BlockTypes.sticky_note]: [],
 };
 
+/** Where a body handle sits: left corners are above/below the icon, right ones opposite. */
+export type BodyCorner = "top-left" | "top-right" | "bottom-left" | "bottom-right";
+
+/**
+ * A block type's handles as plain data (a plugin manifest, `BlockMeta.handles`).
+ * Every consumer — compiler, layout, save validation, AI gateway, portal —
+ * resolves through the functions below, so none needs the block's code.
+ */
+export type HandleSpec = {
+	in: string[];
+	out: [] | ["source"] | ["success", "failure"];
+	body: { name: string; corner: BodyCorner; allowMultiple?: boolean }[];
+};
+
+/** Specs by block type, for callers that resolve many blocks; a type not in it is builtin. */
+export type HandleSpecs = Readonly<Record<string, HandleSpec | undefined>>;
+
+// an edge handle id is `<blockId>-<name>`, and readers split on the last `-`
+const handleName = z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "must be a plain identifier");
+
+export const handleSpecSchema = z
+	.object({
+		in: z.array(handleName).default(["target"]),
+		out: z.union([
+			z.tuple([]),
+			z.tuple([z.literal("source")]),
+			z.tuple([z.literal("success"), z.literal("failure")]),
+		]),
+		body: z
+			.array(
+				z.object({
+					name: handleName,
+					corner: z.enum(["top-left", "top-right", "bottom-left", "bottom-right"]),
+					allowMultiple: z.boolean().optional(),
+				}),
+			)
+			.default([]),
+	})
+	.superRefine((spec, ctx) => {
+		const names = [...spec.in, ...spec.out, ...spec.body.map((b) => b.name)];
+		const dupes = names.filter((n, i) => names.indexOf(n) !== i);
+		if (dupes.length)
+			ctx.addIssue({ code: "custom", message: `duplicate handle names: ${[...new Set(dupes)]}` });
+	});
+
 /** Handles for a block type; everything not listed above is a plain `source`. */
-export const getOutputHandles = (blockType: string): readonly string[] =>
-	BLOCK_OUTPUT_HANDLES[blockType] ?? ["source"];
+export const getOutputHandles = (blockType: string, spec?: HandleSpec): readonly string[] =>
+	spec
+		? [...spec.out, ...spec.body.map((b) => b.name)]
+		: (BLOCK_OUTPUT_HANDLES[blockType] ?? ["source"]);
+
+/** Does this handle start a nested chain (drawn on top, its branch sorted first)? */
+export const isBodyHandle = (handle: string, spec?: HandleSpec) =>
+	spec ? spec.body.some((b) => b.name === handle) : BODY_HANDLES.includes(handle);
+
+/** May this handle carry more than one edge, each its own branch? */
+export const isFanOutHandle = (handle: string, spec?: HandleSpec) =>
+	spec
+		? !!spec.body.find((b) => b.name === handle)?.allowMultiple
+		: FAN_OUT_HANDLES.includes(handle);
+
+/** A spec'd body handle's corner; builtin handles have none. */
+export const handleCorner = (handle: string, spec?: HandleSpec): BodyCorner | undefined =>
+	spec?.body.find((b) => b.name === handle)?.corner;
+
+/** Which side a handle (bare name) sits on; unknown names fall to the right. */
+export function sideOf(handle: string, spec?: HandleSpec): HandleSide {
+	if (!spec) return HANDLE_SIDE[handle as HandleKind] ?? "right";
+	const corner = handleCorner(handle, spec);
+	if (corner) return corner.startsWith("top") ? "top" : "bottom";
+	return spec.in.includes(handle) ? "left" : "right";
+}
 
 /** Socket kinds a block can expose. Ids on edges are `<blockId>-<kind>`. */
 export type HandleKind =
