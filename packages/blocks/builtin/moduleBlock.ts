@@ -8,8 +8,10 @@ import {
 	emitBlockCall,
 	emitCustomBlock,
 	lookupBlock,
+	MODULE_BLOCK_DATA_KEYS,
 	tracedBlock,
 } from "./customBlock";
+import { type ExecuteHandle, emitBodyHandles } from "./executeHandle";
 
 /**
  * Block metadata by type (plugin manifests): all the compiler knows of a
@@ -37,10 +39,11 @@ export async function invokeRouted(
 	type: string,
 	args: CustomBlockArgs,
 	blockId?: string,
+	executeHandle?: ExecuteHandle,
 ): Promise<RoutedResult> {
 	const scope = tracedBlock(context, type, blockId, false);
 	try {
-		return await lookupBlock(context, type)(scope.context, args);
+		return await lookupBlock(context, type)(scope.context, { ...args, executeHandle });
 	} catch (error) {
 		return { successful: false, error };
 	} finally {
@@ -62,17 +65,22 @@ function assertInvokable(node: EmitNode, meta: BlockMeta, mode: string, outs: re
 		);
 	if (!outs.length && node.has("source"))
 		throw new Error(`${label} is terminal but has an outgoing edge`);
+	// only a sync call has a run to hand `executeHandle` to
+	const bodies = new Set(meta.handles?.body.map((b) => b.name));
+	if (mode !== "sync" && node.edgesFrom().some((e) => bodies.has(e.handle)))
+		throw new Error(`${label} has wired body handles, so it must be invoked sync, not ${mode}`);
 }
 
 /** a programmable block: checks its invoke mode, then leaves by the handle `run` returned */
 export function emitModuleBlock(node: EmitNode, meta: BlockMeta) {
-	const { mode, call } = emitBlockCall(node);
+	const { mode, call } = emitBlockCall(node, MODULE_BLOCK_DATA_KEYS);
 	const outs: readonly string[] = meta.handles?.out ?? ["source"];
 	assertInvokable(node, meta, mode, outs);
 	// async and queued fire and move on, exactly like a canvas custom block
-	if (mode !== "sync") return emitCustomBlock(node);
+	if (mode !== "sync") return emitCustomBlock(node, MODULE_BLOCK_DATA_KEYS);
 
 	const r = node.v("r");
+	const handles = node.v("handles");
 	const branching = outs.length === 2;
 	const error = `(${r}.error instanceof Error ? ${r}.error : new Error(String(${r}.error)))`;
 	// a throw goes to `failure` when wired, otherwise fails the run like a builtin
@@ -85,7 +93,8 @@ export function emitModuleBlock(node: EmitNode, meta: BlockMeta) {
 	const route = branching
 		? `if (${r}.handle === "failure") {\n${node.next("failure")}\n}\n${node.next("success")}`
 		: node.next();
-	return `const ${r} = await lib.invokeRouted${call};
+	return `const ${handles} = ${emitBodyHandles(node, meta)};
+const ${r} = await lib.invokeRouted${call.slice(0, -1)}, ${handles});
 if (!${r}.successful) {
 ${onError}
 }

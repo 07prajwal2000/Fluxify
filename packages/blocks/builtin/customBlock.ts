@@ -5,6 +5,7 @@ import { type HandleSpec, handleSpecSchema } from "../blockHandles";
 import type { BlockDTOType, EdgeDTOSchemaType } from "../builderTypes";
 import { compileGraph, type EmitNode, emitJsObject, instantiateCompiled } from "../compiler";
 import { enqueueJob } from "../jobs";
+import type { ExecuteHandle } from "./executeHandle";
 
 export const customBlockInvokeSchema = z
 	.enum(["sync", "async", "queued"])
@@ -121,6 +122,8 @@ export type ModuleBlockRun = (args: {
 	params: Record<string, any>;
 	input?: any;
 	ctx: Context;
+	/** runs a body handle's chain; a block without body handles gets one that throws */
+	executeHandle?: ExecuteHandle;
 }) => ModuleBlockResult | Promise<ModuleBlockResult>;
 
 /**
@@ -140,7 +143,12 @@ export function registerModuleBlock(
 		meta = { ...meta, handles: handleSpecSchema.parse(meta.handles) as HandleSpec };
 	const wrapped: CompiledCustomBlock = async (ctx, args?: CustomBlockArgs) => {
 		try {
-			const result = await run({ params: args?.params ?? {}, input: args?.input, ctx });
+			const result = await run({
+				params: args?.params ?? {},
+				input: args?.input,
+				ctx,
+				executeHandle: args?.executeHandle,
+			});
 			return {
 				successful: true,
 				continueIfFail: false,
@@ -209,7 +217,12 @@ export function tracedBlock(
  * flowing into the calling block. They stay apart inside the callee — `params`
  * is its configuration at any depth, `input` is the previous block's output.
  */
-export type CustomBlockArgs = { params: Record<string, any>; input?: any };
+export type CustomBlockArgs = {
+	params: Record<string, any>;
+	input?: any;
+	/** sync programmable blocks only: never serialized, a queued job has no run to call back into */
+	executeHandle?: ExecuteHandle;
+};
 
 /**
  * Run a custom block and hand back its whole result rather than its output —
@@ -308,19 +321,32 @@ export function enqueueCustomBlock(
 	});
 }
 
+/** data keys the engine owns on every library block; the rest of `data` is the block's params */
+const BLOCK_DATA_KEYS = ["blockName", "blockDescription", "invoke", "saveAsVariable"] as const;
+
+/**
+ * The data keys the engine owns on a programmable block: the shared ones plus
+ * `order`, the canvas branch order of an `allowMultiple` handle. None reaches
+ * the block as a param, so a plugin cannot declare a param by these names.
+ * A canvas custom block keeps getting `order`: it may be one of its inputs.
+ */
+export const MODULE_BLOCK_DATA_KEYS = [...BLOCK_DATA_KEYS, "order"] as const;
+
 /** the pieces of a call to a library block: mode, then `(ctx, name, args, id)` */
-export function emitBlockCall(node: EmitNode) {
-	const { blockName, blockDescription, invoke, saveAsVariable, ...params } = (node.block.data ??
-		{}) as Record<string, unknown>;
+export function emitBlockCall(node: EmitNode, reserved: readonly string[] = BLOCK_DATA_KEYS) {
+	const data = (node.block.data ?? {}) as Record<string, unknown>;
+	const params = Object.fromEntries(
+		Object.entries(data).filter(([key]) => !reserved.includes(key)),
+	);
 	// the callee reads its configuration as `params` and the value flowing into
 	// this block as `input` — one meaning each, at every depth of its graph
 	const args = `{ params: ${emitJsObject(params, node)}, input: ${node.in} }`;
 	const call = `(ctx, ${JSON.stringify(node.block.type)}, ${args}, ${JSON.stringify(node.block.id)})`;
-	return { mode: customBlockInvokeSchema.parse(invoke), call };
+	return { mode: customBlockInvokeSchema.parse(data.invoke), call };
 }
 
-export function emitCustomBlock(node: EmitNode) {
-	const { mode, call } = emitBlockCall(node);
+export function emitCustomBlock(node: EmitNode, reserved?: readonly string[]) {
+	const { mode, call } = emitBlockCall(node, reserved);
 
 	if (mode === "queued") {
 		return `lib.enqueue${call};\n${node.next()}`;

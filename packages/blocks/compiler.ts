@@ -38,6 +38,10 @@ export type EmitNode = {
 	body(handle: string, initExpr: string, end?: string): string;
 	/** whether an edge leaves this block on `handle` */
 	has(handle: string): boolean;
+	/** every edge leaving block `from` (default: this one), error handler excluded */
+	edgesFrom(from?: string): { handle: string; to: BlockDTOType }[];
+	/** expression running the chain that starts at block `to` from `initExpr`, ending in `end` */
+	call(to: string, initExpr: string, end: string): string;
 	/**
 	 * Expression running every chain on a fan-out handle at once, each from this
 	 * block's input, ordered by `order`. Resolves to the outputs array, or to a
@@ -440,6 +444,13 @@ if (${result} !== undefined) return ${result};`;
 			has(handle) {
 				return edgeTo(id, handle) !== undefined;
 			},
+			edgesFrom(from = id) {
+				return (edgeMap[from] ?? []).flatMap(({ handle, to }) => {
+					const target = byId.get(to);
+					return target && target.type !== BlockTypes.errorHandler ? [{ handle, to: target }] : [];
+				});
+			},
+			call: (to, initExpr, end) => `${blockFunctionName(to)}($state, ${initExpr}, ${end})`,
 			parallel(handle, order, settle) {
 				const runs = fanOutTargets(id, handle, order).map(
 					(to) => `${blockFunctionName(to)}($state, $in, $endBranch)`,
@@ -513,10 +524,14 @@ ${spans.wrap(`${emitBeforeHook(block.type, blockId, support, (h) => continueTo(h
 		// the caller's flowing value, kept apart all the way down the graph
 		`params: ${asCustomBlock ? "input?.params ?? {}" : "undefined"},`,
 		"};",
+		// the outermost graph on this context owns the run's lifetime (#850)
+		"const $life = ctx.lifetime?.ended === false ? undefined : (ctx.lifetime = { ended: false });",
 		"try {",
 		`return await ${blockFunctionName(entry.id)}($state, ${asCustomBlock ? "input?.input" : "input"}, $endSuccess);`,
 		"} catch ($error) {",
 		errorHandlerBody,
+		"} finally {",
+		"if ($life) $life.ended = true;",
 		"}",
 		"}",
 	].join("\n");

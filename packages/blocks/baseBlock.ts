@@ -130,6 +130,8 @@ export type BlockTraceSpan = {
 	position?: { x: number; y: number };
 	/** the block a Switch handed off to (#628) */
 	next?: string;
+	/** the programmable block whose `executeHandle` ran this span's chain (#850); R5 nests by it */
+	owner?: string;
 };
 
 /** a nested graph invoked by one block, for the duration of that invocation */
@@ -197,6 +199,13 @@ export interface Context {
 		timeoutEnd: number;
 		duration: number;
 	};
+	/**
+	 * The outermost run's lifetime (#850), set by the first compiled graph that
+	 * runs on this context and ended when it returns. A nested graph's context is
+	 * a copy, so the object is shared by reference. `executeHandle` refuses calls
+	 * once it has ended.
+	 */
+	lifetime?: { ended: boolean };
 }
 
 export enum HttpCookieSameSite {
