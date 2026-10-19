@@ -545,8 +545,13 @@ ${spans.wrap(`${emitBeforeHook(block.type, blockId, support, (h) => continueTo(h
 		"}",
 	].join("\n");
 	const run = instantiateCompiled(source);
+	// the programmable block types this graph calls: a worker imports them before it loads the artifact
+	const pluginBlocks = [
+		...new Set(emissionOrder.map((id) => byId.get(id)!.type).filter((type) => blockMeta[type])),
+	];
 	return {
 		source,
 		run,
+		pluginBlocks,
 	};
 }

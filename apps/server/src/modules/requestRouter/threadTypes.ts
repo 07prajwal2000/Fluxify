@@ -3,6 +3,7 @@ import type { FluxifyEnv } from "../../lib/env";
 import type { JobEnvelope } from "../jobs/types";
 import type { AsyncExecutorLimits } from "./asyncExecutor";
 import type { ArtifactEntry } from "./compiledRuntime";
+import type { PluginBlockRef } from "./pluginLoader";
 
 /** handed to the isolated execution process over Bun IPC at spawn */
 export type ExecutionBootstrap = {
@@ -18,6 +19,8 @@ export type ExecutionBootstrap = {
 	trustedOrigins: string[];
 	/** the full artifact set as of spawn, already unsealed */
 	artifacts: ArtifactEntry[];
+	/** where this node's plugin block code is; imported only when an artifact calls a block */
+	pluginRefs?: PluginBlockRef[];
 	/** hot-reloadable supervisor policy; false means no heartbeat or tracking */
 	workerTimeoutsEnabled: boolean;
 	/** verifies the admin's debug-call tokens (#671); empty turns debug errors off */
@@ -43,6 +46,8 @@ export type ExecutionMessage =
 	| { type: "artifact"; entry: ArtifactEntry }
 	| { type: "monitoring"; enabled: boolean }
 	| { type: "base-domain"; baseDomain: string }
+	// a new set with no version changed; an upgrade replaces the process instead
+	| { type: "plugin-refs"; refs: PluginBlockRef[] }
 	// the supervisor owns NATS, the child owns user code: jobs cross here
 	| { type: "job"; job: JobEnvelope };
 

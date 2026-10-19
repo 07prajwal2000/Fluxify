@@ -20,3 +20,13 @@ export const versionDir = (projectId: string, version: number, root = depsRoot()
 
 export const currentLink = (projectId: string, root = depsRoot()) =>
 	join(root, projectId, "current");
+
+/**
+ * A plugin's install root, beside the project's own packages so the two never
+ * share a `node_modules`. The version is in the path: an upgrade is a new
+ * directory, so a fresh execution process imports fresh code.
+ *
+ *   <root>/<projectId>/plugins/<scope>/<name>/<version>/
+ */
+export const pluginDir = (projectId: string, plugin: string, version: string, root = depsRoot()) =>
+	join(root, projectId, "plugins", ...plugin.split("/"), version);

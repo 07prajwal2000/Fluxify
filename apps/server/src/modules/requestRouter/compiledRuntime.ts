@@ -42,6 +42,7 @@ import {
 } from "../triggers/queueRuntime";
 import { verifyDevToken } from "./devToken";
 import { setBlocksExecutor } from "./executor";
+import { loadPluginBlocks, usePluginBlocks } from "./pluginLoader";
 import { setDbConnectionManager } from "./service";
 
 /**
@@ -228,7 +229,11 @@ export function compiledRouteValidators(routeId: string): RouteValidators | unde
 	return routes.get(routeId)?.validators;
 }
 
-/** Builds the runtime from the artifact set handed over at spawn. */
+/**
+ * Builds the runtime from the artifact set handed over at spawn. Returns a
+ * promise only when artifacts wait on plugin code; it settles once those are
+ * loaded (or failed), so the caller reports ready with everything in.
+ */
 export function initCompiledRuntime(entries: ArtifactEntry[], databaseIdleTimeoutMs?: number) {
 	dbConnectionManager = new DbConnectionManager(undefined, {
 		idleTimeoutMs: databaseIdleTimeoutMs,
@@ -242,12 +247,16 @@ export function initCompiledRuntime(entries: ArtifactEntry[], databaseIdleTimeou
 		if (kind === "trigger") return 2;
 		return kind === "route" || kind === "workflow" || kind?.startsWith("sandbox") ? 1 : 0;
 	};
-	for (const current of [0, 1, 2]) {
+	const pending: Promise<void>[] = [];
+	const applyPhase = (current: number) => {
 		for (const { key, value } of entries) {
-			if (phase(key) === current) applyArtifact(key, value);
+			if (phase(key) !== current) continue;
+			const loading = applyArtifact(key, value);
+			if (loading) pending.push(loading);
 		}
-	}
-
+	};
+	applyPhase(0);
+	applyPhase(1);
 	setBlocksExecutor(async (target, context) => {
 		const compiled = routes.get(target.routeId) ?? sandboxes.get(target.routeId);
 		if (!compiled) {
@@ -261,15 +270,21 @@ export function initCompiledRuntime(entries: ArtifactEntry[], databaseIdleTimeou
 		);
 	});
 
-	logger.info(
-		`[worker] compiled runtime ready — ${routes.size} routes, ${workflows.size} workflows, ${customBlockCount()} custom blocks`,
-		"WORKER.compiled",
-	);
+	const finish = () => {
+		applyPhase(2);
+		logger.info(
+			`[worker] compiled runtime ready — ${routes.size} routes, ${workflows.size} workflows, ${customBlockCount()} custom blocks`,
+			"WORKER.compiled",
+		);
+	};
+	// a trigger waits for the workflow it feeds, plugin imports included
+	if (pending.length) return Promise.all(pending).then(finish);
+	finish();
 }
 
 /** a later update pushed down by the supervisor */
 export function applyArtifactUpdate(key: string, value: any | null) {
-	applyArtifact(key, value);
+	return applyArtifact(key, value);
 }
 
 /** Releases all long-lived database clients before the execution process exits. */
@@ -283,7 +298,41 @@ export async function shutdownCompiledRuntime() {
 	setDbConnectionManager();
 }
 
-function applyArtifact(key: string, value: any | null) {
+let applied = 0;
+/** each key's latest update, so a slow plugin import never lands over a newer one */
+const latest = new Map<string, number>();
+
+/**
+ * Applies at once unless the artifact calls plugin blocks not yet imported;
+ * then it applies once they are. A failed import keeps whatever version of
+ * the artifact was serving, like a graph that will not instantiate.
+ */
+function applyArtifact(key: string, value: any | null): Promise<void> | undefined {
+	const update = ++applied;
+	if (value) latest.set(key, update);
+	else latest.delete(key);
+	const loading = value?.pluginBlocks?.length
+		? loadPluginBlocks(value.projectId, value.pluginBlocks)
+		: undefined;
+	if (!loading) return void applyLoaded(key, value);
+	return loading.then(
+		() => {
+			if (latest.get(key) === update) applyLoaded(key, value);
+		},
+		(error) =>
+			logger.error(
+				`[worker] failed to load ${key}: ${(error as Error).message}`,
+				"WORKER.compiled",
+			),
+	);
+}
+
+function applyLoaded(key: string, value: any | null) {
+	applyByKind(key, value);
+	usePluginBlocks(key, value?.projectId, value?.pluginBlocks);
+}
+
+function applyByKind(key: string, value: any | null) {
 	switch (artifactKind(key)) {
 		case "route":
 			return value ? addRoute(value as RouteArtifact) : removeRoute(artifactId(key));
