@@ -105,6 +105,35 @@ describe("exportRun", () => {
 		);
 	});
 
+	it("nests ctx.span children by parent id and a body-chain span under its owner block", () => {
+		const { provider, spans } = collector();
+
+		// the block is the hand-off at seq 3, recorded last; its ctx.span children came
+		// first: "outer" via the trace entered for the block (parentSeq), "inner" inside it
+		exportRun(
+			provider,
+			run({
+				spans: [
+					span(0, "inner-id", 12, 14, {
+						blockType: "span",
+						parentSeq: 3,
+						metadata: { parent: "outer-id" },
+					}),
+					span(1, "chain", 16, 18, { metadata: { owner: "tool" } }),
+					span(2, "outer-id", 11, 19, { blockType: "span", parentSeq: 3 }),
+					span(3, "tool", 10, 20),
+				],
+			}),
+		);
+
+		const found = spans();
+		const parentOf = (id: string) => byName(found, id).parentSpanId;
+		const idOf = (id: string) => byName(found, id).spanContext().spanId;
+		expect(parentOf("outer-id")).toBe(idOf("tool"));
+		expect(parentOf("inner-id")).toBe(idOf("outer-id"));
+		expect(parentOf("chain")).toBe(idOf("tool"));
+	});
+
 	it("puts every span of a run in one trace, addressable from the run id", () => {
 		const { provider, spans } = collector();
 

@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { formatDuration } from "@/components/testSuites/CaseResults";
 import type { RecordedSpan } from "@/services/recordings";
 import { OutcomeIcon } from "./RecordedRunList";
-import { spanMs, spansAt } from "./spans";
+import { nestSpans, spanMs, spansAt } from "./spans";
 
 /**
  * Waterfall timeline showing relative timing and durations of recorded spans.
@@ -23,12 +23,12 @@ export function SpanTimeline({
 	nameOf: (span: RecordedSpan) => string;
 }) {
 	const items = useMemo(() => {
-		const list: { span: RecordedSpan; isStep?: boolean }[] = [];
-		for (const span of level) {
-			list.push({ span });
+		const list: { span: RecordedSpan; depth: number }[] = [];
+		for (const { span, depth } of nestSpans(level, allSpans)) {
+			list.push({ span, depth });
 			if (span.middleware) {
 				for (const step of spansAt(allSpans, span.seq)) {
-					list.push({ span: step, isStep: true });
+					list.push({ span: step, depth: depth + 1 });
 				}
 			}
 		}
@@ -75,7 +75,7 @@ export function SpanTimeline({
 
 			{/* Waterfall Rows */}
 			<div className="space-y-1.5">
-				{items.map(({ span, isStep }) => {
+				{items.map(({ span, depth }) => {
 					const duration = spanMs(span);
 					const offset = Math.max(0, Date.parse(span.startedAt) - minStart);
 					const leftPct = Math.min(99, Math.max(0, (offset / totalMs) * 100));
@@ -91,10 +91,12 @@ export function SpanTimeline({
 							className={cn(
 								"flex w-full cursor-pointer items-center rounded-md px-2 py-1 text-left transition-colors",
 								isSelected ? "bg-accent/15 ring-1 ring-accent" : "hover:bg-surface-secondary",
-								isStep && "pl-5",
 							)}
 						>
-							<div className="flex w-48 shrink-0 items-center gap-2 pr-2">
+							<div
+								className="flex w-48 shrink-0 items-center gap-2 pr-2"
+								style={{ paddingLeft: `${depth * 0.75}rem` }}
+							>
 								<OutcomeIcon outcome={span.outcome} />
 								<span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
 									{nameOf(span)}

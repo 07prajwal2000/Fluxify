@@ -7,7 +7,7 @@ import { EntryInputView, entryInput } from "./EntryInputView";
 import { PayloadViewer } from "./PayloadViewer";
 import { OutcomeIcon } from "./RecordedRunList";
 import { SpanTimeline } from "./SpanTimeline";
-import { calledBlockId, spanMs, spansAt } from "./spans";
+import { calledBlockId, nestSpans, spanMs, spansAt } from "./spans";
 
 export type SpanActions = {
 	/** a human name for a span: its own name, its custom block's label, or its type */
@@ -100,16 +100,20 @@ function SpanRow({
 	span,
 	nameOf,
 	onSelect,
+	depth = 0,
 }: {
 	span: RecordedSpan;
 	nameOf: (span: RecordedSpan) => string;
 	onSelect: (blockId: string) => void;
+	/** how deep it nests under a block (R5): `ctx.span` children and body-chain spans */
+	depth?: number;
 }) {
 	return (
 		<button
 			type="button"
 			onClick={() => onSelect(span.blockId)}
-			className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-surface-secondary"
+			style={{ paddingLeft: `${0.5 + depth * 1.25}rem` }}
+			className="flex w-full cursor-pointer items-center gap-2 rounded-md py-1.5 pr-2 text-left text-xs hover:bg-surface-secondary"
 		>
 			<OutcomeIcon outcome={span.outcome} />
 			<span className="min-w-0 flex-1 truncate text-foreground">{nameOf(span)}</span>
@@ -139,7 +143,10 @@ export function SpanDetail({
 	const [viewMode, setViewMode] = useState<"list" | "timeline">("list");
 	const middlewares = level.filter((span) => span.middleware);
 	const steps = middlewares.flatMap((span) => spansAt(run.spans, span.seq));
-	const picked = selected ? [...level, ...steps].filter((span) => span.blockId === selected) : [];
+	const nested = nestSpans(level, run.spans);
+	const picked = selected
+		? [...nested.map((item) => item.span), ...steps].filter((span) => span.blockId === selected)
+		: [];
 
 	if (selected) {
 		return (
@@ -229,7 +236,7 @@ export function SpanDetail({
 					/>
 				) : (
 					<div className="space-y-1 p-4">
-						{level.map((span) =>
+						{nested.map(({ span, depth }) =>
 							span.middleware ? (
 								<div key={span.seq} className="space-y-1 rounded-md border border-border p-2">
 									<div className="flex items-center gap-2 px-2 text-xs">
@@ -250,7 +257,13 @@ export function SpanDetail({
 									))}
 								</div>
 							) : (
-								<SpanRow key={span.seq} span={span} nameOf={actions.nameOf} onSelect={onSelect} />
+								<SpanRow
+									key={span.seq}
+									span={span}
+									nameOf={actions.nameOf}
+									onSelect={onSelect}
+									depth={depth}
+								/>
 							),
 						)}
 					</div>

@@ -47,6 +47,9 @@ export const responseSchema = runSummarySchema.extend({
 					position: z.object({ x: z.number(), y: z.number() }).optional(),
 					/** the block a Switch handed off to (#628) */
 					next: z.string().optional(),
+					/** R5: the programmable block that ran this span, and the `ctx.span` it nests in */
+					owner: z.string().optional(),
+					parent: z.string().optional(),
 				})
 				.nullable(),
 		}),

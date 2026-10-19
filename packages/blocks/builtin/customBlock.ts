@@ -5,6 +5,7 @@ import { type HandleSpec, handleSpecSchema } from "../blockHandles";
 import type { BlockDTOType, EdgeDTOSchemaType } from "../builderTypes";
 import { compileGraph, type EmitNode, emitJsObject, instantiateCompiled } from "../compiler";
 import { enqueueJob } from "../jobs";
+import { withCtxSpan } from "./ctxSpan";
 import type { ExecuteHandle } from "./executeHandle";
 
 export const customBlockInvokeSchema = z
@@ -146,7 +147,7 @@ export function registerModuleBlock(
 			const result = await run({
 				params: args?.params ?? {},
 				input: args?.input,
-				ctx,
+				ctx: withCtxSpan(ctx),
 				executeHandle: args?.executeHandle,
 			});
 			return {

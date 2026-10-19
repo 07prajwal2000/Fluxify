@@ -130,9 +130,19 @@ export type BlockTraceSpan = {
 	position?: { x: number; y: number };
 	/** the block a Switch handed off to (#628) */
 	next?: string;
-	/** the programmable block whose `executeHandle` ran this span's chain (#850); R5 nests by it */
+	/** the programmable block whose `executeHandle` ran this span's chain (#850); the viewer nests it under that block */
 	owner?: string;
+	/**
+	 * Set on a `ctx.span` child nested in another `ctx.span`: that span's `blockId`.
+	 * A `ctx.span` child is the one span with `blockType: "span"`; its `blockId` is
+	 * a fresh id and `blockName` the name the block gave it. A child directly under
+	 * the block has no `parent`: the trace the block's run got already anchors it.
+	 */
+	parent?: string;
 };
+
+/** `blockType` of a `ctx.span` child */
+export const CTX_SPAN_TYPE = "span";
 
 /** a nested graph invoked by one block, for the duration of that invocation */
 export type CustomBlockScope = {
@@ -206,6 +216,8 @@ export interface Context {
 	 * once it has ended.
 	 */
 	lifetime?: { ended: boolean };
+	/** programmable blocks only (R5): times `fn` as a child span of the calling block */
+	span?: <T>(name: string, fn: () => T | Promise<T>) => Promise<T>;
 }
 
 export enum HttpCookieSameSite {
