@@ -101,3 +101,37 @@ export const manifestEntrySchema = z
 	.superRefine(checkEntry);
 
 export type ManifestEntry = z.infer<typeof manifestEntrySchema>;
+
+/** scope/name: the plugin's permanent identity */
+export const PLUGIN_NAME = /^[a-z0-9][a-z0-9_-]*\/[a-z0-9][a-z0-9_-]*$/;
+/** the SDK versions a plugin works with: `>=`, `^` or `~` and one version, or an exact one */
+export const SDK_RANGE = /^(>=|\^|~)?\d+\.\d+\.\d+$/;
+
+/** where a block's built module sits in the plugin: `scope/name/a/b` is `dist/blocks/a/b.js` */
+export const blockEntryPath = (type: string) =>
+	`dist/blocks/${type.split("/").slice(2).join("/")}.js`;
+
+/**
+ * `fluxify.json`, the manifest at the root of a plugin package: written by the
+ * CLI, validated by the admin registry, rendered by the portal. A block's
+ * `entry` is fixed by its type, so a manifest cannot point outside `dist/blocks`.
+ */
+export const fluxifyManifestSchema = z
+	.strictObject({
+		name: z.string().regex(PLUGIN_NAME, "must be scope/name: lowercase letters, digits, - and _"),
+		url: z.url({ protocol: /^https$/, error: "must be an https:// URL" }),
+		sdk: z.string().regex(SDK_RANGE, "must be a version range like >=2026.10.2001"),
+		blocks: z.record(z.string(), manifestEntrySchema.and(z.object({ entry: z.string() }))),
+	})
+	.superRefine((m, ctx) => {
+		for (const [type, b] of Object.entries(m.blocks)) {
+			const issue = (message: string, path: string[]) =>
+				ctx.addIssue({ code: "custom", message, path: ["blocks", type, ...path] });
+			if (b.name !== type) issue(`is keyed '${type}' but named '${b.name}'`, ["name"]);
+			else if (!type.startsWith(`${m.name}/`)) issue(`is not inside plugin '${m.name}'`, ["name"]);
+			else if (b.entry !== blockEntryPath(type))
+				issue(`must be '${blockEntryPath(type)}'`, ["entry"]);
+		}
+	});
+
+export type FluxifyManifest = z.infer<typeof fluxifyManifestSchema>;

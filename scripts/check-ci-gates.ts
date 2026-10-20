@@ -5,6 +5,7 @@
 
 import { readFileSync } from "node:fs";
 import { Glob } from "bun";
+import { checkDockerfiles } from "./dockerWorkspaces";
 
 // The gate is tests.yml: a change to it runs everything. The workflows that call
 // it cannot change how a test job runs, so they are not in any filter.
@@ -15,6 +16,7 @@ const GATES: Record<string, { dir: string; jobs: string[] }> = {
 	lib: { dir: "packages/lib", jobs: ["test-packages-lib"] },
 	blocks: { dir: "packages/blocks", jobs: ["test-packages-blocks"] },
 	sdk: { dir: "packages/sdk", jobs: ["test-packages-sdk"] },
+	cli: { dir: "packages/cli", jobs: ["test-packages-cli"] },
 	adapters: { dir: "packages/adapters", jobs: ["test-packages-adapters"] },
 	server: {
 		dir: "apps/server",
@@ -31,15 +33,22 @@ const errors: string[] = [];
 
 // Workspace name -> { dir, deps }. Workspaces are `packages/*`, `apps/*` and
 // `testing/e2e`, read from the root package.json.
-const workspaces = new Map<string, { dir: string; deps: string[] }>();
+const workspaces = new Map<
+	string,
+	{ name: string; dir: string; deps: string[]; runtime: string[] }
+>();
 for (const pattern of readJson("package.json").workspaces as string[]) {
 	for (const file of new Glob(`${pattern}/package.json`).scanSync(".")) {
 		const dir = file.replaceAll("\\", "/").replace(/\/package\.json$/, "");
 		const pkg = readJson(file);
 		const all = { ...pkg.peerDependencies, ...pkg.devDependencies, ...pkg.dependencies };
 		workspaces.set(pkg.name, {
+			name: pkg.name,
 			dir,
 			deps: Object.keys(all).filter((d) => d.startsWith("@fluxify/")),
+			runtime: Object.keys({ ...pkg.peerDependencies, ...pkg.dependencies }).filter((d) =>
+				d.startsWith("@fluxify/"),
+			),
 		});
 	}
 }
@@ -105,6 +114,19 @@ for (const [name, { dir, deps }] of workspaces) {
 		}
 	}
 }
+
+// ---- 3. Dockerfiles copy every workspace (and the server's imports to build) ----
+errors.push(
+	...checkDockerfiles(
+		[...workspaces.values()],
+		Object.fromEntries(
+			[...new Glob("docker/*/Dockerfile").scanSync(".")].map((f) => [
+				f.replaceAll("\\", "/"),
+				readFileSync(f, "utf8"),
+			]),
+		),
+	),
+);
 
 if (errors.length) {
 	console.error(`CI gate check failed:\n - ${[...new Set(errors)].join("\n - ")}`);

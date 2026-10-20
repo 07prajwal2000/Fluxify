@@ -74,9 +74,11 @@ COPY apps/ai-gateway/package.json apps/ai-gateway/package.json
 COPY apps/portal/package.json apps/portal/package.json
 COPY packages/adapters/package.json packages/adapters/package.json
 COPY packages/blocks/package.json packages/blocks/package.json
+COPY packages/cli/package.json packages/cli/package.json
 COPY packages/common/package.json packages/common/package.json
 COPY packages/components/package.json packages/components/package.json
 COPY packages/lib/package.json packages/lib/package.json
+COPY packages/sdk/package.json packages/sdk/package.json
 COPY testing/e2e/package.json testing/e2e/package.json
 COPY testing/mcp-math/package.json testing/mcp-math/package.json
 COPY scripts/setup-hooks.ts scripts/setup-hooks.ts
@@ -92,7 +94,7 @@ RUN bun install --frozen-lockfile
 # dist/. compiledWorker.ts looks for ./executionProcess.js and ./testExecutionProcess.js next to itself, so
 # this flat layout is load-bearing — do not nest the outputs.
 #
-# Only apps/server and the four workspace packages it imports are copied — no
+# Only apps/server and the five workspace packages it imports are copied — no
 # web, ai-gateway, portal or docs. node_modules is inherited from deps, and bun
 # bundles the packages straight from source, so nothing needs pre-building.
 # ------------------------------------------------------------------------------
@@ -103,6 +105,7 @@ COPY packages/common packages/common
 COPY packages/lib packages/lib
 COPY packages/blocks packages/blocks
 COPY packages/adapters packages/adapters
+COPY packages/sdk packages/sdk
 COPY apps/server apps/server
 
 RUN bun run --cwd apps/server build:worker:compiled

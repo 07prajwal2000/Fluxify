@@ -31,3 +31,6 @@ skills-lock.json
 # Fetched by `helm dependency build`, pinned by Chart.lock
 deploy/helm/fluxify/charts/
 
+
+# Local demos and experiments with the SDK and CLI
+.demos/

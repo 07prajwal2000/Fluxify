@@ -20,3 +20,6 @@ export const MODULE_BLOCK_DATA_KEYS = [...BLOCK_DATA_KEYS, "order"] as const;
 
 /** `blockType` of a `ctx.span` child in a trace, so no block may be called this */
 export const CTX_SPAN_TYPE = "span";
+
+/** the longest `iconUrl` (a data URL) a custom block may hold; the CLI checks a plugin's icons against it */
+export const ICON_URL_MAX = 68266;
