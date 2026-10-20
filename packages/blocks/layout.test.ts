@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import type { HandleSpec } from "./blockHandles";
 import { BlockTypes } from "./blockTypes";
 import { handleSide, layerOf, layoutGraph, type LayoutNode } from "./layout";
 
@@ -281,4 +282,45 @@ test("a body chain sits above its block; the block's own flow stays on its row",
 	// no next block connected yet: the body still stays above the row, leaving it free
 	const alone = layoutGraph(nodes.filter((n) => n.id !== "after"), edges.filter((x) => x.to !== "after"));
 	expect(at(alone, "body")).toBeLessThan(at(alone, "loop"));
+});
+
+const agent: HandleSpec = {
+	in: ["target"],
+	out: ["success", "failure"],
+	body: [
+		{ name: "tools", corner: "bottom-left" },
+		{ name: "approval", corner: "top-right" },
+	],
+};
+
+test("a bottom-corner body chain lands below its block, a top-corner one above, clear of each other", () => {
+	const nodes = [
+		node("a", "acme/agent/run"),
+		node("below", BlockTypes.jsrunner),
+		node("above", BlockTypes.jsrunner),
+		node("next", BlockTypes.response),
+	];
+	const pos = layoutGraph(
+		nodes,
+		[
+			edge("a", "below", "tools"),
+			edge("a", "above", "approval"),
+			edge("a", "next", "success"),
+		],
+		{ handleSpecs: { "acme/agent/run": agent } },
+	);
+	expect(pos.below!.y).toBeGreaterThanOrEqual(pos.a!.y + 40);
+	expect(pos.above!.y + 40).toBeLessThanOrEqual(pos.a!.y);
+	// the success chain keeps the block's own row
+	expect(pos.next!.y).toBe(pos.a!.y);
+});
+
+test("changedIds still anchors on the blocks that stayed when a bottom lane is added", () => {
+	const nodes = [node("a", "acme/agent/run", 100, 200), node("below", BlockTypes.jsrunner)];
+	const pos = layoutGraph(nodes, [edge("a", "below", "tools")], {
+		changedIds: ["below"],
+		handleSpecs: { "acme/agent/run": agent },
+	});
+	expect(pos.a).toBeUndefined();
+	expect(pos.below!.y).toBeGreaterThan(200);
 });

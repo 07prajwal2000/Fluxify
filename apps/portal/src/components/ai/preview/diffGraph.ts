@@ -1,14 +1,17 @@
-import { layoutGraph } from "@fluxify/blocks/layout";
+import { type HandleSpecs, layoutGraph } from "@fluxify/blocks/layout";
 import type { CanvasGraph } from "@/components/canvas/types";
 import type { CanvasDiff } from "./canvasDiff";
 
 /** Positions from the canvas when every block has one, else laid out (a diff built from ops alone has none). */
-function positions(diff: CanvasDiff) {
+function positions(diff: CanvasDiff, handleSpecs: HandleSpecs) {
 	if (diff.blocks.every((b) => b.position)) return undefined;
 	const keys = new Set(diff.blocks.map((b) => b.key));
 	return layoutGraph(
 		diff.blocks.map((b) => ({ id: b.key, type: b.type })),
-		diff.edges.filter((e) => keys.has(e.from) && keys.has(e.to)),
+		diff.edges
+			.filter((e) => keys.has(e.from) && keys.has(e.to))
+			.map((e) => ({ ...e, fromHandle: handleOf(e.from, e.handle) })),
+		{ handleSpecs },
 	);
 }
 
@@ -21,8 +24,11 @@ const handleOf = (block: string, handle: string, partial?: boolean) =>
 	partial && handle === "source" ? "" : `${block}-${handle}`;
 
 /** Blocks are named by key here; handle ids are `<block>-<handle>`, as the canvas stores them. */
-export function toGraph(diff: CanvasDiff): CanvasGraph {
-	const laid = positions(diff);
+export function toGraph(diff: CanvasDiff, handleSpecs: HandleSpecs = {}): CanvasGraph {
+	const laid = positions(diff, handleSpecs);
+	const typeOf = new Map(diff.blocks.map((b) => [b.key, b.type]));
+	// a plugin block's inputs are its own; a builtin's single input is `target`
+	const inputOf = (key: string) => handleSpecs[typeOf.get(key) ?? ""]?.in[0] ?? "target";
 	const keys = new Set(diff.blocks.map((b) => b.key));
 	return {
 		blocks: diff.blocks.map((b) => ({
@@ -40,7 +46,7 @@ export function toGraph(diff: CanvasDiff): CanvasGraph {
 				to: e.to,
 				fromHandle: handleOf(e.from, e.handle, diff.partial),
 				// ops alone do not know a block's real handles: the canvas picks its first input
-				toHandle: diff.partial ? "" : `${e.to}-target`,
+				toHandle: diff.partial ? "" : `${e.to}-${inputOf(e.to)}`,
 			})),
 	};
 }

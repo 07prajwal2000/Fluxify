@@ -5,6 +5,7 @@ import {
 	type HandleSide,
 	type HandleSpec,
 	type HandleSpecs,
+	handleCorner,
 	isBodyHandle,
 	sideOf,
 } from "./blockHandles";
@@ -133,8 +134,9 @@ export function layoutBand(
 
 	// A block's flow stays on its own row; whatever hangs off a body handle
 	// (executor, orchestrate) goes above it, so the row's next column stays free
-	// for the chain that carries on after the block.
-	type Lanes = { body: LayoutNode[]; main: LayoutNode[] };
+	// for the chain that carries on after the block. A plugin's bottom-corner
+	// body handle goes below instead, so its edge does not loop up.
+	type Lanes = { body: LayoutNode[]; bottom: LayoutNode[]; main: LayoutNode[] };
 	const lanes = new Map<string, Lanes>();
 	const lanesOf = (id: string): Lanes => {
 		const known = lanes.get(id);
@@ -150,8 +152,10 @@ export function layoutBand(
 					byPosition(byId.get(a.to)!, byId.get(b.to)!),
 			);
 		const isBody = (e: LayoutEdge) => isBodyHandle(handleOf(e), spec);
+		const isBottom = (e: LayoutEdge) => !!handleCorner(handleOf(e), spec)?.startsWith("bottom");
 		const result = {
-			body: branches.filter(isBody).map((e) => byId.get(e.to)!),
+			body: branches.filter((e) => isBody(e) && !isBottom(e)).map((e) => byId.get(e.to)!),
+			bottom: branches.filter((e) => isBody(e) && isBottom(e)).map((e) => byId.get(e.to)!),
 			main: branches.filter((e) => !isBody(e)).map((e) => byId.get(e.to)!),
 		};
 		lanes.set(id, result);
@@ -167,13 +171,14 @@ export function layoutBand(
 		if (known !== undefined) return known;
 		if (path.has(n.id)) return heightOf(n);
 		path.add(n.id);
-		const { body, main } = lanesOf(n.id);
+		const { body, bottom, main } = lanesOf(n.id);
 		const bodySize = stackOf(body.map((k) => slotOf(k, path)));
+		const bottomSize = stackOf(bottom.map((k) => slotOf(k, path)));
 		const mainSize = stackOf(main.map((k) => slotOf(k, path)));
 		path.delete(n.id);
 		// Slots are centred on the block, so reserve the larger side on both.
 		const up = Math.max(heightOf(n), mainSize) / 2 + (bodySize ? gap + bodySize : 0);
-		const down = Math.max(heightOf(n), mainSize) / 2;
+		const down = Math.max(heightOf(n), mainSize) / 2 + (bottomSize ? gap + bottomSize : 0);
 		slots.set(n.id, 2 * Math.max(up, down));
 		return slots.get(n.id)!;
 	};
@@ -203,6 +208,8 @@ export function layoutBand(
 		place(main, mid - mainSize / 2);
 		const bodySize = stackOf(body.map((k) => slotOf(k, new Set())));
 		place(body, mid - Math.max(mainSize, heightOf(node)) / 2 - gap - bodySize);
+		const bottom = lanes.bottom.filter((k) => !centre.has(k.id));
+		place(bottom, mid + Math.max(mainSize, heightOf(node)) / 2 + gap);
 	}
 
 	// Lanes never overlap, but a converged block's own flow can land on one: push down.

@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import type { HandleSpecs } from "@fluxify/blocks/layout";
 import type { CanvasDiff } from "./canvasDiff";
 import { toGraph } from "./diffGraph";
 
@@ -38,4 +39,31 @@ test("an edge to a block that is not in the diff is left out", () => {
 	const d = diff(false);
 	d.edges.push({ id: "x", from: "if_1", to: "gone_1", handle: "success", status: "same" });
 	expect(toGraph(d).edges.map((e) => e.id)).toEqual(["a", "b", "c"]);
+});
+
+test("a plugin block's body and result edges leave from its own handles", () => {
+	const specs: HandleSpecs = {
+		"acme/agent/run": {
+			in: ["input"],
+			out: ["success", "failure"],
+			body: [{ name: "tools", corner: "bottom-left" as const }],
+		},
+	};
+	const d: CanvasDiff = {
+		blocks: [block("agent_1", "acme/agent/run"), block("log_1", "consolelog"), block("log_2", "consolelog"), block("log_3", "consolelog")],
+		edges: [
+			{ id: "t", from: "agent_1", to: "log_1", handle: "tools", status: "same" },
+			{ id: "s", from: "agent_1", to: "log_2", handle: "success", status: "same" },
+			{ id: "i", from: "log_3", to: "agent_1", handle: "source", status: "same" },
+		],
+		partial: false,
+	};
+	const g = toGraph(d, specs);
+	const edge = (id: string) => g.edges.find((e) => e.id === id);
+	expect(edge("t")?.fromHandle).toBe("agent_1-tools");
+	expect(edge("s")?.fromHandle).toBe("agent_1-success");
+	expect(edge("i")?.toHandle).toBe("agent_1-input");
+	// the tools chain sits below the agent, not above it
+	const y = (k: string) => g.blocks.find((b) => b.key === k)!.position.y;
+	expect(y("log_1")).toBeGreaterThan(y("agent_1"));
 });

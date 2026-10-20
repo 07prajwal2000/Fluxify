@@ -81,7 +81,7 @@ describe("handle resolution", () => {
 });
 
 describe("layout with a spec'd type", () => {
-	it("puts body branches above the success/failure lanes, in spec order", () => {
+	it("puts top-corner body branches above the success/failure lanes and bottom-corner ones below", () => {
 		const nodes = ["entry", "agent", "ok", "ko", "tool", "llm"].map((id) => ({
 			id,
 			type: id === "agent" ? "acme/agent" : BlockTypes.jsrunner,
@@ -95,11 +95,11 @@ describe("layout with a spec'd type", () => {
 			edge("tool", "tools"),
 		];
 		const y = (p: Record<string, { y: number }>) =>
-			["tool", "llm", "ok", "ko"].sort((a, b) => p[a]!.y - p[b]!.y);
+			["llm", "ok", "ko", "tool"].sort((a, b) => p[a]!.y - p[b]!.y);
 		const at = layoutGraph(nodes, edges, { handleSpecs: { "acme/agent": agent } });
-		expect(y(at)).toEqual(["tool", "llm", "ok", "ko"]);
+		expect(y(at)).toEqual(["llm", "ok", "ko", "tool"]);
 		// without the spec the unknown handles are plain lanes, not bodies
-		expect(y(layoutGraph(nodes, edges))).not.toEqual(["tool", "llm", "ok", "ko"]);
+		expect(y(layoutGraph(nodes, edges))).not.toEqual(["llm", "ok", "ko", "tool"]);
 	});
 });
 
