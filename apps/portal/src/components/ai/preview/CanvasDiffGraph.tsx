@@ -12,6 +12,10 @@ import { BlockCanvas } from "@/components/canvas/BlockCanvas";
 import { createBlockNodeTypes } from "@/components/canvas/blocks";
 import { FLOW_EDGE_TYPE, FlowEdge } from "@/components/canvas/edges";
 import { useCanvasPanel } from "@/components/canvas/panel/PanelContext";
+import {
+	PluginBlocksProvider,
+	usePluginBlocks,
+} from "@/components/canvas/plugins/PluginBlocksContext";
 import type { BlockEdge } from "@/components/canvas/types";
 import type { BlockStatus, CanvasDiff, DiffEdge } from "./canvasDiff";
 import { toGraph } from "./diffGraph";
@@ -90,7 +94,7 @@ function SelectionSync({
  * added, amber for changed, red for removed. It does not take the scroll wheel
  * (the chat scrolls past it); drag pans.
  */
-export default function CanvasDiffGraph({
+function DiffGraph({
 	diff,
 	selected,
 	onSelect,
@@ -105,7 +109,8 @@ export default function CanvasDiffGraph({
 	/** A compact read has no block data: the graph draws, the settings panel cannot. */
 	compact?: boolean;
 }) {
-	const graph = useMemo(() => toGraph(diff), [diff]);
+	const { specs } = usePluginBlocks();
+	const graph = useMemo(() => toGraph(diff, specs), [diff, specs]);
 	const statuses = useMemo<Statuses>(
 		() => ({
 			blocks: new Map(diff.blocks.map((b) => [b.key, b.status])),
@@ -146,5 +151,14 @@ export default function CanvasDiffGraph({
 				</BlockCanvas>
 			</div>
 		</StatusContext.Provider>
+	);
+}
+
+/** Plugin blocks' handles come from the project's plugins, so the graph is built under their provider. */
+export default function CanvasDiffGraph(props: Parameters<typeof DiffGraph>[0]) {
+	return (
+		<PluginBlocksProvider>
+			<DiffGraph {...props} />
+		</PluginBlocksProvider>
 	);
 }

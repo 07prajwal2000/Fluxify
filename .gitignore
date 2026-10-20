@@ -34,3 +34,4 @@ deploy/helm/fluxify/charts/
 
 # Local demos and experiments with the SDK and CLI
 .demos/
+.commandcode/
