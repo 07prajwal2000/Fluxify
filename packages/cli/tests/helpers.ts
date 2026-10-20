@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { build } from "../src/build";
 import { CliError } from "../src/plugin";
+import { pluginIndex } from "../src/templates";
 
 /** where `@fluxify/sdk`, `zod` and `oxc-parser` resolve from, so a test plugin needs no install */
 export const NODE_MODULES = join(import.meta.dir, "..", "node_modules");
@@ -84,6 +85,7 @@ export async function makePlugin(
 			...pkg,
 		}),
 		"bun.lock": LOCK,
+		"src/index.ts": pluginIndex("acme/t", "https://example.com/acme/t"),
 		"src/blocks/hello.ts": blockSrc("acme/t/hello"),
 		...files,
 	};

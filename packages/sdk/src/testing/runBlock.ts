@@ -20,6 +20,7 @@ import {
 	routeResult,
 } from "../runtime/contract.js";
 import { createSpan, leasePool, type SpanRecord } from "../runtime/ctx.js";
+import { evaluateParams } from "./evaluate.js";
 import {
 	type LogEntry,
 	memoryKv,
@@ -240,15 +241,22 @@ export async function runBlock<P extends Params, H extends Handles>(
 		Object.keys(loose.params ?? {}).filter((k) => loose.params![k]!.type === "schema"),
 	);
 	const queued = mode === "queued";
-	const params = Object.fromEntries(
-		Object.entries(o.params ?? {}).map(([k, v]) => [
-			k,
-			queued && !schemas.has(k) ? serialized(v) : v,
-		]),
-	);
+	// evaluated where the canvas calls the block, so before a queued job's payload
+	const callParams = async () => {
+		const evaluated = await evaluateParams(loose.params ?? {}, o.params ?? {}, o.input);
+		return Object.fromEntries(
+			Object.entries(evaluated).map(([k, v]) => [k, queued && !schemas.has(k) ? serialized(v) : v]),
+		);
+	};
 
 	let outcome: RunOutcome;
+	// a `js:` param that throws fails the run before the block is called, never routed to `failure`
+	let routable = true;
 	try {
+		const params = await callParams().catch((error) => {
+			routable = false;
+			throw error;
+		});
 		const r = await loose.run({
 			params,
 			input: queued ? serialized(o.input) : o.input,
@@ -278,12 +286,13 @@ export async function runBlock<P extends Params, H extends Handles>(
 		},
 	};
 	if (!outcome.successful) result.error = asError(outcome.error);
-	try {
-		const routed = routeResult(def.name, spec.out, outcome);
-		result.handle = routed.handle as OutName<H>;
-		result.output = routed.output;
-	} catch (error) {
-		result.error = asError(error);
-	}
+	if (routable)
+		try {
+			const routed = routeResult(def.name, spec.out, outcome);
+			result.handle = routed.handle as OutName<H>;
+			result.output = routed.output;
+		} catch (error) {
+			result.error = asError(error);
+		}
 	return result;
 }

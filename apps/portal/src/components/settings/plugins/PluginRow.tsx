@@ -11,6 +11,7 @@ import {
 	StatusBadge,
 	versionLabel,
 } from "./PluginBadges";
+import { PluginIcon, pluginMeta } from "./pluginBlockIcon";
 
 /** One plugin in the settings list: its state at a glance, the dev/prod switches, and the way into its page. */
 export function PluginRow({
@@ -42,22 +43,30 @@ export function PluginRow({
 	return (
 		<div className="flex flex-col gap-2 px-4 py-3">
 			<div className="flex items-center justify-between gap-4">
-				<div className="flex min-w-0 flex-col">
-					<div className="flex items-center gap-2">
-						<button
-							type="button"
-							onClick={onOpen}
-							className="truncate font-mono text-sm font-medium text-foreground hover:text-accent"
-						>
-							{plugin.name}
-						</button>
-						<ApprovalBadge plugin={plugin} />
-						<StatusBadge plugin={plugin} />
+				<div className="flex min-w-0 items-start gap-3">
+					<PluginIcon plugin={plugin} />
+					<div className="flex min-w-0 flex-col">
+						<div className="flex items-center gap-2">
+							<button
+								type="button"
+								onClick={onOpen}
+								className="truncate font-mono text-sm font-medium text-foreground hover:text-accent"
+							>
+								{plugin.name}
+							</button>
+							<ApprovalBadge plugin={plugin} />
+							<StatusBadge plugin={plugin} />
+						</div>
+						<span className="text-xs text-muted">
+							{versionLabel(plugin)} · {SOURCE_LABEL[plugin.source]} · scanned{" "}
+							{formatTime(plugin.scannedAt)}
+						</span>
+						{pluginMeta(plugin).description && (
+							<span className="truncate text-xs text-foreground/80">
+								{pluginMeta(plugin).description}
+							</span>
+						)}
 					</div>
-					<span className="text-xs text-muted">
-						{versionLabel(plugin)} · {SOURCE_LABEL[plugin.source]} · scanned{" "}
-						{formatTime(plugin.scannedAt)}
-					</span>
 				</div>
 				<div className="flex shrink-0 items-center gap-4">
 					<Checkbox

@@ -4,7 +4,7 @@
 // passes on one and fails on the other is drift. Workspace-only, never published.
 import { describe, expect, it } from "bun:test";
 import { z } from "zod";
-import { block, handle, param } from "../blocks.js";
+import { block, handle, hint, param } from "../blocks.js";
 import type { BlockDefinition } from "../src/block.js";
 import type { KvAdapter } from "../src/context.js";
 import type { InvokeMode } from "../src/reserved.js";
@@ -86,6 +86,45 @@ export function conformance(name: string, run: Runner) {
 			});
 			const r = await run(shaped, { params: { shape: { zod: z.object({ name: z.string() }), schema } } });
 			expect(r.output).toEqual({ schema, ok: true, bad: false });
+		});
+	});
+
+	describe(`${name}: param values`, () => {
+		const echo = (params: Record<string, any>) =>
+			block({ name: T, label: "V", invoke: ["sync"], handles: branching, params, run: ({ params }) => ({ output: params }) });
+
+		it("evaluates a js: string param against the input, and hands run a string", async () => {
+			const def = echo({ who: param.string(), n: param.string(), code: param.js() });
+			const r = await run(def, { params: { who: "js:return input.name", n: "js:return 40 + 2", code: "js:return input.name.length" }, input: { name: "Ada" } });
+			expect(r).toMatchObject({ handle: "success", output: { who: "Ada", n: "42", code: 3 } });
+			expect((await run(def, { params: { who: "plain" } })).output).toEqual({ who: "plain" });
+		});
+
+		it("keyValue: evaluates each value, and refuses an empty or repeated key", async () => {
+			const def = echo({ headers: param.keyValue() });
+			const r = await run(def, { params: { headers: { id: "js:return input.id", kind: "user", n: 2 } }, input: { id: 7 } });
+			expect(r.output).toEqual({ headers: { id: 7, kind: "user", n: 2 } });
+			expect((await run(def, { params: { headers: { "": 1 } } })).output).toBe("param 'headers' has an empty key");
+			expect((await run(def, { params: { headers: { a: 1, "a ": 2 } } })).output).toBe("param 'headers' has the key 'a' twice");
+		});
+
+		it("array: evaluates each item, and holds min and max", async () => {
+			const def = echo({ to: param.array({ min: 1, max: 2 }) });
+			const r = await run(def, { params: { to: ["js:return input.a", "b"] }, input: { a: "x" } });
+			expect(r.output).toEqual({ to: ["x", "b"] });
+			expect((await run(def, { params: { to: [] } })).output).toBe("param 'to' needs at least 1 items, got 0");
+			expect((await run(def, { params: { to: [1, 2, 3] } })).output).toBe("param 'to' takes at most 2 items, got 3");
+		});
+
+		it("fieldMap: maps the input like a Transformer does", async () => {
+			const def = echo({ shape: param.fieldMap() });
+			const r = await run(def, { params: { shape: { id: "userId", email: "email" } }, input: { id: 1, email: "a@b", x: 0 } });
+			expect(r.output).toEqual({ shape: { userId: 1, email: "a@b" } });
+		});
+
+		it("a hint never reaches run, even when the canvas holds a value under its name", async () => {
+			const def = echo({ note: hint("Read **this**."), who: param.string() });
+			expect((await run(def, { params: { note: "x", who: "a" } })).output).toEqual({ who: "a" });
 		});
 	});
 

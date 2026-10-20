@@ -20,13 +20,16 @@ describe("plugin metadata (#857)", () => {
 	it("takes handles, invoke modes and schema params from a manifest block", () => {
 		const parsed = fluxifyManifestSchema.parse(
 			manifest("acme/echo", [
-				entry(TYPE, { params: { shape: { type: "schema" }, n: { type: "number" } } }),
+				entry(TYPE, {
+					params: { shape: { type: "schema" }, n: { type: "number" }, map: { type: "fieldMap" } },
+				}),
 			]),
 		);
 		expect(blockMetaOf(parsed.blocks[TYPE]!)).toEqual({
 			handles: { in: ["target"], out: ["success", "failure"], body: [] },
 			invoke: ["sync"],
 			schemaParams: ["shape"],
+			fieldMapParams: ["map"],
 		});
 	});
 

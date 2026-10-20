@@ -15,19 +15,39 @@ const METHOD_OPTIONS = [
 	{ value: "PATCH", label: "PATCH" },
 ];
 
-/** A name/value list; `noun` names a row (SQS calls them message attributes). */
+/** why the rows cannot be saved: a value without a key, or a key twice once trimmed */
+export function keyRowsProblem(rows: [string, unknown][]) {
+	const seen = new Set<string>();
+	for (const [raw, value] of rows) {
+		const key = raw.trim();
+		if (!key && value !== "" && value != null) return "Every value needs a key.";
+		if (key && seen.has(key)) return `The key '${key}' is used twice.`;
+		seen.add(key);
+	}
+}
+
+/**
+ * A name/value list; `noun` names a row (SQS calls them message attributes).
+ * With `strictKeys`, rows with a missing or repeated key are refused with a
+ * message and nothing is saved until they are fixed.
+ */
 export function HeadersEditor({
 	headers,
 	editable,
 	onChange,
 	noun = "Header",
+	keyPlaceholder = `${noun} Name`,
+	strictKeys = false,
 }: {
 	headers: Record<string, string>;
 	editable: boolean;
 	onChange: (next: Record<string, string>) => void;
 	noun?: string;
+	keyPlaceholder?: string;
+	strictKeys?: boolean;
 }) {
 	const [entries, setEntries] = useState<[string, string][]>(() => Object.entries(headers || {}));
+	const [problem, setProblem] = useState<string>();
 
 	const lastEmittedRef = useRef<string>("");
 
@@ -40,6 +60,9 @@ export function HeadersEditor({
 
 	const emit = useCallback(
 		(next: [string, string][]) => {
+			const invalid = strictKeys ? keyRowsProblem(next) : undefined;
+			setProblem(invalid);
+			if (invalid) return;
 			const map: Record<string, string> = {};
 			for (const [k, v] of next) {
 				if (k.trim() !== "") {
@@ -49,7 +72,7 @@ export function HeadersEditor({
 			lastEmittedRef.current = JSON.stringify(map);
 			onChange(map);
 		},
-		[onChange],
+		[onChange, strictKeys],
 	);
 
 	const handleKeyChange = (index: number, key: string) => {
@@ -89,7 +112,7 @@ export function HeadersEditor({
 							fullWidth
 							variant="secondary"
 							isDisabled={!editable}
-							placeholder={`${noun} Name`}
+							placeholder={keyPlaceholder}
 							value={key}
 							onChange={(nextKey) => handleKeyChange(index, nextKey)}
 						/>
@@ -113,6 +136,12 @@ export function HeadersEditor({
 					/>
 				</div>
 			))}
+
+			{problem && (
+				<p role="alert" className="text-xs text-danger">
+					{problem}
+				</p>
+			)}
 
 			{entries.length === 0 && (
 				<div className="text-xs text-muted py-2 text-center border border-dashed border-border rounded-md">

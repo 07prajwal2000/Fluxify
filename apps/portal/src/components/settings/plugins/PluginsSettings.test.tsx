@@ -57,6 +57,21 @@ test("lists each plugin with its version, source and approval", async () => {
 	expect(document.body.textContent).toContain("Approved");
 });
 
+test("each row shows the plugin's icon and description, or the default icon", async () => {
+	const icon = "data:image/svg+xml;base64,eA==";
+	const described = plugin({
+		manifest: { ...plugin().manifest, icon, description: "Post to Slack" },
+	});
+	list.mockResolvedValue([described, plugin({ id: "pl2", name: "acme/mail" })]);
+	setup("creator");
+	await until(() => expect(document.body.textContent).toContain("Post to Slack"));
+	const icons = [...document.querySelectorAll('[data-testid="plugin-icon"]')];
+	expect(icons).toHaveLength(2);
+	expect(icons[0]?.querySelector("img")?.getAttribute("src")).toBe(icon);
+	expect(icons[1]?.querySelector("img")).toBeNull();
+	expect(icons[1]?.querySelector("svg")).not.toBeNull();
+});
+
 test("an upgrade shows the live version and the pending one", async () => {
 	list.mockResolvedValue([upgrading()]);
 	setup("creator");

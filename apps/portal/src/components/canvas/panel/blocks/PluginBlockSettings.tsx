@@ -1,6 +1,7 @@
-import { Spinner } from "@fluxify/components";
-import { isVisible } from "@fluxify/sdk";
-import type { Param } from "@fluxify/sdk/blocks";
+import { Spinner, Tabs } from "@fluxify/components";
+import { isVisible, paramTabs } from "@fluxify/sdk";
+import type { HintParam, Param } from "@fluxify/sdk/blocks";
+import { useState } from "react";
 import { TbAlertTriangle } from "react-icons/tb";
 import { usePluginBlocks } from "../../plugins/PluginBlocksContext";
 import type { BlockNode } from "../../types";
@@ -11,14 +12,22 @@ import {
 	BlockIntegrationField,
 	BlockJsTextField,
 	BlockSelectField,
-	BlockTextField,
 } from "../fields";
+import {
+	PluginArrayField,
+	PluginFieldMapField,
+	PluginHint,
+	PluginJsField,
+	PluginKeyValueField,
+} from "./pluginEditorFields";
 import {
 	PluginConditionsField,
 	PluginJsonField,
 	PluginNumberField,
 	PluginSchemaField,
 } from "./pluginFields";
+
+type ValueParam = Exclude<Param, HintParam>;
 
 const MODE_LABELS: Record<string, string> = {
 	sync: "Synchronous (Wait for output)",
@@ -27,7 +36,7 @@ const MODE_LABELS: Record<string, string> = {
 };
 
 /** One param as its field; the value lands in the node's data under the param's name, as the runtime reads it. */
-function ParamField({ block, name, param }: { block: BlockNode; name: string; param: Param }) {
+function ParamField({ block, name, param }: { block: BlockNode; name: string; param: ValueParam }) {
 	const hint =
 		[param.description, param.deprecated && `Deprecated: ${param.deprecated}`]
 			.filter(Boolean)
@@ -36,7 +45,7 @@ function ParamField({ block, name, param }: { block: BlockNode; name: string; pa
 	const shared = { blockId: block.id, data: block.data, name, label, hint };
 	switch (param.type) {
 		case "string":
-			return <BlockTextField {...shared} placeholder={param.default} />;
+			return <BlockJsTextField {...shared} placeholder={param.default} />;
 		case "number":
 			return <PluginNumberField {...shared} />;
 		case "boolean":
@@ -50,7 +59,7 @@ function ParamField({ block, name, param }: { block: BlockNode; name: string; pa
 				/>
 			);
 		case "js":
-			return <BlockJsTextField {...shared} />;
+			return <PluginJsField {...shared} />;
 		case "json":
 			return <PluginJsonField {...shared} />;
 		case "integration":
@@ -78,7 +87,22 @@ function ParamField({ block, name, param }: { block: BlockNode; name: string; pa
 			return <PluginConditionsField {...shared} />;
 		case "schema":
 			return <PluginSchemaField {...shared} />;
+		case "keyValue":
+			return <PluginKeyValueField {...shared} param={param} />;
+		case "array":
+			return <PluginArrayField {...shared} param={param} />;
+		case "fieldMap":
+			return <PluginFieldMapField {...shared} />;
 	}
+}
+
+/** a param's field, or a hint's callout */
+function Item({ block, name, param }: { block: BlockNode; name: string; param: Param }) {
+	return param.type === "hint" ? (
+		<PluginHint hint={param} />
+	) : (
+		<ParamField block={block} name={name} param={param} />
+	);
 }
 
 /** What the block says about itself: the deprecation notice and how the call runs (only when more than one way is allowed). */
@@ -112,9 +136,33 @@ export function PluginBlockGeneral({ block }: { block: BlockNode }) {
 	);
 }
 
-/** A plugin block's params, drawn from its manifest entry minus the ones `visibleWhen` hides (their values stay in the node). */
+/** the params (and hints) `visibleWhen` shows, by tab; a tab with no shown param is gone, whatever hints it has */
+function visibleTabs(
+	params: Record<string, Param>,
+	tabs: string[] | undefined,
+	data: BlockNode["data"],
+) {
+	// the runtime fills a default where the canvas left the param empty
+	const values: Record<string, unknown> = {};
+	for (const [name, p] of Object.entries(params)) if ("default" in p) values[name] = p.default;
+	for (const [name, value] of Object.entries(data)) if (value != null) values[name] = value;
+	const shown = (name: string) => {
+		const when = params[name]!.visibleWhen;
+		return !when || isVisible(when, values);
+	};
+	return paramTabs(params, tabs)
+		.map((tab) => ({ name: tab.name, items: tab.params.filter(shown) }))
+		.filter((tab) => tab.items.some((name) => params[name]!.type !== "hint"));
+}
+
+/**
+ * A plugin block's params, drawn from its manifest entry: one tab per tab its
+ * params use, in the manifest's order, minus the ones `visibleWhen` hides
+ * (their values stay in the node). A single tab shows without a tab bar.
+ */
 export function PluginBlockSettings({ block }: { block: BlockNode }) {
 	const { byType, isLoading } = usePluginBlocks();
+	const [picked, setPicked] = useState<string>();
 	const def = byType[block.type ?? ""];
 	if (!def)
 		return isLoading ? (
@@ -126,21 +174,43 @@ export function PluginBlockSettings({ block }: { block: BlockNode }) {
 				This block's plugin is not installed in the project, so it has no settings.
 			</p>
 		);
-	const params = Object.entries(def.entry.params as Record<string, Param>);
-	// the runtime fills a default where the canvas left the param empty
-	const values: Record<string, unknown> = {};
-	for (const [name, p] of params) if ("default" in p) values[name] = p.default;
-	for (const [name, value] of Object.entries(block.data)) if (value != null) values[name] = value;
-	const shown = params.filter(([, p]) => !p.visibleWhen || isVisible(p.visibleWhen, values));
-	if (shown.length === 0)
-		return <p className="text-xs text-muted">This block has no parameters.</p>;
+	const params = def.entry.params as Record<string, Param>;
+	const tabs = visibleTabs(params, def.entry.tabs, block.data);
+	if (tabs.length === 0) return <p className="text-xs text-muted">This block has no parameters.</p>;
+	// a picked tab that is hidden now moves the selection to the first one shown, for good
+	const selected = tabs.find((t) => t.name === picked)?.name ?? tabs[0]!.name;
+	if (picked !== undefined && picked !== selected) setPicked(undefined);
 
-	return (
+	const panel = (items: string[]) => (
 		<div className="flex w-full flex-col gap-4">
-			{shown.map(([name, param]) => (
-				<ParamField key={name} block={block} name={name} param={param} />
+			{items.map((name) => (
+				<Item key={name} block={block} name={name} param={params[name]!} />
 			))}
 		</div>
+	);
+	if (tabs.length === 1) return panel(tabs[0]!.items);
+	return (
+		<Tabs
+			selectedKey={selected}
+			onSelectionChange={(key) => setPicked(String(key))}
+			variant="secondary"
+		>
+			<Tabs.ListContainer>
+				<Tabs.List aria-label="Parameter tabs">
+					{tabs.map((tab) => (
+						<Tabs.Tab key={tab.name} id={tab.name}>
+							{tab.name}
+							<Tabs.Indicator />
+						</Tabs.Tab>
+					))}
+				</Tabs.List>
+			</Tabs.ListContainer>
+			{tabs.map((tab) => (
+				<Tabs.Panel key={tab.name} id={tab.name} className="pt-3">
+					{panel(tab.items)}
+				</Tabs.Panel>
+			))}
+		</Tabs>
 	);
 }
 

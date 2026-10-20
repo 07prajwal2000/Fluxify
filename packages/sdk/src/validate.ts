@@ -2,6 +2,7 @@ import type { z } from "zod";
 import type { HandleSpec } from "./handles.js";
 import { COMPARABLE_TYPES, type Param, type VisibleWhenInput } from "./params.js";
 import { type InvokeMode, MODULE_BLOCK_DATA_KEYS } from "./reserved.js";
+import { GENERAL_TAB } from "./tabs.js";
 
 /** the engine's own data keys, and the words `visibleWhen` groups by */
 export const RESERVED_PARAM_NAMES: readonly string[] = [...MODULE_BLOCK_DATA_KEYS, "all", "any"];
@@ -11,6 +12,7 @@ type Entry = {
 	handles: HandleSpec;
 	invoke: InvokeMode[];
 	permissions: { integrations?: string[]; appconfig?: boolean };
+	tabs?: string[];
 };
 type Issue = (message: string, path: (string | number)[]) => void;
 
@@ -54,7 +56,7 @@ function checkVisible(
  */
 export function checkEntry(entry: Entry, ctx: z.RefinementCtx) {
 	const issue: Issue = (message, path) => ctx.addIssue({ code: "custom", message, path });
-	const { params, handles, invoke, permissions } = entry;
+	const { params, handles, invoke, permissions, tabs } = entry;
 	for (const [name, p] of Object.entries(params)) {
 		if (RESERVED_PARAM_NAMES.includes(name))
 			issue(`param name '${name}' is reserved (${RESERVED_PARAM_NAMES.join(", ")})`, [
@@ -73,6 +75,12 @@ export function checkEntry(entry: Entry, ctx: z.RefinementCtx) {
 				name,
 			]);
 	}
+	// a hint alone shows nothing to set, so it does not make a tab worth having
+	const used = new Set(
+		Object.values(params).map((p) => (p.type === "hint" ? undefined : (p.tab ?? GENERAL_TAB))),
+	);
+	for (const [i, tab] of (tabs ?? []).entries())
+		if (!used.has(tab)) issue(`tabs lists '${tab}', which no param uses`, ["tabs", i]);
 	// the caller never learns the outcome of an async or queued call, so there is no branch to take
 	const detached = invoke.filter((m) => m !== "sync");
 	if (handles.out.length === 2 && detached.length)

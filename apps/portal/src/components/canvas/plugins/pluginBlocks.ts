@@ -11,6 +11,11 @@ export type PluginBlockDef = {
 	plugin: string;
 	/** the plugin's homepage, for the Docs tab */
 	url: string;
+	/** the plugin's own icon and its scope's (data URLs), for the picker's folders */
+	pluginIcon?: string;
+	scopeIcon?: string;
+	/** when the plugin was approved: the latest approved one's scope icon wins */
+	approvedAt: string | null;
 	label: string;
 	description?: string;
 	shape: "square" | "wide";
@@ -43,6 +48,9 @@ export function pluginBlockDefs(plugins: Plugin[]): PluginBlockDef[] {
 			type: entry.name,
 			plugin: plugin.name,
 			url: plugin.url,
+			pluginIcon: manifest.icon,
+			scopeIcon: manifest.scopeIcon,
+			approvedAt: plugin.approvedAt,
 			label: entry.label,
 			description: entry.description,
 			shape: entry.shape,

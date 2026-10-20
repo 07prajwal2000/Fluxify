@@ -10,6 +10,7 @@ import { compileSchema } from "../schema/schemaCache";
 import { withCtxPool } from "./ctxPool";
 import { withCtxSpan } from "./ctxSpan";
 import type { ExecuteHandle } from "./executeHandle";
+import { emitFieldMap } from "./transformer";
 
 export const customBlockInvokeSchema = z
 	.enum(INVOKE_MODES)
@@ -61,6 +62,8 @@ export type BlockMeta = {
 	invoke?: z.infer<typeof customBlockInvokeSchema>[];
 	/** param names of type `schema`: `run` gets each as `{ zod, schema }` (R7), not the raw definition */
 	schemaParams?: string[];
+	/** param names of type `fieldMap`: `run` gets each applied to the block's input, as a Transformer maps */
+	fieldMapParams?: string[];
 };
 
 const customBlockKey = (projectId: string, type: string) => `${projectId}:${type}`;
@@ -376,28 +379,46 @@ function emitSchemaParam(value: unknown, node: EmitNode, name: string) {
 	);
 }
 
+/** a field map param: an object maps the input as a Transformer would; anything else goes on for the block to refuse */
+const emitFieldMapParam = (value: unknown, node: EmitNode) =>
+	value && typeof value === "object" && !Array.isArray(value)
+		? emitFieldMap(value as Record<string, unknown>, node.in)
+		: emitJsObject(value, node);
+
+/** the params a call emits specially, by name: a module block's manifest says which */
+export type SpecialParams = Pick<BlockMeta, "schemaParams" | "fieldMapParams">;
+
 export function emitBlockCall(
 	node: EmitNode,
 	reserved: readonly string[] = BLOCK_DATA_KEYS,
-	schemaParams: readonly string[] = [],
+	{ schemaParams = [], fieldMapParams = [] }: SpecialParams = {},
 ) {
 	const data = (node.block.data ?? {}) as Record<string, unknown>;
 	const params = Object.fromEntries(
 		Object.entries(data).filter(([key]) => !reserved.includes(key)),
 	);
+	const emit = (key: string, item: unknown) =>
+		schemaParams.includes(key)
+			? emitSchemaParam(item, node, key)
+			: fieldMapParams.includes(key)
+				? emitFieldMapParam(item, node)
+				: emitJsObject(item, node);
 	// the callee reads its configuration as `params` and the value flowing into
 	// this block as `input` — one meaning each, at every depth of its graph
 	const fields = Object.entries(params).map(
-		([key, item]) =>
-			`${JSON.stringify(key)}: ${schemaParams.includes(key) ? emitSchemaParam(item, node, key) : emitJsObject(item, node)}`,
+		([key, item]) => `${JSON.stringify(key)}: ${emit(key, item)}`,
 	);
 	const args = `{ params: { ${fields.join(", ")} }, input: ${node.in} }`;
 	const call = `(ctx, ${JSON.stringify(node.block.type)}, ${args}, ${JSON.stringify(node.block.id)})`;
 	return { mode: customBlockInvokeSchema.parse(data.invoke), call };
 }
 
-export function emitCustomBlock(node: EmitNode, reserved?: readonly string[]) {
-	const { mode, call } = emitBlockCall(node, reserved);
+export function emitCustomBlock(
+	node: EmitNode,
+	reserved?: readonly string[],
+	special?: SpecialParams,
+) {
+	const { mode, call } = emitBlockCall(node, reserved, special);
 
 	if (mode === "queued") {
 		return `lib.enqueue${call};\n${node.next()}`;

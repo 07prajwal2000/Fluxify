@@ -97,6 +97,9 @@ export function validatePlugin(files: PluginFiles): ValidPlugin {
 		);
 
 	// the stored manifest carries each icon as a data URL, not a path into the tarball
+	if (manifest.icon) manifest.icon = iconDataUrl(files, manifest.name, manifest.icon);
+	if (manifest.scopeIcon)
+		manifest.scopeIcon = iconDataUrl(files, `${manifest.name} scope`, manifest.scopeIcon);
 	for (const [type, block] of Object.entries(manifest.blocks)) {
 		if (!block.entry.startsWith("dist/") || !files.has(block.entry))
 			throw new BadRequestError(`${type}: its entry '${block.entry}' is not in the plugin's dist/`);

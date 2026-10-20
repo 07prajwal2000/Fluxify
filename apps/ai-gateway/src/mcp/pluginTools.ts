@@ -21,11 +21,28 @@ const runs = (p: Plugin) =>
 		: [p.devEnabled && "development", p.prodEnabled && "production"].filter(Boolean).join(", ") ||
 			"no: enabled in no environment";
 
+/** how a value of each type is written in block data, where it is not obvious */
+const SHAPE: Record<string, string> = {
+	string: "a literal, or 'js:<function body>' evaluated per request",
+	js: "'js:<function body>' that returns the value, e.g. 'js:return input.id'",
+	keyValue: "an object; each value a literal or 'js:...', keys non-empty and unique",
+	array: "an array; each item a literal or 'js:...'",
+	fieldMap: "{ sourceKey: destinationKey }, applied to the block's input like a Transformer",
+};
+
+const bounds = (p: any) =>
+	[p.min !== undefined && `at least ${p.min}`, p.max !== undefined && `at most ${p.max}`]
+		.filter(Boolean)
+		.join(", ");
+
+/** a hint is panel text, not a data key: left out */
 const params = (block: any) =>
-	Object.entries(block.params as Record<string, any>).map(
-		([name, p]) =>
-			`- ${name}: ${p.type}${p.required ? " (required)" : ""}${p.options ? ` one of ${p.options.join(", ")}` : ""}${p.kind ? ` (a ${p.kind} integration id)` : ""}${p.default !== undefined ? `, default ${JSON.stringify(p.default)}` : ""}${p.description ? `. ${p.description}` : ""}`,
-	);
+	Object.entries(block.params as Record<string, any>)
+		.filter(([, p]) => p.type !== "hint")
+		.map(
+			([name, p]) =>
+				`- ${name}: ${p.type}${p.required ? " (required)" : ""}${p.options ? ` one of ${p.options.join(", ")}` : ""}${p.kind ? ` (a ${p.kind} integration id)` : ""}${SHAPE[p.type] ? ` (${SHAPE[p.type]})` : ""}${bounds(p) ? ` (${bounds(p)} items)` : ""}${p.default !== undefined ? `, default ${JSON.stringify(p.default)}` : ""}${p.description ? `. ${p.description}` : ""}`,
+		);
 
 function contract(plugin: Plugin, type: string, block: any) {
 	const handles = getOutputHandles(type, block.handles as HandleSpec);

@@ -75,8 +75,9 @@ export function diffManifests(
 			diff.removedBlocks.push({ block, usedBy: usedBy(block, () => true) });
 			continue;
 		}
-		for (const param of Object.keys(before.params))
-			if (!after.params[param])
+		// a hint holds no value, so removing one breaks nothing
+		for (const [param, p] of Object.entries(before.params))
+			if (!after.params[param] && p.type !== "hint")
 				diff.removedParams.push({
 					block,
 					param,
@@ -117,7 +118,7 @@ export function diffManifests(
 		if (entry.deprecated)
 			diff.deprecations.push({ block, message: entry.deprecated, inUse: inUse(() => true) });
 		for (const [param, p] of Object.entries(entry.params))
-			if (p.deprecated)
+			if (p.type !== "hint" && p.deprecated)
 				diff.deprecations.push({
 					block,
 					param,

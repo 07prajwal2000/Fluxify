@@ -52,7 +52,14 @@ describe("get_plugin_blocks", () => {
 						label: "Step",
 						invoke: ["sync"],
 						handles: spec,
-						params: { text: { type: "string", required: true }, conn: { type: "integration", kind: "kv" } },
+						params: {
+							text: { type: "string", required: true },
+							conn: { type: "integration", kind: "kv" },
+							headers: { type: "keyValue" },
+							to: { type: "array", min: 1, max: 3 },
+							shape: { type: "fieldMap" },
+							note: { type: "hint", text: "Read this" },
+						},
 						docs: "## When to use it",
 					},
 				},
@@ -69,7 +76,11 @@ describe("get_plugin_blocks", () => {
 
 	it("gives a block's params, handles and docs", async () => {
 		const text = (await tool.call(api, { projectId: "p", blockTypes: [TYPE, "acme/gone/x"] })) as string;
-		expect(text).toContain("- text: string (required)");
+		expect(text).toContain("- text: string (required) (a literal, or 'js:<function body>'");
+		expect(text).toContain("- headers: keyValue (an object; each value a literal or 'js:...'");
+		expect(text).toContain("- to: array (an array; each item a literal or 'js:...') (at least 1, at most 3 items)");
+		expect(text).toContain("- shape: fieldMap ({ sourceKey: destinationKey }");
+		expect(text).not.toContain("note");
 		expect(text).toContain("- conn: integration (a kv integration id)");
 		expect(text).toContain("Handles (connect from): success, failure");
 		expect(text).toContain("## When to use it");

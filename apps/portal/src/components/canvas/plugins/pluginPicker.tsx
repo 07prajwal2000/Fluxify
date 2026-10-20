@@ -29,7 +29,7 @@ export const pluginItem = (def: PluginBlockDef): PluginPickerItem => ({
 	deprecated: def.deprecated ?? undefined,
 });
 
-const itemOf = (row: PluginRow): PluginPickerItem =>
+const itemOf = (row: PluginRow, defs: PluginBlockDef[]): PluginPickerItem =>
 	row.kind === "block"
 		? pluginItem(row.def)
 		: {
@@ -37,10 +37,10 @@ const itemOf = (row: PluginRow): PluginPickerItem =>
 				name: row.name,
 				description: `${row.blocks} ${row.blocks === 1 ? "block" : "blocks"}`,
 				category: "Plugins",
-				icon: pluginFolderIcon(row),
+				icon: pluginFolderIcon(row, defs),
 				folder: row.path,
 			};
 
 /** One level of the tree: `""` is the scopes, then `acme`, `acme/slack`, … */
 export const pluginFolderItems = (defs: PluginBlockDef[], path: string) =>
-	pluginRows(defs, path).map(itemOf);
+	pluginRows(defs, path).map((row) => itemOf(row, defs));

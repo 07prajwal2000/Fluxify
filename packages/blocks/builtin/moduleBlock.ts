@@ -63,11 +63,13 @@ function assertInvokable(node: EmitNode, meta: BlockMeta, mode: string, outs: re
 
 /** a programmable block: checks its invoke mode, then leaves by the handle `run` returned */
 export function emitModuleBlock(node: EmitNode, meta: BlockMeta) {
-	const { mode, call } = emitBlockCall(node, MODULE_BLOCK_DATA_KEYS, meta.schemaParams);
+	const { mode, call } = emitBlockCall(node, MODULE_BLOCK_DATA_KEYS, meta);
 	const outs: readonly string[] = meta.handles?.out ?? ["source"];
 	assertInvokable(node, meta, mode, outs);
-	// async and queued fire and move on, exactly like a canvas custom block
-	if (mode !== "sync") return emitCustomBlock(node, MODULE_BLOCK_DATA_KEYS);
+	// async and queued fire and move on, exactly like a canvas custom block; a
+	// schema param travels as its definition (a job payload is JSON)
+	if (mode !== "sync")
+		return emitCustomBlock(node, MODULE_BLOCK_DATA_KEYS, { fieldMapParams: meta.fieldMapParams });
 
 	const r = node.v("r");
 	const handles = node.v("handles");

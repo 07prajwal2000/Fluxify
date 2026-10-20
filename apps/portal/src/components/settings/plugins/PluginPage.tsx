@@ -10,6 +10,7 @@ import { ApprovalBadge, isUpgrade, StatusBadge, versionLabel } from "./PluginBad
 import { PluginInstallStatus } from "./PluginInstallStatus";
 import { PluginBlocks, PluginPermissions, PluginProvenance } from "./PluginSummary";
 import { PluginUsage } from "./PluginUsage";
+import { PluginIcon, pluginMeta } from "./pluginBlockIcon";
 import { RemovePluginDialog } from "./RemovePluginDialog";
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -59,10 +60,19 @@ export function PluginPage({
 			</Button>
 
 			<div className="flex items-start justify-between gap-4">
-				<div className="flex min-w-0 flex-col gap-1">
-					<h1 className="truncate font-mono text-xl font-semibold tracking-tight">{plugin.name}</h1>
-					<div className="flex items-center gap-2 text-sm text-muted">
-						{versionLabel(plugin)} <ApprovalBadge plugin={plugin} /> <StatusBadge plugin={plugin} />
+				<div className="flex min-w-0 items-start gap-3">
+					<PluginIcon plugin={plugin} size={32} />
+					<div className="flex min-w-0 flex-col gap-1">
+						<h1 className="truncate font-mono text-xl font-semibold tracking-tight">
+							{plugin.name}
+						</h1>
+						<div className="flex items-center gap-2 text-sm text-muted">
+							{versionLabel(plugin)} <ApprovalBadge plugin={plugin} />{" "}
+							<StatusBadge plugin={plugin} />
+						</div>
+						{pluginMeta(plugin).description && (
+							<p className="text-sm text-foreground/80">{pluginMeta(plugin).description}</p>
+						)}
 					</div>
 				</div>
 				{editable && (

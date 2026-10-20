@@ -18,6 +18,23 @@ mock.module("@tanstack/react-router", () => ({
 	useParams: () => ({ projectId: "p1" }),
 }));
 
+// Monaco cannot load under `bun test` (its setup imports Vite `?worker` entries,
+// which only a bundler resolves). Stub the editor the lazy JavaScriptTextArea
+// loads, in every file that renders one: the first file to load it decides it
+// for the whole run, and a failed load breaks every later render.
+mock.module(
+	"../../../../../../../packages/components/src/JavaScriptTextArea/JavaScriptTextArea",
+	() => ({
+		JavaScriptTextArea: ({
+			value,
+			"aria-label": label,
+		}: {
+			value?: string;
+			"aria-label"?: string;
+		}) => <textarea aria-label={label} readOnly value={value} />,
+	}),
+);
+
 // not `screen`: it stays bound to the document of whichever test file loaded RTL first
 const { cleanup, fireEvent, render, within } = await import("@testing-library/react");
 const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query");

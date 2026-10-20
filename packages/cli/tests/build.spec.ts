@@ -7,6 +7,12 @@ import { blockSrc, cleanup, failures, LOCK, makePlugin } from "./helpers";
 
 afterAll(cleanup);
 
+/** src/index.ts for acme/t, with `over` in place of its fields (undefined drops one) */
+const index = (over: Record<string, unknown> = {}) =>
+	`import { plugin } from "@fluxify/sdk";
+export default plugin(${JSON.stringify({ name: "acme/t", url: "https://example.com/acme/t", ...over })});
+`;
+
 const tarNames = async (root: string, tarball: string) =>
 	[...(await new Bun.Archive(await Bun.file(join(root, tarball)).bytes()).files()).keys()].map(
 		(n) => n.replace(/^package\//, ""),
@@ -88,10 +94,10 @@ describe("blocks build", () => {
 });
 
 describe("blocks build fails", () => {
-	it("without an https url", async () => {
-		const noUrl = await makePlugin({}, { fluxify: { name: "acme/t" } });
-		expect(await failures(noUrl)).toEqual([expect.stringContaining('"fluxify.url" is required')]);
-		const http = await makePlugin({}, { fluxify: { name: "acme/t", url: "http://example.com" } });
+	it("without an https url in src/index.ts", async () => {
+		const noUrl = await makePlugin({ "src/index.ts": index({ url: undefined }) });
+		expect(await failures(noUrl)).toEqual([expect.stringMatching(/^src\/index\.ts: plugin acme\/t: .*url/)]);
+		const http = await makePlugin({ "src/index.ts": index({ url: "http://example.com" }) });
 		expect(await failures(http)).toEqual([expect.stringContaining("https://")]);
 	});
 
@@ -187,5 +193,83 @@ describe("blocks build fails", () => {
 		const root = await makePlugin({}, { files: undefined });
 		expect(await failures(root)).toEqual([expect.stringContaining('set "files"')]);
 		expect(existsSync(join(root, "acme-t-1.2.3.tgz"))).toBe(false);
+	});
+});
+
+describe("plugin metadata from src/index.ts", () => {
+	const manifestOf = async (root: string) => Bun.file(join(root, "fluxify.json")).json();
+	const pkgOf = async (root: string) => Bun.file(join(root, "package.json")).json();
+
+	it("writes fluxify.json from it and the blocks, plugin icons shipped like a block's", async () => {
+		const root = await makePlugin({
+			"src/index.ts": index({ description: "Test blocks", icon: "./logo.svg", scopeIcon: "./icons/acme.svg" }),
+			"logo.svg": "<svg/>",
+			"icons/acme.svg": "<svg>a</svg>",
+		});
+		const { manifest, tarball } = await build(root);
+		expect(manifest).toMatchObject({
+			name: "acme/t",
+			url: "https://example.com/acme/t",
+			description: "Test blocks",
+			icon: "icons/logo.svg",
+			scopeIcon: "icons/acme.svg",
+		});
+		expect(Object.keys(manifest.blocks)).toEqual(["acme/t/hello"]);
+		expect(await manifestOf(root)).toEqual(manifest);
+		expect(await tarNames(root, tarball)).toEqual(expect.arrayContaining(["fluxify.json", "icons/logo.svg"]));
+	});
+
+	it("overwrites a hand-edited fluxify.json", async () => {
+		const root = await makePlugin();
+		await build(root);
+		await Bun.write(join(root, "fluxify.json"), JSON.stringify({ ...(await manifestOf(root)), name: "acme/other", blocks: {} }));
+		await build(root);
+		const manifest = await manifestOf(root);
+		expect(manifest.name).toBe("acme/t");
+		expect(Object.keys(manifest.blocks)).toEqual(["acme/t/hello"]);
+	});
+
+	it("adds package.json's fluxify field when it is missing", async () => {
+		const root = await makePlugin({}, { fluxify: undefined, devDependencies: { "@fluxify/sdk": "*" } });
+		await build(root);
+		expect((await pkgOf(root)).fluxify).toEqual({ name: "acme/t", url: "https://example.com/acme/t" });
+	});
+
+	it("fails with the difference when package.json drifted from it", async () => {
+		const root = await makePlugin({}, { fluxify: { name: "acme/old", url: "https://example.com/old" } });
+		expect(await failures(root)).toEqual([
+			'package.json "fluxify.name" is "acme/old" but src/index.ts says "acme/t": make them match',
+			'package.json "fluxify.url" is "https://example.com/old" but src/index.ts says "https://example.com/acme/t": make them match',
+		]);
+		expect((await pkgOf(root)).fluxify.name).toBe("acme/old");
+	});
+
+	it("fails without src/index.ts, or when it exports no plugin", async () => {
+		expect(await failures(await makePlugin({ "src/index.ts": null }))).toEqual([
+			expect.stringContaining("src/index.ts is missing"),
+		]);
+		expect(await failures(await makePlugin({ "src/index.ts": "export default 1;" }))).toEqual([
+			expect.stringContaining("src/index.ts must default-export plugin({ name, url })"),
+		]);
+	});
+});
+
+describe("param tabs", () => {
+	const withTabs = (extra: string) => makePlugin({ "src/blocks/hello.ts": blockSrc("acme/t/hello", { before: 'import { param } from "@fluxify/sdk/blocks";', extra }) });
+
+	it("writes the resolved tabs and order, and warns about a tab the list leaves out", async () => {
+		const root = await withTabs(
+			'tabs: ["Auth"], params: { a: param.string({ order: 2 }), b: param.string({ tab: "Auth" }), c: param.string({ tab: "Extra" }), d: param.string({ order: 1 }) },',
+		);
+		const { manifest, warnings } = await build(root);
+		const entry = manifest.blocks["acme/t/hello"];
+		expect(entry.tabs).toEqual(["General", "Auth", "Extra"]);
+		expect(Object.fromEntries(Object.entries(entry.params).map(([k, p]) => [k, (p as { order: number }).order]))).toEqual({ a: 1, b: 0, c: 0, d: 0 });
+		expect(warnings).toEqual(["acme/t/hello: param 'c' is in a tab that tabs does not list, so it is shown after them"]);
+	});
+
+	it("fails on a tabs entry no param uses", async () => {
+		const root = await withTabs('tabs: ["General", "Ghost"], params: { a: param.string() },');
+		expect(await failures(root)).toEqual([expect.stringContaining("tabs lists 'Ghost', which no param uses")]);
 	});
 });

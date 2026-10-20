@@ -1,6 +1,7 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { basename, dirname, extname, isAbsolute, join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
+import { GENERAL_TAB } from "@fluxify/sdk";
 import {
 	blockEntryPath,
 	type FluxifyManifest,
@@ -140,6 +141,16 @@ function shipIcon(plugin: Plugin, type: string, icon: string): string {
 	return shipped;
 }
 
+/** the params (and hints) in a tab an explicit `tabs` leaves out: appended, but likely a typo */
+const strayTabs = (def: { tabs?: string[]; params?: Record<string, { tab?: string }> }) =>
+	def.tabs
+		? Object.entries(def.params ?? {})
+				.filter(
+					([, p]) => p.tab !== undefined && p.tab !== GENERAL_TAB && !def.tabs!.includes(p.tab),
+				)
+				.map(([name]) => name)
+		: [];
+
 /** Warnings: the build still succeeds. */
 async function lint(found: Found[], entries: Record<string, ManifestEntry>) {
 	const warnings: string[] = [];
@@ -147,6 +158,10 @@ async function lint(found: Found[], entries: Record<string, ManifestEntry>) {
 		const { docs } = entries[b.type];
 		if (!docs?.trim()) warnings.push(`${b.type}: no docs. The Docs tab will be empty`);
 		else for (const issue of lintDocs(docs)) warnings.push(`${b.type}: docs ${issue}`);
+		for (const name of strayTabs(b.def))
+			warnings.push(
+				`${b.type}: param '${name}' is in a tab that tabs does not list, so it is shown after them`,
+			);
 		for (const line of findUnawaited(b.file, await Bun.file(b.file).text()))
 			warnings.push(
 				`${b.rel}:${line}: executeHandle(...) is not awaited. Await it, or its result and errors are lost`,
@@ -173,10 +188,13 @@ export async function build(root: string): Promise<BuildResult> {
 	if (problems.length) fail(...problems);
 	for (const [type, entry] of Object.entries(entries))
 		if (entry.icon) entry.icon = shipIcon(plugin, type, entry.icon);
+	const { meta } = plugin;
 
+	// generated every build from src/index.ts and the blocks: a hand edit does not survive it
 	const manifest = fluxifyManifestSchema.safeParse({
-		name: plugin.name,
-		url: plugin.url,
+		...meta,
+		icon: meta.icon && shipIcon(plugin, meta.name, meta.icon),
+		scopeIcon: meta.scopeIcon && shipIcon(plugin, `${meta.name} scope`, meta.scopeIcon),
 		sdk: plugin.sdk,
 		blocks: Object.fromEntries(
 			Object.entries(entries).map(([type, e]) => [type, { entry: blockEntryPath(type), ...e }]),
