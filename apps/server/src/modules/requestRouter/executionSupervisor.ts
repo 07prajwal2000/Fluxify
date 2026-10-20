@@ -323,18 +323,20 @@ export function createExecutionSupervisor(
 		replace,
 
 		async pluginRefsChanged(change) {
-			const refs = options.pluginRefs?.() ?? [];
-			const upgraded = refs.some((ref) => {
-				const running = refVersions.get(`${ref.projectId}:${ref.type}`);
-				return running !== undefined && running !== ref.version;
-			});
-			// the fresh child reads the whole set at spawn. ponytail: a random wait spreads
-			// the restarts of one KV update; it does not cap how many swap at once, a
-			// cluster-wide lease would if a short window of reduced capacity matters
-			if (upgraded || change?.removed) {
+			const upgraded = () =>
+				(options.pluginRefs?.() ?? []).some((ref) => {
+					const running = refVersions.get(`${ref.projectId}:${ref.type}`);
+					return running !== undefined && running !== ref.version;
+				});
+			if (change?.removed || upgraded()) {
+				// ponytail: a random wait spreads the restarts of one KV update; it does not cap
+				// how many swap at once, a cluster-wide lease would if that window matters
 				await Bun.sleep(Math.random() * (options.pluginReplaceJitterMs ?? 5_000));
-				return replace();
+				// read again: a call that waited alongside may have swapped already.
+				// The fresh child reads the whole set at spawn
+				if (change?.removed || upgraded()) return replace();
 			}
+			const refs = options.pluginRefs?.() ?? [];
 			// kept for a block that left: its module is still in the child, so a different
 			// version of it returning (removed, then approved again) is an upgrade too
 			for (const [key, version] of versionsOf(refs)) refVersions.set(key, version);
