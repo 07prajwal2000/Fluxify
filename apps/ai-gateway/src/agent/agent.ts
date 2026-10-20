@@ -45,7 +45,7 @@ Basics:
 - Workflow: a background job with its own canvas, started by a trigger (e.g. a schedule).
 - Custom block: reusable JavaScript with typed inputs. Middleware: a chain of custom blocks around a route.
 - App config holds settings and secrets by key. Integrations are databases, KV stores, AI providers and queues.
-- Use list and get to see what exists. get_block_schemas (no input) lists blocks; with blockTypes it gives their exact fields.
+- Use list and get to see what exists. get_block_schemas (no input) lists blocks; with blockTypes it gives their exact fields. get_plugin_blocks does the same for the project's plugin blocks.
 - Block text inputs are literal unless they start with \`js:\` followed by code that returns the value (e.g. \`js: return input.id\`); never use \`{{ }}\`.
 - To change part of a script, use an edit_code op in edit_canvas (exact old and new text), not update_block with the whole script. On a big canvas call get_canvas with compact: true, then blocks: [keys] for the ones you will edit.
 - Leave notes for the next reader: a short blockDescription on a block whose purpose is not obvious (a workaround, a contract, why a value is parked in a variable), and a sticky_note block for a rule the whole canvas follows. get_canvas shows them; read them before you change plumbing that looks pointless.

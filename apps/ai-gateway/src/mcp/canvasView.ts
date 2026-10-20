@@ -105,6 +105,7 @@ export function trimCanvas(
 					type.get(e.from) ?? "",
 					bare(e.from, e.fromHandle ?? "source"),
 					key.get(e.to) ?? e.to,
+					canvas.handleSpecs?.[type.get(e.from) ?? ""],
 				),
 			),
 	};

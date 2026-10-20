@@ -1,4 +1,4 @@
-import { ValidationSchemaZod } from "@fluxify/blocks/schema";
+import { ValidationSchemaZod } from "@fluxify/blocks/validationSchema";
 import { z } from "zod";
 
 /** Path variables declared in a route path: "/users/:id/posts/:postId" => ["id", "postId"] */

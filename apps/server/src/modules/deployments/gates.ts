@@ -1,4 +1,3 @@
-import { compileGraph } from "@fluxify/blocks";
 import { and, eq, inArray, isNull, or } from "drizzle-orm";
 import { getAppConfigKeysFromData } from "../../api/v1/integrations/create/service";
 import { findProdPathClash } from "../../api/v1/routes/update/repository";
@@ -16,6 +15,7 @@ import { loadAppConfigFor } from "../../loaders/appconfigLoader";
 import { configForEnv } from "../../loaders/integrationsLoader";
 import { ensureCustomBlocksRegistered, snapshotGraph } from "../compiler/service";
 import { compileDependencies } from "../packages/service";
+import { compileWithPlugins, loadPluginSets } from "../plugins/compile";
 import { missingDependencies, type Uses } from "../references/closure";
 import { loadProdGraph } from "../references/prodGraph";
 
@@ -205,12 +205,18 @@ export async function compileGate(target: GateTarget): Promise<GateResult> {
 		}
 		await ensureCustomBlocksRegistered(target.projectId);
 		const graph = snapshotGraph(target.snapshot);
-		compileGraph(graph.blocks, graph.edges, {
-			projectId: target.projectId,
-			dependencies: await compileDependencies(target.projectId),
-			asWorkflow: target.kind === "workflow",
-			asCustomBlock: target.kind === "custom_block",
-		});
+		compileWithPlugins(
+			graph.blocks,
+			graph.edges,
+			{
+				projectId: target.projectId,
+				dependencies: await compileDependencies(target.projectId),
+				asWorkflow: target.kind === "workflow",
+				asCustomBlock: target.kind === "custom_block",
+			},
+			// the version is about to run in production, with production's plugins
+			(await loadPluginSets(target.projectId)).production,
+		);
 		return { gate: "compile", status: "passed", message: "The version compiles" };
 	} catch (error) {
 		return {

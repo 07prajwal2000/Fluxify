@@ -1,3 +1,4 @@
+import { handleSpecSchema } from "@fluxify/blocks/blockHandles";
 import { z } from "zod";
 
 /**
@@ -51,6 +52,8 @@ export type CanvasChanges = z.infer<typeof canvasChangesSchema>;
 export const canvasItemsSchema = z.object({
 	/** +1 on every save (#597); pass it back as `expectedRevision` to refuse a stale save */
 	canvasRevision: z.number().int(),
+	/** handles of the project's plugin block types (#857), when it has any */
+	handleSpecs: z.record(z.string(), handleSpecSchema).optional(),
 	/** `key` is the block's readable name on this canvas (`response_1`); the server sets it, a save never takes it */
 	blocks: z.array(canvasBlockSchema.extend({ key: z.string() })),
 	edges: z.array(

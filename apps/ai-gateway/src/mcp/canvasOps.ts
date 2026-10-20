@@ -122,7 +122,7 @@ export function opsToChanges(canvas: CanvasItems, ops: CanvasOp[], autoLayout = 
 		const kind = draft.connect(from, to, h);
 		declare(from).connections!.push({ blockId: to, handle: kind });
 		const type = draft.get(from).type;
-		echo.push((n) => `connected ${edgeText(n(from), type, kind, n(to))}`);
+		echo.push((n) => `connected ${edgeText(n(from), type, kind, n(to), draft.specs[type])}`);
 	};
 
 	for (const op of ops) {
@@ -199,7 +199,9 @@ export function opsToChanges(canvas: CanvasItems, ops: CanvasOp[], autoLayout = 
 				if (d) d.connections = d.connections?.filter((c) => c.blockId !== to);
 				const type = draft.get(from.id).type;
 				for (const h of handles) {
-					echo.push((n) => `disconnected ${edgeText(n(from.id), type, h, n(to))}`);
+					echo.push(
+						(n) => `disconnected ${edgeText(n(from.id), type, h, n(to), draft.specs[type])}`,
+					);
 				}
 				break;
 			}

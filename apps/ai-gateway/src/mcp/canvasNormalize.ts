@@ -1,4 +1,4 @@
-import { isFanOutHandle } from "@fluxify/blocks/blockHandles";
+import { type HandleSpecs, isFanOutHandle } from "@fluxify/blocks/blockHandles";
 import { BlockTypes } from "@fluxify/blocks/blockTypes";
 import { STARTER_POSITIONS } from "@fluxify/blocks/layout";
 import { generateID } from "@fluxify/lib/random/id";
@@ -35,6 +35,8 @@ export type CanvasItems = {
 		fromHandle?: string | null;
 		toHandle?: string | null;
 	}[];
+	/** handles of the project's plugin block types (#857), when it has any */
+	handleSpecs?: HandleSpecs;
 };
 
 type AgentBlock = {
@@ -201,8 +203,8 @@ export function canvasChangesFromPayload(
 		const fromHandle = fullHandle(from, handle, "source");
 		// a fan-out handle (switch case, orchestrate) holds one edge per branch:
 		// a new branch is added beside the others, never in place of them
-		// no spec source in the gateway yet: plugin manifests reach it with P1 (#857)
-		if (isFanOutHandle(fromHandle.slice(from.length + 1))) return;
+		const spec = existing.handleSpecs?.[typeById.get(from) ?? ""];
+		if (isFanOutHandle(fromHandle.slice(from.length + 1), spec)) return;
 		for (const edge of existing.edges) {
 			if (edge.from !== from || (edge.fromHandle ?? "") !== fromHandle) continue;
 			if (edge.to !== keepTo) deletedEdgeIds.add(edge.id);

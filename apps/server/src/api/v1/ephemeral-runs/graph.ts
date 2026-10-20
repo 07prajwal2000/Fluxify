@@ -10,6 +10,7 @@ import { getBlocks } from "../../../modules/canvas/repository";
 import { saveCanvas } from "../../../modules/canvas/service";
 import type { CanvasChanges } from "../../../modules/canvas/types";
 import { compilerGraph } from "../../../modules/compiler/service";
+import { canvasPluginSpecs } from "../../../modules/plugins/compile";
 import { insertSandbox } from "../sandboxes/repository";
 import { seedDefaultBlocks } from "../workflows/repository";
 import type { RunBody } from "./dto";
@@ -38,7 +39,10 @@ function handleFor(ref: string, type: string, given?: string, spec?: HandleSpec)
 }
 
 /** Refs and the edges between them, as the rows a canvas save takes. */
-function translate({ blocks, edges }: Pick<RunBody, "blocks" | "edges">) {
+function translate(
+	{ blocks, edges }: Pick<RunBody, "blocks" | "edges">,
+	specs: Record<string, HandleSpec>,
+) {
 	const byRef = new Map(blocks.map((b) => [b.ref, b]));
 	if (byRef.size !== blocks.length) throw new BadRequestError("Two blocks share a ref.");
 	const structural = blocks.find((b) => STRUCTURAL.has(b.type));
@@ -64,8 +68,7 @@ function translate({ blocks, edges }: Pick<RunBody, "blocks" | "edges">) {
 					`edges[${i}]: no block "${ref}". Refs: ${[...byRef.keys()].join(", ")}.`,
 				);
 		if (from === to) throw new BadRequestError(`edges[${i}]: a block cannot connect to itself.`);
-		// no spec source on admin yet: plugin manifests arrive with P1 (#857)
-		const handle = handleFor(fromRef, from!.type, edge.handle ?? dotted);
+		const handle = handleFor(fromRef, from!.type, edge.handle ?? dotted, specs[from!.type]);
 		return {
 			id: generateID(),
 			from: fromRef,
@@ -91,7 +94,7 @@ export async function buildEphemeralGraph(
 	userId: string,
 	input: Pick<RunBody, "blocks" | "edges">,
 ) {
-	const edges = translate(input);
+	const edges = translate(input, await canvasPluginSpecs(projectId));
 	const incoming = new Set(edges.map((e) => e.to));
 	// a sticky note never compiles, so it cannot be where the run starts
 	const head = input.blocks.find((b) => !incoming.has(b.ref) && b.type !== BlockTypes.sticky_note);

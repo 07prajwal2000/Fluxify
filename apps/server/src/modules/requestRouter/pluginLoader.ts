@@ -1,5 +1,9 @@
+import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { type BlockMeta, registerModuleBlock, unregisterById } from "@fluxify/blocks";
+import type { PluginPermissions } from "../../db/schema";
+import type { PluginArtifact } from "../compiler/artifacts";
+import { NO_PERMISSIONS, withGrantedContext } from "./pluginPermissions";
 
 /**
  * Where one programmable block's code is on this node. Plain data: the
@@ -17,7 +21,24 @@ export type PluginBlockRef = {
 	/** absolute path to the block's built module under `pluginDir(...)` */
 	entry: string;
 	meta: BlockMeta;
+	/** what the plugin's approval granted (#857); none when absent */
+	permissions?: PluginPermissions;
 };
+
+/**
+ * The refs of a published plugin (#857) once it is installed under `root`
+ * (`pluginDir(projectId, name, version)`): what the supervisor hands over.
+ */
+export const pluginBlockRefs = (artifact: PluginArtifact, root: string): PluginBlockRef[] =>
+	Object.entries(artifact.blocks).map(([type, block]) => ({
+		projectId: artifact.projectId,
+		type,
+		plugin: artifact.name,
+		version: artifact.version,
+		entry: join(root, block.entry),
+		meta: block.meta,
+		permissions: artifact.permissions,
+	}));
 
 const blockKey = (projectId: string, type: string) => `${projectId}:${type}`;
 
@@ -44,7 +65,8 @@ async function importBlock(key: string, ref: PluginBlockRef) {
 		// ids are unique across projects and blocks, or registering one drops another
 		const id = `${ref.plugin}@${ref.version}:${key}`;
 		// validates `meta.handles`, so a bad manifest fails here and not on first route
-		registerModuleBlock(ref.projectId, ref.type, run, ref.meta, id);
+		const granted = withGrantedContext(run, ref.permissions ?? NO_PERMISSIONS, label(ref));
+		registerModuleBlock(ref.projectId, ref.type, granted, ref.meta, id);
 		loaded.set(key, { version: ref.version, id });
 	} catch (error) {
 		throw new Error(`${label(ref)} failed to load from ${ref.entry}: ${(error as Error).message}`);

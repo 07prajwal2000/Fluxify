@@ -108,6 +108,10 @@ export const AUDITED: Record<string, string> = {
 	"create-middleware": `${V}/middlewares/service.ts`,
 	"update-middleware": `${V}/middlewares/service.ts`,
 	"delete-middleware": `${V}/middlewares/service.ts`,
+	// plugins (#857)
+	"approve-plugin": "modules/plugins/service.ts",
+	"reject-plugin": "modules/plugins/service.ts",
+	"set-plugin-environments": "modules/plugins/service.ts",
 	// instance settings
 	"set-license": `${V}/instance-settings/license/service.ts`,
 	"upsert-instance-setting": `${V}/instance-settings/upsert/service.ts`,

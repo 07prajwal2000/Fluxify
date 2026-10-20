@@ -1,0 +1,53 @@
+import type { BlockMeta, HandleSpec } from "@fluxify/blocks";
+import type { FluxifyManifest, ManifestEntry } from "@fluxify/sdk/blocks";
+import type { PluginPermissions } from "../../db/schema";
+import type { FluxifyEnv } from "../../lib/env";
+
+/**
+ * Plugin metadata as plain data (#857). Everything here reads the manifest;
+ * nothing imports plugin code, which never runs on admin.
+ */
+
+export type PluginRow = {
+	name: string;
+	version: string;
+	integrity: string;
+	approval: "pending" | "approved" | "rejected";
+	devEnabled: boolean;
+	prodEnabled: boolean;
+	manifest: FluxifyManifest;
+};
+
+/** what the compiler and the worker need to call one block */
+export const blockMetaOf = (entry: ManifestEntry): BlockMeta => {
+	const schemaParams = Object.keys(entry.params).filter((k) => entry.params[k]!.type === "schema");
+	return {
+		handles: entry.handles as HandleSpec,
+		invoke: entry.invoke,
+		...(schemaParams.length ? { schemaParams } : {}),
+	};
+};
+
+/** every block's permissions together: approval is per plugin */
+export function requestedPermissions(manifest: FluxifyManifest): PluginPermissions {
+	const integrations = new Set<string>();
+	let appconfig = false;
+	for (const block of Object.values(manifest.blocks)) {
+		for (const kind of block.permissions.integrations ?? []) integrations.add(kind);
+		appconfig ||= block.permissions.appconfig === true;
+	}
+	return { integrations: [...integrations].sort(), appconfig };
+}
+
+/** approved, and switched on for `env`: the only state in which a plugin loads */
+export const isUsableIn = (row: PluginRow, env: FluxifyEnv) =>
+	row.approval === "approved" && (env === "development" ? row.devEnabled : row.prodEnabled);
+
+/** why a plugin's blocks cannot compile in `env`, or undefined when they can */
+export function unusableReason(row: PluginRow, env: FluxifyEnv) {
+	if (isUsableIn(row, env)) return;
+	const plugin = `plugin ${row.name}@${row.version}`;
+	if (row.approval === "pending") return `${plugin} is waiting for a creator to approve it`;
+	if (row.approval === "rejected") return `${plugin} was rejected`;
+	return `${plugin} is not enabled in ${env}`;
+}

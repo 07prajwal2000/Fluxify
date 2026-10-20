@@ -1,9 +1,4 @@
-import {
-	compileGraph,
-	hasCustomBlock,
-	registerCompiledCustomBlock,
-	unregisterById,
-} from "@fluxify/blocks";
+import { hasCustomBlock, registerCompiledCustomBlock, unregisterById } from "@fluxify/blocks";
 import { logger } from "@fluxify/common";
 import { and, eq, ne } from "drizzle-orm";
 import { db } from "../../db";
@@ -14,6 +9,12 @@ import {
 	middlewaresEntity,
 } from "../../db/schema";
 import { compileDependencies } from "../packages/service";
+import {
+	artifactBuild,
+	compileWithPlugins,
+	loadPluginSets,
+	type PluginSet,
+} from "../plugins/compile";
 import { readSnapshot } from "../versions/repository";
 import type { CustomBlockArtifact, MiddlewareArtifact } from "./artifacts";
 import {
@@ -158,20 +159,20 @@ export async function compileCustomBlock(id: string) {
 }
 
 type Build =
-	| { source: string; error?: undefined }
+	| { source: string; pluginBlocks?: string[]; error?: undefined }
 	| { source?: undefined; error: StaticCompileError };
 
 /** a static failure is the build's result, not a throw: the other environment still publishes */
 function build(
 	resource: CompiledResource,
 	graph: ReturnType<typeof snapshotGraph>,
-	options: Parameters<typeof compileGraph>[2],
+	options: Parameters<typeof compileWithPlugins>[2],
+	plugins: PluginSet,
 ): Build {
 	try {
-		return {
-			source: compileOrThrow(resource, () => compileGraph(graph.blocks, graph.edges, options))
-				.source,
-		};
+		return compileOrThrow(resource, () =>
+			artifactBuild(compileWithPlugins(graph.blocks, graph.edges, options, plugins)),
+		);
 	} catch (error) {
 		if (error instanceof StaticCompileError) return { error };
 		throw error;
@@ -219,11 +220,19 @@ async function compileCustomBlockOrThrow(id: string) {
 			projectId: block.projectId!,
 			dependencies: await compileDependencies(block.projectId!),
 		};
-		working = build(resource, await loadGraph({ type: "custom_block", id }), options);
+		const plugins = await loadPluginSets(block.projectId!);
+		working = build(
+			resource,
+			await loadGraph({ type: "custom_block", id }),
+			options,
+			plugins.development,
+		);
 		const snapshot = block.prodVersionId
 			? await readSnapshot<CustomBlockSnapshot>(block.prodVersionId)
 			: undefined;
-		promoted = snapshot ? build(resource, snapshotGraph(snapshot), options) : undefined;
+		promoted = snapshot
+			? build(resource, snapshotGraph(snapshot), options, plugins.production)
+			: undefined;
 	} finally {
 		inFlight.delete(id);
 	}
@@ -236,22 +245,20 @@ async function compileCustomBlockOrThrow(id: string) {
 		registerCompiledCustomBlock(block.projectId!, block.name, local, block.id);
 
 	const key = customBlockKey(block.projectId!, block.id);
-	const artifact = (source: string): CustomBlockArtifact => ({
+	const artifact = (built: { source: string; pluginBlocks?: string[] }): CustomBlockArtifact => ({
 		id: block.id,
 		name: block.name,
 		projectId: block.projectId!,
-		source,
+		...built,
 		compiledAt: new Date().toISOString(),
 	});
 	await Promise.all([
 		// a build that failed leaves its bucket as it was
-		working.source !== undefined
-			? putArtifact(key, artifact(working.source), "development")
-			: undefined,
+		working.source !== undefined ? putArtifact(key, artifact(working), "development") : undefined,
 		promoted === undefined
 			? deleteArtifact(key, "production")
 			: promoted.source !== undefined
-				? putArtifact(key, artifact(promoted.source), "production")
+				? putArtifact(key, artifact(promoted), "production")
 				: undefined,
 	]);
 

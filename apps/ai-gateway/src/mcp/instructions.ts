@@ -25,7 +25,7 @@ What things are:
 
 Building tips:
 - Call get_block_schemas with no input to see the built-in blocks, then with blockTypes for the
-  exact fields of the ones you will use.
+  exact fields of the ones you will use. Blocks from the project's plugins: get_plugin_blocks.
 - Edit a canvas with get_canvas, then edit_canvas (small ops, the revision you read). Blocks are named
   by key (response_1, db_insert_2): use keys, never ids. edit_canvas lists what each op changed and
   returns rule errors and warnings; check the changes hit the blocks you meant and fix every error.

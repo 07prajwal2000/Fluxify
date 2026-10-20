@@ -1,5 +1,5 @@
 import { renderCompactSchema } from "@fluxify/blocks";
-import { ValidationSchemaZod } from "@fluxify/blocks/schema";
+import { ValidationSchemaZod } from "@fluxify/blocks/validationSchema";
 import { getDefaultVariantValue, getSchema } from "@fluxify/server/src/api/v1/integrations/helpers";
 import { integrationsGroupSchema } from "@fluxify/server/src/api/v1/integrations/schemas";
 import { requestBodySchema as routeCreate } from "@fluxify/server/src/api/v1/routes/create/dto";

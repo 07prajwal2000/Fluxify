@@ -1,4 +1,3 @@
-import { compileGraph } from "@fluxify/blocks";
 import { and, eq, or } from "drizzle-orm";
 import { db } from "../../db";
 import { deleteArtifactEverywhere } from "../../db/natsKv";
@@ -10,6 +9,7 @@ import {
 } from "../../db/schema";
 import { acceptedContentTypes } from "../../lib/routeConfig";
 import { compileDependencies } from "../packages/service";
+import { artifactBuild, compileWithPlugins, loadPluginSets } from "../plugins/compile";
 import { readSnapshot } from "../versions/repository";
 import type { RouteArtifact, WorkflowArtifact } from "./artifacts";
 import { type CompiledResource, compileOrThrow, logBuild, logInactive } from "./compileLog";
@@ -60,10 +60,11 @@ type RouteEnvBuild = Pick<
 	| "middlewares"
 	| "routeVersion"
 	| "versionId"
+	| "pluginBlocks"
 >;
 type WorkflowEnvBuild = Pick<
 	WorkflowArtifact,
-	"source" | "timeoutSeconds" | "workflowVersion" | "versionId"
+	"source" | "timeoutSeconds" | "workflowVersion" | "versionId" | "pluginBlocks"
 >;
 
 export async function compileProjectRoutes(projectId: string) {
@@ -153,6 +154,7 @@ export async function compileRoute(routeId: string) {
 		? await readSnapshot(route.prodVersionId!)
 		: undefined;
 	const dependencies = await compileDependencies(route.projectId!);
+	const plugins = await loadPluginSets(route.projectId!);
 	const workingMiddlewares = await loadRouteMiddlewareIds(routeId);
 	const { perEnv, failures } = compilePerEnv(route, (env, tracing): RouteEnvBuild => {
 		const production = env === "production";
@@ -160,13 +162,16 @@ export async function compileRoute(routeId: string) {
 		const settings = production ? snapshot!.settings : route;
 		const middlewares = production ? snapshot!.settings.middlewares : workingMiddlewares;
 		return {
-			source: compileOrThrow(resource, () =>
-				compileGraph(graph.blocks, graph.edges, {
-					projectId: route.projectId!,
-					dependencies,
-					tracing,
-				}),
-			).source,
+			...compileOrThrow(resource, () =>
+				artifactBuild(
+					compileWithPlugins(
+						graph.blocks,
+						graph.edges,
+						{ projectId: route.projectId!, dependencies, tracing },
+						plugins[env],
+					),
+				),
+			),
 			method: settings.method ?? "GET",
 			path: settings.path ?? "",
 			bodySchema: settings.bodySchema,
@@ -256,20 +261,23 @@ export async function compileWorkflow(workflowId: string) {
 		? await readSnapshot(workflow.prodVersionId!)
 		: undefined;
 	const dependencies = await compileDependencies(workflow.projectId!);
+	const plugins = await loadPluginSets(workflow.projectId!);
 	// `asWorkflow` is the one thing the compiler is told: a response block has
 	// nothing to respond to here, so it compiles to a plain terminal.
 	const { perEnv, failures } = compilePerEnv(workflow, (env, tracing): WorkflowEnvBuild => {
 		const production = env === "production";
 		const graph = production ? snapshotGraph(snapshot!) : workingCopy!;
 		return {
-			source: compileOrThrow(resource, () =>
-				compileGraph(graph.blocks, graph.edges, {
-					asWorkflow: true,
-					projectId: workflow.projectId!,
-					dependencies,
-					tracing,
-				}),
-			).source,
+			...compileOrThrow(resource, () =>
+				artifactBuild(
+					compileWithPlugins(
+						graph.blocks,
+						graph.edges,
+						{ asWorkflow: true, projectId: workflow.projectId!, dependencies, tracing },
+						plugins[env],
+					),
+				),
+			),
 			timeoutSeconds: production ? snapshot!.settings.timeoutSeconds : workflow.timeoutSeconds,
 			workflowVersion: production ? workflow.prodVersionId! : compiledAt,
 			versionId: production ? workflow.prodVersionId! : undefined,

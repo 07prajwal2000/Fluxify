@@ -44,7 +44,7 @@ function walk(
 	return seen;
 }
 
-/** `specs`: handle specs of plugin types; none reach admin until P1 (#857) */
+/** `specs`: handle specs of the project's plugin types (#857) */
 export function reachabilityIssues(
 	{ kind, blocks, edges }: RulesInput,
 	specs: HandleSpecs = {},
