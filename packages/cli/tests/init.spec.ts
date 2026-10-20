@@ -43,8 +43,16 @@ describe("init", () => {
 		expect(pkg.fluxify).toEqual({ name: "acme/slack", url: "https://example.com/slack" });
 		expect(fluxifyManifestSchema.shape.name.safeParse(pkg.fluxify.name).success).toBe(true);
 		expect(fluxifyManifestSchema.shape.url.safeParse(pkg.fluxify.url).success).toBe(true);
-		expect(Object.keys(pkg.dependencies).sort()).toEqual(["@fluxify/sdk", "zod"]);
-		expect(Object.keys(pkg.devDependencies).sort()).toEqual(["@fluxify/cli", "@types/bun", "typescript"]);
+		// the worker provides both: peers, with dev copies for building and testing
+		expect(pkg.dependencies).toBeUndefined();
+		expect(Object.keys(pkg.peerDependencies).sort()).toEqual(["@fluxify/sdk", "zod"]);
+		expect(Object.keys(pkg.devDependencies).sort()).toEqual([
+			"@fluxify/cli",
+			"@fluxify/sdk",
+			"@types/bun",
+			"typescript",
+			"zod",
+		]);
 		expect(await read(root, ".gitignore")).toContain("fluxify.json");
 		expect(await read(root, "README.md")).toContain("https://example.com/slack");
 		expect(existsSync(join(root, "bun.lock"))).toBe(false);
@@ -124,7 +132,7 @@ describe("init", () => {
 		expect(existsSync(join(root, "bun.lock"))).toBe(true);
 		// once published, the scaffolded range is what the manifest records
 		const pkg = JSON.parse(await read(root, "package.json"));
-		pkg.dependencies["@fluxify/sdk"] = ">=2026.10.2001";
+		pkg.peerDependencies["@fluxify/sdk"] = ">=2026.10.2001";
 		await Bun.write(join(root, "package.json"), JSON.stringify(pkg));
 
 		await create({ cwd: root, name: "post" });

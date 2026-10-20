@@ -156,7 +156,8 @@ export function createPluginInstaller(options: PluginInstallerOptions) {
 			);
 			let failedImports: PluginInstallStatus["failedImports"] = [];
 			if (packages.length) {
-				const error = await frozenInstall(staging, root);
+				// peers are the worker's own @fluxify/sdk and zod (`hostPackages.ts`), never a second copy
+				const error = await frozenInstall(staging, root, ["--omit=peer"]);
 				if (error) throw new Error(`dependencies did not install: ${error}`);
 				failedImports = await smokeTest(staging, packages);
 			}

@@ -80,7 +80,7 @@ export async function makePlugin(
 			type: "module",
 			fluxify: { name: "acme/t", url: "https://example.com/acme/t" },
 			files: ["dist", "icons", "fluxify.json"],
-			dependencies: { "@fluxify/sdk": ">=2026.10.2001", zod: "^4.0.0" },
+			peerDependencies: { "@fluxify/sdk": ">=2026.10.2001", zod: "^4.0.0" },
 			...pkg,
 		}),
 		"bun.lock": LOCK,

@@ -43,6 +43,15 @@ const ENTRY = "dist/blocks/step.js";
 
 type Overrides = Record<string, string | Uint8Array | null>;
 
+/** a valid plugin's package.json with these runtime `dependencies` */
+export const packageWith = (dependencies: Record<string, string>) =>
+	JSON.stringify({
+		name: "@acme/echo",
+		version: VERSION,
+		fluxify: { name: NAME, url: "https://github.com/acme/fluxify-echo" },
+		dependencies,
+	});
+
 /** the files of a valid plugin; `over` replaces, adds or (with null) removes one */
 export function pluginFiles(over: Overrides = {}) {
 	const files: Overrides = {

@@ -1,5 +1,6 @@
 import { extname } from "node:path";
 import { type FluxifyManifest, fluxifyManifestSchema, ICON_URL_MAX } from "@fluxify/sdk/blocks";
+import { dependencyProblems, SDK_VERSION } from "@fluxify/sdk/runtime";
 import { z } from "zod";
 import { BadRequestError } from "../../../errors/badRequestError";
 import type { PluginFiles } from "./tar";
@@ -7,8 +8,8 @@ import type { PluginFiles } from "./tar";
 /**
  * The checks every plugin passes, whichever source it came from: a tarball
  * (upload, npm, url) or a directory (fs) is first reduced to its files, and
- * these rules read only `package.json`, `fluxify.json` and icons. No plugin code
- * is imported or run here.
+ * these rules read only `package.json`, `bun.lock`, `fluxify.json` and icons.
+ * No plugin code is imported or run here.
  */
 export type ValidPlugin = { manifest: FluxifyManifest; version: string };
 
@@ -60,7 +61,8 @@ function iconDataUrl(files: PluginFiles, type: string, icon: string): string {
 
 /** Throws a `BadRequestError` naming the first rule the files break. */
 export function validatePlugin(files: PluginFiles): ValidPlugin {
-	for (const required of ["package.json", "bun.lock", "fluxify.json"])
+	// bun.lock only when there are runtime dependencies: `dependencyProblems` below
+	for (const required of ["package.json", "fluxify.json"])
 		if (!files.has(required)) throw new BadRequestError(`The plugin has no ${required}`);
 	for (const path of files.keys())
 		if (path.split("/").includes("node_modules"))
@@ -68,16 +70,27 @@ export function validatePlugin(files: PluginFiles): ValidPlugin {
 				`The plugin ships '${path}'; dependencies are installed from bun.lock, never shipped`,
 			);
 
-	const pkg = json(files, "package.json") as { version?: unknown; fluxify?: { name?: unknown } };
+	const pkg = json(files, "package.json") as {
+		version?: unknown;
+		fluxify?: { name?: unknown };
+		dependencies?: Record<string, string>;
+	};
 	if (typeof pkg.version !== "string" || !/^\d+\.\d+\.\d+$/.test(pkg.version))
 		throw new BadRequestError(
 			`package.json "version" must be an exact version like 2026.10.2001, got '${String(pkg.version)}'`,
 		);
+	const lock = files.get("bun.lock");
+	const [problem] = dependencyProblems(pkg, lock && new TextDecoder().decode(lock));
+	if (problem) throw new BadRequestError(problem);
 
 	const parsed = fluxifyManifestSchema.safeParse(json(files, "fluxify.json"));
 	if (!parsed.success)
 		throw new BadRequestError(`Invalid fluxify.json: ${z.prettifyError(parsed.error)}`);
 	const manifest = parsed.data;
+	if (!Bun.semver.satisfies(SDK_VERSION, manifest.sdk))
+		throw new BadRequestError(
+			`The plugin needs @fluxify/sdk ${manifest.sdk}, but this Fluxify provides ${SDK_VERSION}`,
+		);
 	if (pkg.fluxify?.name !== manifest.name)
 		throw new BadRequestError(
 			`package.json says the plugin is '${String(pkg.fluxify?.name)}' but fluxify.json says '${manifest.name}'`,

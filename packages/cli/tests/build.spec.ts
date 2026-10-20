@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { fluxifyManifestSchema } from "@fluxify/sdk/blocks";
 import { build } from "../src/build";
-import { blockSrc, cleanup, failures, makePlugin } from "./helpers";
+import { blockSrc, cleanup, failures, LOCK, makePlugin } from "./helpers";
 
 afterAll(cleanup);
 
@@ -65,6 +65,12 @@ describe("blocks build", () => {
 		expect(chunk.length).toBeLessThan(2000); // zod itself is not in it
 	});
 
+	it("needs no bun.lock when only the worker's packages are used, and ships none", async () => {
+		const root = await makePlugin({ "bun.lock": null });
+		const { tarball } = await build(root);
+		expect(await tarNames(root, tarball)).not.toContain("bun.lock");
+	});
+
 	it("copies an icon outside icons/ into it and points the manifest there", async () => {
 		const root = await makePlugin({
 			"src/blocks/hello.ts": blockSrc("acme/t/hello", { extra: 'icon: "./logo.svg",' }),
@@ -84,13 +90,36 @@ describe("blocks build fails", () => {
 		expect(await failures(http)).toEqual([expect.stringContaining("https://")]);
 	});
 
-	it("without bun.lock", async () => {
-		const root = await makePlugin({ "bun.lock": null });
-		expect(await failures(root)).toEqual([expect.stringContaining("bun.lock is missing")]);
+	it("with runtime dependencies and a missing, empty or unparseable bun.lock", async () => {
+		const deps = { dependencies: { ms: "2.1.3" } };
+		for (const [lock, problem] of [
+			[null, "bun.lock is missing or empty"],
+			["", "bun.lock is missing or empty"],
+			["{ not json", "bun.lock does not parse"],
+			['{ "packages": {} }', "bun.lock has no lockfileVersion"],
+			[LOCK, "bun.lock does not pin ms"],
+		] as const) {
+			const root = await makePlugin({ "bun.lock": lock }, deps);
+			expect(await failures(root)).toEqual([expect.stringContaining(problem)]);
+		}
+	});
+
+	it("with @fluxify/sdk or zod in dependencies: the worker provides them", async () => {
+		const root = await makePlugin(
+			{},
+			{
+				dependencies: { "@fluxify/sdk": ">=2026.10.2001", zod: "^4.0.0" },
+				peerDependencies: { "@fluxify/sdk": ">=2026.10.2001" },
+			},
+		);
+		expect(await failures(root)).toEqual([
+			expect.stringContaining('@fluxify/sdk is in "dependencies": move it to "peerDependencies"'),
+			expect.stringContaining('zod is in "dependencies": move it to "peerDependencies"'),
+		]);
 	});
 
 	it("on an SDK range it cannot read", async () => {
-		const root = await makePlugin({}, { dependencies: { "@fluxify/sdk": "latest" } });
+		const root = await makePlugin({}, { peerDependencies: { "@fluxify/sdk": "latest" } });
 		expect(await failures(root)).toEqual([expect.stringContaining("@fluxify/sdk range")]);
 	});
 

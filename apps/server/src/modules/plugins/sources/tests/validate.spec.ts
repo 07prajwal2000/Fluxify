@@ -4,7 +4,7 @@ import { entry, manifest } from "../../tests/fixtures";
 import { MAX_ENTRIES, MAX_UNPACKED_BYTES } from "../limits";
 import { untar } from "../tar";
 import { validatePlugin } from "../validate";
-import { NAME, pluginFiles, pluginTgz, rawTgz, VERSION } from "./tarball";
+import { NAME, packageWith, pluginFiles, pluginTgz, rawTgz, VERSION } from "./tarball";
 
 type Over = Parameters<typeof pluginFiles>[0];
 const files = (over: Over = {}) =>
@@ -93,9 +93,41 @@ describe("tarball rejections", () => {
 });
 
 describe("plugin rules", () => {
-	it.each(["package.json", "bun.lock", "fluxify.json"])("needs %s", (name) =>
+	it.each(["package.json", "fluxify.json"])("needs %s", (name) =>
 		rejects(() => validatePlugin(files({ [name]: null })), `no ${name}`),
 	);
+	it("needs no bun.lock without runtime dependencies", () =>
+		expect(validatePlugin(files({ "bun.lock": null })).version).toBe(VERSION));
+
+	const LOCK = '{ "lockfileVersion": 1, "packages": { "ms": ["ms@2.1.3", "", {}, "sha512-x"], }, }';
+	const withMs = (lock: string | null) =>
+		files({ "package.json": packageWith({ ms: "2.1.3" }), "bun.lock": lock });
+	it("takes a bun.lock that pins every runtime dependency", () =>
+		expect(validatePlugin(withMs(LOCK)).version).toBe(VERSION));
+	it.each([
+		[null, "bun.lock is missing or empty"],
+		["", "bun.lock is missing or empty"],
+		["{ not json", "bun.lock does not parse"],
+		['{ "packages": {} }', "bun.lock has no lockfileVersion"],
+		['{ "lockfileVersion": 1, "packages": {} }', "bun.lock does not pin ms"],
+	])("refuses runtime dependencies with the bun.lock %p", (lock, message) =>
+		rejects(() => validatePlugin(withMs(lock)), message),
+	);
+	it.each(["@fluxify/sdk", "zod"])("refuses %s in dependencies: the worker provides it", (name) =>
+		rejects(
+			() => validatePlugin(files({ "package.json": packageWith({ [name]: "^4.0.0" }) })),
+			`${name} is in "dependencies": move it to "peerDependencies"`,
+		));
+	it("refuses an SDK range this Fluxify does not provide", () =>
+		rejects(
+			() =>
+				validatePlugin(
+					files({
+						"fluxify.json": JSON.stringify({ ...manifest(NAME, [entry(`${NAME}/step`)]), sdk: ">=9999.1.1" }),
+					}),
+				),
+			"needs @fluxify/sdk >=9999.1.1, but this Fluxify provides",
+		));
 	it("refuses node_modules", () =>
 		rejects(() => validatePlugin(files({ "node_modules/x/index.js": "1" })), "node_modules"));
 	it("refuses a fluxify.json the SDK schema rejects", () =>
