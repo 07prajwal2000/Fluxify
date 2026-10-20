@@ -1,8 +1,9 @@
 import { requestedPermissions } from "@fluxify/server/src/modules/plugins/meta";
 import type { ReactNode } from "react";
-import { TbBox, TbCheck, TbExternalLink, TbX } from "react-icons/tb";
+import { TbCheck, TbExternalLink, TbX } from "react-icons/tb";
 import type { Plugin, PluginManifest } from "@/services/plugins";
 import { Badge, formatTime, SOURCE_LABEL } from "./PluginBadges";
+import { PluginBlockIcon } from "./pluginBlockIcon";
 
 export const manifestOf = (p: Plugin) => p.manifest as unknown as PluginManifest;
 
@@ -15,7 +16,7 @@ export function PluginBlocks({ plugin }: { plugin: Plugin }) {
 		<ul className="flex flex-col divide-y divide-border rounded-lg border border-border">
 			{blocks.map((b) => (
 				<li key={b.name} className="flex items-start gap-3 px-3 py-2">
-					<TbBox size={18} className="mt-0.5 shrink-0 text-muted" />
+					<PluginBlockIcon block={b} size={18} />
 					<div className="flex min-w-0 flex-col gap-0.5">
 						<div className="flex flex-wrap items-center gap-2 text-sm">
 							<span className="font-medium text-foreground">{b.label}</span>
@@ -25,7 +26,6 @@ export function PluginBlocks({ plugin }: { plugin: Plugin }) {
 						{b.description && <p className="text-xs text-muted">{b.description}</p>}
 						<p className="text-xs text-muted">
 							{b.shape} shape · {b.invoke.join(", ")}
-							{b.icon ? ` · icon ${b.icon}` : ""}
 						</p>
 						{b.deprecated && <p className="text-xs text-warning">{b.deprecated}</p>}
 					</div>

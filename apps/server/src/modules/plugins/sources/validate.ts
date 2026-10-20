@@ -29,8 +29,21 @@ const json = (files: PluginFiles, path: string): unknown => {
 	}
 };
 
-/** the icon, as the portal would store it: a base64 data URL, which has a length limit */
-function checkIcon(files: PluginFiles, type: string, icon: string) {
+const tooLong = (type: string, icon: string, length: number) =>
+	new BadRequestError(
+		`${type}: icon '${icon.slice(0, 80)}' is ${length} characters as a data URL; the limit is ${ICON_URL_MAX}`,
+	);
+
+/**
+ * The icon as the portal stores a custom block's: a base64 data URL, which has
+ * a length limit. A path names a file only the tarball holds, so it is read
+ * here; a data URL already is the value.
+ */
+function iconDataUrl(files: PluginFiles, type: string, icon: string): string {
+	if (icon.startsWith("data:")) {
+		if (icon.length > ICON_URL_MAX) throw tooLong(type, icon, icon.length);
+		return icon;
+	}
 	const path = icon.replace(/^\.\//, "");
 	// a path that climbs or is absolute never names a file in the plugin, whatever the map holds
 	const bytes =
@@ -39,11 +52,10 @@ function checkIcon(files: PluginFiles, type: string, icon: string) {
 	const mime = MIME[extname(path).toLowerCase()];
 	if (!mime)
 		throw new BadRequestError(`${type}: icon '${icon}' must be ${Object.keys(MIME).join(", ")}`);
-	const length = `data:${mime};base64,`.length + Math.ceil(bytes.length / 3) * 4;
-	if (length > ICON_URL_MAX)
-		throw new BadRequestError(
-			`${type}: icon '${icon}' is ${length} characters as a data URL; the limit is ${ICON_URL_MAX}`,
-		);
+	const prefix = `data:${mime};base64,`;
+	const length = prefix.length + Math.ceil(bytes.length / 3) * 4;
+	if (length > ICON_URL_MAX) throw tooLong(type, icon, length);
+	return prefix + Buffer.from(bytes).toString("base64");
 }
 
 /** Throws a `BadRequestError` naming the first rule the files break. */
@@ -71,10 +83,11 @@ export function validatePlugin(files: PluginFiles): ValidPlugin {
 			`package.json says the plugin is '${String(pkg.fluxify?.name)}' but fluxify.json says '${manifest.name}'`,
 		);
 
+	// the stored manifest carries each icon as a data URL, not a path into the tarball
 	for (const [type, block] of Object.entries(manifest.blocks)) {
 		if (!block.entry.startsWith("dist/") || !files.has(block.entry))
 			throw new BadRequestError(`${type}: its entry '${block.entry}' is not in the plugin's dist/`);
-		if (block.icon) checkIcon(files, type, block.icon);
+		if (block.icon) block.icon = iconDataUrl(files, type, block.icon);
 	}
 	return { manifest, version: pkg.version };
 }

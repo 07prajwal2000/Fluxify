@@ -147,9 +147,17 @@ describe("plugin rules", () => {
 			() => validatePlugin(withIcon("icons/x.svg", { "icons/x.svg": "a".repeat(ICON_URL_MAX) })),
 			"the limit is",
 		));
-	it("accepts an icon within the limit", () => {
-		expect(() =>
-			validatePlugin(withIcon("icons/x.svg", { "icons/x.svg": "<svg/>" })),
-		).not.toThrow();
+	const iconOf = (v: ReturnType<typeof validatePlugin>) =>
+		Object.values(v.manifest.blocks)[0].icon;
+	it("turns an icon path into a data URL of the file's type", () => {
+		const svg = iconOf(validatePlugin(withIcon("icons/x.svg", { "icons/x.svg": "<svg/>" })));
+		expect(svg).toBe(`data:image/svg+xml;base64,${btoa("<svg/>")}`);
+		const png = iconOf(validatePlugin(withIcon("./icons/x.PNG", { "icons/x.PNG": "png" })));
+		expect(png).toBe(`data:image/png;base64,${btoa("png")}`);
+	});
+	it("passes a data URL through after the size check", () => {
+		const url = `data:image/png;base64,${btoa("png")}`;
+		expect(iconOf(validatePlugin(withIcon(url)))).toBe(url);
+		rejects(() => validatePlugin(withIcon(`data:image/png;base64,${"a".repeat(ICON_URL_MAX)}`)), "the limit is");
 	});
 });
