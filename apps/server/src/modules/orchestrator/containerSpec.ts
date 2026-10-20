@@ -83,6 +83,11 @@ export interface SpecOptions {
 	 * encryption key, log shipping). Resolved by the caller so this stays pure.
 	 */
 	passthroughEnv: Record<string, string>;
+	/**
+	 * The plugins folder (`FLUXIFY_PLUGINS_DIR`): `hostDir` on the Docker host is
+	 * bind-mounted read-only at `dir` in the worker. Unset, workers get neither.
+	 */
+	plugins?: { hostDir: string; dir: string };
 }
 
 export interface ContainerSpec {
@@ -246,6 +251,7 @@ export function buildContainerSpec(node: DesiredNode, options: SpecOptions): Con
 		...options.passthroughEnv,
 		...workerEnv(node, options),
 		FLUXIFY_NODE_ID: nodeId,
+		...(options.plugins ? { FLUXIFY_PLUGINS_DIR: options.plugins.dir } : {}),
 	};
 
 	return {
@@ -270,6 +276,9 @@ export function buildContainerSpec(node: DesiredNode, options: SpecOptions): Con
 			},
 			HostConfig: {
 				NetworkMode: options.network,
+				...(options.plugins
+					? { Binds: [`${options.plugins.hostDir}:${options.plugins.dir}:ro`] }
+					: {}),
 				// Crash recovery belongs to the platform (§6). A second controller
 				// restarting containers on top of Docker's own restarts would
 				// thrash; the reconciler only acts when a container is gone.

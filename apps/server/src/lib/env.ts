@@ -253,6 +253,22 @@ export const serverEnvSchema = baseEnvSchema.extend({
 			"The ONLY image the orchestrator will ever create a container from. This is the image allowlist: nothing a user can write reaches container create, so an image name can never arrive from a database row",
 		),
 
+	ORCHESTRATOR_PLUGINS_HOST_DIR: z
+		.string()
+		.max(500)
+		.optional()
+		.describe(
+			"Docker: the plugins folder as the Docker host sees it (an absolute path). With FLUXIFY_PLUGINS_DIR also set on the orchestrator, it is mounted read-only at that path on every worker it starts, so plugins added from the folder install on them. Unset: workers get no plugins folder",
+		),
+
+	ORCHESTRATOR_PLUGINS_PVC: z
+		.string()
+		.max(253)
+		.optional()
+		.describe(
+			"Kubernetes: name of the PersistentVolumeClaim holding the plugins folder. With FLUXIFY_PLUGINS_DIR also set on the orchestrator, it is mounted read-only at that path on every worker pod. Unset: pods get no plugins folder",
+		),
+
 	ORCHESTRATOR_NETWORK: z
 		.string()
 		.max(100)

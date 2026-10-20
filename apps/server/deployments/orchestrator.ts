@@ -113,6 +113,17 @@ const passthroughEnv = Object.fromEntries(
  * detection would get exactly that case wrong, silently.
  */
 function createDriver(): InfraDriver {
+	const pluginsDir = process.env.FLUXIFY_PLUGINS_DIR;
+	let pluginsHostDir = getEnv("ORCHESTRATOR_PLUGINS_HOST_DIR");
+	// Docker refuses a relative bind source, and that would stop every worker from starting
+	if (pluginsHostDir && !/^(\/|[A-Za-z]:[\\/])/.test(pluginsHostDir)) {
+		logger.warn(
+			`ORCHESTRATOR_PLUGINS_HOST_DIR must be an absolute path; workers get no plugins folder`,
+			"ORCHESTRATOR",
+		);
+		pluginsHostDir = undefined;
+	}
+	const pluginsPvc = getEnv("ORCHESTRATOR_PLUGINS_PVC");
 	if (provider === "kubernetes") {
 		const natsMonitoringEndpoint = getEnv("K8S_NATS_MONITORING_ENDPOINT");
 		return createKubernetesDriver({
@@ -124,6 +135,7 @@ function createDriver(): InfraDriver {
 			scaleMemoryPercent: Number(getEnv("ORCHESTRATOR_SCALE_MEMORY_PERCENT")) || 65,
 			...(natsMonitoringEndpoint ? { natsMonitoringEndpoint } : {}),
 			passthroughEnv,
+			...(pluginsDir && pluginsPvc ? { plugins: { claimName: pluginsPvc, dir: pluginsDir } } : {}),
 		});
 	}
 	return createDockerDriver({
@@ -133,6 +145,9 @@ function createDriver(): InfraDriver {
 		healthPort: trafficPort + 1,
 		drainTimeoutSec,
 		passthroughEnv,
+		...(pluginsDir && pluginsHostDir
+			? { plugins: { hostDir: pluginsHostDir, dir: pluginsDir } }
+			: {}),
 		seedsDefaultClaim: getEnv("ORCHESTRATOR_SEED_DEFAULT_CLAIM") !== "false",
 	});
 }

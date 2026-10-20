@@ -161,6 +161,10 @@ services:
       ORCHESTRATOR_WORKER_IMAGE: "${ORCHESTRATOR_WORKER_IMAGE:-ghcr.io/fluxify-rest/fluxify-worker:alpha}"
       # Workers must land on this network, or Traefik and NATS cannot reach them.
       ORCHESTRATOR_NETWORK: fluxify_net
+      # Plugins folder for the workers it starts: the host's absolute path,
+      # mounted read-only at /plugins. Empty (or a relative path): workers get none.
+      FLUXIFY_PLUGINS_DIR: /plugins
+      ORCHESTRATOR_PLUGINS_HOST_DIR: "${PLUGINS_HOST_DIR:-}"
       DOCKER_HOST: unix:///var/run/docker.sock
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock

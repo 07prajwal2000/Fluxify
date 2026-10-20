@@ -15,6 +15,7 @@ import {
 	workerEnv,
 } from "./containerSpec";
 import type { KubeObject } from "./drivers/kubernetesApi";
+import { type PluginsVolume, podPlugins } from "./kubernetesPlugins";
 import type { DesiredNode } from "./projection";
 
 /**
@@ -47,6 +48,8 @@ export interface KubernetesSpecOptions {
 	 * claim scales on its trigger backlog, only on cpu and memory.
 	 */
 	natsMonitoringEndpoint?: string;
+	/** Unset, pods get no plugins folder. */
+	plugins?: PluginsVolume;
 }
 
 /** One claim, as much as its objects need. */
@@ -220,6 +223,7 @@ export function buildDeployment(
 ): KubeObject {
 	assertWellFormed(workload);
 	const env = workerEnv(workload, options);
+	const plugins = podPlugins(options.plugins);
 	const size = {
 		cpu: String(workload.resources.cpu),
 		memory: `${workload.resources.memoryMb}Mi`,
@@ -260,6 +264,7 @@ export function buildDeployment(
 							imagePullPolicy: "IfNotPresent",
 							env: [
 								...Object.entries(env).map(([name, value]) => ({ name, value })),
+								...plugins.env,
 								// The pod's own name is its node id: nothing else about a
 								// Deployment's pods is unique, and it is known only once it runs.
 								{
@@ -283,8 +288,10 @@ export function buildDeployment(
 							// Requests equal to limits: what autoscaling measures against is
 							// then exactly what the node may use.
 							resources: { requests: size, limits: size },
+							...plugins.container,
 						},
 					],
+					...plugins.pod,
 				},
 			},
 		},

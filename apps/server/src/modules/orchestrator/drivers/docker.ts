@@ -31,6 +31,7 @@ export interface DockerDriverOptions {
 	drainTimeoutSec: number;
 	/** Broker address, encryption key, log shipping — copied from this process. */
 	passthroughEnv: Record<string, string>;
+	plugins?: SpecOptions["plugins"];
 	seedsDefaultClaim: boolean;
 }
 
@@ -101,6 +102,7 @@ export function createDockerDriver(
 				trafficPort: options.trafficPort,
 				healthPort: options.healthPort,
 				passthroughEnv: options.passthroughEnv,
+				plugins: options.plugins,
 			};
 			const events: NodeEvent[] = [];
 			for (const action of planReconcile(desired, observed, { image: options.image })) {

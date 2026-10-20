@@ -69,6 +69,40 @@ volumeMounts:
 {{- end }}
 {{- end }}
 
+{{/* The plugins folder (FLUXIFY_PLUGINS_DIR), off unless plugins.volume.existingClaim is set. */}}
+{{- define "fluxify.pluginsEnv" -}}
+{{- if .Values.plugins.volume.existingClaim }}
+- { name: FLUXIFY_PLUGINS_DIR, value: /plugins }
+{{- end }}
+{{- end }}
+
+{{/* volumeMounts / volumes for pods that mount the plugins folder as well as the license key. */}}
+{{- define "fluxify.mounts" -}}
+{{- if or .Values.license.issuerKeySecret .Values.plugins.volume.existingClaim }}
+volumeMounts:
+{{- if .Values.license.issuerKeySecret }}
+  - { name: license, mountPath: /etc/fluxify/license, readOnly: true }
+{{- end }}
+{{- if .Values.plugins.volume.existingClaim }}
+  - { name: plugins, mountPath: /plugins, readOnly: {{ .Values.plugins.volume.readOnly }} }
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{- define "fluxify.volumes" -}}
+{{- if or .Values.license.issuerKeySecret .Values.plugins.volume.existingClaim }}
+volumes:
+{{- if .Values.license.issuerKeySecret }}
+  - name: license
+    secret: { secretName: {{ .Values.license.issuerKeySecret }} }
+{{- end }}
+{{- if .Values.plugins.volume.existingClaim }}
+  - name: plugins
+    persistentVolumeClaim: { claimName: {{ .Values.plugins.volume.existingClaim }}, readOnly: {{ .Values.plugins.volume.readOnly }} }
+{{- end }}
+{{- end }}
+{{- end }}
+
 {{- define "fluxify.licenseVolume" -}}
 {{- if .Values.license.issuerKeySecret }}
 volumes:

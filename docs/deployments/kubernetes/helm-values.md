@@ -87,6 +87,26 @@ Values under `env` must be text, so quote numbers and `true`/`false`.
 To send Fluxify's logs to a dashboard, with a complete example, see
 [Logs and monitoring](./observability).
 
+## Plugins folder {#plugins}
+
+Off by default. Upload, npm and link plugins do not need it. To let people add
+plugins from a folder, give the chart a PersistentVolumeClaim that already holds
+the built plugins (one subfolder each). Every node must be able to mount it
+(`ReadWriteMany` or `ReadOnlyMany`).
+
+| Setting | What it does | Default |
+| :--- | :--- | :--- |
+| `plugins.volume.existingClaim` | Name of the claim, in Fluxify's namespace. Mounted at `/plugins` on the admin and the development worker, and read-only on every worker the orchestrator starts. | — (off) |
+| `plugins.volume.readOnly` | Mount it read-only on the admin and the development worker. | `true` |
+
+```yaml
+plugins:
+  volume:
+    existingClaim: fluxify-plugins
+```
+
+If the claim is missing or cannot be mounted, the pods stay `Pending` until it can.
+
 ## Resources {#resources}
 
 How much CPU and memory Fluxify's own pods ask for. Production workers are sized
