@@ -44,8 +44,7 @@ async function runInit(cwd: string, dir: string | undefined, values: Record<stri
 	});
 	const where = relative(cwd, result.root);
 	console.log(`created ${result.name} in ${where || "."}`);
-	if (!result.installed)
-		console.log("skipped bun install: run it before `build`, which needs the bun.lock it writes");
+	if (!result.installed) console.log("skipped bun install: run it before `build`");
 	console.log("next:");
 	if (where) console.log(`  cd ${where}`);
 	console.log("  fluxify-cli blocks create <name>\n  bun run build");

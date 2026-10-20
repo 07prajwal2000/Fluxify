@@ -13,7 +13,7 @@ import { pluginObjects } from "../../../../db/natsObjects";
 import { initCompiledRuntime, shutdownCompiledRuntime } from "../../../requestRouter/compiledRuntime";
 import { runBlocks } from "../../../requestRouter/executor";
 import { createExecutionSupervisor } from "../../../requestRouter/executionSupervisor";
-import { setPluginRefs } from "../../../requestRouter/pluginLoader";
+import { type PluginBlockRef, setPluginRefs } from "../../../requestRouter/pluginLoader";
 import { pluginDir } from "../../../packages/depsDir";
 import { pluginInstallStatus } from "../../installStatus";
 import { blockMetaOf } from "../../meta";
@@ -62,25 +62,55 @@ async function lockFor(name: string, dependencies: Record<string, string>) {
 	}
 }
 
-type Spec = { name?: string; version: string; tag: string; lock?: string; useMs?: boolean };
+type Spec = {
+	name?: string;
+	version: string;
+	tag: string;
+	lock?: string;
+	useMs?: boolean;
+	/** a real `block()` using the worker's @fluxify/sdk and zod, as peers and with no lockfile */
+	sdk?: boolean;
+};
+
+/** `block()` from `@fluxify/sdk/blocks`, validating with zod; it re-exports `block` so a test can compare instances */
+const sdkBlock = (type: string, tag: string) => `import { block, handle } from "@fluxify/sdk/blocks";
+import { z } from "zod";
+export { block };
+export default block({
+	name: "${type}",
+	label: "Step",
+	invoke: ["sync"],
+	handles: { out: [handle.out("success"), handle.out("failure")] },
+	run: () => ({ output: z.string().parse("${tag}"), handle: "success" }),
+});`;
 
 /** the files of a built plugin whose one block answers `tag` (with `ms` when `useMs`, a real dependency) */
-function files({ name = NAME, version, tag, lock, useMs }: Spec) {
+function files({ name = NAME, version, tag, lock, useMs, sdk }: Spec) {
+	const peers = { "@fluxify/sdk": ">=2026.10.2001", zod: "^4.0.0" };
 	return {
 		"package.json": JSON.stringify({
 			name: `@${name}`,
 			version,
 			...(useMs ? { dependencies: { ms: "2.1.3" } } : {}),
+			...(sdk ? { peerDependencies: peers } : {}),
 			fluxify: { name, url: URL_ },
 		}),
 		"fluxify.json": JSON.stringify(manifest(name, [entry(`${name}/step`)])),
-		"bun.lock": lock ?? "{}",
-		"dist/blocks/step.js": useMs
-			? `import ms from "ms"; export default { run: () => ({ output: ms(60000) + ":${tag}", handle: "success" }) };`
-			: `export default { run: () => ({ output: "${tag}", handle: "success" }) };`,
+		"bun.lock": sdk ? null : (lock ?? "{}"),
+		"dist/blocks/step.js": sdk
+			? sdkBlock(`${name}/step`, tag)
+			: useMs
+				? `import ms from "ms"; export default { run: () => ({ output: ms(60000) + ":${tag}", handle: "success" }) };`
+				: `export default { run: () => ({ output: "${tag}", handle: "success" }) };`,
 	};
 }
 const tgz = (spec: Spec) => pluginTgz(files(spec));
+
+const STALE_LOCK = JSON.stringify({
+	lockfileVersion: 1,
+	workspaces: { "": { name: "@acme/broken", dependencies: { ms: "2.0.0" } } },
+	packages: { ms: ["ms@2.0.0", "", {}, "sha512-x"] },
+});
 
 /** a project with these plugins uploaded, approved and enabled in `envs` */
 async function projectWith(specs: Spec[], envs = { dev: true, prod: false }) {
@@ -97,7 +127,71 @@ async function projectWith(specs: Spec[], envs = { dev: true, prod: false }) {
 const ready = (status: Record<string, { state: string }>, project: string, name = NAME) =>
 	status[pluginStatusKey(project, name)]?.state === "ready";
 
+/** the way a user wires it: a graph calling the block, compiled and run; resolves to the response body */
+async function runRoute(project: string, refs: PluginBlockRef[]) {
+	const meta = blockMetaOf(fluxifyManifestSchema.parse(manifest(NAME)).blocks[TYPE]!);
+	const { blocks } = graphCalling(TYPE);
+	const compiled = compileGraph(blocks, [edge("1", "2"), edge("2", "3", "success")], {
+		projectId: project,
+		blockMeta: { [TYPE]: meta },
+	});
+	setPluginRefs(refs);
+	await initCompiledRuntime([
+		{
+			key: `route.${project}.r1`,
+			value: {
+				routeId: "r1",
+				projectId: project,
+				projectName: "p",
+				method: "GET",
+				path: "/r1",
+				timeoutSeconds: 30,
+				acceptedContentTypes: [],
+				tracingEnabled: false,
+				recordExecution: false,
+				routeVersion: "",
+				compiledAt: "",
+				source: compiled.source,
+				pluginBlocks: compiled.pluginBlocks,
+			},
+		},
+	]);
+	const run = await runBlocks(
+		{ projectId: project, routeId: "r1", projectName: "p" },
+		{
+			route: "/r1",
+			projectId: project,
+			apiId: "api-1",
+			vars: {},
+			requestBody: null,
+			stopper: { timeoutEnd: 0, duration: 10_000 },
+		} as never,
+	);
+	return run?.output.body;
+}
+
 describe("install and run", () => {
+	it("a plugin with only peers installs with no bun install and runs on the worker's own SDK and zod", async () => {
+		const s = await projectWith([{ version: "2026.10.2001", tag: "peer", sdk: true }]);
+		const worker = await startWorker(s.project, "development");
+		try {
+			await until(worker.status, () => ready(worker.status(), s.project));
+			const [ref] = worker.installer.refs();
+			const dir = join(dirname(ref!.entry), "..", "..");
+			// nothing installed: no lockfile shipped, no node_modules made
+			expect(existsSync(join(dir, "bun.lock"))).toBe(false);
+			expect(existsSync(join(dir, "node_modules"))).toBe(false);
+
+			expect(await runRoute(s.project, worker.installer.refs())).toBe("peer");
+			// the plugin's block() is the runtime's own, not a copy
+			const loaded = await import(ref!.entry);
+			expect(loaded.block).toBe((await import("@fluxify/sdk/blocks")).block);
+		} finally {
+			await worker.stop();
+		}
+	}, 240_000);
+
+
 	it("an approved upload installs on a production worker, with its dependency, and a route runs its block", async () => {
 		const lock = await lockFor(NAME, { ms: "2.1.3" });
 		const s = await projectWith([{ version: "2026.10.2001", tag: "one", lock, useMs: true }], {
@@ -117,46 +211,7 @@ describe("install and run", () => {
 			// the dependency came from the plugin's own lockfile, into the plugin's own directory
 			expect(existsSync(join(dirname(ref!.entry), "..", "..", "node_modules", "ms"))).toBe(true);
 
-			// the way a user wires it: a graph calling the block, compiled and run
-			const meta = blockMetaOf(fluxifyManifestSchema.parse(manifest(NAME)).blocks[TYPE]!);
-			const { blocks } = graphCalling(TYPE);
-			const compiled = compileGraph(blocks, [edge("1", "2"), edge("2", "3", "success")], {
-				projectId: s.project,
-				blockMeta: { [TYPE]: meta },
-			});
-			setPluginRefs(worker.installer.refs());
-			await initCompiledRuntime([
-				{
-					key: `route.${s.project}.r1`,
-					value: {
-						routeId: "r1",
-						projectId: s.project,
-						projectName: "p",
-						method: "GET",
-						path: "/r1",
-						timeoutSeconds: 30,
-						acceptedContentTypes: [],
-						tracingEnabled: false,
-						recordExecution: false,
-						routeVersion: "",
-						compiledAt: "",
-						source: compiled.source,
-						pluginBlocks: compiled.pluginBlocks,
-					},
-				},
-			]);
-			const run = await runBlocks(
-				{ projectId: s.project, routeId: "r1", projectName: "p" },
-				{
-					route: "/r1",
-					projectId: s.project,
-					apiId: "api-1",
-					vars: {},
-					requestBody: null,
-					stopper: { timeoutEnd: 0, duration: 10_000 },
-				} as never,
-			);
-			expect(run?.output.body).toBe("1m:one");
+			expect(await runRoute(s.project, worker.installer.refs())).toBe("1m:one");
 
 			// the admin reads the same state from the node's heartbeat
 			const admin = await pluginInstallStatus(s.project, NAME);
@@ -236,7 +291,8 @@ describe("integrity", () => {
 	it("a dependency that will not install fails that plugin only", async () => {
 		const s = await projectWith([
 			{ name: "acme/plain", version: "2026.10.2001", tag: "plain" },
-			{ name: "acme/broken", version: "2026.10.2001", tag: "x", useMs: true, lock: "{ not a lockfile" },
+			// passes the admin's checks, but pins another ms than package.json asks for: the frozen install refuses it
+			{ name: "acme/broken", version: "2026.10.2001", tag: "x", useMs: true, lock: STALE_LOCK },
 		]);
 		const worker = await startWorker(s.project, "development");
 		try {

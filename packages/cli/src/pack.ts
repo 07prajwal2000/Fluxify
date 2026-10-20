@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { blockEntryPath, type FluxifyManifest } from "@fluxify/sdk/blocks";
 import { fail, type Plugin } from "./plugin";
 
-/** `<scope>-<name>-<version>.tgz` in the plugin root: package.json, bun.lock, fluxify.json, dist/ and icons/ */
+/** `<scope>-<name>-<version>.tgz` in the plugin root: package.json, bun.lock (when there is one), fluxify.json, dist/ and icons/ */
 export async function pack(plugin: Plugin, manifest: FluxifyManifest): Promise<string> {
 	const file = `${plugin.name.replace("/", "-")}-${plugin.version}.tgz`;
 	const path = join(plugin.root, file);
@@ -17,13 +17,15 @@ export async function pack(plugin: Plugin, manifest: FluxifyManifest): Promise<s
 
 	const entries = await new Bun.Archive(await Bun.file(path).bytes()).files();
 	// bun never packs a lockfile, and the worker's install is frozen from this one
-	entries.set("package/bun.lock", Bun.file(join(plugin.root, "bun.lock")) as unknown as File);
+	const lock = Bun.file(join(plugin.root, "bun.lock"));
+	// its bytes, not the lazy BunFile: Bun.Archive writes a BunFile as 0 bytes
+	if (await lock.exists())
+		entries.set("package/bun.lock", new File([await lock.bytes()], "bun.lock"));
 	const names = [...entries.keys()].map((n) => n.replace(/^package\//, ""));
 
 	const stray = names.filter((n) => n.startsWith("src/") || n.split("/").includes("node_modules"));
 	const missing = [
 		"package.json",
-		"bun.lock",
 		"fluxify.json",
 		...Object.keys(manifest.blocks).map(blockEntryPath),
 	].filter((n) => !names.includes(n));

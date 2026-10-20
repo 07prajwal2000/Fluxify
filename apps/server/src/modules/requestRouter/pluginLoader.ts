@@ -3,6 +3,7 @@ import { pathToFileURL } from "node:url";
 import { type BlockMeta, registerModuleBlock, unregisterById } from "@fluxify/blocks";
 import type { PluginPermissions } from "../../db/schema";
 import type { PluginArtifact } from "../compiler/artifacts";
+import { provideHostPackages } from "./hostPackages";
 import { NO_PERMISSIONS, withGrantedContext } from "./pluginPermissions";
 
 /**
@@ -59,6 +60,7 @@ export function setPluginRefs(list: PluginBlockRef[] = []) {
 const label = (ref: PluginBlockRef) => `plugin ${ref.plugin}@${ref.version} block ${ref.type}`;
 
 async function importBlock(key: string, ref: PluginBlockRef) {
+	provideHostPackages();
 	try {
 		const run = (await import(pathToFileURL(ref.entry).href))?.default?.run;
 		if (typeof run !== "function") throw new Error("its default export has no run function");

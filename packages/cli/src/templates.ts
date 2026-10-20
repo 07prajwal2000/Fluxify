@@ -48,8 +48,11 @@ export const packageJson = (name: string, url: string, specs: PackageSpecs) =>
 			fluxify: { name, url },
 			files: ["dist", "icons", "fluxify.json"],
 			scripts: { build: "fluxify-cli blocks build", test: "bun test" },
-			dependencies: { "@fluxify/sdk": specs.sdk, zod: specs.zod },
+			// the worker provides both; dev copies are for building and `bun test`
+			peerDependencies: { "@fluxify/sdk": specs.sdk, zod: specs.zod },
 			devDependencies: {
+				"@fluxify/sdk": specs.sdk,
+				zod: specs.zod,
 				...(specs.cli && { "@fluxify/cli": specs.cli }),
 				"@types/bun": specs.bunTypes,
 				typescript: specs.typescript,
@@ -89,7 +92,8 @@ bun run build
 \`\`\`
 
 This writes \`dist/\`, \`fluxify.json\` and \`${name.replace("/", "-")}-<version>.tgz\`, the file to
-upload to Fluxify. Commit \`bun.lock\`: workers install the plugin's dependencies from it.
+upload to Fluxify. \`@fluxify/sdk\` and \`zod\` are peer dependencies: the worker provides
+its own. If you add runtime \`dependencies\`, commit \`bun.lock\`: workers install them from it.
 `;
 
 export const exampleBlock = (type: string) => `import { block, param } from "@fluxify/sdk/blocks";

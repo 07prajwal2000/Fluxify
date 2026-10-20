@@ -12,11 +12,12 @@ const SMOKE_TIMEOUT_MS = 60_000;
 
 /**
  * `bun install --frozen-lockfile --production` in `dir`. Resolves to why it
- * failed, or undefined. `cacheRoot` holds bun's shared download cache.
+ * failed, or undefined. `cacheRoot` holds bun's shared download cache. `extra`
+ * adds flags, like a plugin's `--omit=peer`.
  */
-export async function frozenInstall(dir: string, cacheRoot: string) {
+export async function frozenInstall(dir: string, cacheRoot: string, extra: string[] = []) {
 	const installed = await run(
-		["install", "--frozen-lockfile", "--production"],
+		["install", "--frozen-lockfile", "--production", ...extra],
 		dir,
 		INSTALL_TIMEOUT_MS,
 		{

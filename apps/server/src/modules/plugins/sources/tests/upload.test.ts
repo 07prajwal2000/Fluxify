@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { MAX_TARBALL_BYTES } from "../limits";
 import { keyOf, readAsWorker, sameBytes, setup, short, startStack, stopStack } from "./stack";
 import { entry, manifest } from "../../tests/fixtures";
-import { NAME, pluginFiles, pluginTgz, VERSION } from "./tarball";
+import { NAME, packageWith, pluginFiles, pluginTgz, VERSION } from "./tarball";
 
 let db: Awaited<ReturnType<typeof startStack>>["sql"];
 beforeAll(async () => {
@@ -104,7 +104,8 @@ describe("upload", () => {
 		const res = await s.upload(new TextEncoder().encode("not a tarball"));
 		expect(res.status).toBe(400);
 		expect(res.body.message).toContain("not a valid .tgz");
-		expect((await s.upload(pluginTgz({ "bun.lock": null }))).body.message).toContain("no bun.lock");
+		const noLock = pluginTgz({ "bun.lock": null, "package.json": packageWith({ ms: "2.1.3" }) });
+		expect((await s.upload(noLock)).body.message).toContain("bun.lock is missing");
 		expect(await readAsWorker(keyOf(s.project))).toBeNull();
 		expect(await s.rows()).toHaveLength(0);
 	});
@@ -204,11 +205,11 @@ describe("fs", () => {
 	it("applies the same checks as a tarball", async () => {
 		process.env.FLUXIFY_PLUGINS_DIR = root;
 		const dir = `nolock-${short()}`;
-		await writePlugin(dir, { "bun.lock": null });
+		await writePlugin(dir, { "bun.lock": null, "package.json": packageWith({ ms: "2.1.3" }) });
 		const s = await setup();
 		const res = await s.post("/fs", { path: dir });
 		expect(res.status).toBe(400);
-		expect(res.body.message).toContain("no bun.lock");
+		expect(res.body.message).toContain("bun.lock is missing");
 	});
 
 	it("only registers a directory the listing shows, never a path out of it", async () => {
