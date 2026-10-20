@@ -153,6 +153,9 @@ async function main() {
 		await onSystemTick("daily", "agent-conversation-retention", async () => {
 			await deleteExpiredAgentConversations();
 		});
+		// Plugin health (#861): one admin replica runs each tick (shared durable consumer)
+		const { scanAllPlugins } = await import("./modules/plugins/scanner");
+		await onSystemTick("hourly", "plugin-scan", scanAllPlugins);
 	}
 
 	if (builtinWorkerEnabled) {

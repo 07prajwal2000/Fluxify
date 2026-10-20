@@ -3,6 +3,7 @@ import type z from "zod";
 import zodErrorCallbackParser from "../../../middlewares/zodErrorCallbackParser";
 import { pluginInstallStatus } from "../../../modules/plugins/installStatus";
 import { removePlugin } from "../../../modules/plugins/remove";
+import { scanPlugin, scanProject } from "../../../modules/plugins/scanner";
 import * as service from "../../../modules/plugins/service";
 import { upgradePreview } from "../../../modules/plugins/upgrade";
 import { pluginUsage } from "../../../modules/plugins/usage";
@@ -94,6 +95,29 @@ export default {
 			project,
 			plugin,
 			async (ctx) => ctx.json(await upgradePreview(...target(ctx))),
+		);
+		router.post(
+			"/scan",
+			doc(
+				"scan-plugins",
+				"Checks every plugin of the project now. Creator or above.",
+				listResponseSchema,
+			),
+			creator,
+			project,
+			async (ctx) => ctx.json(await scanProject(ctx.req.valid("query").projectId)),
+		);
+		router.post(
+			"/:scope/:name/scan",
+			doc(
+				"scan-plugin",
+				"Checks the plugin's source and its install on the workers now, and records the result. Creator or above.",
+				pluginSchema,
+			),
+			creator,
+			project,
+			plugin,
+			async (ctx) => ctx.json(await scanPlugin(...target(ctx))),
 		);
 		router.delete(
 			"/:scope/:name",
