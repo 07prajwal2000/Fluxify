@@ -111,6 +111,7 @@ export const AUDITED: Record<string, string> = {
 	// plugins (#857)
 	"approve-plugin": "modules/plugins/service.ts",
 	"reject-plugin": "modules/plugins/service.ts",
+	"delete-plugin": "modules/plugins/remove.ts",
 	"set-plugin-environments": "modules/plugins/service.ts",
 	// plugin sources (#858): each registration and the two steps of a URL
 	"upload-plugin": "modules/plugins/sources/archive.ts",

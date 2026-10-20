@@ -183,6 +183,13 @@
 			"when": 1792496590999,
 			"tag": "0025_plugin_sources",
 			"breakpoints": true
+		},
+		{
+			"idx": 26,
+			"version": "7",
+			"when": 1792521074650,
+			"tag": "0026_plugin_live",
+			"breakpoints": true
 		}
 	]
 }

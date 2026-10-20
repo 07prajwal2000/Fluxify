@@ -100,3 +100,68 @@ export const installStatusSchema = z.object({
 		}),
 	),
 });
+
+const userRef = z.object({
+	kind: z.enum(["route", "workflow", "custom_block"]),
+	id: z.string(),
+	name: z.string(),
+});
+
+export const usageSchema = z.array(
+	userRef.extend({
+		inWorkingCopy: z.boolean(),
+		inProduction: z.boolean(),
+		nodes: z.array(
+			z.object({
+				type: z.string(),
+				blockId: z.string(),
+				where: z.enum(["working_copy", "production"]),
+				params: z.array(z.string()),
+				handles: z.array(z.string()),
+				invoke: z.string(),
+			}),
+		),
+	}),
+);
+
+const usedBy = z.array(userRef);
+const handlesAndShape = z.object({ handles: z.record(z.string(), z.unknown()), shape: z.string() });
+const versionRef = z.object({ version: z.string(), integrity: z.string() });
+
+export const upgradePreviewSchema = z.object({
+	/** the approved version that loads now; null for a plugin never approved */
+	from: versionRef.nullable(),
+	to: versionRef,
+	diff: z.object({
+		addedBlocks: z.array(z.string()),
+		removedBlocks: z.array(z.object({ block: z.string(), usedBy })),
+		removedParams: z.array(z.object({ block: z.string(), param: z.string(), usedBy })),
+		removedHandles: z.array(z.object({ block: z.string(), handle: z.string(), usedBy })),
+		changedInvoke: z.array(
+			z.object({
+				block: z.string(),
+				removed: z.array(z.string()),
+				added: z.array(z.string()),
+				usedBy,
+			}),
+		),
+		changedHandlesOrShape: z.array(
+			z.object({ block: z.string(), before: handlesAndShape, after: handlesAndShape }),
+		),
+		addedPermissions: z.object({ integrations: z.array(z.string()), appconfig: z.boolean() }),
+		deprecations: z.array(
+			z.object({
+				block: z.string(),
+				param: z.string().optional(),
+				handle: z.string().optional(),
+				message: z.string(),
+				inUse: z.boolean(),
+			}),
+		),
+		/** approving is refused while true */
+		blocking: z.boolean(),
+		blockers: z.array(z.string()),
+	}),
+});
+
+export const removeResponseSchema = z.object({ name: z.string() });

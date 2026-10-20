@@ -15,6 +15,8 @@ let statuses: Record<string, PluginInstallStatus> = {};
 let changes: (PluginChange & { watchedExist: boolean[] })[] = [];
 /** directories that must still exist when the refs change: the old process is still using them */
 let watched: string[] = [];
+/** what the other environment's KV says, for the pruning of a removed plugin */
+let publishedElsewhere = true;
 
 const installer = createPluginInstaller({
 	root,
@@ -24,6 +26,7 @@ const installer = createPluginInstaller({
 	onRefsChanged: async (change) => {
 		changes.push({ ...change, watchedExist: watched.map(existsSync) });
 	},
+	publishedAnywhere: async () => publishedElsewhere,
 });
 
 beforeAll(() => {
@@ -175,9 +178,23 @@ describe("plugin installer (directory source)", () => {
 		await installer.idle();
 		expect(installer.refs()).toEqual([]);
 		expect(statuses[KEY]).toBeUndefined();
-		expect(changes).toEqual([{ projectId: "p1", types: [], watchedExist: [true] }]);
+		expect(changes).toEqual([{ projectId: "p1", types: [], removed: true, watchedExist: [true] }]);
 		// a development and a production worker can share the volume: nothing is deleted under the other
 		expect(existsSync(dir)).toBe(true);
+	});
+
+	it("a plugin neither environment publishes is pruned once the child let go of it", async () => {
+		await publish("echo");
+		const dir = installer.refs()[0]!.entry;
+		changes = [];
+		watched = [dir];
+		publishedElsewhere = false;
+		installer.apply("p1", NAME, null);
+		await installer.idle();
+		// still there while the child was being replaced, gone after
+		expect(changes).toEqual([{ projectId: "p1", types: [], removed: true, watchedExist: [true] }]);
+		expect(existsSync(dir)).toBe(false);
+		expect(existsSync(join(root, "p1", "plugins", ...NAME.split("/")))).toBe(false);
 	});
 });
 

@@ -1412,6 +1412,15 @@ export const pluginStatusEnum = pgEnum("plugin_status", ["ok", "error"]);
 
 /** what a plugin's blocks may reach through `ctx` */
 export type PluginPermissions = { integrations: string[]; appconfig: boolean };
+/** the approved version a pending upgrade replaces: it keeps loading until the upgrade is approved */
+export type PluginLiveVersion = {
+	version: string;
+	integrity: string;
+	source: (typeof PLUGIN_SOURCES)[number];
+	location: string;
+	manifest: FluxifyManifest;
+	permissions: PluginPermissions | null;
+};
 
 /**
  * A project's plugin (#857): the lock entry for the one version it runs. The
@@ -1443,6 +1452,8 @@ export const pluginsEntity = pgTable(
 		approvedAt: timestamp("approved_at"),
 		/** frozen at approval: what the manifest asked for then */
 		permissions: jsonb().$type<PluginPermissions>(),
+		/** set while an upgrade of an approved plugin waits for approval (#860) */
+		live: jsonb().$type<PluginLiveVersion>(),
 		devEnabled: boolean("dev_enabled").default(true).notNull(),
 		prodEnabled: boolean("prod_enabled").default(false).notNull(),
 		status: pluginStatusEnum("status").default("ok").notNull(),

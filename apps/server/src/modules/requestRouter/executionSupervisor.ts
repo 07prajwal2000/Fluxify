@@ -62,6 +62,12 @@ export interface ExecutionSupervisorOptions {
 	timeoutsEnabled: () => boolean;
 	/** Where this node's plugin block code is, read at every spawn. */
 	pluginRefs?: () => PluginBlockRef[];
+	/**
+	 * Upper bound of the random wait before a plugin upgrade or removal replaces
+	 * the child (#860), so workers that see one KV update together do not all
+	 * swap at once. Default 5s.
+	 */
+	pluginReplaceJitterMs?: number;
 }
 
 export interface ExecutionSupervisor {
@@ -86,11 +92,12 @@ export interface ExecutionSupervisor {
 	 */
 	replace(): Promise<void>;
 	/**
-	 * Re-reads `pluginRefs`. A block whose version changed means a `replace()`:
-	 * ESM cannot be unloaded, so the fresh child imports the new version. Anything
-	 * else (a plugin installed or removed) goes to the running child as is.
+	 * Re-reads `pluginRefs`. A block whose version changed, or a plugin removed,
+	 * means a `replace()`: ESM cannot be unloaded, so the fresh child imports the
+	 * new version, or nothing of the removed plugin. A plugin installed goes to
+	 * the running child as is.
 	 */
-	pluginRefsChanged(): Promise<void>;
+	pluginRefsChanged(change?: { removed?: boolean }): Promise<void>;
 }
 
 export function createExecutionSupervisor(
@@ -315,19 +322,23 @@ export function createExecutionSupervisor(
 		start: spawn,
 		replace,
 
-		pluginRefsChanged() {
+		async pluginRefsChanged(change) {
 			const refs = options.pluginRefs?.() ?? [];
 			const upgraded = refs.some((ref) => {
 				const running = refVersions.get(`${ref.projectId}:${ref.type}`);
 				return running !== undefined && running !== ref.version;
 			});
-			// the fresh child reads the whole set at spawn
-			if (upgraded) return replace();
+			// the fresh child reads the whole set at spawn. ponytail: a random wait spreads
+			// the restarts of one KV update; it does not cap how many swap at once, a
+			// cluster-wide lease would if a short window of reduced capacity matters
+			if (upgraded || change?.removed) {
+				await Bun.sleep(Math.random() * (options.pluginReplaceJitterMs ?? 5_000));
+				return replace();
+			}
 			// kept for a block that left: its module is still in the child, so a different
 			// version of it returning (removed, then approved again) is an upgrade too
 			for (const [key, version] of versionsOf(refs)) refVersions.set(key, version);
 			execution?.send({ type: "plugin-refs", refs } satisfies ExecutionMessage);
-			return Promise.resolve();
 		},
 
 		send(message) {

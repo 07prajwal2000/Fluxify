@@ -4,6 +4,7 @@ import { initializeLogger, logger, startup } from "@fluxify/common";
 import type { RpcResponder } from "@fluxify/common/nats";
 import type { NodeType } from "@fluxify/common/orchestrator";
 import { closeNats } from "../src/db/nats";
+import { getArtifact } from "../src/db/natsKv";
 import { canRunConnectors, nodeEntitlement, watchLicense } from "../src/lib/edition";
 import {
 	FLUXIFY_CLAIM_ID,
@@ -21,6 +22,7 @@ import {
 	WORKER_MODE,
 	WORKER_PROJECT_ID,
 } from "../src/lib/env";
+import { ENVIRONMENTS } from "../src/lib/envValues";
 import {
 	beginServerStartup,
 	healthUrl,
@@ -36,7 +38,7 @@ import type {
 	UnsealedProjectConfig,
 	WorkflowArtifact,
 } from "../src/modules/compiler/artifacts";
-import { artifactId, artifactKind } from "../src/modules/compiler/subjects";
+import { artifactId, artifactKind, pluginKey } from "../src/modules/compiler/subjects";
 import { createJobWorker, type JobWorker } from "../src/modules/jobs/consumer";
 import {
 	artifactKindsForMode,
@@ -373,11 +375,15 @@ const deps = createDepsInstaller({
  */
 const plugins = createPluginInstaller({
 	onStatus: (statuses) => node.slot.report({ plugins: statuses }),
-	onRefsChanged: async ({ projectId, types }) => {
-		await supervisor.pluginRefsChanged();
+	onRefsChanged: async ({ projectId, types, removed }) => {
+		await supervisor.pluginRefsChanged({ removed });
 		for (const entry of artifactsCalling(artifacts.values(), projectId, types))
 			supervisor.send({ type: "artifact", entry } satisfies ExecutionMessage);
 	},
+	publishedAnywhere: async (projectId, name) =>
+		(
+			await Promise.all(ENVIRONMENTS.map((env) => getArtifact(pluginKey(projectId, name), env)))
+		).some(Boolean),
 });
 logger.info(
 	FLUXIFY_ENV === "development"
