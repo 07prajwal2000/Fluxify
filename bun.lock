@@ -148,6 +148,7 @@
       },
       "devDependencies": {
         "@fluxify/mcp-math": "workspace:*",
+        "@fluxify/sdk": "workspace:*",
         "@types/bun": "^1.4.0",
         "@types/dockerode": "^4.0.1",
         "@types/flexsearch": "^0.7.42",
@@ -205,6 +206,7 @@
         "@fluxify/adapters": "workspace:*",
         "@fluxify/common": "workspace:*",
         "@fluxify/lib": "workspace:*",
+        "@fluxify/sdk": "workspace:*",
         "dayjs": "^1.11.19",
         "jsonwebtoken": "^9.0.3",
         "zod": "^4.0.17",
@@ -294,6 +296,18 @@
         "@types/bun": "^1.4.0",
         "@types/node": "^24.10.1",
         "@typescript/native-preview": "^7.0.0-dev.20260219.1",
+      },
+    },
+    "packages/sdk": {
+      "name": "@fluxify/sdk",
+      "version": "2026.10.2001",
+      "devDependencies": {
+        "@types/bun": "^1.4.0",
+        "@typescript/native-preview": "^7.0.0-dev.20260219.1",
+        "zod": "^4.0.17",
+      },
+      "peerDependencies": {
+        "zod": "^4.0.0",
       },
     },
     "testing/e2e": {
@@ -643,6 +657,8 @@
     "@fluxify/mcp-math": ["@fluxify/mcp-math@workspace:testing/mcp-math"],
 
     "@fluxify/portal": ["@fluxify/portal@workspace:apps/portal"],
+
+    "@fluxify/sdk": ["@fluxify/sdk@workspace:packages/sdk"],
 
     "@fluxify/server": ["@fluxify/server@workspace:apps/server"],
 

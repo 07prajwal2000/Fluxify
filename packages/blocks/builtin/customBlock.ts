@@ -1,4 +1,5 @@
 import { logger } from "@fluxify/common";
+import { BLOCK_DATA_KEYS, INVOKE_MODES, MODULE_BLOCK_DATA_KEYS } from "@fluxify/sdk";
 import z from "zod";
 import type { BlockOutput, Context } from "../baseBlock";
 import { type HandleSpec, handleSpecSchema } from "../blockHandles";
@@ -11,7 +12,7 @@ import { withCtxSpan } from "./ctxSpan";
 import type { ExecuteHandle } from "./executeHandle";
 
 export const customBlockInvokeSchema = z
-	.enum(["sync", "async", "queued"])
+	.enum(INVOKE_MODES)
 	.default("sync")
 	.describe(
 		"sync waits for the custom block and takes its output; async fires it on this worker and moves on; queued hands it to the job queue for another worker to run",
@@ -345,16 +346,8 @@ export function enqueueCustomBlock(
 	});
 }
 
-/** data keys the engine owns on every library block; the rest of `data` is the block's params */
-const BLOCK_DATA_KEYS = ["blockName", "blockDescription", "invoke", "saveAsVariable"] as const;
-
-/**
- * The data keys the engine owns on a programmable block: the shared ones plus
- * `order`, the canvas branch order of an `allowMultiple` handle. None reaches
- * the block as a param, so a plugin cannot declare a param by these names.
- * A canvas custom block keeps getting `order`: it may be one of its inputs.
- */
-export const MODULE_BLOCK_DATA_KEYS = [...BLOCK_DATA_KEYS, "order"] as const;
+// owned by the SDK, which rejects a plugin param by one of these names
+export { MODULE_BLOCK_DATA_KEYS };
 
 /** the pieces of a call to a library block: mode, then `(ctx, name, args, id)` */
 /**

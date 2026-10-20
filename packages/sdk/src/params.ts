@@ -1,0 +1,175 @@
+import type { ZodType } from "zod";
+
+type Scalar = string | number | boolean;
+
+/**
+ * When a param shows in the settings panel, as data (never an expression): a
+ * param name -> the value (or any of the values) it must hold, or a group.
+ * `block()` checks it against the block's own params.
+ */
+export type VisibleWhenInput =
+	| { readonly all: readonly VisibleWhenInput[] }
+	| { readonly any: readonly VisibleWhenInput[] }
+	| { readonly [param: string]: Scalar | readonly Scalar[] };
+
+type Common<D> = {
+	label?: string;
+	description?: string;
+	/** `run` gets the value (or the run fails before it is called), so its type has no `undefined` */
+	required?: boolean;
+	/** used when the canvas left the param empty, so its type has no `undefined`; not on `js`, `integration` and `schema` params, which only the canvas can fill */
+	default?: D;
+	visibleWhen?: VisibleWhenInput;
+	/** set by `deprecated(...)` */
+	deprecated?: string;
+};
+
+export type JsonValue =
+	| string
+	| number
+	| boolean
+	| null
+	| JsonValue[]
+	| { [key: string]: JsonValue };
+
+/** One condition of a `conditions` param, as the Conditions builder stores it; `js:` sides arrive evaluated. */
+export type Condition =
+	| {
+			lhs?: unknown;
+			rhs?: unknown;
+			operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "js" | "is_empty" | "is_not_empty";
+			js?: unknown;
+			chain: "and" | "or";
+	  }
+	| { group: Condition[]; chain: "and" | "or" };
+
+/**
+ * What a `schema` param arrives as: the zod schema built from the definition
+ * (once per artifact and shared by every request, so a refinement must keep no
+ * per-request state) and the definition itself.
+ */
+export type CompiledSchema = { zod: ZodType; schema: unknown };
+
+export type StringParam = Common<string> & { type: "string" };
+export type NumberParam = Common<number> & { type: "number" };
+export type BooleanParam = Common<boolean> & { type: "boolean" };
+export type SelectParam = Common<string> & { type: "select"; options: readonly string[] };
+type NoDefault = Omit<Common<never>, "default">;
+
+/** a JS expression the compiler evaluates per request; `run` gets the result */
+export type JsParam = NoDefault & { type: "js" };
+export type JsonParam = Common<JsonValue> & { type: "json" };
+/** an integration of `kind` the user picks; `run` gets its id, for `ctx.dbFactory` and the like */
+export type IntegrationParam = NoDefault & { type: "integration"; kind: string };
+/** an app config key the user picks; `run` gets the key, read it with `ctx.vars.getConfig` */
+export type AppConfigParam = Common<string> & { type: "appconfig" };
+export type ConditionsParam = Common<Condition[]> & { type: "conditions" };
+/** a Fluxify schema definition (the schema builder's format), handed to `run` compiled */
+export type SchemaParam = NoDefault & { type: "schema" };
+
+export type Param =
+	| StringParam
+	| NumberParam
+	| BooleanParam
+	| SelectParam
+	| JsParam
+	| JsonParam
+	| IntegrationParam
+	| AppConfigParam
+	| ConditionsParam
+	| SchemaParam;
+
+export type ParamType = Param["type"];
+export type Params = Record<string, Param>;
+
+type Options<T extends ParamType> = Omit<Extract<Param, { type: T }>, "type">;
+
+const builder =
+	<T extends Exclude<ParamType, "select" | "integration">>(type: T) =>
+	// NoInfer: `block()`'s visibleWhen check must not feed back into the options
+	<const O extends Options<T>>(options?: O): { type: T } & NoInfer<O> =>
+		({ ...options, type }) as { type: T } & O;
+
+export const param = {
+	string: builder("string"),
+	number: builder("number"),
+	boolean: builder("boolean"),
+	select: <const V extends string, const O extends Omit<Options<"select">, "options" | "default">>(
+		options: O & { options: readonly V[]; default?: NoInfer<V> },
+	): { type: "select"; options: readonly V[] } & NoInfer<O> => ({ ...options, type: "select" }),
+	js: builder("js"),
+	json: builder("json"),
+	integration: <const O extends Options<"integration">>(
+		options: O,
+	): { type: "integration" } & NoInfer<O> => ({
+		...options,
+		type: "integration",
+	}),
+	appconfig: builder("appconfig"),
+	conditions: builder("conditions"),
+	schema: builder("schema"),
+};
+
+/** The value `run` gets for a param. */
+export type ParamValue<P> = P extends { type: "select"; options: readonly (infer V)[] }
+	? V
+	: P extends { type: "string" | "integration" | "appconfig" }
+		? string
+		: P extends { type: "number" }
+			? number
+			: P extends { type: "boolean" }
+				? boolean
+				: P extends { type: "conditions" }
+					? Condition[]
+					: P extends { type: "schema" }
+						? CompiledSchema
+						: unknown;
+
+type Present<P> = P extends { required: true }
+	? true
+	: P extends { default: unknown }
+		? true
+		: false;
+type Simplify<T> = { [K in keyof T]: T[K] } & {};
+
+/** `run`'s `params`, inferred from the declaration. */
+export type ParamValues<P extends Params> = Simplify<
+	{ -readonly [K in keyof P as Present<P[K]> extends true ? K : never]: ParamValue<P[K]> } & {
+		-readonly [K in keyof P as Present<P[K]> extends true ? never : K]?: ParamValue<P[K]>;
+	}
+>;
+
+/** a value `visibleWhen` can compare a param against; params of other types cannot be compared */
+type Comparable<P> = P extends { type: "select"; options: readonly (infer V)[] }
+	? V
+	: P extends { type: "string" }
+		? string
+		: P extends { type: "number" }
+			? number
+			: P extends { type: "boolean" }
+				? boolean
+				: never;
+
+/** `visibleWhen`, typed against the block's own params. */
+export type VisibleWhen<P extends Params> =
+	| { readonly [K in keyof P]?: Comparable<P[K]> | readonly Comparable<P[K]>[] }
+	| { readonly all: readonly VisibleWhen<P>[] }
+	| { readonly any: readonly VisibleWhen<P>[] };
+
+/**
+ * A declared `visibleWhen` (`W`) as it must be: every key a param of the block
+ * and every value one that param can hold. Checked per key, so an unknown name
+ * is an error rather than a stray extra property.
+ */
+export type CheckWhen<W, P extends Params> = W extends { readonly all: readonly (infer I)[] }
+	? { readonly all: readonly CheckWhen<I, P>[] }
+	: W extends { readonly any: readonly (infer I)[] }
+		? { readonly any: readonly CheckWhen<I, P>[] }
+		: {
+				readonly [K in keyof W]: K extends keyof P
+					? Comparable<P[K]> | readonly Comparable<P[K]>[]
+					: never;
+			};
+
+/** the types `visibleWhen` can compare against */
+export const COMPARABLE_TYPES: readonly ParamType[] = ["select", "string", "number", "boolean"];

@@ -14,6 +14,7 @@ const GATE_FILE = ".github/workflows/tests.yml";
 const GATES: Record<string, { dir: string; jobs: string[] }> = {
 	lib: { dir: "packages/lib", jobs: ["test-packages-lib"] },
 	blocks: { dir: "packages/blocks", jobs: ["test-packages-blocks"] },
+	sdk: { dir: "packages/sdk", jobs: ["test-packages-sdk"] },
 	adapters: { dir: "packages/adapters", jobs: ["test-packages-adapters"] },
 	server: {
 		dir: "apps/server",

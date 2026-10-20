@@ -39,6 +39,7 @@
 		"@fluxify/adapters": "workspace:*",
 		"@fluxify/common": "workspace:*",
 		"@fluxify/lib": "workspace:*",
+		"@fluxify/sdk": "workspace:*",
 		"dayjs": "^1.11.19",
 		"jsonwebtoken": "^9.0.3",
 		"zod": "^4.0.17"

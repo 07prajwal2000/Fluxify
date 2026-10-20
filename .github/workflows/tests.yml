@@ -25,6 +25,7 @@ jobs:
       mcp-math: ${{ steps.filter.outputs.mcp-math == 'true' || inputs.full }}
       ai-gateway: ${{ steps.filter.outputs.ai-gateway == 'true' || inputs.full }}
       portal: ${{ steps.filter.outputs.portal == 'true' || inputs.full }}
+      sdk: ${{ steps.filter.outputs.sdk == 'true' || inputs.full }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -48,6 +49,7 @@ jobs:
               - 'packages/adapters/**'
               - 'packages/common/**'
               - 'packages/lib/**'
+              - 'packages/sdk/**'
               - 'testing/mcp-math/**'
               - '.github/workflows/tests.yml'
             adapters:
@@ -62,6 +64,7 @@ jobs:
               - 'packages/blocks/**'
               - 'packages/common/**'
               - 'packages/lib/**'
+              - 'packages/sdk/**'
               - 'testing/mcp-math/**'
               - '.github/workflows/tests.yml'
             ai-gateway:
@@ -71,6 +74,7 @@ jobs:
               - 'packages/blocks/**'
               - 'packages/common/**'
               - 'packages/lib/**'
+              - 'packages/sdk/**'
               - 'testing/mcp-math/**'
               - '.github/workflows/tests.yml'
             e2e:
@@ -81,7 +85,11 @@ jobs:
               - 'packages/blocks/**'
               - 'packages/common/**'
               - 'packages/lib/**'
+              - 'packages/sdk/**'
               - 'testing/mcp-math/**'
+              - '.github/workflows/tests.yml'
+            sdk:
+              - 'packages/sdk/**'
               - '.github/workflows/tests.yml'
             mcp-math:
               - 'testing/mcp-math/**'
@@ -95,6 +103,7 @@ jobs:
               - 'packages/blocks/**'
               - 'packages/common/**'
               - 'packages/lib/**'
+              - 'packages/sdk/**'
               - 'testing/mcp-math/**'
               - '.github/workflows/tests.yml'
 
@@ -127,6 +136,23 @@ jobs:
         run: echo "MASTER_ENCRYPTION_KEY=$(openssl rand -base64 32)" >> $GITHUB_ENV
       - name: Run Blocks Tests
         run: bun run test:blocks
+
+  test-packages-sdk:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.sdk == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Install Dependencies
+        run: bun install
+      - name: Run SDK Tests
+        run: bun run test:sdk
+      # the npm package must still build, though nothing publishes it yet
+      - name: Build SDK Package
+        run: bun run --cwd packages/sdk build
 
   test-packages-adapters:
     needs: detect-changes
@@ -244,7 +270,7 @@ jobs:
   # to be `success`.
   require-all:
     if: ${{ always() && inputs.full }}
-    needs: [detect-changes, test-packages-lib, test-packages-blocks, test-packages-adapters, test-e2e-graphs, test-testing-mcp-math, test-apps-server-unit, test-apps-server-integration, test-apps-portal, test-apps-ai-gateway]
+    needs: [detect-changes, test-packages-lib, test-packages-blocks, test-packages-sdk, test-packages-adapters, test-e2e-graphs, test-testing-mcp-math, test-apps-server-unit, test-apps-server-integration, test-apps-portal, test-apps-ai-gateway]
     runs-on: ubuntu-latest
     steps:
       - name: Every test job must have succeeded

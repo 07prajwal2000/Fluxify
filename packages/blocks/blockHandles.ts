@@ -1,4 +1,4 @@
-import z from "zod";
+import type { BodyCorner, HandleSpec } from "@fluxify/sdk";
 import { BlockTypes } from "./blockTypes";
 
 /**
@@ -27,50 +27,11 @@ export const BLOCK_OUTPUT_HANDLES: Record<string, readonly string[]> = {
 	[BlockTypes.sticky_note]: [],
 };
 
-/** Where a body handle sits: left corners are above/below the icon, right ones opposite. */
-export type BodyCorner = "top-left" | "top-right" | "bottom-left" | "bottom-right";
-
-/**
- * A block type's handles as plain data (a plugin manifest, `BlockMeta.handles`).
- * Every consumer — compiler, layout, save validation, AI gateway, portal —
- * resolves through the functions below, so none needs the block's code.
- */
-export type HandleSpec = {
-	in: string[];
-	out: [] | ["source"] | ["success", "failure"];
-	body: { name: string; corner: BodyCorner; allowMultiple?: boolean }[];
-};
+// the plain-data handle shapes live in the SDK, the one package plugins see
+export { type BodyCorner, type HandleSpec, handleSpecSchema } from "@fluxify/sdk";
 
 /** Specs by block type, for callers that resolve many blocks; a type not in it is builtin. */
 export type HandleSpecs = Readonly<Record<string, HandleSpec | undefined>>;
-
-// an edge handle id is `<blockId>-<name>`, and readers split on the last `-`
-const handleName = z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "must be a plain identifier");
-
-export const handleSpecSchema = z
-	.object({
-		in: z.array(handleName).default(["target"]),
-		out: z.union([
-			z.tuple([]),
-			z.tuple([z.literal("source")]),
-			z.tuple([z.literal("success"), z.literal("failure")]),
-		]),
-		body: z
-			.array(
-				z.object({
-					name: handleName,
-					corner: z.enum(["top-left", "top-right", "bottom-left", "bottom-right"]),
-					allowMultiple: z.boolean().optional(),
-				}),
-			)
-			.default([]),
-	})
-	.superRefine((spec, ctx) => {
-		const names = [...spec.in, ...spec.out, ...spec.body.map((b) => b.name)];
-		const dupes = names.filter((n, i) => names.indexOf(n) !== i);
-		if (dupes.length)
-			ctx.addIssue({ code: "custom", message: `duplicate handle names: ${[...new Set(dupes)]}` });
-	});
 
 /** Handles for a block type; everything not listed above is a plain `source`. */
 export const getOutputHandles = (blockType: string, spec?: HandleSpec): readonly string[] =>
