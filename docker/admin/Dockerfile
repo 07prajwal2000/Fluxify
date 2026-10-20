@@ -49,6 +49,10 @@
 #   NATS_TOKEN              NATS auth token
 #   ENABLE_AI               "true" to enable the AI assistant (default false)
 #   PROXY_PORT              published port (default 8080)
+#   FLUXIFY_PLUGINS_DIR     folder of built plugins people can add from the
+#                           portal (Plugins, "From a folder"). Mount the same
+#                           folder, read-only, on the workers. Unset: that source
+#                           is off. docker/production mounts it at /plugins.
 #   SEED_USER_EMAIL / SEED_USER_PASSWORD / SEED_USER_NAME
 #                           first admin account created on an empty database
 #

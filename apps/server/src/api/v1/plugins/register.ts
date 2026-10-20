@@ -1,38 +1,19 @@
-import { describeRoute, resolver, validator } from "hono-openapi";
+import { validator } from "hono-openapi";
 import type z from "zod";
 import zodErrorCallbackParser from "../../../middlewares/zodErrorCallbackParser";
 import * as service from "../../../modules/plugins/service";
 import type { HonoContext, HonoServer } from "../../../types";
-import { requireProjectAccess } from "../../auth/middleware";
+import { caller, creator, doc, project, viewer } from "./common";
 import {
 	approveBodySchema,
 	environmentsBodySchema,
 	listResponseSchema,
 	nameParamSchema,
 	pluginSchema,
-	projectQuerySchema,
 } from "./dto";
+import { registerSourceRoutes } from "./sources";
 
-function doc(operationId: string, description: string, schema: z.ZodType) {
-	return describeRoute({
-		description,
-		operationId,
-		tags: ["Plugins"],
-		responses: {
-			200: {
-				description: "Successful",
-				content: { "application/json": { schema: resolver(schema) } },
-			},
-		},
-	});
-}
-
-const caller = (ctx: HonoContext) => ({ user: ctx.get("user") as any, acl: ctx.get("acl") || [] });
-const project = validator("query", projectQuerySchema, zodErrorCallbackParser);
 const plugin = validator("param", nameParamSchema, zodErrorCallbackParser);
-const viewer = requireProjectAccess("viewer", { key: "projectId", source: "query" });
-/** the services check creator themselves too: P2 calls them without HTTP */
-const creator = requireProjectAccess("creator", { key: "projectId", source: "query" });
 
 /** `scope/name` from the path, and the project from the query */
 const target = (ctx: HonoContext) => {
@@ -42,12 +23,14 @@ const target = (ctx: HonoContext) => {
 
 /**
  * A project's plugins (#857): read, approve, reject, and where they run.
- * Installing and upgrading arrive with the sources (P2).
+ * Adding one (#858) is in `sources.ts`.
  */
 export default {
 	name: "plugins",
 	registerHandler(app: HonoServer) {
 		const router = app.basePath("/plugins");
+		// before `/:scope/:name`, which would read `fs/discover` as a plugin
+		registerSourceRoutes(router);
 
 		router.get(
 			"/list",

@@ -101,7 +101,7 @@ export async function registerPluginVersion(projectId: string, version: PluginVe
 	return { plugin: row, changed: true };
 }
 
-function assertCreator(caller: Caller, projectId: string) {
+export function assertCreator(caller: Caller, projectId: string) {
 	if (!hasProjectAccess(caller.user, caller.acl, projectId, "creator")) throw new ForbiddenError();
 }
 

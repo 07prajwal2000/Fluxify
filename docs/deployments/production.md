@@ -343,6 +343,38 @@ anything else falls back to the default of `20`.
 
 ---
 
+## Plugins {#plugins}
+
+A project can add a plugin four ways: upload the `.tgz` that `fluxify-cli` builds,
+pick an exact version from npm, give a link to a `.tgz`, or pick a folder. A plugin
+waits until a creator approves it; nothing runs before that.
+
+- **Uploads and links** are stored in NATS (the same server that holds your
+  compiled routes), so size its storage for the plugins you keep: each upload is
+  limited to 25 MB and 100 MB unpacked. No setting is needed.
+- **Links** only work for hosts an instance admin trusts. Add them under
+  **Instance settings, Plugins, Trusted domains**: a host like `plugins.example.com`,
+  or `*.example.com` for all its subdomains (`example.com` itself needs its own
+  entry). Only `https://` links are accepted. With the list empty, no link can be
+  used. A creator also has to approve each download before Fluxify fetches it.
+- **npm** needs the admin to reach the npm registry and `cdn.jsdelivr.net`. A
+  version must be exact (`@acme/slack@2026.10.2001`), and it follows the
+  project's package release-age rule.
+- **Folders** need a folder of built plugins, one subfolder each. The compose file
+  mounts `PLUGINS_HOST_DIR` (default `./plugins` next to the compose file) read-only
+  at `/plugins` on the admin and the development worker:
+
+```env
+# Host folder with built plugins, one subfolder per plugin.
+PLUGINS_HOST_DIR=./plugins
+```
+
+Workers the orchestrator starts do not mount this folder yet, so a plugin added
+from a folder is not loaded by production workers. Use upload, npm or a link for
+those until that arrives.
+
+---
+
 ## AI assistant traces {#llm-tracing}
 
 Send a trace of every AI assistant run to [Phoenix](https://phoenix.arize.com),

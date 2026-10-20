@@ -49,6 +49,9 @@
 #                           /deps). Mount a volume there to keep installs across
 #                           restarts; without one, a fresh container reinstalls
 #                           from the lockfile before it reports ready.
+#   FLUXIFY_PLUGINS_DIR     folder of built plugins, the same one the admin
+#                           reads (mount it read-only). Unset: plugins added
+#                           from a folder cannot load on this worker.
 #
 # DELIBERATELY NOT USED
 #   PG_URL and every other database setting. This container must never reach

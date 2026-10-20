@@ -112,6 +112,12 @@ export const AUDITED: Record<string, string> = {
 	"approve-plugin": "modules/plugins/service.ts",
 	"reject-plugin": "modules/plugins/service.ts",
 	"set-plugin-environments": "modules/plugins/service.ts",
+	// plugin sources (#858): each registration and the two steps of a URL
+	"upload-plugin": "modules/plugins/sources/archive.ts",
+	"add-npm-plugin": "modules/plugins/sources/archive.ts",
+	"add-fs-plugin": "modules/plugins/sources/archive.ts",
+	"request-plugin-url": "modules/plugins/sources/url.ts",
+	"fetch-plugin-url": "modules/plugins/sources/url.ts",
 	// instance settings
 	"set-license": `${V}/instance-settings/license/service.ts`,
 	"upsert-instance-setting": `${V}/instance-settings/upsert/service.ts`,

@@ -1457,6 +1457,38 @@ export const pluginsEntity = pgTable(
 	(table) => [uniqueIndex("uq_plugins_project_name").on(table.projectId, table.name)],
 );
 
+export const PLUGIN_URL_STATUSES = ["awaiting_fetch", "fetched", "failed"] as const;
+export const pluginUrlStatusEnum = pgEnum("plugin_url_status", PLUGIN_URL_STATUSES);
+
+/**
+ * A tarball URL waiting for a creator to say it may be fetched (#858). Nothing
+ * is known about the plugin until it is downloaded: no name, version or manifest.
+ * That is why this is a table of its own and not a state of `plugins`, whose
+ * rows are keyed by name and carry a manifest. The fetch turns a request into a
+ * pending plugin through the normal registration.
+ */
+export const pluginUrlRequestsEntity = pgTable("plugin_url_requests", {
+	id: varchar({ length: 50 })
+		.primaryKey()
+		.$defaultFn(() => generateID()),
+	projectId: varchar("project_id", { length: 50 })
+		.references(() => projectsEntity.id, { onDelete: "cascade" })
+		.notNull(),
+	url: text().notNull(),
+	status: pluginUrlStatusEnum("status").default("awaiting_fetch").notNull(),
+	requestedBy: varchar("requested_by", { length: 50 }).notNull(),
+	/** who let the fetch happen */
+	fetchedBy: varchar("fetched_by", { length: 50 }),
+	/** the plugin the fetch registered */
+	pluginName: varchar("plugin_name", { length: 214 }),
+	lastError: text("last_error"),
+	createdAt: timestamp("created_at").defaultNow().notNull(),
+	updatedAt: timestamp("updated_at")
+		.defaultNow()
+		.notNull()
+		.$onUpdate(() => new Date()),
+});
+
 // Custom block canvases live in `blocks`/`edges` alongside route canvases —
 // see `modules/canvas`. The old `custom_block_graphs` table is gone.
 
@@ -1469,6 +1501,7 @@ export const instanceSettingCategoryEnum = pgEnum("instance_setting_category", [
 	"featureflags",
 	"orchestration",
 	"hosting",
+	"plugins",
 ]); // add values as new categories appear
 
 export const instanceSettingsEntity = pgTable("instance_settings", {

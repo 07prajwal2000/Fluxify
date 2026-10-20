@@ -6,6 +6,7 @@
  * - `pubsub`  — at-most-once signals. A restarting process misses them.
  * - `queue`   — durable work. Delivered until acked, exactly one consumer.
  * - `kv`      — the current value of something, with replay on connect.
+ * - `objectStore` — files (a plugin tarball): chunked, so not capped by `max_payload` like a KV value.
  * - `rpc`     — request/response, internal only.
  */
 
@@ -14,6 +15,7 @@ export * from "./concurrency";
 export * from "./connection";
 export * from "./errors";
 export * from "./kv";
+export * from "./objectStore";
 export * from "./pubsub";
 export * from "./queue";
 export * from "./replay";

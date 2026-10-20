@@ -196,6 +196,7 @@ Tell the agent to check each point, or check them yourself after it is done.
 | `RECORDING_MAX_AGE_DAYS` | No | Days a recorded run (Execution history) is kept before it is deleted. Default `30`. Read by the admin (or Kit) only. |
 | `AUDIT_LOG_MAX_AGE_DAYS` | No | Days an audit log entry (Enterprise) is kept before it is deleted. Default `30`. Read by the admin (or Kit) only. |
 | `MAX_SANDBOX_PER_USER` | No | How many persistent sandboxes one user may keep in one project. Default `20`; only `1`-`1000` is accepted and anything else falls back to the default. Ephemeral runs (`run_blocks`) are not counted. Read by the admin (or Kit) only. |
+| `FLUXIFY_PLUGINS_DIR` | No | A folder of built plugins (one subfolder each) that people can add from **Plugins** in a project. Mount the same folder, read-only, on the admin and the workers. Unset: that way of adding a plugin is off (upload, npm and URL still work). The Kit sets `/data/plugins`; the production compose file mounts `PLUGINS_HOST_DIR` (default `./plugins`) at `/plugins` on the admin and the development worker. Plugins fetched from a URL also need an instance admin to list the host under **Instance settings, Plugins, Trusted domains**. |
 | `HOSTNAME` | No | The address processes listen on inside the container. Leave `0.0.0.0`. It is **not** your domain. |
 
 On Helm, the chart generates every key and password you leave empty and keeps

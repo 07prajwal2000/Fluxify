@@ -322,6 +322,19 @@ sign in. The JSON lists your public address. If it shows another one, fix
 
 ---
 
+## Plugins {#plugins}
+
+A project can add a plugin by upload, npm, a link to a `.tgz`, or a folder.
+Everything runs inside the one container, so there is nothing to mount: the
+folder source reads `/data/plugins`, which is part of your `fluxify_data` volume.
+Copy a built plugin (a subfolder with its `package.json`, `fluxify.json` and
+`dist/`) there and pick it under **Plugins, From a folder**.
+
+Links only work for hosts an instance admin trusts, under **Instance settings,
+Plugins, Trusted domains**. Every plugin waits for a creator to approve it.
+
+---
+
 ## Upgrading
 
 **Option A:**

@@ -1,5 +1,5 @@
 import z from "zod";
-import { PLUGIN_APPROVALS, PLUGIN_SOURCES } from "../../../db/schema";
+import { PLUGIN_APPROVALS, PLUGIN_SOURCES, PLUGIN_URL_STATUSES } from "../../../db/schema";
 
 export const projectQuerySchema = z.object({ projectId: z.string() });
 /** a plugin's `scope/name`, as two path segments */
@@ -40,3 +40,37 @@ export const pluginSchema = z.object({
 });
 
 export const listResponseSchema = z.array(pluginSchema);
+
+export const npmBodySchema = z.object({
+	/** `name@x.y.z` or `@scope/name@x.y.z`: an exact version, never a range or a tag */
+	spec: z.string().min(1).max(300),
+});
+export const urlBodySchema = z.object({ url: z.string().min(1).max(2000) });
+export const urlParamSchema = z.object({ id: z.string() });
+export const fsBodySchema = z.object({
+	/** a directory name from `GET fs/discover` */
+	path: z.string().min(1).max(255),
+});
+
+export const urlRequestSchema = z.object({
+	id: z.string(),
+	projectId: z.string(),
+	url: z.string(),
+	status: z.enum(PLUGIN_URL_STATUSES),
+	requestedBy: z.string(),
+	fetchedBy: z.string().nullable(),
+	/** the plugin the fetch registered */
+	pluginName: z.string().nullable(),
+	lastError: z.string().nullable(),
+	createdAt: z.coerce.string(),
+	updatedAt: z.coerce.string(),
+});
+
+export const fsCandidatesSchema = z.array(
+	z.object({
+		path: z.string(),
+		name: z.string().optional(),
+		version: z.string().optional(),
+		error: z.string().optional(),
+	}),
+);
