@@ -1,7 +1,7 @@
 import { Spinner } from "@fluxify/components";
 import { Link } from "@tanstack/react-router";
-import { TbBox } from "react-icons/tb";
 import { ApprovalBadge, Badge, StatusBadge } from "@/components/settings/plugins/PluginBadges";
+import { PluginBlockIcon } from "@/components/settings/plugins/pluginBlockIcon";
 import { pluginsQuery } from "@/query/pluginsQuery";
 import { pluginBlockGroups } from "./pluginBlocks";
 
@@ -52,7 +52,7 @@ export function PluginBlocksSection({
 								key={b.name}
 								className="flex items-start gap-3 rounded-lg border border-border bg-surface p-3"
 							>
-								<TbBox size={20} className="mt-0.5 shrink-0 text-muted" />
+								<PluginBlockIcon block={b} />
 								<div className="flex min-w-0 flex-col gap-0.5">
 									<div className="flex items-center gap-2">
 										<span className="truncate text-sm font-medium text-foreground">{b.label}</span>

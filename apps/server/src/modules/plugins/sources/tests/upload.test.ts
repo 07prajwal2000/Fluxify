@@ -7,7 +7,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MAX_TARBALL_BYTES } from "../limits";
 import { keyOf, readAsWorker, sameBytes, setup, short, startStack, stopStack } from "./stack";
-import { pluginFiles, pluginTgz, VERSION } from "./tarball";
+import { entry, manifest } from "../../tests/fixtures";
+import { NAME, pluginFiles, pluginTgz, VERSION } from "./tarball";
 
 let db: Awaited<ReturnType<typeof startStack>>["sql"];
 beforeAll(async () => {
@@ -45,6 +46,21 @@ describe("upload", () => {
 		const stored = await readAsWorker(keyOf(s.project));
 		expect(sameBytes(stored, tgz)).toBe(true);
 		expect(await s.rows()).toHaveLength(1);
+	});
+
+	it("stores a block's icon as a data URL, in the row and in the API", async () => {
+		const s = await setup();
+		const png = new Uint8Array([137, 80, 78, 71]);
+		const tgz = pluginTgz({
+			"fluxify.json": JSON.stringify(manifest(NAME, [entry(`${NAME}/step`, { icon: "icons/step.png" })])),
+			"icons/step.png": png,
+		});
+		const res = await s.upload(tgz);
+		expect(res.status).toBe(200);
+		const url = `data:image/png;base64,${Buffer.from(png).toString("base64")}`;
+		expect(res.body.manifest.blocks[`${NAME}/step`].icon).toBe(url);
+		const [row] = await s.rows();
+		expect(row.manifest.blocks[`${NAME}/step`].icon).toBe(url);
 	});
 
 	it("round-trips a tarball larger than the server's max_payload", async () => {

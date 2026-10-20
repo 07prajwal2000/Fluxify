@@ -124,3 +124,26 @@ test("an upgrade waiting for approval still lists the version that loads", () =>
 	expect(groups.map((g) => g.key)).toEqual(["acme/slack/messages"]);
 	expect(pluginBlockGroups([upgrading()], "nothing like it")).toEqual([]);
 });
+
+test("a plugin block shows its icon, and the default when it has none", async () => {
+	const icon = "data:image/png;base64,AAAA";
+	list.mockResolvedValue([
+		withBlocks([block("acme/slack/messages/post", { icon }), block("acme/slack/messages/list")]),
+	]);
+	render(
+		<QueryClientProvider
+			client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+		>
+			<Harness />
+		</QueryClientProvider>,
+	);
+	await until(() => expect(document.body.textContent).toContain("My block"));
+	await act(async () => void fireEvent.click(document.querySelector('input[type="checkbox"]')!));
+	const section = await until(() => {
+		const el = document.querySelector('[aria-label="Plugin blocks"]')!;
+		expect(el.textContent).toContain("acme/slack/messages");
+		return el;
+	});
+	expect([...section.querySelectorAll("img")].map((i) => i.getAttribute("src"))).toEqual([icon]);
+	expect(section.querySelectorAll("svg").length).toBe(1);
+});
