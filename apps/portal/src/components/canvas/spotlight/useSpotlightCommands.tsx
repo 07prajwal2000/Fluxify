@@ -33,6 +33,8 @@ import { useCanEditProject } from "@/store/auth";
 import type { CanvasAction } from "../actions/useCanvasActions";
 import { type BlockType, blockIcon, pickerBlockCatalogEntries } from "../blocks";
 import { useAddableCustomBlockDefs } from "../blocks/useCustomBlockDefs";
+import { usePluginBlocks } from "../plugins/PluginBlocksContext";
+import { pluginBlockCommands } from "../plugins/pluginSpotlight";
 import { buildResourceCommands } from "./resourceCommands";
 import type { SpotlightCommand } from "./types";
 import { useSpotlightResources } from "./useSpotlightResources";
@@ -85,6 +87,7 @@ export function useSpotlightCommands({
 }: UseSpotlightCommandsOptions): SpotlightCommand[] {
 	const navigate = useNavigate();
 	const customDefs = useAddableCustomBlockDefs();
+	const { defs: pluginDefs } = usePluginBlocks();
 	const { projectId, routes, workflows, customBlocks, sandboxes } = useSpotlightResources();
 	const canEdit = useCanEditProject(projectId);
 
@@ -181,6 +184,8 @@ export function useSpotlightCommands({
 				});
 			}
 		}
+
+		if (onAddBlock) commands.push(...pluginBlockCommands(pluginDefs, onAddBlock, onClose));
 
 		// 3. Navigation (List Pages)
 		if (projectId) {
@@ -459,6 +464,7 @@ export function useSpotlightCommands({
 		onClose,
 		inPlace,
 		customDefs,
+		pluginDefs,
 		projectId,
 		routes,
 		workflows,

@@ -4,6 +4,7 @@ import { handleSide, layoutBand, splitIntoBands } from "./layoutLanes";
 
 export {
 	BODY_HANDLES,
+	type BodyCorner,
 	FAN_OUT_HANDLES,
 	getOutputHandles,
 	HANDLE_SIDE,

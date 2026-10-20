@@ -1,4 +1,4 @@
-import { isFanOutHandle } from "@fluxify/blocks/layout";
+import { type HandleSpec, type HandleSpecs, isFanOutHandle, sideOf } from "@fluxify/blocks/layout";
 import type { XYPosition } from "@xyflow/react";
 import { blockDefinition } from "./blocks/blockCatalog";
 import { HANDLE_CONFIG, type HandleKind, handleId } from "./blocks/handles/handleConfig";
@@ -19,7 +19,7 @@ export type Rect = XYPosition & { width: number; height: number };
 
 /** Where the picked block should connect. */
 export type QuickAddContext =
-	| { kind: "handle"; nodeId: string; handle: HandleKind; at?: XYPosition }
+	| { kind: "handle"; nodeId: string; handle: string; at?: XYPosition }
 	| { kind: "edge"; edgeId: string };
 
 export function nodeRect(node: BlockNode): Rect {
@@ -38,10 +38,16 @@ function overlaps(a: Rect, b: Rect) {
  * Beside `source`, on the side `handle` sits on, one gap away. Success goes a
  * bit up and failure a bit down so the two siblings don't stack. Collisions
  * push the block along the side (down for left/right, right for top/bottom).
+ * `spec` is the source's, when it is a plugin block.
  */
-export function placeBeside(source: Rect, handle: HandleKind, others: Rect[]): XYPosition {
+export function placeBeside(
+	source: Rect,
+	handle: string,
+	others: Rect[],
+	spec?: HandleSpec,
+): XYPosition {
 	const size = { width: source.width, height: source.height };
-	const side = HANDLE_CONFIG[handle].side;
+	const side = sideOf(handle, spec);
 	const shift = handle === "success" ? -1 : handle === "failure" ? 1 : 0;
 	const spot: Rect = { ...size, x: source.x, y: source.y };
 	if (side === "right") spot.x = source.x + source.width + QUICK_ADD_GAP;
@@ -59,25 +65,37 @@ export function placeBeside(source: Rect, handle: HandleKind, others: Rect[]): X
 	return { x: spot.x, y: spot.y };
 }
 
-/** Output kinds of a block type (everything but the inbound socket). */
-function outputs(type: string): HandleKind[] {
-	return blockDefinition(type).handles.filter((kind) => HANDLE_CONFIG[kind].flow === "source");
+/** Output handles of a block type (everything but the inbound socket); a plugin's body handles are not a way on. */
+function outputs(type: string, spec?: HandleSpec): readonly string[] {
+	return spec
+		? spec.out
+		: blockDefinition(type).handles.filter((kind) => HANDLE_CONFIG[kind].flow === "source");
 }
 
 /** The output an inserted block continues through: `source` if it has one. */
-export function continueHandle(type: string): HandleKind | null {
-	const kinds = outputs(type);
+export function continueHandle(type: string, spec?: HandleSpec): string | null {
+	const kinds = outputs(type, spec);
 	return kinds.includes("source") ? "source" : (kinds[0] ?? null);
 }
 
+/** The input a block picked from a handle connects to; none for a trigger. */
+function inputHandle(type: string, spec?: HandleSpec): string | null {
+	if (spec) return spec.in[0] ?? null;
+	return blockDefinition(type).handles.includes("target") ? "target" : null;
+}
+
 /** Only blocks with an input and an output can sit in the middle of an edge. */
-export function canInsertIntoEdge(type: string): boolean {
-	return blockDefinition(type).handles.includes("target") && continueHandle(type) !== null;
+export function canInsertIntoEdge(type: string, spec?: HandleSpec): boolean {
+	return inputHandle(type, spec) !== null && continueHandle(type, spec) !== null;
 }
 
 /** Output handles that may take another edge: empty ones, and fan-out ones always. */
-export function acceptsMore(handle: HandleKind, connections: number) {
-	const max = HANDLE_CONFIG[handle].maxConnections;
+export function acceptsMore(handle: string, connections: number, spec?: HandleSpec) {
+	const max = spec
+		? isFanOutHandle(handle, spec)
+			? null
+			: 1
+		: HANDLE_CONFIG[handle as HandleKind].maxConnections;
 	return max === null || connections < max;
 }
 
@@ -128,6 +146,7 @@ export function quickAdd(
 	edges: BlockEdge[],
 	context: QuickAddContext,
 	node: BlockNode,
+	specs: HandleSpecs = {},
 ): QuickAddResult | null {
 	const deselected = nodes.map((item) => (item.selected ? { ...item, selected: false } : item));
 
@@ -135,12 +154,14 @@ export function quickAdd(
 		const source = nodes.find((item) => item.id === context.nodeId);
 		if (!source) return null;
 		const position =
-			context.at ?? placeBeside(nodeRect(source), context.handle, nodes.map(nodeRect));
+			context.at ??
+			placeBeside(nodeRect(source), context.handle, nodes.map(nodeRect), specs[source.type ?? ""]);
 		const placed = { ...node, position };
 		// No input on the picked block (a trigger) → added, but left unconnected.
+		const input = inputHandle(node.type ?? "", specs[node.type ?? ""]);
 		const link =
-			blockDefinition(node.type ?? "").handles.includes("target") &&
-			edge(source.id, handleId(source.id, context.handle), node.id, handleId(node.id, "target"));
+			input !== null &&
+			edge(source.id, handleId(source.id, context.handle), node.id, handleId(node.id, input));
 		const added = link ? [link] : [];
 		return {
 			nodes: [...deselected, placed],
@@ -154,8 +175,10 @@ export function quickAdd(
 	const old = edges.find((item) => item.id === context.edgeId);
 	const from = old && nodes.find((item) => item.id === old.source);
 	const to = old && nodes.find((item) => item.id === old.target);
-	const out = continueHandle(node.type ?? "");
-	if (!old || !from || !to || !out) return null;
+	const spec = specs[node.type ?? ""];
+	const out = continueHandle(node.type ?? "", spec);
+	const input = inputHandle(node.type ?? "", spec);
+	if (!old || !from || !to || !out || !input) return null;
 
 	const a = nodeRect(from);
 	const b = nodeRect(to);
@@ -167,12 +190,11 @@ export function quickAdd(
 			y: (a.y + a.height / 2 + b.y + b.height / 2) / 2 - size.height / 2,
 		},
 	};
-	const first = edge(from.id, old.sourceHandle ?? "", node.id, handleId(node.id, "target"));
+	const first = edge(from.id, old.sourceHandle ?? "", node.id, handleId(node.id, input));
 	const second = edge(node.id, handleId(node.id, out), to.id, old.targetHandle ?? "");
 
 	// Fan-out blocks key their branches by target id: the new block takes B's slot.
-	// builtin only: the portal gets plugin handle specs with U2 (#863)
-	const fanOut = isFanOutHandle(kindOf(from.id, old.sourceHandle));
+	const fanOut = isFanOutHandle(kindOf(from.id, old.sourceHandle), specs[from.type ?? ""]);
 	const withOrder = deselected.map((item) =>
 		fanOut && item.id === from.id ? { ...item, data: retarget(item.data, to.id, node.id) } : item,
 	);

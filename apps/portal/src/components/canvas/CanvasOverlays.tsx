@@ -5,6 +5,7 @@ import { DiagnosticsPanel } from "./diagnostics";
 import { PlaygroundModal } from "./PlaygroundModal";
 import type { useBlockPanel } from "./panel";
 import { BlockPanel } from "./panel";
+import { usePluginBlocks } from "./plugins/PluginBlocksContext";
 import { canInsertIntoEdge } from "./quickAdd";
 import type { BlockNode } from "./types";
 import type { useAddBlock } from "./useAddBlock";
@@ -46,6 +47,7 @@ export function CanvasOverlays({
 	playgroundContent,
 	trackExecutionContent,
 }: CanvasOverlaysProps) {
+	const { specs } = usePluginBlocks();
 	return (
 		<>
 			{!readOnly && !layoutLocked && enableBlockPicker && (
@@ -53,7 +55,9 @@ export function CanvasOverlays({
 					isOpen={blockPicker.isOpen}
 					onOpenChange={blockPicker.onOpenChange}
 					onAdd={addPickedBlock}
-					filter={pending?.kind === "edge" ? canInsertIntoEdge : undefined}
+					filter={
+						pending?.kind === "edge" ? (type) => canInsertIntoEdge(type, specs[type]) : undefined
+					}
 					filterReason="Needs an input and an output to sit inside a connection."
 				/>
 			)}

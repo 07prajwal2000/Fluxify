@@ -13,8 +13,8 @@ import { Position } from "@xyflow/react";
  */
 // The kinds and the side each one sits on are shared with the layout in
 // @fluxify/blocks, so a socket cannot be drawn on one side and routed to
-// another. Everything below is rendering-only. Builtin kinds only: a plugin
-// type's handles (`sideOf` / `handleCorner` with its spec) render with U2 (#863).
+// another. Everything below is rendering-only. A plugin type's handles borrow
+// these kinds' looks and name themselves (see `plugins/pluginHandles.ts`).
 export type { HandleKind, HandleSide };
 
 export type HandleConfig = {
@@ -96,7 +96,7 @@ export const HANDLE_CONFIG: Record<HandleKind, HandleConfig> = {
 	},
 };
 
-/** Handle id as persisted on edges: `<blockId>-<kind>`. */
-export function handleId(blockId: string, kind: HandleKind) {
+/** Handle id as persisted on edges: `<blockId>-<kind>`, or `-<name>` for a plugin's own handle. */
+export function handleId(blockId: string, kind: string) {
 	return `${blockId}-${kind}`;
 }
