@@ -49,12 +49,15 @@ type SettingsSearch = {
 		| "audit-logs"
 		| "experimental"
 		| "danger";
+	/** the plugin whose page is open on the Plugins tab, as `scope/name` */
+	plugin?: string;
 };
 
 export const Route = createFileRoute("/_authed/$projectId/settings")({
 	validateSearch: (search: Record<string, unknown>): SettingsSearch => {
 		return {
 			tab: typeof search.tab === "string" ? (search.tab as SettingsSearch["tab"]) : undefined,
+			plugin: typeof search.plugin === "string" ? search.plugin : undefined,
 		};
 	},
 	head: createRouteHead(
@@ -208,7 +211,15 @@ function ProjectSettingsPage() {
 						)}
 						{activeTab === "nodes" && <NodesSettings projectId={projectId} />}
 						{activeTab === "packages" && <PackagesSettings projectId={projectId} />}
-						{activeTab === "plugins" && <PluginsSettings projectId={projectId} />}
+						{activeTab === "plugins" && (
+							<PluginsSettings
+								projectId={projectId}
+								selected={search.plugin}
+								onSelect={(plugin) =>
+									navigate({ search: { tab: "plugins", plugin } as any, replace: true })
+								}
+							/>
+						)}
 						{activeTab === "dev-access" && <DevAccessSettings projectId={projectId} />}
 						{activeTab === "members" && <MembersSettings projectId={projectId} />}
 						{activeTab === "audit-logs" && <ProjectAuditSettings projectId={projectId} />}

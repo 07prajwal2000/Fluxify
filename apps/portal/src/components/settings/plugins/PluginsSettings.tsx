@@ -13,12 +13,23 @@ import { PluginRow } from "./PluginRow";
  * status and dev/prod switches, and the way to add one. Creators and above act;
  * everyone else reads. A plugin opens in place, like a package's details.
  */
-export function PluginsSettings({ projectId }: { projectId: string }) {
+export function PluginsSettings({
+	projectId,
+	selected,
+	onSelect,
+}: {
+	projectId: string;
+	/** the open plugin's `scope/name`, when the page keeps it in the URL */
+	selected?: string;
+	onSelect?: (name: string | undefined) => void;
+}) {
 	const { data, isLoading } = pluginsQuery.list.useQuery(projectId);
 	const scanAll = pluginsQuery.scanProject.useMutation(projectId);
 	const editable = useCanEditProject(projectId);
 	const [adding, setAdding] = useState(false);
-	const [opened, setOpened] = useState<string | null>(null);
+	const [local, setLocal] = useState<string>();
+	const opened = onSelect ? selected : local;
+	const setOpened = onSelect ?? setLocal;
 
 	const plugin = data?.find((p) => p.name === opened);
 	if (plugin)
@@ -27,7 +38,7 @@ export function PluginsSettings({ projectId }: { projectId: string }) {
 				projectId={projectId}
 				plugin={plugin}
 				editable={editable}
-				onBack={() => setOpened(null)}
+				onBack={() => setOpened(undefined)}
 			/>
 		);
 
