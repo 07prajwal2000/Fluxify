@@ -76,6 +76,7 @@ export async function init(options: InitOptions) {
 			zod: sdk.zod,
 			cli: `>=${sdk.version}`,
 			typescript: "^5.9.2",
+			bunTypes: "^1.4.0",
 			...options.specs,
 		}),
 		"tsconfig.json": TSCONFIG,

@@ -1,5 +1,5 @@
-import { createHash } from "node:crypto";
-import { DEFAULT_IDLE_TIMEOUT_MS, LeasedResources, type ResourceLease } from "@fluxify/lib";
+import { DEFAULT_IDLE_TIMEOUT_MS, LeasedResources } from "@fluxify/lib";
+import { leasePool } from "@fluxify/sdk/runtime";
 import type { Context } from "../baseBlock";
 
 /**
@@ -16,61 +16,13 @@ export const closeCtxPools = () => pooled.close();
 
 export const ctxPoolStats = () => pooled.getStats();
 
-/** object keys sorted, so equal config in a different key order is the same client */
-const sortKeys = (_name: string, value: unknown) =>
-	value && typeof value === "object" && !Array.isArray(value)
-		? Object.fromEntries(Object.entries(value).sort(([a], [b]) => (a < b ? -1 : 1)))
-		: value;
-
-/** hashed, so a secret in the key is never retained or logged */
-const fingerprint = (key: unknown) =>
-	createHash("sha256")
-		.update(JSON.stringify(key ?? null, sortKeys))
-		.digest("hex");
-
 /**
- * `ctx.pool` for a programmable block's `run`. Each call takes a lease that
- * `release()` drops when `run` settles, so a client never closes under a run.
- *
- * A call after `run` settled (a late `executeHandle` chain) holds its lease only
- * while `create` resolves: the run's lifetime is a bare flag with no end event,
- * so there is nothing to hold it to. A plugin must not keep using a pooled
- * client from a late call, and should call `ctx.pool` again each time.
+ * `ctx.pool` for a programmable block's `run`; `release()` drops its leases when
+ * `run` settles. The lease rules are the SDK's (`leasePool`), shared with the
+ * test harness: a plugin must not keep using a pooled client from a late call,
+ * and should call `ctx.pool` again each time.
  */
 export function withCtxPool(ctx: Context, type: string) {
-	const leases: ResourceLease<Promise<unknown>>[] = [];
-	let settled = false;
-	const pool: NonNullable<Context["pool"]> = async (kind, key, options) => {
-		const slot = [ctx.projectId, type, kind, fingerprint(key)].join("\0");
-		const lease = pooled.acquire(slot, "", {
-			create: async () => options.create(key),
-			destroy: async (client) => {
-				let value: any;
-				try {
-					value = await client;
-				} catch {
-					return; // create failed, nothing to close
-				}
-				await options.destroy?.(value);
-			},
-			idleMs: options.idleMs,
-		});
-		const late = settled;
-		if (!late) leases.push(lease);
-		try {
-			return (await lease.value) as any;
-		} catch (error) {
-			lease.discard(); // not cached: the next call retries
-			throw error;
-		} finally {
-			if (late) lease.release();
-		}
-	};
-	return {
-		ctx: { ...ctx, pool },
-		release() {
-			settled = true;
-			for (const lease of leases) lease.release();
-		},
-	};
+	const { pool, release } = leasePool(pooled, [ctx.projectId, type]);
+	return { ctx: { ...ctx, pool }, release };
 }

@@ -12,9 +12,12 @@
 	},
 	"exports": {
 		".": "./index.ts",
-		"./blocks": "./blocks.ts"
+		"./blocks": "./blocks.ts",
+		"./runtime": "./runtime.ts",
+		"./testing": "./testing.ts",
+		"./conformance": "./tests/conformance.ts"
 	},
-	"//": "The workspace consumes the TS source. `bun run build` writes the npm package to dist/ (its own package.json pointing at the built files); pack and publish from there.",
+	"//": "The workspace consumes the TS source. `bun run build` writes the npm package to dist/ (its own package.json pointing at the built files); pack and publish from there. `./conformance` is workspace-only: the shared runner contract suite, never published.",
 	"scripts": {
 		"build": "bun run scripts/build.ts",
 		"pack": "bun run build && cd dist && bun pm pack",

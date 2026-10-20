@@ -1,10 +1,10 @@
+import { invokeError } from "@fluxify/sdk/runtime";
 import type { Context } from "../baseBlock";
 import type { HandleSpecs } from "../blockHandles";
 import type { EmitNode } from "../compiler";
 import {
 	type BlockMeta,
 	type CustomBlockArgs,
-	customBlockInvokeSchema,
 	emitBlockCall,
 	emitCustomBlock,
 	lookupBlock,
@@ -52,23 +52,13 @@ export async function invokeRouted(
 }
 
 function assertInvokable(node: EmitNode, meta: BlockMeta, mode: string, outs: readonly string[]) {
-	const label = `Block ${node.block.id} (${node.block.type})`;
-	const allowed: readonly string[] =
-		// read at call time: customBlock -> compiler -> this module is an import cycle
-		meta.invoke ?? customBlockInvokeSchema.unwrap().options;
-	if (!allowed.includes(mode))
-		throw new Error(`${label} cannot be invoked ${mode}; allowed: ${allowed.join(", ")}`);
-	// the caller never learns the outcome, so there is no branch to take
-	if (mode !== "sync" && outs.length === 2)
-		throw new Error(
-			`${label} has success/failure outputs, so it must be invoked sync, not ${mode}`,
-		);
-	if (!outs.length && node.has("source"))
-		throw new Error(`${label} is terminal but has an outgoing edge`);
-	// only a sync call has a run to hand `executeHandle` to
-	const bodies = new Set(meta.handles?.body.map((b) => b.name));
-	if (mode !== "sync" && node.edgesFrom().some((e) => bodies.has(e.handle)))
-		throw new Error(`${label} has wired body handles, so it must be invoked sync, not ${mode}`);
+	const body = meta.handles?.body.map((b) => b.name) ?? [];
+	const error = invokeError(
+		mode,
+		{ invoke: meta.invoke, out: outs, body },
+		{ source: node.has("source"), body: node.edgesFrom().map((e) => e.handle) },
+	);
+	if (error) throw new Error(`Block ${node.block.id} (${node.block.type}) ${error}`);
 }
 
 /** a programmable block: checks its invoke mode, then leaves by the handle `run` returned */
@@ -81,25 +71,18 @@ export function emitModuleBlock(node: EmitNode, meta: BlockMeta) {
 
 	const r = node.v("r");
 	const handles = node.v("handles");
-	const branching = outs.length === 2;
-	const error = `(${r}.error instanceof Error ? ${r}.error : new Error(String(${r}.error)))`;
-	// a throw goes to `failure` when wired, otherwise fails the run like a builtin
-	const onError =
-		branching && node.has("failure")
-			? `${node.in} = ${error}.message;\n${node.next("failure")}`
-			: `throw ${error};`;
-	const expected = outs.length ? outs.join(", ") : "none (terminal block)";
-	const unknown = `Block ${node.block.type} returned unknown handle '`;
-	const route = branching
-		? `if (${r}.handle === "failure") {\n${node.next("failure")}\n}\n${node.next("success")}`
-		: node.next();
-	return `const ${handles} = ${emitBodyHandles(node, meta)};
-const ${r} = await lib.invokeRouted${call.slice(0, -1)}, ${handles});
-if (!${r}.successful) {
-${onError}
+	// a throw goes to `failure` when wired, otherwise fails the run like a builtin (`lib.routeResult`)
+	const routed = `lib.routeResult(${JSON.stringify(node.block.type)}, ${JSON.stringify(outs)}, ${r}, ${node.has("failure")})`;
+	const route =
+		outs.length === 2
+			? `if (${r}.handle === "failure") {
+${node.next("failure")}
 }
-if (${r}.handle !== undefined && !${JSON.stringify(outs)}.includes(${r}.handle))
-throw new Error(${JSON.stringify(unknown)} + ${r}.handle + ${JSON.stringify(`'; expected: ${expected}`)});
+${node.next("success")}`
+			: node.next();
+	return `const ${handles} = ${emitBodyHandles(node, meta)};
+let ${r} = await lib.invokeRouted${call.slice(0, -1)}, ${handles});
+${r} = ${routed};
 ${node.in} = ${r}.output;
 ${route}`;
 }

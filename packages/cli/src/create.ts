@@ -1,10 +1,10 @@
 import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { manifestEntrySchema } from "@fluxify/sdk/blocks";
 import { fail, findPluginRoot, readPlugin } from "./plugin";
-import { exampleBlock } from "./templates";
+import { exampleBlock, exampleTest } from "./templates";
 
-/** Adds `src/blocks/<name>.ts` to the plugin around `cwd`. Returns the file written. */
+/** Adds `src/blocks/<name>.ts` and its test to the plugin around `cwd`. Returns the files written. */
 export async function create(options: {
 	cwd: string;
 	name: string;
@@ -19,7 +19,10 @@ export async function create(options: {
 		return fail(`'${options.name}' is not a block name: ${valid.error.issues[0].message}`);
 
 	const file = `src/blocks/${options.name}.ts`;
-	if (existsSync(join(root, file))) return fail(`${file} already exists`);
+	const test = `src/blocks/${options.name}.test.ts`;
+	const taken = [file, test].find((f) => existsSync(join(root, f)));
+	if (taken) return fail(`${taken} already exists`);
 	await Bun.write(join(root, file), exampleBlock(type));
-	return { root, files: [file] };
+	await Bun.write(join(root, test), exampleTest(basename(options.name)));
+	return { root, files: [file, test] };
 }

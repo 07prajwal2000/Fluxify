@@ -37,14 +37,14 @@ describe("init", () => {
 			name: "@acme/slack",
 			version: "0.1.0",
 			type: "module",
-			scripts: { build: "fluxify-cli blocks build" },
+			scripts: { build: "fluxify-cli blocks build", test: "bun test" },
 		});
 		// the same schema the registry reads `fluxify.json` with
 		expect(pkg.fluxify).toEqual({ name: "acme/slack", url: "https://example.com/slack" });
 		expect(fluxifyManifestSchema.shape.name.safeParse(pkg.fluxify.name).success).toBe(true);
 		expect(fluxifyManifestSchema.shape.url.safeParse(pkg.fluxify.url).success).toBe(true);
 		expect(Object.keys(pkg.dependencies).sort()).toEqual(["@fluxify/sdk", "zod"]);
-		expect(Object.keys(pkg.devDependencies).sort()).toEqual(["@fluxify/cli", "typescript"]);
+		expect(Object.keys(pkg.devDependencies).sort()).toEqual(["@fluxify/cli", "@types/bun", "typescript"]);
 		expect(await read(root, ".gitignore")).toContain("fluxify.json");
 		expect(await read(root, "README.md")).toContain("https://example.com/slack");
 		expect(existsSync(join(root, "bun.lock"))).toBe(false);
@@ -132,6 +132,10 @@ describe("init", () => {
 		expect(warnings).toEqual([]);
 		expect(tarball).toBe("acme-slack-0.1.0.tgz");
 		expect(Object.keys(manifest.blocks)).toEqual(["acme/slack/post"]);
+		// the scaffolded test passes out of the box, against the harness
+		const test = Bun.spawnSync([process.execPath, "test"], { cwd: root, env: { ...process.env, NODE_ENV: "test" } });
+		expect(`${test.stderr}`).toContain("2 pass");
+		expect(test.exitCode).toBe(0);
 	}, 180_000);
 });
 
@@ -177,7 +181,8 @@ describe("blocks create", () => {
 	it("adds a block under src/blocks, folders included, from any subfolder", async () => {
 		const root = await makePlugin({ "bun.lock": null });
 		const { files } = await create({ cwd: join(root, "src"), name: "messages/post" });
-		expect(files).toEqual(["src/blocks/messages/post.ts"]);
+		expect(files).toEqual(["src/blocks/messages/post.ts", "src/blocks/messages/post.test.ts"]);
+		expect(await read(root, "src/blocks/messages/post.test.ts")).toContain('import block from "./post"');
 		expect(await read(root, "src/blocks/messages/post.ts")).toContain(
 			'name: "acme/t/messages/post"',
 		);

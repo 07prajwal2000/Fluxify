@@ -44,6 +44,7 @@ jobs:
             lib:
               - 'packages/common/**'
               - 'packages/lib/**'
+              - 'packages/sdk/**'
               - '.github/workflows/tests.yml'
             blocks:
               - 'packages/blocks/**'
@@ -57,6 +58,7 @@ jobs:
               - 'packages/adapters/**'
               - 'packages/common/**'
               - 'packages/lib/**'
+              - 'packages/sdk/**'
               - 'testing/mcp-math/**'
               - '.github/workflows/tests.yml'
             server:

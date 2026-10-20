@@ -25,7 +25,13 @@ export const TSCONFIG = `${JSON.stringify(
 	2,
 )}\n`;
 
-export type PackageSpecs = { sdk: string; zod: string; cli: string | null; typescript: string };
+export type PackageSpecs = {
+	sdk: string;
+	zod: string;
+	cli: string | null;
+	typescript: string;
+	bunTypes: string;
+};
 
 /**
  * The npm name is `@scope/name`: valid for any Fluxify plugin name, and the
@@ -41,10 +47,11 @@ export const packageJson = (name: string, url: string, specs: PackageSpecs) =>
 			type: "module",
 			fluxify: { name, url },
 			files: ["dist", "icons", "fluxify.json"],
-			scripts: { build: "fluxify-cli blocks build" },
+			scripts: { build: "fluxify-cli blocks build", test: "bun test" },
 			dependencies: { "@fluxify/sdk": specs.sdk, zod: specs.zod },
 			devDependencies: {
 				...(specs.cli && { "@fluxify/cli": specs.cli }),
+				"@types/bun": specs.bunTypes,
 				typescript: specs.typescript,
 			},
 		},
@@ -62,9 +69,18 @@ Blocks for Fluxify. Source and docs: ${url}
 bunx fluxify-cli blocks create <name>
 \`\`\`
 
-This writes \`src/blocks/<name>.ts\`. A block is a file there that default-exports
+This writes \`src/blocks/<name>.ts\` and a test next to it, \`<name>.test.ts\`. A block is a file there that default-exports
 \`block({...})\`, and its type is \`${name}/<path>\`: \`src/blocks/messages/post.ts\` is
 \`${name}/messages/post\`.
+
+## Test
+
+\`\`\`sh
+bun test
+\`\`\`
+
+\`runBlock\` from \`@fluxify/sdk/testing\` runs one block the way Fluxify would, with no
+server: stub its body handles and \`ctx\` (HTTP, databases and app config must be stubbed).
 
 ## Build
 
@@ -100,5 +116,23 @@ Returns the greeting on the \\\`source\\\` handle.\`,
 	async run({ params }) {
 		return { output: \`Hello, \${params.who}!\` };
 	},
+});
+`;
+
+/** `blocks create`'s test for the example block, next to it */
+export const exampleTest = (file: string) => `import { expect, it } from "bun:test";
+import { runBlock } from "@fluxify/sdk/testing";
+import block from "./${file}";
+
+it("greets by name", async () => {
+	const r = await runBlock(block, { params: { who: "Ada" } });
+	expect(r.error).toBeUndefined();
+	expect(r.handle).toBe("source");
+	expect(r.output).toBe("Hello, Ada!");
+});
+
+it("needs a name", async () => {
+	const r = await runBlock(block, { params: {} as never });
+	expect(r.error?.message).toBe("param 'who' is required");
 });
 `;

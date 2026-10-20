@@ -1,3 +1,4 @@
+import { routeResult } from "@fluxify/sdk/runtime";
 import dayjs from "dayjs";
 import { BlockTypes } from "./blockTypes";
 import { emitArrayOps } from "./builtin/arrayOperations";
@@ -131,6 +132,7 @@ export const compilerLib = {
 	enqueue: enqueueCustomBlock,
 	compileSchema,
 	invokeRouted,
+	routeResult,
 	bodyHandles,
 	fireWorkflow,
 	scheduleWorkflow,
