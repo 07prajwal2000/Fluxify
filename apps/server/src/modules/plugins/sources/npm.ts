@@ -1,6 +1,7 @@
 import { BadRequestError } from "../../../errors/badRequestError";
+import { REGISTRY } from "../../packages/registryUrl";
 import { assertPackageName } from "../../packages/resolver";
-import { minReleaseAgeDays, REGISTRY } from "../../packages/service";
+import { minReleaseAgeDays } from "../../packages/service";
 import { assertCreator, type Caller } from "../service";
 import { registerSourced } from "./archive";
 import { readCapped } from "./download";

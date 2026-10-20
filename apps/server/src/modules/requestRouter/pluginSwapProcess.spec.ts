@@ -74,3 +74,20 @@ test("a plugin upgrade replaces the child exactly once, and the new code answers
 		spawn.mockRestore();
 	}
 }, 20_000);
+
+test("a block that left and returns at another version still replaces the child", async () => {
+	const spawn = spyOn(Bun, "spawn");
+	try {
+		// an approved plugin goes back to pending on a new upload, and is approved again
+		refs = [];
+		await supervisor.pluginRefsChanged();
+		expect(spawn).not.toHaveBeenCalled();
+
+		refs = [version("3.0.0")];
+		await supervisor.pluginRefsChanged();
+		expect(await answers("3.0.0")).toBe("3.0.0");
+		expect(spawn).toHaveBeenCalledTimes(1);
+	} finally {
+		spawn.mockRestore();
+	}
+}, 20_000);

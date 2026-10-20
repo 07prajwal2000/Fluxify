@@ -4,8 +4,7 @@ import { BadRequestError } from "../../../errors/badRequestError";
 import { assertCreator, type Caller } from "../service";
 import { registerSourced } from "./archive";
 import { hashFiles } from "./integrity";
-import { MAX_ENTRIES, MAX_UNPACKED_BYTES } from "./limits";
-import type { PluginFiles } from "./tar";
+import { pluginsRoot, readTree, SKIPPED } from "./tree";
 import { validatePlugin } from "./validate";
 
 /**
@@ -15,11 +14,6 @@ import { validatePlugin } from "./validate";
  * `fluxify.json`; registering walks the directory and applies the same checks
  * as a tarball. Nothing is imported.
  */
-export const pluginsRoot = () => process.env.FLUXIFY_PLUGINS_DIR || undefined;
-
-/** not part of a plugin: dependencies are installed from `bun.lock`, and `.git` is history */
-const SKIPPED = new Set(["node_modules", ".git"]);
-
 export type FsCandidate = { path: string; name?: string; version?: string; error?: string };
 
 function root() {
@@ -68,34 +62,6 @@ export async function discoverFsPlugins(): Promise<FsCandidate[]> {
 		}
 	}
 	return found;
-}
-
-/** every file below `dir` as a relative posix path, within the same caps as a tarball */
-async function readTree(dir: string) {
-	const files: PluginFiles = new Map();
-	let bytes = 0;
-	const walk = async (relative: string) => {
-		for (const entry of await readdir(join(dir, relative), { withFileTypes: true })) {
-			if (SKIPPED.has(entry.name)) continue;
-			const path = relative ? `${relative}/${entry.name}` : entry.name;
-			if (entry.isDirectory()) await walk(path);
-			else if (!entry.isFile())
-				throw new BadRequestError(
-					`'${path}' is a link or special file; plugins ship plain files only`,
-				);
-			else {
-				const content = await Bun.file(join(dir, path)).bytes();
-				bytes += content.length;
-				if (files.size >= MAX_ENTRIES || bytes > MAX_UNPACKED_BYTES)
-					throw new BadRequestError(
-						`The plugin is over the size limit (${MAX_ENTRIES} files, ${MAX_UNPACKED_BYTES / 1024 / 1024} MB)`,
-					);
-				files.set(path, content);
-			}
-		}
-	};
-	await walk("");
-	return files;
 }
 
 /** registers one directory from the listing, so a path can never leave the plugins directory */

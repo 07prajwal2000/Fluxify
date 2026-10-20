@@ -74,3 +74,29 @@ export const fsCandidatesSchema = z.array(
 		error: z.string().optional(),
 	}),
 );
+
+const installStateSchema = z.object({
+	version: z.string(),
+	integrity: z.string(),
+	state: z.enum(["installing", "ready", "error"]),
+	error: z.string().optional(),
+	failedImports: z.array(z.object({ name: z.string(), error: z.string() })).optional(),
+});
+
+export const installStatusSchema = z.object({
+	version: z.string(),
+	integrity: z.string(),
+	/** every live node in an environment the plugin is enabled in has installed this version */
+	done: z.boolean(),
+	/** a node failed to install this version; the plugin's status and last error say which */
+	failed: z.boolean(),
+	nodes: z.array(
+		z.object({
+			nodeId: z.string(),
+			type: z.string(),
+			env: z.string(),
+			/** null until the node reports */
+			status: installStateSchema.nullable(),
+		}),
+	),
+});

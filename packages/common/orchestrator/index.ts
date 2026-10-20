@@ -176,6 +176,8 @@ export interface NodeHeartbeat {
 	at: string;
 	/** Per project, how far this node got installing its npm packages (#477). */
 	deps?: Record<string, DepsInstallStatus>;
+	/** Per plugin (`pluginStatusKey`), how far this node got installing it (#859). */
+	plugins?: Record<string, PluginInstallStatus>;
 	/**
 	 * The environment this node serves (#732). A development node holds no
 	 * license slot. Absent on a node from before environments: production.
@@ -189,6 +191,20 @@ export interface DepsInstallStatus {
 	/** why the install itself failed */
 	error?: string;
 	/** installed, but these packages would not load (e.g. a native build step) */
+	failedImports?: { name: string; error: string }[];
+}
+
+/** A plugin's entry in `NodeHeartbeat.plugins`: `<projectId>/<scope>/<name>`. */
+export const pluginStatusKey = (projectId: string, name: string) => `${projectId}/${name}`;
+
+export interface PluginInstallStatus {
+	version: string;
+	/** the integrity this node installed (or tried to), so a stale report is not mistaken for a current one */
+	integrity: string;
+	state: "installing" | "ready" | "error";
+	/** why the plugin did not install: a mismatching hash, a missing file, a failed dependency install */
+	error?: string;
+	/** installed, but these dependencies would not load */
 	failedImports?: { name: string; error: string }[];
 }
 

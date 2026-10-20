@@ -59,6 +59,7 @@ describe("worker modes", () => {
 			"project-config",
 			"trigger",
 			"deps",
+			"plugin",
 			"sandbox",
 			"sandbox-workflow",
 		]);
@@ -67,9 +68,10 @@ describe("worker modes", () => {
 		expect(artifactKindsForMode("route")).not.toContain("sandbox-workflow");
 		expect(artifactKindsForMode("workflow")).toContain("sandbox-workflow");
 		expect(artifactKindsForMode("workflow")).not.toContain("sandbox");
-		// every mode runs user code, so every mode installs its packages
+		// every mode runs user code, so every mode installs its packages and plugins
 		for (const mode of ["route", "workflow", "both"]) {
 			expect(artifactKindsForMode(mode)).toContain("deps");
+			expect(artifactKindsForMode(mode)).toContain("plugin");
 		}
 		// a route-only worker runs no workflows, so a trigger it could not act on
 		// is just memory

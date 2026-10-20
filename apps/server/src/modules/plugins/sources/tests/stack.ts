@@ -156,6 +156,8 @@ export async function setup() {
 		},
 		post: (path: string, body: unknown, role?: string) =>
 			call({ ...as, role }, "POST", `${path}?${q}`, body),
+		put: (path: string, body: unknown, role?: string) =>
+			call({ ...as, role }, "PUT", `${path}?${q}`, body),
 		get: (path: string, role?: string) => call({ ...as, role }, "GET", `${path}?${q}`),
 		rows: () => sql`SELECT * FROM plugins WHERE project_id = ${project}`,
 	};

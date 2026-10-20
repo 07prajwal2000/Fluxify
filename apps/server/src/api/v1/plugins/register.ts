@@ -1,12 +1,14 @@
 import { validator } from "hono-openapi";
 import type z from "zod";
 import zodErrorCallbackParser from "../../../middlewares/zodErrorCallbackParser";
+import { pluginInstallStatus } from "../../../modules/plugins/installStatus";
 import * as service from "../../../modules/plugins/service";
 import type { HonoContext, HonoServer } from "../../../types";
 import { caller, creator, doc, project, viewer } from "./common";
 import {
 	approveBodySchema,
 	environmentsBodySchema,
+	installStatusSchema,
 	listResponseSchema,
 	nameParamSchema,
 	pluginSchema,
@@ -50,6 +52,18 @@ export default {
 			project,
 			plugin,
 			async (ctx) => ctx.json(await service.getPlugin(...target(ctx))),
+		);
+		router.get(
+			"/:scope/:name/install-status",
+			doc(
+				"get-plugin-install-status",
+				"How far each worker got installing the plugin; an error on any worker is recorded as the plugin's status",
+				installStatusSchema,
+			),
+			viewer,
+			project,
+			plugin,
+			async (ctx) => ctx.json(await pluginInstallStatus(...target(ctx))),
 		);
 		router.post(
 			"/:scope/:name/approve",

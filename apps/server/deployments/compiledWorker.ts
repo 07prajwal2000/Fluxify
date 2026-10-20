@@ -31,6 +31,7 @@ import {
 import { configuredBaseDomain, watchInstanceSettings } from "../src/loaders/instanceSettingsLoader";
 import type {
 	DepsArtifact,
+	PluginArtifact,
 	TriggerArtifact,
 	UnsealedProjectConfig,
 	WorkflowArtifact,
@@ -45,6 +46,7 @@ import {
 } from "../src/modules/jobs/subjects";
 import { attachNode } from "../src/modules/orchestrator/node";
 import { createDepsInstaller } from "../src/modules/packages/installer";
+import { artifactsCalling, createPluginInstaller } from "../src/modules/plugins/install/installer";
 import { watchProjectArtifacts } from "../src/modules/requestRouter/artifactHost";
 import { asyncExecutorLimitsFromEnv, drainChild } from "../src/modules/requestRouter/asyncExecutor";
 import type { ArtifactEntry } from "../src/modules/requestRouter/compiledRuntime";
@@ -176,6 +178,7 @@ const supervisor = createExecutionSupervisor({
 	debugKey: routeDebugKey(getEnv("MASTER_ENCRYPTION_KEY")),
 	env: FLUXIFY_ENV,
 	timeoutsEnabled: timeoutPolicyEnabled,
+	pluginRefs: () => plugins.refs(),
 });
 
 function handleArtifactChange(entry: ArtifactEntry) {
@@ -183,6 +186,14 @@ function handleArtifactChange(entry: ArtifactEntry) {
 	// installed here, never forwarded: the child only sees the result (#477)
 	if (kind === "deps") {
 		return deps.apply(entry.key.split(".")[1]!, entry.value as DepsArtifact | null);
+	}
+	// plugins (#859) are the same: the child is handed where their blocks are
+	if (kind === "plugin") {
+		return plugins.apply(
+			entry.key.split(".")[1]!,
+			artifactId(entry.key),
+			entry.value as PluginArtifact | null,
+		);
 	}
 	const policyChanged = kind === "project-config";
 	if (entry.value === null) artifacts.delete(entry.key);
@@ -355,6 +366,19 @@ const deps = createDepsInstaller({
 	onStatus: (statuses) => node.slot.report({ deps: statuses }),
 	onInstalled: () => (supervisor.child() ? supervisor.replace() : Promise.resolve()),
 });
+/**
+ * Plugins (#859): installed beside the child; a new version replaces it, a new
+ * plugin is forwarded to it. Routes that called its blocks before it was
+ * installed are applied again, because the child could not load them then.
+ */
+const plugins = createPluginInstaller({
+	onStatus: (statuses) => node.slot.report({ plugins: statuses }),
+	onRefsChanged: async ({ projectId, types }) => {
+		await supervisor.pluginRefsChanged();
+		for (const entry of artifactsCalling(artifacts.values(), projectId, types))
+			supervisor.send({ type: "artifact", entry } satisfies ExecutionMessage);
+	},
+});
 logger.info(
 	FLUXIFY_ENV === "development"
 		? `node ${node.slot.nodeId} is a development worker — no license slot, serves every project`
@@ -418,7 +442,7 @@ const artifactWatch = await watchProjectArtifacts(
 await artifactWatch.initialized;
 subsystemConnected("Artifact KV");
 // a fresh node installs every project's packages before it serves anything
-await deps.idle();
+await Promise.all([deps.idle(), plugins.idle()]);
 
 supervisor.start();
 supervisor.synchronizeMonitoring();
