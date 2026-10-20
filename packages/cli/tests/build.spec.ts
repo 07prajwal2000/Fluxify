@@ -40,6 +40,11 @@ describe("blocks build", () => {
 			]),
 		);
 		expect(names.filter((n) => /^src\/|node_modules/.test(n))).toEqual([]);
+		// the shipped lockfile is the author's, byte for byte, not an empty file
+		const shipped = (await new Bun.Archive(await Bun.file(join(root, tarball)).bytes()).files()).get(
+			"package/bun.lock",
+		);
+		expect(await shipped?.text()).toBe(LOCK);
 	});
 
 	it("keeps npm packages external and shares code between blocks as chunks", async () => {

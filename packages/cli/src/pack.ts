@@ -18,7 +18,9 @@ export async function pack(plugin: Plugin, manifest: FluxifyManifest): Promise<s
 	const entries = await new Bun.Archive(await Bun.file(path).bytes()).files();
 	// bun never packs a lockfile, and the worker's install is frozen from this one
 	const lock = Bun.file(join(plugin.root, "bun.lock"));
-	if (await lock.exists()) entries.set("package/bun.lock", lock as unknown as File);
+	// its bytes, not the lazy BunFile: Bun.Archive writes a BunFile as 0 bytes
+	if (await lock.exists())
+		entries.set("package/bun.lock", new File([await lock.bytes()], "bun.lock"));
 	const names = [...entries.keys()].map((n) => n.replace(/^package\//, ""));
 
 	const stray = names.filter((n) => n.startsWith("src/") || n.split("/").includes("node_modules"));
