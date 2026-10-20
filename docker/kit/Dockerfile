@@ -214,7 +214,7 @@ ENV NODE_ENV=production \
     ENVIRONMENT=production \
     HOSTNAME=0.0.0.0 \
     KIT_DATA_DIR=/data \
-    FLUXIFY_DEPS_DIR=/data/deps \
+    FLUXIFY_DEPS_DIR=/data/deps     FLUXIFY_PLUGINS_DIR=/data/plugins \
     BUN_INSTALL_CACHE_DIR=/data/deps/.cache \
     REDIS_PORT=6379 \
     WEB_PORT=3000 \

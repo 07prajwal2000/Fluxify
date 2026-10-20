@@ -90,11 +90,31 @@ export const hostingSchema = z.object({
 	baseDomain: hostnameSchema.or(z.literal("")),
 });
 
+/**
+ * Where a plugin may be fetched from by URL (#858). Each entry is a hostname
+ * (`plugins.acme.dev`) or `*.acme.dev` for any subdomain of it. Empty, the
+ * default, means no URL is trusted and the URL source is off.
+ */
+export const pluginsSchema = z.object({
+	trustedDomains: z
+		.array(
+			z
+				.string()
+				.refine(
+					(entry) => hostnameSchema.safeParse(entry.replace(/^\*\./, "")).success,
+					"Use a lowercase hostname such as plugins.example.com, or *.example.com for its subdomains",
+				),
+		)
+		.max(100)
+		.default([]),
+});
+
 export const instanceSettingCategorySchema = z.enum([
 	"auth",
 	"featureflags",
 	"orchestration",
 	"hosting",
+	"plugins",
 ]); // mirrors the pgEnum
 
 export const INSTANCE_SETTINGS_REGISTRY = {
@@ -135,6 +155,13 @@ export const INSTANCE_SETTINGS_REGISTRY = {
 		publicSchema: hostingSchema,
 		// the portal shows each project's URL, and a domain is not a secret
 		alwaysPublic: true,
+	},
+	plugins: {
+		category: "plugins",
+		schema: pluginsSchema,
+		publicSchema: pluginsSchema,
+		// an operator's allow-list; nothing pre-auth needs it
+		alwaysPublic: false,
 	},
 	"featureflags.ee.connectors": {
 		category: "featureflags",

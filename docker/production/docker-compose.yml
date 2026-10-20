@@ -91,6 +91,8 @@ services:
       # Control plane only — the worker service serves user API traffic.
       ENABLE_ADMIN: "true"
       ENABLE_BUILTIN_WORKER: "false"
+      # Plugins people add from a folder (Plugins, "From a folder").
+      FLUXIFY_PLUGINS_DIR: /plugins
       # The admin reaches development workers only through Traefik, which it
       # shares fluxify_net with; Traefik routes by Host to the right pool.
       PROXY_URL: "http://traefik"
@@ -105,6 +107,10 @@ services:
         soft: 4096
         hard: 8192
     mem_limit: 2g
+    volumes:
+      # Built plugins people add from a folder; the same folder the
+      # development worker mounts.
+      - "${PLUGINS_HOST_DIR:-./plugins}:/plugins:ro"
     depends_on:
       postgres:
         condition: service_healthy
@@ -200,6 +206,9 @@ services:
       REDIS_PASS: "${REDIS_PASS:-}"
       MASTER_ENCRYPTION_KEY: "${MASTER_ENCRYPTION_KEY}"
       TRUSTED_ORIGINS: "${TRUSTED_ORIGINS:-}"
+      FLUXIFY_PLUGINS_DIR: /plugins
+    volumes:
+      - "${PLUGINS_HOST_DIR:-./plugins}:/plugins:ro"
     labels:
       - traefik.enable=true
       - "traefik.http.routers.worker-dev.rule=PathPrefix(`/_sandbox`) || Path(`/_/dev`) || PathPrefix(`/_/dev/`)"

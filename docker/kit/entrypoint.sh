@@ -184,7 +184,7 @@ start_bundled_valkey() {
 	unset REDIS_USER REDIS_PASS
 }
 
-mkdir -p "$DATA_DIR"
+mkdir -p "$DATA_DIR" "${FLUXIFY_PLUGINS_DIR:-$DATA_DIR/plugins}"
 provision_secrets
 
 [ -n "$PG_URL" ] || start_bundled_postgres
