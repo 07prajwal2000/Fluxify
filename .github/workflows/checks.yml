@@ -61,6 +61,7 @@ jobs:
           set -euo pipefail
           helm template fluxify deploy/helm/fluxify -n fluxify \
             --set secret.values.PG_URL=postgres://u:p@db:5432/fluxify > /dev/null
+          helm template fluxify deploy/helm/fluxify -n fluxify             --set secret.values.PG_URL=postgres://u:p@db:5432/fluxify             --set plugins.volume.existingClaim=fluxify-plugins | grep -q ORCHESTRATOR_PLUGINS_PVC
           helm template fluxify deploy/helm/fluxify -n fluxify --include-crds --no-hooks \
             -f deploy/helm/demo-values.yaml > /dev/null
 

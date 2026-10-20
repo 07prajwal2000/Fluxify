@@ -86,6 +86,16 @@ ingressRoute:
 license:
   issuerKeySecret: ""
 
+# A folder of built plugins (one subfolder each) that people can add from
+# Plugins in a project. Off by default; upload, npm and URL plugins do not need it.
+# Give it an existing PersistentVolumeClaim that every node can mount (ReadWriteMany
+# or ReadOnlyMany): it is mounted at /plugins on the admin and the development
+# worker, and read-only on every worker the orchestrator starts.
+plugins:
+  volume:
+    existingClaim: ""
+    readOnly: true
+
 # One Postgres pod, for trying Fluxify. For production run Postgres yourself
 # (CloudNativePG, StackGres, a managed database) and set secret.values.PG_URL.
 postgres:

@@ -51,6 +51,24 @@ const envOf = (spec: { body: Record<string, unknown> }) =>
 const labelsOf = (spec: { body: Record<string, unknown> }) =>
 	spec.body.Labels as Record<string, string>;
 
+describe("plugins folder", () => {
+	const plugins = { hostDir: "/srv/fluxify/plugins", dir: "/plugins" };
+
+	it("is bind-mounted read-only with the env var when set", () => {
+		const spec = buildContainerSpec(desired(), { ...options, plugins });
+		expect((spec.body.HostConfig as { Binds: string[] }).Binds).toEqual([
+			"/srv/fluxify/plugins:/plugins:ro",
+		]);
+		expect(envOf(spec).FLUXIFY_PLUGINS_DIR).toBe("/plugins");
+	});
+
+	it("adds nothing when unset", () => {
+		const spec = buildContainerSpec(desired(), options);
+		expect(spec.body.HostConfig).not.toHaveProperty("Binds");
+		expect(envOf(spec)).not.toHaveProperty("FLUXIFY_PLUGINS_DIR");
+	});
+});
+
 describe("nodeIdFor", () => {
 	it("is derived, so a recreated container keeps the id its assignment is written under", () => {
 		expect(nodeIdFor(CLAIM, 2)).toBe(`${CLAIM}.2`);

@@ -1,3 +1,4 @@
+import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import { pluginObjects } from "../../../db/natsObjects";
 import type { PluginArtifact } from "../../compiler/artifacts";
@@ -65,7 +66,16 @@ type Packument = { versions?: Record<string, { dist?: { tarball?: string } }> };
 /** the directory can change after approval, so it is hashed again and what is hashed is what is used */
 async function fromDirectory({ location, integrity }: Source) {
 	const root = pluginsRoot();
-	if (!root) throw new Error("FLUXIFY_PLUGINS_DIR is not set on this worker");
+	if (
+		!root ||
+		!(await stat(root).then(
+			(s) => s.isDirectory(),
+			() => false,
+		))
+	)
+		throw new Error(
+			"the plugins folder is not mounted on this worker; mount it read-only at FLUXIFY_PLUGINS_DIR",
+		);
 	// a single directory name: nothing that walks out of the plugins directory
 	if (!location || location.startsWith(".") || /[/\\]/.test(location))
 		throw new Error(`'${location}' is not a plugin directory`);

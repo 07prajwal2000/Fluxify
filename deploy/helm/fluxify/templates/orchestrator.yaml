@@ -34,6 +34,11 @@ spec:
             {{- if .Values.license.issuerKeySecret }}
             - { name: LICENSE_ISSUER_KEY_PATH, value: /etc/fluxify/license/issuer.pub }
             {{- end }}
+            {{- /* its own view of the folder: it hands the claim to every worker it starts */}}
+            {{- with .Values.plugins.volume.existingClaim }}
+            - { name: FLUXIFY_PLUGINS_DIR, value: /plugins }
+            - { name: ORCHESTRATOR_PLUGINS_PVC, value: {{ . | quote }} }
+            {{- end }}
             {{- include "fluxify.pgEnv" . | nindent 12 }}
           ports:
             - { name: health, containerPort: 5800 }

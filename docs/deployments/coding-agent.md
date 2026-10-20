@@ -159,6 +159,8 @@ Rules:
   what is already there.
 - The chart starts one development worker (devWorker). Leave it on, and never
   set FLUXIFY_ENV in the values.
+- Plugins from a folder: only if I name a PersistentVolumeClaim, set it as
+  plugins.volume.existingClaim. Otherwise leave plugins off.
 - Never print a secret or password in the chat.
 - Ask before you create or change anything outside the namespace above.
 
@@ -192,11 +194,12 @@ Tell the agent to check each point, or check them yourself after it is done.
 | `LLM_TRACING_SAMPLE_RATE` | No | Share of runs traced, 0 to 1. Default `1`. |
 | `LLM_TRACING_RECORD_CONTENT` | No | `true` also sends prompts, messages and tool inputs/outputs, which can hold user data and secrets. Default `false`: only names, timings and token counts are sent. |
 | `FLUXIFY_ENV` | No | On one worker only, never in a `.env` every process shares. `production` (default) or `development`. A development worker runs only development work, holds no license slot, and serves every project in both modes, so it ignores `WORKER_PROJECT_ID`, `WORKER_MODE` and `WORKER_GROUP_ID`. The Kit, the compose file and the Helm chart each start one development worker with it set, so you don't set it yourself. See [Environments](../concepts/environments). |
+| `ORCHESTRATOR_PLUGINS_HOST_DIR`, `ORCHESTRATOR_PLUGINS_PVC` | No | Set on the orchestrator, with `FLUXIFY_PLUGINS_DIR`, to give the workers it starts the plugins folder, read-only. Docker: the folder's absolute path on the Docker host (the compose file fills it from `PLUGINS_HOST_DIR`). Kubernetes: a PersistentVolumeClaim name (the chart fills it from `plugins.volume.existingClaim`). Unset: those workers cannot install a plugin added from a folder. |
 | `PROXY_URL` | No | The proxy's address as the admin reaches it, for [sandboxes](../concepts/sandbox), the playground, `call_route`, `Run` and test suites. The admin calls development workers only through the proxy and lets it route by `Host`, so it is **the proxy, never a single worker**. Leave it unset when the admin can reach the project's own public address. The Kit sets nothing; the compose file sets `http://traefik`; the Helm chart sets `http://traefik.traefik.svc.cluster.local:80`. On a plain `bun run dev`, set `http://localhost:8080` (the local Caddy). Read by the admin (or Kit) only. |
 | `RECORDING_MAX_AGE_DAYS` | No | Days a recorded run (Execution history) is kept before it is deleted. Default `30`. Read by the admin (or Kit) only. |
 | `AUDIT_LOG_MAX_AGE_DAYS` | No | Days an audit log entry (Enterprise) is kept before it is deleted. Default `30`. Read by the admin (or Kit) only. |
 | `MAX_SANDBOX_PER_USER` | No | How many persistent sandboxes one user may keep in one project. Default `20`; only `1`-`1000` is accepted and anything else falls back to the default. Ephemeral runs (`run_blocks`) are not counted. Read by the admin (or Kit) only. |
-| `FLUXIFY_PLUGINS_DIR` | No | A folder of built plugins (one subfolder each) that people can add from **Plugins** in a project. Mount the same folder, read-only, on the admin and the workers. Unset: that way of adding a plugin is off (upload, npm and URL still work). The Kit sets `/data/plugins`; the production compose file mounts `PLUGINS_HOST_DIR` (default `./plugins`) at `/plugins` on the admin and the development worker. Plugins fetched from a URL also need an instance admin to list the host under **Instance settings, Plugins, Trusted domains**. |
+| `FLUXIFY_PLUGINS_DIR` | No | A folder of built plugins (one subfolder each) that people can add from **Plugins** in a project. Mount the same folder, read-only, on the admin and the workers. Unset: that way of adding a plugin is off (upload, npm and URL still work). The Kit sets `/data/plugins`; the production compose file mounts `PLUGINS_HOST_DIR` (default `./plugins`) at `/plugins` on the admin and the development worker, and on orchestrated workers too when `PLUGINS_HOST_DIR` is an absolute path. On Helm, set `plugins.volume.existingClaim` to a PersistentVolumeClaim every node can mount; the chart mounts it on the admin, the development worker and every orchestrated worker. Plugins fetched from a URL also need an instance admin to list the host under **Instance settings, Plugins, Trusted domains**. |
 | `HOSTNAME` | No | The address processes listen on inside the container. Leave `0.0.0.0`. It is **not** your domain. |
 
 On Helm, the chart generates every key and password you leave empty and keeps

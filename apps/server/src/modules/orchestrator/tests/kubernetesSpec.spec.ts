@@ -147,6 +147,27 @@ describe("buildDeployment", () => {
 		expect(spec(buildDeployment(workload(), options, shared, false))).not.toHaveProperty("strategy");
 	});
 
+	it("mounts the plugins claim read-only with the env var when set, nothing when unset", () => {
+		const withPlugins = buildDeployment(
+			workload(),
+			{ ...options, plugins: { claimName: "fluxify-plugins", dir: "/plugins" } },
+			shared,
+			true,
+		);
+		expect(container(withPlugins).volumeMounts).toEqual([
+			{ name: "plugins", mountPath: "/plugins", readOnly: true },
+		]);
+		expect(spec(withPlugins).template.spec.volumes).toEqual([
+			{ name: "plugins", persistentVolumeClaim: { claimName: "fluxify-plugins", readOnly: true } },
+		]);
+		expect(container(withPlugins).env).toContainEqual({ name: "FLUXIFY_PLUGINS_DIR", value: "/plugins" });
+
+		const without = deployment();
+		expect(container(without)).not.toHaveProperty("volumeMounts");
+		expect(spec(without).template.spec).not.toHaveProperty("volumes");
+		expect(JSON.stringify(container(without).env)).not.toContain("FLUXIFY_PLUGINS_DIR");
+	});
+
 	it("gives each pod its own name as node id, and the claim it belongs to", () => {
 		const env = container(deployment()).env;
 		expect(env).toContainEqual({

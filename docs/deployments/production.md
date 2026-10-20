@@ -369,9 +369,11 @@ waits until a creator approves it; nothing runs before that.
 PLUGINS_HOST_DIR=./plugins
 ```
 
-Workers the orchestrator starts do not mount this folder yet, so a plugin added
-from a folder is not loaded by production workers. Use upload, npm or a link for
-those until that arrives.
+The workers the orchestrator starts get the same folder, read-only, when
+`PLUGINS_HOST_DIR` is an **absolute** path on the Docker host (for example
+`/srv/fluxify/plugins`). With the default relative path they get no folder, and a
+plugin added from a folder fails to install on them with "the plugins folder is
+not mounted on this worker". Upload, npm and link plugins work either way.
 
 ---
 

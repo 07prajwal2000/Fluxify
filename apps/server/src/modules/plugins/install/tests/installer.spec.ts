@@ -95,6 +95,22 @@ describe("plugin installer (directory source)", () => {
 		expect(installer.refs()[0]!.version).toStartWith("2026.10.2001+");
 	});
 
+	it("an unmounted plugins folder is a clear error, not a raw ENOENT", async () => {
+		writeFsPlugin(source, "unmounted", { tag: "ok", version: "2026.10.2095" });
+		const approved = await fsArtifact(source, "unmounted");
+		process.env.FLUXIFY_PLUGINS_DIR = join(source, "not-mounted");
+		try {
+			installer.apply("p1", NAME, approved);
+			await installer.idle();
+			expect(statuses[KEY]).toMatchObject({
+				state: "error",
+				error: expect.stringContaining("plugins folder is not mounted on this worker"),
+			});
+		} finally {
+			process.env.FLUXIFY_PLUGINS_DIR = source;
+		}
+	});
+
 	it("a new version swaps the refs while the old directory is there, then removes it", async () => {
 		writeFsPlugin(source, "echo", { tag: "two", version: "2026.10.2002" });
 		const old = installer.refs()[0]!.entry;
