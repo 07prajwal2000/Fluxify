@@ -2,15 +2,36 @@ import { useParams } from "@tanstack/react-router";
 import { TbExternalLink } from "react-icons/tb";
 import { MarkdownViewer } from "@/components/ai/MarkdownViewer";
 import { customBlocksQuery } from "@/query/customBlocksQuery";
+import { usePluginBlocks } from "../../plugins/PluginBlocksContext";
 import { docsPageUrl } from "./blockDocs";
 import { builtinBlockDocs } from "./blockDocsContent";
 
-/** Built-in blocks read their `docs/blocks` page; custom blocks their own `docs`. */
+/** Built-in blocks read their `docs/blocks` page; custom and plugin blocks their own `docs`. */
 export function DocsTab({ type }: { type: string }) {
 	const builtin = builtinBlockDocs(type);
 	const params = useParams({ strict: false }) as { projectId?: string };
 	const { data: customBlocks } = customBlocksQuery.getAll.useQuery(params.projectId ?? "");
-	const markdown = builtin?.markdown ?? customBlocks?.find((cb) => cb.name === type)?.docs;
+	const plugin = usePluginBlocks().byType[type];
+	const markdown =
+		builtin?.markdown ?? plugin?.entry.docs ?? customBlocks?.find((cb) => cb.name === type)?.docs;
+
+	if (plugin) {
+		return (
+			<div className="flex flex-col gap-3 pt-1">
+				{plugin.url && (
+					<a
+						href={plugin.url}
+						target="_blank"
+						rel="noopener noreferrer"
+						className="flex items-center gap-1 self-end text-xs text-accent hover:underline"
+					>
+						Plugin homepage <TbExternalLink size={13} />
+					</a>
+				)}
+				{markdown?.trim() && <MarkdownViewer content={markdown} />}
+			</div>
+		);
+	}
 
 	if (!markdown?.trim()) {
 		return (
