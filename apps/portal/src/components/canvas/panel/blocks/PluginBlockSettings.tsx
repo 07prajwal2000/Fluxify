@@ -4,7 +4,7 @@ import type { Param } from "@fluxify/sdk/blocks";
 import { TbAlertTriangle } from "react-icons/tb";
 import { usePluginBlocks } from "../../plugins/PluginBlocksContext";
 import type { BlockNode } from "../../types";
-import { BlockSettings } from "../BlockSettings";
+import { BlockSettings, GENERAL_TAB } from "../BlockSettings";
 import {
 	BlockAppConfigField,
 	BlockCheckboxField,
@@ -81,32 +81,12 @@ function ParamField({ block, name, param }: { block: BlockNode; name: string; pa
 	}
 }
 
-/**
- * A plugin block's settings, drawn from its manifest entry: the deprecation
- * notice, how the call runs (only when the block allows more than one way),
- * and its params minus the ones `visibleWhen` hides. A hidden param keeps its
- * value in the node.
- */
-export function PluginBlockSettings({ block }: { block: BlockNode }) {
-	const { byType, isLoading } = usePluginBlocks();
-	const def = byType[block.type ?? ""];
-	if (!def)
-		return isLoading ? (
-			<div className="flex items-center justify-center p-6 text-muted">
-				<Spinner size="sm" />
-			</div>
-		) : (
-			<p className="text-xs text-muted">
-				This block's plugin is not installed in the project, so it has no settings.
-			</p>
-		);
-	const params = Object.entries(def.entry.params as Record<string, Param>);
-	// the runtime fills a default where the canvas left the param empty
-	const values: Record<string, unknown> = {};
-	for (const [name, p] of params) if ("default" in p) values[name] = p.default;
-	for (const [name, value] of Object.entries(block.data)) if (value != null) values[name] = value;
-	const shown = params.filter(([, p]) => !p.visibleWhen || isVisible(p.visibleWhen, values));
-
+/** What the block says about itself: the deprecation notice and how the call runs (only when more than one way is allowed). */
+export function PluginBlockGeneral({ block }: { block: BlockNode }) {
+	const def = usePluginBlocks().byType[block.type ?? ""];
+	if (!def) return null;
+	if (!def.deprecated && def.invoke.length < 2)
+		return <p className="text-xs text-muted">Nothing to set here; see Parameters.</p>;
 	return (
 		<div className="flex w-full flex-col gap-4">
 			{def.deprecated && (
@@ -128,18 +108,47 @@ export function PluginBlockSettings({ block }: { block: BlockNode }) {
 					options={def.invoke.map((mode) => ({ value: mode, label: MODE_LABELS[mode] ?? mode }))}
 				/>
 			)}
-			{shown.map(([name, param]) => (
-				<ParamField key={name} block={block} name={name} param={param} />
-			))}
-			{shown.length === 0 && def.invoke.length < 2 && !def.deprecated && (
-				<p className="text-xs text-muted">This block has no parameters.</p>
-			)}
 		</div>
 	);
 }
 
-export const pluginBlockSettings = (block: BlockNode) => (
+/** A plugin block's params, drawn from its manifest entry minus the ones `visibleWhen` hides (their values stay in the node). */
+export function PluginBlockSettings({ block }: { block: BlockNode }) {
+	const { byType, isLoading } = usePluginBlocks();
+	const def = byType[block.type ?? ""];
+	if (!def)
+		return isLoading ? (
+			<div className="flex items-center justify-center p-6 text-muted">
+				<Spinner size="sm" />
+			</div>
+		) : (
+			<p className="text-xs text-muted">
+				This block's plugin is not installed in the project, so it has no settings.
+			</p>
+		);
+	const params = Object.entries(def.entry.params as Record<string, Param>);
+	// the runtime fills a default where the canvas left the param empty
+	const values: Record<string, unknown> = {};
+	for (const [name, p] of params) if ("default" in p) values[name] = p.default;
+	for (const [name, value] of Object.entries(block.data)) if (value != null) values[name] = value;
+	const shown = params.filter(([, p]) => !p.visibleWhen || isVisible(p.visibleWhen, values));
+	if (shown.length === 0)
+		return <p className="text-xs text-muted">This block has no parameters.</p>;
+
+	return (
+		<div className="flex w-full flex-col gap-4">
+			{shown.map(([name, param]) => (
+				<ParamField key={name} block={block} name={name} param={param} />
+			))}
+		</div>
+	);
+}
+
+export const pluginBlockSettings = (block: BlockNode) => [
+	<BlockSettings.TabHead key="general" name={GENERAL_TAB}>
+		<PluginBlockGeneral block={block} />
+	</BlockSettings.TabHead>,
 	<BlockSettings.TabHead key="parameters" name="Parameters">
 		<PluginBlockSettings block={block} />
-	</BlockSettings.TabHead>
-);
+	</BlockSettings.TabHead>,
+];

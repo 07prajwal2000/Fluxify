@@ -26,7 +26,7 @@ const { CanvasChangesProvider, DISABLED_CHANGES } = await import("../../changes/
 const { PluginBlocksContext } = await import("../../plugins/PluginBlocksContext");
 const { blocksOf, slack } = await import("../../plugins/fixtures");
 const { integrationService } = await import("@/services/integrations");
-const { PluginBlockSettings } = await import("./PluginBlockSettings");
+const { PluginBlockGeneral, PluginBlockSettings } = await import("./PluginBlockSettings");
 const { DocsTab } = await import("../docs/DocsTab");
 
 afterEach(cleanup);
@@ -72,7 +72,13 @@ let nodes: { data: Record<string, unknown> }[] = [];
 function Panel() {
 	nodes = useNodes() as typeof nodes;
 	const node = nodes[0] as never as { id: string; type: string; data: Record<string, unknown> };
-	return <PluginBlockSettings block={{ ...node, position: { x: 0, y: 0 } } as never} />;
+	const block = { ...node, position: { x: 0, y: 0 } } as never;
+	return (
+		<>
+			<PluginBlockGeneral block={block} />
+			<PluginBlockSettings block={block} />
+		</>
+	);
 }
 
 function setup({ over = {}, data = {}, editable = true }: Props = {}) {
