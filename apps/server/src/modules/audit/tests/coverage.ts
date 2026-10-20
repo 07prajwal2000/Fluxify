@@ -110,6 +110,8 @@ export const AUDITED: Record<string, string> = {
 	"delete-middleware": `${V}/middlewares/service.ts`,
 	// plugins (#857)
 	"approve-plugin": "modules/plugins/service.ts",
+	"scan-plugin": "modules/plugins/scanner.ts",
+	"scan-plugins": "modules/plugins/scanner.ts",
 	"reject-plugin": "modules/plugins/service.ts",
 	"delete-plugin": "modules/plugins/remove.ts",
 	"set-plugin-environments": "modules/plugins/service.ts",
