@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { logger } from "@fluxify/common";
 import type { DepsInstallStatus } from "@fluxify/common/orchestrator";
 import type { DepsArtifact } from "../compiler/artifacts";
-import { executionRuntimeEnvironment } from "../requestRouter/executionEnvironment";
+import { frozenInstall, smokeTest } from "./bunInstall";
 import { currentLink, depsRoot, projectDepsDir, versionDir } from "./depsDir";
 import { declaredPackages } from "./resolver";
 
@@ -16,9 +16,6 @@ import { declaredPackages } from "./resolver";
  * keeps the old version until the caller swaps it. Per project the work is
  * serialized and latest-wins, so a burst of edits installs once.
  */
-
-const INSTALL_TIMEOUT_MS = 5 * 60_000;
-const SMOKE_TIMEOUT_MS = 60_000;
 
 export interface DepsInstallerOptions {
 	root?: string;
@@ -68,18 +65,9 @@ export function createDepsInstaller(options: DepsInstallerOptions) {
 		// an empty lockfile is "no packages left"; bun refuses an empty file
 		if (artifact.lockfile) await Bun.write(join(dir, "bun.lock"), artifact.lockfile);
 
-		const installed = await run(
-			["install", "--frozen-lockfile", "--production"],
-			dir,
-			INSTALL_TIMEOUT_MS,
-			{
-				...process.env,
-				BUN_INSTALL_CACHE_DIR: process.env.BUN_INSTALL_CACHE_DIR ?? join(root, ".cache"),
-			},
-		);
-		if (installed.exitCode !== 0) {
+		const error = await frozenInstall(dir, root);
+		if (error) {
 			await rm(dir, { recursive: true, force: true });
-			const error = installed.timedOut ? "install timed out" : lastError(installed.output);
 			return report(projectId, { version, state: "failed", error });
 		}
 
@@ -147,48 +135,3 @@ export function createDepsInstaller(options: DepsInstallerOptions) {
 }
 
 export type DepsInstaller = ReturnType<typeof createDepsInstaller>;
-
-async function run(args: string[], cwd: string, timeout: number, env: NodeJS.ProcessEnv) {
-	const child = Bun.spawn([process.execPath, ...args], {
-		cwd,
-		env: { ...env, BUN_BE_BUN: "1" },
-		stdout: "pipe",
-		stderr: "pipe",
-		timeout,
-	});
-	const [exitCode, stdout, stderr] = await Promise.all([
-		child.exited,
-		new Response(child.stdout).text(),
-		new Response(child.stderr).text(),
-	]);
-	return { exitCode, output: `${stderr}\n${stdout}`, timedOut: Boolean(child.signalCode) };
-}
-
-function lastError(output: string) {
-	const errors = output.split("\n").filter((line) => line.trim().startsWith("error:"));
-	return (errors.at(-1) ?? output.trim().split("\n").at(-1) ?? "install failed").trim();
-}
-
-/**
- * Loads every top-level package once, in a throwaway process with the same
- * stripped environment user code gets: a package's top-level code runs here,
- * and it must not see this process's NATS credentials.
- */
-async function smokeTest(dir: string, names: string[]) {
-	if (!names.length) return [];
-	const script = `
-const out = [];
-for (const name of ${JSON.stringify(names)}) {
-	try { await import(Bun.resolveSync(name, ${JSON.stringify(`${dir}/`)})); }
-	catch (e) { out.push({ name, error: String(e?.message ?? e).split("\\n")[0] }); }
-}
-console.log(JSON.stringify(out));
-process.exit(0);`;
-	const result = await run(["-e", script], dir, SMOKE_TIMEOUT_MS, executionRuntimeEnvironment());
-	try {
-		const lines = result.output.trim().split("\n");
-		return JSON.parse(lines.at(-1) ?? "[]") as { name: string; error: string }[];
-	} catch {
-		return names.map((name) => ({ name, error: "smoke test did not finish" }));
-	}
-}

@@ -9,6 +9,7 @@ import type { DepsArtifact } from "../compiler/artifacts";
 import { requestProjectCompile } from "../compiler/publisher";
 import { depsKey } from "../compiler/subjects";
 import { readLiveNodes } from "../orchestrator/status";
+import { REGISTRY } from "./registryUrl";
 import {
 	declaredPackages,
 	lockedVersion,
@@ -24,10 +25,6 @@ import {
 
 const MIN_RELEASE_AGE_KEY = "settings.packages.minReleaseAgeDays";
 const DEFAULT_MIN_RELEASE_AGE_DAYS = 7;
-export const REGISTRY = (process.env.NPM_REGISTRY_URL ?? "https://registry.npmjs.org").replace(
-	/\/$/,
-	"",
-);
 
 export function minReleaseAgeDays(projectId: string) {
 	const configured = Number(projectSettingsCache[projectId]?.[MIN_RELEASE_AGE_KEY]);

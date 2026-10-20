@@ -133,7 +133,7 @@ export interface NodeSlot {
 	 * up by the next renewal rather than written immediately: nothing reads this
 	 * faster than the heartbeat anyway.
 	 */
-	report(patch: Partial<Pick<NodeHeartbeat, "ready" | "groupIds" | "deps">>): void;
+	report(patch: Partial<Pick<NodeHeartbeat, "ready" | "groupIds" | "deps" | "plugins">>): void;
 	/** Frees the slot now instead of waiting out the TTL. */
 	release(): Promise<void>;
 }

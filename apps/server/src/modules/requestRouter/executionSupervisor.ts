@@ -107,7 +107,7 @@ export function createExecutionSupervisor(
 	let candidate: { child: any; settle: (ready: boolean) => void } | undefined;
 	let replacing: Promise<void> | undefined;
 	let replaceAgain = false;
-	/** `projectId:type` -> version, as handed to the running child */
+	/** `projectId:type` -> version, as last handed to the running child; a removed block stays */
 	let refVersions = new Map<string, string>();
 	const versionsOf = (refs: PluginBlockRef[]) =>
 		new Map(refs.map((ref) => [`${ref.projectId}:${ref.type}`, ref.version]));
@@ -323,7 +323,9 @@ export function createExecutionSupervisor(
 			});
 			// the fresh child reads the whole set at spawn
 			if (upgraded) return replace();
-			refVersions = versionsOf(refs);
+			// kept for a block that left: its module is still in the child, so a different
+			// version of it returning (removed, then approved again) is an upgrade too
+			for (const [key, version] of versionsOf(refs)) refVersions.set(key, version);
 			execution?.send({ type: "plugin-refs", refs } satisfies ExecutionMessage);
 			return Promise.resolve();
 		},
