@@ -1,6 +1,6 @@
 import type { BlockMeta, HandleSpec } from "@fluxify/blocks";
 import type { FluxifyManifest, ManifestEntry } from "@fluxify/sdk/blocks";
-import type { PluginPermissions } from "../../db/schema";
+import type { PluginLiveVersion, PluginPermissions } from "../../db/schema";
 import type { FluxifyEnv } from "../../lib/env";
 
 /**
@@ -16,7 +16,16 @@ export type PluginRow = {
 	devEnabled: boolean;
 	prodEnabled: boolean;
 	manifest: FluxifyManifest;
+	live?: PluginLiveVersion | null;
 };
+
+/**
+ * The version that loads (#860): the row itself, or, while an upgrade of an
+ * approved plugin waits for approval, the approved version it would replace.
+ * Dev and prod move together, so both keep the old one until the new is approved.
+ */
+export const liveOf = <R extends PluginRow>(row: R): R =>
+	row.approval === "pending" && row.live ? { ...row, ...row.live, approval: "approved" } : row;
 
 /** what the compiler and the worker need to call one block */
 export const blockMetaOf = (entry: ManifestEntry): BlockMeta => {

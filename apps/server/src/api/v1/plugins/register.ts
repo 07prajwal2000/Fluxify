@@ -2,7 +2,10 @@ import { validator } from "hono-openapi";
 import type z from "zod";
 import zodErrorCallbackParser from "../../../middlewares/zodErrorCallbackParser";
 import { pluginInstallStatus } from "../../../modules/plugins/installStatus";
+import { removePlugin } from "../../../modules/plugins/remove";
 import * as service from "../../../modules/plugins/service";
+import { upgradePreview } from "../../../modules/plugins/upgrade";
+import { pluginUsage } from "../../../modules/plugins/usage";
 import type { HonoContext, HonoServer } from "../../../types";
 import { caller, creator, doc, project, viewer } from "./common";
 import {
@@ -12,6 +15,9 @@ import {
 	listResponseSchema,
 	nameParamSchema,
 	pluginSchema,
+	removeResponseSchema,
+	upgradePreviewSchema,
+	usageSchema,
 } from "./dto";
 import { registerSourceRoutes } from "./sources";
 
@@ -65,11 +71,47 @@ export default {
 			plugin,
 			async (ctx) => ctx.json(await pluginInstallStatus(...target(ctx))),
 		);
+		router.get(
+			"/:scope/:name/usage",
+			doc(
+				"get-plugin-usage",
+				"Every route, workflow and custom block using a block of the plugin, working copy and promoted version, with the params, handles and invoke mode of each node",
+				usageSchema,
+			),
+			viewer,
+			project,
+			plugin,
+			async (ctx) => ctx.json(await pluginUsage(...target(ctx))),
+		);
+		router.get(
+			"/:scope/:name/upgrade-preview",
+			doc(
+				"get-plugin-upgrade-preview",
+				"The pending version against the approved one it would replace: what is removed, changed, deprecated or newly asked for, and whether approving is blocked",
+				upgradePreviewSchema,
+			),
+			viewer,
+			project,
+			plugin,
+			async (ctx) => ctx.json(await upgradePreview(...target(ctx))),
+		);
+		router.delete(
+			"/:scope/:name",
+			doc(
+				"delete-plugin",
+				"Removes the plugin from the project. Refused (409, with the users) while anything uses one of its blocks. Creator or above.",
+				removeResponseSchema,
+			),
+			creator,
+			project,
+			plugin,
+			async (ctx) => ctx.json(await removePlugin(...target(ctx), caller(ctx))),
+		);
 		router.post(
 			"/:scope/:name/approve",
 			doc(
 				"approve-plugin",
-				"Lets this version load, with the permissions its manifest asks for. Creator or above.",
+				"Lets this version load, with the permissions its manifest asks for. An upgrade that removes something the project uses is refused (409, with the diff). Creator or above.",
 				pluginSchema,
 			),
 			creator,

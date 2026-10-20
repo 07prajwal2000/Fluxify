@@ -31,6 +31,7 @@ const options: ExecutionSupervisorOptions = {
 	baseDomain: () => "",
 	timeoutsEnabled: () => false,
 	pluginRefs: () => refs,
+	pluginReplaceJitterMs: 0,
 };
 const supervisor = createExecutionSupervisor(options);
 
@@ -86,6 +87,19 @@ test("a block that left and returns at another version still replaces the child"
 		refs = [version("3.0.0")];
 		await supervisor.pluginRefsChanged();
 		expect(await answers("3.0.0")).toBe("3.0.0");
+		expect(spawn).toHaveBeenCalledTimes(1);
+	} finally {
+		spawn.mockRestore();
+	}
+}, 20_000);
+
+test("a plugin removed replaces the child, so nothing of it stays loaded", async () => {
+	const spawn = spyOn(Bun, "spawn");
+	try {
+		refs = [];
+		await supervisor.pluginRefsChanged({ removed: true });
+		// Windows restarts through crash recovery, a moment later
+		for (let i = 0; i < 250 && !spawn.mock.calls.length; i++) await Bun.sleep(20);
 		expect(spawn).toHaveBeenCalledTimes(1);
 	} finally {
 		spawn.mockRestore();

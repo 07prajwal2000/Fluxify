@@ -14,6 +14,8 @@ export interface ObjectBucket {
 	/** The bytes, or null when the key is absent. */
 	get(key: string): Promise<Uint8Array | null>;
 	delete(key: string): Promise<void>;
+	/** every key starting with `prefix` */
+	keys(prefix: string): Promise<string[]>;
 }
 
 /** Opens the bucket, creating it when missing. */
@@ -28,6 +30,11 @@ export async function openObjectBucket(nc: NatsConnection, name: string): Promis
 		async delete(key) {
 			// absent already is the state the caller wanted
 			if (await store.info(key)) await store.delete(key);
+		},
+		async keys(prefix) {
+			return (await store.list())
+				.filter((o) => !o.deleted && o.name.startsWith(prefix))
+				.map((o) => o.name);
 		},
 	};
 }

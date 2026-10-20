@@ -29,6 +29,8 @@ export type PluginChange = {
 	projectId: string;
 	/** block types now provided by an installed plugin; none when one was removed */
 	types: string[];
+	/** the plugin stopped being served here: its loaded code must go (#860) */
+	removed?: boolean;
 };
 
 export interface PluginInstallerOptions {
@@ -41,6 +43,12 @@ export interface PluginInstallerOptions {
 	 * directory any more.
 	 */
 	onRefsChanged(change: PluginChange): Promise<void>;
+	/**
+	 * Whether either environment still publishes the plugin. A development and a
+	 * production worker can share one root (the Kit), so a removed plugin's
+	 * directories are pruned only when neither does. Unset, they are kept.
+	 */
+	publishedAnywhere?(projectId: string, name: string): Promise<boolean>;
 }
 
 /** the directory name of a version: the integrity keeps a re-upload of the same version apart */
@@ -119,15 +127,19 @@ export function createPluginInstaller(options: PluginInstallerOptions) {
 		});
 	}
 
-	/** Stops serving the plugin. Its directories stay; see `removed`. */
+	/**
+	 * Stops serving the plugin. Once the child that loaded it is replaced, its
+	 * directories go, unless another environment on a shared root still has it.
+	 */
 	async function uninstall(projectId: string, name: string) {
 		const key = pluginStatusKey(projectId, name);
 		const was = installed.get(key);
 		installed.delete(key);
-		// ponytail: the directories stay. A development and a production worker can share
-		// one root (the Kit), and either may still use the version; the scanner (P5)
-		// sweeps what no row points at.
-		if (was) await options.onRefsChanged({ projectId, types: [] });
+		if (was) {
+			await options.onRefsChanged({ projectId, types: [], removed: true });
+			if (options.publishedAnywhere && !(await options.publishedAnywhere(projectId, name)))
+				await rm(dirname(was.dir), { recursive: true, force: true });
+		}
 		report(projectId, name, null);
 	}
 

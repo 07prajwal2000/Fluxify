@@ -14,7 +14,7 @@ import { audit } from "../audit";
 import type { PluginArtifact } from "../compiler/artifacts";
 import { requestProjectCompile } from "../compiler/publisher";
 import { pluginKey } from "../compiler/subjects";
-import { blockMetaOf, isUsableIn, requestedPermissions } from "./meta";
+import { blockMetaOf, isUsableIn, liveOf, requestedPermissions } from "./meta";
 import {
 	getPluginRow,
 	insertPluginRow,
@@ -23,6 +23,7 @@ import {
 	type PluginRecord,
 	updatePluginRow,
 } from "./repository";
+import { assertUpgradeSafe } from "./upgrade";
 
 /**
  * The plugin registry (#857). Sources (P2) hand a version over with
@@ -63,7 +64,8 @@ async function rowFor(projectId: string, name: string) {
  * Records the version a source fetched. A new plugin waits for approval. The
  * same integrity changes nothing. Anything else is new code (the manifest is
  * inside what the integrity covers, so asking for more permissions is too), so
- * the plugin goes back to pending and stops loading until it is approved again.
+ * the plugin goes back to pending. A version that was approved keeps loading
+ * until the new one is approved (`live`); nothing that loads changes here.
  */
 export async function registerPluginVersion(projectId: string, version: PluginVersion) {
 	const manifest = parseManifest(version.manifest);
@@ -88,7 +90,28 @@ export async function registerPluginVersion(projectId: string, version: PluginVe
 		return { plugin: row, changed: true };
 	}
 	if (existing.integrity === version.integrity) return { plugin: existing, changed: false };
-	const wasApproved = existing.approval === "approved";
+	// the approved version coming back while its upgrade waits: the upgrade is dropped
+	if (existing.live?.integrity === version.integrity) {
+		const row = await updatePluginRow(existing.id, {
+			...fields,
+			...existing.live,
+			approval: "approved",
+			live: null,
+		});
+		return { plugin: row, changed: true };
+	}
+	// #860: an approved version keeps loading, in both environments, until its upgrade is approved
+	const live =
+		existing.approval === "approved"
+			? {
+					version: existing.version,
+					integrity: existing.integrity,
+					source: existing.source,
+					location: existing.location,
+					manifest: existing.manifest,
+					permissions: existing.permissions,
+				}
+			: existing.live;
 	const row = await updatePluginRow(existing.id, {
 		...fields,
 		approval: "pending",
@@ -96,8 +119,8 @@ export async function registerPluginVersion(projectId: string, version: PluginVe
 		approvedAt: null,
 		status: "ok",
 		lastError: null,
+		live,
 	});
-	if (wasApproved) await republish(row, `plugin ${row.name} changed and needs approval again`);
 	return { plugin: row, changed: true };
 }
 
@@ -120,11 +143,13 @@ export async function approvePlugin(
 	const row = await rowFor(projectId, name);
 	if (integrity && integrity !== row.integrity)
 		throw new ConflictError(`Plugin ${name} changed since it was reviewed; review it again`);
+	await assertUpgradeSafe(row);
 	const approved = await updateAudited(row, {
 		approval: "approved",
 		approvedBy: caller.user.id,
 		approvedAt: new Date(),
 		permissions: requestedPermissions(row.manifest),
+		live: null,
 	});
 	await republish(approved, `plugin ${name} approved`);
 	return approved;
@@ -139,8 +164,9 @@ export async function rejectPlugin(projectId: string, name: string, caller: Call
 		approvedBy: caller.user.id,
 		approvedAt: new Date(),
 		permissions: null,
+		live: null,
 	});
-	if (row.approval === "approved") await republish(rejected, `plugin ${name} rejected`);
+	if (liveOf(row).approval === "approved") await republish(rejected, `plugin ${name} rejected`);
 	return rejected;
 }
 
@@ -153,7 +179,8 @@ export async function setPluginEnvironments(
 	assertCreator(caller, projectId);
 	const row = await rowFor(projectId, name);
 	const updated = await updateAudited(row, { devEnabled: envs.dev, prodEnabled: envs.prod });
-	if (row.approval === "approved") await republish(updated, `plugin ${name} environments changed`);
+	if (liveOf(row).approval === "approved")
+		await republish(updated, `plugin ${name} environments changed`);
 	return updated;
 }
 
@@ -178,7 +205,8 @@ export const getPlugin = rowFor;
  * What workers read: the plugin in each environment it may load in, nowhere
  * else. Approved means approved for this integrity, so the artifact carries it.
  */
-export async function publishPlugin(row: PluginRecord) {
+export async function publishPlugin(stored: PluginRecord) {
+	const row = liveOf(stored);
 	const key = pluginKey(row.projectId, row.name);
 	await Promise.all(
 		ENVIRONMENTS.map((env) =>

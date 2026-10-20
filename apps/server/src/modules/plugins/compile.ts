@@ -7,7 +7,7 @@ import {
 } from "@fluxify/blocks";
 import type { DbTransactionType } from "../../db";
 import type { FluxifyEnv } from "../../lib/env";
-import { blockMetaOf, unusableReason } from "./meta";
+import { blockMetaOf, liveOf, unusableReason } from "./meta";
 import { listPluginRows } from "./repository";
 
 /**
@@ -25,7 +25,7 @@ export async function loadPluginSets(projectId: string): Promise<Record<FluxifyE
 	const rows = await listPluginRows(projectId);
 	const setFor = (env: FluxifyEnv) => {
 		const set: PluginSet = { blockMeta: {}, unusable: new Map() };
-		for (const row of rows) {
+		for (const row of rows.map(liveOf)) {
 			const reason = unusableReason(row, env);
 			for (const [type, entry] of Object.entries(row.manifest.blocks)) {
 				if (reason) set.unusable.set(type, reason);
@@ -66,13 +66,14 @@ export const artifactBuild = ({
 
 /**
  * Handle specs of every plugin block a canvas may hold: any plugin of the
- * project not rejected. A canvas is data; whether the block may run is the
+ * project not rejected, as the version that loads (an upgrade's handles arrive
+ * with its approval). A canvas is data; whether the block may run is the
  * compiler's call, so a block of a plugin waiting for approval can be wired.
  */
 export async function canvasPluginSpecs(projectId: string | null, tx?: DbTransactionType) {
 	const specs: Record<string, HandleSpec> = {};
 	if (!projectId) return specs;
-	for (const row of await listPluginRows(projectId, tx)) {
+	for (const row of (await listPluginRows(projectId, tx)).map(liveOf)) {
 		if (row.approval === "rejected") continue;
 		for (const [type, entry] of Object.entries(row.manifest.blocks))
 			specs[type] = entry.handles as HandleSpec;
