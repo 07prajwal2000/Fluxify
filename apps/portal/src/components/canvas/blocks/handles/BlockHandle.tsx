@@ -85,10 +85,11 @@ export function BlockHandle({
 	);
 
 	// Handles stacked on a corner each carry their name, and the slot is as wide as it,
-	// so neighbours never overlap.
+	// so neighbours never overlap. The socket sits at the slot's corner end, so the
+	// first handle of every corner is the same distance in, whatever its name.
 	return corner ? (
 		<span
-			className={`fx-handle-slot fx-handle-slot--${side}`}
+			className={`fx-handle-slot fx-handle-slot--${side} fx-handle-slot--${corner.endsWith("left") ? "start" : "end"}`}
 			style={{ minWidth: `${text.length}ch` }}
 		>
 			{handle}

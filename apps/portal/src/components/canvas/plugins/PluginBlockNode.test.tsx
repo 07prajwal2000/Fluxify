@@ -77,6 +77,11 @@ test("a wide block shows every body handle, two stacked on one corner, each name
 	// a body handle leaves from the edge its corner is on
 	expect(handle(view, "a1-tools")?.className).toContain("fx-handle--bottom");
 	expect(handle(view, "a1-approval")?.className).toContain("fx-handle--top");
+	// pinned to the corner side, so the first socket of each corner lines up whatever its name
+	const slots = (corner: string) =>
+		[...(rail(corner)?.querySelectorAll(".fx-handle-slot") ?? [])].map((s) => s.className);
+	for (const slot of slots("bottom-left")) expect(slot).toContain("fx-handle-slot--start");
+	for (const slot of slots("top-right")) expect(slot).toContain("fx-handle-slot--end");
 });
 
 test("a square block is the compact card with its outputs on the right", () => {
