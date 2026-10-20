@@ -21,6 +21,7 @@
 		"test:lib": "bun run --parallel --cwd packages/lib test",
 		"test:blocks": "bun run --parallel --cwd packages/blocks test",
 		"test:sdk": "bun run --cwd packages/sdk test",
+		"test:cli": "bun run --cwd packages/cli test",
 		"test:adapters": "bun run --parallel --cwd packages/adapters test",
 		"test:server:unit": "bun test --isolate --timeout 60000 --cwd apps/server --path-ignore-patterns \"**/*.test.ts\"",
 		"test:server:integration": "bun test --isolate --timeout 300000 --cwd apps/server --path-ignore-patterns \"**/*.spec.ts\"",

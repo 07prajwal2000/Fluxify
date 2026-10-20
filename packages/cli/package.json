@@ -1,0 +1,32 @@
+{
+	"name": "@fluxify/cli",
+	"version": "2026.10.2001",
+	"description": "Create, build and pack Fluxify plugins.",
+	"type": "module",
+	"license": "Apache-2.0",
+	"author": "07prajwal2000",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Fluxify-rest/Fluxify.git",
+		"directory": "packages/cli"
+	},
+	"bin": {
+		"fluxify-cli": "./bin.ts"
+	},
+	"//": "Not published yet (X1 #876). Its own workspace so the parser never lands on a worker, which installs @fluxify/sdk for every plugin.",
+	"scripts": {
+		"test": "bun test --timeout 180000",
+		"typecheck": "tsgo --noEmit"
+	},
+	"dependencies": {
+		"@fluxify/sdk": "workspace:*",
+		"oxc-parser": "^0.155.0",
+		"zod": "^4.0.17"
+	},
+	"devDependencies": {
+		"@fluxify/blocks": "workspace:*",
+		"@fluxify/server": "workspace:*",
+		"@types/bun": "^1.4.0",
+		"@typescript/native-preview": "^7.0.0-dev.20260219.1"
+	}
+}

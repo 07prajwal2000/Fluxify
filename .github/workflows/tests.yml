@@ -26,6 +26,7 @@ jobs:
       ai-gateway: ${{ steps.filter.outputs.ai-gateway == 'true' || inputs.full }}
       portal: ${{ steps.filter.outputs.portal == 'true' || inputs.full }}
       sdk: ${{ steps.filter.outputs.sdk == 'true' || inputs.full }}
+      cli: ${{ steps.filter.outputs.cli == 'true' || inputs.full }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -91,6 +92,16 @@ jobs:
             sdk:
               - 'packages/sdk/**'
               - '.github/workflows/tests.yml'
+            cli:
+              - 'apps/server/**'
+              - 'packages/adapters/**'
+              - 'packages/blocks/**'
+              - 'packages/cli/**'
+              - 'packages/common/**'
+              - 'packages/lib/**'
+              - 'packages/sdk/**'
+              - 'testing/mcp-math/**'
+              - '.github/workflows/tests.yml'
             mcp-math:
               - 'testing/mcp-math/**'
               - '.github/workflows/tests.yml'
@@ -153,6 +164,20 @@ jobs:
       # the npm package must still build, though nothing publishes it yet
       - name: Build SDK Package
         run: bun run --cwd packages/sdk build
+
+  test-packages-cli:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.cli == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Install Dependencies
+        run: bun install
+      - name: Run CLI Tests
+        run: bun run test:cli
 
   test-packages-adapters:
     needs: detect-changes
@@ -270,7 +295,7 @@ jobs:
   # to be `success`.
   require-all:
     if: ${{ always() && inputs.full }}
-    needs: [detect-changes, test-packages-lib, test-packages-blocks, test-packages-sdk, test-packages-adapters, test-e2e-graphs, test-testing-mcp-math, test-apps-server-unit, test-apps-server-integration, test-apps-portal, test-apps-ai-gateway]
+    needs: [detect-changes, test-packages-lib, test-packages-blocks, test-packages-sdk, test-packages-cli, test-packages-adapters, test-e2e-graphs, test-testing-mcp-math, test-apps-server-unit, test-apps-server-integration, test-apps-portal, test-apps-ai-gateway]
     runs-on: ubuntu-latest
     steps:
       - name: Every test job must have succeeded

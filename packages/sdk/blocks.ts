@@ -21,9 +21,14 @@ export {
 } from "./src/handles.js";
 export {
 	BLOCK_NAME,
+	blockEntryPath,
+	type FluxifyManifest,
+	fluxifyManifestSchema,
 	type ManifestEntry,
 	manifestEntrySchema,
+	PLUGIN_NAME,
 	paramSchema,
+	SDK_RANGE,
 	visibleWhenSchema,
 } from "./src/manifest.js";
 export {

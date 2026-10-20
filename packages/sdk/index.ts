@@ -4,6 +4,7 @@ export { type BodyCorner, type HandleSpec, handleSpecSchema } from "./src/handle
 export {
 	BLOCK_DATA_KEYS,
 	CTX_SPAN_TYPE,
+	ICON_URL_MAX,
 	INVOKE_MODES,
 	type InvokeMode,
 	MODULE_BLOCK_DATA_KEYS,

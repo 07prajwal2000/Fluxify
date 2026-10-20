@@ -1,8 +1,11 @@
 import { describe, expect, it } from "bun:test";
 import {
 	block,
+	blockEntryPath,
 	deprecated,
+	fluxifyManifestSchema,
 	handle,
+	ICON_URL_MAX,
 	MODULE_BLOCK_DATA_KEYS,
 	manifestEntrySchema,
 	param,
@@ -206,5 +209,47 @@ describe("nextVersion", () => {
 	});
 	it("refuses a 100th release on one day", () => {
 		expect(() => nextVersion("2026.10.2099", on("2026-10-20"))).toThrow("already 99 releases");
+	});
+});
+
+describe("fluxifyManifestSchema", () => {
+	const entry = toManifestEntry(slack);
+	const manifest = (over: Record<string, unknown> = {}, name = entry.name) => ({
+		name: "acme/slack",
+		url: "https://github.com/acme/fluxify-slack",
+		sdk: ">=2026.10.2001",
+		blocks: { [name]: { entry: "dist/blocks/messages/post.js", ...entry, name } },
+		...over,
+	});
+	const reason = (m: unknown) => {
+		const r = fluxifyManifestSchema.safeParse(m);
+		return r.success ? "" : r.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
+	};
+
+	it("accepts what the CLI writes", () => {
+		expect(fluxifyManifestSchema.safeParse(manifest()).success).toBe(true);
+		expect(blockEntryPath("acme/slack/messages/post")).toBe("dist/blocks/messages/post.js");
+	});
+
+	it("needs an https url, a scope/name and a version range", () => {
+		expect(reason(manifest({ url: "http://example.com" }))).toContain("https");
+		expect(reason(manifest({ url: undefined }))).toContain("url");
+		expect(reason(manifest({ name: "slack" }))).toContain("scope/name");
+		expect(reason(manifest({ sdk: "latest" }))).toContain("version range");
+	});
+
+	it("pins each block to its type and to dist/blocks, so a manifest cannot point elsewhere", () => {
+		const other = manifest({}, "acme/other/messages/post");
+		expect(reason(other)).toContain("is not inside plugin");
+		const moved = manifest();
+		moved.blocks["acme/slack/messages/post"].entry = "../../etc/passwd";
+		expect(reason(moved)).toContain("must be 'dist/blocks/messages/post.js'");
+		const keyed = manifest();
+		keyed.blocks = { "acme/slack/other": keyed.blocks["acme/slack/messages/post"] };
+		expect(reason(keyed)).toContain("is keyed 'acme/slack/other'");
+	});
+
+	it("shares the custom block icon limit", () => {
+		expect(ICON_URL_MAX).toBe(68266);
 	});
 });

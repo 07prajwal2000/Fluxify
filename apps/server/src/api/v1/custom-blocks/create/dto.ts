@@ -1,3 +1,4 @@
+import { ICON_URL_MAX } from "@fluxify/sdk";
 import z from "zod";
 import { CUSTOM_BLOCK_USAGES } from "../../../../lib/customBlockUsage";
 
@@ -59,7 +60,7 @@ export const baseRequestBodySchema = z.object({
 	label: z.string(),
 	description: z.string().optional(),
 	icon: z.enum(["premade-list", "custom"]).optional(),
-	iconUrl: z.string().max(68266).optional(),
+	iconUrl: z.string().max(ICON_URL_MAX).optional(),
 	projectId: z.string(),
 	inputParams: z.array(inputParamSchema).optional(),
 	/** where the block may run (#534): flows, test setup/teardown (#483), or a middleware chain */
