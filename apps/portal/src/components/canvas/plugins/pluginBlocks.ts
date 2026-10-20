@@ -9,6 +9,8 @@ export type PluginBlockDef = {
 	type: string;
 	/** `scope/name` of the plugin it belongs to */
 	plugin: string;
+	/** the plugin's homepage, for the Docs tab */
+	url: string;
 	label: string;
 	description?: string;
 	shape: "square" | "wide";
@@ -40,6 +42,7 @@ export function pluginBlockDefs(plugins: Plugin[]): PluginBlockDef[] {
 		return Object.values(manifest.blocks).map((entry) => ({
 			type: entry.name,
 			plugin: plugin.name,
+			url: plugin.url,
 			label: entry.label,
 			description: entry.description,
 			shape: entry.shape,
