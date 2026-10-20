@@ -1,5 +1,6 @@
 import { db } from "../../db";
 import { projectsEntity } from "../../db/schema";
+import { publishProjectPlugins } from "../plugins/service";
 import { compileProjectSandboxes } from "./sandbox";
 import {
 	compileProjectCustomBlocks,
@@ -24,6 +25,8 @@ export async function compileAllProjects() {
 
 export async function compileProject(projectId: string) {
 	await publishProjectConfig(projectId);
+	// what workers may load, before the artifacts that call it
+	await publishProjectPlugins(projectId);
 	await compileProjectCustomBlocks(projectId);
 	await compileProjectMiddlewares(projectId);
 	await compileProjectRoutes(projectId);

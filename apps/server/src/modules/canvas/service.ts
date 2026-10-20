@@ -1,4 +1,4 @@
-import { BlockTypes } from "@fluxify/blocks";
+import { BlockTypes, type HandleSpecs } from "@fluxify/blocks";
 import { type DbTransactionType, db } from "../../db";
 import {
 	CHAN_ON_CUSTOM_BLOCK_CHANGE,
@@ -18,6 +18,7 @@ import { type DirectedCanvasEdge, findCycleEdgeIds } from "./cycleDetection";
 import { takeDroppedWarnings } from "./droppedFields";
 import { assertOutputHandles } from "./handleRules";
 import { assertJoinsSupported } from "./joinSupport";
+import { parentPluginSpecs, pluginSpecsOf } from "./pluginSpecs";
 import { assertSendMessageLicensed } from "./queueLicense";
 import {
 	deleteBlocks,
@@ -152,11 +153,11 @@ async function assertBlockTypesExist(
 	parent: CanvasParent,
 	data: CanvasChanges,
 	tx: DbTransactionType,
+	pluginSpecs: HandleSpecs,
 ) {
 	const builtin = new Set<string>(Object.values(BlockTypes));
-	const unknown = [
-		...new Set(data.changes.blocks.map((b) => b.type).filter((t) => !builtin.has(t))),
-	];
+	const known = (t: string) => builtin.has(t) || t in pluginSpecs;
+	const unknown = [...new Set(data.changes.blocks.map((b) => b.type).filter((t) => !known(t)))];
 	if (unknown.length === 0) return;
 
 	const custom = new Set(await getCustomBlockNames(parent, tx));
@@ -164,7 +165,7 @@ async function assertBlockTypesExist(
 	if (bad.length === 0) return;
 
 	throw new BadRequestError(
-		`Unknown block type(s): ${bad.join(", ")}. Use a built-in block type or a custom block defined in this project.`,
+		`Unknown block type(s): ${bad.join(", ")}. Use a built-in block type, a custom block defined in this project or a block of one of its plugins.`,
 	);
 }
 
@@ -182,6 +183,7 @@ async function canvasIssues(
 	keyOf: (id: string) => string | undefined,
 	tx: DbTransactionType,
 	dryRun: boolean,
+	handleSpecs: HandleSpecs,
 ) {
 	// the custom block query is only needed when this canvas or its owner is one
 	const builtin = new Set<string>(Object.values(BlockTypes));
@@ -195,6 +197,7 @@ async function canvasIssues(
 		blocks: blocksAfterSave.map((b) => ({ ...b, key: keyOf(b.id) })),
 		edges: edgesAfterSave,
 		usageOf: new Map(blocks.map((b) => [b.name, b.usage])),
+		handleSpecs,
 	});
 	if (dryRun) return issues;
 	const written = new Set(data.changes.blocks.map((b) => b.id));
@@ -359,7 +362,13 @@ export async function saveCanvas(
 	let result: SaveResult = { canvasRevision: 0, issues: [], newKeys: {} };
 	// a tx nests as a savepoint, so the outer transaction still decides the outcome
 	const saving = (outer ?? db).transaction(async (tx) => {
-		await assertBlockTypesExist(parent, data, tx);
+		const specsFor = pluginSpecsOf(parent, tx);
+		await assertBlockTypesExist(
+			parent,
+			data,
+			tx,
+			await specsFor(data.changes.blocks.map((b) => b.type)),
+		);
 		await assertNoCustomBlockRecursion(parent, data, deleteBlockIds, tx);
 		await assertEdgeTargetsExist(parent, data, deleteBlockIds, tx);
 		await assertCanvasHasNoCycles(parent, data, deleteBlockIds, deleteEdgeIds, tx);
@@ -373,13 +382,22 @@ export async function saveCanvas(
 			tx,
 		);
 		const typeOf = new Map(blocksAfterSave.map((b) => [b.id, b.type]));
-		// no spec source on admin yet: plugin manifests arrive with P1 (#857)
-		assertOutputHandles((id) => typeOf.get(id), edgesAfterSave);
+		const pluginSpecs = await specsFor(typeOf.values());
+		assertOutputHandles((id) => typeOf.get(id), edgesAfterSave, pluginSpecs);
 		assertTransactionWiring(blocksAfterSave, edgesAfterSave, dbTypeOf);
 		assertJoinsSupported(blocksAfterSave, dbTypeOf);
 		const { keyOf, newKeys } = await assignBlockKeys(parent, data.changes.blocks, tx);
 		const issues = [
-			...(await canvasIssues(parent, data, blocksAfterSave, edgesAfterSave, keyOf, tx, dryRun)),
+			...(await canvasIssues(
+				parent,
+				data,
+				blocksAfterSave,
+				edgesAfterSave,
+				keyOf,
+				tx,
+				dryRun,
+				pluginSpecs,
+			)),
 			...takeDroppedWarnings(data),
 		];
 		await upsertBlocks(
@@ -456,13 +474,15 @@ export async function getCanvas(parent: CanvasParent, projectIds: string[] = [])
 		if (!(await parentExists(parent, projectIds, tx))) {
 			throw new NotFoundError(NOT_FOUND[parent.type]);
 		}
-		const [blocks, edges, canvasRevision] = await Promise.all([
+		const [blocks, edges, canvasRevision, handleSpecs] = await Promise.all([
 			getBlocks(parent, tx),
 			getEdges(parent, tx),
 			getCanvasRevision(parent, tx),
+			parentPluginSpecs(parent, tx),
 		]);
 		return {
 			canvasRevision,
+			...(Object.keys(handleSpecs).length ? { handleSpecs } : {}),
 			blocks: blocks.map((b) => ({
 				id: b.id,
 				key: b.key,

@@ -7,6 +7,7 @@ import { type AdminFetch, adminApi, httpAdminFetch } from "./adminApi";
 import { canvasTools } from "./canvasTools";
 import { docsTools } from "./docsTools";
 import { MCP_INSTRUCTIONS } from "./instructions";
+import { pluginTools } from "./pluginTools";
 import { projectTools } from "./projectTools";
 import { routeTools } from "./routeTools";
 import { sandboxTools } from "./sandboxTools";
@@ -70,6 +71,7 @@ export function createMcpServer(
 		...testSuiteTools,
 		...versionTools,
 		...docsTools,
+		...pluginTools,
 	]) {
 		const api = adminApi(fetcher, auth, tool.role);
 		server.registerTool(

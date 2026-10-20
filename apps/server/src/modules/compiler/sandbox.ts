@@ -1,10 +1,10 @@
-import { compileGraph } from "@fluxify/blocks";
 import { eq } from "drizzle-orm";
 import { db } from "../../db";
 import { deleteArtifact, putArtifact } from "../../db/natsKv";
 import { projectsEntity, sandboxesEntity } from "../../db/schema";
 import { CONTENT_TYPES } from "../../lib/routeConfig";
 import { compileDependencies } from "../packages/service";
+import { artifactBuild, compileWithPlugins, loadPluginSets } from "../plugins/compile";
 import type { RouteArtifact, WorkflowArtifact } from "./artifacts";
 import {
 	type CompiledResource,
@@ -42,13 +42,16 @@ export async function compileSandbox(sandboxId: string) {
 	const { blocks, edges } = await loadGraph({ type: "sandbox", id: sandboxId });
 	// recording is always on, so the spans are always compiled in
 	const options = { projectId, dependencies: await compileDependencies(projectId), tracing: true };
-	let route: string;
-	let workflow: string;
+	const plugins = (await loadPluginSets(projectId)).development;
+	let route: ReturnType<typeof artifactBuild>;
+	let workflow: ReturnType<typeof artifactBuild>;
 	try {
-		route = compileOrThrow(resource, () => compileGraph(blocks, edges, options)).source;
+		route = compileOrThrow(resource, () =>
+			artifactBuild(compileWithPlugins(blocks, edges, options, plugins)),
+		);
 		workflow = compileOrThrow(resource, () =>
-			compileGraph(blocks, edges, { ...options, asWorkflow: true }),
-		).source;
+			artifactBuild(compileWithPlugins(blocks, edges, { ...options, asWorkflow: true }, plugins)),
+		);
 	} catch (error) {
 		return recordFailure(error);
 	}
@@ -74,7 +77,7 @@ export async function compileSandbox(sandboxId: string) {
 				// any body: nothing about a sandbox request is declared up front
 				acceptedContentTypes: [...CONTENT_TYPES],
 				routeVersion: compiledAt,
-				source: route,
+				...route,
 			} satisfies RouteArtifact,
 			"development",
 		),
@@ -86,7 +89,7 @@ export async function compileSandbox(sandboxId: string) {
 				name: sandbox.name,
 				timeoutSeconds: 300,
 				workflowVersion: compiledAt,
-				source: workflow,
+				...workflow,
 			} satisfies WorkflowArtifact,
 			"development",
 		),

@@ -19,7 +19,8 @@ export function nameBlocks(
 	for (const e of canvas.edges) {
 		const handle = bare(e.from, e.fromHandle ?? "source");
 		const [from, to] = [names.get(e.from) ?? e.from, names.get(e.to) ?? e.to];
-		names.set(e.id, edgeText(from, types.get(e.from) ?? "", handle, to));
+		const type = types.get(e.from) ?? "";
+		names.set(e.id, edgeText(from, type, handle, to, canvas.handleSpecs?.[type]));
 	}
 	/** ref → the key the server assigned */
 	const keys: Record<string, string> = {};

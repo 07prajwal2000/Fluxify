@@ -169,6 +169,13 @@
 			"when": 1792269474464,
 			"tag": "0023_audit_events",
 			"breakpoints": true
+		},
+		{
+			"idx": 24,
+			"version": "7",
+			"when": 1792457690682,
+			"tag": "0024_plugins",
+			"breakpoints": true
 		}
 	]
 }

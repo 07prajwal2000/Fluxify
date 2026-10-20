@@ -1,3 +1,6 @@
+import type { BlockMeta } from "@fluxify/blocks";
+import type { PluginPermissions } from "../../db/schema";
+
 /**
  * What the compiler publishes and a worker consumes. Everything here must be
  * plain JSON — it round-trips through NATS KV.
@@ -216,6 +219,28 @@ export type DepsArtifact = {
 	packageJson: string;
 	lockfile: string;
 	updatedAt: string;
+};
+
+/**
+ * An approved plugin, as a worker needs it to decide what may load (#857):
+ * published only to the environments it is enabled in, deleted from the rest.
+ * Each block's `entry` is relative to the plugin's install root; with that root
+ * it is a `PluginBlockRef` (`pluginBlockRefs` in `requestRouter/pluginLoader`).
+ */
+export type PluginArtifact = {
+	projectId: string;
+	/** `scope/name` */
+	name: string;
+	version: string;
+	integrity: string;
+	source: "upload" | "npm" | "url" | "fs";
+	location: string;
+	/** always approved: nothing else is published */
+	approval: "approved";
+	/** what the approval granted; a block's `ctx` reaches nothing else */
+	permissions: PluginPermissions;
+	blocks: Record<string, { entry: string; meta: BlockMeta }>;
+	publishedAt: string;
 };
 
 /** the message body on the compile work queue */

@@ -1,4 +1,4 @@
-import { type BlockDTOType, compileGraph, type EdgeDTOSchemaType } from "@fluxify/blocks";
+import type { BlockDTOType, EdgeDTOSchemaType } from "@fluxify/blocks";
 import { eq } from "drizzle-orm";
 import { db } from "../../db";
 import { deleteArtifact, putArtifact } from "../../db/natsKv";
@@ -6,6 +6,7 @@ import { projectsEntity } from "../../db/schema";
 import { BadRequestError } from "../../errors/badRequestError";
 import { CONTENT_TYPES } from "../../lib/routeConfig";
 import { compileDependencies } from "../packages/service";
+import { artifactBuild, compileWithPlugins, loadPluginSets } from "../plugins/compile";
 import type { RouteArtifact } from "./artifacts";
 import { ensureCustomBlocksRegistered } from "./service";
 import { sandboxKey } from "./subjects";
@@ -31,14 +32,14 @@ export async function compileEphemeral(o: {
 		.from(projectsEntity)
 		.where(eq(projectsEntity.id, projectId));
 	await ensureCustomBlocksRegistered(projectId);
-	let source: string;
+	const dependencies = await compileDependencies(projectId);
+	const plugins = (await loadPluginSets(projectId)).development;
+	let built: ReturnType<typeof artifactBuild>;
 	try {
-		({ source } = compileGraph(o.blocks, o.edges, {
-			projectId,
-			dependencies: await compileDependencies(projectId),
+		built = artifactBuild(
 			// spans are built so the call can answer with the trace; nothing is stored
-			tracing: true,
-		}));
+			compileWithPlugins(o.blocks, o.edges, { projectId, dependencies, tracing: true }, plugins),
+		);
 	} catch (error) {
 		// the same graph would fail again: the caller's to fix, not a retry
 		throw new BadRequestError(
@@ -58,7 +59,7 @@ export async function compileEphemeral(o: {
 		recordExecution: false,
 		routeVersion: compiledAt,
 		compiledAt,
-		source,
+		...built,
 		sandbox: true,
 		ephemeral: true,
 	};

@@ -71,6 +71,13 @@ export const triggerKey = (projectId: string, triggerId: string) =>
 export const depsKey = (projectId: string) => `deps.${projectId}.current`;
 
 /**
+ * A project's approved plugin (#857), in each environment it is enabled in:
+ * what a worker may load. Plugin names are `scope/name` and `/` is a valid key
+ * character, so the name is the id: `plugin.<projectId>.acme/slack`.
+ */
+export const pluginKey = (projectId: string, name: string) => `plugin.${projectId}.${name}`;
+
+/**
  * The filters a worker watches for its project. `kinds` narrows them to what
  * its mode actually runs — a workflow-only worker holds no HTTP route table,
  * so there is no reason to ship it every route in the project.
@@ -88,6 +95,7 @@ const ARTIFACT_KINDS = [
 	"project-config",
 	"trigger",
 	"deps",
+	"plugin",
 	"sandbox",
 	"sandbox-workflow",
 ] as const;

@@ -7,6 +7,7 @@ import instanceSettings from "./instance-settings/register";
 import integrations from "./integrations/register";
 import knowledgeSources from "./knowledge-sources/register";
 import middlewares from "./middlewares/register";
+import plugins from "./plugins/register";
 import projects from "./projects/register";
 import recordings from "./recordings/register";
 import routes from "./routes/register";
@@ -45,6 +46,7 @@ export default {
 		recordings.registerHandler(router);
 		customBlocks.registerHandler(router);
 		middlewares.registerHandler(router);
+		plugins.registerHandler(router);
 		instanceSettings.registerHandler(router);
 	},
 };

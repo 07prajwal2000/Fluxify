@@ -1,4 +1,9 @@
-import { getOutputHandles, type HandleSpec, isFanOutHandle } from "@fluxify/blocks/blockHandles";
+import {
+	getOutputHandles,
+	type HandleSpec,
+	type HandleSpecs,
+	isFanOutHandle,
+} from "@fluxify/blocks/blockHandles";
 import { blockKeyPrefix, blockKeyPrefixOf } from "@fluxify/blocks/blockKeys";
 import { BlockTypes } from "@fluxify/blocks/blockTypes";
 import type { CanvasItems } from "./canvasNormalize";
@@ -56,8 +61,11 @@ export class Draft {
 	private goneKeys = new Set<string>();
 	/** what to call a block in a message: its key, or the ref it was added under */
 	private labels = new Map<string, string>();
+	/** plugin block types' handles (#857) */
+	readonly specs: HandleSpecs;
 
 	constructor(canvas: CanvasItems) {
+		this.specs = canvas.handleSpecs ?? {};
 		for (const b of canvas.blocks) {
 			const key = b.key ?? b.id;
 			this.blocks.set(b.id, { type: b.type, isNew: false });
@@ -135,10 +143,10 @@ export class Draft {
 		if (STRUCTURAL.has(target.type))
 			throw new Error(`connect: nothing may point at the ${target.type} block.`);
 		if (from === to) throw new Error("connect: a block cannot connect to itself.");
-		// no spec source in the gateway yet: plugin manifests reach it with P1 (#857)
-		const h = resolveHandle(source.type, this.name(from), given);
+		const spec = this.specs[source.type];
+		const h = resolveHandle(source.type, this.name(from), given, spec);
 		const taken = [...this.edges.values()].find((e) => e.from === from && e.handle === h);
-		if (taken && taken.to !== to && !isFanOutHandle(h)) {
+		if (taken && taken.to !== to && !isFanOutHandle(h, spec)) {
 			throw new Error(
 				`connect: ${this.name(from)}'s ${h} handle already goes to ${this.name(taken.to)}. Disconnect it first, in the same call.`,
 			);

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { type AdminFetch, adminApi } from "../mcp/adminApi";
 import { canvasTools } from "../mcp/canvasTools";
 import { docsTools } from "../mcp/docsTools";
+import { pluginTools } from "../mcp/pluginTools";
 import { projectTools } from "../mcp/projectTools";
 import { routeTools } from "../mcp/routeTools";
 import { sandboxTools } from "../mcp/sandboxTools";
@@ -31,6 +32,7 @@ const ALL: McpTool[] = [
 	...testSuiteTools,
 	...versionTools,
 	...docsTools,
+	...pluginTools,
 ];
 
 const PROJECT_FIELD = z

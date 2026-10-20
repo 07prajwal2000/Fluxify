@@ -1,4 +1,10 @@
-import { BlockTypes, blockDataIssues, blockName, literalExpressionIssues } from "@fluxify/blocks";
+import {
+	BlockTypes,
+	blockDataIssues,
+	blockName,
+	type HandleSpecs,
+	literalExpressionIssues,
+} from "@fluxify/blocks";
 import type { CustomBlockUsage } from "../../db/schema";
 import { reachabilityIssues } from "./reachability";
 import type { CanvasParentType } from "./types";
@@ -23,6 +29,8 @@ export type RulesInput = {
 	edges: { from?: string | null; to?: string | null; fromHandle?: string | null }[];
 	/** the project's custom blocks, by name */
 	usageOf: Map<string, CustomBlockUsage>;
+	/** handle specs of the project's plugin blocks (#857) */
+	handleSpecs?: HandleSpecs;
 };
 
 /** Blocks that read or write the HTTP request. A workflow runs off a queue with none. */
@@ -124,7 +132,7 @@ function duplicateNameIssues({ blocks }: RulesInput): CanvasIssue[] {
 export function canvasRuleIssues(input: RulesInput): CanvasIssue[] {
 	return [
 		...input.blocks.flatMap((block) => blockIssues(block, input)),
-		...reachabilityIssues(input),
+		...reachabilityIssues(input, input.handleSpecs),
 		...duplicateNameIssues(input),
 	];
 }

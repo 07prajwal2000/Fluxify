@@ -10,6 +10,7 @@ mock.module("../../../db/redis", () => ({
 	CHAN_ON_CUSTOM_BLOCK_CHANGE: "chan:on-custom-block-change",
 }));
 
+import * as pluginSpecs from "../pluginSpecs";
 import * as repository from "../repository";
 import { handleCanvasOp } from "../rpc";
 import { RpcError } from "../../../db/natsRpc";
@@ -34,6 +35,8 @@ const upsertBlocks = spyOn(repository, "upsertBlocks");
 const upsertEdges = spyOn(repository, "upsertEdges");
 const getBlocks = spyOn(repository, "getBlocks");
 const getEdges = spyOn(repository, "getEdges");
+// the canvas read also lists the project's plugin handles (#857); this project has none
+spyOn(pluginSpecs, "parentPluginSpecs").mockResolvedValue({});
 
 /** everything saveCanvas writes, in order — the observable database state */
 const writes = () =>

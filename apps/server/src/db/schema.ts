@@ -1,6 +1,7 @@
 import { NODE_REASONS, NODE_STATES, NODE_TYPES } from "@fluxify/common/orchestrator";
 import type { TraceRunMetadata, TraceSpanMetadata, TraceSpanRecord } from "@fluxify/common/otlp";
 import { generateID } from "@fluxify/lib";
+import type { FluxifyManifest } from "@fluxify/sdk/blocks";
 import { relations, sql } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import {
@@ -1402,6 +1403,59 @@ export const projectDependenciesEntity = pgTable("project_dependencies", {
 		.notNull()
 		.$onUpdate(() => new Date()),
 });
+
+export const PLUGIN_SOURCES = ["upload", "npm", "url", "fs"] as const;
+export const pluginSourceEnum = pgEnum("plugin_source", PLUGIN_SOURCES);
+export const PLUGIN_APPROVALS = ["pending", "approved", "rejected"] as const;
+export const pluginApprovalEnum = pgEnum("plugin_approval", PLUGIN_APPROVALS);
+export const pluginStatusEnum = pgEnum("plugin_status", ["ok", "error"]);
+
+/** what a plugin's blocks may reach through `ctx` */
+export type PluginPermissions = { integrations: string[]; appconfig: boolean };
+
+/**
+ * A project's plugin (#857): the lock entry for the one version it runs. The
+ * manifest (`fluxify.json`) is authoritative for its blocks; nothing loads
+ * until a creator approves this exact `name + version + integrity`.
+ */
+export const pluginsEntity = pgTable(
+	"plugins",
+	{
+		id: varchar({ length: 50 })
+			.primaryKey()
+			.$defaultFn(() => generateID()),
+		projectId: varchar("project_id", { length: 50 })
+			.references(() => projectsEntity.id, { onDelete: "cascade" })
+			.notNull(),
+		/** `scope/name`, the plugin's permanent identity */
+		name: varchar({ length: 214 }).notNull(),
+		version: varchar({ length: 64 }).notNull(),
+		source: pluginSourceEnum("source").notNull(),
+		/** object key, npm spec, URL or path, by `source` */
+		location: text().notNull(),
+		integrity: text().notNull(),
+		/** the docs link, from the manifest */
+		url: text().notNull(),
+		sdkRange: varchar("sdk_range", { length: 64 }).notNull(),
+		manifest: jsonb().$type<FluxifyManifest>().notNull(),
+		approval: pluginApprovalEnum("approval").default("pending").notNull(),
+		approvedBy: varchar("approved_by", { length: 50 }),
+		approvedAt: timestamp("approved_at"),
+		/** frozen at approval: what the manifest asked for then */
+		permissions: jsonb().$type<PluginPermissions>(),
+		devEnabled: boolean("dev_enabled").default(true).notNull(),
+		prodEnabled: boolean("prod_enabled").default(false).notNull(),
+		status: pluginStatusEnum("status").default("ok").notNull(),
+		lastError: text("last_error"),
+		scannedAt: timestamp("scanned_at"),
+		createdAt: timestamp("created_at").defaultNow().notNull(),
+		updatedAt: timestamp("updated_at")
+			.defaultNow()
+			.notNull()
+			.$onUpdate(() => new Date()),
+	},
+	(table) => [uniqueIndex("uq_plugins_project_name").on(table.projectId, table.name)],
+);
 
 // Custom block canvases live in `blocks`/`edges` alongside route canvases —
 // see `modules/canvas`. The old `custom_block_graphs` table is gone.

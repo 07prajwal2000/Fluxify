@@ -16,6 +16,7 @@ import {
 } from "../compiler/middlewares";
 import { ensureCustomBlocksRegistered, loadGraph, snapshotGraph } from "../compiler/service";
 import { compileDependencies } from "../packages/service";
+import { compileWithPlugins, loadPluginSets, type PluginSet } from "../plugins/compile";
 import { readSnapshot } from "../versions/repository";
 import type { SuiteTarget } from "./target";
 
@@ -75,17 +76,19 @@ export async function compileSuiteRoute(routeId: string) {
 	// package imports must resolve from the worker's installed deps, as live
 	const dependencies = await compileDependencies(route.projectId!);
 	// hook points in every block: a suite without hooks just finds none
-	const { source } = compileGraph(blocks, edges, {
-		projectId: route.projectId!,
-		dependencies,
-		hooks: true,
-	});
+	const plugins = (await loadPluginSets(route.projectId!)).development;
+	const { source } = compileWithPlugins(
+		blocks,
+		edges,
+		{ projectId: route.projectId!, dependencies, hooks: true },
+		plugins,
+	);
 	return {
 		route: { ...route, middlewares: await loadRouteMiddlewares(routeId) },
 		workflow: undefined,
 		source,
 		dependencies,
-		customBlocks: await compileLibrary(route.projectId!, dependencies, (row) =>
+		customBlocks: await compileLibrary(route.projectId!, dependencies, plugins, (row) =>
 			loadGraph({ type: "custom_block", id: row.id }),
 		),
 	};
@@ -110,18 +113,19 @@ export async function compileSuiteWorkflow(workflowId: string) {
 
 	const { blocks, edges } = await loadGraph({ type: "workflow", id: workflowId });
 	const dependencies = await compileDependencies(workflow.projectId!);
-	const { source } = compileGraph(blocks, edges, {
-		asWorkflow: true,
-		projectId: workflow.projectId!,
-		dependencies,
-		hooks: true,
-	});
+	const plugins = (await loadPluginSets(workflow.projectId!)).development;
+	const { source } = compileWithPlugins(
+		blocks,
+		edges,
+		{ asWorkflow: true, projectId: workflow.projectId!, dependencies, hooks: true },
+		plugins,
+	);
 	return {
 		route: undefined,
 		workflow: { ...workflow, name: workflow.name ?? workflowId },
 		source,
 		dependencies,
-		customBlocks: await compileLibrary(workflow.projectId!, dependencies, (row) =>
+		customBlocks: await compileLibrary(workflow.projectId!, dependencies, plugins, (row) =>
 			loadGraph({ type: "custom_block", id: row.id }),
 		),
 	};
@@ -158,13 +162,15 @@ async function compileSuiteCandidate(target: SuiteTarget, candidate: SuiteCandid
 	await ensureCustomBlocksRegistered(projectId);
 	const dependencies = await compileDependencies(projectId);
 	const graph = snapshotGraph(candidate.snapshot);
-	const { source } = compileGraph(graph.blocks, graph.edges, {
-		projectId,
-		dependencies,
-		asWorkflow: target.type === "workflow",
-		hooks: true,
-	});
-	const customBlocks = await compileLibrary(projectId, dependencies, async (row) => {
+	// a candidate is what production would run, with production's plugins
+	const plugins = (await loadPluginSets(projectId)).production;
+	const { source } = compileWithPlugins(
+		graph.blocks,
+		graph.edges,
+		{ projectId, dependencies, asWorkflow: target.type === "workflow", hooks: true },
+		plugins,
+	);
+	const customBlocks = await compileLibrary(projectId, dependencies, plugins, async (row) => {
 		const swapped = candidate.swap?.kind === "custom_block" && candidate.swap.id === row.id;
 		const snapshot = swapped
 			? (candidate.swap!.snapshot as CustomBlockSnapshot)
@@ -244,6 +250,7 @@ export function compileInputScript(script: string, dependencies: Dependencies) {
 async function compileLibrary(
 	projectId: string,
 	dependencies: Dependencies,
+	plugins: PluginSet,
 	graphOf: (row: {
 		id: string;
 		name: string;
@@ -266,11 +273,12 @@ async function compileLibrary(
 			if (!graph) continue;
 			const { blocks, edges } = graph;
 			// `param:` placeholders resolve from the invocation, same as the compiler
-			const { source } = compileGraph(blocks, edges, {
-				asCustomBlock: true,
-				projectId,
-				dependencies,
-			});
+			const { source } = compileWithPlugins(
+				blocks,
+				edges,
+				{ asCustomBlock: true, projectId, dependencies },
+				plugins,
+			);
 			compiled.push({ name: row.name, source });
 		} catch (error) {
 			// one unfinished block must not stop the suite; the route only fails if
