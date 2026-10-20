@@ -68,9 +68,11 @@ COPY apps/ai-gateway/package.json apps/ai-gateway/package.json
 COPY apps/portal/package.json apps/portal/package.json
 COPY packages/adapters/package.json packages/adapters/package.json
 COPY packages/blocks/package.json packages/blocks/package.json
+COPY packages/cli/package.json packages/cli/package.json
 COPY packages/common/package.json packages/common/package.json
 COPY packages/components/package.json packages/components/package.json
 COPY packages/lib/package.json packages/lib/package.json
+COPY packages/sdk/package.json packages/sdk/package.json
 COPY testing/e2e/package.json testing/e2e/package.json
 COPY testing/mcp-math/package.json testing/mcp-math/package.json
 COPY scripts/setup-hooks.ts scripts/setup-hooks.ts
