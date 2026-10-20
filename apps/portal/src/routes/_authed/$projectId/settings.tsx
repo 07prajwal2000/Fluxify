@@ -10,6 +10,7 @@ import {
 	TbHistory,
 	TbKey,
 	TbPackage,
+	TbPlug,
 	TbTopologyStar3,
 	TbUsers,
 } from "react-icons/tb";
@@ -22,6 +23,7 @@ import { MembersSettings } from "@/components/settings/MembersSettings";
 import { NodesSettings } from "@/components/settings/NodesSettings";
 import { PackagesSettings } from "@/components/settings/PackagesSettings";
 import { ProjectAuditSettings } from "@/components/settings/ProjectAuditSettings";
+import { PluginsSettings } from "@/components/settings/plugins/PluginsSettings";
 import {
 	TELEMETRY_SIGNALS,
 	TelemetryDestinations,
@@ -40,18 +42,22 @@ type SettingsSearch = {
 		| "telemetry"
 		| "ai-connections"
 		| "packages"
+		| "plugins"
 		| "dev-access"
 		| "nodes"
 		| "members"
 		| "audit-logs"
 		| "experimental"
 		| "danger";
+	/** the plugin whose page is open on the Plugins tab, as `scope/name` */
+	plugin?: string;
 };
 
 export const Route = createFileRoute("/_authed/$projectId/settings")({
 	validateSearch: (search: Record<string, unknown>): SettingsSearch => {
 		return {
 			tab: typeof search.tab === "string" ? (search.tab as SettingsSearch["tab"]) : undefined,
+			plugin: typeof search.plugin === "string" ? search.plugin : undefined,
 		};
 	},
 	head: createRouteHead(
@@ -69,6 +75,7 @@ const SETTINGS_TABS = [
 	// by construction and nothing to claim.
 	{ id: "nodes", label: "Nodes", icon: TbTopologyStar3, flag: "orchestration" },
 	{ id: "packages", label: "npm Packages", icon: TbPackage },
+	{ id: "plugins", label: "Plugins", icon: TbPlug },
 	// Creators and above; a viewer does not see it, and the API refuses them too.
 	{ id: "dev-access", label: "Development access", icon: TbKey, editorsOnly: true },
 	{ id: "members", label: "Members", icon: TbUsers },
@@ -204,6 +211,15 @@ function ProjectSettingsPage() {
 						)}
 						{activeTab === "nodes" && <NodesSettings projectId={projectId} />}
 						{activeTab === "packages" && <PackagesSettings projectId={projectId} />}
+						{activeTab === "plugins" && (
+							<PluginsSettings
+								projectId={projectId}
+								selected={search.plugin}
+								onSelect={(plugin) =>
+									navigate({ search: { tab: "plugins", plugin } as any, replace: true })
+								}
+							/>
+						)}
 						{activeTab === "dev-access" && <DevAccessSettings projectId={projectId} />}
 						{activeTab === "members" && <MembersSettings projectId={projectId} />}
 						{activeTab === "audit-logs" && <ProjectAuditSettings projectId={projectId} />}

@@ -155,10 +155,26 @@ export async function approvePlugin(
 	return approved;
 }
 
-/** Nothing of a rejected plugin loads; `approvedBy`/`approvedAt` record who decided. */
+/**
+ * Nothing of a rejected plugin loads; `approvedBy`/`approvedAt` record who decided.
+ * Rejecting a pending upgrade of an approved plugin only cancels the upgrade:
+ * the approved version it would replace keeps loading, untouched.
+ */
 export async function rejectPlugin(projectId: string, name: string, caller: Caller) {
 	assertCreator(caller, projectId);
 	const row = await rowFor(projectId, name);
+	if (row.approval === "pending" && row.live)
+		return updateAudited(row, {
+			...row.live,
+			url: row.live.manifest.url,
+			sdkRange: row.live.manifest.sdk,
+			approval: "approved",
+			approvedBy: null,
+			approvedAt: null,
+			status: "ok",
+			lastError: null,
+			live: null,
+		});
 	const rejected = await updateAudited(row, {
 		approval: "rejected",
 		approvedBy: caller.user.id,

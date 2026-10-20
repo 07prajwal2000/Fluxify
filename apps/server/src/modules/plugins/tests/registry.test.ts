@@ -121,6 +121,25 @@ describe("plugin registry", () => {
 	});
 });
 
+describe("rejecting a pending upgrade", () => {
+	it("cancels the upgrade and keeps the approved version serving", async () => {
+		const s = await setup();
+		const { registerPluginVersion, approvePlugin } = await service();
+		await registerPluginVersion(s.project, version(s.name, "sha-1"));
+		await approvePlugin(s.project, s.name, s.caller);
+		await registerPluginVersion(s.project, { ...version(s.name, "sha-2"), version: "2026.10.2002" });
+
+		const cancelled = await call(s.as, "POST", s.path("/reject"));
+		expect(cancelled.body).toMatchObject({
+			approval: "approved",
+			integrity: "sha-1",
+			version: "2026.10.2001",
+			live: null,
+		});
+		expect((await where(s.project, s.name)).development).toMatchObject({ integrity: "sha-1" });
+	});
+});
+
 describe("a route calling a plugin block", () => {
 	const compile = async (id: string) => (await import("../../compiler/service")).compileRoute(id);
 	const compileLog = async (id: string) =>
