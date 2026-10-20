@@ -12,6 +12,8 @@ export const approveBodySchema = z.object({
 
 export const environmentsBodySchema = z.object({ dev: z.boolean(), prod: z.boolean() });
 
+const permissionsSchema = z.object({ integrations: z.array(z.string()), appconfig: z.boolean() });
+
 export const pluginSchema = z.object({
 	id: z.string(),
 	projectId: z.string(),
@@ -29,7 +31,18 @@ export const pluginSchema = z.object({
 	approvedBy: z.string().nullable(),
 	approvedAt: z.coerce.string().nullable(),
 	/** what the approval granted; null until approved */
-	permissions: z.object({ integrations: z.array(z.string()), appconfig: z.boolean() }).nullable(),
+	permissions: permissionsSchema.nullable(),
+	/** while an upgrade waits for approval: the approved version that keeps loading until then */
+	live: z
+		.object({
+			version: z.string(),
+			integrity: z.string(),
+			source: z.enum(PLUGIN_SOURCES),
+			location: z.string(),
+			manifest: z.record(z.string(), z.unknown()),
+			permissions: permissionsSchema.nullable(),
+		})
+		.nullable(),
 	devEnabled: z.boolean(),
 	prodEnabled: z.boolean(),
 	status: z.enum(["ok", "error"]),
