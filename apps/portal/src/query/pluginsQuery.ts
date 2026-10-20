@@ -14,11 +14,12 @@ function useRegistryMutation<V, R>(projectId: string, fn: (v: V) => Promise<R>) 
 
 export const pluginsQuery = {
 	list: {
-		useQuery: (projectId: string) =>
+		useQuery: (projectId: string, enabled = true) =>
 			useQuery({
 				queryKey: [...pluginsKey(projectId), "list"],
 				queryFn: () => pluginsService.list(projectId),
 				refetchOnWindowFocus: false,
+				enabled,
 			}),
 	},
 	/** polls until every worker settled on the plugin's version */

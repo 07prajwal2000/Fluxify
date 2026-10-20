@@ -20,6 +20,8 @@ export type UseAddBlockOptions = {
 	openPicker: () => void;
 	/** Adds a picked block wired to a handle or into an edge, as one undo step. */
 	onQuickAdd: (node: BlockNode, context: QuickAddContext) => void;
+	/** Starting data for a block the catalog does not know (a plugin's); `undefined` leaves the default. */
+	dataFor?: (type: string) => Record<string, unknown> | undefined;
 };
 
 export type AddBlock = {
@@ -49,6 +51,7 @@ export function useAddBlock({
 	addNode,
 	openPicker,
 	onQuickAdd,
+	dataFor,
 }: UseAddBlockOptions): AddBlock {
 	const { screenToFlowPosition } = useReactFlow();
 	const dropPoint = useRef<ScreenPoint | null>(null);
@@ -68,7 +71,7 @@ export function useAddBlock({
 				id: uuidv7(),
 				type,
 				position: screenToFlowPosition(at ?? canvasCenter()),
-				data: noteData ?? defaultBlockData(type),
+				data: noteData ?? dataFor?.(type) ?? defaultBlockData(type),
 				width: noteData?.size.width,
 				height: noteData?.size.height,
 				zIndex: type === BLOCK_TYPES.stickynote ? -1 : 0,
@@ -76,7 +79,7 @@ export function useAddBlock({
 			};
 			return node;
 		},
-		[screenToFlowPosition, canvasCenter],
+		[screenToFlowPosition, canvasCenter, dataFor],
 	);
 
 	const addBlock = useCallback(

@@ -1,6 +1,6 @@
+import type { HandleSpec, HandleSpecs } from "@fluxify/blocks/layout";
 import { type FinalConnectionState, useReactFlow } from "@xyflow/react";
 import { type RefObject, useCallback, useRef } from "react";
-import type { HandleKind } from "./blocks/handles/handleConfig";
 import type { CanvasChanges } from "./changes";
 import type { CanvasHistory } from "./history";
 import { acceptsMore, applyQuickAdd, type QuickAddContext, quickAdd } from "./quickAdd";
@@ -23,10 +23,13 @@ function pointerOf(event: MouseEvent | TouchEvent) {
 export function useConnectToPicker({
 	enabled,
 	getEdges,
+	specOf,
 	openPickerFor,
 }: {
 	enabled: boolean;
 	getEdges: () => BlockEdge[];
+	/** The handle spec of a plugin block; builtin blocks have none. */
+	specOf: (nodeId: string) => HandleSpec | undefined;
 	openPickerFor: (context: QuickAddContext) => void;
 }) {
 	const { screenToFlowPosition } = useReactFlow();
@@ -43,9 +46,9 @@ export function useConnectToPicker({
 			start.current = null;
 			if (!enabled || !begin || state.isValid || state.toHandle) return;
 			if (!from?.id || from.type !== "source") return;
-			const handle = from.id.slice(from.nodeId.length + 1) as HandleKind;
+			const handle = from.id.slice(from.nodeId.length + 1);
 			const used = getEdges().filter((edge) => edge.sourceHandle === from.id).length;
-			if (!acceptsMore(handle, used)) return;
+			if (!acceptsMore(handle, used, specOf(from.nodeId))) return;
 			const end = pointerOf(event);
 			const moved = Math.hypot(end.x - begin.x, end.y - begin.y) > CLICK_SLOP;
 			openPickerFor({
@@ -55,7 +58,7 @@ export function useConnectToPicker({
 				at: moved ? screenToFlowPosition(end) : undefined,
 			});
 		},
-		[enabled, getEdges, openPickerFor, screenToFlowPosition],
+		[enabled, getEdges, specOf, openPickerFor, screenToFlowPosition],
 	);
 
 	return { onConnectStart, onConnectEnd };
@@ -67,6 +70,7 @@ export function useConnectToPicker({
  */
 export function useApplyQuickAdd({
 	latest,
+	specs,
 	pendingEmit,
 	history,
 	tracker,
@@ -74,6 +78,7 @@ export function useApplyQuickAdd({
 	setEdges,
 }: {
 	latest: RefObject<{ nodes: BlockNode[]; edges: BlockEdge[] }>;
+	specs: HandleSpecs;
 	pendingEmit: RefObject<boolean>;
 	history: CanvasHistory;
 	tracker: Pick<CanvasChanges, "markUpserted" | "markDeleted">;
@@ -82,7 +87,7 @@ export function useApplyQuickAdd({
 }) {
 	return useCallback(
 		(node: BlockNode, context: QuickAddContext) => {
-			const result = quickAdd(latest.current.nodes, latest.current.edges, context, node);
+			const result = quickAdd(latest.current.nodes, latest.current.edges, context, node, specs);
 			if (!result) return;
 			pendingEmit.current = true;
 			applyQuickAdd(result, {
@@ -95,6 +100,6 @@ export function useApplyQuickAdd({
 				},
 			});
 		},
-		[latest, pendingEmit, history, tracker, setNodes, setEdges],
+		[latest, specs, pendingEmit, history, tracker, setNodes, setEdges],
 	);
 }

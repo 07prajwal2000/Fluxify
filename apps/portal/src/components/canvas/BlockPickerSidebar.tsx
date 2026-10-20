@@ -1,5 +1,13 @@
 import { Button, cn, Input, Label, Sidebar, TextField } from "@fluxify/components";
-import { type KeyboardEvent, type ReactNode, useEffect, useId, useMemo, useState } from "react";
+import {
+	type KeyboardEvent,
+	type ReactNode,
+	useCallback,
+	useEffect,
+	useId,
+	useMemo,
+	useState,
+} from "react";
 import {
 	TbArrowLeft,
 	TbBoxMultiple,
@@ -8,6 +16,7 @@ import {
 	TbDatabase,
 	TbKey,
 	TbLayoutGrid,
+	TbPlug,
 	TbPlus,
 	TbSearch,
 	TbSend,
@@ -23,10 +32,13 @@ import {
 	pickerBlockCatalogEntries,
 } from "./blocks";
 import { useAddableCustomBlockDefs } from "./blocks/useCustomBlockDefs";
+import { DeprecatedBadge } from "./plugins/DeprecatedBadge";
+import { usePluginBlocks } from "./plugins/PluginBlocksContext";
+import { type PluginPickerItem, pluginFolderItems, pluginItem } from "./plugins/pluginPicker";
 import "./blockPickerSidebar.css";
 
 /** Catalog categories plus the ones only custom blocks land in. */
-type BlockCategory = BlockDefinition["category"] | "Custom" | "Built-in";
+type BlockCategory = BlockDefinition["category"] | "Custom" | "Built-in" | "Plugins";
 
 type CategoryDetails = {
 	description: string;
@@ -74,16 +86,16 @@ const CATEGORY_DETAILS: Record<BlockCategory, CategoryDetails> = {
 		description: "Blocks shipped with plugins",
 		icon: <TbBoxMultiple />,
 	},
+	Plugins: {
+		description: "Blocks from the plugins installed in this project",
+		icon: <TbPlug />,
+	},
 };
 
 const allCategories = Object.keys(CATEGORY_DETAILS) as BlockCategory[];
 
-type PickerItem = {
-	type: string;
-	name: string;
-	description: string;
+type PickerItem = Omit<PluginPickerItem, "category"> & {
 	category: BlockCategory;
-	icon: ReactNode;
 	/** Set when the block cannot be added — the reason is shown in its place. */
 	disabledReason?: string;
 };
@@ -97,7 +109,7 @@ export type BlockPickerSidebarProps = {
 	filterReason?: string;
 };
 
-/** Core blocks from the catalog plus the project's own custom blocks. */
+/** Core blocks from the catalog, the project's own custom blocks and the plugins' blocks. */
 export function BlockPickerSidebar({
 	isOpen,
 	onOpenChange,
@@ -107,6 +119,8 @@ export function BlockPickerSidebar({
 }: BlockPickerSidebarProps) {
 	const [query, setQuery] = useState("");
 	const [selectedCategory, setSelectedCategory] = useState<BlockCategory | null>(null);
+	/** the folder open inside `Plugins`: `acme/slack`, or `""` for the scopes */
+	const [folder, setFolder] = useState("");
 	const [activeIndex, setActiveIndex] = useState(0);
 	const listId = useId();
 	const optionId = (index: number) => `${listId}-option-${index}`;
@@ -115,13 +129,14 @@ export function BlockPickerSidebar({
 		if (!isOpen) {
 			setQuery("");
 			setSelectedCategory(null);
+			setFolder("");
 			setActiveIndex(0);
 		}
 	}, [isOpen]);
 
 	// A new list starts at its first row, so "type, then Enter" picks the top hit.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: reset is the point
-	useEffect(() => setActiveIndex(0), [query, selectedCategory]);
+	useEffect(() => setActiveIndex(0), [query, selectedCategory, folder]);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: optionId is derived from listId
 	useEffect(() => {
@@ -129,6 +144,16 @@ export function BlockPickerSidebar({
 	}, [activeIndex, listId]);
 
 	const customDefs = useAddableCustomBlockDefs();
+	// a block of a plugin still waiting for its first approval can be wired, not added
+	const { defs } = usePluginBlocks();
+	const pluginDefs = useMemo(() => defs.filter((def) => def.loads), [defs]);
+	const restrict = useCallback(
+		(block: PickerItem): PickerItem =>
+			filter && !block.folder && !filter(block.type)
+				? { ...block, disabledReason: block.disabledReason ?? filterReason }
+				: block,
+		[filter, filterReason],
+	);
 	const blocks = useMemo<PickerItem[]>(() => {
 		const core = pickerBlockCatalogEntries().map(([type, definition]) => ({
 			type: type as string,
@@ -147,15 +172,8 @@ export function BlockPickerSidebar({
 				? "A block can't call itself — that would recurse forever."
 				: undefined,
 		}));
-		const all: PickerItem[] = [...custom, ...core];
-		return filter
-			? all.map((block) =>
-					filter(block.type)
-						? block
-						: { ...block, disabledReason: block.disabledReason ?? filterReason },
-				)
-			: all;
-	}, [customDefs, filter, filterReason]);
+		return [...custom, ...pluginDefs.map(pluginItem), ...core].map(restrict);
+	}, [customDefs, pluginDefs, restrict]);
 
 	// An empty category is a dead end — only offer the ones holding something.
 	const categories = useMemo(
@@ -165,24 +183,48 @@ export function BlockPickerSidebar({
 
 	const visibleBlocks = useMemo(() => {
 		const normalizedQuery = query.trim().toLowerCase();
-		return blocks.filter((block) => {
-			if (!normalizedQuery && selectedCategory && block.category !== selectedCategory) {
-				return false;
-			}
-			if (!normalizedQuery) return true;
-			return [block.type, block.name, block.description, block.category]
-				.join(" ")
-				.toLowerCase()
-				.includes(normalizedQuery);
-		});
-	}, [blocks, query, selectedCategory]);
+		// `Plugins` is a tree to walk, not a list; a search still finds every block in it
+		if (!normalizedQuery && selectedCategory === "Plugins") {
+			return pluginFolderItems(pluginDefs, folder).map(restrict);
+		}
+		return blocks
+			.filter((block) => {
+				if (!normalizedQuery && selectedCategory && block.category !== selectedCategory) {
+					return false;
+				}
+				if (!normalizedQuery) return true;
+				return [block.type, block.name, block.description, block.category]
+					.join(" ")
+					.toLowerCase()
+					.includes(normalizedQuery);
+			})
+			.sort((a, b) => Number(!!a.deprecated) - Number(!!b.deprecated));
+	}, [blocks, pluginDefs, restrict, query, selectedCategory, folder]);
 
 	const isShowingCategories = !selectedCategory && !query.trim();
-	const title = query.trim() ? "Search blocks" : (selectedCategory ?? "Categories");
+	const trail =
+		selectedCategory === "Plugins" && !query.trim() ? folder.split("/").filter(Boolean) : [];
+	const title = query.trim()
+		? "Search blocks"
+		: [selectedCategory ?? "Categories", ...trail].join(" / ");
+	// one level up: out of a plugin folder, then out of `Plugins`
+	const parent = trail.length > 1 ? trail[trail.length - 2] : "Plugins";
 
 	function addBlock(type: BlockType) {
 		onAdd(type);
 		onOpenChange(false);
+	}
+
+	function goBack() {
+		if (folder) setFolder(trail.slice(0, -1).join("/"));
+		else setSelectedCategory(null);
+	}
+
+	/** a folder opens, a block is added */
+	function pick(block: PickerItem) {
+		if (block.disabledReason) return;
+		if (block.folder) setFolder(block.folder);
+		else addBlock(block.type as BlockType);
 	}
 
 	const rowCount = isShowingCategories ? categories.length : visibleBlocks.length;
@@ -203,7 +245,7 @@ export function BlockPickerSidebar({
 				return;
 			}
 			const block = visibleBlocks[activeIndex];
-			if (block && !block.disabledReason) addBlock(block.type as BlockType);
+			if (block) pick(block);
 		} else if (
 			selectedCategory &&
 			!query &&
@@ -212,7 +254,7 @@ export function BlockPickerSidebar({
 			event.preventDefault();
 			// Keeps Sidebar's document-level Escape from closing the picker.
 			event.stopPropagation();
-			setSelectedCategory(null);
+			goBack();
 		}
 	}
 
@@ -257,13 +299,9 @@ export function BlockPickerSidebar({
 			<div className="fx-block-picker__content">
 				<div className="fx-block-picker__section-header">
 					{selectedCategory ? (
-						<Button
-							variant="ghost"
-							onPress={() => setSelectedCategory(null)}
-							className="fx-block-picker__back"
-						>
+						<Button variant="ghost" onPress={goBack} className="fx-block-picker__back">
 							<TbArrowLeft />
-							Categories
+							{folder ? parent : "Categories"}
 						</Button>
 					) : (
 						<span>{title}</span>
@@ -321,22 +359,32 @@ export function BlockPickerSidebar({
 									block.disabledReason && "cursor-not-allowed opacity-60",
 								)}
 								onMouseEnter={() => setActiveIndex(index)}
-								onClick={() => addBlock(block.type as BlockType)}
+								onClick={() => pick(block)}
 							>
 								<span className="fx-block-picker__icon" aria-hidden>
 									{block.icon}
 								</span>
 								<span className="fx-block-picker__copy">
-									<span className="fx-block-picker__name">{block.name}</span>
+									<span className="fx-block-picker__name">
+										{block.name}
+										{block.deprecated && (
+											<DeprecatedBadge message={block.deprecated} className="ml-2 align-middle" />
+										)}
+									</span>
 									<span
 										className={cn(
 											"fx-block-picker__description",
 											block.disabledReason && "text-danger",
 										)}
 									>
-										{block.disabledReason ?? block.description}
+										{block.disabledReason ??
+											(query.trim() ? block.path : undefined) ??
+											block.description}
 									</span>
 								</span>
+								{block.folder && (
+									<TbChevronRight className="fx-block-picker__chevron" aria-hidden />
+								)}
 							</button>
 						))}
 						{visibleBlocks.length === 0 && (

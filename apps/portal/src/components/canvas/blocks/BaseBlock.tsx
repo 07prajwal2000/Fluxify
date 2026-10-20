@@ -1,3 +1,4 @@
+import type { BodyCorner } from "@fluxify/blocks/layout";
 import { Children, isValidElement, type ReactNode } from "react";
 import { TbAlertCircle, TbAlertTriangle, TbCheck, TbInfoCircle, TbX } from "react-icons/tb";
 import "./blocks.css";
@@ -43,15 +44,26 @@ export type BaseBlockProps = {
 	children?: ReactNode;
 };
 
-type Rails = Record<HandleSide, ReactNode[]>;
+/** The four edges, plus the corners a plugin body handle stacks on. */
+type Rail = HandleSide | BodyCorner;
+type Rails = Record<Rail, ReactNode[]>;
 
 export function splitChildren(children: ReactNode) {
-	const rails: Rails = { left: [], right: [], top: [], bottom: [] };
+	const rails: Rails = {
+		left: [],
+		right: [],
+		top: [],
+		bottom: [],
+		"top-left": [],
+		"top-right": [],
+		"bottom-left": [],
+		"bottom-right": [],
+	};
 	const body: ReactNode[] = [];
 
 	for (const child of Children.toArray(children)) {
 		if (isValidElement<BlockHandleProps>(child) && child.type === BlockHandle) {
-			rails[HANDLE_CONFIG[child.props.kind].side].push(child);
+			rails[child.props.corner ?? HANDLE_CONFIG[child.props.kind].side].push(child);
 		} else {
 			body.push(child);
 		}
@@ -59,7 +71,16 @@ export function splitChildren(children: ReactNode) {
 	return { rails, body };
 }
 
-const RAIL_SIDES: HandleSide[] = ["left", "right", "top", "bottom"];
+const RAIL_SIDES: Rail[] = [
+	"left",
+	"right",
+	"top",
+	"bottom",
+	"top-left",
+	"top-right",
+	"bottom-left",
+	"bottom-right",
+];
 
 /**
  * Block shell: icon on the left, name + truncated description on the right, and

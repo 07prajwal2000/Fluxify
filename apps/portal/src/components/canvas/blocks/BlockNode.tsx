@@ -4,6 +4,8 @@ import { IoExtensionPuzzle } from "react-icons/io5";
 import { TbFlask, TbWebhook } from "react-icons/tb";
 import { CustomBlockIcon } from "@/components/customBlocks/IconPicker";
 import { useCanvasResourceType } from "../CanvasResourceContext";
+import { PluginBlockNode } from "../plugins/PluginBlockNode";
+import { isPluginType } from "../plugins/pluginBlocks";
 import { BaseBlock, type BlockVariant } from "./BaseBlock";
 import { BLOCK_CATALOG, blockCatalogEntries } from "./blockCatalog";
 import { blockIcon } from "./blockIconMap";
@@ -109,7 +111,8 @@ export function createBlockNodeTypes(extra?: NodeTypes): NodeTypes {
 	return new Proxy(types, {
 		get(target, prop: string) {
 			if (prop in target) return target[prop];
-			return BlockNode;
+			// a plugin's block is drawn from its manifest, not from the catalog
+			return isPluginType(prop) ? PluginBlockNode : BlockNode;
 		},
 	});
 }

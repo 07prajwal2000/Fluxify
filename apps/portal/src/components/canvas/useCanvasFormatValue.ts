@@ -1,3 +1,4 @@
+import type { HandleSpecs } from "@fluxify/blocks/layout";
 import type { MutableRefObject } from "react";
 import { useCallback, useMemo, useState } from "react";
 import type { CanvasSnapshot, useCanvasHistory } from "./history";
@@ -11,6 +12,7 @@ export function useCanvasFormatValue({
 	latest,
 	history,
 	applySnapshot,
+	handleSpecs,
 }: {
 	enableFormat: boolean;
 	readOnly: boolean;
@@ -18,6 +20,8 @@ export function useCanvasFormatValue({
 	latest: MutableRefObject<{ nodes: BlockNode[]; edges: BlockEdge[] }>;
 	history: ReturnType<typeof useCanvasHistory>;
 	applySnapshot: (snapshot: CanvasSnapshot) => void;
+	/** Plugin blocks' handles, so a corner handle lays out as the side it is on. */
+	handleSpecs: HandleSpecs;
 }) {
 	const [isFormatting, setIsFormatting] = useState(false);
 	const formatEnabled = enableFormat && !readOnly && !layoutLocked;
@@ -27,7 +31,7 @@ export function useCanvasFormatValue({
 		setIsFormatting(true);
 		try {
 			const { nodes: current, edges: currentEdges } = latest.current;
-			const positions = await layoutBlocks(current, currentEdges);
+			const positions = await layoutBlocks(current, currentEdges, { handleSpecs });
 			if (Object.keys(positions).length === 0) return;
 			history.commit();
 			applySnapshot({
@@ -40,7 +44,7 @@ export function useCanvasFormatValue({
 		} finally {
 			setIsFormatting(false);
 		}
-	}, [formatEnabled, history, applySnapshot, latest]);
+	}, [formatEnabled, history, applySnapshot, latest, handleSpecs]);
 
 	return useMemo(
 		() => ({ enabled: formatEnabled, format, isFormatting }),

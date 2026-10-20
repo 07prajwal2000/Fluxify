@@ -40,6 +40,8 @@ import { CanvasFormatProvider } from "./layout";
 import { CanvasPlaygroundProvider, useCanvasPlayground } from "./PlaygroundContext";
 import { CanvasPanelProvider, useBlockPanel } from "./panel";
 import { CanvasVariableSnippets } from "./panel/SaveOutputField";
+import { PluginBlocksProvider } from "./plugins/PluginBlocksContext";
+import { usePluginCanvas } from "./plugins/usePluginCanvas";
 import { QuickAddProvider } from "./QuickAddContext";
 import { graphTopology, isCosmetic, track } from "./topology";
 import type { BlockCanvasProps, BlockEdge, BlockNode } from "./types";
@@ -98,6 +100,7 @@ function CanvasInner({
 	const shellRef = useRef<HTMLDivElement>(null);
 	const latest = useRef({ nodes, edges });
 	latest.current = { nodes, edges };
+	const { specs, dataFor, specOf } = usePluginCanvas(latest);
 	const renderedEdges = useCycleFlash(nodes, edges, cycleFeedbackToken);
 
 	const tracker = useChangeTracker(!readOnly);
@@ -280,6 +283,7 @@ function CanvasInner({
 		latest,
 		history,
 		applySnapshot,
+		handleSpecs: specs,
 	});
 	const canEditLayout = !readOnly && !layoutLocked;
 
@@ -338,6 +342,7 @@ function CanvasInner({
 
 	const onQuickAdd = useApplyQuickAdd({
 		latest,
+		specs,
 		pendingEmit,
 		history,
 		tracker,
@@ -352,6 +357,7 @@ function CanvasInner({
 		canvasRef,
 		openPicker: blockPicker.open,
 		onQuickAdd,
+		dataFor,
 		onBeforeAdd: (blockId) => {
 			history.commit();
 			tracker.markUpserted("blocks", [blockId]);
@@ -368,6 +374,7 @@ function CanvasInner({
 	const { onConnectStart, onConnectEnd } = useConnectToPicker({
 		enabled: quickAddEnabled,
 		getEdges: () => latest.current.edges,
+		specOf,
 		openPickerFor,
 	});
 
@@ -514,11 +521,13 @@ export function BlockCanvas(props: BlockCanvasProps) {
 	const content = (
 		<ReactFlowProvider>
 			<CanvasVariableSnippets />
-			<CanvasPlaygroundProvider>
-				<KeyboardShortcutsProvider>
-					<CanvasInner {...props} />
-				</KeyboardShortcutsProvider>
-			</CanvasPlaygroundProvider>
+			<PluginBlocksProvider>
+				<CanvasPlaygroundProvider>
+					<KeyboardShortcutsProvider>
+						<CanvasInner {...props} />
+					</KeyboardShortcutsProvider>
+				</CanvasPlaygroundProvider>
+			</PluginBlocksProvider>
 		</ReactFlowProvider>
 	);
 
