@@ -19,6 +19,16 @@ const built = await Bun.build({
 	external: ["zod"],
 });
 if (!built.success) throw new AggregateError(built.logs, "bundle failed");
+// the test harness and the runtime contract it shares with the engine use node APIs
+const node = await Bun.build({
+	entrypoints: [`${root}/testing.ts`, `${root}/runtime.ts`],
+	outdir: dist,
+	format: "esm",
+	target: "node",
+	splitting: true,
+	external: ["zod"],
+});
+if (!node.success) throw new AggregateError(node.logs, "bundle failed");
 await $`bun x tsgo -p ${root}/tsconfig.build.json`;
 
 const pkg = await Bun.file(`${root}/package.json`).json();
@@ -34,7 +44,12 @@ await Bun.write(
 			license: pkg.license,
 			author: pkg.author,
 			repository: pkg.repository,
-			exports: { ".": entry("index"), "./blocks": entry("blocks") },
+			exports: {
+				".": entry("index"),
+				"./blocks": entry("blocks"),
+				"./testing": entry("testing"),
+				"./runtime": entry("runtime"),
+			},
 			types: "./index.d.ts",
 			files: ["**/*.js", "**/*.d.ts"],
 			sideEffects: false,

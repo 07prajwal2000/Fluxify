@@ -1,3 +1,4 @@
+import { createExecuteHandle, type ExecuteHandle, type FailedBranch } from "@fluxify/sdk/runtime";
 import { type BlockTrace, blockName, type Context } from "../baseBlock";
 import { sortByOrder } from "../blockHandles";
 import { BlockTypes } from "../blockTypes";
@@ -15,14 +16,7 @@ type Branch = {
 };
 type BodyHandles = Record<string, { multiple: boolean; branches: Branch[] }>;
 
-/** What a programmable block's `run` gets to call the chains on its body handles. */
-export type ExecuteHandle = {
-	(handle: string, input?: unknown, opts?: { branch: string }): Promise<unknown>;
-	branches(handle: string): { id: string; label: string }[];
-};
-
-/** an `allowMultiple` branch that threw, in its slot of the results (allSettled) */
-export type FailedBranch = { error: unknown };
+export type { ExecuteHandle, FailedBranch };
 
 /**
  * Spans of a chain run through `executeHandle` name the block that owns the
@@ -38,7 +32,8 @@ const ownedBy = (trace: BlockTrace, owner: string): BlockTrace => ({
  * The `executeHandle` one invocation of a programmable block gets. It keeps the
  * run's state (shared with concurrent calls, like orchestrator branches) and
  * stays callable until the outermost run ends, so a block can hand out a
- * closure over it (the agent's tools).
+ * closure over it (the agent's tools). The call semantics are the SDK's, shared
+ * with the test harness.
  */
 export function bodyHandles(
 	state: RunState,
@@ -49,34 +44,21 @@ export function bodyHandles(
 ): ExecuteHandle {
 	const lifetime = state.ctx.lifetime;
 	const owned = state.trace ? { ...state, trace: ownedBy(state.trace, blockId) } : state;
-	const handleOf = (name: string) => {
-		const handle = Object.hasOwn(handles, name) ? handles[name] : undefined;
-		if (handle) return handle;
-		const known = Object.keys(handles).join(", ") || "none";
-		throw new Error(`Block ${type} has no body handle '${name}'; body handles: ${known}`);
-	};
-	const run = async (branch: Branch, input: unknown) =>
-		((await branch.run(input, owned)) as Record<symbol, unknown> | undefined)?.[end];
-
-	const executeHandle = async (name: string, input?: unknown, opts?: { branch: string }) => {
-		if (lifetime?.ended) throw new Error(`executeHandle('${name}') called after the run ended`);
-		const { multiple, branches } = handleOf(name);
-		if (opts?.branch !== undefined) {
-			const branch =
-				branches.find((b) => b.id === opts.branch) ?? branches.find((b) => b.label === opts.branch);
-			if (!branch)
-				throw new Error(`Block ${type} has no branch '${opts.branch}' on handle '${name}'`);
-			return run(branch, input);
-		}
-		if (!multiple) return branches[0] && run(branches[0], input);
-		const settled = await Promise.allSettled(branches.map((branch) => run(branch, input)));
-		return settled.map((s): unknown =>
-			s.status === "fulfilled" ? s.value : ({ error: s.reason } satisfies FailedBranch),
-		);
-	};
-	return Object.assign(executeHandle, {
-		branches: (name: string) => handleOf(name).branches.map(({ id, label }) => ({ id, label })),
-	});
+	const chains = Object.fromEntries(
+		Object.entries(handles).map(([name, { multiple, branches }]) => [
+			name,
+			{
+				multiple,
+				branches: branches.map(({ id, label, run }) => ({
+					id,
+					label,
+					run: async (input: unknown) =>
+						((await run(input, owned)) as Record<symbol, unknown> | undefined)?.[end],
+				})),
+			},
+		]),
+	);
+	return createExecuteHandle(type, chains, () => !!lifetime?.ended);
 }
 
 /**

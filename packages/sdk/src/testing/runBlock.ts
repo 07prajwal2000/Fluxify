@@ -1,0 +1,289 @@
+import type { BlockDefinition, BodyOf, MultiName, OutName, SingleName } from "../block.js";
+import type {
+	BlockContext,
+	BlockVars,
+	DbAdapter,
+	HttpClient,
+	KvAdapter,
+	QueueProducer,
+} from "../context.js";
+import { type Handles, toHandleSpec } from "../handles.js";
+import type { Params, ParamValue } from "../params.js";
+import type { InvokeMode } from "../reserved.js";
+import {
+	type BodyHandles,
+	createExecuteHandle,
+	type ExecuteHandle,
+	grantContext,
+	invokeError,
+	type RunOutcome,
+	routeResult,
+} from "../runtime/contract.js";
+import { createSpan, leasePool, type SpanRecord } from "../runtime/ctx.js";
+import {
+	type LogEntry,
+	memoryKv,
+	memoryQueue,
+	notStubbed,
+	recordingLogger,
+	type TestPool,
+	testPool,
+	unstubbedHttp,
+} from "./fakes.js";
+
+type Stub = (input: unknown) => unknown;
+/** one branch of an `allowMultiple` handle; `id` defaults to `label` */
+export type BranchStub = { label: string; id?: string; run: Stub };
+
+/** what each body handle's chain does: a function, or the branches of an `allowMultiple` one */
+export type HandleStubs<H> = [BodyOf<H>] extends [never]
+	? { [name: string]: never }
+	: { [N in SingleName<BodyOf<H>>]?: Stub } & {
+			[N in MultiName<BodyOf<H>>]?: readonly BranchStub[];
+		};
+
+/** params as the canvas hands them over: required ones present, defaulted ones optional */
+export type InputParams<P extends Params> = {
+	-readonly [K in keyof P as P[K] extends { required: true } ? K : never]: ParamValue<P[K]>;
+} & {
+	-readonly [K in keyof P as P[K] extends { required: true } ? never : K]?: ParamValue<P[K]>;
+};
+
+/** `ctx` fakes; every one can be replaced */
+export type TestContext = {
+	projectId?: string;
+	route?: string;
+	apiId?: string;
+	/** merged into `ctx.vars`: the run's variables, or request helpers like `getHeader` */
+	vars?: Partial<BlockVars>;
+	/** what `ctx.kvFactory.getKvAdapter(...)` returns; default `memoryKv()` */
+	kv?: KvAdapter;
+	/** what `ctx.queueFactory.getProducer(...)` returns; default `memoryQueue()` */
+	queue?: QueueProducer;
+	/** what `ctx.dbFactory.getDbAdapter(...)` returns; throws `not stubbed` when absent */
+	db?: DbAdapter;
+	/** `ctx.httpClient` and `ctx.vars.httpClient`; throws `not stubbed` when absent */
+	http?: HttpClient;
+	/** app config read by `ctx.vars.getConfig`; throws `not stubbed` when absent */
+	config?: Record<string, string | number | boolean>;
+	/** the pooled clients; share one `testPool()` across runs to see reuse. Default: fresh per run */
+	pool?: TestPool;
+};
+
+type Common<H> = {
+	input?: unknown;
+	/** how the canvas calls the block; default `sync`. Rejected like the compiler would */
+	invoke?: InvokeMode;
+	ctx?: TestContext;
+	handles?: HandleStubs<H>;
+	/**
+	 * Keep the run's lifetime open after `run` returns, as when later blocks of
+	 * the route still run, so closures over `executeHandle` (an agent's tools)
+	 * still work. It ends on `end()`.
+	 */
+	keepAlive?: boolean;
+};
+export type RunBlockOptions<P extends Params, H> = Common<H> &
+	({} extends InputParams<P> ? { params?: InputParams<P> } : { params: InputParams<P> });
+
+export type HandleCall = {
+	handle: string;
+	/** the branch's label, on an `allowMultiple` handle */
+	branch?: string;
+	input: unknown;
+	result?: unknown;
+	error?: unknown;
+};
+
+export type RunBlockResult<H> = {
+	/** the output handle the run leaves by; undefined for a terminal block and a failed run */
+	handle?: OutName<H>;
+	/** what the next block gets: `run`'s output, or the error message on `failure` */
+	output: unknown;
+	/** what `run` threw (routed to `failure` when `handle` is set), or why the run failed */
+	error?: Error;
+	spans: SpanRecord[];
+	logs: LogEntry[];
+	handleCalls: HandleCall[];
+	/** ends the run, then calls `executeHandle`: rejects the way a late call does */
+	callAfterEnd(handle: string, input?: unknown, options?: { branch: string }): Promise<unknown>;
+	/** ends a `keepAlive` run */
+	end(): void;
+};
+
+const asError = (e: unknown) => (e instanceof Error ? e : new Error(String(e)));
+
+function bodyHandles(
+	type: string,
+	body: { name: string; allowMultiple?: boolean }[],
+	stubs: object,
+	calls: HandleCall[],
+) {
+	const known = new Set(body.map((b) => b.name));
+	for (const name of Object.keys(stubs))
+		if (!known.has(name))
+			throw new Error(
+				`Block ${type} has no body handle '${name}'; body handles: ${[...known].join(", ") || "none"}`,
+			);
+	const traced =
+		(handle: string, branch: string | undefined, stub: Stub) => async (input: unknown) => {
+			const call: HandleCall = { handle, ...(branch === undefined ? {} : { branch }), input };
+			calls.push(call);
+			try {
+				call.result = await stub(input);
+				return call.result;
+			} catch (error) {
+				call.error = error;
+				throw error;
+			}
+		};
+	const handles: BodyHandles = {};
+	for (const { name, allowMultiple } of body) {
+		const stub = (stubs as Record<string, unknown>)[name];
+		if (stub !== undefined && typeof stub !== (allowMultiple ? "object" : "function"))
+			throw new Error(
+				`handle '${name}' takes ${allowMultiple ? "an array of { label, run }" : "a function"}`,
+			);
+		const branches = allowMultiple
+			? ((stub ?? []) as BranchStub[]).map((b) => ({
+					id: b.id ?? b.label,
+					label: b.label,
+					run: traced(name, b.label, b.run),
+				}))
+			: stub
+				? [{ id: name, label: name, run: traced(name, undefined, stub as Stub) }]
+				: [];
+		handles[name] = { multiple: !!allowMultiple, branches };
+	}
+	return handles;
+}
+
+function fakeContext(def: BlockDefinition<Params, Handles>, c: TestContext, logs: LogEntry[]) {
+	const http = c.http ?? unstubbedHttp();
+	const kv = c.kv ?? memoryKv();
+	const queue = c.queue ?? memoryQueue();
+	const vars = {
+		logger: recordingLogger(logs),
+		httpClient: http,
+		httpRequestMethod: "GET",
+		httpRequestRoute: c.route ?? "/test",
+		getQueryParam: () => undefined,
+		getRouteParam: () => "",
+		getHeader: () => "",
+		setHeader: () => {},
+		getCookie: () => "",
+		getRequestBody: () => undefined,
+		getConfig: (key: string) => (c.config ? c.config[key]! : notStubbed("appconfig")),
+		...c.vars,
+	} as BlockVars;
+	const ctx = {
+		projectId: c.projectId ?? "test-project",
+		route: c.route ?? "/test",
+		apiId: c.apiId ?? "test-api",
+		vars,
+		httpClient: http,
+		dbFactory: { getDbAdapter: () => c.db ?? notStubbed("db") },
+		kvFactory: { getKvAdapter: () => kv },
+		queueFactory: { getProducer: async () => queue },
+	};
+	// a test grants what the block declares, the way a user approves it
+	const granted = {
+		integrations: def.permissions?.integrations ?? [],
+		appconfig: !!def.permissions?.appconfig,
+	};
+	return grantContext(ctx, granted, `block ${def.name}`);
+}
+
+/** JSON-only, like a queued job's payload; a `schema` param is compiled on the far side */
+const serialized = (value: unknown) =>
+	value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+
+/**
+ * Runs one block the way a worker would, with no Fluxify runtime: params are
+ * defaulted and checked, `ctx` is faked, body handles call `handles`' stubs,
+ * and the result is routed to the output handle the canvas would take.
+ * Rejects only for what the compiler would reject (invoke mode, an unknown
+ * stubbed handle); a block that throws resolves with `error`.
+ */
+export async function runBlock<P extends Params, H extends Handles>(
+	def: BlockDefinition<P, H>,
+	...[opts]: {} extends RunBlockOptions<P, H> ? [RunBlockOptions<P, H>?] : [RunBlockOptions<P, H>]
+): Promise<RunBlockResult<H>> {
+	const o = (opts ?? {}) as Common<H> & { params?: Record<string, unknown> };
+	const loose = def as unknown as BlockDefinition<Params, Handles>;
+	const spec = toHandleSpec(loose.handles);
+	const mode = o.invoke ?? "sync";
+	const logs: LogEntry[] = [];
+	const spans: SpanRecord[] = [];
+	const handleCalls: HandleCall[] = [];
+	const body = bodyHandles(def.name, spec.body, o.handles ?? {}, handleCalls);
+	const wired = Object.keys(body).filter((h) => body[h]!.branches.length);
+	const invalid = invokeError(
+		mode,
+		{ invoke: def.invoke, out: spec.out, body: spec.body.map((b) => b.name) },
+		{ body: wired },
+	);
+	if (invalid) throw new Error(`Block ${def.name} ${invalid}`);
+
+	const life = { ended: false };
+	const executeHandle = createExecuteHandle(def.name, body, () => life.ended);
+	const leases = leasePool(o.ctx?.pool ?? testPool(), [
+		o.ctx?.projectId ?? "test-project",
+		def.name,
+	]);
+	const ctx: BlockContext = {
+		...fakeContext(loose, o.ctx ?? {}, logs),
+		span: createSpan((s) => spans.push(s)),
+		pool: leases.pool,
+	};
+	const schemas = new Set(
+		Object.keys(loose.params ?? {}).filter((k) => loose.params![k]!.type === "schema"),
+	);
+	const queued = mode === "queued";
+	const params = Object.fromEntries(
+		Object.entries(o.params ?? {}).map(([k, v]) => [
+			k,
+			queued && !schemas.has(k) ? serialized(v) : v,
+		]),
+	);
+
+	let outcome: RunOutcome;
+	try {
+		const r = await loose.run({
+			params,
+			input: queued ? serialized(o.input) : o.input,
+			ctx,
+			// only a sync call has a run to hand `executeHandle` to
+			executeHandle: (mode === "sync" ? executeHandle : undefined) as any,
+		});
+		outcome = { successful: true, output: r?.output, handle: r?.handle };
+	} catch (error) {
+		outcome = { successful: false, error };
+	} finally {
+		leases.release();
+	}
+	if (!o.keepAlive) life.ended = true;
+
+	const result: RunBlockResult<H> = {
+		output: undefined,
+		spans,
+		logs,
+		handleCalls,
+		end() {
+			life.ended = true;
+		},
+		callAfterEnd(handle, input, options) {
+			life.ended = true;
+			return (executeHandle as ExecuteHandle)(handle, input, options);
+		},
+	};
+	if (!outcome.successful) result.error = asError(outcome.error);
+	try {
+		const routed = routeResult(def.name, spec.out, outcome);
+		result.handle = routed.handle as OutName<H>;
+		result.output = routed.output;
+	} catch (error) {
+		result.error = asError(error);
+	}
+	return result;
+}

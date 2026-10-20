@@ -5,12 +5,12 @@ import { type ManifestEntry, manifestEntrySchema } from "./manifest.js";
 import type { CheckWhen, Params, ParamValues } from "./params.js";
 import { INVOKE_MODES, type InvokeMode } from "./reserved.js";
 
-type BodyOf<H> = H extends { body: readonly (infer B)[] } ? B : never;
-type MultiName<B> =
+export type BodyOf<H> = H extends { body: readonly (infer B)[] } ? B : never;
+export type MultiName<B> =
 	B extends BodyHandle<infer N> ? (B extends { allowMultiple: true } ? N : never) : never;
-type SingleName<B> =
+export type SingleName<B> =
 	B extends BodyHandle<infer N> ? (B extends { allowMultiple: true } ? never : N) : never;
-type OutName<H> = H extends { out: readonly (infer O)[] }
+export type OutName<H> = H extends { out: readonly (infer O)[] }
 	? O extends OutHandle<infer N>
 		? N
 		: never
@@ -97,18 +97,44 @@ export function toManifestEntry(def: BlockDefinition<Params, Handles>): Manifest
 	return JSON.parse(JSON.stringify(entry));
 }
 
+/** the `typeof` a present value of these param types must have */
+const TYPEOF: Partial<Record<string, string>> = {
+	string: "string",
+	number: "number",
+	boolean: "boolean",
+	integration: "string",
+	appconfig: "string",
+};
+
+/** why a present value does not fit its param, or undefined when it does */
+function misfit(p: Params[string], value: unknown) {
+	if (p.type === "select" && !p.options.includes(value as string))
+		return `must be one of ${p.options.join(", ")}, got ${JSON.stringify(value)}`;
+	const type = TYPEOF[p.type];
+	if (type && typeof value !== type) return `must be a ${type}, got ${typeof value}`;
+	if (p.type === "conditions" && !Array.isArray(value)) return "must be an array of conditions";
+	if (p.type === "schema" && !(typeof value === "object" && value !== null && "zod" in value))
+		return "must be a compiled schema { zod, schema } (in a test, pass both)";
+}
+
 /**
- * Fills defaults and checks required params before `run`: the canvas may have
- * left them empty, and `run`'s types say they are there. An empty `schema`
- * param arrives as null; it is passed as absent, like any other.
+ * Fills defaults and checks params before `run`: the canvas may have left them
+ * empty or wrong, and `run`'s types say they are there. An empty `schema` param
+ * arrives as null; it is passed as absent, like any other. The engine and the
+ * test harness both run this, so a bad param fails the same way in each.
  */
-function prepareParams(params: Params, values: Record<string, unknown> = {}) {
+export function prepareParams(params: Params, values: Record<string, unknown> = {}) {
 	const out = { ...values };
 	for (const [name, p] of Object.entries(params)) {
 		if (p.type === "schema" && out[name] === null) delete out[name];
 		if (out[name] === undefined && "default" in p) out[name] = p.default;
-		if (p.required && (out[name] === undefined || out[name] === null))
-			throw new Error(`param '${name}' is required`);
+		const value = out[name];
+		if (value === undefined || value === null) {
+			if (p.required) throw new Error(`param '${name}' is required`);
+			continue;
+		}
+		const wrong = misfit(p, value);
+		if (wrong) throw new Error(`param '${name}' ${wrong}`);
 	}
 	return out;
 }

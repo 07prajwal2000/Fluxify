@@ -1,12 +1,12 @@
 {
 	"extends": "./tsconfig.json",
 	"compilerOptions": {
-		"types": [],
+		"types": ["bun"],
 		"noEmit": false,
 		"declaration": true,
 		"emitDeclarationOnly": true,
 		"outDir": "dist"
 	},
-	"files": ["index.ts", "blocks.ts"],
+	"files": ["index.ts", "blocks.ts", "testing.ts", "runtime.ts"],
 	"exclude": []
 }
