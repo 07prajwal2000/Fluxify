@@ -1,0 +1,31 @@
+name: Retry CI
+
+# Re-runs the failed jobs of a failed CI run when the logs show a Bun crash.
+# A real test, lint or typecheck failure is never retried. Up to 3 attempts.
+# workflow_run only fires for a file on the default branch.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+jobs:
+  retry:
+    if: >-
+      github.repository_owner == 'Fluxify-rest' &&
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.run_attempt < 3
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RUN_ID: ${{ github.event.workflow_run.id }}
+    steps:
+      - name: Rerun failed jobs if Bun crashed
+        run: |
+          if gh run view "$RUN_ID" --repo "$GITHUB_REPOSITORY" --log-failed \
+            | grep -qiE 'Bun has crashed|panic\(main thread\)|bun\.report|Segmentation fault|SIGSEGV|SIGILL|Illegal instruction'; then
+            gh run rerun "$RUN_ID" --repo "$GITHUB_REPOSITORY" --failed
+          else
+            echo "No Bun crash in the failed logs; not retrying."
+          fi
