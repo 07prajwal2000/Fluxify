@@ -86,12 +86,12 @@ describe("licenseBanner", () => {
 			kind: "signed",
 			licensee: "acme",
 			expiresAt: null,
-			features: ["connectors"],
+			features: ["sso"],
 		});
 		expect(ok).toBe(true);
 		expect(text).toContain("acme");
 		expect(text).toContain("never");
-		expect(text).toContain("connectors");
+		expect(text).toContain("sso");
 	});
 
 	it("is not ok for a rejected key, and says why", () => {
@@ -103,9 +103,9 @@ describe("licenseBanner", () => {
 
 describe("includes", () => {
 	it("* unlocks everything, a list unlocks only what it names", () => {
-		expect(includes({ features: ["*"] }, FEATURES.connectors)).toBe(true);
-		expect(includes({ features: ["connectors"] }, FEATURES.connectors)).toBe(true);
-		expect(includes({ features: ["sso"] }, FEATURES.connectors)).toBe(false);
+		expect(includes({ features: ["*"] }, FEATURES.sso)).toBe(true);
+		expect(includes({ features: ["sso"] }, FEATURES.sso)).toBe(true);
+		expect(includes({ features: ["auditLogs"] }, FEATURES.sso)).toBe(false);
 		expect(entitlement({ kind: "non_commercial" }).features).toEqual(["*"]);
 		expect(entitlement({ kind: "community" }).features).toEqual([]);
 	});

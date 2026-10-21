@@ -24,7 +24,6 @@ export const licenseViewSchema = z.object({
 	features: z.array(z.string()),
 	/** A short hash of the key, so two keys can be told apart. The key itself is never returned. */
 	fingerprint: z.string().nullable(),
-	connectorsSwitchedOff: z.boolean(),
 	confirmedBy: z.object({ name: z.string().nullable(), email: z.string() }).nullable(),
 	confirmedAt: z.string().nullable(),
 });

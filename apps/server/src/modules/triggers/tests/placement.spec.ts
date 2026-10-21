@@ -32,9 +32,8 @@ describe("where a trigger runs", () => {
 		expect(runsHere(internal, undefined, false, excluded)).toBe(true);
 	});
 
-	it("runs an enterprise connector only while the license can", () => {
-		expect(runsHere(kafka, undefined, true)).toBe(true);
-		expect(runsHere(kafka, undefined, false)).toBe(false);
-		expect(runsHere(kafka, ["g2"], true)).toBe(false);
+	it("runs queue triggers without enterprise license restrictions", () => {
+		expect(runsHere(kafka, undefined, false)).toBe(true);
+		expect(runsHere(kafka, ["g2"])).toBe(false);
 	});
 });

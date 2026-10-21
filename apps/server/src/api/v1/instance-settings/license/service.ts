@@ -10,7 +10,6 @@ import { BadRequestError } from "../../../../errors/badRequestError";
 import { publishLicenseKey } from "../../../../lib/edition";
 import { EncryptionService } from "../../../../lib/encryption";
 import { getEnv } from "../../../../lib/env";
-import { getSetting } from "../../../../loaders/instanceSettingsLoader";
 import { audit } from "../../../../modules/audit";
 import type { LicenseView, setLicenseBodySchema } from "./dto";
 import { getStoredLicense, saveStoredLicense } from "./repository";
@@ -117,7 +116,6 @@ function toView({ source, key, error, row }: Configured): LicenseView {
 		daysRemaining: e.daysRemaining,
 		features: e.features,
 		fingerprint: key && key !== NON_COMMERCIAL ? fingerprint(key) : null,
-		connectorsSwitchedOff: getSetting("featureflags.ee.connectors")?.enabled === false,
 		confirmedBy: row?.confirmedByEmail
 			? { name: row.confirmedByName, email: row.confirmedByEmail }
 			: null,

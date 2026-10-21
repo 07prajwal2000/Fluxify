@@ -11,7 +11,6 @@ import { ConflictError } from "../../../errors/conflictError";
 import { ForbiddenError } from "../../../errors/forbidError";
 import { NotFoundError } from "../../../errors/notFoundError";
 import { canAccessProject } from "../../../lib/acl";
-import { assertCanUse } from "../../../lib/edition";
 import { ENVIRONMENTS } from "../../../lib/envValues";
 import { audit, bodyFields, changedFields } from "../../../modules/audit";
 import type { TriggerArtifact } from "../../../modules/compiler/artifacts";
@@ -20,15 +19,14 @@ import { triggerKey } from "../../../modules/compiler/subjects";
 import { removeScheduleEverywhere, syncSchedule } from "../../../modules/schedules/reconciler";
 import type { ScheduledTrigger } from "../../../modules/schedules/types";
 import { assertConnector } from "./connectors";
-import {
-	type createSchema,
-	isEnterpriseTriggerType,
-	type listQuerySchema,
-	type listSchema,
-	type patchSchema,
-	type previewQuerySchema,
-	type previewSchema,
-	type triggerSchema,
+import type {
+	createSchema,
+	listQuerySchema,
+	listSchema,
+	patchSchema,
+	previewQuerySchema,
+	previewSchema,
+	triggerSchema,
 } from "./dto";
 import { groupCapRefusal } from "./groupCap";
 import {
@@ -76,7 +74,6 @@ export async function createTrigger(
 ) {
 	if (!canAccessProject(acl, data.projectId, "creator")) throw new ForbiddenError();
 	assertSourceMatchesType(data.type, data.integrationId);
-	if (isEnterpriseTriggerType(data.type)) assertCanUse("connectors");
 	if (data.sandboxId) assertSandboxCanRun(data.type);
 
 	let warnings: string[] = [];

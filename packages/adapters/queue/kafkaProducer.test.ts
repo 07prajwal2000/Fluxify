@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { Admin, Consumer, MessagesStreamModes } from "@platformatic/kafka";
 import type Docker from "dockerode";
 import { docker, pullImage, startContainerWithRandomPort } from "../containerTestHelpers";
-import { createProducer, type KafkaConfig, testKafkaConnection } from "./kafka.ee";
+import { createProducer, type KafkaConfig, testKafkaConnection } from "./kafka";
 
 /**
  * The Send Message block's Kafka producer against one real KRaft node, read

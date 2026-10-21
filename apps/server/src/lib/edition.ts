@@ -13,7 +13,6 @@ import { NODE_TYPES, type NodeEntitlement } from "@fluxify/common/orchestrator";
 import z from "zod";
 import { createConfigStore } from "../db/configStore";
 import { ForbiddenError } from "../errors/forbidError";
-import { getSetting } from "../loaders/instanceSettingsLoader";
 
 /**
  * Which edition this instance runs, and the gates that read it.
@@ -126,37 +125,17 @@ export function nodeEntitlement(e = currentEntitlement()): NodeEntitlement {
 	}
 }
 
-/** Whether existing connectors may keep running. */
-export function canRunConnectors() {
-	const e = currentEntitlement();
-	return e.canRun && includes(e, FEATURES.connectors);
-}
-
 /**
- * What each gated feature is called when it is refused, and the operator kill
- * switch that can turn it off independently of the license. SSO has no switch:
- * it is licensed or it is not.
+ * What each gated feature is called when it is refused.
  */
 const GATES = {
-	connectors: {
-		flag: "featureflags.ee.connectors",
-		off: "External connectors are switched off on this instance",
-		expired:
-			"The enterprise license has expired. Existing connectors keep running, but new ones cannot be created until it is renewed",
-		unlicensed: "Your license does not include external connectors",
-		community: "External connectors need an enterprise license",
-	},
 	sso: {
-		flag: null,
-		off: "",
 		expired:
 			"The enterprise license has expired. SSO sign-in keeps working, but its configuration cannot be changed until the license is renewed",
 		unlicensed: "Your license does not include SSO",
 		community: "SSO needs an enterprise license",
 	},
 	auditLogs: {
-		flag: null,
-		off: "",
 		expired:
 			"The enterprise license has expired. Audit logs keep recording through the grace period, then stop",
 		unlicensed: "Your license does not include audit logs",
@@ -165,8 +144,8 @@ const GATES = {
 } as const satisfies Record<Feature, unknown>;
 
 /**
- * Refuses a new enterprise thing: a connector, an SSO configuration. Licensed
- * for that feature, and not switched off by an operator.
+ * Refuses a new enterprise thing: an SSO configuration. Licensed for that
+ * feature, and not switched off by an operator.
  *
  * Only *creating* is checked. What already runs is not gated here — an expired
  * license must never take a live instance down (§14.2), and for SSO that also
@@ -174,7 +153,6 @@ const GATES = {
  */
 export function assertCanUse(feature: Feature) {
 	const gate = GATES[feature];
-	if (gate.flag && getSetting(gate.flag)?.enabled === false) throw new ForbiddenError(gate.off);
 	const e = currentEntitlement();
 	if (e.canCreate && includes(e, feature)) return;
 	throw new ForbiddenError(

@@ -7,7 +7,7 @@ import {
 } from "@aws-sdk/client-sqs";
 import type Docker from "dockerode";
 import { docker, pullImage, startContainerWithRandomPort } from "../containerTestHelpers";
-import { clientFor, createProducer, type SqsConfig, testSqsConnection } from "./sqs.ee";
+import { clientFor, createProducer, type SqsConfig, testSqsConnection } from "./sqs";
 
 /**
  * The Send Message block's SQS producer against an SQS-compatible emulator

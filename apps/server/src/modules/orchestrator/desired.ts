@@ -23,7 +23,7 @@ import {
 	triggerGroupsEntity,
 	triggersEntity,
 } from "../../db/schema";
-import { canRunConnectors, nodeEntitlement } from "../../lib/edition";
+import { nodeEntitlement } from "../../lib/edition";
 import { projectHost } from "../../lib/hosting";
 import { orchestrationScalingSchema } from "../../lib/instance-settings/schemas";
 import { baseDomain, getSetting } from "../../loaders/instanceSettingsLoader";
@@ -149,7 +149,6 @@ async function internalTriggersByGroup(): Promise<Map<string, string[]>> {
  */
 async function externalTriggersByGroup(): Promise<Map<string, ExternalTrigger[]>> {
 	const byGroup = new Map<string, ExternalTrigger[]>();
-	if (!canRunConnectors()) return byGroup;
 	const rows = await db
 		.select({
 			id: triggersEntity.id,

@@ -1,7 +1,6 @@
 import { cn, Description, Label, ListBox, NumberField, Select } from "@fluxify/components";
 import { SiApachekafka, SiNatsdotio, SiRabbitmq, SiRedis } from "react-icons/si";
 import { TbBrandAws, TbClock } from "react-icons/tb";
-import { EnterpriseGate } from "@/components/common/Enterprise";
 import type { TriggerGroup } from "@/services/triggers";
 
 /**
@@ -32,7 +31,6 @@ export const TRIGGER_TYPE_OPTIONS = [
 		hint: "Messages on a Kafka topic start it as they arrive.",
 		icon: <SiApachekafka size={20} />,
 		available: true,
-		enterprise: true,
 	},
 	{
 		id: "nats",
@@ -40,7 +38,6 @@ export const TRIGGER_TYPE_OPTIONS = [
 		hint: "Messages on a NATS JetStream stream start it as they arrive.",
 		icon: <SiNatsdotio size={20} />,
 		available: true,
-		enterprise: true,
 	},
 	{
 		id: "sqs",
@@ -48,9 +45,7 @@ export const TRIGGER_TYPE_OPTIONS = [
 		hint: "Messages on an SQS queue start it as they arrive.",
 		icon: <TbBrandAws size={20} />,
 		available: true,
-		enterprise: true,
 	},
-	// free in every edition, unlike the other connectors
 	{
 		id: "redis",
 		label: "Redis Streams",
@@ -124,13 +119,7 @@ export function TypeSelector({
 						</span>
 					</button>
 				);
-				return "enterprise" in option ? (
-					<EnterpriseGate key={option.id} compact>
-						{card}
-					</EnterpriseGate>
-				) : (
-					card
-				);
+				return card;
 			})}
 		</div>
 	);

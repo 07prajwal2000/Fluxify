@@ -19,7 +19,6 @@ import { takeDroppedWarnings } from "./droppedFields";
 import { assertOutputHandles } from "./handleRules";
 import { assertJoinsSupported } from "./joinSupport";
 import { parentPluginSpecs, pluginSpecsOf } from "./pluginSpecs";
-import { assertSendMessageLicensed } from "./queueLicense";
 import {
 	deleteBlocks,
 	deleteEdges,
@@ -348,7 +347,6 @@ export async function saveCanvas(
 		if (await parentExists(parent, ["*"], outer)) throw new ForbiddenError();
 		throw new NotFoundError(NOT_FOUND[parent.type]);
 	}
-	assertSendMessageLicensed(data);
 	assertEdgeHandles(data);
 
 	const keys = parentKeys(parent);

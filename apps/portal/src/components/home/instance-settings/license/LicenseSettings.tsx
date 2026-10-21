@@ -30,7 +30,7 @@ const FEATURE_ROWS: { label: string; feature?: string }[] = [
 	{ label: "Schedules (cron, intervals, one-shot)" },
 	{ label: "Batching" },
 	{ label: "The Trigger Workflow block" },
-	{ label: "External connectors (Kafka)", feature: "connectors" },
+	{ label: "Message queue triggers and connectors (Kafka, NATS, SQS)" },
 ];
 
 const date = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() : "—");
@@ -101,10 +101,7 @@ export function LicenseSettings() {
 							className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm"
 						>
 							<span className="text-foreground">{row.label}</span>
-							<FeatureState
-								on={unlocks(row.feature)}
-								off={row.feature && view.connectorsSwitchedOff}
-							/>
+							<FeatureState on={unlocks(row.feature)} />
 						</li>
 					))}
 				</ul>
@@ -116,10 +113,8 @@ export function LicenseSettings() {
 	);
 }
 
-function FeatureState({ on, off }: { on: boolean; off: boolean | string | undefined }) {
+function FeatureState({ on }: { on: boolean }) {
 	if (!on) return <TbMinus size={16} className="text-muted" aria-label="Not included" />;
-	if (off)
-		return <span className="text-xs text-warning">Included · switched off on this instance</span>;
 	return <TbCheck size={16} className="text-success" aria-label="Included" />;
 }
 

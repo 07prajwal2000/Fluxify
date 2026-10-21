@@ -6,7 +6,7 @@ import {
 	QueueProducer,
 	type SendOutcome,
 } from "./base";
-import { clientConfig, describeSqsError, SQS_MAX_BATCH, type SqsConfig } from "./sqs.ee";
+import { clientConfig, describeSqsError, SQS_MAX_BATCH, type SqsConfig } from "./sqs";
 
 /** SQS refuses a batch request over 256 KiB, summed across its entries. */
 const MAX_BATCH_BYTES = 256 * 1024;

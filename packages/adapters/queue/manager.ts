@@ -6,9 +6,9 @@ import type { QueueConnection, QueueConnector, QueueHandler, QueueSubscription }
  * with no Kafka trigger or block never loads the Kafka client.
  */
 const connectors = new Map<string, () => Promise<QueueConnector>>([
-	["kafka", () => import("./kafka.ee")],
-	["nats", () => import("./nats.ee")],
-	["sqs", () => import("./sqs.ee")],
+	["kafka", () => import("./kafka")],
+	["nats", () => import("./nats")],
+	["sqs", () => import("./sqs")],
 	["redis", () => import("./redisStreams")],
 	["rabbitmq", () => import("./rabbitmq")],
 ]);
