@@ -67,7 +67,7 @@
 # Stage 1: deps — install once, cached until a manifest or the lockfile changes.
 # All workspace manifests are needed so --frozen-lockfile can validate the graph.
 # ------------------------------------------------------------------------------
-ARG BUN_VERSION=1.4.2
+ARG BUN_VERSION=1.4.3
 FROM oven/bun:${BUN_VERSION}-alpine AS deps
 WORKDIR /app
 
