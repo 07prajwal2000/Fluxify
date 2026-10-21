@@ -1,56 +1,74 @@
-import { afterEach, describe, expect, it } from "bun:test";
-import { closeCtxIntegrations, type ModuleBlockRun } from "@fluxify/blocks";
-import { hydrateIntegrations, OWNER_KEY } from "../../../loaders/integrationsLoader";
-import { withGrantedContext } from "../pluginPermissions";
+import { afterAll, describe, expect, it } from "bun:test";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { BUILT_IN_VARIANTS, IntegrationRegistry } from "@fluxify/adapters/integrations";
+import { loadPluginIntegrations, type PluginIntegrationRef } from "../pluginIntegrations";
 
-const LABEL = "plugin acme/echo@1.0.0 block acme/echo/step";
-const kvConfig = (owner: string | null) => ({ group: "kv", variant: "Redis", [OWNER_KEY]: owner });
+const root = await mkdtemp(join(tmpdir(), "fluxify-plugin-integrations-"));
+afterAll(() => rm(root, { recursive: true, force: true }));
 
-afterEach(async () => {
-	hydrateIntegrations("mine", { kv: {}, plugin: {} });
-	hydrateIntegrations("other", { kv: {}, plugin: {} });
-	await closeCtxIntegrations();
+/** a built module as the CLI writes it: a default-exported integration definition */
+async function moduleFile(file: string, def: { group: string; variant: string }) {
+	const path = join(root, file);
+	await writeFile(
+		path,
+		`export default {
+			name: "acme/crm/hub", label: "Hub", icon: "x", group: ${JSON.stringify(def.group)},
+			variant: ${JSON.stringify(def.variant)}, config: {},
+			connect: () => ({ hello: () => "hi" }),
+		};`,
+	);
+	return path;
+}
+
+const ref = (projectId: string, entry: string, over: Partial<PluginIntegrationRef> = {}) => ({
+	projectId,
+	plugin: "acme/crm",
+	version: "1.0.0+aa",
+	group: "acme/crm",
+	variant: "Hub",
+	entry,
+	...over,
 });
 
-const get =
-	(id: string): ModuleBlockRun =>
-	async ({ ctx }) => ({ output: await ctx.integrations!.get<string>(id) });
-const call = (run: ModuleBlockRun, integrations: string[]) =>
-	withGrantedContext(run, { integrations, appconfig: false }, LABEL)({
-		params: {},
-		ctx: { projectId: "mine", vars: {}, kvFactory: { getKvAdapter: (id: string) => `kv:${id}` } } as never,
+describe("loadPluginIntegrations", () => {
+	it("registers each ref for its own project, and unregisters one no longer listed", async () => {
+		const registry = new IntegrationRegistry(BUILT_IN_VARIANTS);
+		const entry = await moduleFile("hub.js", { group: "crm", variant: "Hub" });
+		expect(await loadPluginIntegrations([ref("p1", entry), ref("p2", entry)], registry)).toEqual([]);
+		const def = registry.get("acme/crm", "Hub", "p1");
+		expect([def?.plugin, def?.label, typeof def?.create]).toEqual(["acme/crm", "Hub", "function"]);
+		expect(registry.get("acme/crm", "Hub", "p3")).toBeUndefined();
+		// the same set again imports nothing new
+		expect(await loadPluginIntegrations([ref("p1", entry), ref("p2", entry)], registry)).toEqual([]);
+		await loadPluginIntegrations([ref("p2", entry)], registry);
+		expect(registry.get("acme/crm", "Hub", "p1")).toBeUndefined();
+		expect(registry.get("acme/crm", "Hub", "p2")).toBeDefined();
+		await loadPluginIntegrations([], registry);
 	});
 
-describe("ctx.integrations in a plugin block", () => {
-	it("opens an integration of this project, by group or by variant grant", async () => {
-		hydrateIntegrations("mine", { kv: { "kv-1": kvConfig("mine") } });
-		expect(await call(get("kv-1"), ["kv"])).toEqual({ output: "kv:kv-1" });
-		expect(await call(get("kv-1"), ["kv/Redis"])).toEqual({ output: "kv:kv-1" });
-	});
-
-	it("denies a kind that is not granted, naming the block", async () => {
-		hydrateIntegrations("mine", { kv: { "kv-1": kvConfig("mine") } });
-		await expect(call(get("kv-1"), ["database", "kv/Memcached"])).rejects.toThrow(
-			`${LABEL} was not granted kv integrations; approve a version that asks for it`,
+	it("refuses code that defines another kind than the approved one, and loads the rest", async () => {
+		const registry = new IntegrationRegistry(BUILT_IN_VARIANTS);
+		const good = await moduleFile("good.js", { group: "crm", variant: "Hub" });
+		const sneaky = await moduleFile("sneaky.js", { group: "crm", variant: "Other" });
+		const failures = await loadPluginIntegrations(
+			[ref("p1", good), ref("p1", sneaky, { variant: "Approved" })],
+			registry,
 		);
+		expect(failures).toEqual([expect.stringContaining("it defines acme/crm/Other, not the approved one")]);
+		expect(registry.get("acme/crm", "Hub", "p1")).toBeDefined();
+		expect(registry.get("acme/crm", "Approved", "p1")).toBeUndefined();
+		await loadPluginIntegrations([], registry);
 	});
 
-	it("treats another project's integration like an unknown id", async () => {
-		hydrateIntegrations("other", { kv: { "kv-2": kvConfig("other") } });
-		await expect(call(get("kv-2"), ["kv"])).rejects.toThrow(
-			`${LABEL}: integration 'kv-2' does not exist, has no value in this environment, or belongs to another project`,
-		);
-		await expect(call(get("nope"), ["kv"])).rejects.toThrow("does not exist");
-	});
-
-	it("names the reason an environment has no value for it", async () => {
-		hydrateIntegrations("mine", { kv: {} }, { "kv-3": "Cache has no development value" });
-		await expect(call(get("kv-3"), ["kv"])).rejects.toThrow("Cache has no development value");
-	});
-
-	it("says so when the param was left empty", async () => {
-		await expect(
-			call(async ({ ctx }) => ({ output: await ctx.integrations!.get(undefined) }), ["kv"]),
-		).rejects.toThrow(`${LABEL}: no integration was selected`);
+	it("never loads a second version into the same process: the supervisor replaces it instead", async () => {
+		const registry = new IntegrationRegistry(BUILT_IN_VARIANTS);
+		const entry = await moduleFile("v1.js", { group: "crm", variant: "Hub" });
+		await loadPluginIntegrations([ref("p1", entry)], registry);
+		expect(await loadPluginIntegrations([ref("p1", entry, { version: "2.0.0+bb" })], registry)).toEqual([
+			expect.stringContaining("version 1.0.0+aa is loaded here"),
+		]);
+		await loadPluginIntegrations([], registry);
 	});
 });

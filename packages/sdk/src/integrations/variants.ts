@@ -197,6 +197,8 @@ export type IntegrationVariantMeta<G extends AnyIntegrationGroup = AnyIntegratio
 				aliases?: readonly string[];
 				/** what the variant can do, for pickers that filter on it */
 				tags?: readonly string[];
+				/** the plugin that provides it (`scope/name`); absent on a built-in */
+				plugin?: string;
 				/** the stored (form) config, validated on create, update and test */
 				configSchema: z.ZodType;
 			} & (G extends "database"

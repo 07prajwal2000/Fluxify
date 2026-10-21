@@ -62,9 +62,11 @@ export type IntegrationClient<K> = K extends keyof BuiltInIntegrationAdapters
 	? BuiltInIntegrationAdapters[K]
 	: K extends string
 		? unknown
-		: K extends { connect(config: any, ctx: any): infer R; variant: string; config: object }
-			? Awaited<R>
-			: K;
+		: K extends { group: "database"; adapter(...args: any[]): infer A; variant: string }
+			? A
+			: K extends { connect(config: any, ctx: any): infer R; variant: string; config: object }
+				? Awaited<R>
+				: K;
 
 /**
  * The integrations a block was granted (`permissions.integrations`), by id: the

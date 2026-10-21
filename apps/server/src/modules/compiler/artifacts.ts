@@ -1,4 +1,5 @@
 import type { BlockMeta } from "@fluxify/blocks";
+import type { IntegrationEntry } from "@fluxify/sdk/blocks";
 import type { PluginPermissions } from "../../db/schema";
 
 /**
@@ -244,6 +245,12 @@ export type PluginArtifact = {
 	/** what the approval granted; a block's `ctx` reaches nothing else */
 	permissions: PluginPermissions;
 	blocks: Record<string, { entry: string; meta: BlockMeta }>;
+	/**
+	 * Its integration variants (I6), as the approved manifest declares them:
+	 * workers import each `entry`, the admin registers the rest as metadata.
+	 * Absent on artifacts published before integrations.
+	 */
+	integrations?: (IntegrationEntry & { entry: string })[];
 	publishedAt: string;
 };
 

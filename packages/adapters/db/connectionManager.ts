@@ -9,7 +9,12 @@ import type { DatabasePool } from "@fluxify/sdk/integrations";
 import type { SQL } from "bun";
 import type { MongoClient } from "mongodb";
 import type { Pool } from "mysql2";
-import { databaseVariantFor } from "../integrations";
+import {
+	configOwner,
+	databaseVariantFor,
+	integrationRegistry,
+	poolKeyFingerprint,
+} from "../integrations";
 import type { Connection } from "./connection";
 
 /** A built-in variant's pool carries its driver handles; a plugin's only has to be a `DatabasePool`. */
@@ -104,8 +109,18 @@ export class DbConnectionManager {
 	}
 }
 
-/** Hashes only the fields that affect a database connection; the raw secret is never retained or logged. */
+/**
+ * Hashes only the fields that affect a database connection; the raw secret is
+ * never retained or logged. A plugin variant names its own with `poolKey`.
+ */
 export function connectionFingerprint(config: Connection) {
+	const own = poolKeyFingerprint(
+		integrationRegistry
+			.variants("database", configOwner(config))
+			.find((def) => def.extras.dbType.toLowerCase() === String(config.dbType).toLowerCase()),
+		config as never,
+	);
+	if (own) return own;
 	const material = JSON.stringify({
 		dbType: config.dbType,
 		host: config.host,
@@ -122,5 +137,7 @@ export function connectionFingerprint(config: Connection) {
 
 /** Opens the pooled client through the variant that owns `config.dbType`. */
 function createManagedConnection(_integrationId: string, config: Connection): ManagedDbConnection {
-	return databaseVariantFor(config.dbType).connect(config) as ManagedDbConnection;
+	return databaseVariantFor(config.dbType, configOwner(config)).connect(
+		config,
+	) as ManagedDbConnection;
 }

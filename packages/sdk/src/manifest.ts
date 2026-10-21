@@ -3,7 +3,7 @@ import { handleSpecSchema } from "./handles.js";
 import type { Condition, VisibleWhenInput } from "./params.js";
 import { CTX_SPAN_TYPE, ICON_URL_MAX, INVOKE_MODES } from "./reserved.js";
 import { checkEntry, RESERVED_PARAM_NAMES } from "./validate.js";
-import { checkIntegrationEntry } from "./validateIntegration.js";
+import { checkIntegrationEntry, permissionKindIssue } from "./validateIntegration.js";
 
 const scalar = z.union([z.string(), z.number(), z.boolean()]);
 
@@ -133,7 +133,17 @@ export const manifestEntrySchema = z
 			.min(1)
 			.refine((m) => new Set(m).size === m.length, "invoke modes must be unique"),
 		permissions: z.strictObject({
-			integrations: z.array(z.string().min(1)).optional(),
+			integrations: z
+				.array(
+					z
+						.string()
+						.min(1)
+						.superRefine((kind, ctx) => {
+							const message = permissionKindIssue(kind);
+							if (message) ctx.addIssue({ code: "custom", message });
+						}),
+				)
+				.optional(),
 			appconfig: z.boolean().optional(),
 		}),
 		params: z.record(z.string().min(1), paramSchema),
@@ -230,6 +240,18 @@ export const fluxifyManifestSchema = pluginMetaSchema
 				issue(`must be '${blockEntryPath(type)}'`, ["entry"]);
 		}
 		checkIntegrations(m.name, m.integrations ?? [], ctx);
+		// the kinds a block may be granted: built-ins and this plugin's own groups (#899)
+		const own = new Set((m.integrations ?? []).map((e) => e.group).filter((g) => g.includes("/")));
+		for (const [type, b] of Object.entries(m.blocks))
+			for (const [i, kind] of (b.permissions.integrations ?? []).entries()) {
+				const message = permissionKindIssue(kind, own);
+				if (message)
+					ctx.addIssue({
+						code: "custom",
+						message,
+						path: ["blocks", type, "permissions", "integrations", i],
+					});
+			}
 	});
 
 /** where an integration's built module sits: `scope/name/a/b` is `dist/integrations/a/b.js` */

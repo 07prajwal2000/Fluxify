@@ -104,6 +104,9 @@ async function main() {
 		// database connection — request workers must never open one, and compiling
 		// is CPU work that has no business on a node serving traffic.
 		await loadAppConfig();
+		// plugin variants first (I6): a row of a plugin's kind resolves only once it is registered
+		const { startPluginVariants } = await import("./modules/plugins/variants");
+		await startPluginVariants();
 		await loadIntegrations();
 		await loadProjectSettings();
 		const { startCompileWorker } = await import("./modules/compiler/consumer");

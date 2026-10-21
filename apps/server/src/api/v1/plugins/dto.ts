@@ -45,6 +45,23 @@ export const pluginSchema = z.object({
 		.nullable(),
 	devEnabled: z.boolean(),
 	prodEnabled: z.boolean(),
+	/**
+	 * Its integration variants (I6), for the approval page: the kind (a plugin's
+	 * own group is namespaced, `acme/crm`), the params that hold an app config
+	 * key, and which hooks it brings. Get-plugin only.
+	 */
+	integrations: z
+		.array(
+			z.object({
+				group: z.string(),
+				variant: z.string(),
+				label: z.string(),
+				ownGroup: z.boolean(),
+				secretParams: z.array(z.string()),
+				hooks: z.object({ test: z.boolean(), describe: z.boolean(), inspect: z.boolean() }),
+			}),
+		)
+		.optional(),
 	status: z.enum(["ok", "error"]),
 	lastError: z.string().nullable(),
 	scannedAt: z.coerce.string().nullable(),
@@ -138,6 +155,8 @@ export const usageSchema = z.array(
 );
 
 const usedBy = z.array(userRef);
+/** the project's integrations of a changed kind */
+const integrationUsedBy = z.array(z.object({ id: z.string(), name: z.string() }));
 const handlesAndShape = z.object({ handles: z.record(z.string(), z.unknown()), shape: z.string() });
 const versionRef = z.object({ version: z.string(), integrity: z.string() });
 
@@ -162,6 +181,18 @@ export const upgradePreviewSchema = z.object({
 			z.object({ block: z.string(), before: handlesAndShape, after: handlesAndShape }),
 		),
 		addedPermissions: z.object({ integrations: z.array(z.string()), appconfig: z.boolean() }),
+		/** integration variant kinds (`group/variant`) the new version adds */
+		addedIntegrations: z.array(z.string()),
+		removedIntegrations: z.array(z.object({ kind: z.string(), usedBy: integrationUsedBy })),
+		/** `breaking`: blocks approval while `usedBy` is not empty */
+		changedIntegrations: z.array(
+			z.object({
+				kind: z.string(),
+				change: z.string(),
+				breaking: z.boolean(),
+				usedBy: integrationUsedBy,
+			}),
+		),
 		deprecations: z.array(
 			z.object({
 				block: z.string(),
@@ -177,4 +208,5 @@ export const upgradePreviewSchema = z.object({
 	}),
 });
 
+/** a refused remove (409) lists the integrations of the plugin's kinds in `details.integrations` */
 export const removeResponseSchema = z.object({ name: z.string() });

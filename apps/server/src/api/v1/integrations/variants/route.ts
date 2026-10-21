@@ -36,6 +36,6 @@ export default function (app: HonoServer) {
 		describeRoute(openapiRouteOptions),
 		requireProjectAccess("viewer", { key: "projectId", source: "param" }),
 		validator("param", requestRouteSchema, zodErrorCallbackParser),
-		(c) => c.json(handleRequest()),
+		(c) => c.json(handleRequest(c.req.valid("param").projectId)),
 	);
 }

@@ -189,6 +189,7 @@ const supervisor = createExecutionSupervisor({
 	env: FLUXIFY_ENV,
 	timeoutsEnabled: timeoutPolicyEnabled,
 	pluginRefs: () => plugins.refs(),
+	pluginIntegrationRefs: () => plugins.integrationRefs(),
 });
 
 function handleArtifactChange(entry: ArtifactEntry) {
@@ -303,13 +304,24 @@ async function serveProject(projectId: string) {
 	await jobWorker.serve(projectId);
 	await triggerWorker.serveInternal(projectId);
 	if (!integrationOps.has(projectId)) {
-		integrationOps.set(projectId, serveIntegrationOps(projectId, FLUXIFY_ENV, projectConfig));
+		integrationOps.set(
+			projectId,
+			serveIntegrationOps(projectId, FLUXIFY_ENV, projectConfig, {
+				pluginRefs: plugins.integrationRefs,
+			}),
+		);
 	}
 	// suites run routes, so a workflow-only node never takes them
 	if (node.type !== "workflow" && !testRuns.has(projectId)) {
 		testRuns.set(
 			projectId,
-			serveTestRuns(projectId, testProcessEntry, () => plugins.refs(), FLUXIFY_ENV),
+			serveTestRuns(
+				projectId,
+				testProcessEntry,
+				() => plugins.refs(),
+				FLUXIFY_ENV,
+				plugins.integrationRefs,
+			),
 		);
 	}
 }

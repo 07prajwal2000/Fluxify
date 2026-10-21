@@ -13,6 +13,7 @@ import type { ArtifactEntry } from "./compiledRuntime";
 import { executionRuntimeEnvironment } from "./executionEnvironment";
 import { ExecutionWatchdog } from "./executionWatchdog";
 import { markNotReady, markReady } from "./health";
+import { integrationRefKey, type PluginIntegrationRef } from "./pluginIntegrations";
 import type { PluginBlockRef } from "./pluginLoader";
 import type { ExecutionBootstrap, ExecutionEvent, ExecutionMessage } from "./threadTypes";
 
@@ -62,6 +63,8 @@ export interface ExecutionSupervisorOptions {
 	timeoutsEnabled: () => boolean;
 	/** Where this node's plugin block code is, read at every spawn. */
 	pluginRefs?: () => PluginBlockRef[];
+	/** Where this node's plugin integration variants are (I6), read at every spawn. */
+	pluginIntegrationRefs?: () => PluginIntegrationRef[];
 	/**
 	 * Upper bound of the random wait before a plugin upgrade or removal replaces
 	 * the child (#860), so workers that see one KV update together do not all
@@ -114,10 +117,17 @@ export function createExecutionSupervisor(
 	let candidate: { child: any; settle: (ready: boolean) => void } | undefined;
 	let replacing: Promise<void> | undefined;
 	let replaceAgain = false;
-	/** `projectId:type` -> version, as last handed to the running child; a removed block stays */
+	/**
+	 * `projectId:type` (and an integration's `integrationRefKey`) -> version, as
+	 * last handed to the running child; a removed one stays
+	 */
 	let refVersions = new Map<string, string>();
-	const versionsOf = (refs: PluginBlockRef[]) =>
-		new Map(refs.map((ref) => [`${ref.projectId}:${ref.type}`, ref.version]));
+	const integrationRefs = () => options.pluginIntegrationRefs?.() ?? [];
+	const versionsOf = (refs: PluginBlockRef[], integrations: PluginIntegrationRef[]) =>
+		new Map([
+			...refs.map((ref) => [`${ref.projectId}:${ref.type}`, ref.version] as const),
+			...integrations.map((ref) => [integrationRefKey(ref), ref.version] as const),
+		]);
 
 	/**
 	 * Jobs handed to the child, waiting on its reply. The broker's ack is driven
@@ -212,7 +222,8 @@ export function createExecutionSupervisor(
 	function spawn() {
 		spawnedAt = Date.now();
 		const pluginRefs = options.pluginRefs?.() ?? [];
-		refVersions = versionsOf(pluginRefs);
+		const pluginIntegrations = integrationRefs();
+		refVersions = versionsOf(pluginRefs, pluginIntegrations);
 		const bootstrap: ExecutionBootstrap = {
 			projectId: options.projectId,
 			port: options.port,
@@ -224,6 +235,7 @@ export function createExecutionSupervisor(
 			env: options.env ?? "production",
 			artifacts: options.artifacts(),
 			pluginRefs,
+			pluginIntegrations,
 			workerTimeoutsEnabled: options.timeoutsEnabled(),
 			maxRequestBodyBytes: options.maxRequestBodyBytes,
 			scheduleHorizonMs: options.scheduleHorizonMs,
@@ -323,10 +335,12 @@ export function createExecutionSupervisor(
 		replace,
 
 		async pluginRefsChanged(change) {
+			// a changed integration is an upgrade too: its pooled clients live in the
+			// child, and the fresh one opens them with the new code
 			const upgraded = () =>
-				(options.pluginRefs?.() ?? []).some((ref) => {
-					const running = refVersions.get(`${ref.projectId}:${ref.type}`);
-					return running !== undefined && running !== ref.version;
+				[...versionsOf(options.pluginRefs?.() ?? [], integrationRefs())].some(([key, version]) => {
+					const running = refVersions.get(key);
+					return running !== undefined && running !== version;
 				});
 			if (change?.removed || upgraded()) {
 				// ponytail: a random wait spreads the restarts of one KV update; it does not cap
@@ -337,10 +351,11 @@ export function createExecutionSupervisor(
 				if (change?.removed || upgraded()) return replace();
 			}
 			const refs = options.pluginRefs?.() ?? [];
+			const integrations = integrationRefs();
 			// kept for a block that left: its module is still in the child, so a different
 			// version of it returning (removed, then approved again) is an upgrade too
-			for (const [key, version] of versionsOf(refs)) refVersions.set(key, version);
-			execution?.send({ type: "plugin-refs", refs } satisfies ExecutionMessage);
+			for (const [key, version] of versionsOf(refs, integrations)) refVersions.set(key, version);
+			execution?.send({ type: "plugin-refs", refs, integrations } satisfies ExecutionMessage);
 		},
 
 		send(message) {

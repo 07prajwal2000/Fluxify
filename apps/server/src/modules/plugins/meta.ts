@@ -1,5 +1,6 @@
 import type { BlockMeta, HandleSpec } from "@fluxify/blocks";
 import type { FluxifyManifest, ManifestEntry } from "@fluxify/sdk/blocks";
+import { isBuiltInIntegrationGroup } from "@fluxify/sdk/integrations";
 import type { PluginLiveVersion, PluginPermissions } from "../../db/schema";
 import type { FluxifyEnv } from "../../lib/env";
 
@@ -51,6 +52,17 @@ export function requestedPermissions(manifest: FluxifyManifest): PluginPermissio
 	}
 	return { integrations: [...integrations].sort(), appconfig };
 }
+
+/** a manifest's integration variants as the approval page shows them (I6) */
+export const integrationKindsOf = (manifest: FluxifyManifest) =>
+	(manifest.integrations ?? []).map((e) => ({
+		group: e.group,
+		variant: e.variant,
+		label: e.label,
+		ownGroup: !isBuiltInIntegrationGroup(e.group),
+		secretParams: e.secretParams,
+		hooks: { test: e.hasTest, describe: e.hasDescribe, inspect: e.hasInspect },
+	}));
 
 /** approved, and switched on for `env`: the only state in which a plugin loads */
 export const isUsableIn = (row: PluginRow, env: FluxifyEnv) =>

@@ -50,7 +50,11 @@ async function waitForPostgres(url: string) {
 	}
 }
 
-export async function startStack(name: string) {
+/** `routers`: more of the admin API, mounted beside the plugin routes (I6 mounts integrations) */
+export async function startStack(
+	name: string,
+	routers: { registerHandler(app: Hono<any>): void }[] = [],
+) {
 	const pgName = `fluxify-plugin-${name}-pg-test`;
 	const natsName = `fluxify-plugin-${name}-nats-test`;
 	await docker.getContainer(pgName).remove({ force: true }).catch(() => {});
@@ -111,6 +115,7 @@ export async function startStack(name: string) {
 		await next();
 	});
 	plugins.registerHandler(app);
+	for (const router of routers) router.registerHandler(app);
 	return { sql };
 }
 
@@ -124,9 +129,9 @@ export async function stopStack() {
 export const short = () => crypto.randomUUID().slice(0, 8);
 type As = { user: string; project: string; role?: string };
 
-async function call(as: As, method: string, path: string, body?: unknown) {
+async function call(as: As, method: string, path: string, body?: unknown, prefix = "/plugins") {
 	const form = body instanceof FormData;
-	const res = await app.request(`http://localhost/plugins${path}`, {
+	const res = await app.request(`http://localhost${prefix}${path}`, {
 		method,
 		headers: {
 			"X-User": as.user,
@@ -159,6 +164,8 @@ export async function setup() {
 		put: (path: string, body: unknown, role?: string) =>
 			call({ ...as, role }, "PUT", `${path}?${q}`, body),
 		get: (path: string, role?: string) => call({ ...as, role }, "GET", `${path}?${q}`),
+		/** any other mounted route, by its full path */
+		api: (method: string, path: string, body?: unknown) => call(as, method, path, body, ""),
 		rows: () => sql`SELECT * FROM plugins WHERE project_id = ${project}`,
 	};
 }

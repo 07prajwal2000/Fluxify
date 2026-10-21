@@ -232,7 +232,11 @@ export function resolveIntegrationConfig(
 	const raw = configForEnv(integration, env) as any;
 	if (!raw) return null;
 	// an alias resolves too: a row still named "Open Telemetry Logs" is Open Telemetry
-	const def = integrationRegistry.get(group, integration.variant!);
+	const def = integrationRegistry.get(
+		group,
+		integration.variant!,
+		integration.projectId ?? undefined,
+	);
 	if (!def) return null;
 
 	const config =

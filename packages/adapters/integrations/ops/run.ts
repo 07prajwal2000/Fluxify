@@ -14,6 +14,8 @@ export type IntegrationOpCall = {
 	/** inspect only: the variant-defined request */
 	request?: unknown;
 	options?: Record<string, unknown>;
+	/** whose plugin variants the call can name */
+	projectId?: string;
 };
 
 /** A failure whose message is meant for the caller. */
@@ -43,7 +45,7 @@ export async function runIntegrationHook(
 	loadAppConfig: (keys: string[]) => Promise<Map<string, string>> | Map<string, string>,
 	timeoutMs: number,
 ): Promise<unknown> {
-	const def = registry.require(call.group, call.variant);
+	const def = registry.require(call.group, call.variant, call.projectId);
 	const hook = def[op] as ((...args: unknown[]) => Promise<unknown>) | undefined;
 	if (!hook) {
 		throw new IntegrationOpError(

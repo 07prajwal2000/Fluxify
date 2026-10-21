@@ -4,6 +4,7 @@ import {
 	BUILT_IN_VARIANT_NAMES,
 	isBuiltInIntegrationGroup,
 	isIntegrationGroupName,
+	parseIntegrationKind,
 } from "./integrations/variants.js";
 import type { Param } from "./params.js";
 import { checkTabs, checkVisible, type Issue } from "./validate.js";
@@ -77,6 +78,21 @@ function checkGroup(e: Entry, issue: Issue) {
 		issue(`group '${local}' must be lowercase letters, digits and -`, ["group"]);
 	else if (!isIntegrationGroupName(e.group))
 		issue(`scope '${scope}' is a built-in group name, so it cannot hold a group`, ["group"]);
+}
+
+/**
+ * A block's `permissions.integrations` kind: a built-in group or a variant of
+ * one, or one of this plugin's own groups (`acme/crm`, `acme/crm/Hub`). Another
+ * plugin's kinds are refused until plugins can depend on each other (#899).
+ * `own` holds the namespaced groups the plugin declares; undefined skips that check.
+ */
+export function permissionKindIssue(kind: string, own?: ReadonlySet<string>) {
+	const parsed = parseIntegrationKind(kind);
+	if (!parsed)
+		return `'${kind}' is not an integration kind: write a built-in group (kv, database, ...) or '<scope>/<group>'`;
+	if (own && !isBuiltInIntegrationGroup(parsed.group) && !own.has(parsed.group))
+		return `'${kind}' is not one of this plugin's own integration groups (${[...own].join(", ") || "none"}); another plugin's kinds are not supported yet`;
+	return undefined;
 }
 
 /** The rules of an integration manifest entry no single field can check. */

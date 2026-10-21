@@ -28,7 +28,7 @@ export default async function handleRequest(
 		// static per variant, so it never waits on the database being reachable
 		conditionEditor:
 			item.group === "database"
-				? integrationRegistry.get("database", item.variant!)?.extras.conditionEditor
+				? integrationRegistry.get("database", item.variant!, projectId)?.extras.conditionEditor
 				: undefined,
 	}));
 }

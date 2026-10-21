@@ -47,6 +47,9 @@ export const emptyDiff: PluginUpgradeDiff = {
 	changedHandlesOrShape: [],
 	addedPermissions: { integrations: [], appconfig: false },
 	deprecations: [],
+	addedIntegrations: [],
+	removedIntegrations: [],
+	changedIntegrations: [],
 	blocking: false,
 	blockers: [],
 };

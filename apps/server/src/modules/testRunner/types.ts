@@ -3,6 +3,7 @@ import type { TraceRunPayload } from "@fluxify/common/otlp";
 import type { AssertionResult, CaseCounts, CaseResult } from "../../db/schema";
 import type { ProjectConfigPayload } from "../compiler/artifacts";
 import type { DebugError } from "../requestRouter/debugError";
+import type { PluginIntegrationRef } from "../requestRouter/pluginIntegrations";
 import type { PluginBlockRef } from "../requestRouter/pluginLoader";
 import type { AssertionType, SuiteRequest } from "./assertions";
 import type { SuiteHook } from "./hooks";
@@ -58,6 +59,8 @@ export type TestBootstrap = {
 	 * Installed refs for the plugins this suite needs, supplied by the worker host.
 	 */
 	pluginRefs?: PluginBlockRef[];
+	/** the project's plugin integration variants on this worker (I6), set by the worker */
+	pluginIntegrations?: PluginIntegrationRef[];
 } & (RouteTarget | WorkflowTarget);
 
 export type RouteTarget = {

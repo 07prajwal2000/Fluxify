@@ -18,6 +18,7 @@ import type {
 	IntegrationTestResult,
 	IntegrationVariantDef,
 } from "../integrations/variants.js";
+import type { IntegrationEntry } from "../manifest.js";
 import { fingerprint } from "./ctx.js";
 
 /** where a resolved config carries its own secrets' values, next to the fields */
@@ -89,30 +90,45 @@ const configOf = (def: AnyIntegration, resolved: Resolved) => {
 	return prepareParams(def.config as never, declared) as any;
 };
 
+/** the contract methods the factories call, which a lazy client hands on */
+const KV_METHODS = ["get", "set", "setex", "delete"] as const;
+const DATABASE_METHODS = [
+	"getAll",
+	"getPage",
+	"getSingle",
+	"count",
+	"insert",
+	"insertBulk",
+	"update",
+	"raw",
+	"delete",
+	"setMode",
+	"startTransaction",
+	"commitTransaction",
+	"rollbackTransaction",
+] as const;
+
 /**
- * A client that is opening, for the groups whose factories want one at once
- * (database, kv): each method waits for it. `then` is left out, so awaiting
- * the proxy does not wait for it.
- *
- * ponytail: every method looks present, so an optional contract method (a
- * database's `introspect`) reads as implemented; give the def a real adapter
- * class if a caller starts feature-testing them.
+ * A client that is still opening, for the factories that want one at once
+ * (database, kv): exactly the group's contract methods, each waiting for it.
+ * Nothing else is on it, so an optional method (a database's `introspect`)
+ * reads as missing and awaiting the client does not wait.
  */
-function lazyClient(opening: Promise<Opened>, own: Record<string, unknown> = {}) {
-	const client = opening.then((o) => o.client as any);
+function lazyClient(
+	client: Promise<any>,
+	methods: readonly string[],
+	own: Record<string, unknown> = {},
+) {
 	client.catch(() => {}); // the method that awaits it reports the failure
-	return new Proxy(own, {
-		get(target, prop) {
-			if (Object.hasOwn(target, prop)) return target[prop as string];
-			if (prop === "then" || typeof prop === "symbol") return undefined;
-			return async (...args: unknown[]) => {
-				const c = await client;
-				if (typeof c?.[prop] !== "function")
-					throw new Error(`the client has no method '${String(prop)}'`);
-				return c[prop](...args);
-			};
-		},
-	});
+	const out: Record<string, unknown> = { ...own };
+	for (const method of methods)
+		out[method] = async (...args: unknown[]) => {
+			const c = await client;
+			if (typeof c?.[method] !== "function")
+				throw new Error(`the client has no method '${method}'`);
+			return c[method](...args);
+		};
+	return out;
 }
 
 /**
@@ -122,10 +138,17 @@ function lazyClient(opening: Promise<Opened>, own: Record<string, unknown> = {})
  */
 export function toVariantDef(
 	def: AnyIntegration,
-	{ logger = consoleLogger }: { logger?: Logger } = {},
+	{ logger = consoleLogger, plugin }: { logger?: Logger; plugin?: string } = {},
 ): IntegrationVariantDef {
 	/** how to close each client `create` handed out; deleted on the first close, so a client closes once */
 	const closers = new WeakMap<object, () => Promise<void>>();
+	const group = integrationGroup(def);
+	/** a database's per-request adapter on its pooled client */
+	const adapterOf = (pool: unknown, config: unknown) =>
+		(def as AnyIntegration & { adapter(pool: unknown, config: unknown): unknown }).adapter(
+			pool,
+			config,
+		);
 
 	const open = async (resolved: Resolved): Promise<Opened> => {
 		const controller = new AbortController();
@@ -170,13 +193,15 @@ export function toVariantDef(
 		const resolved = resolveWith(def, stored, Object.fromEntries(opCtx.appConfig));
 		const opened = await open(resolved);
 		try {
-			return await hook(opened.client, configOf(def, resolved));
+			const config = configOf(def, resolved);
+			// a database's hooks get what a request gets: an adapter on the pool
+			const client = group === "database" ? adapterOf(opened.client, config) : opened.client;
+			return await hook(client, config);
 		} finally {
 			await opened.done();
 		}
 	};
 
-	const group = integrationGroup(def);
 	const hooks: Partial<IntegrationVariantDef> = {
 		resolve: (stored, appConfig) => resolveWith(def, stored, appConfig),
 		poolKey: (resolved: Resolved) =>
@@ -209,24 +234,30 @@ export function toVariantDef(
 		}),
 	};
 
-	// ponytail: a database variant's one client is every request's adapter, so a
-	// transaction started on it is not per request unless the author's adapter
-	// makes it so; add a per-lease `session(client)` hook if plugin databases need it.
 	if (group === "database") {
+		// the built-in split: `connect` is the pooled client the connection manager
+		// keeps, `create` one request's adapter on it, which holds that request's transaction
 		const connect = (resolved: Resolved): DatabasePool => {
 			const opening = open(resolved);
 			opening.catch(() => {});
 			return { db: opening, close: keep(opening) };
 		};
-		hooks.create = ((_: unknown, { pool }: { pool: DatabasePool }) =>
-			lazyClient(pool.db as Promise<Opened>)) as never;
+		hooks.create = ((resolved: Resolved, { pool }: { pool: DatabasePool }) =>
+			lazyClient(
+				(pool.db as Promise<Opened>).then((o) => adapterOf(o.client, configOf(def, resolved))),
+				DATABASE_METHODS,
+			)) as never;
 		Object.assign(hooks, { connect });
 	} else if (group === "kv") {
 		hooks.create = ((resolved: Resolved) => {
 			const opening = open(resolved);
-			const proxy: object = lazyClient(opening, { disconnect: () => closeClient(proxy) });
-			closers.set(proxy, keep(opening));
-			return proxy;
+			const client: object = lazyClient(
+				opening.then((o) => o.client),
+				KV_METHODS,
+				{ disconnect: () => closeClient(client) },
+			);
+			closers.set(client, keep(opening));
+			return client;
 		}) as never;
 	} else {
 		hooks.create = (async (resolved: Resolved) => {
@@ -244,7 +275,32 @@ export function toVariantDef(
 		icon: def.icon,
 		configSchema: paramsConfigSchema(def.config),
 		extras: def.extras,
+		...(plugin && { plugin }),
 		...hooks,
+	} as IntegrationVariantDef;
+}
+
+/**
+ * A manifest's integration as the admin registers it (I6): what it is called,
+ * the config it validates, and how a stored config resolves for the workers —
+ * all from the approved manifest. No plugin code is imported (decision 8), so
+ * it has no `create` and no op hooks; those exist only on workers.
+ */
+export function manifestVariantMeta(
+	entry: IntegrationEntry,
+	plugin: string,
+): IntegrationVariantDef {
+	const def = { name: entry.name, config: entry.configSchema } as AnyIntegration;
+	return {
+		group: entry.group,
+		variant: entry.variant,
+		label: entry.label,
+		icon: entry.icon,
+		extras: entry.extras,
+		plugin,
+		configSchema: paramsConfigSchema(entry.configSchema),
+		resolve: (stored: unknown, appConfig: Record<string, unknown> | undefined) =>
+			resolveWith(def, stored, appConfig),
 	} as IntegrationVariantDef;
 }
 

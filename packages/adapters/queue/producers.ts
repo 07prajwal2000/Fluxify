@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { integrationRegistry } from "../integrations";
+import { configOwner, integrationRegistry } from "../integrations";
 import type { QueueConnector, QueueProducer } from "./base";
 import { loadQueueConnector } from "./manager";
 
@@ -73,7 +73,7 @@ export class QueueProducerFactory {
 			// a Redis KV integration publishes to streams
 			return () => loadConnector("redis").then((connector) => connector.createProducer!(config));
 		}
-		const variant = integrationRegistry.get("queue", config.variant);
+		const variant = integrationRegistry.get("queue", config.variant, configOwner(config));
 		if (!variant?.create) throw new Error(`${config.variant} cannot send messages`);
 		return () => variant.create!(config, { loadConnector });
 	}

@@ -7,6 +7,10 @@ import type { PluginArtifact } from "../../compiler/artifacts";
 import { frozenInstall, smokeTest } from "../../packages/bunInstall";
 import { depsRoot, pluginDir } from "../../packages/depsDir";
 import { declaredPackages } from "../../packages/resolver";
+import {
+	type PluginIntegrationRef,
+	pluginIntegrationRefs,
+} from "../../requestRouter/pluginIntegrations";
 import { type PluginBlockRef, pluginBlockRefs } from "../../requestRouter/pluginLoader";
 import type { PluginFiles } from "../sources/tar";
 import { fetchPluginFiles } from "./source";
@@ -77,6 +81,12 @@ export function createPluginInstaller(options: PluginInstallerOptions) {
 		[...installed.values()].flatMap(({ artifact, slot, dir }) =>
 			pluginBlockRefs({ ...artifact, version: slot }, dir),
 		);
+	const integrationRefs = (): PluginIntegrationRef[] =>
+		[...installed.values()].flatMap(({ artifact, slot, dir }) =>
+			pluginIntegrationRefs({ ...artifact, version: slot }, dir),
+		);
+	/** both kinds of ref, to tell whether an install changed what the child must load */
+	const snapshot = () => JSON.stringify([refs(), integrationRefs()]);
 
 	async function drain(key: string) {
 		for (let job = queued.get(key); job; job = queued.get(key)) {
@@ -102,7 +112,7 @@ export function createPluginInstaller(options: PluginInstallerOptions) {
 		const key = pluginStatusKey(projectId, name);
 		const slot = slotOf(artifact);
 		const dir = pluginDir(projectId, name, slot, root);
-		const before = JSON.stringify(refs());
+		const before = snapshot();
 		let failedImports: PluginInstallStatus["failedImports"];
 
 		report(projectId, name, { version, integrity, state: "installing" });
@@ -116,7 +126,7 @@ export function createPluginInstaller(options: PluginInstallerOptions) {
 
 		installed.set(key, { artifact, slot, dir });
 		const types = Object.keys(artifact.blocks);
-		if (JSON.stringify(refs()) !== before) await options.onRefsChanged({ projectId, types });
+		if (snapshot() !== before) await options.onRefsChanged({ projectId, types });
 		await removeOtherVersions(projectId, name, slot);
 		logger.info(`plugin ${name}@${version} for ${projectId} installed`, "WORKER.plugins");
 		report(projectId, name, {
@@ -201,6 +211,8 @@ export function createPluginInstaller(options: PluginInstallerOptions) {
 		},
 		/** where every installed plugin's blocks are, for the supervisor's `pluginRefs` */
 		refs,
+		/** where every installed plugin's integration variants are (I6) */
+		integrationRefs,
 		/** resolves once every queued install has finished, however it ended */
 		async idle() {
 			while (running.size) await Promise.all(running.values());

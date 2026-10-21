@@ -2,6 +2,7 @@ import { RpcError, type RpcResponder, rpcRespond } from "@fluxify/common/nats";
 import { natsConnection, natsName } from "../../db/nats";
 import { EncryptionService } from "../../lib/encryption";
 import type { FluxifyEnv } from "../../lib/env";
+import type { PluginIntegrationRef } from "../requestRouter/pluginIntegrations";
 import type { PluginBlockRef } from "../requestRouter/pluginLoader";
 import { testWorkerPool } from "./pool";
 import { runSuiteInChild } from "./spawn";
@@ -100,6 +101,8 @@ export function serveTestRuns(
 	entry: string,
 	pluginRefs?: (() => PluginBlockRef[]) | FluxifyEnv,
 	env?: FluxifyEnv,
+	/** where this node's plugin integration variants are (I6); the suite's child loads the project's */
+	integrationRefs: () => PluginIntegrationRef[] = () => [],
 ): RpcResponder {
 	const getPluginRefs = typeof pluginRefs === "function" ? pluginRefs : undefined;
 	const natsEnv = typeof pluginRefs === "string" ? pluginRefs : env;
@@ -121,6 +124,7 @@ export function serveTestRuns(
 				};
 			}
 			bootstrap.pluginRefs = check.refs;
+			bootstrap.pluginIntegrations = integrationRefs().filter((r) => r.projectId === projectId);
 			return testWorkerPool.run(() => runSuiteInChild(bootstrap, entry));
 		},
 		{ queue: TEST_RUN_QUEUE },

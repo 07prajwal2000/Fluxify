@@ -1,4 +1,6 @@
 import type { FluxifyManifest, ManifestEntry } from "@fluxify/sdk/blocks";
+import { diffIntegrations, type IntegrationDiff, integrationBlockers } from "./integrationDiff";
+import type { IntegrationUser } from "./integrationUsage";
 import { requestedPermissions } from "./meta";
 import type { PluginUser } from "./usage";
 
@@ -7,14 +9,15 @@ import type { PluginUser } from "./usage";
  * dialog (U1) and the approval guard. Pure: the caller brings the usage.
  *
  * Blocking is anything removed that a node uses: a block, a param it sets, a
- * handle it is wired to, or the invoke mode it calls with. Everything else is
- * listed for the creator to read, deprecations included.
+ * handle it is wired to, or the invoke mode it calls with; and an integration
+ * variant changed in a way the project's integrations of it may not survive
+ * (I6). Everything else is listed for the creator to read, deprecations included.
  */
 
 /** who uses a removed or deprecated thing; empty when nothing does */
 export type UsedBy = { kind: PluginUser["kind"]; id: string; name: string }[];
 
-export type ManifestDiff = {
+export type ManifestDiff = IntegrationDiff & {
 	addedBlocks: string[];
 	removedBlocks: { block: string; usedBy: UsedBy }[];
 	removedParams: { block: string; param: string; usedBy: UsedBy }[];
@@ -50,6 +53,8 @@ export function diffManifests(
 	old: FluxifyManifest,
 	next: FluxifyManifest,
 	usage: PluginUser[],
+	/** the project's integrations of the old version's kinds */
+	integrationUsers: IntegrationUser[] = [],
 ): ManifestDiff {
 	const usedBy = (block: string, uses: (n: PluginUser["nodes"][number]) => boolean): UsedBy =>
 		usage
@@ -67,6 +72,7 @@ export function diffManifests(
 		deprecations: [],
 		blocking: false,
 		blockers: [],
+		...diffIntegrations(old, next, integrationUsers),
 	};
 
 	for (const [block, before] of Object.entries(old.blocks) as [string, Entry][]) {
@@ -151,6 +157,7 @@ export function diffManifests(
 			diff.blockers.push(
 				`invoke mode ${r.removed.join("/")} of ${r.block} is removed but used by ${names(r.usedBy)}`,
 			);
+	diff.blockers.push(...integrationBlockers(diff));
 	diff.blocking = diff.blockers.length > 0;
 	return diff;
 }

@@ -8,13 +8,17 @@ import { ENVIRONMENTS } from "../../lib/envValues";
 import { audit } from "../audit";
 import { pluginKey } from "../compiler/subjects";
 import { InUseError } from "../references/service";
+import { IntegrationsInUseError, pluginIntegrationUsers } from "./integrationUsage";
 import { getPluginRow } from "./repository";
 import { assertCreator, type Caller } from "./service";
 import { pluginUsage } from "./usage";
+import { syncPluginVariants } from "./variants";
 
 /**
  * Removes a plugin (#860). Refused while a working copy or a promoted version
- * uses any of its blocks, the same rule as deleting a custom block. Then the
+ * uses any of its blocks, the same rule as deleting a custom block, and while
+ * an integration of one of its kinds exists (I6): those rows would point at a
+ * variant nothing provides. Then the
  * row, its URL requests, both environments' artifacts and its tarballs go;
  * workers see the artifact go and stop serving it.
  */
@@ -24,6 +28,9 @@ export async function removePlugin(projectId: string, name: string, caller: Call
 	if (!row) throw new NotFoundError(`Plugin ${name} is not installed in this project`);
 	const usage = await pluginUsage(projectId, name);
 	if (usage.length) throw new InUseError("plugin", usage);
+	// the pending version's kinds too: an integration may already use one an upgrade adds
+	const integrations = await pluginIntegrationUsers(projectId, row.manifest, row.live?.manifest);
+	if (integrations.length) throw new IntegrationsInUseError(name, integrations);
 
 	await db.transaction(async (tx) => {
 		await tx
@@ -47,5 +54,6 @@ export async function removePlugin(projectId: string, name: string, caller: Call
 	// every version ever uploaded or fetched: `pluginObjectKey` puts them under this prefix
 	const objects = await pluginObjects();
 	for (const key of await objects.keys(`${projectId}/${name}/`)) await objects.delete(key);
+	await syncPluginVariants(projectId, name);
 	return { name };
 }

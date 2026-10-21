@@ -15,6 +15,7 @@ import { debugError } from "../requestRouter/debugError";
 import { executionRuntimeEnvironment } from "../requestRouter/executionEnvironment";
 import { setBlocksExecutor } from "../requestRouter/executor";
 import { createHttpContext } from "../requestRouter/httpContext";
+import { loadPluginIntegrations } from "../requestRouter/pluginIntegrations";
 import { loadPluginBlocks, setPluginRefs } from "../requestRouter/pluginLoader";
 import { contentTypeOf } from "../requestRouter/requestBody";
 import { createJobContext, executeRouteInternal } from "../requestRouter/service";
@@ -94,6 +95,8 @@ async function prepare(boot: TestBootstrap) {
 	);
 	hydrateProjectSettings(boot.projectId, boot.config.projectSettings);
 	setPluginRefs(boot.pluginRefs ?? []);
+	const failed = await loadPluginIntegrations(boot.pluginIntegrations);
+	if (failed.length) throw new Error(failed.join("; "));
 	if (boot.pluginBlocks?.length) {
 		await loadPluginBlocks(boot.projectId, boot.pluginBlocks);
 	}
