@@ -1,6 +1,14 @@
-import { Button, Chip, CustomSelect, cn, DeleteIconButton } from "@fluxify/components";
+import {
+	Button,
+	Chip,
+	CustomSelect,
+	cn,
+	DeleteIconButton,
+	Input,
+	TextField,
+} from "@fluxify/components";
 import { useEffect, useState } from "react";
-import { TbCheck, TbPlayerRecord, TbX } from "react-icons/tb";
+import { TbCheck, TbPlayerRecord, TbSearch, TbX } from "react-icons/tb";
 import { EmptyState } from "@/components/common/EmptyState";
 import { formatDuration } from "@/components/testSuites/CaseResults";
 import { formatWhen } from "@/components/testSuites/RunResults";
@@ -19,6 +27,8 @@ const ENV_OPTIONS = [
 	{ value: "development", label: "Development" },
 	{ value: "production", label: "Production" },
 ];
+// The list API caps perPage at 5–50.
+const PAGE_SIZE_OPTIONS = [5, 10, 20, 50].map((n) => ({ value: String(n), label: `${n} / page` }));
 
 export function OutcomeIcon({ outcome }: { outcome: "success" | "failure" }) {
 	return outcome === "success" ? (
@@ -68,6 +78,9 @@ export function RecordedRunList({
 	const [sourceFilter, setSourceFilter] = useState<"all" | "test" | "live">("all");
 	const [envFilter, setEnvFilter] = useState<EnvFilter>("all");
 	const [focusedIndex, setFocusedIndex] = useState(-1);
+	const [perPage, setPerPage] = useState(5);
+	const [search, setSearch] = useState("");
+	const [debouncedSearch, setDebouncedSearch] = useState("");
 	const retentionNote = useRetentionNote();
 
 	// "5m ago" is worked out at render; re-render each minute so it keeps moving
@@ -76,6 +89,15 @@ export function RecordedRunList({
 		const timer = window.setInterval(() => setNow(Date.now()), 60_000);
 		return () => window.clearInterval(timer);
 	}, []);
+
+	useEffect(() => {
+		const timer = setTimeout(() => {
+			setDebouncedSearch(search.trim());
+			setPage(1);
+			setFocusedIndex(-1);
+		}, 300);
+		return () => clearTimeout(timer);
+	}, [search]);
 
 	const route = routesQuery.byId.useQuery(target.type === "route" ? target.id : "");
 	const workflow = workflowsQuery.byId.useQuery(target.type === "workflow" ? target.id : "");
@@ -93,6 +115,8 @@ export function RecordedRunList({
 		{
 			...(sourceFilter === "all" ? {} : { source: sourceFilter }),
 			...(versionId ? { versionId } : {}),
+			perPage,
+			...(debouncedSearch ? { search: debouncedSearch } : {}),
 		},
 		envFilter === "all" ? undefined : envFilter,
 	);
@@ -137,7 +161,8 @@ export function RecordedRunList({
 		page === 1 &&
 		outcomeFilter === "all" &&
 		sourceFilter === "all" &&
-		envFilter === "all"
+		envFilter === "all" &&
+		!debouncedSearch
 	) {
 		return (
 			<div className="p-6">
@@ -156,228 +181,260 @@ export function RecordedRunList({
 
 	const pagination = runs.data?.pagination;
 	return (
-		<div className="space-y-3 p-4">
-			{versionId && (
-				<div className="flex items-center gap-2 rounded-md border border-border bg-background-secondary px-3 py-1.5 text-xs text-muted">
-					<span>Showing the production runs of one version.</span>
-					{onClearVersionFilter && (
-						<button
-							type="button"
-							onClick={onClearVersionFilter}
-							className="text-accent hover:underline"
-						>
-							Show all runs
-						</button>
-					)}
-				</div>
-			)}
-			<div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
-				<div className="flex items-center gap-2">
-					{target.type === "route" && route.data && (
-						<span className="font-mono text-xs text-foreground">
-							<span className="font-semibold text-accent">{route.data.method.toUpperCase()}</span>{" "}
-							<span className="text-muted">{route.data.path}</span>
-						</span>
-					)}
-					{target.type === "workflow" && workflow.data && (
-						<span className="text-xs font-medium text-foreground">
-							{workflow.data.name || "Workflow"}
-						</span>
-					)}
-					{target.type === "sandbox" && sandbox.data && (
-						<span className="text-xs font-medium text-foreground">{sandbox.data.name}</span>
-					)}
-					<span className="text-xs text-muted">· {retentionNote}</span>
-				</div>
+		<div className="flex min-h-0 flex-1 flex-col">
+			<div className="shrink-0 space-y-3 px-4 pt-4">
+				{versionId && (
+					<div className="flex items-center gap-2 rounded-md border border-border bg-background-secondary px-3 py-1.5 text-xs text-muted">
+						<span>Showing the production runs of one version.</span>
+						{onClearVersionFilter && (
+							<button
+								type="button"
+								onClick={onClearVersionFilter}
+								className="text-accent hover:underline"
+							>
+								Show all runs
+							</button>
+						)}
+					</div>
+				)}
+				<div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
+					<div className="flex items-center gap-2">
+						{target.type === "route" && route.data && (
+							<span className="font-mono text-xs text-foreground">
+								<span className="font-semibold text-accent">{route.data.method.toUpperCase()}</span>{" "}
+								<span className="text-muted">{route.data.path}</span>
+							</span>
+						)}
+						{target.type === "workflow" && workflow.data && (
+							<span className="text-xs font-medium text-foreground">
+								{workflow.data.name || "Workflow"}
+							</span>
+						)}
+						{target.type === "sandbox" && sandbox.data && (
+							<span className="text-xs font-medium text-foreground">{sandbox.data.name}</span>
+						)}
+						<span className="text-xs text-muted">· {retentionNote}</span>
+					</div>
 
-				<div className="flex items-center gap-2">
-					{showSourceFilter && (
-						<div className="flex items-center gap-1 rounded-lg border border-border bg-background p-0.5">
-							{(
-								[
-									["all", "All runs"],
-									["test", "Test runs"],
-									["live", "Live runs"],
-								] as const
-							).map(([value, label]) => (
-								<button
-									key={value}
-									type="button"
-									aria-pressed={sourceFilter === value}
-									onClick={() => {
-										setSourceFilter(value);
+					<div className="flex flex-wrap items-center gap-2">
+						<TextField
+							aria-label="Search runs"
+							value={search}
+							onChange={setSearch}
+							className="relative w-56"
+						>
+							<TbSearch
+								className="absolute left-3 top-1/2 z-10 -translate-y-1/2 text-muted"
+								size={14}
+							/>
+							<Input placeholder="Status code, run id or test" className="pl-8" />
+						</TextField>
+						{showSourceFilter && (
+							<div className="flex items-center gap-1 rounded-lg border border-border bg-background p-0.5">
+								{(
+									[
+										["all", "All runs"],
+										["test", "Test runs"],
+										["live", "Live runs"],
+									] as const
+								).map(([value, label]) => (
+									<button
+										key={value}
+										type="button"
+										aria-pressed={sourceFilter === value}
+										onClick={() => {
+											setSourceFilter(value);
+											setPage(1);
+											setFocusedIndex(-1);
+										}}
+										className={cn(
+											"rounded-md px-2 py-0.5 text-xs font-medium transition-colors",
+											sourceFilter === value
+												? "bg-accent/10 text-accent"
+												: "text-muted hover:text-foreground",
+										)}
+									>
+										{label}
+									</button>
+								))}
+							</div>
+						)}
+						{target.type !== "sandbox" && (
+							<div className="w-48">
+								<CustomSelect
+									aria-label="Filter by environment"
+									options={ENV_OPTIONS}
+									value={envFilter}
+									onChange={(value) => {
+										setEnvFilter(value as EnvFilter);
 										setPage(1);
 										setFocusedIndex(-1);
 									}}
-									className={cn(
-										"rounded-md px-2 py-0.5 text-xs font-medium transition-colors",
-										sourceFilter === value
-											? "bg-accent/10 text-accent"
-											: "text-muted hover:text-foreground",
-									)}
-								>
-									{label}
-								</button>
-							))}
-						</div>
-					)}
-					{target.type !== "sandbox" && (
-						<div className="w-48">
-							<CustomSelect
-								aria-label="Filter by environment"
-								options={ENV_OPTIONS}
-								value={envFilter}
-								onChange={(value) => {
-									setEnvFilter(value as EnvFilter);
+								/>
+							</div>
+						)}
+						<div className="flex items-center gap-1 rounded-lg border border-border bg-background p-0.5">
+							<button
+								type="button"
+								onClick={() => {
+									setOutcomeFilter("all");
 									setPage(1);
 									setFocusedIndex(-1);
 								}}
-							/>
+								className={cn(
+									"rounded-md px-2 py-0.5 text-xs font-medium transition-colors",
+									outcomeFilter === "all"
+										? "bg-accent/10 text-accent"
+										: "text-muted hover:text-foreground",
+								)}
+							>
+								All
+							</button>
+							<button
+								type="button"
+								onClick={() => {
+									setOutcomeFilter("success");
+									setPage(1);
+									setFocusedIndex(-1);
+								}}
+								className={cn(
+									"rounded-md px-2 py-0.5 text-xs font-medium transition-colors",
+									outcomeFilter === "success"
+										? "bg-success/10 text-success"
+										: "text-muted hover:text-foreground",
+								)}
+							>
+								Passed
+							</button>
+							<button
+								type="button"
+								onClick={() => {
+									setOutcomeFilter("failure");
+									setPage(1);
+									setFocusedIndex(-1);
+								}}
+								className={cn(
+									"rounded-md px-2 py-0.5 text-xs font-medium transition-colors",
+									outcomeFilter === "failure"
+										? "bg-danger/10 text-danger"
+										: "text-muted hover:text-foreground",
+								)}
+							>
+								Failed
+							</button>
 						</div>
-					)}
-					<div className="flex items-center gap-1 rounded-lg border border-border bg-background p-0.5">
-						<button
-							type="button"
-							onClick={() => {
-								setOutcomeFilter("all");
-								setPage(1);
-								setFocusedIndex(-1);
-							}}
-							className={cn(
-								"rounded-md px-2 py-0.5 text-xs font-medium transition-colors",
-								outcomeFilter === "all"
-									? "bg-accent/10 text-accent"
-									: "text-muted hover:text-foreground",
-							)}
-						>
-							All
-						</button>
-						<button
-							type="button"
-							onClick={() => {
-								setOutcomeFilter("success");
-								setPage(1);
-								setFocusedIndex(-1);
-							}}
-							className={cn(
-								"rounded-md px-2 py-0.5 text-xs font-medium transition-colors",
-								outcomeFilter === "success"
-									? "bg-success/10 text-success"
-									: "text-muted hover:text-foreground",
-							)}
-						>
-							Passed
-						</button>
-						<button
-							type="button"
-							onClick={() => {
-								setOutcomeFilter("failure");
-								setPage(1);
-								setFocusedIndex(-1);
-							}}
-							className={cn(
-								"rounded-md px-2 py-0.5 text-xs font-medium transition-colors",
-								outcomeFilter === "failure"
-									? "bg-danger/10 text-danger"
-									: "text-muted hover:text-foreground",
-							)}
-						>
-							Failed
-						</button>
 					</div>
 				</div>
 			</div>
 
-			{items.length === 0 ? (
-				<div className="py-8 text-center text-xs text-muted">No runs match these filters.</div>
-			) : (
-				items.map((run, index) => (
-					<div
-						key={run.id}
-						className={cn(
-							"flex items-center gap-2 rounded-lg border bg-background-secondary pr-2 transition-colors",
-							focusedIndex === index
-								? "border-accent ring-1 ring-accent"
-								: "border-border hover:border-accent/40",
-						)}
-					>
-						<button
-							type="button"
-							onClick={() => onOpen(run)}
-							className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 p-3 text-left"
+			<div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
+				{items.length === 0 ? (
+					<div className="py-8 text-center text-xs text-muted">No runs match these filters.</div>
+				) : (
+					items.map((run, index) => (
+						<div
+							key={run.id}
+							className={cn(
+								"flex items-center gap-2 rounded-lg border bg-background-secondary pr-2 transition-colors",
+								focusedIndex === index
+									? "border-accent ring-1 ring-accent"
+									: "border-border hover:border-accent/40",
+							)}
 						>
-							<OutcomeIcon outcome={run.outcome} />
-							{run.statusCode != null && (
-								<span className="font-mono text-xs text-foreground">{run.statusCode}</span>
-							)}
-							<span className="shrink-0 font-mono text-[11px] text-foreground">{run.graph}</span>
-							<Chip size="sm" color={run.values === "development" ? "accent" : "default"}>
-								{run.values === "development" ? "Dev" : "Prod"}
-							</Chip>
-							{run.metadata && (
-								<Chip size="sm" color="accent" title={run.metadata.label}>
-									Test
+							<button
+								type="button"
+								onClick={() => onOpen(run)}
+								className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 p-3 text-left"
+							>
+								<OutcomeIcon outcome={run.outcome} />
+								{run.statusCode != null && (
+									<span className="font-mono text-xs text-foreground">{run.statusCode}</span>
+								)}
+								<span className="shrink-0 font-mono text-[11px] text-foreground">{run.graph}</span>
+								<Chip size="sm" color={run.values === "development" ? "accent" : "default"}>
+									{run.values === "development" ? "Dev" : "Prod"}
 								</Chip>
+								{run.metadata && (
+									<Chip size="sm" color="accent" title={run.metadata.label}>
+										Test
+									</Chip>
+								)}
+								<span className="flex-1 truncate text-xs text-muted">
+									{run.metadata && <span className="text-foreground">{run.metadata.label} · </span>}
+									{formatWhen(run.startedAt)}
+								</span>
+								{run.parentRunId && (
+									<Chip size="sm" title="Forked by an async custom block">
+										Async
+									</Chip>
+								)}
+								<IncompleteChip run={run} />
+								<span className="text-xs text-muted">{run.spanCount} blocks</span>
+								<span className="w-16 text-right text-xs text-muted">
+									{formatDuration(run.durationMs)}
+								</span>
+							</button>
+							{/* a sandbox keeps its runs until it is deleted */}
+							{target.type !== "sandbox" && (
+								<DeleteIconButton
+									size="sm"
+									aria-label="Delete recorded run"
+									isDisabled={remove.isPending && remove.variables === run.id}
+									onPress={() =>
+										remove.mutate(run.id, {
+											onError: (error: Error) => showErrorNotification(error),
+										})
+									}
+								/>
 							)}
-							<span className="flex-1 truncate text-xs text-muted">
-								{run.metadata && <span className="text-foreground">{run.metadata.label} · </span>}
-								{formatWhen(run.startedAt)}
-							</span>
-							{run.parentRunId && (
-								<Chip size="sm" title="Forked by an async custom block">
-									Async
-								</Chip>
-							)}
-							<IncompleteChip run={run} />
-							<span className="text-xs text-muted">{run.spanCount} blocks</span>
-							<span className="w-16 text-right text-xs text-muted">
-								{formatDuration(run.durationMs)}
-							</span>
-						</button>
-						{/* a sandbox keeps its runs until it is deleted */}
-						{target.type !== "sandbox" && (
-							<DeleteIconButton
-								size="sm"
-								aria-label="Delete recorded run"
-								isDisabled={remove.isPending && remove.variables === run.id}
-								onPress={() =>
-									remove.mutate(run.id, {
-										onError: (error: Error) => showErrorNotification(error),
-									})
-								}
-							/>
-						)}
-					</div>
-				))
-			)}
+						</div>
+					))
+				)}
+			</div>
 
-			{pagination && (page > 1 || pagination.hasNext) && (
-				<div className="flex items-center justify-between pt-1">
-					<Button
-						variant="ghost"
-						size="sm"
-						isDisabled={page <= 1}
-						onPress={() => {
-							setPage((p) => p - 1);
+			<div className="flex shrink-0 items-center justify-between gap-3 border-t border-border px-4 py-2">
+				<div className="w-32">
+					<CustomSelect
+						aria-label="Runs per page"
+						options={PAGE_SIZE_OPTIONS}
+						value={String(perPage)}
+						onChange={(value) => {
+							setPerPage(Number(value));
+							setPage(1);
 							setFocusedIndex(-1);
 						}}
-					>
-						Newer
-					</Button>
-					<span className="text-xs text-muted">Page {page}</span>
-					<Button
-						variant="ghost"
-						size="sm"
-						isDisabled={!pagination.hasNext}
-						onPress={() => {
-							setPage((p) => p + 1);
-							setFocusedIndex(-1);
-						}}
-					>
-						Older
-					</Button>
+					/>
 				</div>
-			)}
+				{pagination && (page > 1 || pagination.hasNext) && (
+					<div className="flex items-center gap-3">
+						<Button
+							variant="ghost"
+							size="sm"
+							isDisabled={page <= 1}
+							onPress={() => {
+								setPage((p) => p - 1);
+								setFocusedIndex(-1);
+							}}
+						>
+							Newer
+						</Button>
+						<span className="text-xs text-muted">
+							Page {page} of {Math.max(pagination.totalPages, 1)}
+						</span>
+						<Button
+							variant="ghost"
+							size="sm"
+							isDisabled={!pagination.hasNext}
+							onPress={() => {
+								setPage((p) => p + 1);
+								setFocusedIndex(-1);
+							}}
+						>
+							Older
+						</Button>
+					</div>
+				)}
+			</div>
 		</div>
 	);
 }

@@ -21,6 +21,12 @@ export const requestQuerySchema = paginationRequestQuerySchema.extend({
 		.describe("test: only test run traces, live: only normal runs. Without it, both (#627)"),
 	testRunId: z.string().max(50).optional().describe("only the traces of this test run"),
 	versionId: z.uuid().optional().describe("only production runs that served this version (#739)"),
+	search: z
+		.string()
+		.trim()
+		.max(100)
+		.optional()
+		.describe("matches the status code, run id, or a test run's label, suite or case name"),
 });
 
 export const runSummarySchema = z.object({

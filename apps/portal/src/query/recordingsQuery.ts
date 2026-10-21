@@ -44,7 +44,7 @@ export const recordingsQuery = {
 			page: number,
 			poll: boolean,
 			outcome?: "success" | "failure",
-			filter: TestTraceFilter = {},
+			filter: TestTraceFilter & { perPage?: number; search?: string } = {},
 			env?: "development" | "production",
 		) {
 			return useQuery({
