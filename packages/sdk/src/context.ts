@@ -38,56 +38,14 @@ export interface BlockVars {
 	[key: string]: any;
 }
 
-/** a database integration's adapter; `conditions` are Fluxify's where conditions */
-export interface DbAdapter {
-	getAll(
-		table: string,
-		conditions: object[],
-		limit: number | null,
-		offset: number,
-		sort: { attribute: string; direction: "asc" | "desc" }[],
-	): Promise<unknown[]>;
-	getSingle(table: string, conditions: object[]): Promise<unknown | null>;
-	count(table: string, conditions: object[]): Promise<number>;
-	insert(table: string, data: unknown): Promise<any>;
-	insertBulk(table: string, data: unknown[], useTransaction?: boolean): Promise<any>;
-	update(
-		table: string,
-		data: unknown,
-		conditions: object[],
-	): Promise<{ count: number; affected: any[] }>;
-	delete(table: string, conditions: object[]): Promise<{ count: number; affected: any[] }>;
-	/** a native query (SQL with `$1` placeholders, or a MongoDB command) */
-	raw(query?: string | unknown, params?: any[]): Promise<any>;
-}
+export type {
+	DatabaseAdapter,
+	DbAdapter,
+	KvAdapter,
+	QueueProducer,
+} from "./integrations/index.js";
 
-export interface KvAdapter {
-	get(key: string): Promise<string | null>;
-	set(key: string, value: string): Promise<void>;
-	setex(key: string, seconds: number, value: string): Promise<void>;
-	delete(key: string): Promise<void>;
-}
-
-export interface QueueProducer {
-	/** every message is answered; a throw means the broker could not be reached */
-	send(
-		messages: {
-			/** topic, subject, queue URL, routing key or stream, in the connector's own terms */
-			destination: string;
-			payload: unknown;
-			key?: string;
-			headers?: Record<string, string>;
-			options?: Record<string, unknown>;
-		}[],
-	): Promise<
-		(
-			| { index: number; ok: true; result: Record<string, unknown> }
-			| { index: number; ok: false; error: string }
-		)[]
-	>;
-	/** the connector's own client, connected */
-	client(): Promise<unknown>;
-}
+import type { DbAdapter, KvAdapter, QueueProducer } from "./integrations/index.js";
 
 export type PoolOptions<T> = {
 	/** builds the client from `key` on first use (and again after it was closed or `key` changed) */

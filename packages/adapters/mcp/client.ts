@@ -1,3 +1,4 @@
+import { resolveMcpHeaders } from "@fluxify/sdk/integrations";
 import {
 	auth,
 	type OAuthClientProvider,
@@ -10,6 +11,8 @@ import {
 } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { OAuthError } from "@modelcontextprotocol/sdk/server/auth/errors.js";
 import { McpNotConnectedError, type McpOAuth, mcpRefreshProvider } from "./oauth";
+
+export { resolveMcpHeaders };
 
 /**
  * An `mcp` integration's config with its headers resolved. Header values are secrets: never log them.
@@ -24,19 +27,6 @@ export type McpConnection = {
 
 /** Refresh this long before the access token runs out, so a call never starts with one about to die. */
 const EXPIRY_MARGIN_MS = 30_000;
-
-/** Stored `{ key, value }` headers -> request headers, `cfg:KEY` values read from `appConfigs`. */
-export function resolveMcpHeaders(
-	headers: { key: string; value: string }[] = [],
-	appConfigs: Map<string, string>,
-) {
-	return Object.fromEntries(
-		headers.map((h) => [
-			h.key,
-			h.value.startsWith("cfg:") ? (appConfigs.get(h.value.slice(4)) ?? "") : h.value,
-		]),
-	);
-}
 
 const expiring = (oauth: McpOAuth) => {
 	const expiresAt = oauth.state().expiresAt;

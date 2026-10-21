@@ -10,5 +10,6 @@ export function createObservabilityLogger(variant: string, config: any) {
 	throw new Error("Invalid generic provider variant: " + variant);
 }
 
+export type { IObservabilityAdapter, ObservabilityAdapter } from "@fluxify/sdk/integrations";
 export * from "./loki";
 export * from "./openTelemetryLogs";

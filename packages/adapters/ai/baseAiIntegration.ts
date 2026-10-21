@@ -1,10 +1,13 @@
+import type { AiAdapter } from "@fluxify/sdk/integrations";
 import type { ChatAnthropic } from "@langchain/anthropic";
 import type { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import type { ChatMistralAI } from "@langchain/mistralai";
 import type { ChatOpenAI } from "@langchain/openai";
 import { type createAgent, type DynamicStructuredTool, Tool } from "langchain";
 
-export class BaseAiIntegration {
+export type { AiAdapter };
+
+export class BaseAiIntegration implements AiAdapter {
 	createAgent(
 		systemPrompt: string,
 		tools: DynamicStructuredTool[],
