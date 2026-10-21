@@ -192,4 +192,28 @@ describe("plugin rules", () => {
 		expect(iconOf(validatePlugin(withIcon(url)))).toBe(url);
 		rejects(() => validatePlugin(withIcon(`data:image/png;base64,${"a".repeat(ICON_URL_MAX)}`)), "the limit is");
 	});
+
+	const withPluginIcons = (icons: object, pack: Over = {}) =>
+		files({ "fluxify.json": JSON.stringify({ ...manifest(NAME), ...icons }), ...pack });
+	it("turns the plugin and scope icons into data URLs, under the same limit", () => {
+		const { manifest: m } = validatePlugin(
+			withPluginIcons(
+				{ icon: "icons/p.svg", scopeIcon: "./icons/s.svg", description: "Slack blocks" },
+				{ "icons/p.svg": "<svg/>", "icons/s.svg": "<svg>s</svg>" },
+			),
+		);
+		expect(m.icon).toBe(`data:image/svg+xml;base64,${btoa("<svg/>")}`);
+		expect(m.scopeIcon).toBe(`data:image/svg+xml;base64,${btoa("<svg>s</svg>")}`);
+		expect(m.description).toBe("Slack blocks");
+		rejects(
+			() => validatePlugin(withPluginIcons({ scopeIcon: "icons/s.svg" }, { "icons/s.svg": "a".repeat(ICON_URL_MAX) })),
+			`${NAME} scope: icon 'icons/s.svg' is`,
+		);
+		rejects(() => validatePlugin(withPluginIcons({ icon: "icons/none.svg" })), "is not in the plugin");
+	});
+
+	it("still takes a manifest without plugin icons or description", () => {
+		const { manifest: m } = validatePlugin(files());
+		expect([m.icon, m.scopeIcon, m.description]).toEqual([undefined, undefined, undefined]);
+	});
 });

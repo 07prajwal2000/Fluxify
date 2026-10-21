@@ -22,6 +22,14 @@ type Common<D> = {
 	visibleWhen?: VisibleWhenInput;
 	/** set by `deprecated(...)` */
 	deprecated?: string;
+} & Placement;
+
+/** where a param (or a hint) shows in the settings panel; presentation only, `run` never sees it */
+export type Placement = {
+	/** the settings tab it shows in; default `General` */
+	tab?: string;
+	/** its position in the tab, ascending; params without one follow in declaration order */
+	order?: number;
 };
 
 export type JsonValue =
@@ -66,6 +74,31 @@ export type AppConfigParam = Common<string> & { type: "appconfig" };
 export type ConditionsParam = Common<Condition[]> & { type: "conditions" };
 /** a Fluxify schema definition (the schema builder's format), handed to `run` compiled */
 export type SchemaParam = NoDefault & { type: "schema" };
+/** rows of a key and a value; each value a literal or a `js:` expression, evaluated per value */
+export type KeyValueParam = Common<Record<string, JsonValue>> & {
+	type: "keyValue";
+	keys?: { placeholder?: string };
+};
+/** a list; each item a literal or a `js:` expression, evaluated per item */
+export type ArrayParam = Common<JsonValue[]> & {
+	type: "array";
+	/** what one item is, for the panel ("email" reads "Add email") */
+	of?: string;
+	min?: number;
+	max?: number;
+};
+/** source key -> destination key, as the Transformer block maps; `run` gets `{ [destination]: input[source] }` */
+export type FieldMapParam = NoDefault & { type: "fieldMap" };
+/**
+ * Not a param: markdown shown as a callout between the params of its tab.
+ * It holds no value and never reaches `run`.
+ */
+export type HintParam = Placement & {
+	type: "hint";
+	text: string;
+	tone?: "info" | "tip" | "warning";
+	visibleWhen?: VisibleWhenInput;
+};
 
 export type Param =
 	| StringParam
@@ -77,7 +110,11 @@ export type Param =
 	| IntegrationParam
 	| AppConfigParam
 	| ConditionsParam
-	| SchemaParam;
+	| SchemaParam
+	| KeyValueParam
+	| ArrayParam
+	| FieldMapParam
+	| HintParam;
 
 export type ParamType = Param["type"];
 export type Params = Record<string, Param>;
@@ -85,7 +122,7 @@ export type Params = Record<string, Param>;
 type Options<T extends ParamType> = Omit<Extract<Param, { type: T }>, "type">;
 
 const builder =
-	<T extends Exclude<ParamType, "select" | "integration">>(type: T) =>
+	<T extends Exclude<ParamType, "select" | "integration" | "hint">>(type: T) =>
 	// NoInfer: `block()`'s visibleWhen check must not feed back into the options
 	<const O extends Options<T>>(options?: O): { type: T } & NoInfer<O> =>
 		({ ...options, type }) as { type: T } & O;
@@ -108,7 +145,17 @@ export const param = {
 	appconfig: builder("appconfig"),
 	conditions: builder("conditions"),
 	schema: builder("schema"),
+	keyValue: builder("keyValue"),
+	array: builder("array"),
+	fieldMap: builder("fieldMap"),
 };
+
+/** A callout between the params of its tab: markdown, never a value. Declare it in `params`. */
+export const hint = <const O extends Omit<HintParam, "type" | "text">>(
+	text: string,
+	options?: O,
+): { type: "hint"; text: string } & NoInfer<O> =>
+	({ ...options, type: "hint", text }) as { type: "hint"; text: string } & O;
 
 /** The value `run` gets for a param. */
 export type ParamValue<P> = P extends { type: "select"; options: readonly (infer V)[] }
@@ -123,7 +170,11 @@ export type ParamValue<P> = P extends { type: "select"; options: readonly (infer
 					? Condition[]
 					: P extends { type: "schema" }
 						? CompiledSchema
-						: unknown;
+						: P extends { type: "keyValue" | "fieldMap" }
+							? Record<string, unknown>
+							: P extends { type: "array" }
+								? unknown[]
+								: unknown;
 
 type Present<P> = P extends { required: true }
 	? true
@@ -132,10 +183,12 @@ type Present<P> = P extends { required: true }
 		: false;
 type Simplify<T> = { [K in keyof T]: T[K] } & {};
 
-/** `run`'s `params`, inferred from the declaration. */
-export type ParamValues<P extends Params> = Simplify<
-	{ -readonly [K in keyof P as Present<P[K]> extends true ? K : never]: ParamValue<P[K]> } & {
-		-readonly [K in keyof P as Present<P[K]> extends true ? never : K]?: ParamValue<P[K]>;
+type Valued<P extends Params> = { [K in keyof P as P[K] extends HintParam ? never : K]: P[K] };
+
+/** `run`'s `params`, inferred from the declaration; hints hold no value, so they are not in it. */
+export type ParamValues<P extends Params, V extends Params = Valued<P>> = Simplify<
+	{ -readonly [K in keyof V as Present<V[K]> extends true ? K : never]: ParamValue<V[K]> } & {
+		-readonly [K in keyof V as Present<V[K]> extends true ? never : K]?: ParamValue<V[K]>;
 	}
 >;
 

@@ -3,7 +3,14 @@ import { dirname, join, resolve } from "node:path";
 import { fluxifyManifestSchema } from "@fluxify/sdk/blocks";
 import type { z } from "zod";
 import { fail } from "./plugin";
-import { GITIGNORE, type PackageSpecs, packageJson, readme, TSCONFIG } from "./templates";
+import {
+	GITIGNORE,
+	type PackageSpecs,
+	packageJson,
+	pluginIndex,
+	readme,
+	TSCONFIG,
+} from "./templates";
 
 export type InitOptions = {
 	cwd: string;
@@ -80,6 +87,7 @@ export async function init(options: InitOptions) {
 			...options.specs,
 		}),
 		"tsconfig.json": TSCONFIG,
+		"src/index.ts": pluginIndex(name, url),
 		"src/blocks/.gitkeep": "",
 		"icons/.gitkeep": "",
 		"README.md": readme(name, url),

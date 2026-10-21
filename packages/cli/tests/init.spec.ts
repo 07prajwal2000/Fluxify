@@ -6,7 +6,7 @@ import { build } from "../src/build";
 import { main } from "../src/cli";
 import { create } from "../src/create";
 import { init } from "../src/init";
-import { cleanup, makePlugin, tmp } from "./helpers";
+import { cleanup, linkModules, makePlugin, tmp } from "./helpers";
 
 afterAll(cleanup);
 
@@ -30,6 +30,7 @@ describe("init", () => {
 			"icons/.gitkeep",
 			"package.json",
 			"src/blocks/.gitkeep",
+			"src/index.ts",
 			"tsconfig.json",
 		]);
 		const pkg = JSON.parse(await read(root, "package.json"));
@@ -217,6 +218,7 @@ describe("blocks build on an empty plugin", () => {
 		const cwd = tmp();
 		const { root } = await init({ cwd, ...flags });
 		await Bun.write(join(root, "bun.lock"), (await import("./helpers")).LOCK);
+		linkModules(root);
 		expect(await message(() => build(root))).toBe(
 			"no blocks in src/blocks, add one with `fluxify-cli blocks create <name>`",
 		);

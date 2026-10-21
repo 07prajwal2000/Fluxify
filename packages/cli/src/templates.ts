@@ -62,9 +62,29 @@ export const packageJson = (name: string, url: string, specs: PackageSpecs) =>
 		2,
 	)}\n`;
 
+/** `src/index.ts`: what the plugin says about itself; `blocks build` writes fluxify.json from it */
+export const pluginIndex = (name: string, url: string) => `import { plugin } from "@fluxify/sdk";
+
+export default plugin({
+	// permanent: a different name is a different plugin
+	name: "${name}",
+	url: "${url}",
+	// description: "What these blocks are for.",
+	// the plugin's folder in the block picker, and the folder of every ${name.split("/")[0]} plugin
+	// icon: "./icons/plugin.svg",
+	// scopeIcon: "./icons/scope.svg",
+});
+`;
+
 export const readme = (name: string, url: string) => `# ${name}
 
 Blocks for Fluxify. Source and docs: ${url}
+
+## The plugin
+
+\`src/index.ts\` default-exports \`plugin({ name, url, description?, icon?, scopeIcon? })\`.
+\`blocks build\` writes \`fluxify.json\` from it and the blocks every time, and keeps the
+\`fluxify\` field of \`package.json\` in step with it, so never edit \`fluxify.json\` by hand.
 
 ## Add a block
 

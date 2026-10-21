@@ -32,14 +32,20 @@ export {
 	visibleWhenSchema,
 } from "./src/manifest.js";
 export {
+	type ArrayParam,
 	type CompiledSchema,
 	type Condition,
+	type FieldMapParam,
+	type HintParam,
+	hint,
 	type JsonValue,
+	type KeyValueParam,
 	type Param,
 	type Params,
 	type ParamType,
 	type ParamValue,
 	type ParamValues,
+	type Placement,
 	param,
 	type VisibleWhen,
 } from "./src/params.js";

@@ -38,8 +38,14 @@ afterEach(async () => {
 
 conformance("runtime", async (def, opts = {}) => {
 	const entry = toManifestEntry(def);
-	const schemaParams = Object.keys(entry.params).filter((k) => entry.params[k]!.type === "schema");
-	const meta: BlockMeta = { handles: entry.handles as BlockMeta["handles"], invoke: entry.invoke, schemaParams };
+	const ofType = (type: string) => Object.keys(entry.params).filter((k) => entry.params[k]!.type === type);
+	const schemaParams = ofType("schema");
+	const meta: BlockMeta = {
+		handles: entry.handles as BlockMeta["handles"],
+		invoke: entry.invoke,
+		schemaParams,
+		fieldMapParams: ofType("fieldMap"),
+	};
 	// what the plugin loader wraps a block in: the permissions it declared, approved
 	const granted = { integrations: entry.permissions.integrations ?? [], appconfig: !!entry.permissions.appconfig };
 	const run: ModuleBlockRun = (args) =>

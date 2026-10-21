@@ -511,6 +511,24 @@ html[data-theme="dark"] .fx-block,
 	pointer-events: none;
 }
 
+/* Pinned to the corner side, the name running away from the corner: top and
+   bottom handles of one side line up whatever their names. */
+.fx-handle-slot--start {
+	justify-content: flex-start;
+}
+
+.fx-handle-slot--start .fx-handle-slot__label {
+	left: 0;
+}
+
+.fx-handle-slot--end {
+	justify-content: flex-end;
+}
+
+.fx-handle-slot--end .fx-handle-slot__label {
+	right: 0;
+}
+
 .fx-handle-slot--top .fx-handle-slot__label {
 	bottom: 10px;
 }

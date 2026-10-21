@@ -29,11 +29,15 @@ export const liveOf = <R extends PluginRow>(row: R): R =>
 
 /** what the compiler and the worker need to call one block */
 export const blockMetaOf = (entry: ManifestEntry): BlockMeta => {
-	const schemaParams = Object.keys(entry.params).filter((k) => entry.params[k]!.type === "schema");
+	const ofType = (type: string) =>
+		Object.keys(entry.params).filter((k) => entry.params[k]!.type === type);
+	const schemaParams = ofType("schema");
+	const fieldMapParams = ofType("fieldMap");
 	return {
 		handles: entry.handles as HandleSpec,
 		invoke: entry.invoke,
 		...(schemaParams.length ? { schemaParams } : {}),
+		...(fieldMapParams.length ? { fieldMapParams } : {}),
 	};
 };
 

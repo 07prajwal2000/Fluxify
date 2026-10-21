@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { handleSpecSchema } from "./handles.js";
 import type { Condition, VisibleWhenInput } from "./params.js";
-import { CTX_SPAN_TYPE, INVOKE_MODES } from "./reserved.js";
+import { CTX_SPAN_TYPE, ICON_URL_MAX, INVOKE_MODES } from "./reserved.js";
 import { checkEntry, RESERVED_PARAM_NAMES } from "./validate.js";
 
 const scalar = z.union([z.string(), z.number(), z.boolean()]);
@@ -14,12 +14,18 @@ export const visibleWhenSchema: z.ZodType<VisibleWhenInput> = z.lazy(() =>
 	]),
 );
 
+/** where it shows in the settings panel; old manifests have neither, and render as one General tab */
+const placement = {
+	tab: z.string().min(1).optional(),
+	order: z.number().optional(),
+};
 const common = {
 	label: z.string().optional(),
 	description: z.string().optional(),
 	required: z.boolean().optional(),
 	visibleWhen: visibleWhenSchema.optional(),
 	deprecated: z.string().min(1).optional(),
+	...placement,
 };
 const typed = <T extends string, D extends z.ZodType>(type: T, value: D) =>
 	z.strictObject({ type: z.literal(type), ...common, default: value.optional() });
@@ -63,6 +69,34 @@ export const paramSchema = z.discriminatedUnion("type", [
 	typed("appconfig", z.string()),
 	typed("conditions", z.array(condition)),
 	bare("schema"),
+	z.strictObject({
+		type: z.literal("keyValue"),
+		...common,
+		default: z.record(z.string(), z.json()).optional(),
+		keys: z.strictObject({ placeholder: z.string().optional() }).optional(),
+	}),
+	z
+		.strictObject({
+			type: z.literal("array"),
+			...common,
+			default: z.array(z.json()).optional(),
+			of: z.string().min(1).optional(),
+			min: z.int().nonnegative().optional(),
+			max: z.int().positive().optional(),
+		})
+		.refine((p) => p.min === undefined || p.max === undefined || p.min <= p.max, {
+			message: "array min must not be above max",
+			path: ["min"],
+		}),
+	bare("fieldMap"),
+	z.strictObject({
+		type: z.literal("hint"),
+		/** markdown */
+		text: z.string().min(1),
+		tone: z.enum(["info", "tip", "warning"]).optional(),
+		visibleWhen: visibleWhenSchema.optional(),
+		...placement,
+	}),
 ]);
 
 /** scope/name(/folder)*: lowercase segments, at least scope, plugin and block */
@@ -95,6 +129,11 @@ export const manifestEntrySchema = z
 			appconfig: z.boolean().optional(),
 		}),
 		params: z.record(z.string().min(1), paramSchema),
+		/** the settings tabs in order (see `paramTabs`) */
+		tabs: z
+			.array(z.string().min(1))
+			.refine((t) => new Set(t).size === t.length, "tabs must be unique")
+			.optional(),
 		handles: handleSpecSchema,
 		deprecated: z.string().min(1).nullable(),
 	})
@@ -111,15 +150,31 @@ export const SDK_RANGE = /^(>=|\^|~)?\d+\.\d+\.\d+$/;
 export const blockEntryPath = (type: string) =>
 	`dist/blocks/${type.split("/").slice(2).join("/")}.js`;
 
+/** an icon path inside the plugin, or a data URL; either way no longer than a custom block icon may be */
+const icon = z.string().min(1).max(ICON_URL_MAX);
+
+/**
+ * What a plugin says about itself: `plugin({...})` in its `src/index.ts`, and
+ * the top of `fluxify.json`. `name` is the plugin's permanent identity.
+ */
+export const pluginMetaSchema = z.strictObject({
+	name: z.string().regex(PLUGIN_NAME, "must be scope/name: lowercase letters, digits, - and _"),
+	url: z.url({ protocol: /^https$/, error: "must be an https:// URL" }),
+	/** the plugin's folder in the block picker */
+	icon: icon.optional(),
+	/** the scope's folder; when the project's plugins of one scope disagree, the latest approved wins */
+	scopeIcon: icon.optional(),
+	description: z.string().min(1).optional(),
+});
+export type PluginMeta = z.infer<typeof pluginMetaSchema>;
+
 /**
  * `fluxify.json`, the manifest at the root of a plugin package: written by the
  * CLI, validated by the admin registry, rendered by the portal. A block's
  * `entry` is fixed by its type, so a manifest cannot point outside `dist/blocks`.
  */
-export const fluxifyManifestSchema = z
-	.strictObject({
-		name: z.string().regex(PLUGIN_NAME, "must be scope/name: lowercase letters, digits, - and _"),
-		url: z.url({ protocol: /^https$/, error: "must be an https:// URL" }),
+export const fluxifyManifestSchema = pluginMetaSchema
+	.extend({
 		sdk: z.string().regex(SDK_RANGE, "must be a version range like >=2026.10.2001"),
 		blocks: z.record(z.string(), manifestEntrySchema.and(z.object({ entry: z.string() }))),
 	})
