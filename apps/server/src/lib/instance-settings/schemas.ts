@@ -163,13 +163,6 @@ export const INSTANCE_SETTINGS_REGISTRY = {
 		// an operator's allow-list; nothing pre-auth needs it
 		alwaysPublic: false,
 	},
-	"featureflags.ee.connectors": {
-		category: "featureflags",
-		schema: featureToggleSchema,
-		publicSchema: featureToggleSchema,
-		// the portal hides connector types when this is off
-		alwaysPublic: true,
-	},
 } as const;
 
 export type InstanceSettingKey = keyof typeof INSTANCE_SETTINGS_REGISTRY;

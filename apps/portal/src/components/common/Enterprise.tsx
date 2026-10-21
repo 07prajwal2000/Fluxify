@@ -17,9 +17,11 @@ function useFeature(feature: string) {
 	return canCreate && (features.includes("*") || features.includes(feature));
 }
 
-/** True when new connectors can be created. */
+/** True when enterprise features can be created. */
 export function useEnterprise() {
-	return useFeature("connectors");
+	const { data } = publicSettingsQuery.get.useQuery();
+	if (!data) return true;
+	return data.license.canCreate;
 }
 
 /** True when SSO can be configured. Signing in through it is never gated. */
@@ -73,11 +75,12 @@ export function EnterpriseGate({
 	/** Chip only, for cards too small to hold a message. */
 	compact?: boolean;
 	className?: string;
-	/** Gate on a feature other than connectors, e.g. `unlocked={useEnterpriseSso()}`. */
+	/** Gate on a specific feature, e.g. `unlocked={useEnterpriseSso()}`. */
 	unlocked?: boolean;
 }) {
-	const connectors = useEnterprise();
-	if (unlocked ?? connectors) return <>{children}</>;
+	const enterprise = useEnterprise();
+	const isUnlocked = unlocked ?? enterprise;
+	if (isUnlocked) return <>{children}</>;
 	return (
 		<div className={cn("relative", className)}>
 			<div inert className="pointer-events-none select-none opacity-40 blur-[1px]">

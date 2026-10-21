@@ -509,4 +509,4 @@ export function describeSqsError(error: unknown, queueUrl?: string) {
 	return message || code || name || String(error);
 }
 
-export { createProducer } from "./sqsProducer.ee";
+export { createProducer } from "./sqsProducer";

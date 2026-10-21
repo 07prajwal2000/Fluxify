@@ -1,6 +1,6 @@
 import { ProduceAcks, Producer, stringSerializers } from "@platformatic/kafka";
 import { encodePayload, type OutgoingMessage, QueueProducer, settleEach } from "./base";
-import { clientOptions, type KafkaConfig, rootCause } from "./kafka.ee";
+import { clientOptions, type KafkaConfig, rootCause } from "./kafka";
 
 /**
  * Publishes for the Send Message block, waiting for every in-sync replica

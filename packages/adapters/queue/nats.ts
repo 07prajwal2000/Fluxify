@@ -422,4 +422,4 @@ export async function testNatsConnection(config: NatsConfig) {
 	}
 }
 
-export { createProducer } from "./natsProducer.ee";
+export { createProducer } from "./natsProducer";

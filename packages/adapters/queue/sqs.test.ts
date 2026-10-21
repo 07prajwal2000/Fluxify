@@ -20,7 +20,7 @@ import {
 	testSqsConnection,
 	type SqsConfig,
 	type SqsSource,
-} from "./sqs.ee";
+} from "./sqs";
 import { QueueConnectionManager } from "./manager";
 
 /**

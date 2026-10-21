@@ -1,6 +1,6 @@
 import { expect, it } from "bun:test";
 import { docker, pullImage, startContainerWithRandomPort } from "../containerTestHelpers";
-import { ensureKafkaTopics, testKafkaConnection } from "./kafka.ee";
+import { ensureKafkaTopics, testKafkaConnection } from "./kafka";
 
 /**
  * A broker that advertises a name only its own network resolves: the address

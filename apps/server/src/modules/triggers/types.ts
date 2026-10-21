@@ -40,35 +40,24 @@ export function consumedInExecution(type: string) {
 }
 
 /**
- * External connectors, which need an enterprise license. Creating one is
- * refused without it; running one stops once the license is past its grace.
- */
-const ENTERPRISE_TRIGGER_TYPES: readonly string[] = ["kafka", "nats", "sqs"];
-
-export function isEnterpriseTriggerType(type: string) {
-	return ENTERPRISE_TRIGGER_TYPES.includes(type);
-}
-
-/**
  * Whether this worker runs a trigger.
  *
  * A worker pinned to groups runs only those groups' triggers; a catch-all
  * worker runs everything *except* the groups a dedicated node already owns,
- * which is what `excludedGroups` holds. A connector whose license can no longer
- * run is not started either way.
+ * which is what `excludedGroups` holds.
  *
  * Pinned and excluded are never both set: a node either names its groups or
  * takes what is left over.
  */
 export function runsHere(
-	trigger: { projectId: string; groupId: string; type: string },
+	trigger: { projectId: string; groupId: string; type?: string },
 	workerGroupIds: readonly string[] | undefined,
-	canRunEnterprise: boolean,
+	canRunEnterprise?: boolean,
 	excludedGroups?: ReadonlySet<string>,
 ) {
 	if (workerGroupIds?.length && !workerGroupIds.includes(trigger.groupId)) return false;
 	if (excludedGroups?.has(groupPair(trigger.projectId, trigger.groupId))) return false;
-	return canRunEnterprise || !isEnterpriseTriggerType(trigger.type);
+	return true;
 }
 
 export function isTriggerBatch(value: unknown): value is TriggerBatch {

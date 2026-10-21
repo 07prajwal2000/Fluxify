@@ -21,8 +21,6 @@ export const TRIGGER_TYPES = [
 ] as const;
 export const triggerTypeSchema = z.enum(TRIGGER_TYPES);
 
-export { isEnterpriseTriggerType } from "../../../modules/triggers/types";
-
 /**
  * Batch settings, shared by create and patch.
  *

@@ -13,18 +13,8 @@ to read and which workflow to run.
 Workflows and routes can **send** too: the [Send Message](/blocks/send-message)
 block publishes one message or a list to the same integrations.
 
-::: info Enterprise
-Kafka, NATS and SQS triggers, and Send Message blocks that use them, need an
-enterprise license. Creating such a trigger, or saving such a block, is
-refused until a license is active.
-
-**RabbitMQ** triggers, and Send Message blocks that use RabbitMQ, are free in
-every edition, with no license.
-
-Reading and writing a **Redis stream** is free in every edition too. It uses a
-[Redis KV integration](/integrations/kv-stores) rather than one of these — see
-[Reading from Redis Streams](/concepts/triggers#reading-from-redis-streams) and
-[Send Message](/blocks/send-message).
+::: tip Redis Streams
+Reading and writing a **Redis stream** uses a [Redis KV integration](/integrations/kv-stores) rather than one of these — see [Reading from Redis Streams](/concepts/triggers#reading-from-redis-streams) and [Send Message](/blocks/send-message).
 :::
 
 **Send timeout** (Kafka, NATS, SQS and RabbitMQ) is how long the Send Message block waits

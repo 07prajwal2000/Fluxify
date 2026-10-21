@@ -13,7 +13,7 @@ const OPTIONS: { id: Edition; label: string; hint: string; icon: typeof TbKey }[
 	{
 		id: "community",
 		label: "Community",
-		hint: "Free for any use, including commercial. No external connectors.",
+		hint: "Free for any use, including commercial.",
 		icon: TbUsers,
 	},
 	{

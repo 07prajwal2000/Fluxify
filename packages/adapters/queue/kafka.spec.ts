@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import type { QueueBatch, QueueHandler, QueueSubscription } from "./base";
 import { ProtocolError, ResponseError } from "@platformatic/kafka";
-import { isTopicGone, KafkaConnection } from "./kafka.ee";
+import { isTopicGone, KafkaConnection } from "./kafka";
 
 /**
  * The batching and redelivery the connector does itself, driven with fake

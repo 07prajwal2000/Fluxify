@@ -18,10 +18,7 @@ setting.
 | Schedules (cron, intervals, one-shot) | ✅ | ✅ |
 | Batching | ✅ | ✅ |
 | The Trigger Workflow block | ✅ | ✅ |
-| Redis Streams triggers | ✅ | ✅ |
-| RabbitMQ triggers | ✅ | ✅ |
-| The Send Message block, to a Redis stream | ✅ | ✅ |
-| External connectors — Kafka, NATS JetStream and Amazon SQS today; SNS, Pub/Sub and Service Bus on the way. Covers their triggers and Send Message blocks | — | ✅ |
+| Message queue triggers & Send Message blocks (Kafka, NATS, SQS, RabbitMQ, Redis Streams) | ✅ | ✅ |
 | Single sign-on (OIDC and SAML) | — | ✅ |
 | [Audit Logs](../concepts/audit-logs.md), a record of who changed what | — | ✅ |
 
@@ -83,7 +80,7 @@ which features it unlocks. There are three choices:
 
 | Edition | What you do | What you get |
 | :--- | :--- | :--- |
-| **Community** | Pick it | Free for any use, including commercial. No external connectors. |
+| **Community** | Pick it | Free for any use, including commercial. |
 | **Non-commercial** | Pick it and confirm your use is personal, education, or non-profit | Every Enterprise feature, at no cost |
 | **Enterprise** | Paste the license key you were issued | The features your key includes, until it expires |
 
@@ -160,16 +157,12 @@ An expired license does not take anything down straight away. You have a
 
 | | Before expiry | Expired, within 30 days | After the 30 days |
 | :--- | :---: | :---: | :---: |
-| Existing connectors keep running | ✅ | ✅ | ❌ |
-| You can create new connectors | ✅ | ❌ | ❌ |
+| Audit logs keep recording | ✅ | ✅ | ❌ |
+| You can change project audit settings | ✅ | ❌ | ❌ |
 | People can sign in with SSO | ✅ | ✅ | ✅ |
 | You can change the SSO configuration | ✅ | ❌ | ❌ |
 | Community features | ✅ | ✅ | ✅ |
 
-- **The moment the license expires,** you can no longer create new connectors.
-  Trying to create one returns an error that says the license has expired.
-  The same goes for saving a Send Message block that points at Kafka, NATS or
-  SQS. Send Message blocks saved earlier keep sending.
 - **During the grace period,** the dashboard shows a banner with the number of
   days left, so you find out before anything stops.
 - **After the grace period,** Enterprise features stop until the license is
@@ -190,12 +183,3 @@ is unaffected either way.
 
 To renew, paste your new key on the License page. If you use `LICENSE_KEY`,
 replace it with the new key and restart the admin container.
-
-## Turning connectors off
-
-Even with a license, you can switch external connectors off for the whole
-instance. Set the instance setting `featureflags.ee.connectors` to
-`{ "enabled": false }` through the instance settings API. The change reaches
-every worker within seconds — no restart needed. The License page shows
-connectors as switched off while it is set. Set it back to `true` (or delete
-it) to turn connectors on again.

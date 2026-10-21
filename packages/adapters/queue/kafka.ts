@@ -467,4 +467,4 @@ export function rootCause(error: unknown): string {
 	return detail === outer ? outer : `${outer} ${detail}`;
 }
 
-export { createProducer } from "./kafkaProducer.ee";
+export { createProducer } from "./kafkaProducer";

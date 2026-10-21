@@ -24,7 +24,6 @@ export type PublicSettingsResponse = {
 	auth_config?: {
 		mode: "sso_only" | "email_and_sso" | "email_only";
 	};
-	"featureflags.ee.connectors"?: { enabled: boolean };
 	/** Absent until an operator sets it; the server then serves on `localhost`. */
 	hosting?: { baseDomain: string };
 	/**

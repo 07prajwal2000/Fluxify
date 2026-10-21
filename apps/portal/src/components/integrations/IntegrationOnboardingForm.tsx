@@ -18,10 +18,8 @@ import {
 	TbDatabase,
 	TbHeartRateMonitor,
 	TbSearch,
-	TbServer,
 } from "react-icons/tb";
 import { VscMcp } from "react-icons/vsc";
-import { EnterpriseGate, useEnterprise } from "@/components/common/Enterprise";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { integrationsQuery } from "@/query/integrationsQuery";
 import { useIsProjectAdmin } from "@/store/auth";
@@ -30,20 +28,6 @@ import { EnvironmentIntegrationFields, isConfigEmpty } from "./EnvironmentIntegr
 import { showTestResult } from "./showTestResult";
 
 type Step = 1 | 2 | 3;
-
-/** Queue connectors only feed triggers, which need an enterprise license; RabbitMQ is free. */
-const isEnterpriseQueue = (group: string, variant: string) =>
-	group === "queue" && variant !== "RabbitMQ";
-
-function gateQueue(group: string, variant: string, card: ReactNode, key: string) {
-	return isEnterpriseQueue(group, variant) ? (
-		<EnterpriseGate key={key} compact>
-			{card}
-		</EnterpriseGate>
-	) : (
-		card
-	);
-}
 
 const GROUP_DETAILS: Record<string, { description: string; icon: ReactNode }> = {
 	database: { description: "Connect a production database", icon: <TbDatabase size={20} /> },
@@ -91,10 +75,7 @@ export function IntegrationOnboardingForm({
 	const group = variants.length > 0 ? rawGroup : "";
 	const variant = variants.includes(rawVariant) ? rawVariant : "";
 	const step: Step = variant ? 3 : group ? 2 : 1;
-	// A deep link can skip the gated card on step 2, so gate the form too.
-	const enterprise = useEnterprise();
 	const isAdmin = useIsProjectAdmin(projectId);
-	const locked = isEnterpriseQueue(group, variant) && !enterprise;
 
 	const [defaults] = useState(
 		() => (variant && (getDefaultVariantValue(variant as never) as Record<string, unknown>)) || {},
@@ -145,9 +126,7 @@ export function IntegrationOnboardingForm({
 	}
 
 	function variantCard(cardGroup: string, item: string) {
-		return gateQueue(
-			cardGroup,
-			item,
+		return (
 			<button
 				key={`${cardGroup}:${item}`}
 				type="button"
@@ -165,8 +144,7 @@ export function IntegrationOnboardingForm({
 						</span>
 					)}
 				</span>
-			</button>,
-			`${cardGroup}:${item}`,
+			</button>
 		);
 	}
 
@@ -432,7 +410,7 @@ export function IntegrationOnboardingForm({
 							Add the connection details and credentials for this service.
 						</p>
 
-						<div className={cn("mt-4", locked && "hidden")}>
+						<div className="mt-4">
 							{group === "mcp" && !isAdmin && (
 								<p className="mb-3 text-xs text-warning">
 									Only project admins can connect MCP servers.
@@ -454,11 +432,6 @@ export function IntegrationOnboardingForm({
 								tools={testedTools ?? undefined}
 							/>
 						</div>
-						{locked && (
-							<EnterpriseGate className="mt-4">
-								<div className="h-40 rounded-xl border border-border bg-surface" />
-							</EnterpriseGate>
-						)}
 					</section>
 				)}
 			</div>
@@ -477,7 +450,6 @@ export function IntegrationOnboardingForm({
 							variant="outline"
 							size="sm"
 							isPending={test.isPending}
-							isDisabled={locked}
 							onPress={testIntegration}
 							className="whitespace-nowrap"
 						>
@@ -488,7 +460,7 @@ export function IntegrationOnboardingForm({
 							variant="primary"
 							size="sm"
 							isPending={create.isPending}
-							isDisabled={locked || (group === "mcp" && !isAdmin)}
+							isDisabled={group === "mcp" && !isAdmin}
 							onPress={saveIntegration}
 						>
 							Connect {variant}

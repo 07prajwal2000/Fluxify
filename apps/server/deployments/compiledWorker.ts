@@ -5,7 +5,7 @@ import type { RpcResponder } from "@fluxify/common/nats";
 import type { NodeType } from "@fluxify/common/orchestrator";
 import { closeNats } from "../src/db/nats";
 import { getArtifact } from "../src/db/natsKv";
-import { canRunConnectors, nodeEntitlement, watchLicense } from "../src/lib/edition";
+import { nodeEntitlement, watchLicense } from "../src/lib/edition";
 import {
 	FLUXIFY_CLAIM_ID,
 	FLUXIFY_ENV,
@@ -220,7 +220,7 @@ function handleArtifactChange(entry: ArtifactEntry) {
 function placed(entry: ArtifactEntry): ArtifactEntry {
 	const trigger = entry.value as TriggerArtifact | null;
 	if (artifactKind(entry.key) !== "trigger" || !trigger) return entry;
-	return runsHere(trigger, node.groupIds, canRunConnectors(), node.excludedGroups)
+	return runsHere(trigger, node.groupIds, undefined, node.excludedGroups)
 		? entry
 		: { key: entry.key, value: null };
 }
@@ -423,23 +423,6 @@ function replaceTriggers() {
 	}
 }
 
-/**
- * A license lapsing past its grace, or being renewed, changes nothing in the
- * artifact store, so it is noticed here instead: the connectors are re-placed
- * whenever the answer flips.
- */
-let canRunEnterprise = canRunConnectors();
-const entitlementTimer = setInterval(() => {
-	const canRun = canRunConnectors();
-	if (canRun === canRunEnterprise) return;
-	canRunEnterprise = canRun;
-	logger.warn(
-		`enterprise connectors ${canRun ? "resumed" : "stopped"} — license can${canRun ? "" : " no longer"} run them`,
-		"WORKER.triggers",
-	);
-	replaceTriggers();
-}, 60_000);
-
 const artifactWatch = await watchProjectArtifacts(
 	WORKER_PROJECT_ID,
 	handleArtifactChange,
@@ -539,7 +522,6 @@ async function shutdown(sig: string, code = 0) {
 	shuttingDown = true;
 	markDraining();
 	supervisor.stop();
-	clearInterval(entitlementTimer);
 	logger.info(`received ${sig} — draining`);
 	try {
 		await jobWorker.stop();

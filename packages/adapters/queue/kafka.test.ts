@@ -3,7 +3,7 @@ import type Docker from "dockerode";
 import { Admin, Consumer, MessagesStreamModes, Producer } from "@platformatic/kafka";
 import { docker, pullImage, startContainerWithRandomPort } from "../containerTestHelpers";
 import { QueueSourceGoneError, type QueueBatch, type QueueConnection, type QueueHandler, type QueueSubscription } from "./base";
-import { createConnection, ensureKafkaTopics, testKafkaConnection, type KafkaConfig, type KafkaSource } from "./kafka.ee";
+import { createConnection, ensureKafkaTopics, testKafkaConnection, type KafkaConfig, type KafkaSource } from "./kafka";
 import { QueueConnectionManager } from "./manager";
 
 /**

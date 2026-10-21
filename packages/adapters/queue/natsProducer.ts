@@ -2,7 +2,7 @@ import { type JetStreamClient, jetstream } from "@nats-io/jetstream";
 import { type NatsConnection, headers as natsHeaders } from "@nats-io/nats-core";
 import { connect } from "@nats-io/transport-node";
 import { encodePayload, type OutgoingMessage, QueueProducer, settleEach } from "./base";
-import { connectOptions, type NatsConfig } from "./nats.ee";
+import { connectOptions, type NatsConfig } from "./nats";
 
 /**
  * Publishes to JetStream for the Send Message block. A publish settles on the
