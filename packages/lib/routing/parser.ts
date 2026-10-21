@@ -10,6 +10,8 @@ export type HttpRoute = {
 	timeoutSeconds?: number;
 	/** body formats this route accepts; anything else is rejected with a 415 */
 	acceptedContentTypes?: string[];
+	/** octet-stream handling: buffered into a Blob, or exposed as a ReadableStream */
+	bodyMode?: "buffer" | "stream";
 	/** spans exported to the project's OTEL destination; nothing is stored by us */
 	tracingEnabled?: boolean;
 	/** debug recording, persisted for the portal trace viewer; expensive */

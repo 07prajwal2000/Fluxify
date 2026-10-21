@@ -11,7 +11,7 @@ import {
 	FLUXIFY_ENV,
 	FLUXIFY_NODE_ID,
 	getEnv,
-	MAX_REQUEST_BODY_BYTES,
+	MAX_SERVER_REQUEST_BODY_BYTES,
 	OTLP_AUTH_HEADER_NAME,
 	OTLP_AUTH_HEADER_VALUE,
 	OTLP_ENDPOINT,
@@ -162,7 +162,7 @@ const supervisor = createExecutionSupervisor({
 	entry: processEntry,
 	databaseIdleTimeoutMs,
 	asyncExecutor,
-	maxRequestBodyBytes: MAX_REQUEST_BODY_BYTES,
+	maxRequestBodyBytes: MAX_SERVER_REQUEST_BODY_BYTES,
 	scheduleHorizonMs: SCHEDULE_MAX_HORIZON_MS,
 	logging: {
 		level: OTLP_LOGGER_LEVEL,

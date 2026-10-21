@@ -502,6 +502,7 @@ function routeDefinition(artifact: RouteArtifact): HttpRoute {
 		paramsSchema: artifact.paramsSchema,
 		timeoutSeconds: artifact.timeoutSeconds,
 		acceptedContentTypes: artifact.acceptedContentTypes,
+		bodyMode: artifact.bodyMode,
 		tracingEnabled: artifact.tracingEnabled,
 		recordExecution: artifact.recordExecution,
 		routeVersion: artifact.routeVersion,

@@ -69,8 +69,15 @@ you create the route, or later in the route's **Settings**.
 | `application/json` | The parsed JSON value |
 | `application/x-www-form-urlencoded` | An object of field names and text values |
 | `multipart/form-data` | An object of text fields plus any uploaded files |
-| `application/octet-stream` | The raw binary body |
+| `application/octet-stream` | The raw binary body as a `Blob`, or a `ReadableStream<Uint8Array>` when the route uses **Pipe request body as a stream** |
 | `text/plain` | The text as sent |
+
+For `application/octet-stream`, turn on **Pipe request body as a stream** under
+the body settings to hand `getRequestBody()` the live `ReadableStream<Uint8Array>`
+instead of collecting the bytes into a `Blob`. Nothing is buffered or
+size-limited by Fluxify in that mode, so pipe it straight to a file, S3, or
+another destination. Stream routes accept only `application/octet-stream`, have
+no body schema, and cannot be called with `x-fluxify-reply: async`.
 
 A request in any other format — or in a format this particular route wasn't set
 up for — is rejected with `415` and the workflow never runs. `GET` and `DELETE`

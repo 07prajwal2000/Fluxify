@@ -4,7 +4,7 @@ import { Hono } from "hono";
 import { closePubSub } from "../src/db/pubsub";
 import {
 	getEnv,
-	MAX_REQUEST_BODY_BYTES,
+	MAX_SERVER_REQUEST_BODY_BYTES,
 	OTLP_AUTH_HEADER_NAME,
 	OTLP_AUTH_HEADER_VALUE,
 	OTLP_ENDPOINT,
@@ -42,7 +42,7 @@ registerHealthRoutes(app);
 const server = serve({
 	fetch: app.fetch,
 	port,
-	maxRequestBodySize: MAX_REQUEST_BODY_BYTES,
+	maxRequestBodySize: MAX_SERVER_REQUEST_BODY_BYTES,
 });
 
 // Graceful shutdown — registered BEFORE the (slow) initWorker() so a stop during

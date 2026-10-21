@@ -230,18 +230,21 @@ the isolated execution process, so the container and its NATS watcher stay up.
 
 ## Request body size {#request-body-size}
 
-Every request body a route receives is capped. The default is **8 MB**, and a
-request above it is rejected with `413` before any workflow runs.
+Every **buffered** request body a route receives is capped. The default is
+**8 MB**, and a request above it is rejected with `413` before any workflow
+runs. A route that pipes `application/octet-stream` bodies is not buffered and
+is not counted against this cap; it forwards the stream instead.
 
 ```env
-# Kilobytes. 8192 = 8 MB (the default).
+# Kilobytes. 8192 = 8 MB (the default), for buffered bodies.
 WORKER_MAX_STREAM_SIZE=8192
 ```
 
 Set it in the same `.env` the workers read (see [Step 1](#env)), or per service
-in your compose file. Raise it deliberately: the whole body is held in memory
+in your compose file. Raise it deliberately: a buffered body is held in memory
 while the route runs, so the cap multiplied by your concurrency is memory the
-worker has to have.
+worker has to have. Pipe-stream routes avoid that memory cost but must consume
+the stream before the request ends.
 
 ::: warning Fluxify is an API server, not an upload service
 Routing large files through your API means the upload is paid for twice — once

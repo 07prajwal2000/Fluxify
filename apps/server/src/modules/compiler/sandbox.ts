@@ -76,6 +76,7 @@ export async function compileSandbox(sandboxId: string) {
 				timeoutSeconds: 30,
 				// any body: nothing about a sandbox request is declared up front
 				acceptedContentTypes: [...CONTENT_TYPES],
+				bodyMode: "buffer",
 				routeVersion: compiledAt,
 				...route,
 			} satisfies RouteArtifact,

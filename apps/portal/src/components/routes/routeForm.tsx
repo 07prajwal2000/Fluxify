@@ -1,5 +1,12 @@
-import { cn, type DataType, type SchemaProperty, type ValidationSchema } from "@fluxify/components";
-import { CONTENT_TYPES } from "@fluxify/server/src/lib/routeConfig";
+import {
+	Checkbox,
+	Chip,
+	cn,
+	type DataType,
+	type SchemaProperty,
+	type ValidationSchema,
+} from "@fluxify/components";
+import { type BodyMode, CONTENT_TYPES } from "@fluxify/server/src/lib/routeConfig";
 import { useId } from "react";
 
 /**
@@ -34,6 +41,11 @@ export function isBinaryBody(contentTypes: string[]) {
 	return contentTypes.length === 1 && contentTypes[0] === "application/octet-stream";
 }
 
+/** The raw-bytes route can hand the body over buffered, or as a live stream. */
+export function bodyModeFor(contentTypes: string[], bodyMode: BodyMode = "buffer"): BodyMode {
+	return isBinaryBody(contentTypes) && bodyMode === "stream" ? "stream" : "buffer";
+}
+
 /**
  * A file only reaches the server in a multipart body — offering the type under
  * `application/json` just builds a schema no request can ever satisfy.
@@ -52,8 +64,14 @@ export function pruneDataTypes(schema: ValidationSchema, allowed: DataType[]): V
 	return { ...schema, properties };
 }
 
-/** The body schema a content-type change leaves behind. */
-export function bodySchemaFor(schema: ValidationSchema, contentTypes: string[]): ValidationSchema {
+/** The body schema a content-type or handling-mode change leaves behind. */
+export function bodySchemaFor(
+	schema: ValidationSchema,
+	contentTypes: string[],
+	bodyMode: BodyMode = "buffer",
+): ValidationSchema {
+	// A stream has no shape to validate; the server ignores a schema in this mode.
+	if (bodyMode === "stream") return EMPTY_SCHEMA;
 	if (isBinaryBody(contentTypes)) return BINARY_SCHEMA;
 	return pruneDataTypes(
 		schema.dataType === "blob" ? EMPTY_SCHEMA : schema,
@@ -105,6 +123,37 @@ export function paramConfigFrom(schema: ValidationSchema | undefined | null) {
 		(schema?.properties ?? []).map((property) => [property.key, property]),
 	) as Record<string, SchemaProperty>;
 }
+
+/**
+ * The octet-stream handler. Buffered is the default (a `Blob`); pipe mode hands
+ * the graph the live `ReadableStream<Uint8Array>` and buffers nothing.
+ */
+export function StreamBodyField({
+	bodyMode,
+	onChange,
+	isDisabled = false,
+}: {
+	bodyMode: BodyMode;
+	onChange: (mode: BodyMode) => void;
+	isDisabled?: boolean;
+}) {
+	return (
+		<Checkbox
+			isSelected={bodyMode === "stream"}
+			isDisabled={isDisabled}
+			onChange={(selected) => onChange(selected ? "stream" : "buffer")}
+			label={
+				<span className="flex items-center gap-2">
+					Pipe request body as a stream
+					<Chip size="sm">stream</Chip>
+				</span>
+			}
+			description="getRequestBody() returns a ReadableStream<Uint8Array> instead of a Blob. Pipe it directly to a destination — nothing is buffered by Fluxify."
+		/>
+	);
+}
+
+export type { BodyMode };
 
 /**
  * Segmented radio group. Native radios keep arrow keys, labels and focus for

@@ -4,7 +4,7 @@ import { db } from "../db";
 import { CHAN_ON_ROUTE_CHANGE, deleteCacheKey, subscribeToChannel } from "../db/redis";
 import { httpRouteConfigEntity, projectsEntity, routesEntity } from "../db/schema";
 import { getEnv } from "../lib/env";
-import { acceptedContentTypes } from "../lib/routeConfig";
+import { acceptedContentTypes, bodyModeOf } from "../lib/routeConfig";
 
 export async function loadRoutes() {
 	const parser = new HttpRouteParser();
@@ -52,5 +52,6 @@ async function fetchRoutes() {
 	return routes.map(({ routeConfig, ...route }) => ({
 		...route,
 		acceptedContentTypes: acceptedContentTypes(routeConfig),
+		bodyMode: bodyModeOf(routeConfig),
 	}));
 }

@@ -32,8 +32,81 @@ declare function setCookie(
 declare interface FluxifyInputData {
   [key: string]: any;
 }
-/** get the data this run was given — an HTTP request body, or a workflow payload */
-declare function getRequestBody(): FluxifyInputData;
+/**
+ * Nothing is declared here directly: the editor merges into one of these when
+ * the open route buffers or pipes an octet-stream body, which switches the
+ * return type of getRequestBody() below.
+ */
+declare interface FluxifyStreamMode {}
+declare interface FluxifyBlobMode {}
+/**
+ * The web stream a pipe route hands over. Declared here because the editor's
+ * TypeScript lib is ES2020 only, and the runtime is Bun rather than a DOM page.
+ */
+declare interface ReadableStream<R = any> {
+  readonly locked: boolean;
+  cancel(reason?: any): Promise<void>;
+  getReader(): ReadableStreamDefaultReader<R>;
+  pipeTo(
+    destination: WritableStream<any>,
+    options?: { preventClose?: boolean; preventAbort?: boolean; preventCancel?: boolean; signal?: AbortSignal }
+  ): Promise<void>;
+  pipeThrough<T>(
+    transform: { readable: ReadableStream<T>; writable: WritableStream<any> },
+    options?: { signal?: AbortSignal }
+  ): ReadableStream<T>;
+  tee(): [ReadableStream<R>, ReadableStream<R>];
+  values(options?: { preventCancel?: boolean }): AsyncIterableIterator<R>;
+  [Symbol.asyncIterator](): AsyncIterableIterator<R>;
+}
+declare interface ReadableStreamDefaultReader<R = any> {
+  readonly closed: Promise<void>;
+  cancel(reason?: any): Promise<void>;
+  read(): Promise<{ done: boolean; value?: R }>;
+  releaseLock(): void;
+}
+declare interface WritableStream<W = any> {
+  readonly locked: boolean;
+  abort(reason?: any): Promise<void>;
+  close(): Promise<void>;
+  getWriter(): WritableStreamDefaultWriter<W>;
+}
+declare interface WritableStreamDefaultWriter<W = any> {
+  readonly closed: Promise<void>;
+  readonly desiredSize: number | null;
+  readonly ready: Promise<void>;
+  abort(reason?: any): Promise<void>;
+  close(): Promise<void>;
+  write(chunk: W): Promise<void>;
+  releaseLock(): void;
+}
+declare interface AbortSignal {
+  readonly aborted: boolean;
+  readonly reason: any;
+  addEventListener(type: "abort", listener: () => void, options?: { once?: boolean }): void;
+  removeEventListener(type: "abort", listener: () => void): void;
+}
+/** the binary value a buffered octet-stream body arrives as */
+declare interface Blob {
+  readonly size: number;
+  readonly type: string;
+  arrayBuffer(): Promise<ArrayBuffer>;
+  bytes(): Promise<Uint8Array>;
+  text(): Promise<string>;
+  stream(): ReadableStream<Uint8Array>;
+  slice(start?: number, end?: number, contentType?: string): Blob;
+}
+/**
+ * get the data this run was given — an HTTP request body, or a workflow payload.
+ *
+ * In pipe-stream mode it is the raw ReadableStream<Uint8Array>; in buffered
+ * binary mode it is a Blob; otherwise it has the shape its schema declares.
+ */
+declare function getRequestBody(): "stream" extends keyof FluxifyStreamMode
+  ? ReadableStream<Uint8Array>
+  : "blob" extends keyof FluxifyBlobMode
+    ? Blob
+    : FluxifyInputData;
 /**
  * In an after middleware: the body of the reply the route (or a before
  * middleware) sent, even once \`input\` has been reshaped. \`null\` anywhere else.

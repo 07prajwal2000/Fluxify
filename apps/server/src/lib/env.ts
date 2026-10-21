@@ -462,8 +462,16 @@ export const FLUXIFY_NODE_ID = getEnv("FLUXIFY_NODE_ID") || undefined;
 /** the claim this node belongs to, which its assignment record is keyed by (#426) */
 export const FLUXIFY_CLAIM_ID = DEV_WORKER ? undefined : getEnv("FLUXIFY_CLAIM_ID") || undefined;
 
-/** hard body-size ceiling for user-facing routes, in bytes (env is in KB) */
+/** hard body-size ceiling for buffered route bodies, in bytes (env is in KB) */
 export const MAX_REQUEST_BODY_BYTES = (Number(getEnv("WORKER_MAX_STREAM_SIZE")) || 8192) * 1024;
+
+/**
+ * The HTTP server's own ceiling. It must not bound a pipe-stream route, whose
+ * body is forwarded without Fluxify counting it, so it is set to Bun's maximum.
+ * Buffered routes still enforce `MAX_REQUEST_BODY_BYTES` while reading, which
+ * keeps the memory the server can spend on one body bounded.
+ */
+export const MAX_SERVER_REQUEST_BODY_BYTES = Number.MAX_SAFE_INTEGER;
 
 /**
  * The proxy's address as the admin reaches it (#742). The admin builds a

@@ -158,6 +158,33 @@ describe("bodyReader", () => {
 		]);
 	});
 
+	it("hands back the live stream in pipe mode, without buffering or a limit", async () => {
+		const req = request(
+			"POST",
+			new Uint8Array(2048),
+			"application/octet-stream",
+		);
+		const stream = (await bodyReader(req, MAX)!.parse(
+			["application/octet-stream"],
+			"stream",
+		)) as ReadableStream<Uint8Array>;
+
+		expect(stream).toBeInstanceOf(ReadableStream);
+		let total = 0;
+		for await (const chunk of stream) total += chunk.byteLength;
+		expect(total).toBe(2048);
+	});
+
+	it("still rejects an unaccepted content type in pipe mode", async () => {
+		const status = await statusOf(
+			bodyReader(
+				request("POST", "{}", "application/json"),
+				MAX,
+			)!.parse(["application/octet-stream"], "stream"),
+		);
+		expect(status).toBe(415);
+	});
+
 	it("returns a raw binary body as a Blob", async () => {
 		const body = await parse(
 			request("POST", new Uint8Array([1, 2, 3]), "application/octet-stream"),

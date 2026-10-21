@@ -2,7 +2,7 @@ import type z from "zod";
 import type { AuthACL } from "../../../../db/schema";
 import { ForbiddenError } from "../../../../errors/forbidError";
 import { NotFoundError } from "../../../../errors/notFoundError";
-import { acceptedContentTypes } from "../../../../lib/routeConfig";
+import { acceptedContentTypes, bodyModeOf } from "../../../../lib/routeConfig";
 import { versionNumberOf } from "../../../../modules/versions/repository";
 import { hasUncommitted } from "../../../../modules/versions/state";
 import type { responseSchema } from "./dto";
@@ -41,6 +41,7 @@ export default async function handleRequest(
 		devTracingEnabled: route.devTracingEnabled,
 		devRecordExecution: route.devRecordExecution,
 		acceptedContentTypes: acceptedContentTypes(route.routeConfig),
+		bodyMode: bodyModeOf(route.routeConfig),
 		headVersionNumber: await versionNumberOf(route.headVersionId),
 		prodVersionId: route.prodVersionId,
 		prodVersionNumber: await versionNumberOf(route.prodVersionId),

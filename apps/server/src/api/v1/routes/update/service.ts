@@ -2,12 +2,14 @@ import type { z } from "zod";
 import { db } from "../../../../db";
 import { CHAN_ON_ROUTE_CHANGE, publishMessage } from "../../../../db/redis";
 import type { AuthACL } from "../../../../db/schema";
+import { BadRequestError } from "../../../../errors/badRequestError";
 import { ForbiddenError } from "../../../../errors/forbidError";
 import { NotFoundError } from "../../../../errors/notFoundError";
 import { ServerError } from "../../../../errors/serverError";
 import { canAccessProject } from "../../../../lib/acl";
-import { audit, bodyFields, changedFields } from "../../../../modules/audit";
-import { patchRouteConfig } from "../routeConfigRepository";
+import { streamBodyConfigError } from "../../../../lib/routeConfig";
+import { audit, changedFields } from "../../../../modules/audit";
+import { patchRouteConfig, readRouteConfig } from "../routeConfigRepository";
 import { routeConflictError } from "../routeConflict";
 import { normalizeParamsSchema } from "../schema-validator";
 import type { requestBodySchema, responseSchema } from "./dto";
@@ -29,10 +31,31 @@ export default async function handleRequest(
 		const wanted = { ...data, projectId: existingRoute.projectId ?? "" };
 		const clash = await findRouteConflict(wanted, id, tx);
 		if (clash) throw routeConflictError(clash, wanted);
-		const { acceptedContentTypes, ...route } = data;
-		if (acceptedContentTypes !== undefined) {
-			await patchRouteConfig(id, existingRoute.projectId, { acceptedContentTypes }, tx);
+		const { acceptedContentTypes, bodyMode, ...route } = data;
+		let nextMode = bodyMode;
+		// Only a patch that can change the body handling needs the stored config.
+		// Most edits (a name, a schema) have no business reading another table.
+		if (
+			acceptedContentTypes !== undefined ||
+			bodyMode !== undefined ||
+			data.bodySchema !== undefined
+		) {
+			const current = await readRouteConfig(id, tx);
+			const nextAccepted = acceptedContentTypes ?? current.acceptedContentTypes;
+			nextMode = bodyMode ?? current.bodyMode;
+			const configError = streamBodyConfigError(nextAccepted, nextMode);
+			if (configError) throw new BadRequestError(configError);
+			if (acceptedContentTypes !== undefined || bodyMode !== undefined) {
+				await patchRouteConfig(
+					id,
+					existingRoute.projectId,
+					{ acceptedContentTypes: nextAccepted, bodyMode: nextMode },
+					tx,
+				);
+			}
 		}
+		// Pipe-stream mode has no body shape; drop any schema the caller sent.
+		if (nextMode === "stream") route.bodySchema = null;
 		// An undefined field is skipped by the update statement, so an omitted
 		// paramsSchema would leave the previous one behind. Normalise so a path
 		// that no longer declares `:params` writes an explicit null instead.

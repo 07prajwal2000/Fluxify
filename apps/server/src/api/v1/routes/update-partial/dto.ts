@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { observabilityFields, warningField } from "../../../../lib/observability";
-import { CONTENT_TYPES } from "../../../../lib/routeConfig";
+import { BODY_MODES, CONTENT_TYPES } from "../../../../lib/routeConfig";
 import { ROUTE_REGEX } from "../constants";
 
 export const requestBodySchema = z.object({
@@ -17,6 +17,7 @@ export const requestBodySchema = z.object({
 	timeoutSeconds: z.number().int().min(30).optional(),
 	...observabilityFields,
 	acceptedContentTypes: z.array(z.enum(CONTENT_TYPES)).min(1).optional(),
+	bodyMode: z.enum(BODY_MODES).optional(),
 });
 
 export const requestRouteSchema = z.object({

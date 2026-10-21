@@ -60,6 +60,18 @@ describe("buildInputDataTypeLib", () => {
 		expect(lib).toContain('"content-type": string;');
 	});
 
+	it("switches getRequestBody to a stream for a pipe route", () => {
+		expect(buildInputDataTypeLib(null, "stream")).toContain(
+			"interface FluxifyStreamMode",
+		);
+	});
+
+	it("types a buffered raw body as a Blob", () => {
+		expect(buildInputDataTypeLib({ dataType: "blob" })).toContain(
+			"interface FluxifyBlobMode",
+		);
+	});
+
 	it("declares nothing when the schema describes nothing", () => {
 		// an empty interface would take away the free-form access the globals'
 		// index signature allows

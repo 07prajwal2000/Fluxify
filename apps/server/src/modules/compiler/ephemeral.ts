@@ -55,6 +55,8 @@ export async function compileEphemeral(o: {
 		path: `/_sandbox/${id}`,
 		timeoutSeconds: o.timeoutSeconds,
 		acceptedContentTypes: [...CONTENT_TYPES],
+		// a sandbox has no route settings; its bodies are buffered as before
+		bodyMode: "buffer",
 		tracingEnabled: false,
 		recordExecution: false,
 		routeVersion: compiledAt,

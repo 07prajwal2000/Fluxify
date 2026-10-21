@@ -8,8 +8,9 @@ import { NotFoundError } from "../../../../errors/notFoundError";
 import { ServerError } from "../../../../errors/serverError";
 import { canAccessProject } from "../../../../lib/acl";
 import { prodRecordingWarning } from "../../../../lib/observability";
+import { streamBodyConfigError } from "../../../../lib/routeConfig";
 import { audit, bodyFields } from "../../../../modules/audit";
-import { patchRouteConfig } from "../routeConfigRepository";
+import { patchRouteConfig, readRouteConfig } from "../routeConfigRepository";
 import { routeConflictError } from "../routeConflict";
 import { normalizeParamsSchema, validateRouteSchemas } from "../schema-validator";
 import { findRouteConflict, getRouteById, updateRoute } from "../update/repository";
@@ -104,15 +105,30 @@ export default async function handleRequest(
 		for (const name of OBSERVABILITY_FIELDS) {
 			if (data[name] !== undefined) patchedRoute[name] = data[name];
 		}
-		if (data.acceptedContentTypes !== undefined) {
-			await patchRouteConfig(
-				id,
-				existingRoute.projectId,
-				{ acceptedContentTypes: data.acceptedContentTypes },
-				tx,
-			);
+		let nextMode = data.bodyMode;
+		// Only a patch that can change the body handling needs the stored config.
+		if (
+			data.acceptedContentTypes !== undefined ||
+			data.bodyMode !== undefined ||
+			data.bodySchema !== undefined
+		) {
+			const current = await readRouteConfig(id, tx);
+			const nextAccepted = data.acceptedContentTypes ?? current.acceptedContentTypes;
+			nextMode = data.bodyMode ?? current.bodyMode;
+			const configError = streamBodyConfigError(nextAccepted, nextMode);
+			if (configError) throw new BadRequestError(configError);
+			if (data.acceptedContentTypes !== undefined || data.bodyMode !== undefined) {
+				await patchRouteConfig(
+					id,
+					existingRoute.projectId,
+					{ acceptedContentTypes: nextAccepted, bodyMode: nextMode },
+					tx,
+				);
+			}
 		}
-		applySchemas(patchedRoute, data);
+		// A pipe stream has no shape: an omitted schema would otherwise keep the
+		// stored one, and a sent one would describe bytes as fields.
+		applySchemas(patchedRoute, nextMode === "stream" ? { ...data, bodySchema: null } : data);
 		const updated = await updateRoute(
 			{
 				...patchedRoute,

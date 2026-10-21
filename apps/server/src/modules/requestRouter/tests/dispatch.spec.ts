@@ -22,7 +22,7 @@ function fakeCtx(opts: {
 }
 
 /** a real Request, so the body reader sees real headers and a real stream */
-function postCtx(body: string, contentType: string) {
+function postCtx(body: BodyInit, contentType: string) {
 	const raw = new Request("http://localhost/jobs", {
 		method: "POST",
 		body,
@@ -315,6 +315,38 @@ describe("dispatch", () => {
 		await dispatch(env, parser);
 
 		expect(seen).toEqual({ name: "Alice" });
+	});
+
+	it("hands a pipe route the live stream and skips its body schema", async () => {
+		let seen: unknown;
+		setBlocksExecutor(async (_target, context) => {
+			seen = context.requestBody;
+			return { successful: true, output: { body: "ok" } } as any;
+		});
+		const parser = {
+			getRouteId: () => ({
+				id: "route-1",
+				projectId: "project-1",
+				projectName: "Project",
+				acceptedContentTypes: ["application/octet-stream"],
+				bodyMode: "stream",
+				// would reject a stream if it were consulted
+				bodySchema: { dataType: "blob" },
+			}),
+		} as unknown as HttpRouteParser;
+		const env = await envelopeFromHttp(
+			postCtx(new Uint8Array([1, 2, 3]), "application/octet-stream"),
+		);
+
+		const res = await dispatch(env, parser);
+
+		expect(res.status).toBe(200);
+		expect(seen).toBeInstanceOf(ReadableStream);
+		let total = 0;
+		for await (const chunk of seen as ReadableStream<Uint8Array>) {
+			total += chunk.byteLength;
+		}
+		expect(total).toBe(3);
 	});
 
 	it("falls back to JSON only when a route carries no content type config", async () => {

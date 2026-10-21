@@ -160,7 +160,10 @@ A path with no `:params` cannot have a `paramsSchema`. On update, if the new pat
 - `application/octet-stream`
 - `text/plain`
 
-A request with another content type is refused with 415.
+A request with another content type is refused with 415. When a route accepts
+only `application/octet-stream`, `bodyMode` may be `"buffer"` (default, a
+`Blob`) or `"stream"` (a live `ReadableStream<Uint8Array>`, no Fluxify size
+limit, no body schema, and no async replies).
 
 ## Recording and tracing
 

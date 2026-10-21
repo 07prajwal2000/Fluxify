@@ -22,6 +22,7 @@ export async function envelopeFromHttp(ctx: Context): Promise<RequestEnvelope> {
 			bodyReader: reader,
 		},
 	};
-	if (reader && envelope.trigger.reply === "async") await reader.materialize();
+	// Async replies buffer once the route is known: a pipe-stream route must be
+	// rejected before the 202, not have its stream silently collected here.
 	return envelope;
 }

@@ -1,5 +1,5 @@
 import { logger } from "@fluxify/common";
-import type { HttpRouteParser } from "@fluxify/lib";
+import type { HttpRoute, HttpRouteParser } from "@fluxify/lib";
 import type { Hono } from "hono";
 import { AsyncExecutor, asyncExecutorLimitsFromEnv } from "./asyncExecutor";
 import { dispatch, envelopeFromHttp } from "./service";
@@ -16,6 +16,18 @@ export async function mapRouter(app: Hono<any>, parser: HttpRouteParser) {
 		// ponytail: block engine still caps execution at RESPONSE_TIMEOUT (4s);
 		// lift that cap when real long-running jobs land, keyed off trigger.reply.
 		if (env.trigger.reply === "async") {
+			// Detached work outlives the request stream; a pipe route cannot.
+			const matched = parser.getRouteId(
+				env.payload.path,
+				env.payload.method as HttpRoute["method"],
+			);
+			if (matched?.bodyMode === "stream") {
+				return c.json(
+					{ message: "Streaming request bodies cannot be used with async replies" },
+					400,
+				);
+			}
+			await env.payload.bodyReader?.materialize();
 			if (
 				!asyncExecutor.submit(async () => {
 					await dispatch(env, parser);

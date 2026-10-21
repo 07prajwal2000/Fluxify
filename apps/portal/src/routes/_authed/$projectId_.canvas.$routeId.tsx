@@ -71,7 +71,7 @@ function RouteCanvasPage() {
 		? `${route.method.toUpperCase()} ${route.path} | Routes`
 		: "Route Canvas | Routes";
 	usePageTitle(title);
-	useInputDataTypes(route?.bodySchema as ValidationSchema | null);
+	useInputDataTypes(route?.bodySchema as ValidationSchema | null, route?.bodyMode);
 
 	const routeParams = useMemo(() => {
 		const fromPath = route?.path ? extractPathParams(route.path) : [];
