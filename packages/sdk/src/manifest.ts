@@ -3,6 +3,7 @@ import { handleSpecSchema } from "./handles.js";
 import type { Condition, VisibleWhenInput } from "./params.js";
 import { CTX_SPAN_TYPE, ICON_URL_MAX, INVOKE_MODES } from "./reserved.js";
 import { checkEntry, RESERVED_PARAM_NAMES } from "./validate.js";
+import { checkIntegrationEntry } from "./validateIntegration.js";
 
 const scalar = z.union([z.string(), z.number(), z.boolean()]);
 
@@ -67,6 +68,7 @@ export const paramSchema = z.discriminatedUnion("type", [
 	typed("json", z.json()),
 	z.strictObject({ type: z.literal("integration"), ...common, kind: z.string().min(1) }),
 	typed("appconfig", z.string()),
+	bare("secret"),
 	typed("conditions", z.array(condition)),
 	bare("schema"),
 	z.strictObject({
@@ -99,6 +101,12 @@ export const paramSchema = z.discriminatedUnion("type", [
 	}),
 ]);
 
+/** the settings tabs in order (see `paramTabs`) */
+const tabsSchema = z
+	.array(z.string().min(1))
+	.refine((t) => new Set(t).size === t.length, "tabs must be unique")
+	.optional();
+
 /** scope/name(/folder)*: lowercase segments, at least scope, plugin and block */
 export const BLOCK_NAME = /^[a-z0-9][a-z0-9_-]*(\/[a-z0-9][a-z0-9_-]*){2,}$/;
 
@@ -130,16 +138,48 @@ export const manifestEntrySchema = z
 		}),
 		params: z.record(z.string().min(1), paramSchema),
 		/** the settings tabs in order (see `paramTabs`) */
-		tabs: z
-			.array(z.string().min(1))
-			.refine((t) => new Set(t).size === t.length, "tabs must be unique")
-			.optional(),
+		tabs: tabsSchema,
 		handles: handleSpecSchema,
 		deprecated: z.string().min(1).nullable(),
 	})
 	.superRefine(checkEntry);
 
 export type ManifestEntry = z.infer<typeof manifestEntrySchema>;
+
+/**
+ * An integration variant as `fluxify.json` holds it: the definition minus its
+ * hooks. `group` is namespaced (`acme/crm`) unless it is a built-in group;
+ * `configSchema` is the config's params, which the integrations page renders
+ * and `paramsConfigSchema` validates.
+ */
+export const integrationEntrySchema = z
+	.strictObject({
+		name: z
+			.string()
+			.regex(BLOCK_NAME, "must be scope/name/.../integration: lowercase letters, digits, - and _"),
+		label: z.string().min(1),
+		description: z.string().optional(),
+		/** a path inside the plugin, a data URL once approved */
+		icon: z.string().min(1),
+		docs: z.string().optional(),
+		group: z.string().min(1),
+		variant: z
+			.string()
+			.min(1)
+			.regex(/^[^/]+$/, "must not contain /")
+			.refine((v) => v.trim() === v, "must not start or end with a space"),
+		extras: z.record(z.string(), z.json()).optional(),
+		configSchema: z.record(z.string().min(1), paramSchema),
+		tabs: tabsSchema,
+		/** the params that hold an app config key, in declaration order */
+		secretParams: z.array(z.string()),
+		hasTest: z.boolean(),
+		hasDescribe: z.boolean(),
+		hasInspect: z.boolean(),
+	})
+	.superRefine(checkIntegrationEntry);
+
+export type IntegrationEntry = z.infer<typeof integrationEntrySchema>;
 
 /** scope/name: the plugin's permanent identity */
 export const PLUGIN_NAME = /^[a-z0-9][a-z0-9_-]*\/[a-z0-9][a-z0-9_-]*$/;
@@ -177,6 +217,8 @@ export const fluxifyManifestSchema = pluginMetaSchema
 	.extend({
 		sdk: z.string().regex(SDK_RANGE, "must be a version range like >=2026.10.2001"),
 		blocks: z.record(z.string(), manifestEntrySchema.and(z.object({ entry: z.string() }))),
+		/** absent on manifests from before integrations */
+		integrations: z.array(integrationEntrySchema.and(z.object({ entry: z.string() }))).optional(),
 	})
 	.superRefine((m, ctx) => {
 		for (const [type, b] of Object.entries(m.blocks)) {
@@ -187,6 +229,34 @@ export const fluxifyManifestSchema = pluginMetaSchema
 			else if (b.entry !== blockEntryPath(type))
 				issue(`must be '${blockEntryPath(type)}'`, ["entry"]);
 		}
+		checkIntegrations(m.name, m.integrations ?? [], ctx);
 	});
+
+/** where an integration's built module sits: `scope/name/a/b` is `dist/integrations/a/b.js` */
+export const integrationEntryPath = (name: string) =>
+	`dist/integrations/${name.split("/").slice(2).join("/")}.js`;
+
+/** each integration inside the plugin, at its fixed entry, and one per name and per group/variant */
+function checkIntegrations(
+	plugin: string,
+	list: (IntegrationEntry & { entry: string })[],
+	ctx: z.RefinementCtx,
+) {
+	const names = new Set<string>();
+	const variants = new Set<string>();
+	for (const [i, e] of list.entries()) {
+		const issue = (message: string, path: string[]) =>
+			ctx.addIssue({ code: "custom", message, path: ["integrations", i, ...path] });
+		const variant = `${e.group}/${e.variant}`;
+		if (!e.name.startsWith(`${plugin}/`)) issue(`is not inside plugin '${plugin}'`, ["name"]);
+		else if (e.entry !== integrationEntryPath(e.name))
+			issue(`must be '${integrationEntryPath(e.name)}'`, ["entry"]);
+		if (names.has(e.name)) issue(`'${e.name}' is declared twice`, ["name"]);
+		if (variants.has(variant.toLowerCase()))
+			issue(`variant '${variant}' is declared twice in this plugin`, ["variant"]);
+		names.add(e.name);
+		variants.add(variant.toLowerCase());
+	}
+}
 
 export type FluxifyManifest = z.infer<typeof fluxifyManifestSchema>;

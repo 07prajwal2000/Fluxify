@@ -21,6 +21,26 @@ export const BUILT_IN_INTEGRATION_GROUPS = [
 	"mcp",
 ] as const;
 
+/**
+ * The built-in variants' names and stored aliases, per group: a plugin variant
+ * of a built-in group may not take one. `@fluxify/adapters` checks this list
+ * against its registry, so it cannot drift.
+ */
+export const BUILT_IN_VARIANT_NAMES: Record<
+	(typeof BUILT_IN_INTEGRATION_GROUPS)[number],
+	readonly string[]
+> = {
+	database: ["PostgreSQL", "MongoDB", "MySQL"],
+	kv: ["Redis", "Memcached"],
+	ai: ["OpenAI", "Anthropic", "Gemini", "Mistral", "OpenAI Compatible"],
+	baas: [],
+	observability: ["Open Telemetry", "Open Telemetry Logs", "Loki"],
+	queue: ["Kafka", "NATS", "SQS", "RabbitMQ"],
+	mcp: ["http"],
+};
+/** the built-in database variants' `dbType`s; a plugin database variant needs its own */
+export const BUILT_IN_DB_TYPES: readonly string[] = ["pg", "mongo", "mysql"];
+
 /** Built-in integration groups supported by Fluxify. */
 export type IntegrationGroup = (typeof BUILT_IN_INTEGRATION_GROUPS)[number];
 /** A plugin's own group, `<namespace>/<group>`. */
@@ -153,6 +173,12 @@ type PluginGroupSpec = {
 type SpecOf<G extends AnyIntegrationGroup> = G extends IntegrationGroup
 	? BuiltInGroupSpecs[G]
 	: PluginGroupSpec;
+
+/** what a variant of group `G` answers `describe` and `inspect` with */
+export type VariantHookResult<
+	G extends AnyIntegrationGroup,
+	Op extends "describe" | "inspect",
+> = SpecOf<G>[Op];
 
 /**
  * The serializable half of a variant: what it is called and which config it

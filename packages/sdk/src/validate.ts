@@ -14,7 +14,7 @@ type Entry = {
 	permissions: { integrations?: string[]; appconfig?: boolean };
 	tabs?: string[];
 };
-type Issue = (message: string, path: (string | number)[]) => void;
+export type Issue = (message: string, path: (string | number)[]) => void;
 
 /** a value a param can hold, for comparing in `visibleWhen` */
 function fits(p: Param, value: unknown) {
@@ -22,7 +22,7 @@ function fits(p: Param, value: unknown) {
 	return typeof value === p.type;
 }
 
-function checkVisible(
+export function checkVisible(
 	params: Entry["params"],
 	when: VisibleWhenInput,
 	path: (string | number)[],
@@ -50,6 +50,16 @@ function checkVisible(
 	}
 }
 
+/** every tab `tabs` lists must hold a param */
+export function checkTabs(params: Entry["params"], tabs: string[] | undefined, issue: Issue) {
+	// a hint alone shows nothing to set, so it does not make a tab worth having
+	const used = new Set(
+		Object.values(params).map((p) => (p.type === "hint" ? undefined : (p.tab ?? GENERAL_TAB))),
+	);
+	for (const [i, tab] of (tabs ?? []).entries())
+		if (!used.has(tab)) issue(`tabs lists '${tab}', which no param uses`, ["tabs", i]);
+}
+
 /**
  * The rules no single field can check: params against each other and the
  * permissions, invoke modes against the handles.
@@ -74,13 +84,13 @@ export function checkEntry(entry: Entry, ctx: z.RefinementCtx) {
 				"params",
 				name,
 			]);
+		if (p.type === "secret")
+			issue(
+				`param '${name}': a secret belongs to an integration's config; a block uses appconfig`,
+				["params", name],
+			);
 	}
-	// a hint alone shows nothing to set, so it does not make a tab worth having
-	const used = new Set(
-		Object.values(params).map((p) => (p.type === "hint" ? undefined : (p.tab ?? GENERAL_TAB))),
-	);
-	for (const [i, tab] of (tabs ?? []).entries())
-		if (!used.has(tab)) issue(`tabs lists '${tab}', which no param uses`, ["tabs", i]);
+	checkTabs(params, tabs, issue);
 	// the caller never learns the outcome of an async or queued call, so there is no branch to take
 	const detached = invoke.filter((m) => m !== "sync");
 	if (handles.out.length === 2 && detached.length)

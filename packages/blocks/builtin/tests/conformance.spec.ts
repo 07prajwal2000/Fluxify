@@ -2,10 +2,11 @@
 // compile a canvas around it, run it. The same suite runs against
 // `@fluxify/sdk/testing` in packages/sdk, so the two cannot drift.
 import { afterEach } from "bun:test";
-import { type BranchStub, conformance } from "@fluxify/sdk/conformance";
+import { type BranchStub, conformance, integrationConformance } from "@fluxify/sdk/conformance";
 import { integrationRegistry } from "@fluxify/adapters";
-import { parseIntegrationKind } from "@fluxify/sdk/integrations";
-import { grantContext } from "@fluxify/sdk/runtime";
+import { runIntegrationHook } from "@fluxify/adapters/integrations";
+import { type AnyIntegration, parseIntegrationKind } from "@fluxify/sdk/integrations";
+import { grantContext, toStoredConfig, toVariantDef } from "@fluxify/sdk/runtime";
 import { z } from "zod";
 import { memoryKv, recordingLogger, type LogEntry } from "@fluxify/sdk/testing";
 import { toManifestEntry } from "@fluxify/sdk/blocks";
@@ -138,4 +139,40 @@ conformance("runtime", async (def, opts = {}) => {
 		})),
 		logs,
 	};
+});
+
+/**
+ * An `integration(...)` registered the way a worker will (I6): `toVariantDef`
+ * straight into the real registry, its config resolved as the loader resolves
+ * a row, its client from the worker's `ctx.integrations` pool and its ops from
+ * the worker's hook runner.
+ */
+function registered(def: AnyIntegration, config: Record<string, unknown>) {
+	const variant = toVariantDef(def);
+	integrationRegistry.unregister(variant.group, variant.variant);
+	integrationRegistry.register(variant);
+	fakeVariants.push([variant.group, variant.variant]);
+	return { variant, stored: toStoredConfig(def, config) };
+}
+
+integrationConformance("runtime", {
+	async get(def, config, appConfig) {
+		const { variant, stored } = registered(def, config);
+		const resolved = variant.resolve!(stored, appConfig);
+		const found = { group: variant.group, variant: variant.variant, config: resolved };
+		const open = withCtxIntegrations({ projectId: PROJECT } as any, () => found);
+		try {
+			return await open.ctx.integrations.get("c");
+		} finally {
+			open.release();
+		}
+	},
+	op(def, op, config, appConfig = {}, request) {
+		const { variant, stored } = registered(def, config);
+		const call = { group: variant.group, variant: variant.variant, config: stored, request };
+		const load = (keys: string[]) =>
+			new Map(keys.filter((k) => k in appConfig).map((k) => [k, appConfig[k]!]));
+		return runIntegrationHook(integrationRegistry, op, call, load, 5000);
+	},
+	reset: () => closeCtxIntegrations(),
 });

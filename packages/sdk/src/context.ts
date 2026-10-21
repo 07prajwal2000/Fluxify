@@ -54,14 +54,17 @@ import type {
 
 /**
  * What `ctx.integrations.get<K>` resolves to: a built-in group name gives that
- * group's adapter (`"database"` is a `DatabaseAdapter`); any other type is the
+ * group's adapter (`"database"` is a `DatabaseAdapter`); `typeof` an
+ * `integration(...)` gives what its `connect` hands out; any other type is the
  * client a plugin's own integration hands out and passes through unchanged.
  */
 export type IntegrationClient<K> = K extends keyof BuiltInIntegrationAdapters
 	? BuiltInIntegrationAdapters[K]
 	: K extends string
 		? unknown
-		: K;
+		: K extends { connect(config: any, ctx: any): infer R; variant: string; config: object }
+			? Awaited<R>
+			: K;
 
 /**
  * The integrations a block was granted (`permissions.integrations`), by id: the

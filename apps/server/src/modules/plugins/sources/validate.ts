@@ -105,5 +105,12 @@ export function validatePlugin(files: PluginFiles): ValidPlugin {
 			throw new BadRequestError(`${type}: its entry '${block.entry}' is not in the plugin's dist/`);
 		if (block.icon) block.icon = iconDataUrl(files, type, block.icon);
 	}
+	for (const integration of manifest.integrations ?? []) {
+		if (!files.has(integration.entry))
+			throw new BadRequestError(
+				`${integration.name}: its entry '${integration.entry}' is not in the plugin's dist/`,
+			);
+		integration.icon = iconDataUrl(files, integration.name, integration.icon);
+	}
 	return { manifest, version: pkg.version };
 }

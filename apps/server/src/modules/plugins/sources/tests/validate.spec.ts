@@ -212,6 +212,26 @@ describe("plugin rules", () => {
 		rejects(() => validatePlugin(withPluginIcons({ icon: "icons/none.svg" })), "is not in the plugin");
 	});
 
+	it("takes integrations: each icon to a data URL, each entry in the plugin", () => {
+		const hub = {
+			name: `${NAME}/hub`,
+			label: "Hub",
+			icon: "icons/h.svg",
+			group: `${NAME.split("/")[0]}/crm`,
+			variant: "Hub",
+			configSchema: { token: { type: "secret" } },
+			secretParams: ["token"],
+			hasTest: true,
+			hasDescribe: false,
+			hasInspect: false,
+			entry: "dist/integrations/hub.js",
+		};
+		const withHub = (pack: Over) => withPluginIcons({ integrations: [hub] }, { "icons/h.svg": "<svg/>", ...pack });
+		const { manifest: m } = validatePlugin(withHub({ "dist/integrations/hub.js": "export default {}" }));
+		expect(m.integrations?.[0]?.icon).toBe(`data:image/svg+xml;base64,${btoa("<svg/>")}`);
+		rejects(() => validatePlugin(withHub({})), `${NAME}/hub: its entry 'dist/integrations/hub.js' is not in the plugin's dist/`);
+	});
+
 	it("still takes a manifest without plugin icons or description", () => {
 		const { manifest: m } = validatePlugin(files());
 		expect([m.icon, m.scopeIcon, m.description]).toEqual([undefined, undefined, undefined]);

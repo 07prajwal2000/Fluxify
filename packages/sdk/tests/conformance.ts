@@ -10,6 +10,8 @@ import type { KvAdapter } from "../src/context.js";
 import type { InvokeMode } from "../src/reserved.js";
 import type { BranchStub } from "../src/testing/runBlock.js";
 
+export { type IntegrationRunner, integrationConformance } from "./integrationConformance.js";
+
 export type ConformanceOptions = {
 	params?: Record<string, unknown>;
 	input?: unknown;
