@@ -209,6 +209,9 @@ export function toVariantDef(
 		}),
 	};
 
+	// ponytail: a database variant's one client is every request's adapter, so a
+	// transaction started on it is not per request unless the author's adapter
+	// makes it so; add a per-lease `session(client)` hook if plugin databases need it.
 	if (group === "database") {
 		const connect = (resolved: Resolved): DatabasePool => {
 			const opening = open(resolved);
