@@ -65,7 +65,6 @@ export async function startAuthServer(env: Record<string, string> = {}) {
 		NATS_URL: `nats://127.0.0.1:${natsPort}`,
 		NATS_TOKEN,
 		SERVER_URL: ORIGIN,
-		BETTER_AUTH_URL: ORIGIN,
 		TRUSTED_ORIGINS: ORIGIN,
 		BETTER_AUTH_SECRET: "test-secret-for-mcp-auth-integration",
 		ADMIN_RATE_LIMIT_PER_SEC: "0",

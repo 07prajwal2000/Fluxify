@@ -488,10 +488,11 @@ NODE_ENV=production
 ENVIRONMENT=production
 
 #====================== PUBLIC ADDRESS ======================
-# The address people open Fluxify at. All three must be the same value, with
-# the scheme and no trailing slash. Sign-in only works at this address.
+# The address people open Fluxify at, with the scheme and no trailing slash.
+# Better Auth uses it as its base URL. Sign-in only works at this address.
 SERVER_URL=https://your-domain.com
-BETTER_AUTH_URL=https://your-domain.com
+# Origins allowed to call the admin API from a different address. Include
+# SERVER_URL when the portal is served from it.
 TRUSTED_ORIGINS=https://your-domain.com
 
 #====================== DATABASES ======================
@@ -660,7 +661,7 @@ curl <url>/.well-known/oauth-authorization-server/_/admin/api/auth   # JSON
 
 The `401` is expected: it means the MCP server is up and asks the client to
 sign in. The JSON lists your public address. If it shows another one, fix
-`SERVER_URL`, `BETTER_AUTH_URL` and `TRUSTED_ORIGINS` in your `.env`.
+`SERVER_URL` and `TRUSTED_ORIGINS` in your `.env`.
 
 ---
 
@@ -845,8 +846,8 @@ Traefik routes by path priority. Confirm the admin service still carries its
 **An MCP client can't sign in, or `/.well-known/oauth-…` returns 404**
 The admin service's label must also match `PathPrefix(/.well-known/oauth-)`,
 as in the compose file. If the JSON from the [MCP checks](#mcp) shows an
-`http://` or wrong address, fix `SERVER_URL`, `BETTER_AUTH_URL` and
-`TRUSTED_ORIGINS`, and serve Fluxify over HTTPS.
+`http://` or wrong address, fix `SERVER_URL` and `TRUSTED_ORIGINS`, and serve
+Fluxify over HTTPS.
 
 **Workers never receive traffic**
 They stay out of rotation until the readiness check passes. Check a worker's

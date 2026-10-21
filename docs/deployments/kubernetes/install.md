@@ -414,6 +414,6 @@ kubectl apply -n fluxify --server-side \
 
 Then continue at step 7. You sign in with the password you chose. The file
 expects Fluxify at `http://localhost:8080`; to use another address, change
-`SERVER_URL`, `BETTER_AUTH_URL` and `TRUSTED_ORIGINS` with
+`SERVER_URL` and `TRUSTED_ORIGINS` with
 `kubectl edit configmap fluxify-config -n fluxify`, then
 `kubectl rollout restart deployment fluxify-admin -n fluxify`.

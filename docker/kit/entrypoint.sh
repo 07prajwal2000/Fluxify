@@ -96,6 +96,23 @@ provision_secrets() {
 }
 
 # ------------------------------------------------------------------------------
+# Public address.
+#
+# One variable is enough: SERVER_URL is Better Auth's base URL and the origin
+# the kit trusts. The default matches the single published port, so a bare
+# `docker run` works; set it when the host port or hostname is different.
+# ------------------------------------------------------------------------------
+provision_public_urls() {
+	if [ -z "$SERVER_URL" ]; then
+		SERVER_URL="http://localhost:8080"
+		echo "[kit] SERVER_URL is not set — using $SERVER_URL."
+		echo "[kit]          Set SERVER_URL if you open Fluxify on another address."
+	fi
+	: "${TRUSTED_ORIGINS:=$SERVER_URL}"
+	export SERVER_URL TRUSTED_ORIGINS
+}
+
+# ------------------------------------------------------------------------------
 # Admin credentials.
 #
 # The seeder skips silently when these are missing or malformed, which leaves a
@@ -186,6 +203,7 @@ start_bundled_valkey() {
 
 mkdir -p "$DATA_DIR" "${FLUXIFY_PLUGINS_DIR:-$DATA_DIR/plugins}"
 provision_secrets
+provision_public_urls
 
 [ -n "$PG_URL" ] || start_bundled_postgres
 [ -n "$NATS_URL" ] || start_bundled_nats

@@ -56,9 +56,11 @@
 #   SEED_USER_EMAIL         first admin account — no default, and a fresh
 #   SEED_USER_PASSWORD      database REFUSES to boot without both (min 8 chars).
 #                           Nothing else can create the first login.
-#   SERVER_URL              public URL, e.g. http://localhost:8080
-#   BETTER_AUTH_URL         same as SERVER_URL
-#   TRUSTED_ORIGINS         comma-separated allowed origins
+#   SERVER_URL              public URL, e.g. http://localhost:8080; also
+#                           Better Auth's base URL. Defaults to that address
+#                           in the entrypoint.
+#   TRUSTED_ORIGINS         comma-separated allowed origins; defaults to
+#                           SERVER_URL in the entrypoint.
 #
 # REQUIRED ONLY WHEN USING EXTERNAL SERVICES
 #   PG_URL                  postgres://user:pass@host:5432/fluxify

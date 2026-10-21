@@ -175,7 +175,7 @@ Tell the agent to check each point, or check them yourself after it is done.
 
 | Setting | Required | Notes |
 | :--- | :--- | :--- |
-| `SERVER_URL`, `BETTER_AUTH_URL`, `TRUSTED_ORIGINS` | Yes (Docker) | All three are the same public address: scheme, host, port if not 80 or 443, no trailing slash. On Helm, `url` sets all three. |
+| `SERVER_URL`, `TRUSTED_ORIGINS` | Yes (Docker) | `SERVER_URL` is the public address — scheme, host, port if not 80 or 443, no trailing slash — and is also Better Auth's base URL. `TRUSTED_ORIGINS` lists the origins allowed to call the admin API. On Helm, `url` sets both. |
 | `MASTER_ENCRYPTION_KEY` | Yes | `openssl rand -base64 32`. Must decode to 32 bytes. |
 | `BETTER_AUTH_SECRET` | Yes | `openssl rand -base64 32`. |
 | `SEED_USER_EMAIL`, `SEED_USER_PASSWORD` | Yes | The first admin account. Password 8+ characters. Used only on an empty database. |
@@ -312,7 +312,7 @@ agent to stop and hand over at that point.
 
 | What you see | Likely mistake | Fix |
 | :--- | :--- | :--- |
-| The portal loads but sign-in fails | `SERVER_URL`, `BETTER_AUTH_URL` and `TRUSTED_ORIGINS` don't match the address in the browser (http vs https, a port, a trailing slash, an IP instead of the domain) | Set all three to the exact address, then restart the admin. On Helm, fix `url` and upgrade. |
+| The portal loads but sign-in fails | `SERVER_URL` doesn't match the address in the browser (http vs https, a port, a trailing slash, an IP instead of the domain), or `TRUSTED_ORIGINS` doesn't include it | Set `SERVER_URL` to the exact address and include it in `TRUSTED_ORIGINS`, then restart the admin. On Helm, fix `url` and upgrade. |
 | The playground, `call_route` or a test suite says "start a worker with FLUXIFY_ENV=development" | The development worker is not running, or it was removed (`devWorker.enabled: false`, or the `worker-dev` service deleted) | Start it again: these features only ever run on development. |
 | `<url>/_/dev/…` answers `Route not found` | The proxy sends `/_/dev` to a production worker, which never serves it | Send `/_sandbox`, `/_/dev` and `/_/dev/…` to the development worker, as the Kit, compose file and Helm chart do. The rule must match every host, project subdomains included. |
 | `<url>/_/dev/…` answers `Route not found` on the bare host, but works on the project's subdomain | The project has a subdomain, and a project with a subdomain answers `/_/dev` and `/_sandbox` only there | Call it on the project's subdomain. Nothing to fix in the proxy. |

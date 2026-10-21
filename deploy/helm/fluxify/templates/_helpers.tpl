@@ -29,7 +29,6 @@ REDIS_PORT: {{ .Values.external.redisPort | quote }}
 REDIS_USER: {{ .Values.external.redisUser | quote }}
 {{- end }}
 SERVER_URL: {{ .Values.url | quote }}
-BETTER_AUTH_URL: {{ .Values.url | quote }}
 TRUSTED_ORIGINS: {{ .Values.url | quote }}
 {{- range $key, $value := .Values.env }}
 {{ $key }}: {{ $value | quote }}
