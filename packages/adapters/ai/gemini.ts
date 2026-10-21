@@ -1,13 +1,13 @@
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { createAgent, type DynamicStructuredTool, DynamicTool, Tool } from "langchain";
-import { BaseAiIntegration } from "./baseAiIntegration";
+import { type AiAdapter, BaseAiIntegration } from "./baseAiIntegration";
 
 type GeminiVariantConfig = {
 	apiKey: string;
 	model: string;
 };
 
-export class GeminiIntegration extends BaseAiIntegration {
+export class GeminiIntegration extends BaseAiIntegration implements AiAdapter {
 	public static variant = "Gemini";
 
 	constructor(private readonly config: GeminiVariantConfig) {

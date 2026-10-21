@@ -91,7 +91,7 @@ export function clientConfig(config: SqsConfig): SQSClientConfig {
 	};
 }
 
-export class SqsQueueConnection extends QueueConnection {
+export class SqsQueueConnection extends QueueConnection implements QueueConnection {
 	override readonly deadLettersNatively = true;
 	private client?: SQSClient;
 	private subscription!: QueueSubscription;
@@ -406,7 +406,7 @@ function clamp(value: number, min: number, max: number) {
 	return Math.min(max, Math.max(min, Math.floor(value)));
 }
 
-export function createConnection(config: unknown) {
+export function createConnection(config: unknown): QueueConnection {
 	return new SqsQueueConnection(config as SqsConfig);
 }
 

@@ -8,7 +8,7 @@ import { connectOptions, type NatsConfig } from "./nats";
  * Publishes to JetStream for the Send Message block. A publish settles on the
  * stream's ack, so a subject no stream captures is a failed message.
  */
-export class NatsProducer extends QueueProducer {
+export class NatsProducer extends QueueProducer implements QueueProducer {
 	private connection?: Promise<{ nc: NatsConnection; js: JetStreamClient }>;
 
 	constructor(private readonly config: NatsConfig) {
@@ -55,6 +55,6 @@ export class NatsProducer extends QueueProducer {
 	}
 }
 
-export function createProducer(config: unknown) {
+export function createProducer(config: unknown): QueueProducer {
 	return new NatsProducer(config as NatsConfig);
 }

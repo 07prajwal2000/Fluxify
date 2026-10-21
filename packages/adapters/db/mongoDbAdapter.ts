@@ -2,6 +2,7 @@ import { type ClientSession, type Db, MongoClient } from "mongodb";
 import {
 	type Connection,
 	changedRows,
+	type DatabaseAdapter,
 	type DBConditionType,
 	DbAdapterMode,
 	type IDbAdapter,
@@ -26,7 +27,7 @@ import { isTransactionUnsupported, standaloneWarning } from "./transactionErrors
 import { mongoUpsertOps } from "./upsert";
 import { plainNumbers } from "./values";
 
-export class MongoAdapter implements IDbAdapter {
+export class MongoAdapter implements DatabaseAdapter {
 	public static variant = "MongoDB";
 	private mode: DbAdapterMode = DbAdapterMode.NORMAL;
 

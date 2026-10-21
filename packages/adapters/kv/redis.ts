@@ -1,5 +1,5 @@
 import { Redis, type RedisOptions } from "ioredis";
-import { BaseKVIntegration } from "./base";
+import { BaseKVIntegration, type KvAdapter } from "./base";
 
 export type RedisVariantConfig = {
 	host?: string;
@@ -29,7 +29,7 @@ export function createRedisClient(config: RedisVariantConfig, extra: RedisOption
 	return new Redis(options);
 }
 
-export class RedisIntegration extends BaseKVIntegration {
+export class RedisIntegration extends BaseKVIntegration implements KvAdapter {
 	public static variant = "Redis";
 	private client: Redis;
 

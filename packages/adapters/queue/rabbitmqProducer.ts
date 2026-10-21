@@ -19,7 +19,7 @@ type Pending = { returned?: string };
  *   does not sink the rest.
  * - a lost connection reconnects on its own; sends wait for it, up to the timeout.
  */
-export class RabbitMqProducer extends QueueProducer {
+export class RabbitMqProducer extends QueueProducer implements QueueProducer {
 	private model?: Promise<RecoveringChannelModel>;
 	private channel?: Promise<ConfirmChannel>;
 	/** what closed the channel, for the sends it took down with it */
@@ -174,6 +174,6 @@ function optionalMs(value: unknown) {
 	return String(ms);
 }
 
-export function createProducer(config: unknown) {
+export function createProducer(config: unknown): QueueProducer {
 	return new RabbitMqProducer(config as RabbitMqConfig);
 }

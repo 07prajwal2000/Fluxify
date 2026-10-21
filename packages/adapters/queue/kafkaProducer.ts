@@ -9,7 +9,7 @@ import { clientOptions, type KafkaConfig, rootCause } from "./kafka";
  * ponytail: one produce request per message, so each message gets its own offset
  * and its own failure. Batch per partition if bulk sends of thousands get slow.
  */
-export class KafkaProducer extends QueueProducer {
+export class KafkaProducer extends QueueProducer implements QueueProducer {
 	private readonly producer: Producer<string, string, string, string>;
 
 	constructor(config: KafkaConfig) {
@@ -77,6 +77,6 @@ function optionalTimestamp(value: unknown) {
 	return BigInt(Math.trunc(parsed));
 }
 
-export function createProducer(config: unknown) {
+export function createProducer(config: unknown): QueueProducer {
 	return new KafkaProducer(config as KafkaConfig);
 }

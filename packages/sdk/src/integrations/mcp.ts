@@ -37,6 +37,12 @@ export type McpTool = {
 	[key: string]: unknown;
 };
 
+export type McpToolCallResult = {
+	content?: unknown;
+	isError?: boolean;
+	[key: string]: unknown;
+};
+
 /** Stored `{ key, value }` headers -> request headers, `cfg:KEY` values read from `appConfigs`. */
 export function resolveMcpHeaders(
 	headers: { key: string; value: string }[] = [],
@@ -55,8 +61,12 @@ export function resolveMcpHeaders(
  * MCP client adapter interface.
  */
 export interface McpAdapter {
-	listTools(): Promise<unknown[]>;
-	callTool(name: string, args: Record<string, unknown>, signal?: AbortSignal): Promise<unknown>;
+	listTools(): Promise<McpTool[]>;
+	callTool(
+		name: string,
+		args: Record<string, unknown>,
+		signal?: AbortSignal,
+	): Promise<McpToolCallResult>;
 	close(): Promise<void> | void;
 }
 

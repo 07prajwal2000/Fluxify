@@ -88,7 +88,7 @@ export function connectOptions(config: NatsConfig): ConnectionOptions {
 	};
 }
 
-export class NatsQueueConnection extends QueueConnection {
+export class NatsQueueConnection extends QueueConnection implements QueueConnection {
 	private nc?: NatsConnection;
 	private js?: JetStreamClient;
 	private consumer?: Consumer;
@@ -385,7 +385,7 @@ function describeGone(stream: string, group: string, error: unknown) {
 	return `NATS no longer has the stream this trigger reads: stream "${stream}", consumer "${group}" (${detail}). Recreate it on the cluster, then enable the trigger again.`;
 }
 
-export function createConnection(config: unknown) {
+export function createConnection(config: unknown): QueueConnection {
 	return new NatsQueueConnection(config as NatsConfig);
 }
 

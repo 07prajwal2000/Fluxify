@@ -14,7 +14,7 @@ import {
  * keys become the fields, anything else goes in one `data` field. Values are
  * text, as the Redis Streams trigger hands them back.
  */
-export class RedisStreamsProducer extends QueueProducer {
+export class RedisStreamsProducer extends QueueProducer implements QueueProducer {
 	private readonly redis: Redis;
 
 	constructor(config: RedisVariantConfig) {
@@ -78,6 +78,6 @@ export function streamFields(payload: unknown): string[] {
 	return fields;
 }
 
-export function createProducer(config: unknown) {
+export function createProducer(config: unknown): QueueProducer {
 	return new RedisStreamsProducer(config as RedisVariantConfig);
 }

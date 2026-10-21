@@ -5,6 +5,7 @@ import {
 	logger,
 } from "@fluxify/common";
 import type { AbstractLogger } from "@fluxify/lib";
+import type { ObservabilityAdapter } from "@fluxify/sdk/integrations";
 import z from "zod";
 import { resolveCustomHeaders } from "./customHeaders";
 
@@ -41,7 +42,7 @@ const EMPTY_OTLP_BODY: Record<OtlpSignal, string> = {
 	metrics: '{"resourceMetrics":[]}',
 };
 
-export class OpenTelemetryLogs implements AbstractLogger {
+export class OpenTelemetryLogs implements ObservabilityAdapter, AbstractLogger {
 	// renamed from "Open Telemetry Logs" — one OTLP endpoint carries logs, traces
 	// and metrics, and the old name only described the first of the three. Rows
 	// still storing it are normalized before they reach here.

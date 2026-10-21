@@ -4,6 +4,7 @@ import {
 	bulkChunkSize,
 	type Connection,
 	conflictUpdateColumns,
+	type DatabaseAdapter,
 	type DBConditionType,
 	DbAdapterMode,
 	groupIntrospectionRows,
@@ -63,7 +64,7 @@ const regclassName = (table: string) =>
 		.map((part) => `"${part.replaceAll('"', '""')}"`)
 		.join(".");
 
-export class PostgresAdapter implements IDbAdapter {
+export class PostgresAdapter implements DatabaseAdapter {
 	public static variant = "PostgreSQL";
 	private mode: DbAdapterMode = DbAdapterMode.NORMAL;
 	private readonly keyless = new Set<string>();

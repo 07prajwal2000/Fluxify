@@ -1,4 +1,4 @@
-import { resolveMcpHeaders } from "@fluxify/sdk/integrations";
+import { type McpAdapter, resolveMcpHeaders } from "@fluxify/sdk/integrations";
 import {
 	auth,
 	type OAuthClientProvider,
@@ -63,7 +63,12 @@ const authFailed = (e: unknown) =>
  * With OAuth, a rejected or expired token is refreshed once and the call retried once (the SDK does
  * both); a connection that cannot be refreshed fails with `McpNotConnectedError`.
  */
-export async function openMcpClient({ url, headers = {}, auth: mode, oauth }: McpConnection) {
+export async function openMcpClient({
+	url,
+	headers = {},
+	auth: mode,
+	oauth,
+}: McpConnection): Promise<McpAdapter> {
 	if (mode === "oauth" && !oauth) throw new McpNotConnectedError();
 	const authProvider = oauth && mcpRefreshProvider(oauth);
 	const guard = async <T>(work: () => Promise<T>) =>
@@ -94,7 +99,7 @@ export async function openMcpClient({ url, headers = {}, auth: mode, oauth }: Mc
 				return client.callTool({ name, arguments: args }, undefined, { signal });
 			}),
 		close: () => client.close().catch(() => {}),
-	};
+	} satisfies McpAdapter;
 }
 
 export type McpClient = Awaited<ReturnType<typeof openMcpClient>>;
