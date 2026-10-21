@@ -324,6 +324,8 @@ async function runOneSuite(
 			projectId,
 			source: compiled.source,
 			customBlocks: compiled.customBlocks,
+			pluginBlocks: compiled.pluginBlocks,
+			plugins: compiled.plugins,
 			config,
 			versionId,
 			assertions: (suite.assertions as AssertionType[]) || [],

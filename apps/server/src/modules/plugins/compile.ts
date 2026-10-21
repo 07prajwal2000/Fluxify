@@ -10,6 +10,12 @@ import type { FluxifyEnv } from "../../lib/env";
 import { blockMetaOf, liveOf, unusableReason } from "./meta";
 import { listPluginRows } from "./repository";
 
+export type PluginCompiledVersion = {
+	name: string;
+	version: string;
+	integrity: string;
+};
+
 /**
  * What compiling a project's graphs needs to know about its plugins (#857):
  * `blockMeta` for every block of a plugin usable in the environment, and a
@@ -18,18 +24,35 @@ import { listPluginRows } from "./repository";
 export type PluginSet = {
 	blockMeta: Record<string, BlockMeta>;
 	unusable: Map<string, string>;
+	pluginOfBlock: Map<string, PluginCompiledVersion>;
+	plugins: Map<string, PluginCompiledVersion>;
 };
 
 /** each environment's set, from one read */
 export async function loadPluginSets(projectId: string): Promise<Record<FluxifyEnv, PluginSet>> {
 	const rows = await listPluginRows(projectId);
 	const setFor = (env: FluxifyEnv) => {
-		const set: PluginSet = { blockMeta: {}, unusable: new Map() };
+		const set: PluginSet = {
+			blockMeta: {},
+			unusable: new Map(),
+			pluginOfBlock: new Map(),
+			plugins: new Map(),
+		};
 		for (const row of rows.map(liveOf)) {
 			const reason = unusableReason(row, env);
+			const info: PluginCompiledVersion = {
+				name: row.name,
+				version: row.version,
+				integrity: row.integrity,
+			};
+			if (!reason) set.plugins.set(row.name, info);
 			for (const [type, entry] of Object.entries(row.manifest.blocks)) {
-				if (reason) set.unusable.set(type, reason);
-				else set.blockMeta[type] = blockMetaOf(entry);
+				if (reason) {
+					set.unusable.set(type, reason);
+				} else {
+					set.blockMeta[type] = blockMetaOf(entry);
+					set.pluginOfBlock.set(type, info);
+				}
 			}
 		}
 		return set;

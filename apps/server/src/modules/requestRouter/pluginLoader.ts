@@ -19,6 +19,8 @@ export type PluginBlockRef = {
 	plugin: string;
 	/** part of `entry`'s path, so an upgrade imports fresh code */
 	version: string;
+	/** hash of the plugin source archive, for version-mismatch checks */
+	integrity?: string;
 	/** absolute path to the block's built module under `pluginDir(...)` */
 	entry: string;
 	meta: BlockMeta;
@@ -36,6 +38,7 @@ export const pluginBlockRefs = (artifact: PluginArtifact, root: string): PluginB
 		type,
 		plugin: artifact.name,
 		version: artifact.version,
+		integrity: artifact.integrity,
 		entry: join(root, block.entry),
 		meta: block.meta,
 		permissions: artifact.permissions,

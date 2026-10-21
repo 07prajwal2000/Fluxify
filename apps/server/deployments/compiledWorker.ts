@@ -290,7 +290,10 @@ async function serveProject(projectId: string) {
 	await triggerWorker.serveInternal(projectId);
 	// suites run routes, so a workflow-only node never takes them
 	if (node.type !== "workflow" && !testRuns.has(projectId)) {
-		testRuns.set(projectId, serveTestRuns(projectId, testProcessEntry));
+		testRuns.set(
+			projectId,
+			serveTestRuns(projectId, testProcessEntry, () => plugins.refs(), FLUXIFY_ENV),
+		);
 	}
 }
 
