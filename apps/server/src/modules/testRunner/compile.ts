@@ -77,20 +77,26 @@ export async function compileSuiteRoute(routeId: string) {
 	const dependencies = await compileDependencies(route.projectId!);
 	// hook points in every block: a suite without hooks just finds none
 	const plugins = (await loadPluginSets(route.projectId!)).development;
-	const { source } = compileWithPlugins(
+	const { source, pluginBlocks } = compileWithPlugins(
 		blocks,
 		edges,
 		{ projectId: route.projectId!, dependencies, hooks: true },
 		plugins,
 	);
+	const customBlocks = await compileLibrary(route.projectId!, dependencies, plugins, (row) =>
+		loadGraph({ type: "custom_block", id: row.id }),
+	);
+	const allPluginBlocks = [
+		...new Set([...(pluginBlocks ?? []), ...customBlocks.flatMap((c) => c.pluginBlocks ?? [])]),
+	];
 	return {
 		route: { ...route, middlewares: await loadRouteMiddlewares(routeId) },
 		workflow: undefined,
 		source,
 		dependencies,
-		customBlocks: await compileLibrary(route.projectId!, dependencies, plugins, (row) =>
-			loadGraph({ type: "custom_block", id: row.id }),
-		),
+		customBlocks,
+		pluginBlocks: allPluginBlocks,
+		plugins: resolvePluginRequirements(allPluginBlocks, plugins),
 	};
 }
 
@@ -114,20 +120,26 @@ export async function compileSuiteWorkflow(workflowId: string) {
 	const { blocks, edges } = await loadGraph({ type: "workflow", id: workflowId });
 	const dependencies = await compileDependencies(workflow.projectId!);
 	const plugins = (await loadPluginSets(workflow.projectId!)).development;
-	const { source } = compileWithPlugins(
+	const { source, pluginBlocks } = compileWithPlugins(
 		blocks,
 		edges,
 		{ asWorkflow: true, projectId: workflow.projectId!, dependencies, hooks: true },
 		plugins,
 	);
+	const customBlocks = await compileLibrary(workflow.projectId!, dependencies, plugins, (row) =>
+		loadGraph({ type: "custom_block", id: row.id }),
+	);
+	const allPluginBlocks = [
+		...new Set([...(pluginBlocks ?? []), ...customBlocks.flatMap((c) => c.pluginBlocks ?? [])]),
+	];
 	return {
 		route: undefined,
 		workflow: { ...workflow, name: workflow.name ?? workflowId },
 		source,
 		dependencies,
-		customBlocks: await compileLibrary(workflow.projectId!, dependencies, plugins, (row) =>
-			loadGraph({ type: "custom_block", id: row.id }),
-		),
+		customBlocks,
+		pluginBlocks: allPluginBlocks,
+		plugins: resolvePluginRequirements(allPluginBlocks, plugins),
 	};
 }
 
@@ -164,7 +176,7 @@ async function compileSuiteCandidate(target: SuiteTarget, candidate: SuiteCandid
 	const graph = snapshotGraph(candidate.snapshot);
 	// a candidate is what production would run, with production's plugins
 	const plugins = (await loadPluginSets(projectId)).production;
-	const { source } = compileWithPlugins(
+	const { source, pluginBlocks } = compileWithPlugins(
 		graph.blocks,
 		graph.edges,
 		{ projectId, dependencies, asWorkflow: target.type === "workflow", hooks: true },
@@ -180,6 +192,10 @@ async function compileSuiteCandidate(target: SuiteTarget, candidate: SuiteCandid
 		// no promoted version: production does not have this block either
 		return snapshot ? snapshotGraph(snapshot) : undefined;
 	});
+	const allPluginBlocks = [
+		...new Set([...(pluginBlocks ?? []), ...customBlocks.flatMap((c) => c.pluginBlocks ?? [])]),
+	];
+	const pluginRequirements = resolvePluginRequirements(allPluginBlocks, plugins);
 	if (target.type === "route") {
 		return {
 			route: {
@@ -201,6 +217,8 @@ async function compileSuiteCandidate(target: SuiteTarget, candidate: SuiteCandid
 			source,
 			dependencies,
 			customBlocks,
+			pluginBlocks: allPluginBlocks,
+			plugins: pluginRequirements,
 		};
 	}
 	return {
@@ -214,7 +232,28 @@ async function compileSuiteCandidate(target: SuiteTarget, candidate: SuiteCandid
 		source,
 		dependencies,
 		customBlocks,
+		pluginBlocks: allPluginBlocks,
+		plugins: pluginRequirements,
 	};
+}
+
+export function resolvePluginRequirements(types: string[], plugins: PluginSet) {
+	const reqs: Record<string, { version: string; integrity: string; blocks: string[] }> = {};
+	for (const type of types) {
+		const info = plugins.pluginOfBlock.get(type);
+		if (!info) continue;
+		let entry = reqs[info.name];
+		if (!entry) {
+			entry = {
+				version: info.version,
+				integrity: info.integrity,
+				blocks: [],
+			};
+			reqs[info.name] = entry;
+		}
+		if (!entry.blocks.includes(type)) entry.blocks.push(type);
+	}
+	return reqs;
 }
 
 /** the name a suite's input script is registered under in its child */
@@ -266,20 +305,20 @@ async function compileLibrary(
 		.from(customBlocksListEntity)
 		.where(eq(customBlocksListEntity.projectId, projectId));
 
-	const compiled: Array<{ name: string; source: string }> = [];
+	const compiled: Array<{ name: string; source: string; pluginBlocks?: string[] }> = [];
 	for (const row of rows) {
 		try {
 			const graph = await graphOf(row);
 			if (!graph) continue;
 			const { blocks, edges } = graph;
 			// `param:` placeholders resolve from the invocation, same as the compiler
-			const { source } = compileWithPlugins(
+			const { source, pluginBlocks } = compileWithPlugins(
 				blocks,
 				edges,
 				{ asCustomBlock: true, projectId, dependencies },
 				plugins,
 			);
-			compiled.push({ name: row.name, source });
+			compiled.push({ name: row.name, source, pluginBlocks });
 		} catch (error) {
 			// one unfinished block must not stop the suite; the route only fails if
 			// it actually calls this one, and then it fails with a clear message

@@ -15,6 +15,7 @@ import { debugError } from "../requestRouter/debugError";
 import { executionRuntimeEnvironment } from "../requestRouter/executionEnvironment";
 import { setBlocksExecutor } from "../requestRouter/executor";
 import { createHttpContext } from "../requestRouter/httpContext";
+import { loadPluginBlocks, setPluginRefs } from "../requestRouter/pluginLoader";
 import { contentTypeOf } from "../requestRouter/requestBody";
 import { createJobContext, executeRouteInternal } from "../requestRouter/service";
 import { traceCompleter } from "../requestRouter/traceLifecycle";
@@ -76,7 +77,7 @@ const messageOf = (error: unknown) => (error instanceof Error ? error.message : 
  * the suite's overrides are already baked in. Custom blocks go in first: the
  * route, setup and teardown all run from that library.
  */
-function prepare(boot: TestBootstrap) {
+async function prepare(boot: TestBootstrap) {
 	// a development value that is not there fails at use and says why (#733)
 	const missing = boot.config.missingValues;
 	hydrateAppConfig(boot.projectId, boot.config.appConfig, missing?.appConfig);
@@ -91,6 +92,10 @@ function prepare(boot: TestBootstrap) {
 		missing?.integrations,
 	);
 	hydrateProjectSettings(boot.projectId, boot.config.projectSettings);
+	setPluginRefs(boot.pluginRefs ?? []);
+	if (boot.pluginBlocks?.length) {
+		await loadPluginBlocks(boot.projectId, boot.pluginBlocks);
+	}
 	for (const block of boot.customBlocks) {
 		registerCompiledCustomBlock(boot.projectId, block.name, block.source);
 	}
@@ -134,7 +139,7 @@ async function runSuite(boot: TestBootstrap) {
 	let setup: unknown;
 	let result: TestResult | undefined;
 	try {
-		prepare(boot);
+		await prepare(boot);
 	} catch (error) {
 		result = { ok: false, error: messageOf(error), durationMs: 0 };
 	}
@@ -173,7 +178,7 @@ async function runTeardownOnly(
 	{ setup, outcome, result }: NonNullable<TestBootstrapMessage["teardownOnly"]>,
 ) {
 	await finish(boot, async () => {
-		prepare(boot);
+		await prepare(boot);
 		await runPhase(boot, "teardown", { setup, outcome, ...teardownView(boot, result) });
 	});
 }

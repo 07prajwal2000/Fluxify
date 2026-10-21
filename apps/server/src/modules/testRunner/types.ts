@@ -3,6 +3,7 @@ import type { TraceRunPayload } from "@fluxify/common/otlp";
 import type { AssertionResult, CaseCounts, CaseResult } from "../../db/schema";
 import type { ProjectConfigPayload } from "../compiler/artifacts";
 import type { DebugError } from "../requestRouter/debugError";
+import type { PluginBlockRef } from "../requestRouter/pluginLoader";
 import type { AssertionType, SuiteRequest } from "./assertions";
 import type { SuiteHook } from "./hooks";
 
@@ -45,6 +46,18 @@ export type TestBootstrap = {
 	 */
 	setup?: SuitePhase;
 	teardown?: SuitePhase;
+	/**
+	 * Programmable block types this suite calls (from the route/workflow and custom blocks).
+	 */
+	pluginBlocks?: string[];
+	/**
+	 * Compiled plugin versions/integrities required by this suite.
+	 */
+	plugins?: Record<string, { version: string; integrity: string; blocks?: string[] }>;
+	/**
+	 * Installed refs for the plugins this suite needs, supplied by the worker host.
+	 */
+	pluginRefs?: PluginBlockRef[];
 } & (RouteTarget | WorkflowTarget);
 
 export type RouteTarget = {

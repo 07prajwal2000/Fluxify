@@ -83,6 +83,7 @@ describe("pluginBlockRefs", () => {
 				type: "acme/echo/step",
 				plugin: "acme/echo",
 				version: "1.0.0",
+				integrity: "sha256-a",
 				entry: join("/deps/p/plugins/acme/echo/1.0.0", "dist/blocks/step.js"),
 				meta: meta as any,
 				permissions,
