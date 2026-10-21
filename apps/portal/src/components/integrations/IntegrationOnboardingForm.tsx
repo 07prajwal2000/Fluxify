@@ -1,11 +1,5 @@
 import { Button, cn, Input, integrationIcons, TextField, toast } from "@fluxify/components";
-import {
-	getDefaultVariantValue,
-	getIntegrationsGroups,
-	getIntegrationsVariants,
-	getSchema,
-	humanReadableConnectorNames,
-} from "@fluxify/server/src/api/v1/integrations/helpers";
+import { getDefaultVariantValue, getSchema } from "@fluxify/server/src/api/v1/integrations/helpers";
 import { useBlocker } from "@tanstack/react-router";
 import { type ReactNode, useRef, useState } from "react";
 import { FaRobot, FaTableList } from "react-icons/fa6";
@@ -21,7 +15,7 @@ import {
 } from "react-icons/tb";
 import { VscMcp } from "react-icons/vsc";
 import { showErrorNotification } from "@/lib/errorNotifier";
-import { integrationsQuery } from "@/query/integrationsQuery";
+import { integrationsQuery, useIntegrationCatalog } from "@/query/integrationsQuery";
 import { useIsProjectAdmin } from "@/store/auth";
 import { setPath } from "./ConnectorFields";
 import { EnvironmentIntegrationFields, isConfigEmpty } from "./EnvironmentIntegrationFields";
@@ -48,9 +42,6 @@ const GROUP_DETAILS: Record<string, { description: string; icon: ReactNode }> = 
 	},
 };
 
-const variantsOf = (group: string): string[] =>
-	getIntegrationsGroups().includes(group as never) ? getIntegrationsVariants(group as never) : [];
-
 /**
  * `group` and `variant` come from the URL, so refresh and back/forward keep
  * the user's place. Unknown values are ignored rather than rejected. Remount
@@ -71,6 +62,7 @@ export function IntegrationOnboardingForm({
 }) {
 	const create = integrationsQuery.create.mutation(projectId);
 	const test = integrationsQuery.testConnection.mutation(projectId);
+	const { loaded, groups, variantsOf, labelOf } = useIntegrationCatalog(projectId);
 	const variants = variantsOf(rawGroup);
 	const group = variants.length > 0 ? rawGroup : "";
 	const variant = variants.includes(rawVariant) ? rawVariant : "";
@@ -78,7 +70,10 @@ export function IntegrationOnboardingForm({
 	const isAdmin = useIsProjectAdmin(projectId);
 
 	const [defaults] = useState(
-		() => (variant && (getDefaultVariantValue(variant as never) as Record<string, unknown>)) || {},
+		// the URL's variant, not the checked one: the list loads after this first render
+		() =>
+			(rawVariant && (getDefaultVariantValue(rawVariant as never) as Record<string, unknown>)) ||
+			{},
 	);
 	const [name, setName] = useState("");
 	const [testedTools, setTestedTools] = useState<{ name: string; description: string }[] | null>(
@@ -106,7 +101,6 @@ export function IntegrationOnboardingForm({
 		enableBeforeUnload: () => dirty && !saved.current,
 	});
 
-	const groups = getIntegrationsGroups();
 	const search = query.trim().toLowerCase();
 	const matches = search
 		? groups.flatMap((g) =>
@@ -139,9 +133,7 @@ export function IntegrationOnboardingForm({
 				<span className="min-w-0">
 					<span className="block truncate text-sm font-semibold text-foreground">{item}</span>
 					{cardGroup !== group && (
-						<span className="block truncate text-xs text-muted">
-							{humanReadableConnectorNames[cardGroup as keyof typeof humanReadableConnectorNames]}
-						</span>
+						<span className="block truncate text-xs text-muted">{labelOf(cardGroup)}</span>
 					)}
 				</span>
 			</button>
@@ -222,9 +214,9 @@ export function IntegrationOnboardingForm({
 		);
 	}
 
-	const groupName = group
-		? humanReadableConnectorNames[group as keyof typeof humanReadableConnectorNames]
-		: "";
+	const groupName = group ? labelOf(group) : "";
+	// until the list arrives every group reads as unknown, which would flash step 1
+	if (!loaded) return null;
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col gap-5">
@@ -322,7 +314,7 @@ export function IntegrationOnboardingForm({
 									description: "Connect a service",
 									icon: <TbCloudCog size={20} />,
 								};
-								const isAvailable = getIntegrationsVariants(item as never).length > 0;
+								const isAvailable = variantsOf(item).length > 0;
 								return (
 									<button
 										key={item}
@@ -348,11 +340,7 @@ export function IntegrationOnboardingForm({
 										</span>
 										<span className="min-w-0 flex-1">
 											<span className="block truncate text-sm font-semibold text-foreground">
-												{
-													humanReadableConnectorNames[
-														item as keyof typeof humanReadableConnectorNames
-													]
-												}
+												{labelOf(item)}
 											</span>
 											<span className="mt-0.5 block truncate text-xs text-muted">
 												{isAvailable ? detail.description : "Coming soon"}

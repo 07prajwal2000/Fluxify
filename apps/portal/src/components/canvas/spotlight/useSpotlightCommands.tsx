@@ -1,9 +1,4 @@
 import { integrationIcons } from "@fluxify/components";
-import {
-	getIntegrationsGroups,
-	getIntegrationsVariants,
-	humanReadableConnectorNames,
-} from "@fluxify/server/src/api/v1/integrations/helpers";
 import { useNavigate } from "@tanstack/react-router";
 import { useMemo } from "react";
 import {
@@ -29,6 +24,7 @@ import {
 import { CustomBlockIcon } from "@/components/customBlocks/IconPicker";
 import { withBasePath } from "@/constants/routes";
 import { getTheme, toggleTheme } from "@/lib/theme";
+import { useIntegrationCatalog } from "@/query/integrationsQuery";
 import { useCanEditProject } from "@/store/auth";
 import type { CanvasAction } from "../actions/useCanvasActions";
 import { type BlockType, blockIcon, pickerBlockCatalogEntries } from "../blocks";
@@ -90,6 +86,7 @@ export function useSpotlightCommands({
 	const { defs: pluginDefs } = usePluginBlocks();
 	const { projectId, routes, workflows, customBlocks, sandboxes } = useSpotlightResources();
 	const canEdit = useCanEditProject(projectId);
+	const catalog = useIntegrationCatalog(projectId);
 
 	return useMemo(() => {
 		const commands: SpotlightCommand[] = [];
@@ -379,10 +376,9 @@ export function useSpotlightCommands({
 
 			// One per connector; "Integrations" is left out of the default view,
 			// so these only show up when searching.
-			for (const group of getIntegrationsGroups()) {
-				const groupName =
-					humanReadableConnectorNames[group as keyof typeof humanReadableConnectorNames];
-				for (const variant of getIntegrationsVariants(group)) {
+			for (const group of catalog.groups) {
+				const groupName = catalog.labelOf(group);
+				for (const variant of catalog.variantsOf(group)) {
 					commands.push({
 						id: `integration-new-${group}-${variant}`,
 						title: `New Integration: ${variant}`,
@@ -471,6 +467,7 @@ export function useSpotlightCommands({
 		customBlocks,
 		sandboxes,
 		canEdit,
+		catalog,
 		navigate,
 	]);
 }

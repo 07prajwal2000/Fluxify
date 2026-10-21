@@ -1,7 +1,8 @@
+import { integrationRegistry } from "@fluxify/adapters/integrations";
 import { renderCompactSchema } from "@fluxify/blocks";
 import { ValidationSchemaZod } from "@fluxify/blocks/validationSchema";
-import { getDefaultVariantValue, getSchema } from "@fluxify/server/src/api/v1/integrations/helpers";
-import { integrationsGroupSchema } from "@fluxify/server/src/api/v1/integrations/schemas";
+import { getDefaultVariantValue } from "@fluxify/server/src/api/v1/integrations/helpers";
+import { integrationGroupNameSchema } from "@fluxify/server/src/api/v1/integrations/schemas";
 import { requestBodySchema as routeCreate } from "@fluxify/server/src/api/v1/routes/create/dto";
 import { requestBodySchema as routePatch } from "@fluxify/server/src/api/v1/routes/update-partial/dto";
 import {
@@ -225,7 +226,7 @@ export const routeTools: McpTool[] = [
 			"The config fields one integration variant needs, with types, which are required (no '?') and blank defaults. Call it before save_integration or test_integration_connection.",
 		role: "viewer",
 		input: {
-			group: integrationsGroupSchema,
+			group: integrationGroupNameSchema,
 			variant: z.string().describe("e.g. 'PostgreSQL', 'Redis', 'OpenAI'"),
 		},
 		// built from the server's own validation schemas; reads no project data
@@ -233,8 +234,8 @@ export const routeTools: McpTool[] = [
 	},
 ];
 
-export function integrationSchema(group: z.infer<typeof integrationsGroupSchema>, variant: string) {
-	const schema = getSchema(group, variant);
+export function integrationSchema(group: string, variant: string) {
+	const schema = integrationRegistry.get(group, variant)?.configSchema;
 	if (!schema) return `Unknown variant "${variant}" for group "${group}".`;
 	const json = z.toJSONSchema(schema, { io: "input", unrepresentable: "any" });
 	return {

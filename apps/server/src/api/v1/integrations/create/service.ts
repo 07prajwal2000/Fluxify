@@ -1,3 +1,4 @@
+import { integrationRegistry } from "@fluxify/adapters/integrations";
 import { generateID } from "@fluxify/lib";
 import type { z } from "zod";
 import { db } from "../../../../db";
@@ -6,7 +7,6 @@ import { ConflictError } from "../../../../errors/conflictError";
 import { NotFoundError } from "../../../../errors/notFoundError";
 import { ServerError } from "../../../../errors/serverError";
 import { audit, bodyFields } from "../../../../modules/audit";
-import { getIntegrationTags } from "../schemas";
 import type { requestBodySchema, responseSchema } from "./dto";
 import { createIntegration, getAppConfigKeys, integrationExistByName } from "./repository";
 
@@ -43,7 +43,7 @@ export default async function handleRequest(
 				devConfig: data.devConfig ?? null,
 				syncDev: data.syncDev ?? false,
 				projectId,
-				tags: getIntegrationTags(data.group, data.variant).join(","),
+				tags: integrationRegistry.tags(data.group, data.variant).join(","),
 			},
 			tx,
 		);

@@ -1,16 +1,7 @@
 import { createHash } from "node:crypto";
+import { integrationRegistry } from "../integrations";
 import type { QueueConnector, QueueProducer } from "./base";
 import { loadQueueConnector } from "./manager";
-
-/** Integration variant -> the connector that publishes for it. */
-const CONNECTOR_BY_VARIANT: Record<string, string> = {
-	Kafka: "kafka",
-	NATS: "nats",
-	SQS: "sqs",
-	RabbitMQ: "rabbitmq",
-	// a Redis KV integration publishes to streams
-	Redis: "redis",
-};
 
 /** Waits for a broker's answer this long when the integration sets no `sendTimeoutMs`. */
 export const DEFAULT_SEND_TIMEOUT_MS = 30_000;
@@ -55,18 +46,14 @@ export class QueueProducerFactory {
 	getProducer(connection: string): Promise<QueueProducer> {
 		const config = this.config(connection);
 		if (!config) throw new Error("No message queue integration is selected, or it was deleted");
-		const type = CONNECTOR_BY_VARIANT[config.variant];
-		if (!type) throw new Error(`${config.variant} cannot send messages`);
+		const create = this.creator(connection, config);
 
 		const fingerprint = fingerprintOf(config);
 		const existing = QueueProducerFactory.producers.get(connection);
 		if (existing?.fingerprint === fingerprint) return existing.producer;
 		if (existing) void QueueProducerFactory.evict(connection);
 
-		const producer = this.load(type).then((connector) => {
-			if (!connector.createProducer) throw new Error(`${config.variant} cannot send messages`);
-			return connector.createProducer(config);
-		});
+		const producer = create();
 		QueueProducerFactory.producers.set(connection, { fingerprint, producer });
 		// a connector that failed to load is not cached: the next run tries again
 		producer.catch(() => {
@@ -74,6 +61,21 @@ export class QueueProducerFactory {
 				QueueProducerFactory.producers.delete(connection);
 		});
 		return producer;
+	}
+
+	/**
+	 * How the integration's producer is made: a queue variant's own `create`, or,
+	 * for a Redis KV integration, the streams connector.
+	 */
+	private creator(connection: string, config: Record<string, any>) {
+		const loadConnector = this.load;
+		if (!this.queueConfigs[connection]) {
+			// a Redis KV integration publishes to streams
+			return () => loadConnector("redis").then((connector) => connector.createProducer!(config));
+		}
+		const variant = integrationRegistry.get("queue", config.variant);
+		if (!variant?.create) throw new Error(`${config.variant} cannot send messages`);
+		return () => variant.create!(config, { loadConnector });
 	}
 
 	/** A producer whose integration changed or is gone is closed and dropped. */

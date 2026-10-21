@@ -12,6 +12,7 @@ import {
 	requestBodySchema as updateRequestSchema,
 	type responseSchema as updateResponseSchema,
 } from "@fluxify/server/src/api/v1/integrations/update/dto";
+import type { responseSchema as variantsResponseSchema } from "@fluxify/server/src/api/v1/integrations/variants/dto";
 import type z from "zod";
 import { httpClient } from "@/lib/http";
 
@@ -23,6 +24,11 @@ export type McpOAuthEnv = "development" | "production";
 export const integrationService = {
 	async getBasicList(projectId: string): Promise<z.infer<typeof getBasicListResponseSchema>> {
 		const res = await httpClient.get(`${getBaseUrl(projectId)}/list-basic`);
+		return res.data;
+	},
+	/** The groups and variants the server offers, plugin ones included. */
+	async getVariants(projectId: string): Promise<z.infer<typeof variantsResponseSchema>> {
+		const res = await httpClient.get(`${getBaseUrl(projectId)}/variants`);
 		return res.data;
 	},
 	async getAll(

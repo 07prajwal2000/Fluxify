@@ -4,9 +4,12 @@ import {
 	expect,
 	beforeEach,
 	beforeAll,
+	afterAll,
 	mock,
+	spyOn,
 	type Mock,
 } from "bun:test";
+import { integrationRegistry } from "@fluxify/adapters/integrations";
 import handleRequest from "../service";
 import {
 	getIntegrationById,
@@ -41,15 +44,13 @@ mock.module("../../../../../db/redis", () => ({
 	publishMessage: mock(),
 }));
 
-mock.module("../../helpers", () => ({
-	getSchema: mock(() => ({
-		safeParse: mock(() => ({ success: true, data: {} })),
-	})),
-}));
-
-mock.module("../schemas", () => ({
-	getIntegrationTags: mock(() => ["sql"]),
-}));
+// spied on the shared registry, not mock.module'd: a module mock would leak into every later spec file
+function stubRegistry() {
+	spyOn(integrationRegistry, "require").mockReturnValue({
+		configSchema: { safeParse: () => ({ success: true, data: {} }) },
+	} as never);
+	spyOn(integrationRegistry, "tags").mockReturnValue(["sql"]);
+}
 
 const mockGetIntegrationById = getIntegrationById as unknown as Mock<
 	typeof getIntegrationById
@@ -84,7 +85,10 @@ describe("updateIntegration service", () => {
 		);
 	});
 
+	afterAll(() => mock.restore());
+
 	beforeEach(() => {
+		stubRegistry();
 		mockGetIntegrationById.mockClear();
 		mockUpdateIntegration.mockClear();
 		mockIntegrationExistByName.mockClear();

@@ -1,9 +1,9 @@
-import type { integrationsGroupSchema } from "@fluxify/server/src/api/v1/integrations/schemas";
-import type z from "zod";
+import type { AnyIntegrationGroup } from "@fluxify/sdk/integrations";
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 
-export type IntegrationGroup = z.infer<typeof integrationsGroupSchema>;
+/** a built-in group, or a plugin's `<namespace>/<group>`; the list itself comes from the API */
+export type IntegrationGroup = AnyIntegrationGroup;
 
 type State = {
 	state: {

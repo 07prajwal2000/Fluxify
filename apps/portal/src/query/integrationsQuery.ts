@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
 import type z from "zod";
 import { integrationService, type McpOAuthEnv } from "@/services/integrations";
 
@@ -24,6 +25,18 @@ export const integrationsQuery = {
 				queryFn: () => integrationService.getBasicList(projectId),
 				refetchOnWindowFocus: false,
 				enabled: !!projectId && enabled,
+			});
+		},
+	},
+	getVariants: {
+		useQuery(projectId: string) {
+			return useQuery({
+				// own key: saving an integration changes no variant, so it need not refetch this
+				queryKey: ["integration-variants", projectId],
+				queryFn: () => integrationService.getVariants(projectId),
+				refetchOnWindowFocus: false,
+				staleTime: 5 * 60 * 1000,
+				enabled: !!projectId,
 			});
 		},
 	},
@@ -134,3 +147,19 @@ export const integrationsQuery = {
 		},
 	},
 };
+
+/** The variant list from the server, with the lookups the integration pickers need. */
+export function useIntegrationCatalog(projectId: string) {
+	const groups = integrationsQuery.getVariants.useQuery(projectId).data;
+	return useMemo(() => {
+		// a body that is not a list (an error page, a stubbed client) must not take the canvas down
+		const list = Array.isArray(groups) ? groups : [];
+		const find = (group: string) => list.find((item) => item.group === group);
+		return {
+			loaded: groups !== undefined,
+			groups: list.map((item) => item.group),
+			variantsOf: (group: string) => find(group)?.variants.map((item) => item.variant) ?? [],
+			labelOf: (group: string) => find(group)?.label ?? group,
+		};
+	}, [groups]);
+}
