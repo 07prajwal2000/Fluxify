@@ -39,8 +39,8 @@
 		reverse_proxy localhost:5602
 	}
 	# Everything else is user API traffic, served by the compiled worker.
-	# A 502 here means the worker is not running — most likely
-	# WORKER_PROJECT_ID is unset (see docker/kit/entrypoint.sh).
+	# A 502 here means the worker died or is still starting (see
+	# docker/kit/entrypoint.sh).
 	handle * {
 		reverse_proxy localhost:5600
 	}

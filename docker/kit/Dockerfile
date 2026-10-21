@@ -69,13 +69,11 @@
 #   MASTER_ENCRYPTION_KEY   `openssl rand -base64 32`; encrypts project config
 #   BETTER_AUTH_SECRET      session signing secret
 #
-# REQUIRED ONCE YOU HAVE A PROJECT
-#   WORKER_PROJECT_ID       the project this kit serves. Leave it unset on the
-#                           very first boot — there is no project yet. The kit
-#                           starts without the worker, you create a project in
-#                           the UI, then set this and restart.
-#
 # OPTIONAL
+#   WORKER_PROJECT_ID       the project the request worker serves. Defaults to
+#                           `*`, which serves every project and picks up new
+#                           ones without a restart. Set a project id to pin it
+#                           to one project.
 #   NATS_TOKEN              NATS auth token
 #   ENABLE_AI               "true" to enable the AI assistant (default false)
 #   INTEGRATION_TIMEOUT_POLICY_IN_SEC
@@ -237,7 +235,7 @@ ENV NODE_ENV=production \
     DOCS_INDEX_FILE_PATH=/app/ai-gateway/docs-index.bin
 
 # Reports healthy once the admin API answers; the worker has its own probe on
-# 5601 because it may legitimately be absent (see WORKER_PROJECT_ID above).
+# 5601.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
     CMD wget -qO- http://localhost:5500/_/admin/api/public-settings || exit 1
 
