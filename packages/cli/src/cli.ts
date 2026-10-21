@@ -2,7 +2,7 @@ import { relative } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { parseArgs } from "node:util";
 import { build } from "./build";
-import { create } from "./create";
+import { create, createIntegration } from "./create";
 import { init } from "./init";
 import { CliError, findPluginRoot } from "./plugin";
 
@@ -11,6 +11,9 @@ const USAGE = `usage:
       a new, empty plugin in dir (default: here); --name and --url are asked for on a terminal
   fluxify-cli blocks create <name>
       add src/blocks/<name>.ts to the current plugin
+  fluxify-cli integrations create <name> [--group <group>]
+      add src/integrations/<name>.ts: a variant of a built-in group (database, kv, queue,
+      ai, observability, baas, mcp) or of a group of the plugin's own (default: <name>)
   fluxify-cli blocks build
       dist/, fluxify.json and <scope>-<name>-<version>.tgz`;
 
@@ -59,6 +62,7 @@ export async function main(argv: string[], cwd = process.cwd()): Promise<number>
 			options: {
 				name: { type: "string" },
 				url: { type: "string" },
+				group: { type: "string" },
 				force: { type: "boolean" },
 				"no-install": { type: "boolean" },
 				help: { type: "boolean", short: "h" },
@@ -71,8 +75,14 @@ export async function main(argv: string[], cwd = process.cwd()): Promise<number>
 			await runInit(cwd, command, values);
 			return 0;
 		}
+		const creating = command === "create" && name && positionals.length === 3;
+		if (group === "integrations" && creating) {
+			const { root, files } = await createIntegration({ cwd, name, group: values.group });
+			console.log(`wrote ${files.join(", ")} in ${relative(cwd, root) || "."}`);
+			return 0;
+		}
 		if (group !== "blocks") return usage(1);
-		if (command === "create" && name && positionals.length === 3) {
+		if (creating) {
 			const { root, files } = await create({ cwd, name });
 			console.log(`wrote ${files.join(", ")} in ${relative(cwd, root) || "."}`);
 			return 0;
@@ -83,7 +93,10 @@ export async function main(argv: string[], cwd = process.cwd()): Promise<number>
 			const { plugin, manifest, tarball, warnings } = await build(root);
 			for (const w of warnings) console.warn(`warn  ${w}`);
 			const count = Object.keys(manifest.blocks).length;
-			console.log(`built ${plugin.name}@${plugin.version}: ${count} block(s) -> ${tarball}`);
+			const integrations = manifest.integrations?.length;
+			console.log(
+				`built ${plugin.name}@${plugin.version}: ${count} block(s)${integrations ? `, ${integrations} integration(s)` : ""} -> ${tarball}`,
+			);
 			return 0;
 		}
 		return usage(1);

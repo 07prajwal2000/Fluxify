@@ -20,10 +20,19 @@ export {
 	toHandleSpec,
 } from "./src/handles.js";
 export {
+	type ConnectContext,
+	type IntegrationDefinition,
+	integration,
+	toIntegrationEntry,
+} from "./src/integration.js";
+export {
 	BLOCK_NAME,
 	blockEntryPath,
 	type FluxifyManifest,
 	fluxifyManifestSchema,
+	type IntegrationEntry,
+	integrationEntryPath,
+	integrationEntrySchema,
 	type ManifestEntry,
 	manifestEntrySchema,
 	PLUGIN_NAME,
@@ -47,6 +56,7 @@ export {
 	type ParamValues,
 	type Placement,
 	param,
+	type SecretParam,
 	type VisibleWhen,
 } from "./src/params.js";
 export { RESERVED_PARAM_NAMES } from "./src/validate.js";

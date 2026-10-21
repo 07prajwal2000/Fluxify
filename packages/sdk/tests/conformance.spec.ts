@@ -1,6 +1,8 @@
+import { block, param } from "../blocks.js";
+import { integrationGroup } from "../integrations.js";
 import type { SpanRecord } from "../src/runtime/ctx.js";
-import { runBlock } from "../testing.js";
-import { conformance } from "./conformance.js";
+import { runBlock, runIntegration, testPool } from "../testing.js";
+import { conformance, integrationConformance } from "./conformance.js";
 
 /** spans by name, parent by name, error by message: what the suite compares */
 const normalizeSpans = (spans: SpanRecord[]) => {
@@ -23,4 +25,31 @@ conformance("harness", async (def, opts = {}) => {
 		spans: normalizeSpans(r.spans),
 		logs: r.logs,
 	};
+});
+
+// the harness's `ctx.integrations` fake, given the real definition, and `runIntegration`
+let pool = testPool();
+integrationConformance("harness", {
+	async get(def, config, appConfig) {
+		const kind = integrationGroup(def);
+		const reach = block({
+			name: "conf/test/reach",
+			label: "Reach",
+			permissions: { integrations: [kind] },
+			params: { conn: param.integration({ kind }) },
+			run: async ({ params, ctx }) => ({ output: await ctx.integrations.get(params.conn) }),
+		});
+		const r = await runBlock(reach, {
+			params: { conn: "c" },
+			ctx: { pool, integrations: { c: { integration: def, config, appConfig } } },
+		});
+		if (r.error) throw r.error;
+		return r.output;
+	},
+	op: (def, op, config, appConfig, request) =>
+		runIntegration(def, { config, appConfig })[op](request) as Promise<any>,
+	async reset() {
+		await pool.close();
+		pool = testPool();
+	},
 });

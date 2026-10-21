@@ -1,5 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import {
+	BUILT_IN_DB_TYPES,
+	BUILT_IN_INTEGRATION_GROUPS,
+	BUILT_IN_VARIANT_NAMES,
 	type IntegrationVariantDef,
 	isIntegrationGroupName,
 	UnknownIntegrationVariantError,
@@ -121,5 +124,16 @@ describe("IntegrationRegistry", () => {
 			expect(typeof def.create).toBe("function");
 			expect(["sql", "js"]).toContain(def.extras.conditionEditor);
 		}
+	});
+});
+
+describe("the SDK's built-in names (plugin lint rules)", () => {
+	it("list every built-in variant name and alias, and every database dbType", () => {
+		const registry = fresh();
+		for (const group of BUILT_IN_INTEGRATION_GROUPS)
+			expect([...BUILT_IN_VARIANT_NAMES[group]].sort()).toEqual(registry.names(group).sort());
+		expect([...BUILT_IN_DB_TYPES].sort()).toEqual(
+			registry.variants("database").map((v) => v.extras.dbType).sort(),
+		);
 	});
 });

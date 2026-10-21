@@ -62,7 +62,7 @@ const sortKeys = (_name: string, value: unknown) =>
 		: value;
 
 /** hashed, so a secret in the key is never retained or logged */
-const fingerprint = (key: unknown) =>
+export const fingerprint = (key: unknown) =>
 	createHash("sha256")
 		.update(JSON.stringify(key ?? null, sortKeys))
 		.digest("hex");

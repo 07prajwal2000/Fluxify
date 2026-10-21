@@ -28,7 +28,7 @@ const LABEL: Record<IntegrationOp, string> = {
 };
 
 const issues = (error: { issues: Array<{ path: PropertyKey[]; message: string }> }) =>
-	error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
+	error.issues.map((i) => (i.path.length ? `${i.path.join(".")}: ` : "") + i.message).join("; ");
 
 /**
  * Validates the call against its variant, reads the app config it references

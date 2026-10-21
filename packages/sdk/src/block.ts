@@ -72,7 +72,7 @@ export type BlockDefinition<P extends Params, H extends Handles> = {
 };
 
 /** each param's `visibleWhen`, checked against the block's own params */
-type CheckVisible<P extends Params> = {
+export type CheckVisible<P extends Params> = {
 	[K in keyof P]: P[K] extends { visibleWhen: infer W }
 		? { visibleWhen: CheckWhen<W, P> }
 		: unknown;
@@ -84,9 +84,9 @@ const prettify = (name: unknown, error: z.ZodError) =>
 /**
  * The params with each one's resolved position in its tab as `order`, and the
  * resolved tabs (when there is more than General), so the portal never depends
- * on JSON key order.
+ * on JSON key order. An integration's config is placed the same way.
  */
-function placeParams(def: BlockDefinition<Params, Handles>) {
+export function placeParams(def: { params?: Params; tabs?: readonly string[] }) {
 	const params = def.params ?? {};
 	const layout = paramTabs(params, def.tabs);
 	const order = new Map(layout.flatMap((t) => t.params.map((name, i) => [name, i] as const)));
@@ -127,6 +127,7 @@ const TYPEOF: Partial<Record<string, string>> = {
 	boolean: "boolean",
 	integration: "string",
 	appconfig: "string",
+	secret: "string",
 };
 
 const isObject = (v: unknown): v is Record<string, unknown> =>

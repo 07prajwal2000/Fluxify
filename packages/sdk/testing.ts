@@ -14,6 +14,7 @@ export {
 } from "./src/testing/fakes.js";
 export {
 	type BranchStub,
+	type FakeIntegration,
 	type HandleCall,
 	type HandleStubs,
 	type InputParams,
@@ -22,3 +23,4 @@ export {
 	runBlock,
 	type TestContext,
 } from "./src/testing/runBlock.js";
+export { type RunIntegrationOptions, runIntegration } from "./src/testing/runIntegration.js";

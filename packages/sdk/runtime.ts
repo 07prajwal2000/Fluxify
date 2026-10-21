@@ -4,4 +4,5 @@
 export * from "./src/runtime/contract.js";
 export * from "./src/runtime/ctx.js";
 export * from "./src/runtime/hostPackages.js";
+export * from "./src/runtime/integration.js";
 export * from "./src/runtime/leasedResources.js";

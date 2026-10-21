@@ -71,6 +71,12 @@ export type JsonParam = Common<JsonValue> & { type: "json" };
 export type IntegrationParam = NoDefault & { type: "integration"; kind: string };
 /** an app config key the user picks; `run` gets the key, read it with `ctx.vars.getConfig` */
 export type AppConfigParam = Common<string> & { type: "appconfig" };
+/**
+ * An integration's credential: the user picks an app config key and only the
+ * key is stored. `connect` gets the key; read the value with `ctx.getConfig(key)`.
+ * Integration config only; a block reads app config with `appconfig`.
+ */
+export type SecretParam = NoDefault & { type: "secret" };
 export type ConditionsParam = Common<Condition[]> & { type: "conditions" };
 /** a Fluxify schema definition (the schema builder's format), handed to `run` compiled */
 export type SchemaParam = NoDefault & { type: "schema" };
@@ -109,6 +115,7 @@ export type Param =
 	| JsonParam
 	| IntegrationParam
 	| AppConfigParam
+	| SecretParam
 	| ConditionsParam
 	| SchemaParam
 	| KeyValueParam
@@ -143,6 +150,7 @@ export const param = {
 		type: "integration",
 	}),
 	appconfig: builder("appconfig"),
+	secret: builder("secret"),
 	conditions: builder("conditions"),
 	schema: builder("schema"),
 	keyValue: builder("keyValue"),
@@ -160,7 +168,7 @@ export const hint = <const O extends Omit<HintParam, "type" | "text">>(
 /** The value `run` gets for a param. */
 export type ParamValue<P> = P extends { type: "select"; options: readonly (infer V)[] }
 	? V
-	: P extends { type: "string" | "integration" | "appconfig" }
+	: P extends { type: "string" | "integration" | "appconfig" | "secret" }
 		? string
 		: P extends { type: "number" }
 			? number

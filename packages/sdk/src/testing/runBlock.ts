@@ -8,6 +8,7 @@ import type {
 	QueueProducer,
 } from "../context.js";
 import { type Handles, toHandleSpec } from "../handles.js";
+import type { AnyIntegration } from "../integration.js";
 import { parseIntegrationKind } from "../integrations/variants.js";
 import type { Params, ParamValue } from "../params.js";
 import type { InvokeMode } from "../reserved.js";
@@ -22,6 +23,7 @@ import {
 	routeResult,
 } from "../runtime/contract.js";
 import { createSpan, leasePool, type SpanRecord } from "../runtime/ctx.js";
+import { openVariant } from "../runtime/integration.js";
 import { evaluateParams } from "./evaluate.js";
 import {
 	type LogEntry,
@@ -33,6 +35,7 @@ import {
 	testPool,
 	unstubbedHttp,
 } from "./fakes.js";
+import { prepareIntegration, type RunIntegrationOptions } from "./runIntegration.js";
 
 type Stub = (input: unknown) => unknown;
 /** one branch of an `allowMultiple` handle; `id` defaults to `label` */
@@ -70,11 +73,13 @@ export type TestContext = {
 	/** app config read by `ctx.vars.getConfig`; throws `not stubbed` when absent */
 	config?: Record<string, string | number | boolean>;
 	/**
-	 * What `ctx.integrations.get(id)` returns, by id. `kind` is the integration's
-	 * own (`database`, `database/PostgreSQL`, `acme/store`) and must be granted by
-	 * the block's `permissions.integrations`; an id not listed here is unknown.
+	 * What `ctx.integrations.get(id)` returns, by id: a prebuilt `client` of
+	 * `kind` (`database`, `database/PostgreSQL`, `acme/store`), or a real
+	 * `integration(...)` with its config, connected (and pooled by its `poolKey`)
+	 * the way a worker does. The kind must be granted by the block's
+	 * `permissions.integrations`; an id not listed here is unknown.
 	 */
-	integrations?: Record<string, { kind: string; client: unknown }>;
+	integrations?: Record<string, FakeIntegration>;
 	/** the pooled clients; share one `testPool()` across runs to see reuse. Default: fresh per run */
 	pool?: TestPool;
 };
@@ -167,20 +172,58 @@ function bodyHandles(
 	return handles;
 }
 
-function fakeIntegrations(fakes: NonNullable<TestContext["integrations"]>): IntegrationSource {
-	const find = (id: string) => (Object.hasOwn(fakes, id) ? fakes[id] : undefined);
+export type FakeIntegration =
+	| { kind: string; client: unknown }
+	| ({ integration: AnyIntegration } & RunIntegrationOptions);
+
+type Pool = ReturnType<typeof leasePool>["pool"];
+
+/** a real integration, connected through `pool` by its `poolKey`, as the worker pools it */
+function realIntegration(
+	fake: { integration: AnyIntegration } & RunIntegrationOptions,
+	pool: Pool,
+) {
+	const { variant, resolved } = prepareIntegration(fake.integration, fake);
+	const kind = { group: variant.group, variant: variant.variant };
+	const get = async () => {
+		const opened = await pool(`${kind.group}/${kind.variant}`, variant.poolKey!(resolved), {
+			create: () => openVariant(variant, resolved),
+			destroy: (o) => o.close(),
+		});
+		return opened.client;
+	};
+	return { kind, get };
+}
+
+function fakeIntegrations(fakes: Record<string, FakeIntegration>, pool: Pool): IntegrationSource {
+	const sources = new Map<
+		string,
+		{ kind: { group: string; variant: string }; get(): Promise<unknown> }
+	>();
+	const find = (id: string) => {
+		if (!Object.hasOwn(fakes, id)) return undefined;
+		const fake = fakes[id]!;
+		if (!sources.has(id))
+			if ("integration" in fake) sources.set(id, realIntegration(fake, pool));
+			else {
+				const parsed = parseIntegrationKind(fake.kind);
+				const kind = { group: parsed?.group ?? fake.kind, variant: parsed?.variant ?? "" };
+				sources.set(id, { kind, get: async () => fake.client });
+			}
+		return sources.get(id);
+	};
 	return {
-		kind(id) {
-			const fake = find(id);
-			if (!fake) return undefined;
-			const parsed = parseIntegrationKind(fake.kind);
-			return { group: parsed?.group ?? fake.kind, variant: parsed?.variant ?? "" };
-		},
-		get: async (id) => find(id!)!.client as never,
+		kind: (id) => find(id)?.kind,
+		get: async (id) => (await find(id!)!.get()) as never,
 	};
 }
 
-function fakeContext(def: BlockDefinition<Params, Handles>, c: TestContext, logs: LogEntry[]) {
+function fakeContext(
+	def: BlockDefinition<Params, Handles>,
+	c: TestContext,
+	logs: LogEntry[],
+	pool: Pool,
+) {
 	const http = c.http ?? unstubbedHttp();
 	const kv = c.kv ?? memoryKv();
 	const queue = c.queue ?? memoryQueue();
@@ -207,7 +250,7 @@ function fakeContext(def: BlockDefinition<Params, Handles>, c: TestContext, logs
 		dbFactory: { getDbAdapter: () => c.db ?? notStubbed("db") },
 		kvFactory: { getKvAdapter: () => kv },
 		queueFactory: { getProducer: async () => queue },
-		integrations: fakeIntegrations(c.integrations ?? {}),
+		integrations: fakeIntegrations(c.integrations ?? {}, pool),
 	};
 	// a test grants what the block declares, the way a user approves it
 	const granted = {
@@ -250,12 +293,12 @@ export async function runBlock<P extends Params, H extends Handles>(
 
 	const life = { ended: false };
 	const executeHandle = createExecuteHandle(def.name, body, () => life.ended);
-	const leases = leasePool(o.ctx?.pool ?? testPool(), [
-		o.ctx?.projectId ?? "test-project",
-		def.name,
-	]);
+	const pooled = o.ctx?.pool ?? testPool();
+	const leases = leasePool(pooled, [o.ctx?.projectId ?? "test-project", def.name]);
+	// integrations pool apart from the block's own clients, as on a worker
+	const integrationLeases = leasePool(pooled, ["integrations"]);
 	const ctx: BlockContext = {
-		...fakeContext(loose, o.ctx ?? {}, logs),
+		...fakeContext(loose, o.ctx ?? {}, logs, integrationLeases.pool),
 		span: createSpan((s) => spans.push(s)),
 		pool: leases.pool,
 	};
@@ -291,8 +334,11 @@ export async function runBlock<P extends Params, H extends Handles>(
 		outcome = { successful: false, error };
 	} finally {
 		leases.release();
+		integrationLeases.release();
 	}
 	if (!o.keepAlive) life.ended = true;
+	// a pool made for this run alone would keep a real integration's socket open after it
+	if (!o.ctx?.pool && !o.keepAlive) await pooled.close();
 
 	const result: RunBlockResult<H> = {
 		output: undefined,
