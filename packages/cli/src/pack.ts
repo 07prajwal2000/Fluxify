@@ -9,7 +9,8 @@ export async function pack(plugin: Plugin, manifest: FluxifyManifest): Promise<s
 	const path = join(plugin.root, file);
 	rmSync(path, { force: true });
 	const proc = Bun.spawn(
-		[process.execPath, "pm", "pack", "--filename", file, "--ignore-scripts", "--quiet"],
+		// absolute: inside a workspace, bun resolves a relative --filename against the repo root
+		[process.execPath, "pm", "pack", "--filename", path, "--ignore-scripts", "--quiet"],
 		{ cwd: plugin.root, stdout: "ignore", stderr: "pipe" },
 	);
 	const [code, stderr] = await Promise.all([proc.exited, new Response(proc.stderr).text()]);

@@ -93,7 +93,7 @@
 # Stage 1: deps — install once, cached until a manifest or the lockfile changes.
 # All workspace manifests are copied so --frozen-lockfile can validate the graph.
 # ------------------------------------------------------------------------------
-ARG BUN_VERSION=1.4.2
+ARG BUN_VERSION=1.4.3
 FROM oven/bun:${BUN_VERSION}-alpine AS deps
 WORKDIR /app
 
@@ -110,6 +110,7 @@ COPY packages/lib/package.json packages/lib/package.json
 COPY packages/sdk/package.json packages/sdk/package.json
 COPY testing/e2e/package.json testing/e2e/package.json
 COPY testing/mcp-math/package.json testing/mcp-math/package.json
+COPY examples/plugins/agent-tools/package.json examples/plugins/agent-tools/package.json
 COPY scripts/setup-hooks.ts scripts/setup-hooks.ts
 
 RUN bun install --frozen-lockfile

@@ -1,0 +1,32 @@
+{
+	"name": "@fluxify/example-agent-tools",
+	"private": true,
+	"version": "1.0.0",
+	"description": "Example Fluxify plugin: an agent block and a tool block, with a scripted model so it runs the same every time.",
+	"type": "module",
+	"license": "Apache-2.0",
+	"fluxify": {
+		"name": "fluxify-examples/agent-tools",
+		"url": "https://github.com/Fluxify-rest/Fluxify/tree/main/examples/plugins/agent-tools"
+	},
+	"files": [
+		"dist",
+		"icons",
+		"fluxify.json"
+	],
+	"scripts": {
+		"build": "fluxify-cli blocks build",
+		"test": "bun test"
+	},
+	"peerDependencies": {
+		"@fluxify/sdk": ">=2026.10.2001",
+		"zod": "^4.0.0"
+	},
+	"devDependencies": {
+		"@fluxify/cli": "workspace:*",
+		"@fluxify/sdk": "workspace:*",
+		"@types/bun": "^1.4.0",
+		"typescript": "^5.9.2",
+		"zod": "^4.0.17"
+	}
+}

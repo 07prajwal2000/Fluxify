@@ -52,3 +52,7 @@ Until step 2, you can still draw its blocks on a canvas, but they will not run, 
 - [Upgrading and removing](./upgrading)
 - [Status and troubleshooting](./status)
 - [Plugin blocks on the canvas](./blocks-on-canvas)
+
+## Writing your own
+
+Plugin authors start with [Writing a plugin](./authoring/getting-started). It covers the CLI, the block API, testing and publishing.

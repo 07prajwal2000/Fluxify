@@ -72,7 +72,7 @@ Open <http://localhost:8080/_/admin/ui> and log in with `admin@company.com` /
 
 | Tool | Minimum version | Purpose |
 | :--- | :--- | :--- |
-| **Bun** | `v1.4.2+` | Runtime and workspace package manager ([install](https://bun.sh)) |
+| **Bun** | `v1.4.3+` | Runtime and workspace package manager ([install](https://bun.sh)) |
 | **Docker** | `v20.10+` | The backing services in `docker-compose.yml` |
 | **Git** | `v2.30+` | Version control and the pre-commit hook |
 | **GitHub CLI (`gh`)** | `v2.0+` | Optional, handy for PRs and issues |
