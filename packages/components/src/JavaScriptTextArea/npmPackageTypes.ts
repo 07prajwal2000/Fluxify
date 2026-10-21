@@ -59,9 +59,19 @@ async function get(url: string) {
 
 const json = async (url: string) => (await get(url)).json();
 
+/** jsDelivr's listing API takes exact versions only, so tags and ranges (`*`, `latest`, `18`) resolve first */
+export async function resolveVersion(source: string, version: string) {
+	if (/^\d+\.\d+\.\d+/.test(version)) return version;
+	const resolved = await json(
+		`${LISTING}/${source}/resolved?specifier=${encodeURIComponent(version)}`,
+	);
+	return resolved.version as string;
+}
+
 /** registers `source@version`'s declarations as if they were `name`'s */
 async function registerFrom(name: string, source: string, version: string) {
-	const listing = await json(`${LISTING}/${source}@${version}?structure=flat`);
+	const resolved = await resolveVersion(source, version);
+	const listing = await json(`${LISTING}/${source}@${resolved}?structure=flat`);
 	const paths: string[] = listing.files
 		.map((f: { name: string }) => f.name)
 		.filter((p: string) => DECLARATION.test(p) || p === "/package.json")
@@ -69,7 +79,7 @@ async function registerFrom(name: string, source: string, version: string) {
 	const files = await Promise.all(
 		paths.map(async (path) => ({
 			virtualPath: `file:///node_modules/${name}${path}`,
-			content: await (await get(`${CDN}/${source}@${version}${path}`)).text(),
+			content: await (await get(`${CDN}/${source}@${resolved}${path}`)).text(),
 		})),
 	);
 	const { registerTypeLibFiles } = await import("./typeLibRegistry");
