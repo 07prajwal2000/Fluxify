@@ -1,6 +1,7 @@
 // The parts of running a programmable block that the engine and the test
 // harness (`@fluxify/sdk/testing`) must agree on, written once.
-import type { BlockContext } from "../context.js";
+import type { BlockContext, IntegrationsContext } from "../context.js";
+import { integrationKindCovers } from "../integrations/variants.js";
 import { INVOKE_MODES } from "../reserved.js";
 
 export type Branch = {
@@ -120,15 +121,27 @@ const GATED = [
 ] as const;
 
 /**
- * A plugin block's `ctx` reaching only what was granted: integrations of the
- * granted kinds (`database`, `kv`, `queue`) and app config if granted. Anything
- * else throws, naming `label` and what it lacks.
+ * What the runtime and the test harness hand `grantContext` as `ctx.integrations`:
+ * `get` opens an integration whatever its kind, `kind` says what an id is
+ * (undefined when it is unknown here: no such id, no value in this environment,
+ * another project's).
  */
-export function grantContext<C extends Pick<BlockContext, "vars" | (typeof GATED)[number][0]>>(
-	ctx: C,
-	granted: Granted,
-	label: string,
-): C {
+export interface IntegrationSource extends IntegrationsContext {
+	kind(id: string): { group: string; variant: string } | undefined;
+}
+
+/**
+ * A plugin block's `ctx` reaching only what was granted: integrations of the
+ * granted kinds (`database`, `kv`, `queue`, or `group/variant`, a plugin's own
+ * included) and app config if granted. Anything else throws, naming `label` and
+ * what it lacks. `ctx.integrations.get` checks the integration's own kind; the
+ * group factories can only check the group, so a variant-only grant does not open them.
+ */
+export function grantContext<
+	C extends Pick<BlockContext, "vars" | (typeof GATED)[number][0]> & {
+		integrations?: IntegrationSource;
+	},
+>(ctx: C, granted: Granted, label: string): C {
 	const deny = (what: string): never => {
 		throw new Error(`${label} was not granted ${what}; approve a version that asks for it`);
 	};
@@ -143,5 +156,21 @@ export function grantContext<C extends Pick<BlockContext, "vars" | (typeof GATED
 		if (!ctx[field] || granted.integrations.includes(kind)) continue;
 		(out as any)[field] = { [method]: () => deny(`${kind} integrations`) };
 	}
+	const source = ctx.integrations;
+	if (source)
+		(out as any).integrations = {
+			async get(id: string | undefined) {
+				if (!id) throw new Error(`${label}: no integration was selected`);
+				const found = source.kind(id);
+				if (!found)
+					throw new Error(
+						`${label}: integration '${id}' does not exist, has no value in this environment, or belongs to another project`,
+					);
+				const { group, variant } = found;
+				if (!granted.integrations.some((kind) => integrationKindCovers(kind, group, variant)))
+					deny(`${group} integrations`);
+				return source.get(id);
+			},
+		} satisfies IntegrationsContext;
 	return out;
 }

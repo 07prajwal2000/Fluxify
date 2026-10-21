@@ -1,8 +1,8 @@
 import type { BlockContext } from "@fluxify/sdk/blocks";
 import type { Context } from "../baseBlock";
 
-/** what a module block's `run` gets: `registerModuleBlock` adds `span` and `pool` */
-type ModuleBlockContext = Context & Required<Pick<Context, "span" | "pool">>;
+/** what a module block's `run` gets: `registerModuleBlock` adds `span` and `pool`, the plugin loader `integrations` */
+type ModuleBlockContext = Context & Required<Pick<Context, "span" | "pool" | "integrations">>;
 type Assert<T extends true> = T;
 
 /**

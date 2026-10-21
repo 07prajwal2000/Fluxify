@@ -2,6 +2,7 @@
 // with no error under it fails the typecheck, so each one proves a rejection.
 import type { ZodType } from "zod";
 import { block, deprecated, handle, param } from "../blocks.js";
+import type { DatabaseAdapter, KvAdapter } from "../integrations.js";
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
 const assert = <T extends true>() => {};
@@ -135,5 +136,25 @@ block({
 		// span and pool are always there on a module block's ctx
 		await ctx.span("x", () => 1);
 		await ctx.pool("k", "key", { create: () => 1 });
+	},
+});
+
+// ctx.integrations.get: a built-in group literal gives that group's adapter, any other type passes through
+block({
+	name: "acme/slack/integrations",
+	label: "Integrations",
+	permissions: { integrations: ["database", "kv", "acme/store"] },
+	params: { conn: param.integration({ kind: "database" }) },
+	async run({ params, ctx }) {
+		type AcmeClient = { send(text: string): Promise<void> };
+		const db = await ctx.integrations.get<"database">(params.conn);
+		assert<Equal<typeof db, DatabaseAdapter>>();
+		const kv = await ctx.integrations.get<"kv">("id");
+		assert<Equal<typeof kv, KvAdapter>>();
+		const acme = await ctx.integrations.get<AcmeClient>("id");
+		assert<Equal<typeof acme, AcmeClient>>();
+		const loose = await ctx.integrations.get("id");
+		assert<Equal<typeof loose, unknown>>();
+		return { output: acme };
 	},
 });

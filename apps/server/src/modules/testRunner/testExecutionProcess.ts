@@ -88,6 +88,7 @@ async function prepare(boot: TestBootstrap) {
 			kv: boot.config.kvIntegrations,
 			observability: boot.config.observabilityIntegrations,
 			ai: boot.config.aiIntegrations,
+			plugin: boot.config.pluginIntegrations,
 		},
 		missing?.integrations,
 	);

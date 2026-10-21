@@ -6,6 +6,7 @@ import {
 	resolveMcpHeaders,
 } from "@fluxify/adapters";
 import { MissingEnvValueError } from "@fluxify/common";
+import { isIntegrationGroupName } from "@fluxify/sdk/integrations";
 import { mcpOAuthFor } from "../api/v1/integrations/mcp-oauth/store";
 import { integrationsGroupSchema } from "../api/v1/integrations/schemas";
 import { db } from "../db";
@@ -24,6 +25,8 @@ export let kvIntegrationsCache: Record<string, any> = {};
 export let observabilityIntegrationsCache: Record<string, any> = {};
 export let aiIntegrationsCache: Record<string, any> = {};
 export let queueIntegrationsCache: Record<string, any> = {};
+/** integrations of a plugin's own groups (`acme/store`); only plugin blocks use them (I4) */
+export let pluginIntegrationsCache: Record<string, any> = {};
 /**
  * mcp integrations as { name, url, headers }, headers resolved; read by the agent (#821).
  * Signed in with OAuth (#824): `auth` is "oauth" and `oauth` is the stored connection,
@@ -59,6 +62,7 @@ export function findIntegrationConfig(id: string) {
 		observabilityIntegrationsCache[id] ??
 		aiIntegrationsCache[id] ??
 		queueIntegrationsCache[id] ??
+		pluginIntegrationsCache[id] ??
 		mcpIntegrationsCache[id]
 	);
 }
@@ -126,6 +130,7 @@ export function hydrateIntegrations(
 		observability?: Record<string, any>;
 		ai?: Record<string, any>;
 		queue?: Record<string, any>;
+		plugin?: Record<string, any>;
 	},
 	missing: Record<string, string> = {},
 ) {
@@ -143,6 +148,8 @@ export function hydrateIntegrations(
 	if (caches.ai) aiIntegrationsCache = guarded(merge(aiIntegrationsCache, caches.ai, projectId));
 	if (caches.queue)
 		queueIntegrationsCache = guarded(merge(queueIntegrationsCache, caches.queue, projectId));
+	if (caches.plugin)
+		pluginIntegrationsCache = guarded(merge(pluginIntegrationsCache, caches.plugin, projectId));
 }
 
 /** drop what this project used to own, then take what it owns now */
@@ -203,7 +210,7 @@ export function cacheForGroup(group: string | null) {
 		case integrationsGroupSchema.enum.mcp:
 			return mcpIntegrationsCache;
 		default:
-			return undefined;
+			return isIntegrationGroupName(group ?? "") ? pluginIntegrationsCache : undefined;
 	}
 }
 

@@ -15,7 +15,12 @@ export type ConformanceOptions = {
 	input?: unknown;
 	invoke?: InvokeMode;
 	handles?: Record<string, ((input: unknown) => unknown) | readonly BranchStub[]>;
-	ctx?: { kv?: KvAdapter; config?: Record<string, string | number | boolean> };
+	ctx?: {
+		kv?: KvAdapter;
+		config?: Record<string, string | number | boolean>;
+		/** what `ctx.integrations.get(id)` hands back, by id; `kind` is `group` or `group/variant` */
+		integrations?: Record<string, { kind: string; client: unknown }>;
+	};
 };
 /** a run, normalized: errors as messages, spans by name with their parent's name */
 export type ConformanceResult = {
@@ -266,6 +271,31 @@ export function conformance(name: string, run: Runner) {
 			expect((await run(reach({ integrations: ["kv"], appconfig: true }), { ctx })).output).toEqual(["v", "eu"]);
 			expect((await run(reach({}), { ctx })).error).toContain("was not granted kv integrations");
 			expect((await run(reach({ integrations: ["kv"] }), { ctx })).error).toContain("was not granted app config");
+		});
+
+		it("ctx.integrations.get: the same client twice, only for a granted kind, and only for a known id", async () => {
+			const reach = (permissions: object, id = "conn") =>
+				block({
+					name: T,
+					label: "I",
+					permissions,
+					async run({ ctx }) {
+						const a = await ctx.integrations.get<{ n: number }>(id);
+						const b = await ctx.integrations.get<{ n: number }>(id);
+						return { output: { same: a === b, n: a.n } };
+					},
+				});
+			const ctx = { integrations: { conn: { kind: "acme/store/Fake", client: { n: 7 } } } };
+			const same = { same: true, n: 7 };
+			expect((await run(reach({ integrations: ["acme/store"] }), { ctx })).output).toEqual(same);
+			expect((await run(reach({ integrations: ["acme/store/Fake"] }), { ctx })).output).toEqual(same);
+			expect((await run(reach({ integrations: ["kv", "acme/store/Other"] }), { ctx })).error).toContain(
+				"was not granted acme/store integrations",
+			);
+			expect((await run(reach({}), { ctx })).error).toContain("was not granted acme/store integrations");
+			expect((await run(reach({ integrations: ["acme/store"] }, "nope"), { ctx })).error).toContain(
+				"integration 'nope' does not exist",
+			);
 		});
 
 		it("pools one client per key within a run, and retries a failed create", async () => {

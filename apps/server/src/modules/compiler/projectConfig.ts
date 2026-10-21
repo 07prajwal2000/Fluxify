@@ -1,6 +1,6 @@
 import { integrationRegistry } from "@fluxify/adapters/integrations";
 import { logger } from "@fluxify/common";
-import { UnknownIntegrationVariantError } from "@fluxify/sdk/integrations";
+import { isIntegrationGroupName, UnknownIntegrationVariantError } from "@fluxify/sdk/integrations";
 import { eq, isNull, or } from "drizzle-orm";
 import { getAppConfigKeysFromData } from "../../api/v1/integrations/create/service";
 import { integrationsGroupSchema } from "../../api/v1/integrations/schemas";
@@ -42,12 +42,16 @@ export async function buildProjectConfig(
 	const { config, missing } = await loadAppConfigFor(env, projectId);
 	const appConfig = config[projectId] ?? {};
 	const missingKeys = new Set(missing[projectId] ?? []);
-	const groups: Record<(typeof GROUP_FIELD)[keyof typeof GROUP_FIELD], Record<string, any>> = {
+	const groups: Record<
+		(typeof GROUP_FIELD)[keyof typeof GROUP_FIELD] | "pluginIntegrations",
+		Record<string, any>
+	> = {
 		dbIntegrations: {},
 		kvIntegrations: {},
 		observabilityIntegrations: {},
 		aiIntegrations: {},
 		queueIntegrations: {},
+		pluginIntegrations: {},
 	};
 	const missingIntegrations: Record<string, string> = {};
 
@@ -60,7 +64,9 @@ export async function buildProjectConfig(
 		.where(or(eq(integrationsEntity.projectId, projectId), isNull(integrationsEntity.projectId)));
 
 	for (const row of rows) {
-		const field = GROUP_FIELD[row.group as keyof typeof GROUP_FIELD];
+		const field =
+			GROUP_FIELD[row.group as keyof typeof GROUP_FIELD] ??
+			(isIntegrationGroupName(row.group ?? "") ? "pluginIntegrations" : undefined);
 		if (!field) continue;
 		if (!integrationRegistry.get(row.group!, row.variant ?? "")) {
 			const reason = `${row.name}: ${new UnknownIntegrationVariantError(row.group!, row.variant ?? "").message}`;
