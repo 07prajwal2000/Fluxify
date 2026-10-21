@@ -1,19 +1,10 @@
 import { createHash } from "node:crypto";
+import type { KvConnectionConfig } from "@fluxify/sdk/integrations";
 import type { BaseKVIntegration } from "./base";
 import { MemcachedIntegration } from "./memcached";
 import { RedisIntegration } from "./redis";
 
-/** The resolved config the loader caches for a `kv` integration. */
-export type KvConnectionConfig = {
-	variant?: string;
-	host?: string;
-	port?: string | number;
-	username?: string;
-	password?: string;
-	database?: string | number;
-	source: "credentials" | "url";
-	url?: string;
-};
+export type { KvConnectionConfig };
 
 type KvClient = BaseKVIntegration & { disconnect(): Promise<void> };
 

@@ -1,13 +1,13 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { createAgent, type DynamicStructuredTool, Tool } from "langchain";
-import { BaseAiIntegration } from "./baseAiIntegration";
+import { type AiAdapter, BaseAiIntegration } from "./baseAiIntegration";
 
 type OpenAIVariantConfig = {
 	apiKey: string;
 	model: string;
 };
 
-export class OpenAIIntegration extends BaseAiIntegration {
+export class OpenAIIntegration extends BaseAiIntegration implements AiAdapter {
 	public static variant = "OpenAI";
 
 	constructor(private readonly config: OpenAIVariantConfig) {

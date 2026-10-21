@@ -1,5 +1,6 @@
 import { createLokiLogger } from "@fluxify/common";
 import type { AbstractLogger } from "@fluxify/lib";
+import type { ObservabilityAdapter } from "@fluxify/sdk/integrations";
 import z from "zod";
 import { resolveCustomHeaders } from "./customHeaders";
 
@@ -20,7 +21,7 @@ export const lokiLoggerSettings = z.object({
 
 type ConfigType = Map<string, string | number | boolean> | Record<string, any>;
 
-export class LokiLogger implements AbstractLogger {
+export class LokiLogger implements ObservabilityAdapter, AbstractLogger {
 	public static variant = "Loki";
 	private logger: ReturnType<typeof createLokiLogger> = null!;
 

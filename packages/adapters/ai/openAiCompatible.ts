@@ -1,6 +1,6 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { createAgent, type DynamicStructuredTool, Tool } from "langchain";
-import { BaseAiIntegration } from "./baseAiIntegration";
+import { type AiAdapter, BaseAiIntegration } from "./baseAiIntegration";
 
 type OpenAICompatibleVariantConfig = {
 	apiKey: string;
@@ -8,7 +8,7 @@ type OpenAICompatibleVariantConfig = {
 	baseUrl: string;
 };
 
-export class OpenAICompatibleIntegration extends BaseAiIntegration {
+export class OpenAICompatibleIntegration extends BaseAiIntegration implements AiAdapter {
 	public static variant = "OpenAI Compatible";
 	constructor(private readonly config: OpenAICompatibleVariantConfig) {
 		super();

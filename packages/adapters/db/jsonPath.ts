@@ -29,39 +29,14 @@ function parsePath(raw: string): { column: string; segments: Segment[] } | null 
 	return { column: head[1], segments };
 }
 
-// Converts a JS-style accessor to a MongoDB dot-path. Mongo already addresses
-// nested fields and array elements with dots ("items.0.name"), so this just
-// normalizes bracket indexes into that form. Plain fields pass through.
-export function toMongoField(attribute: string): string {
-	const parsed = parsePath(attribute);
-	if (!parsed) return attribute;
-	return [parsed.column, ...parsed.segments.map((s) => s.key)].join(".");
-}
+import {
+	type DBJoinType,
+	isNumericLike,
+	type QueryOptions,
+	toMongoField,
+} from "@fluxify/sdk/integrations";
 
-export function isNumericLike(v: unknown): boolean {
-	if (typeof v === "number") return Number.isFinite(v);
-	if (typeof v === "string") return v.trim() !== "" && !isNaN(Number(v));
-	return false;
-}
-
-export type DBJoinType = {
-	table: string;
-	alias?: string;
-	/** the ON clause: the same condition list as WHERE */
-	on: DBConditionType[];
-	type?: "inner" | "left" | "right" | "full";
-};
-
-/**
- * `sort` and `strict` are read by getSingle; getAll takes its sort as a
- * parameter. `strict`: more than one matching row is an error, not a pick.
- */
-export type QueryOptions = {
-	joins?: DBJoinType[];
-	columns?: string[];
-	sort?: { attribute: string; direction: "asc" | "desc" }[];
-	strict?: boolean;
-};
+export { type DBJoinType, isNumericLike, type QueryOptions, toMongoField };
 
 // The only shape identifiers (table/column/alias) may take. Everything routed
 // into a SQL identifier position is validated against this before it reaches

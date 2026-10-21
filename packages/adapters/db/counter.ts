@@ -1,24 +1,7 @@
+import { type CounterOp, counterDelta, isCounterOp } from "@fluxify/sdk/integrations";
 import { sql } from "kysely";
 
-/**
- * `{ op: "inc" | "dec", value }` as a column's value: the database adds to what it holds, so two
- * runs at once both count. A plain value still means "set".
- */
-export type CounterOp = { op: "inc" | "dec"; value: unknown };
-
-export function isCounterOp(value: unknown): value is CounterOp {
-	if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-	const { op } = value as { op?: unknown };
-	return Object.keys(value).length === 2 && "value" in value && (op === "inc" || op === "dec");
-}
-
-/** the signed amount; it is always sent as a bound parameter, so it must be a real number */
-export function counterDelta(column: string, counter: CounterOp): number {
-	const { op, value } = counter;
-	if (typeof value !== "number" || !Number.isFinite(value))
-		throw new Error(`${op} on "${column}" needs a number, got ${JSON.stringify(value)}`);
-	return op === "inc" ? value : -value;
-}
+export { type CounterOp, counterDelta, isCounterOp };
 
 /** SQL UPDATE ... SET values: a counter becomes `col + ?` */
 export function sqlCounterSet(data: Record<string, unknown>) {

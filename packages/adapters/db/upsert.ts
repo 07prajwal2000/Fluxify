@@ -1,31 +1,7 @@
+import { conflictKeys, conflictUpdateColumns, type OnConflict } from "@fluxify/sdk/integrations";
 import { splitCounters } from "./counter";
 
-/** insert-or-update on a unique key; `update` left out means every inserted column except `target` */
-export type OnConflict = {
-	target: string[];
-	action: "update" | "ignore";
-	update?: string[];
-};
-
-/** the columns an upsert overwrites */
-export function conflictUpdateColumns(rows: object[], onConflict: OnConflict): string[] {
-	if (onConflict.update) return onConflict.update;
-	const columns = new Set(rows.flatMap((r) => Object.keys(r)));
-	for (const c of onConflict.target) columns.delete(c);
-	return [...columns];
-}
-
-/** each row's `target` values; every row needs them to be matched and read back */
-export function conflictKeys(rows: Record<string, any>[], target: string[]) {
-	return rows.map((row) =>
-		Object.fromEntries(
-			target.map((c) => {
-				if (row[c] === undefined) throw new Error(`upsert: a row has no value for "${c}"`);
-				return [c, row[c]];
-			}),
-		),
-	);
-}
+export { conflictKeys, conflictUpdateColumns, type OnConflict };
 
 /**
  * One upsert per row, matched on `target`: `$set` the update columns, `$setOnInsert` the rest.

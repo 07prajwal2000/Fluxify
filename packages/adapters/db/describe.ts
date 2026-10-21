@@ -1,35 +1,14 @@
+import {
+	type CollectionDetail,
+	MONGO_SAMPLE,
+	type SchemaDetails,
+	type SqlRun,
+	type TableDetail,
+} from "@fluxify/sdk/integrations";
 import type { Db } from "mongodb";
 import { mongoTypeOf } from "./mongoFilter";
 
-/**
- * Schema details for the AI agent (#652): names only, or full detail for the
- * named tables. Never row data — Mongo samples documents but returns only the
- * inferred field types.
- */
-export type SchemaDetails =
-	| { tables: string[] }
-	| { tables: TableDetail[] }
-	| { collections: string[] }
-	| { collections: CollectionDetail[] };
-
-export type TableDetail = {
-	table: string;
-	columns: { name: string; type: string; nullable: boolean; default: string | null }[];
-	primaryKey: string[];
-	foreignKeys: { name: string; definition: string }[];
-	indexes: { name: string; definition: string }[];
-};
-
-export type CollectionDetail = {
-	collection: string;
-	/** inferred from up to MONGO_SAMPLE documents; a field missing from some is still listed */
-	fields: { name: string; type: string }[];
-	indexes: { name: string; definition: string }[];
-};
-
-export type SqlRun = (sql: string, params: unknown[]) => Promise<Record<string, any>[]>;
-
-export const MONGO_SAMPLE = 20;
+export { type CollectionDetail, MONGO_SAMPLE, type SchemaDetails, type SqlRun, type TableDetail };
 
 const PG = {
 	list: `SELECT table_schema AS s, table_name AS t FROM information_schema.tables

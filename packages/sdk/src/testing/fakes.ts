@@ -45,6 +45,7 @@ export function memoryQueue(): QueueProducer & { sent: SentMessage[] } {
 			return results;
 		},
 		client: async () => notStubbed("queue client()"),
+		close: async () => {},
 	};
 }
 

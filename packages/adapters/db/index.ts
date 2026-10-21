@@ -1,186 +1,64 @@
-import { isDeepStrictEqual } from "node:util";
-import { dbOperatorSchema } from "@fluxify/lib";
+import {
+	bulkChunkSize,
+	type Connection,
+	changedRows,
+	columnRefSchema,
+	type DatabaseAdapter,
+	type DBConditionType,
+	DbAdapterMode,
+	type DbConditionGroup,
+	type DbCursor,
+	type DbPage,
+	type DbSort,
+	DbType,
+	groupIntrospectionRows,
+	type IDbAdapter,
+	type IntrospectedColumn,
+	type IntrospectedTable,
+	type IsolationLevel,
+	literalRefSchema,
+	type OnConflict,
+	type QueryOptions,
+	type RawDbCondition,
+	rawWhereConditionSchema,
+	structuredWhereConditionSchema,
+	type WriteResult,
+	whereConditionSchema,
+} from "@fluxify/sdk/integrations";
 import { SQL } from "bun";
-import z from "zod";
-import { type Connection, DbType, type IsolationLevel } from "./connection";
 import { type DbConnectionLease, DbConnectionManager } from "./connectionManager";
 import { describeMongo, describeSql, type SchemaDetails, type SqlRun } from "./describe";
 import { buildMongoUrl, MongoAdapter } from "./mongoDbAdapter";
 import { MySqlAdapter } from "./mySqlAdapter";
 import { PostgresAdapter } from "./postgresAdapter";
 
-/** opt-in tag that makes a side name a column instead of holding a value */
-export const columnRefSchema = z.object({
-	kind: z.literal("column"),
-	value: z.string(),
-});
-
-/** the mirror tag: a side that holds a value where a column is the default */
-export const literalRefSchema = z.object({
-	kind: z.literal("literal"),
-	value: z.union([z.string(), z.number(), z.boolean(), z.array(z.string()), z.array(z.number())]),
-});
-
-export const structuredWhereConditionSchema = z.object({
-	// untagged: a column, which is what an attribute is by position
-	attribute: z.union([z.string(), columnRefSchema, literalRefSchema]),
-	operator: dbOperatorSchema,
-	// untagged: a literal, so a dotted value is never read as a column path.
-	// Absent for is_null / is_not_null / exists / not_exists.
-	value: z.union([z.string(), z.number(), columnRefSchema, literalRefSchema]).optional(),
-	chain: z.enum(["and", "or"]),
-});
-
-/**
- * A hand-written condition, already evaluated by the block: SQL adapters get
- * `{ strings, values }` (the text around each `{{ }}` and the bound values),
- * MongoDB gets the filter object the user's JS returned.
- */
-export const rawWhereConditionSchema = z.object({
-	operator: z.literal("raw"),
-	raw: z.unknown(),
-	chain: z.enum(["and", "or"]),
-});
-
-export type RawDbCondition = z.infer<typeof rawWhereConditionSchema>;
-/** brackets: the group's conditions combine first, then join the list like one condition */
-export type DbConditionGroup = { group: DBConditionType[]; chain: "and" | "or" };
-export type DBConditionType =
-	| z.infer<typeof structuredWhereConditionSchema>
-	| RawDbCondition
-	| DbConditionGroup;
-
-export const whereConditionSchema: z.ZodType<DBConditionType> = z.union([
-	structuredWhereConditionSchema,
-	rawWhereConditionSchema,
-	z.object({
-		get group() {
-			return z.array(whereConditionSchema);
-		},
-		chain: z.enum(["and", "or"]),
-	}),
-]);
-
 export * from "./counter";
-export type { DbCursor, DbPage } from "./cursor";
-export type { DBJoinType, QueryOptions } from "./jsonPath";
-export type { DbSort } from "./sort";
+export type { DBJoinType } from "./jsonPath";
 export * from "./upsert";
-
-import type { DbCursor, DbPage } from "./cursor";
-import type { QueryOptions } from "./jsonPath";
-import type { DbSort } from "./sort";
-import type { OnConflict } from "./upsert";
-
-export type IntrospectedColumn = {
-	name: string;
-	type: string;
-	/** table that owns the column — the referenced table for a foreign key, else the column's own table */
-	owner: string;
+export {
+	bulkChunkSize,
+	changedRows,
+	columnRefSchema,
+	type DatabaseAdapter,
+	type DBConditionType,
+	DbAdapterMode,
+	type DbConditionGroup,
+	type DbCursor,
+	type DbPage,
+	type DbSort,
+	groupIntrospectionRows,
+	type IDbAdapter,
+	type IntrospectedColumn,
+	type IntrospectedTable,
+	literalRefSchema,
+	type OnConflict,
+	type QueryOptions,
+	type RawDbCondition,
+	rawWhereConditionSchema,
+	structuredWhereConditionSchema,
+	type WriteResult,
+	whereConditionSchema,
 };
-
-export type IntrospectedTable = {
-	table: string;
-	columns: IntrospectedColumn[];
-};
-
-/** groups flat information_schema rows into the IntrospectedTable shape */
-export function groupIntrospectionRows(
-	rows: Array<{
-		table_name: string;
-		column_name: string;
-		data_type: string;
-		ref_table: string | null;
-	}>,
-): IntrospectedTable[] {
-	const byTable = new Map<string, IntrospectedTable>();
-	for (const r of rows) {
-		let entry = byTable.get(r.table_name);
-		if (!entry) {
-			entry = { table: r.table_name, columns: [] };
-			byTable.set(r.table_name, entry);
-		}
-		entry.columns.push({
-			name: r.column_name,
-			type: r.data_type,
-			owner: r.ref_table ?? r.table_name,
-		});
-	}
-	return [...byTable.values()];
-}
-
-/** rows per bulk INSERT: at most 1000, and wide rows stay under the 65,535 bound-parameter cap */
-export function bulkChunkSize(rows: object[]): number {
-	const columns = new Set(rows.flatMap((r) => Object.keys(r))).size;
-	return Math.max(1, Math.min(1000, Math.floor(65535 / Math.max(columns, 1))));
-}
-
-export enum DbAdapterMode {
-	NORMAL = 1,
-	TRANSACTION = 2,
-}
-
-export interface IDbAdapter {
-	/** `limit` null: every matching row */
-	getAll(
-		table: string,
-		conditions: DBConditionType[],
-		limit: number | null,
-		offset: number,
-		sort: DbSort[],
-		options?: QueryOptions,
-	): Promise<unknown[]>;
-	/** get-all by cursor: the rows after `cursor.after`, and the cursor for the page after them */
-	getPage(
-		table: string,
-		conditions: DBConditionType[],
-		limit: number | null,
-		sort: DbSort[],
-		cursor: DbCursor,
-		options?: QueryOptions,
-	): Promise<DbPage>;
-	getSingle(
-		table: string,
-		conditions: DBConditionType[],
-		options?: QueryOptions,
-	): Promise<unknown | null>;
-	/** rows matching the conditions (joins included on SQL, ignored on Mongo) */
-	count(table: string, conditions: DBConditionType[], options?: QueryOptions): Promise<number>;
-	/** with `onConflict`: the row inserted or updated, null when `ignore` skipped it */
-	insert(table: string, data: unknown, onConflict?: OnConflict): Promise<any>;
-	/**
-	 * `useTransaction`: all rows go in or none do; an open transaction is reused either way.
-	 * With `onConflict`, rows skipped by `ignore` are left out of the result.
-	 */
-	insertBulk(
-		table: string,
-		data: unknown[],
-		useTransaction?: boolean,
-		onConflict?: OnConflict,
-	): Promise<any>;
-	/** `count` and `affected` are only the rows whose values changed, as they are after the update */
-	update(table: string, data: unknown, conditions: DBConditionType[]): Promise<WriteResult>;
-	raw(query?: string | unknown, params?: any[]): Promise<any>;
-	/** optional — adapters that cannot describe their schema simply omit it */
-	introspect?(): Promise<IntrospectedTable[]>;
-	/** `affected` are the deleted rows as they were */
-	delete(table: string, conditions: DBConditionType[]): Promise<WriteResult>;
-	setMode(mode: DbAdapterMode): Promise<void>;
-	/** `isolation` unset: the database's default. MongoDB has no levels and refuses one */
-	startTransaction(isolation?: IsolationLevel): Promise<void>;
-	commitTransaction(): Promise<void>;
-	rollbackTransaction(): Promise<void>;
-}
-
-export type WriteResult = { count: number; affected: any[] };
-
-/** rows of `after` that differ from the `before` row under the same key; a key not found there changed */
-export function changedRows<R>(before: Map<string, R>, after: R[], keyOf: (row: R) => string) {
-	return after.filter((row) => {
-		const old = before.get(keyOf(row));
-		return !old || !isDeepStrictEqual(old, row);
-	});
-}
 
 export class DbFactory {
 	private readonly connectionMap: Record<string, IDbAdapter> = {};

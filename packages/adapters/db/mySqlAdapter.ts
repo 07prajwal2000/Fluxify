@@ -7,6 +7,7 @@ import {
 	changedRows,
 	conflictKeys,
 	conflictUpdateColumns,
+	type DatabaseAdapter,
 	type DBConditionType,
 	DbAdapterMode,
 	groupIntrospectionRows,
@@ -51,7 +52,7 @@ const PRIMARY_KEY_SQL = `
 
 type Row = Record<string, any>;
 
-export class MySqlAdapter implements IDbAdapter {
+export class MySqlAdapter implements DatabaseAdapter {
 	public static variant = "MySQL";
 	private mode: DbAdapterMode = DbAdapterMode.NORMAL;
 	private readonly keyless = new Set<string>();

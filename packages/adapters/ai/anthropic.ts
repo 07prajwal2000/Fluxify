@@ -1,13 +1,13 @@
 import { ChatAnthropic } from "@langchain/anthropic";
 import { createAgent, type DynamicStructuredTool, Tool } from "langchain";
-import { BaseAiIntegration } from "./baseAiIntegration";
+import { type AiAdapter, BaseAiIntegration } from "./baseAiIntegration";
 
 type AnthropicVariantConfig = {
 	apiKey: string;
 	model: string;
 };
 
-export class AnthropicIntegration extends BaseAiIntegration {
+export class AnthropicIntegration extends BaseAiIntegration implements AiAdapter {
 	public static variant = "Anthropic";
 
 	constructor(private readonly config: AnthropicVariantConfig) {

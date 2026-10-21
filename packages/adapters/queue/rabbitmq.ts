@@ -114,7 +114,7 @@ export function prefetchFor({
 	return Math.min(MAX_PREFETCH, batchSize * concurrency);
 }
 
-export class RabbitMqConnection extends QueueConnection {
+export class RabbitMqConnection extends QueueConnection implements QueueConnection {
 	private model?: RecoveringChannelModel;
 	/** the live connection under the recovering one, replaced on each reconnect */
 	private current?: ChannelModel;
@@ -409,7 +409,7 @@ export function textHeaders(headers: Record<string, unknown>) {
 	return out;
 }
 
-export function createConnection(config: unknown) {
+export function createConnection(config: unknown): QueueConnection {
 	return new RabbitMqConnection(config as RabbitMqConfig);
 }
 

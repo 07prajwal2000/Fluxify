@@ -70,7 +70,7 @@ export function clientOptions(config: KafkaConfig) {
 	};
 }
 
-export class KafkaConnection extends QueueConnection {
+export class KafkaConnection extends QueueConnection implements QueueConnection {
 	private consumer?: Consumer;
 	private stream?: MessagesStream<Buffer, Buffer, Buffer, Buffer>;
 	private producer?: Producer;
@@ -348,7 +348,7 @@ function decode(value: Buffer | undefined | null) {
 	}
 }
 
-export function createConnection(config: unknown) {
+export function createConnection(config: unknown): QueueConnection {
 	return new KafkaConnection(config as KafkaConfig);
 }
 

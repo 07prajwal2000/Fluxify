@@ -1,13 +1,13 @@
 import { ChatMistralAI } from "@langchain/mistralai";
 import { createAgent, type DynamicStructuredTool } from "langchain";
-import { BaseAiIntegration } from "./baseAiIntegration";
+import { type AiAdapter, BaseAiIntegration } from "./baseAiIntegration";
 
 type MistralVariantConfig = {
 	apiKey: string;
 	model: string;
 };
 
-export class MistralIntegration extends BaseAiIntegration {
+export class MistralIntegration extends BaseAiIntegration implements AiAdapter {
 	public static variant = "Mistral";
 
 	constructor(private readonly config: MistralVariantConfig) {

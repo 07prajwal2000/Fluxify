@@ -18,7 +18,7 @@ type Entry = { index: number; entry: SendMessageBatchRequestEntry; bytes: number
  * grouped by queue and split into batches of at most 10 entries and 256 KiB,
  * and SQS answers each entry on its own.
  */
-export class SqsProducer extends QueueProducer {
+export class SqsProducer extends QueueProducer implements QueueProducer {
 	private readonly sqs: SQS;
 
 	constructor(config: SqsConfig) {
@@ -126,6 +126,6 @@ function batches(entries: Entry[]) {
 	return out;
 }
 
-export function createProducer(config: unknown) {
+export function createProducer(config: unknown): QueueProducer {
 	return new SqsProducer(config as SqsConfig);
 }

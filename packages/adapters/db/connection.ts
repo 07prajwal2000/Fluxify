@@ -1,35 +1,12 @@
-export enum DbType {
-	POSTGRES = "pg",
-	MONGODB = "mongo",
-	MYSQL = "mysql",
-}
-
-export interface Connection {
-	dbType: DbType;
-	username: string;
-	password: string;
-	host: string;
-	port: string | number;
-	database: string;
-	ssl?: boolean;
-	/** a query running longer is stopped; unset means DEFAULT_QUERY_TIMEOUT_MS */
-	queryTimeoutMs?: number;
-	/** most connections the pool opens, per worker; unset means DEFAULT_MAX_CONNECTIONS */
-	maxConnections?: number;
-}
-
-export const DEFAULT_QUERY_TIMEOUT_MS = 30_000;
-export const DEFAULT_MAX_CONNECTIONS: Record<DbType, number> = {
-	[DbType.POSTGRES]: 10,
-	[DbType.MYSQL]: 10,
-	[DbType.MONGODB]: 100,
-};
-/** the most a user may set, per worker: past this a worker spends its memory on idle sockets */
-export const MAX_MAX_CONNECTIONS: Record<DbType, number> = {
-	[DbType.POSTGRES]: 50,
-	[DbType.MYSQL]: 50,
-	[DbType.MONGODB]: 100,
-};
+export {
+	type Connection,
+	DbType,
+	DEFAULT_MAX_CONNECTIONS,
+	DEFAULT_QUERY_TIMEOUT_MS,
+	type IsolationLevel,
+	isolationClause,
+	MAX_MAX_CONNECTIONS,
+} from "@fluxify/sdk/integrations";
 
 const primaryKeyCaches = new WeakMap<object, Map<string, string[]>>();
 
@@ -57,11 +34,4 @@ export async function cachedPrimaryKey(
 	if (pk.length) cache.set(table, pk);
 	else keyless.add(table);
 	return pk;
-}
-
-export type IsolationLevel = "read_committed" | "repeatable_read" | "serializable";
-
-/** " ISOLATION LEVEL ..." for BEGIN / SET TRANSACTION, "" for the database default */
-export function isolationClause(isolation?: IsolationLevel) {
-	return isolation ? ` ISOLATION LEVEL ${isolation.replace("_", " ").toUpperCase()}` : "";
 }

@@ -1,8 +1,11 @@
+import { McpNotConnectedError, NOT_CONNECTED } from "@fluxify/sdk/integrations";
 import type { OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js";
 import type {
 	OAuthClientInformationMixed,
 	OAuthTokens,
 } from "@modelcontextprotocol/sdk/shared/auth.js";
+
+export { McpNotConnectedError, NOT_CONNECTED };
 
 /** One environment's stored OAuth connection, decrypted. `version` goes up with every write. Secrets: never log it. */
 export type McpOAuthState = {
@@ -29,18 +32,9 @@ export type McpOAuth = {
 	reload(): Promise<McpOAuthState>;
 };
 
-export const NOT_CONNECTED =
-	"Not connected: a project admin has to connect this MCP server in Integrations";
-
 /** How long a refused refresh waits for a concurrent refresh to be saved. */
 const RELOAD_WAIT_MS = 1500;
 const RELOAD_POLL_MS = 100;
-
-export class McpNotConnectedError extends Error {
-	constructor() {
-		super(NOT_CONNECTED);
-	}
-}
 
 /**
  * A provider that only refreshes. Signing in needs a person, so asking for it

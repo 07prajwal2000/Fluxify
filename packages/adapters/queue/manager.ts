@@ -1,5 +1,8 @@
 import { createHash } from "node:crypto";
+import type { QueueTriggerSpec } from "@fluxify/sdk/integrations";
 import type { QueueConnection, QueueConnector, QueueHandler, QueueSubscription } from "./base";
+
+export type { QueueTriggerSpec };
 
 /**
  * Connectors by trigger type. A loader is a dynamic `import()`, so a process
@@ -22,13 +25,6 @@ export async function loadQueueConnector(type: string): Promise<QueueConnector> 
 	if (!load) throw new Error(`No queue connector registered for "${type}"`);
 	return load();
 }
-
-/** Everything that decides what a trigger's consumer connects to and reads. */
-export type QueueTriggerSpec = {
-	type: string;
-	config: unknown;
-	subscription: QueueSubscription;
-};
 
 type Running = { type: string; fingerprint: string; connection: QueueConnection };
 type Loaded = { connector: Promise<QueueConnector>; users: number };

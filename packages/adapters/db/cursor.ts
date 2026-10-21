@@ -1,3 +1,4 @@
+import type { DbCursor, DbPage } from "@fluxify/sdk/integrations";
 import { type RawBuilder, type SelectQueryBuilder, sql } from "kysely";
 import {
 	BSON,
@@ -10,12 +11,7 @@ import {
 import { applyColumns, type JsonSqlDialect, resolveColumnRef } from "./jsonPath";
 import { applySqlSort, type DbSort, sortSpec, withTiebreaker } from "./sort";
 
-/**
- * Cursor paging. `after` is the previous page's `nextCursor` (none for the
- * first page); `keys` are the columns that break ties, unique together.
- */
-export type DbCursor = { after?: string | null; keys?: string[] };
-export type DbPage = { rows: unknown[]; nextCursor: string | null };
+export type { DbCursor, DbPage };
 
 /** opaque to the graph; EJSON brings Dates and ObjectIds back as themselves, not as text */
 function encodeCursor(values: unknown[]): string {

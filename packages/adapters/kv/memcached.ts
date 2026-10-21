@@ -1,5 +1,5 @@
 import Memcached from "memcached";
-import { BaseKVIntegration } from "./base";
+import { BaseKVIntegration, type KvAdapter } from "./base";
 
 export type MemcachedVariantConfig = {
 	host?: string;
@@ -10,7 +10,7 @@ export type MemcachedVariantConfig = {
 	url?: string;
 };
 
-export class MemcachedIntegration extends BaseKVIntegration {
+export class MemcachedIntegration extends BaseKVIntegration implements KvAdapter {
 	public static variant = "Memcached";
 	private client: Memcached;
 

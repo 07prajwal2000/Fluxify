@@ -50,7 +50,7 @@ export type RedisStreamEvent = QueueEvent & {
 const BLOCK_MS = 5_000;
 const DEFAULT_CLAIM_IDLE_MS = 60_000;
 
-export class RedisStreamsConnection extends QueueConnection {
+export class RedisStreamsConnection extends QueueConnection implements QueueConnection {
 	private client?: Redis;
 	private readonly readers: Redis[] = [];
 	private readonly workers: Promise<void>[] = [];
@@ -393,7 +393,7 @@ function quiet(client: Redis) {
 	return client;
 }
 
-export function createConnection(config: unknown) {
+export function createConnection(config: unknown): QueueConnection {
 	return new RedisStreamsConnection(config as RedisVariantConfig);
 }
 
