@@ -1,15 +1,13 @@
 import type { User } from "better-auth";
 import type { Context, Next } from "hono";
 import type z from "zod";
-import { ZodType } from "zod";
 import type { AuthACL } from "../../../../db/schema";
-import { BadRequestError } from "../../../../errors/badRequestError";
 import { ForbiddenError } from "../../../../errors/forbidError";
 import { ValidationError } from "../../../../errors/validationError";
 import { mapZodErrorToFieldErrors } from "../../../../lib/errors";
 import { hasProjectAccess } from "../../../auth/common";
-import { getSchema } from "../helpers";
 import { getIntegrationById } from "../test-existing-connection/repository";
+import { variantConfigSchema } from "../variants/service";
 import type { requestBodySchema } from "./dto";
 
 export async function requestBodyValidator(ctx: Context, next: Next) {
@@ -25,11 +23,7 @@ export async function requestBodyValidator(ctx: Context, next: Next) {
 
 function integrationConfigValidator(jsonData: z.infer<typeof requestBodySchema>) {
 	const config = jsonData.config;
-	const schema: z.ZodType | null = getSchema(jsonData.group, jsonData.variant);
-	if (!schema) {
-		throw new BadRequestError("Invalid variant");
-	}
-	const result = schema.safeParse(config);
+	const result = variantConfigSchema(jsonData.group, jsonData.variant).safeParse(config);
 	if (!result.success) {
 		const errors = mapZodErrorToFieldErrors(result.error);
 		throw new ValidationError(errors);

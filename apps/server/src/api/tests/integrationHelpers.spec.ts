@@ -1,18 +1,19 @@
 import { describe, it, expect, mock, spyOn, type Mock } from "bun:test";
-import {
-  getIntegrationsGroups,
-  getIntegrationsVariants,
-  getDefaultVariantValue,
-  getSchema,
-} from "../v1/integrations/helpers";
+import { integrationRegistry } from "@fluxify/adapters/integrations";
+import { getDefaultVariantValue, getSchema } from "../v1/integrations/helpers";
 import {
   integrationsGroupSchema,
-  getIntegrationTags,
   postgresVariantConfigSchema,
   openTelemetryLogsVariantConfigSchema,
   openAIVariantConfigSchema,
   openAiCompatibleVariantConfigSchema,
 } from "../v1/integrations/schemas";
+
+// the list and the tags now come from the registry; these keep the old helpers' expectations
+const getIntegrationTags = (group: string, variant: string) => integrationRegistry.tags(group, variant);
+const getIntegrationsGroups = () => integrationRegistry.groups();
+const getIntegrationsVariants = (group: string) =>
+  integrationRegistry.variants(group).map((def) => def.variant);
 
 describe("Integration Helpers", () => {
   // The client filters the integration picker by these tags, so an empty list

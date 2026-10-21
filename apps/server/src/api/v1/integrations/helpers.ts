@@ -1,31 +1,29 @@
+import {
+	BUILT_IN_GROUP_LABELS,
+	builtInVariantMeta,
+} from "@fluxify/adapters/integrations/builtinVariants";
 import type z from "zod";
 import {
-	aiVariantSchema,
-	anthropicVariantConfigSchema,
+	type aiVariantSchema,
 	type baasVariantSchema,
 	databaseVariantSchema,
-	geminiVariantConfigSchema,
-	integrationsGroupSchema,
-	kafkaVariantConfigSchema,
-	kvVariantSchema,
-	lokiVariantConfigSchema,
-	mcpVariantConfigSchema,
-	mcpVariantSchema,
-	memcachedVariantConfigSchema,
-	mistralVariantConfigSchema,
-	mongoVariantConfigSchema,
-	mysqlVariantConfigSchema,
-	natsVariantConfigSchema,
-	normalizeObservabilityVariant,
-	observabilityVariantSchema,
-	openAIVariantConfigSchema,
-	openAiCompatibleVariantConfigSchema,
-	openTelemetryVariantConfigSchema,
-	postgresVariantConfigSchema,
-	queueVariantSchema,
-	rabbitMqVariantConfigSchema,
-	redisVariantConfigSchema,
-	sqsVariantConfigSchema,
+	type kafkaVariantConfigSchema,
+	type kvVariantSchema,
+	type mcpVariantConfigSchema,
+	type mcpVariantSchema,
+	type memcachedVariantConfigSchema,
+	type mongoVariantConfigSchema,
+	type mysqlVariantConfigSchema,
+	type natsVariantConfigSchema,
+	type observabilityVariantSchema,
+	type openAIVariantConfigSchema,
+	type openAiCompatibleVariantConfigSchema,
+	type openTelemetryVariantConfigSchema,
+	type postgresVariantConfigSchema,
+	type queueVariantSchema,
+	type rabbitMqVariantConfigSchema,
+	type redisVariantConfigSchema,
+	type sqsVariantConfigSchema,
 } from "./schemas";
 
 type Variants =
@@ -37,41 +35,11 @@ type Variants =
 	| keyof typeof baasVariantSchema.enum
 	| keyof typeof mcpVariantSchema.enum;
 
-export const humanReadableConnectorNames = {
-	database: "Databases",
-	kv: "Key Value store",
-	ai: "AI",
-	baas: "Backend as a Service",
-	observability: "Observability",
-	queue: "Message queues",
-	mcp: "MCP servers",
-};
-
-export function getIntegrationsGroups() {
-	return Object.values(integrationsGroupSchema.options);
-}
-
-export function getIntegrationsVariants(group: z.infer<typeof integrationsGroupSchema>) {
-	if (group === "database") {
-		return Object.values(databaseVariantSchema.options);
-	}
-	if (group === "observability") {
-		return Object.values(observabilityVariantSchema.options);
-	}
-	if (group === "ai") {
-		return Object.values(aiVariantSchema.options);
-	}
-	if (group === "kv") {
-		return Object.values(kvVariantSchema.options);
-	}
-	if (group === "queue") {
-		return Object.values(queueVariantSchema.options);
-	}
-	if (group === "mcp") {
-		return Object.values(mcpVariantSchema.options);
-	}
-	return [];
-}
+/**
+ * Pure on purpose: the portal imports this file. Server code reads the variant
+ * list and validates through `integrationRegistry`, which also holds plugin variants.
+ */
+export const humanReadableConnectorNames = BUILT_IN_GROUP_LABELS;
 
 export function getDefaultVariantValue(variant: Variants) {
 	if (variant === "PostgreSQL" || variant === "MongoDB") {
@@ -190,90 +158,7 @@ export function getDefaultVariantValue(variant: Variants) {
 	return null;
 }
 
-export function getSchema(group: z.infer<typeof integrationsGroupSchema>, variant: string) {
-	let schema: z.ZodType = null!;
-	if (group === "database") {
-		const result = databaseVariantSchema.safeParse(variant);
-		if (!result.success) {
-			return null;
-		}
-		switch (variant as z.infer<typeof databaseVariantSchema>) {
-			case "PostgreSQL":
-				schema = postgresVariantConfigSchema;
-				break;
-			case "MySQL":
-				schema = mysqlVariantConfigSchema;
-				break;
-			case "MongoDB":
-				schema = mongoVariantConfigSchema;
-				break;
-			default:
-				return null;
-		}
-	} else if (group === "kv") {
-		const result = kvVariantSchema.safeParse(variant);
-		if (!result.success) {
-			return null;
-		}
-		switch (variant as z.infer<typeof kvVariantSchema>) {
-			case "Redis":
-				schema = redisVariantConfigSchema;
-				break;
-			case "Memcached":
-				schema = memcachedVariantConfigSchema;
-				break;
-			default:
-				return null;
-		}
-	} else if (group === "observability") {
-		variant = normalizeObservabilityVariant(variant);
-		const result = observabilityVariantSchema.safeParse(variant);
-		if (!result.success) {
-			return null;
-		}
-		switch (variant as z.infer<typeof observabilityVariantSchema>) {
-			case "Open Telemetry":
-				schema = openTelemetryVariantConfigSchema;
-				break;
-			case "Loki":
-				schema = lokiVariantConfigSchema;
-				break;
-		}
-	} else if (group === "ai") {
-		const result = aiVariantSchema.safeParse(variant);
-		if (!result.success) {
-			return null;
-		}
-		switch (variant as z.infer<typeof aiVariantSchema>) {
-			case "OpenAI":
-				schema = openAIVariantConfigSchema;
-				break;
-			case "Anthropic":
-				schema = anthropicVariantConfigSchema;
-				break;
-			case "Gemini":
-				schema = geminiVariantConfigSchema;
-				break;
-			case "Mistral":
-				schema = mistralVariantConfigSchema;
-				break;
-			case "OpenAI Compatible":
-				schema = openAiCompatibleVariantConfigSchema;
-				break;
-		}
-	} else if (group === "queue") {
-		if (!queueVariantSchema.safeParse(variant).success) return null;
-		schema = (
-			{
-				Kafka: kafkaVariantConfigSchema,
-				NATS: natsVariantConfigSchema,
-				SQS: sqsVariantConfigSchema,
-				RabbitMQ: rabbitMqVariantConfigSchema,
-			} as const
-		)[variant as z.infer<typeof queueVariantSchema>];
-	} else if (group === "mcp") {
-		if (!mcpVariantSchema.safeParse(variant).success) return null;
-		schema = mcpVariantConfigSchema;
-	}
-	return schema;
+/** A built-in variant's config schema, for the portal's forms; null when it is not one. */
+export function getSchema(group: string, variant: string): z.ZodType | null {
+	return builtInVariantMeta(group, variant)?.configSchema ?? null;
 }

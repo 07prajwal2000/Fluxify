@@ -10,6 +10,11 @@
 	],
 	"exports": {
 		".": "./index.ts",
+		"./integrations": "./integrations/index.ts",
+		"./integrations/registry": "./integrations/registry.ts",
+		"./integrations/schemas": "./integrations/schemas.ts",
+		"./integrations/builtinVariants": "./integrations/builtinVariants.ts",
+		"./integrations/parsers/*": "./integrations/parsers/*.ts",
 		"./queue/kafka": "./queue/kafka.ts",
 		"./queue/nats": "./queue/nats.ts",
 		"./queue/sqs": "./queue/sqs.ts",

@@ -33,7 +33,8 @@ export function useCustomBlockDefs(): CustomBlockDef[] {
 	const { data } = customBlocksQuery.getAll.useQuery(projectId);
 
 	return useMemo(() => {
-		if (!data) return [];
+		// a body that is not a list (an error page, a stubbed client) must not take the canvas down
+		if (!Array.isArray(data)) return [];
 		return data.map((block) => ({
 			id: block.id,
 			name: block.name,

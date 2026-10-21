@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { integrationsGroupSchema } from "../schemas";
+import { integrationGroupNameSchema } from "../schemas";
 export const requestRouteSchema = z.object({
 	projectId: z.uuidv7("Invalid projectId"),
-	group: integrationsGroupSchema,
+	group: integrationGroupNameSchema,
 });
 
 export const requestQuerySchema = z.object({

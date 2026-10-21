@@ -1,8 +1,7 @@
 import { createHash } from "node:crypto";
 import type { KvConnectionConfig } from "@fluxify/sdk/integrations";
+import { integrationRegistry } from "../integrations";
 import type { BaseKVIntegration } from "./base";
-import { MemcachedIntegration } from "./memcached";
-import { RedisIntegration } from "./redis";
 
 export type { KvConnectionConfig };
 
@@ -67,13 +66,9 @@ export class KvFactory {
 	}
 
 	private static create(config: KvConnectionConfig): KvClient {
-		if (config.variant === RedisIntegration.variant) {
-			return new RedisIntegration(config);
-		}
-		if (config.variant === MemcachedIntegration.variant) {
-			return new MemcachedIntegration(config);
-		}
-		throw new Error(`${config.variant} Not implemented`);
+		const variant = integrationRegistry.require("kv", config.variant ?? "");
+		if (!variant.create) throw new Error(`${config.variant} cannot be created`);
+		return variant.create(config, {}) as KvClient;
 	}
 
 	/**

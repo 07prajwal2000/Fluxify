@@ -1,10 +1,7 @@
+import { integrationRegistry } from "@fluxify/adapters/integrations";
 import { requestBodySchema as appConfigBody } from "@fluxify/server/src/api/v1/app-config/create/dto";
 import { baseRequestBodySchema as customBlockBody } from "@fluxify/server/src/api/v1/custom-blocks/create/dto";
-import {
-	getIntegrationsGroups,
-	getIntegrationsVariants,
-} from "@fluxify/server/src/api/v1/integrations/helpers";
-import { integrationsGroupSchema } from "@fluxify/server/src/api/v1/integrations/schemas";
+import { integrationGroupNameSchema } from "@fluxify/server/src/api/v1/integrations/schemas";
 import { createBodySchema as middlewareBody } from "@fluxify/server/src/api/v1/middlewares/dto";
 import {
 	createSchema as triggerCreate,
@@ -46,8 +43,10 @@ const DELETE = { readOnlyHint: false, destructiveHint: true, idempotentHint: tru
 const idArg = (what: string) =>
 	z.string().optional().describe(`${what} id to update; omit to create`);
 
-const VARIANTS = getIntegrationsGroups()
-	.map((g) => [g, getIntegrationsVariants(g)] as const)
+// read once at load: the built-ins, which is what is registered before any plugin
+const VARIANTS = integrationRegistry
+	.groups()
+	.map((g) => [g, integrationRegistry.variants(g).map((d) => d.variant)] as const)
 	.filter(([, v]) => v.length)
 	.map(([g, v]) => `${g}: ${v.join(", ")}`)
 	.join("; ");
@@ -240,7 +239,7 @@ export const writeTools: McpTool[] = [
 			projectId,
 			integrationId: idArg("Integration"),
 			name: z.string().optional(),
-			group: integrationsGroupSchema.optional(),
+			group: integrationGroupNameSchema.optional(),
 			variant: z.string().optional(),
 			config: z.record(z.string(), z.unknown()).optional(),
 			devConfig: z.record(z.string(), z.unknown()).nullable().optional(),
@@ -285,7 +284,7 @@ export const writeTools: McpTool[] = [
 		input: {
 			projectId,
 			integrationId: z.string().optional().describe("A saved integration's id"),
-			group: integrationsGroupSchema.optional(),
+			group: integrationGroupNameSchema.optional(),
 			variant: z.string().optional(),
 			config: z.record(z.string(), z.unknown()).optional(),
 			signal: z

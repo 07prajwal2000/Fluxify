@@ -1,3 +1,4 @@
+import { integrationRegistry } from "@fluxify/adapters/integrations";
 import type { z } from "zod";
 import { type DbTransactionType, db } from "../../../../db";
 import { CHAN_ON_INTEGRATION_CHANGE, publishMessage } from "../../../../db/redis";
@@ -9,9 +10,8 @@ import { mapZodErrorToFieldErrors } from "../../../../lib/errors";
 import { audit, changedFields } from "../../../../modules/audit";
 import { getAppConfigKeys } from "../create/repository";
 import { getAppConfigKeysFromData } from "../create/service";
-import { getSchema } from "../helpers";
 import { redactIntegration } from "../mcp-oauth/store";
-import { getIntegrationTags } from "../schemas";
+import { variantConfigSchema } from "../variants/service";
 import type { requestBodySchema, responseSchema } from "./dto";
 import { getIntegrationById, integrationExistByName, updateIntegration } from "./repository";
 
@@ -46,7 +46,7 @@ export default async function handleRequest(
 				...body,
 				// a normal update never wipes the OAuth connection; only Connect, refresh and Disconnect write it
 				...(integration.group === "mcp" ? sanitizeMcpOAuth(integration, body) : {}),
-				tags: getIntegrationTags(integration.group as any, integration.variant!),
+				tags: integrationRegistry.tags(integration.group!, integration.variant!),
 			},
 			tx,
 		);
@@ -103,8 +103,7 @@ async function validateAppConfig(
 	variant: string,
 	tx: DbTransactionType,
 ) {
-	const schema = getSchema(group as any, variant as any);
-	const parsedResult = schema!.safeParse(appConfig);
+	const parsedResult = variantConfigSchema(group, variant).safeParse(appConfig);
 	if (!parsedResult.success) {
 		throw new ValidationError(mapZodErrorToFieldErrors(parsedResult.error));
 	}

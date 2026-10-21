@@ -1,4 +1,6 @@
+import { integrationRegistry } from "@fluxify/adapters/integrations";
 import { logger } from "@fluxify/common";
+import { UnknownIntegrationVariantError } from "@fluxify/sdk/integrations";
 import { eq, isNull, or } from "drizzle-orm";
 import { getAppConfigKeysFromData } from "../../api/v1/integrations/create/service";
 import { integrationsGroupSchema } from "../../api/v1/integrations/schemas";
@@ -60,6 +62,14 @@ export async function buildProjectConfig(
 	for (const row of rows) {
 		const field = GROUP_FIELD[row.group as keyof typeof GROUP_FIELD];
 		if (!field) continue;
+		if (!integrationRegistry.get(row.group!, row.variant ?? "")) {
+			const reason = `${row.name}: ${new UnknownIntegrationVariantError(row.group!, row.variant ?? "").message}`;
+			// as with a missing value: telemetry falls back to the console, anything else fails at use
+			if (row.group === integrationsGroupSchema.enum.observability)
+				logger.warn(`[compiler] ${reason}`, "COMPILER");
+			else missingIntegrations[row.id] = reason;
+			continue;
+		}
 		const stored = configForEnv(row, env);
 		if (stored === null) {
 			// telemetry is lost, never a failed request: a log destination with no

@@ -5,22 +5,16 @@ import {
 	type ResourceSpec,
 	type ResourceTimer,
 } from "@fluxify/lib";
-import { SQL } from "bun";
-import { MongoClient } from "mongodb";
-import { createPool, type Pool } from "mysql2";
-import {
-	type Connection,
-	DbType,
-	DEFAULT_MAX_CONNECTIONS,
-	DEFAULT_QUERY_TIMEOUT_MS,
-	MAX_MAX_CONNECTIONS,
-} from "./connection";
-import { buildMongoUrl, MongoAdapter } from "./mongoDbAdapter";
-import { MYSQL_POOL_OPTIONS, MySqlAdapter } from "./mySqlAdapter";
-import { PostgresAdapter } from "./postgresAdapter";
+import type { DatabasePool } from "@fluxify/sdk/integrations";
+import type { SQL } from "bun";
+import type { MongoClient } from "mongodb";
+import type { Pool } from "mysql2";
+import { databaseVariantFor } from "../integrations";
+import type { Connection } from "./connection";
 
-export type ManagedDbConnection = {
-	type: DbType;
+/** A built-in variant's pool carries its driver handles; a plugin's only has to be a `DatabasePool`. */
+export type ManagedDbConnection = DatabasePool & {
+	type?: string;
 	db: any;
 	pool?: Pool;
 	sql?: SQL;
@@ -126,73 +120,7 @@ export function connectionFingerprint(config: Connection) {
 	return createHash("sha256").update(material).digest("hex");
 }
 
+/** Opens the pooled client through the variant that owns `config.dbType`. */
 function createManagedConnection(_integrationId: string, config: Connection): ManagedDbConnection {
-	const timeoutMs = config.queryTimeoutMs ?? DEFAULT_QUERY_TIMEOUT_MS;
-	// capped here too: a row saved before the cap, or written around the API, still gets a sane pool
-	const max = Math.min(
-		config.maxConnections ?? DEFAULT_MAX_CONNECTIONS[config.dbType],
-		MAX_MAX_CONNECTIONS[config.dbType],
-	);
-	if (config.dbType === DbType.POSTGRES) {
-		const sql = new SQL({
-			adapter: "postgres",
-			hostname: config.host,
-			port: Number(config.port),
-			username: config.username,
-			password: config.password,
-			database: config.database,
-			tls: config.ssl,
-			// #512: int8 as BigInt, so it can be told apart from numeric's text
-			bigint: true,
-			max,
-			connection: { statement_timeout: timeoutMs },
-		});
-		const db = PostgresAdapter.createKysely(sql);
-		return {
-			type: DbType.POSTGRES,
-			db,
-			sql,
-			close: () => db.destroy(),
-		};
-	}
-
-	if (config.dbType === DbType.MYSQL) {
-		const pool = createPool({
-			host: config.host,
-			port: Number(config.port),
-			user: config.username,
-			password: config.password,
-			database: config.database,
-			connectionLimit: max,
-			...MYSQL_POOL_OPTIONS,
-		});
-		// ponytail: max_execution_time stops reads only; a write is bounded by lock waits, not by run time
-		pool.on("connection", (conn) => {
-			conn.query("SET SESSION max_execution_time = ?, innodb_lock_wait_timeout = ?", [
-				timeoutMs,
-				Math.max(1, Math.ceil(timeoutMs / 1000)),
-			]);
-		});
-		return {
-			type: DbType.MYSQL,
-			db: MySqlAdapter.createKysely(pool),
-			pool,
-			close: () => pool.promise().end(),
-		};
-	}
-
-	if (config.dbType === DbType.MONGODB) {
-		const client = new MongoClient(buildMongoUrl(config), {
-			timeoutMS: timeoutMs,
-			maxPoolSize: max,
-		});
-		return {
-			type: DbType.MONGODB,
-			db: client.db(config.database),
-			client,
-			close: () => client.close(),
-		};
-	}
-
-	throw new Error(`${config.dbType} Not implemented`);
+	return databaseVariantFor(config.dbType).connect(config) as ManagedDbConnection;
 }

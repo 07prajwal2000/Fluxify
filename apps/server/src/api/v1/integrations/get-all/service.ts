@@ -1,6 +1,6 @@
+import { integrationRegistry } from "@fluxify/adapters/integrations";
 import type { z } from "zod";
 import { redactOAuth } from "../mcp-oauth/store";
-import { databaseConditionEditors, type databaseVariantSchema } from "../schemas";
 import type { responseSchema } from "./dto";
 import { getAllIntegrationsByGroup } from "./repository";
 
@@ -28,7 +28,7 @@ export default async function handleRequest(
 		// static per variant, so it never waits on the database being reachable
 		conditionEditor:
 			item.group === "database"
-				? databaseConditionEditors[item.variant as z.infer<typeof databaseVariantSchema>]
+				? integrationRegistry.get("database", item.variant!)?.extras.conditionEditor
 				: undefined,
 	}));
 }

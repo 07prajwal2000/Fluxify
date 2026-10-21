@@ -1,8 +1,7 @@
+import { integrationRegistry } from "@fluxify/adapters/integrations";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "../../../../../../db";
 import { integrationsEntity } from "../../../../../../db/schema";
-import { getIntegrationsVariants } from "../../../../integrations/helpers";
-import { observabilityLegacyVariants } from "../../../../integrations/schemas";
 import type { ProjectSettingsKeyType } from "../keySchemaMap";
 
 export async function testConnectionFn(
@@ -17,7 +16,7 @@ export async function testConnectionFn(
 				.where(
 					and(
 						eq(integrationsEntity.id, value),
-						inArray(integrationsEntity.variant, getIntegrationsVariants("ai")),
+						inArray(integrationsEntity.variant, integrationRegistry.names("ai")),
 					),
 				);
 			if (result.length === 0) {
@@ -35,11 +34,8 @@ export async function testConnectionFn(
 				.where(
 					and(
 						eq(integrationsEntity.id, value),
-						inArray(integrationsEntity.variant, [
-							...getIntegrationsVariants("observability"),
-							// a row created before the rename is still a valid destination
-							...observabilityLegacyVariants,
-						]),
+						// aliases included: a row created before a rename is still a valid destination
+						inArray(integrationsEntity.variant, integrationRegistry.names("observability")),
 					),
 				);
 			if (result.length === 0) {

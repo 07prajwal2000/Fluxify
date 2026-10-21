@@ -5,6 +5,7 @@ export * from "./kv.js";
 export * from "./mcp.js";
 export * from "./observability.js";
 export * from "./queue.js";
+export * from "./variants.js";
 
 import type { AiAdapter, AiInspectResult } from "./ai.js";
 import type { BaasAdapter, BaasInspectResult } from "./baas.js";
@@ -13,16 +14,6 @@ import type { KvAdapter, KvInspectResult } from "./kv.js";
 import type { McpAdapter, McpInspectResult } from "./mcp.js";
 import type { ObservabilityAdapter, ObservabilityInspectResult } from "./observability.js";
 import type { QueueInspectResult, QueueProducer } from "./queue.js";
-
-/** Built-in integration groups supported by Fluxify. */
-export type IntegrationGroup =
-	| "database"
-	| "kv"
-	| "ai"
-	| "baas"
-	| "observability"
-	| "queue"
-	| "mcp";
 
 /** Built-in group -> adapter contract mapping. */
 export interface BuiltInIntegrationAdapters {

@@ -1,4 +1,4 @@
-import type { Connection, DbType } from "@fluxify/adapters";
+import type { Connection, DbType } from "@fluxify/sdk/integrations";
 
 /**
  * Parses a PostgreSQL connection URL.

@@ -5,6 +5,7 @@ import {
 	extractMysqlConnectionInfo,
 	extractPgConnectionInfo,
 	GeminiIntegration,
+	integrationRegistry,
 	LokiLogger,
 	type McpOAuth,
 	MemcachedIntegration,
@@ -20,26 +21,23 @@ import {
 	RedisIntegration,
 	resolveMcpHeaders,
 } from "@fluxify/adapters";
+import { parseMongoUrl } from "@fluxify/adapters/integrations/parsers/mongodb";
+import { parseMysqlUrl } from "@fluxify/adapters/integrations/parsers/mysql";
+import { parsePostgresUrl } from "@fluxify/adapters/integrations/parsers/postgres";
 import type { z } from "zod";
 import { BadRequestError } from "../../../../errors/badRequestError";
 import { EncryptionService } from "../../../../lib/encryption";
 import type { FluxifyEnv } from "../../../../lib/env";
 import { missingAppConfigMessage, pickValue } from "../../../../lib/envValues";
-import { parseMongoUrl } from "../../../../lib/parsers/mongodb";
-import { parseMysqlUrl } from "../../../../lib/parsers/mysql";
-import { parsePostgresUrl } from "../../../../lib/parsers/postgres";
 import { audit } from "../../../../modules/audit";
 import { ADMIN_CONNECTION_ENV, SET_ONE } from "../adminEnv";
 import { getAppConfigKeysFromData } from "../create/service";
-import { getSchema } from "../helpers";
 import {
 	type aiVariantSchema,
 	type databaseVariantSchema,
-	type integrationsGroupSchema,
 	type kvVariantSchema,
 	lokiVariantConfigSchema,
 	type mcpVariantConfigSchema,
-	normalizeObservabilityVariant,
 	type observabilityVariantSchema,
 	openTelemetryVariantConfigSchema,
 	postgresVariantConfigSchema,
@@ -58,7 +56,7 @@ export const CONNECTION_TEST_TIMEOUT_MS = 10_000;
  */
 export async function testIntegrationConnection(
 	projectId: string,
-	group: z.infer<typeof integrationsGroupSchema>,
+	group: string,
 	variant: string,
 	config: any,
 	/** which signal to probe; observability only, defaults to logs */
@@ -95,21 +93,20 @@ export async function testIntegrationConnection(
 
 async function probeConnection(
 	projectId: string,
-	group: z.infer<typeof integrationsGroupSchema>,
+	group: string,
 	variant: string,
 	config: any,
 	signal: OtlpSignal,
 	env: FluxifyEnv,
 	oauth?: McpOAuth,
 ): Promise<Result> {
-	const schema = getSchema(group, variant);
-	if (!schema) {
-		return {
-			success: false,
-			error: "Invalid group or variant",
-		};
+	let result: ReturnType<typeof integrationRegistry.validate>;
+	try {
+		result = integrationRegistry.validate(group, variant, config);
+	} catch (error) {
+		// an unknown group or variant, named
+		return { success: false, error: (error as Error).message };
 	}
-	const result = schema.safeParse(config);
 
 	if (!result.success) {
 		const issues = result.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`);
@@ -259,10 +256,14 @@ async function testObservibilityConnection(
 	appConfigs: Map<string, string>,
 	signal: OtlpSignal,
 ) {
-	// stored rows may still carry the pre-rename variant; `getSchema` already
+	// stored rows may still carry the pre-rename variant; the registry already
 	// normalizes, so without this the config validates and then falls through to
 	// "Invalid variant"
-	switch (normalizeObservabilityVariant(variant) as z.infer<typeof observabilityVariantSchema>) {
+	switch (
+		(integrationRegistry.get("observability", variant)?.variant ?? variant) as z.infer<
+			typeof observabilityVariantSchema
+		>
+	) {
 		case "Open Telemetry": {
 			const parsed = openTelemetryVariantConfigSchema.safeParse(config);
 			if (!parsed.success) return { success: false, error: "Invalid Data" };

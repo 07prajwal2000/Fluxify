@@ -26,6 +26,7 @@ import {
 	whereConditionSchema,
 } from "@fluxify/sdk/integrations";
 import { SQL } from "bun";
+import { databaseVariantFor } from "../integrations";
 import { type DbConnectionLease, DbConnectionManager } from "./connectionManager";
 import { describeMongo, describeSql, type SchemaDetails, type SqlRun } from "./describe";
 import { buildMongoUrl, MongoAdapter } from "./mongoDbAdapter";
@@ -77,32 +78,18 @@ export class DbFactory {
 		}
 		if (connection in this.connectionMap) return this.connectionMap[connection];
 
+		// resolved before borrowing: an unknown dbType must not open or lease a pool
+		const variant = databaseVariantFor(cfg.dbType);
 		const lease = this.connectionManager.borrow(connection, cfg);
 		this.connectionLeases[connection] = lease;
-
-		if (cfg.dbType.toLowerCase() === DbType.POSTGRES.toLowerCase()) {
-			this.connectionMap[connection] = new PostgresAdapter(
-				lease.connection.db,
-				lease.connection.sql!,
-			);
-			return this.connectionMap[connection];
-		} else if (cfg.dbType.toLowerCase() === DbType.MYSQL.toLowerCase()) {
-			this.connectionMap[connection] = new MySqlAdapter(
-				lease.connection.db,
-				lease.connection.pool!,
-			);
-			return this.connectionMap[connection];
-		} else if (cfg.dbType.toLowerCase() === DbType.MONGODB.toLowerCase()) {
-			this.connectionMap[connection] = new MongoAdapter(
-				lease.connection.client!,
-				lease.connection.db,
-			);
-			return this.connectionMap[connection];
+		try {
+			this.connectionMap[connection] = variant.create(cfg, { pool: lease.connection });
+		} catch (error) {
+			lease.release();
+			delete this.connectionLeases[connection];
+			throw error;
 		}
-
-		lease.release();
-		delete this.connectionLeases[connection];
-		throw new Error(`${cfg.dbType} Not implemented`);
+		return this.connectionMap[connection];
 	}
 
 	/** Releases this request's database-client leases. */

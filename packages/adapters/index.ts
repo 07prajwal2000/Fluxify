@@ -6,6 +6,7 @@ export * from "./ai/openAi";
 export * from "./ai/openAiCompatible";
 export * from "./db/index";
 export * from "./env";
+export * from "./integrations";
 export * from "./kv/base";
 export * from "./kv/factory";
 export * from "./kv/memcached";

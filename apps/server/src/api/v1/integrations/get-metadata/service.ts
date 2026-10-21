@@ -6,18 +6,18 @@ import {
 	extractPgConnectionInfo,
 	introspectConnection,
 } from "@fluxify/adapters";
+import { parseMongoUrl } from "@fluxify/adapters/integrations/parsers/mongodb";
+import { parseMysqlUrl } from "@fluxify/adapters/integrations/parsers/mysql";
+import { parsePostgresUrl } from "@fluxify/adapters/integrations/parsers/postgres";
 import type { z } from "zod";
 import { BadRequestError } from "../../../../errors/badRequestError";
 import { NotFoundError } from "../../../../errors/notFoundError";
-import { parseMongoUrl } from "../../../../lib/parsers/mongodb";
-import { parseMysqlUrl } from "../../../../lib/parsers/mysql";
-import { parsePostgresUrl } from "../../../../lib/parsers/postgres";
 import { ADMIN_CONNECTION_ENV, configForAdminEnv } from "../adminEnv";
 import { getAppConfigKeysFromData } from "../create/service";
 import { getIntegrationByID } from "../get-by-id/repository";
-import { getSchema } from "../helpers";
 import type { databaseVariantSchema } from "../schemas";
 import { decodeAppConfig } from "../test-connection/service";
+import { variantConfigSchema } from "../variants/service";
 import type { requestRouteSchema, responseSchema } from "./dto";
 
 export default async function handleRequest(
@@ -34,9 +34,8 @@ export default async function handleRequest(
 
 	// the development credentials, as every admin-side connection (#733)
 	const config = configForAdminEnv(integration, ADMIN_CONNECTION_ENV);
-	const schema = getSchema("database", integration.variant!);
-	const parsed = schema?.safeParse(config);
-	if (!parsed?.success) {
+	const parsed = variantConfigSchema("database", integration.variant!).safeParse(config);
+	if (!parsed.success) {
 		throw new BadRequestError("Invalid configuration");
 	}
 

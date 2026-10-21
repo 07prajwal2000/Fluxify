@@ -1,5 +1,5 @@
 import { describe, it, expect, mock, spyOn, type Mock } from "bun:test";
-import { parsePostgresUrl } from "../../lib/parsers/postgres";
+import { parsePostgresUrl } from "./postgres";
 
 describe("parsePostgresUrl()", () => {
   it("should parse a standard postgres URL", () => {

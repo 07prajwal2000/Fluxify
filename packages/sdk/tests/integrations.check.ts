@@ -8,6 +8,8 @@ import type {
 	BuiltInIntegrationInspectResults,
 	DatabaseAdapter,
 	IntegrationGroup,
+	IntegrationVariantDef,
+	IntegrationVariantMeta,
 	KvAdapter,
 	KvInspectResult,
 	McpAdapter,
@@ -171,3 +173,28 @@ function contractTypeChecks() {
 }
 
 void contractTypeChecks;
+
+// Registry definitions (#902): a database variant, built-in or plugin, has to
+// declare its condition editor, and a database def its pool and adapter hooks.
+function variantTypeChecks() {
+	const configSchema = {} as IntegrationVariantMeta["configSchema"];
+	const meta = { variant: "X", label: "X", configSchema };
+	const extras = { conditionEditor: "sql", dbType: "x" } as const;
+
+	// @ts-expect-error no condition editor
+	const _noEditor: IntegrationVariantMeta<"database"> = { group: "database", ...meta };
+	const _kv: IntegrationVariantMeta<"kv"> = { group: "kv", ...meta };
+	const _plugin: IntegrationVariantMeta<"acme/crm"> = { group: "acme/crm", ...meta };
+	// @ts-expect-error no connect or create
+	const _noHooks: IntegrationVariantDef<"database"> = { group: "database", ...meta, extras };
+	const _db: IntegrationVariantDef<"database"> = {
+		group: "database",
+		...meta,
+		extras,
+		connect: () => ({ db: {}, close: async () => {} }),
+		create: () => ({}) as DatabaseAdapter,
+	};
+	void [_noEditor, _kv, _plugin, _noHooks, _db];
+}
+
+void variantTypeChecks;

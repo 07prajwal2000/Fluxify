@@ -11,12 +11,14 @@ import registerMcpOAuthRoutes from "./mcp-oauth/route";
 import registerTestConnectionRoute from "./test-connection/route";
 import registerTestExistingConnectionRoute from "./test-existing-connection/route";
 import registerUpdateRoute from "./update/route";
+import registerVariantsRoute from "./variants/route";
 
 export default {
 	name: "integrations",
 	registerHandler(app: HonoServer) {
 		const router = app.basePath("/:projectId/integrations");
 		registerGetBasicListRoute(router);
+		registerVariantsRoute(router);
 		registerGetAllRoute(router);
 		registerGetByIdRoute(router);
 		registerGetMetadataRoute(router);
