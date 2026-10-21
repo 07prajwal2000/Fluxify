@@ -13,6 +13,7 @@ const LLMS_SECTIONS = [
 	"/getting-started/",
 	"/concepts/",
 	"/blocks/",
+	"/plugins/",
 	"/scripting/",
 	"/testing/",
 	"/integrations/",
@@ -101,10 +102,7 @@ export default withMermaid(
 			siteTitle: "Fluxify",
 
 			nav: [
-				{ text: "Home", link: "/" },
 				{ text: "Getting Started", link: "/getting-started/" },
-				{ text: "Blog", link: "/blog/" },
-				{ text: "Architecture", link: "/architecture/" },
 				{
 					text: "Concepts",
 					items: [
@@ -127,15 +125,27 @@ export default withMermaid(
 						{ text: "Schedules", link: "/concepts/schedules" },
 						{ text: "Telemetry Configuration", link: "/concepts/telemetry-configuration" },
 						{ text: "Versioning", link: "/concepts/versioning" },
+						{ text: "Architecture", link: "/architecture/" },
+						{ text: "Integrations", link: "/integrations/" },
 					],
 				},
-				{ text: "Integrations", link: "/integrations/" },
 				{
 					text: "Blocks",
 					items: [
 						{ text: "Overview", link: "/blocks/" },
 						{ text: "How They Work", link: "/blocks/how-they-work" },
 						{ text: "List of Blocks", link: "/blocks/list-of-blocks" },
+					],
+				},
+				{
+					text: "Plugins",
+					items: [
+						{ text: "Overview", link: "/plugins/" },
+						{ text: "Adding a Plugin", link: "/plugins/installing" },
+						{ text: "Approval & Permissions", link: "/plugins/approving" },
+						{ text: "Upgrading & Removing", link: "/plugins/upgrading" },
+						{ text: "Status & Troubleshooting", link: "/plugins/status" },
+						{ text: "Blocks on the Canvas", link: "/plugins/blocks-on-canvas" },
 					],
 				},
 				{
@@ -316,6 +326,20 @@ export default withMermaid(
 						items: [
 							{ text: "Overview", link: "/blocks/custom-blocks" },
 							{ text: "Tutorial", link: "/blocks/custom-blocks-tutorial" },
+						],
+					},
+				],
+
+				"/plugins/": [
+					{
+						text: "Plugins",
+						items: [
+							{ text: "Overview", link: "/plugins/" },
+							{ text: "Adding a Plugin", link: "/plugins/installing" },
+							{ text: "Approval & Permissions", link: "/plugins/approving" },
+							{ text: "Upgrading & Removing", link: "/plugins/upgrading" },
+							{ text: "Status & Troubleshooting", link: "/plugins/status" },
+							{ text: "Blocks on the Canvas", link: "/plugins/blocks-on-canvas" },
 						],
 					},
 				],

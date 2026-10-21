@@ -82,6 +82,10 @@ If it is not, nothing is created and the message says what to clean up. If the s
 
 The new block is available straight away on development. Like any custom block, it needs a promoted version before a route that uses it can go to production.
 
+## Plugin blocks
+
+Blocks written in code and shared as a package are called [plugins](/plugins/). To see them next to your custom blocks, tick **Show plugin blocks** at the top of the **Custom Blocks** page. They are read-only here; manage them under **Settings → Plugins**.
+
 ## Good to know
 
 - Custom blocks belong to a project. They are available to every route and workflow in that project, and not to other projects.

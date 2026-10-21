@@ -352,8 +352,7 @@ waits until a creator approves it; nothing runs before that.
 - **Uploads and links** are stored in NATS (the same server that holds your
   compiled routes), so size its storage for the plugins you keep: each upload is
   limited to 25 MB and 100 MB unpacked. No setting is needed.
-- **Links** only work for hosts an instance admin trusts. Add them under
-  **Instance settings, Plugins, Trusted domains**: a host like `plugins.example.com`,
+- **Links** only work for hosts an instance admin trusts. An instance admin adds them through the instance settings API (see [Adding a plugin](/plugins/installing#trusted-domains)): a host like `plugins.example.com`,
   or `*.example.com` for all its subdomains (`example.com` itself needs its own
   entry). Only `https://` links are accepted. With the list empty, no link can be
   used. A creator also has to approve each download before Fluxify fetches it.

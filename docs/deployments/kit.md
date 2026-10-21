@@ -330,8 +330,7 @@ folder source reads `/data/plugins`, which is part of your `fluxify_data` volume
 Copy a built plugin (a subfolder with its `package.json`, `fluxify.json` and
 `dist/`) there and pick it under **Plugins, From a folder**.
 
-Links only work for hosts an instance admin trusts, under **Instance settings,
-Plugins, Trusted domains**. Every plugin waits for a creator to approve it.
+Links only work for hosts an instance admin trusts, which they set through the instance settings API (see [Adding a plugin](/plugins/installing#trusted-domains)). Every plugin waits for a creator to approve it.
 
 ---
 
