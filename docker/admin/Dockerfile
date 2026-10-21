@@ -38,8 +38,8 @@
 #   MASTER_ENCRYPTION_KEY   `openssl rand -base64 32`. Workers need the SAME key
 #                           — project config travels to them encrypted with it
 #   BETTER_AUTH_SECRET      session signing secret
-#   SERVER_URL              public URL, e.g. https://admin.example.com
-#   BETTER_AUTH_URL         same as SERVER_URL
+#   SERVER_URL              public URL, e.g. https://admin.example.com; also
+#                           Better Auth's base URL
 #   TRUSTED_ORIGINS         comma-separated allowed origins
 #
 # OPTIONAL

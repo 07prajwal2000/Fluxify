@@ -64,6 +64,9 @@ export function initializeAuth(db: DB) {
 			schema: authSchemas,
 		}),
 		basePath: "/_/admin/api/auth",
+		// One public address configures everything: Better Auth appends basePath
+		// to SERVER_URL. There is no separate BETTER_AUTH_URL (#885).
+		baseURL: getEnv("SERVER_URL"),
 		trustedOrigins: trustedOrigins(),
 		// Never render Better Auth's built-in error page from the API origin.
 		// OAuth/SSO failures instead return to the portal, which owns the

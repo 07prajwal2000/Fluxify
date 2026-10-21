@@ -1,4 +1,5 @@
 import { initializeLogger, logger } from "@fluxify/common";
+import { eq } from "drizzle-orm";
 import type { PgDatabase } from "drizzle-orm/pg-core";
 import { z } from "zod";
 import {
@@ -7,9 +8,10 @@ import {
 } from "../api/v1/instance-settings/upsert/repository";
 import { auth } from "../lib/auth";
 import { getEnv } from "../lib/env";
-import { createSystemUser, getSystemUserByEmail } from "../lib/system-users";
+import { createSystemUser, deleteSystemUser, getSystemUserByEmail } from "../lib/system-users";
 import { publishInstanceSetting } from "../loaders/instanceSettingsLoader";
 import { recordEvent } from "../modules/orchestrator/records";
+import { account } from "./auth-schema";
 import { nodeClaimsEntity } from "./schema";
 
 const seedUserSchema = z.object({
@@ -73,6 +75,20 @@ async function seedDefaultClaim(db: PgDatabase<any>) {
 	logger.info("seeded the default catch-all node claim (1 replica, type both)");
 }
 
+/**
+ * A seed user is only usable once Better Auth has an account for it. The
+ * canonical row alone (all a failed first start leaves behind) is why every
+ * later boot skipped the seed and no login was ever retried (#885).
+ */
+async function hasLoginAccount(db: PgDatabase<any>, userId: string) {
+	const [row] = await db
+		.select({ id: account.id })
+		.from(account)
+		.where(eq(account.userId, userId))
+		.limit(1);
+	return Boolean(row);
+}
+
 export async function seedData(db: PgDatabase<any>) {
 	await seedDefaultClaim(db);
 
@@ -91,14 +107,20 @@ export async function seedData(db: PgDatabase<any>) {
 		return;
 	}
 
+	let createdId: string | undefined;
 	try {
-		if (await getSystemUserByEmail(email)) {
+		const existing = await getSystemUserByEmail(email);
+		if (existing && (await hasLoginAccount(db, existing.id))) {
 			return;
 		}
 
-		// canonical row first (admin), then the Better Auth user (hook links by
-		// email → shared id).
-		await createSystemUser({ email, name, isSystemAdmin: true });
+		// Canonical row first (admin), then the Better Auth user: the user.create
+		// hook links it by email → shared id and refuses an unprovisioned email.
+		// A row left behind by a failed start is reused rather than duplicated.
+		if (!existing) {
+			const created = await createSystemUser({ email, name, isSystemAdmin: true });
+			createdId = created.id;
+		}
 		await auth.api.createUser({
 			body: {
 				email: result.data.email,
@@ -109,6 +131,14 @@ export async function seedData(db: PgDatabase<any>) {
 
 		logger.info(`Seed user created: ${email}`);
 	} catch (error) {
+		// Without this, a failed first start poisons the volume: the lookup above
+		// finds the canonical row on every later boot and the login is never
+		// retried. Roll it back so the next start seeds cleanly.
+		if (createdId) {
+			await deleteSystemUser(createdId).catch((rollbackError) =>
+				logger.error("Failed to roll back the seed user:", rollbackError),
+			);
+		}
 		logger.error("Failed to create seed user:", error);
 	}
 }

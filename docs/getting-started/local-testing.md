@@ -51,7 +51,6 @@ REDIS_PORT=6379
 
 # Auth & Security
 BETTER_AUTH_SECRET=any-random-string-for-local-dev
-BETTER_AUTH_URL=http://localhost:8080
 SYSTEM_ACCESS_KEY=any-random-string-for-local-dev
 MASTER_ENCRYPTION_KEY=ZlhiQmhaS3JSeG5qTDZoWlZMbTd1WDE3aFhvYVlUVjE=
 

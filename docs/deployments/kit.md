@@ -74,6 +74,12 @@ docker run -d --name fluxify \
 Then open `http://localhost:8080/_/admin/ui` and log in with the email and
 password you just set.
 
+> [!NOTE]
+> The kit uses `http://localhost:8080` as its public address by default. That
+> one variable, `SERVER_URL`, is also Better Auth's base URL and the trusted
+> origin. If you publish a different host port — for example `-p 9090:8080` —
+> set `SERVER_URL` to the address you open. See [Changing the port](#bundled).
+
 > [!IMPORTANT]
 > `SEED_USER_EMAIL` and `SEED_USER_PASSWORD` are **required** and have no
 > defaults. They create the first administrator account, and nothing else can
@@ -105,8 +111,6 @@ docker run -d --name fluxify \
   -p 9090:8080 \
   -v fluxify_data:/data \
   -e SERVER_URL=http://localhost:9090 \
-  -e BETTER_AUTH_URL=http://localhost:9090 \
-  -e TRUSTED_ORIGINS=http://localhost:9090 \
   -e SEED_USER_EMAIL=admin@example.com \
   -e SEED_USER_PASSWORD=ChangeThisPassword123! \
   ghcr.io/fluxify-rest/fluxify-kit:nightly
@@ -149,7 +153,6 @@ INTEGRATION_TIMEOUT_POLICY_IN_SEC=450
 #====================== SECURITY & KEYS ======================
 MASTER_ENCRYPTION_KEY=<openssl rand -base64 32>
 BETTER_AUTH_SECRET=<openssl rand -base64 32>
-BETTER_AUTH_URL=http://localhost:8080
 
 #====================== FIRST-RUN ADMIN ======================
 SEED_USER_EMAIL=admin@example.com
@@ -318,7 +321,8 @@ curl <url>/.well-known/oauth-authorization-server/_/admin/api/auth   # JSON
 
 The `401` is expected: it means the MCP server is up and asks the client to
 sign in. The JSON lists your public address. If it shows another one, fix
-`SERVER_URL`, `BETTER_AUTH_URL` and `TRUSTED_ORIGINS`.
+`SERVER_URL` (and `TRUSTED_ORIGINS` if the portal is served on a different
+origin).
 
 ---
 
@@ -384,15 +388,16 @@ broken. The log line naming the failed service is the last one printed.
 **Can't log in after first run**
 The seed admin is created only on the very first boot, against an empty
 database. If you changed the values afterwards, they had no effect — reset the
-password from the dashboard, or start over with a fresh volume.
+password from the dashboard, or start over with a fresh volume. If the first
+start failed before the login was created, restarting retries it.
 
 **Everything was working, then a restart lost all my projects**
 You most likely ran without `-v fluxify_data:/data`. Data lives in that volume;
 without it, removing the container discards everything.
 
 **Port 8080 already in use**
-Map a different host port and update `SERVER_URL`, `BETTER_AUTH_URL`, and
-`TRUSTED_ORIGINS` to match. See [Changing the port](#bundled).
+Map a different host port and set `SERVER_URL` to match. See
+[Changing the port](#bundled).
 
 **Requests to `/` return 502 Bad Gateway**
 The request worker isn't running. Almost always this means `WORKER_PROJECT_ID`

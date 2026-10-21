@@ -8,7 +8,7 @@ import { setSession } from "../session";
 // spyOn, not mock.module: module mocks leak into every other spec in the run.
 const ORIGIN = "http://fluxify.test";
 const SECRET = "test-secret-for-agent-tokens";
-const ENV: Record<string, string> = { SERVER_URL: ORIGIN, BETTER_AUTH_URL: ORIGIN };
+const ENV: Record<string, string> = { SERVER_URL: ORIGIN };
 const savedSecret = process.env.BETTER_AUTH_SECRET;
 process.env.BETTER_AUTH_SECRET = SECRET;
 const envSpy = spyOn(env, "getEnv").mockImplementation((key) => ENV[key as string]);
