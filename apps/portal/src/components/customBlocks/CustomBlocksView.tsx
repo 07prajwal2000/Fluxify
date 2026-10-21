@@ -20,9 +20,11 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { DeleteBlocked } from "@/components/versions/DeleteBlocked";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { customBlocksQuery } from "@/query/customBlocksQuery";
+import { pluginsQuery } from "@/query/pluginsQuery";
 import { type Reference, referencesFromDeleteError } from "@/services/references";
 import { CustomBlockIcon, type IconValue } from "./IconPicker";
 import { PluginBlocksSection } from "./PluginBlocksSection";
+import { pluginBlockGroups } from "./pluginBlocks";
 import { USAGE_OPTIONS } from "./UsageField";
 
 type Block = NonNullable<ReturnType<typeof customBlocksQuery.getAll.useQuery>["data"]>[number];
@@ -43,7 +45,8 @@ export function CustomBlocksView({
 }: {
 	projectId: string;
 	usage?: CustomBlockUsage;
-	showPlugins: boolean;
+	/** unset: on whenever the project has plugin blocks */
+	showPlugins?: boolean;
 	onUsageChange: (usage?: CustomBlockUsage) => void;
 	onShowPluginsChange: (show: boolean) => void;
 	onOpenBlock: (blockId: string) => void;
@@ -55,6 +58,9 @@ export function CustomBlocksView({
 	// a refused delete (#740): who still uses the block, shown in the dialog
 	const [blocked, setBlocked] = useState<{ message: string; references: Reference[] }>();
 	const [search, setSearch] = useState("");
+	const plugins = pluginsQuery.list.useQuery(projectId);
+	const hasPluginBlocks = pluginBlockGroups(plugins.data ?? []).length > 0;
+	const pluginsShown = hasPluginBlocks && (showPlugins ?? true);
 
 	const blocks = useMemo(() => {
 		const q = search.trim().toLowerCase();
@@ -83,7 +89,8 @@ export function CustomBlocksView({
 					{/* filters: add more (source, …) as siblings */}
 					<Checkbox
 						label="Show plugin blocks"
-						isSelected={showPlugins}
+						isSelected={pluginsShown}
+						isDisabled={!hasPluginBlocks}
 						onChange={onShowPluginsChange}
 					/>
 					{data && data.length > 0 && (
@@ -208,7 +215,7 @@ export function CustomBlocksView({
 				</div>
 			)}
 
-			{showPlugins && (
+			{pluginsShown && (
 				<PluginBlocksSection projectId={projectId} search={search} hidden={Boolean(usage)} />
 			)}
 

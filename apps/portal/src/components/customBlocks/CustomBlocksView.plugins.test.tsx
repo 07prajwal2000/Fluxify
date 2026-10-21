@@ -76,7 +76,7 @@ afterEach(cleanup);
 afterAll(() => GlobalRegistrator.unregister());
 
 function Harness() {
-	const [show, setShow] = useState(false);
+	const [show, setShow] = useState<boolean>();
 	return (
 		<CustomBlocksView
 			projectId="p1"
@@ -89,7 +89,7 @@ function Harness() {
 	);
 }
 
-test("plugin blocks stay hidden until the checkbox is ticked, then show grouped and read-only", async () => {
+test("plugin blocks show by default when a plugin ships some, grouped and read-only", async () => {
 	render(
 		<QueryClientProvider
 			client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
@@ -97,13 +97,10 @@ test("plugin blocks stay hidden until the checkbox is ticked, then show grouped 
 			<Harness />
 		</QueryClientProvider>,
 	);
-	await until(() => expect(document.body.textContent).toContain("My block"));
-	expect(document.body.textContent).not.toContain("Plugin blocks");
-	expect(list).not.toHaveBeenCalled();
-
-	const box = document.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
-	await act(async () => void fireEvent.click(box));
 	await until(() => expect(document.body.textContent).toContain("Plugin blocks"));
+	const box = document.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+	expect(box.checked).toBe(true);
+	expect(box.disabled).toBe(false);
 
 	const section = document.querySelector('[aria-label="Plugin blocks"]')!;
 	expect(section.textContent).toContain("acme/slack/messages");
@@ -117,6 +114,27 @@ test("plugin blocks stay hidden until the checkbox is ticked, then show grouped 
 		"Open plugin",
 	]);
 	expect(section.querySelectorAll("button, [role=button]").length).toBe(0);
+
+	// unticking still hides them
+	await act(async () => void fireEvent.click(box));
+	await until(() => expect(document.body.textContent).not.toContain("Plugin blocks"));
+});
+
+test("with no plugin blocks the checkbox is off and disabled", async () => {
+	list.mockResolvedValue([]);
+	render(
+		<QueryClientProvider
+			client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+		>
+			<Harness />
+		</QueryClientProvider>,
+	);
+	await until(() => expect(list).toHaveBeenCalled());
+	await until(() => expect(document.body.textContent).toContain("My block"));
+	const box = document.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+	expect(box.checked).toBe(false);
+	expect(box.disabled).toBe(true);
+	expect(document.body.textContent).not.toContain("Plugin blocks");
 });
 
 test("an upgrade waiting for approval still lists the version that loads", () => {
@@ -137,8 +155,6 @@ test("a plugin block shows its icon, and the default when it has none", async ()
 			<Harness />
 		</QueryClientProvider>,
 	);
-	await until(() => expect(document.body.textContent).toContain("My block"));
-	await act(async () => void fireEvent.click(document.querySelector('input[type="checkbox"]')!));
 	const section = await until(() => {
 		const el = document.querySelector('[aria-label="Plugin blocks"]')!;
 		expect(el.textContent).toContain("acme/slack/messages");

@@ -13,7 +13,7 @@ export const Route = createFileRoute("/_authed/$projectId/custom-blocks")({
 	// a bad ?usage= falls back to All instead of erroring the page
 	validateSearch: z.object({
 		usage: z.enum(CUSTOM_BLOCK_USAGES).optional().catch(undefined),
-		// ?plugins=true also lists the blocks plugins ship
+		// plugin blocks are listed when any exist; ?plugins=false hides them
 		plugins: z.boolean().optional().catch(undefined),
 	}),
 	component: CustomBlocksPage,
@@ -30,14 +30,14 @@ function CustomBlocksPage() {
 		<CustomBlocksView
 			projectId={projectId}
 			usage={usage}
-			showPlugins={plugins === true}
+			showPlugins={plugins}
 			onUsageChange={(next) =>
 				navigate({ to: ".", search: (prev) => ({ ...prev, usage: next }), replace: true })
 			}
 			onShowPluginsChange={(show) =>
 				navigate({
 					to: ".",
-					search: (prev) => ({ ...prev, plugins: show || undefined }),
+					search: (prev) => ({ ...prev, plugins: show ? undefined : false }),
 					replace: true,
 				})
 			}

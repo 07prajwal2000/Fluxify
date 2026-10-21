@@ -41,6 +41,7 @@ const { versionsService } = await import("@/services/versions");
 const { routesService } = await import("@/services/routes");
 const { middlewaresService } = await import("@/services/middlewares");
 const { sandboxesService } = await import("@/services/sandboxes");
+const { customBlocksService } = await import("@/services/customBlocks");
 const { deploymentsService } = await import("@/services/deployments");
 const { VersionHistory } = await import("./VersionHistory");
 type VersionTab = "versions" | "production";
@@ -128,6 +129,10 @@ function stub(options: { versions: ReturnType<typeof version>[]; uncommitted?: b
 	] as never);
 	// the production panel (#739) reads the deployment log on every history
 	spyOn(deploymentsService, "list").mockResolvedValue({ deployments: [] } as never);
+	// the canvas lists these too; left unstubbed they hit whatever `@/lib/http`
+	// another test file mocked, since mock.module outlives mock.restore()
+	spyOn(customBlocksService, "getAll").mockResolvedValue([] as never);
+	spyOn(sandboxesService, "list").mockResolvedValue([] as never);
 }
 
 function renderHistory(

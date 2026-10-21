@@ -1,4 +1,4 @@
-import { and, eq, gt, gte, ilike, inArray, lt, lte, ne, type SQL, sql } from "drizzle-orm";
+import { and, eq, gt, gte, ilike, inArray, lt, lte, ne, or, type SQL, sql } from "drizzle-orm";
 import type z from "zod";
 import { type AuthACL, routesEntity } from "../../../../db/schema";
 import type { requestQuerySchema, responseSchema } from "./dto";
@@ -12,8 +12,16 @@ export default async function handleRequest(
 	const projectIds = acl.map((a) => a.projectId);
 	const isSystemAdmin = acl.some((a) => a.projectId === "*");
 	const filter = generateFilterSQL(query);
+	const search = query.search ? `%${query.search}%` : undefined;
 	const filterSQL = and(
 		filter,
+		search
+			? or(
+					ilike(routesEntity.name, search),
+					ilike(routesEntity.path, search),
+					ilike(routesEntity.method, search),
+				)
+			: undefined,
 		isSystemAdmin ? undefined : inArray(routesEntity.projectId, projectIds),
 	);
 	const { result, totalCount } = await getRoutesList(offset, query.perPage, filterSQL);

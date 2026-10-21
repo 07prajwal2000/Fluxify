@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gte, lt, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, ilike, lt, or, sql } from "drizzle-orm";
 import type { z } from "zod";
 import { db } from "../../../../db";
 import { canvasVersionsEntity, traceRunsEntity } from "../../../../db/schema";
@@ -29,9 +29,10 @@ export async function getRecordedRuns(
 		testRunId,
 		env,
 		versionId,
+		search,
 	}: Pick<
 		z.infer<typeof requestQuerySchema>,
-		"outcome" | "from" | "to" | "source" | "testRunId" | "env" | "versionId"
+		"outcome" | "from" | "to" | "source" | "testRunId" | "env" | "versionId" | "search"
 	>,
 	skip: number,
 	take: number,
@@ -45,6 +46,7 @@ export async function getRecordedRuns(
 		from ? gte(traceRunsEntity.startedAt, from) : undefined,
 		to ? lt(traceRunsEntity.startedAt, to) : undefined,
 		testRunsFilter(source, testRunId),
+		searchFilter(search),
 	);
 
 	const result = await db
@@ -76,6 +78,20 @@ export async function getRecordedRuns(
 		.where(where);
 
 	return { result, totalCount: total?.count ?? 0 };
+}
+
+/** free-text search over the few text-like fields a run header has */
+function searchFilter(search?: string) {
+	if (!search) return undefined;
+	const pattern = `%${search}%`;
+	const metadata = traceRunsEntity.metadata;
+	return or(
+		ilike(sql`${traceRunsEntity.statusCode}::text`, pattern),
+		ilike(sql`${traceRunsEntity.id}::text`, pattern),
+		ilike(sql`${metadata}->>'label'`, pattern),
+		ilike(sql`${metadata}->>'suiteName'`, pattern),
+		ilike(sql`${metadata}->>'caseName'`, pattern),
+	);
 }
 
 /** test traces (#627) are listed with normal runs unless a filter narrows it */

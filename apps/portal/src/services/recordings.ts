@@ -42,6 +42,7 @@ export const recordingsService = {
 			perPage?: number;
 			outcome?: "success" | "failure";
 			env?: "development" | "production";
+			search?: string;
 		} & TestTraceFilter = {},
 	): Promise<RecordedRunList> {
 		const params = new URLSearchParams();
@@ -54,6 +55,7 @@ export const recordingsService = {
 		if (query.source) params.set("source", query.source);
 		if (query.testRunId) params.set("testRunId", query.testRunId);
 		if (query.versionId) params.set("versionId", query.versionId);
+		if (query.search) params.set("search", query.search);
 		const result = await httpClient.get(`${runsUrl(projectId, target)}?${params.toString()}`);
 		return result.data;
 	},

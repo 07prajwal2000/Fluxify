@@ -23,7 +23,12 @@ export type RouteDetail = z.infer<typeof getByIdResponseSchema>;
 
 const baseUrl = "/v1/routes";
 
-export type ListRoutesQuery = { page?: number; perPage?: number; projectId: string };
+export type ListRoutesQuery = {
+	page?: number;
+	perPage?: number;
+	projectId: string;
+	search?: string;
+};
 
 export type { CanvasSavePayload } from "./canvas";
 export type UpdateRouteBody = z.infer<typeof updateRequestSchema>;
@@ -34,6 +39,7 @@ export const routesService = {
 		params.set("page", String(query.page ?? 1));
 		params.set("perPage", String(query.perPage ?? 10));
 		params.set("projectId", query.projectId);
+		if (query.search) params.set("search", query.search);
 		const result = await httpClient.get(`${baseUrl}/list?${params.toString()}`);
 		return result.data;
 	},

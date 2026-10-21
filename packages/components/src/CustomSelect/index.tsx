@@ -42,8 +42,9 @@ export function CustomSelect({
 			{...props}
 		>
 			{label && <Label>{label}</Label>}
-			<Select.Trigger>
-				<Select.Value>
+			{/* min-w-0: a long value truncates instead of widening the trigger past its box */}
+			<Select.Trigger className="min-w-0">
+				<Select.Value className="min-w-0 truncate">
 					{({ isPlaceholder, defaultChildren }) => {
 						if (isPlaceholder) return placeholder;
 						const selected = options.find((opt) => opt.value === value);
