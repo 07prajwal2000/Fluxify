@@ -19,6 +19,7 @@ import { RedisIntegration } from "../kv/redis";
 import { LokiLogger } from "../observability/loki";
 import { OpenTelemetryLogs } from "../observability/openTelemetryLogs";
 import { BUILT_IN_VARIANT_META } from "./builtinVariants";
+import { BUILT_IN_OPS } from "./ops";
 import { parseMongoUrl } from "./parsers/mongodb";
 import { parseMysqlUrl } from "./parsers/mysql";
 import { parsePostgresUrl } from "./parsers/postgres";
@@ -100,6 +101,7 @@ const HOOKS: Hooks = {
 	"queue/RabbitMQ": queue("rabbitmq"),
 };
 
-export const BUILT_IN_VARIANTS = BUILT_IN_VARIANT_META.map(
-	(meta) => ({ ...meta, ...HOOKS[`${meta.group}/${meta.variant}`] }) as IntegrationVariantDef,
-);
+export const BUILT_IN_VARIANTS = BUILT_IN_VARIANT_META.map((meta) => {
+	const key = `${meta.group}/${meta.variant}`;
+	return { ...meta, ...HOOKS[key], ...BUILT_IN_OPS[key] } as IntegrationVariantDef;
+});

@@ -16,6 +16,14 @@ export const kvQuerySchema = z.object({
 	env: z.enum(["development", "production"]).default("development"),
 });
 
+/** `POST /:integrationId/inspect`: whose credentials to connect with; development unless asked */
+export const inspectQuerySchema = z.object({
+	env: z.enum(["development", "production"]).default("development"),
+});
+
+/** the variant defines and validates the rest */
+export const inspectBodySchema = z.record(z.string(), z.unknown());
+
 export const kvResponseSchema = z.object({
 	key: z.string(),
 	found: z.boolean(),

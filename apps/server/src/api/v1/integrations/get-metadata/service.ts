@@ -1,23 +1,10 @@
-import {
-	type Connection,
-	DbType,
-	extractMongoConnectionInfo,
-	extractMysqlConnectionInfo,
-	extractPgConnectionInfo,
-	introspectConnection,
-} from "@fluxify/adapters";
-import { parseMongoUrl } from "@fluxify/adapters/integrations/parsers/mongodb";
-import { parseMysqlUrl } from "@fluxify/adapters/integrations/parsers/mysql";
-import { parsePostgresUrl } from "@fluxify/adapters/integrations/parsers/postgres";
+import type { IntrospectedTable } from "@fluxify/adapters";
 import type { z } from "zod";
 import { BadRequestError } from "../../../../errors/badRequestError";
 import { NotFoundError } from "../../../../errors/notFoundError";
+import { runIntegrationOp } from "../../../../modules/integrationOps/dispatch";
 import { ADMIN_CONNECTION_ENV, configForAdminEnv } from "../adminEnv";
-import { getAppConfigKeysFromData } from "../create/service";
 import { getIntegrationByID } from "../get-by-id/repository";
-import type { databaseVariantSchema } from "../schemas";
-import { decodeAppConfig } from "../test-connection/service";
-import { variantConfigSchema } from "../variants/service";
 import type { requestRouteSchema, responseSchema } from "./dto";
 
 export default async function handleRequest(
@@ -32,66 +19,26 @@ export default async function handleRequest(
 		throw new BadRequestError("Metadata is only available for database integrations");
 	}
 
-	// the development credentials, as every admin-side connection (#733)
-	const config = configForAdminEnv(integration, ADMIN_CONNECTION_ENV);
-	const parsed = variantConfigSchema("database", integration.variant!).safeParse(config);
-	if (!parsed.success) {
-		throw new BadRequestError("Invalid configuration");
-	}
-
-	const appConfigs = await decodeAppConfig(
-		getAppConfigKeysFromData(parsed.data),
-		params.projectId,
-		ADMIN_CONNECTION_ENV,
-	);
-	const connection = buildConnection(integration.variant!, config, appConfigs);
-
-	const tables = await introspectConnection(connection).catch((error) => {
+	// the variant's `describe`, with the development credentials, as every admin-side connection (#733)
+	const metadata = (await runIntegrationOp("describe", {
+		projectId: params.projectId,
+		env: ADMIN_CONNECTION_ENV,
+		integrationId: integration.id,
+		group: integration.group,
+		variant: integration.variant!,
+		config: configForAdminEnv(integration, ADMIN_CONNECTION_ENV),
+	}).catch((error) => {
+		if (error instanceof BadRequestError) throw error;
 		throw new BadRequestError(
 			`Failed to read schema: ${error instanceof Error ? error.message : String(error)}`,
 		);
-	});
+	})) as { tables: IntrospectedTable[] };
 
 	return {
 		id: integration.id,
 		name: integration.name!,
 		group: integration.group!,
 		variant: integration.variant!,
-		metadata: { tables },
+		metadata,
 	};
-}
-
-export function buildConnection(
-	variant: string,
-	config: any,
-	appConfigs: Map<string, string>,
-): Connection {
-	switch (variant as z.infer<typeof databaseVariantSchema>) {
-		case "PostgreSQL": {
-			const cfg = extractPgConnectionInfo(config, appConfigs, parsePostgresUrl);
-			if (!cfg) break;
-			return {
-				...(cfg as Record<string, any>),
-				ssl: cfg.ssl == "true",
-				dbType: DbType.POSTGRES,
-			} as Connection;
-		}
-		case "MySQL": {
-			const cfg = extractMysqlConnectionInfo(config, appConfigs, parseMysqlUrl);
-			if (!cfg) break;
-			return {
-				...(cfg as Record<string, any>),
-				dbType: DbType.MYSQL,
-			} as Connection;
-		}
-		case "MongoDB": {
-			const cfg = extractMongoConnectionInfo(config, appConfigs, parseMongoUrl);
-			if (!cfg) break;
-			return {
-				...(cfg as Record<string, any>),
-				dbType: DbType.MONGODB,
-			} as Connection;
-		}
-	}
-	throw new BadRequestError("Invalid configuration");
 }

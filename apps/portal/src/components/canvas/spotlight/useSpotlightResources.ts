@@ -72,7 +72,10 @@ export function useSpotlightResources(): SpotlightResources {
 		active: Boolean(w.active),
 	}));
 
-	const customBlocks: SpotlightCustomBlockItem[] = (customBlocksRes.data ?? []).map((b) => ({
+	// a non-list body (a stubbed `@/lib/http` leaking from another spec) lists nothing
+	const customBlocks: SpotlightCustomBlockItem[] = (
+		Array.isArray(customBlocksRes.data) ? customBlocksRes.data : []
+	).map((b) => ({
 		id: b.id,
 		name: b.name,
 		label: b.label ?? null,
@@ -80,7 +83,7 @@ export function useSpotlightResources(): SpotlightResources {
 	}));
 
 	const sandboxes: SpotlightSandboxItem[] = canEdit
-		? (sandboxesRes.data ?? []).map((s) => ({
+		? (Array.isArray(sandboxesRes.data) ? sandboxesRes.data : []).map((s) => ({
 				id: s.id,
 				name: s.name,
 			}))

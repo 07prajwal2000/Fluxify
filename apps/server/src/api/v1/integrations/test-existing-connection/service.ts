@@ -28,6 +28,7 @@ export default async function handleRequest(
 		CONNECTION_TEST_TIMEOUT_MS,
 		env,
 		integration.group === "mcp" ? mcpOAuthFor(integration, env) : undefined,
+		integration.id,
 	);
 	if (!result.success) {
 		throw new BadRequestError(result.error || "Failed to test connection");

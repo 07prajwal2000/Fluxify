@@ -794,6 +794,24 @@ MongoDB client closes. The next request opens a fresh client. This never closes
 a client while a request is using it; choose a larger value when avoiding a
 connection cold-start matters more than releasing idle sockets.
 
+## Testing plugin integrations {#integration-ops}
+
+**Test connection**, the table list and **Inspect** for an integration that a
+plugin adds run on a worker, never on the admin. The admin sends the request to
+a worker of the same environment: a development worker for development
+credentials, a production worker for production ones. It never falls back to
+the other environment. Built-in integrations are still tested by the admin.
+
+```env
+# How long the admin waits for a worker's answer, in milliseconds (default 15000).
+INTEGRATION_WORKER_TIMEOUT_MS=15000
+```
+
+Set it on the admin service. If no worker of that environment is running, the
+portal says so at once ("No development worker is running for this project").
+If one is running but does not answer in time, it says "No response from a
+development worker in 15s".
+
 ---
 
 ## Health checks

@@ -2,8 +2,14 @@ import { type DescribeRouteOptions, describeRoute, validator } from "hono-openap
 import zodErrorCallbackParser from "../../../../middlewares/zodErrorCallbackParser";
 import type { HonoServer } from "../../../../types";
 import { requireProjectAccess } from "../../../auth/middleware";
-import { kvQuerySchema, requestRouteSchema, schemaQuerySchema } from "./dto";
-import { getKvValue, getSchemaDetails } from "./service";
+import {
+	inspectBodySchema,
+	inspectQuerySchema,
+	kvQuerySchema,
+	requestRouteSchema,
+	schemaQuerySchema,
+} from "./dto";
+import { getKvValue, getSchemaDetails, inspectIntegration } from "./service";
 
 const schemaDocs: DescribeRouteOptions = {
 	description:
@@ -19,7 +25,30 @@ const kvDocs: DescribeRouteOptions = {
 	tags: ["Integrations"],
 };
 
+const inspectDocs: DescribeRouteOptions = {
+	description:
+		"Run the integration's inspect: the body is the request its variant defines (a database: `{ tables?: string[] }`, a KV store: `{ key }`), and the answer is what the variant returns. Read only. Plugin integrations are inspected on a worker of the chosen environment. Connects with development credentials unless `env=production`.",
+	operationId: "inspect-integration",
+	tags: ["Integrations"],
+};
+
 export default function (app: HonoServer) {
+	app.post(
+		"/:integrationId/inspect",
+		describeRoute(inspectDocs),
+		requireProjectAccess("creator", { key: "projectId", source: "param" }),
+		validator("param", requestRouteSchema, zodErrorCallbackParser),
+		validator("query", inspectQuerySchema, zodErrorCallbackParser),
+		validator("json", inspectBodySchema, zodErrorCallbackParser),
+		async (c) =>
+			c.json(
+				(await inspectIntegration(
+					c.req.valid("param"),
+					c.req.valid("json"),
+					c.req.valid("query").env,
+				)) as object,
+			),
+	);
 	app.get(
 		"/:integrationId/schema",
 		describeRoute(schemaDocs),
