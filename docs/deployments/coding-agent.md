@@ -72,7 +72,7 @@ My setup:
 - Address: <http://localhost:8080>
 - Database, cache and event bus: <bundled in the container / my own at ...>
 - Admin email: <admin@example.com>
-- Serve every project from the one worker: WORKER_PROJECT_ID=*
+- Serve every project from the one worker: WORKER_PROJECT_ID=* (the default)
 - Save generated secrets and the admin password to: <path or tool>
 
 Rules:
@@ -250,8 +250,8 @@ them in the `fluxify-env` Secret.
 
 ### Workers
 
-- [ ] Kit: `WORKER_PROJECT_ID` is set, to a project id or `*` for every
-  project. Empty means no worker, and your APIs answer `502`.
+- [ ] Kit: `WORKER_PROJECT_ID` is `*` (the default, every project) or the id of
+  the one project you meant to serve.
 - [ ] Admin + Workers: at least one `fluxify-worker-…` container or pod runs.
   A fresh install starts one worker for every project on its own.
 - [ ] Admin + Workers: one development worker runs too, `fluxify-dev-worker`
@@ -320,7 +320,7 @@ agent to stop and hand over at that point.
 | Fluxify exits at start, logs mention NATS | NATS is missing, not reachable, older than 2.14, has no JetStream, or the token differs | Start NATS with `-js`, check `NATS_URL`, and make `NATS_TOKEN` match `--auth`. |
 | Admin exits at start after an upgrade, log says `database migration failed` | A database update could not be applied. It is all or nothing, so the database is unchanged | Read the reason in the log. Fix it, or go back to the previous version. Never edit the database by hand to get past it. |
 | Stored credentials fail to decrypt, or workers fail every request | `MASTER_ENCRYPTION_KEY` was regenerated, or differs between admin and workers | Restore the original key from the backup. A lost key can't be recovered: the credentials have to be entered again. |
-| Kit answers `502` on `/` | `WORKER_PROJECT_ID` is empty | Set it to a project id or `*` and restart. |
+| Kit answers `502` on `/` | The request worker is not up yet or has died | Check the container logs; the worker starts by default. |
 | `/.well-known/oauth-…` answers `{"message":"Route not found"}` | A proxy in front sends `/.well-known` to the workers | Send `/.well-known/oauth-*` to the admin, like `/_/admin`. See [Connecting AI clients](./production#mcp). |
 | A claim stays pending | More workers than the edition or node pool allows, or a project claim without a subdomain | See [Workers per edition](./editions#workers) and [Which projects a worker serves](./production#projects). |
 | A development claim is refused | `This project needs a subdomain before it can claim a route node` — a claim that serves APIs, development included, is reached by hostname. `A development claim never autoscales` — a maximum was set on one | Give the project a subdomain, or make the claim serve every project. Drop the maximum: a development claim runs exactly the copies you give it. See [Development claims](./production#dev-claims). |

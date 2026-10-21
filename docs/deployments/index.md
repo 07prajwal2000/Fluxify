@@ -169,19 +169,22 @@ follow the guide for your chosen setup:
 
 ### One more setting: which project a worker serves
 
-Each request worker serves exactly **one** project, named by `WORKER_PROJECT_ID`.
-You get that id from the project's settings page in the dashboard.
+A request worker serves either exactly **one** project, named by
+`WORKER_PROJECT_ID`, or every project with `*`. You get a project id from the
+project's settings page in the dashboard.
 
-This is why you create a project *before* the worker can run — on a first
-install there simply isn't one yet. Both guides walk you through the two-step
-start.
+The production guides create the project first, then pin a worker group to its
+id. The Kit defaults to `*`, so it serves routes from the first boot without an
+id to copy.
 
-To serve several projects, run a separate group of workers for each. Copies of
-the same worker share their settings, so they always share a project.
+To serve several projects with a pinned worker, run a separate group of workers
+for each. Copies of the same worker share their settings, so they always share a
+project.
 
 ::: tip Serving every project from one worker
-Set `WORKER_PROJECT_ID` to `*` and the worker serves every project you have,
-picking up new ones as you create them — no restart, no id to copy.
+Set `WORKER_PROJECT_ID` to `*` (the Kit's default) and the worker serves every
+project you have, picking up new ones as you create them — no restart, no id to
+copy.
 
 Good for a personal install or a staging box. Give each project its own
 subdomain (**Project settings → General**) and two projects can use the same

@@ -228,15 +228,15 @@ wait_until "admin server" \
 
 # Compiled request worker — serves user API traffic from those artifacts.
 #
-# It serves exactly one project, so it cannot start before a project exists.
-# On a first boot that is the normal state: bring the kit up without it, create
-# a project in the UI, then set WORKER_PROJECT_ID and restart.
-if [ -n "$WORKER_PROJECT_ID" ]; then
-	start worker bun --cwd=/app/server compiledWorker.js
-else
-	echo "[kit] WORKER_PROJECT_ID is not set — starting without the request worker."
-	echo "[kit] Create a project at /_/admin/ui, then set WORKER_PROJECT_ID and restart."
+# Serves every project by default (`*`), so it can start before any project
+# exists and picks up new ones as they are created. Set WORKER_PROJECT_ID to a
+# project id to pin it to that project only.
+if [ -z "$WORKER_PROJECT_ID" ]; then
+	WORKER_PROJECT_ID="*"
+	echo "[kit] WORKER_PROJECT_ID is not set — serving every project."
 fi
+export WORKER_PROJECT_ID
+start worker bun --cwd=/app/server compiledWorker.js
 
 # Development worker (#732) — the same compiled worker, started as the
 # `development` environment. It serves every project, both modes and every

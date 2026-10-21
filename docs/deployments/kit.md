@@ -24,7 +24,7 @@ One container, one port, one command — for **prototypes and testing only**.
 | Item | Value |
 | :--- | :--- |
 | Containers to run | 1 (or 4, if you supply your own database, cache, and event bus) |
-| Workers | A production worker (once you set `WORKER_PROJECT_ID`) and a [development worker](#dev-worker), which always runs |
+| Workers | A production worker serving every project by default, and a [development worker](#dev-worker) — both always run |
 | Public port | `8080` |
 | Best for | Prototypes and testing only. Not production. |
 | Scaling | Vertical only (bigger machine) |
@@ -146,8 +146,9 @@ NATS_URL=nats://nats:4222
 NATS_TOKEN=fluxify_nats_token
 
 #====================== THE PROJECT THIS KIT SERVES ======================
-# Leave empty for now — you don't have a project yet. Step 4 fills this in.
-WORKER_PROJECT_ID=
+# `*` serves every project and picks up new ones without a restart. Set a
+# project id to pin the worker to one project.
+WORKER_PROJECT_ID=*
 INTEGRATION_TIMEOUT_POLICY_IN_SEC=450
 
 #====================== SECURITY & KEYS ======================
@@ -195,52 +196,40 @@ Log in with the seed admin credentials from your `.env`.
 
 ---
 
-## Turning on the request worker {#worker}
+## Serving your projects {#worker}
 
 This part applies to **both** options.
 
-The first time you start, you'll see this in the logs:
-
-```
-[kit] WORKER_PROJECT_ID is not set — starting without the request worker.
-[kit] Create a project at /_/admin/ui, then set WORKER_PROJECT_ID and restart.
-```
-
-That's expected, not an error. Everything you need to *build* with is running —
-but the part that *serves* your API needs to know which project it's serving, and
-on a fresh install there isn't one yet.
-
-So:
-
-1. **Create a project** in the dashboard.
-2. **Copy its id** from the project's settings page.
-3. **Set `WORKER_PROJECT_ID` to that id** — in `docker/kit/.env` for Option B, or
-   as another `-e WORKER_PROJECT_ID=...` for Option A.
-4. **Start the container again** with the new value.
-
-Your routes are then served at `http://localhost:8080/`.
+The request worker starts with the kit and serves **every** project by default
+(`WORKER_PROJECT_ID=*`). Create a project in the dashboard, save a route, and it
+is live at `http://localhost:8080/` — there is no project id to copy and no
+restart.
 
 > [!TIP]
-> Prefer not to do this at all? Set `WORKER_PROJECT_ID=*` from the very first
-> start and the kit serves **every** project you create, picking up new ones
-> immediately with no restart. The catch: two projects that define the same path
-> — say both have a `/users` endpoint — collide, and only one of them answers.
-> Fine while you have one project, which is the usual case for a trial.
+> The catch with `*`: two projects that define the same path — say both have a
+> `/users` endpoint — collide, and only one of them answers. Fine while you have
+> one project, which is the usual case for a trial. Give a project its own
+> subdomain (**Project settings → General**) to keep equal paths apart.
+
+To pin the worker to one project instead:
+
+1. **Copy the project id** from the project's settings page.
+2. **Set `WORKER_PROJECT_ID` to that id** — in `docker/kit/.env` for Option B, or
+   as another `-e WORKER_PROJECT_ID=...` for Option A.
+3. **Start the container again** with the new value.
+
+Saving a route in the editor publishes it to the worker in place — no restart
+and no redeploy. See [Request Lifecycle](/architecture/request-lifecycle) for
+what happens on save.
 
 To opt into experimental CPU-stall protection, set the project setting
 `experimental.workerTimeouts.enabled` to `true`. The worker receives that change
 immediately; no restart is required.
 
-> [!TIP]
-> From here on, saving a route in the editor publishes it to the worker in place
-> — no restart and no redeploy. You only repeat this step if you point the kit at
-> a different project. See
-> [Request Lifecycle](/architecture/request-lifecycle) for what happens on save.
-
 > [!NOTE]
-> One kit serves one project (unless you use `*` above, with the caveat noted).
-> To serve several properly, move to the [Production Setup](./production), which
-> runs a worker group per project.
+> One kit serves one project when pinned, or every project under `*` (the
+> default). To serve several projects properly, move to the [Production
+> Setup](./production), which runs a worker group per project.
 
 ### The development worker {#dev-worker}
 
@@ -250,7 +239,7 @@ project, so it runs from the very first start, before you have created one.
 
 | | Production worker | Development worker |
 | :--- | :--- | :--- |
-| Serves | The project in `WORKER_PROJECT_ID` | Every project |
+| Serves | Every project by default; one project when `WORKER_PROJECT_ID` is pinned | Every project |
 | Port (inside the container) | `5600` | `5602` |
 | Health probe | `5601` | `5603` |
 | Reached through port `8080` | Yes | Only `/_sandbox` and `/_/dev` |
@@ -400,14 +389,14 @@ Map a different host port and set `SERVER_URL` to match. See
 [Changing the port](#bundled).
 
 **Requests to `/` return 502 Bad Gateway**
-The request worker isn't running. Almost always this means `WORKER_PROJECT_ID`
-is empty — see [Turning on the request worker](#worker). Confirm with
-`docker logs fluxify | grep WORKER_PROJECT_ID`.
+The request worker isn't running yet or has died. Check
+`docker logs fluxify | grep worker`; the kit stops the container when any
+internal service exits. See [Serving your projects](#worker).
 
 **Requests to `/` return 404 Route not found**
 The worker is running but doesn't have that route. Confirm the route is marked
-active and belongs to the project in `WORKER_PROJECT_ID`, then save it again to
-publish it.
+active and, if you pinned `WORKER_PROJECT_ID`, that it belongs to that project;
+then save it again to publish it.
 
 **Routes save fine but never go live**
 The event bus needs JetStream enabled. The bundled copy and the supplied compose

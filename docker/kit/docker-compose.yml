@@ -12,16 +12,15 @@
 # Then open http://localhost:8080/_/admin/ui
 #
 # ------------------------------------------------------------------------------
-# FIRST RUN — two steps, because a worker serves exactly one project
+# FIRST RUN — nothing to configure
 #
-#   1. Bring the stack up and create a project in the UI. The kit logs
-#      "WORKER_PROJECT_ID is not set" and starts everything except the request
-#      worker; that is expected, there is no project to serve yet.
-#   2. Copy the project id, put it in docker/kit/.env as WORKER_PROJECT_ID, then
-#      `docker compose -f docker/kit/docker-compose.yml up -d` again.
+# The request worker defaults to WORKER_PROJECT_ID=*: it serves every project
+# and picks up new ones as you create them. Create a project in the UI, save a
+# route, and it goes live — no restart, no redeploy.
 #
-# After that, saving a route compiles it and the worker picks it up in place —
-# no restart, no redeploy.
+# To pin the worker to a single project, set WORKER_PROJECT_ID to that project's
+# id and restart. Projects without a subdomain share the base domain, so equal
+# paths in two projects shadow each other under `*`.
 #
 # ------------------------------------------------------------------------------
 # For a scale-out topology (separate admin + replicated workers behind Traefik)
