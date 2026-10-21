@@ -1,4 +1,4 @@
-import { CONTENT_TYPES, type ContentType } from "../../lib/routeConfig";
+import { type BodyMode, CONTENT_TYPES, type ContentType } from "../../lib/routeConfig";
 
 /**
  * Reads the body of an incoming HTTP request in the format the route declared.
@@ -75,9 +75,54 @@ function entriesToObject(entries: Iterable<[string, unknown]>) {
 	return out;
 }
 
+/**
+ * Read at most `maxBytes`, never holding more than that in memory. A chunk that
+ * crosses the line is refused before it is retained, which keeps the bound
+ * real for a chunked body that declared no content-length.
+ */
+async function readCapped(raw: Request, maxBytes: number): Promise<Uint8Array<ArrayBuffer>> {
+	const stream = raw.body;
+	if (!stream) return new Uint8Array();
+	const reader = stream.getReader();
+	const chunks: Uint8Array[] = [];
+	let total = 0;
+	try {
+		for (;;) {
+			const { done, value } = await reader.read();
+			if (done) break;
+			if (!value) continue;
+			total += value.byteLength;
+			if (total > maxBytes) {
+				await reader.cancel().catch(() => undefined);
+				throw new RequestBodyError(413, tooLarge(maxBytes));
+			}
+			chunks.push(value);
+		}
+	} finally {
+		reader.releaseLock();
+	}
+	if (chunks.length === 1) return chunks[0] as Uint8Array<ArrayBuffer>;
+	const out = new Uint8Array(total);
+	let offset = 0;
+	for (const chunk of chunks) {
+		out.set(chunk, offset);
+		offset += chunk.byteLength;
+	}
+	return out;
+}
+
+/** a bodyless request still looks like an empty stream to a pipe route */
+function emptyStream(): ReadableStream<Uint8Array> {
+	return new ReadableStream<Uint8Array>({
+		start(controller) {
+			controller.close();
+		},
+	});
+}
+
 async function decode(
 	contentType: ContentType,
-	bytes: ArrayBuffer,
+	bytes: Uint8Array<ArrayBuffer>,
 	rawHeader: string,
 ): Promise<unknown> {
 	switch (contentType) {
@@ -112,10 +157,11 @@ export type BodyReader = {
 	/**
 	 * Buffer the bytes now. Async-reply requests answer 202 before the route
 	 * runs, and the request stream is not guaranteed to outlive that response.
+	 * Pipe-stream routes reject async replies, so this is only used buffered.
 	 */
 	materialize(): Promise<void>;
 	/** Parse into a plain value, or throw `RequestBodyError`. */
-	parse(accepted: readonly string[]): Promise<unknown>;
+	parse(accepted: readonly string[], bodyMode?: BodyMode): Promise<unknown>;
 };
 
 /**
@@ -129,28 +175,35 @@ export function bodyReader(req: RequestLike, maxBytes: number): BodyReader | und
 	if (!contentType) return;
 
 	const declared = Number(req.header("content-length"));
-	let bytes: Promise<ArrayBuffer> | undefined;
-	const read = () => (bytes ??= req.raw.arrayBuffer());
+	let bytes: Promise<Uint8Array<ArrayBuffer>> | undefined;
+	const read = () => (bytes ??= readCapped(req.raw, maxBytes));
 
 	return {
 		async materialize() {
 			if (Number.isFinite(declared) && declared > maxBytes) return;
 			await read().catch(() => undefined);
 		},
-		async parse(accepted: readonly string[]) {
+		async parse(accepted: readonly string[], bodyMode: BodyMode = "buffer") {
 			if (!isSupported(contentType) || !accepted.includes(contentType)) {
 				throw new RequestBodyError(
 					415,
 					`Unsupported content type "${contentType}". This route accepts: ${accepted.join(", ")}`,
 				);
 			}
+			// The route graph gets the live request stream and forwards it
+			// itself; Fluxify neither buffers nor counts it. Bun's server-level
+			// ceiling is raised for this reason.
+			if (bodyMode === "stream") {
+				return req.raw.body ?? emptyStream();
+			}
 			if (Number.isFinite(declared) && declared > maxBytes) {
 				throw new RequestBodyError(413, tooLarge(maxBytes));
 			}
-			let buffer: ArrayBuffer;
+			let buffer: Uint8Array<ArrayBuffer>;
 			try {
 				buffer = await read();
-			} catch {
+			} catch (error) {
+				if (error instanceof RequestBodyError) throw error;
 				// Bun rejects the read once its own body limit is exceeded
 				throw new RequestBodyError(413, tooLarge(maxBytes));
 			}

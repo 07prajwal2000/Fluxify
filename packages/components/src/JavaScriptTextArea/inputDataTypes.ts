@@ -17,6 +17,16 @@ import type { DataType, SchemaProperty, ValidationSchema } from "../SchemaEditor
 const ID = "fluxify-input-data";
 const VIRTUAL_PATH = "file:///fluxify-input-data.d.ts";
 
+export type BodyMode = "buffer" | "stream";
+
+/**
+ * These merge into the empty interfaces the globals declare. The return type of
+ * `getRequestBody()` is a conditional over those keys, so registering one of
+ * them is what changes the completion type for the open route.
+ */
+const STREAM_LIB = "declare interface FluxifyStreamMode { stream: true }\n";
+const BLOB_LIB = "declare interface FluxifyBlobMode { blob: true }\n";
+
 const PRIMITIVES: Partial<Record<DataType, string>> = {
 	str: "string",
 	int: "number",
@@ -75,7 +85,15 @@ function objectType(properties: SchemaProperty[] | undefined, depth: number): st
  * describes nothing — an empty interface would take away the free-form access
  * the globals' index signature allows.
  */
-export function buildInputDataTypeLib(schema: ValidationSchema | null | undefined): string {
+export function buildInputDataTypeLib(
+	schema: ValidationSchema | null | undefined,
+	bodyMode: BodyMode = "buffer",
+): string {
+	// A pipe route gets the live stream, not a value with members to complete.
+	if (bodyMode === "stream") return STREAM_LIB;
+	// A buffered raw body is a Blob: size, type, text() and stream() are the
+	// useful completions, and there are no named fields.
+	if (schema?.dataType === "blob") return BLOB_LIB;
 	if (!schema) return "";
 	// only an object root has named members to merge; a bare string or array
 	// payload is read whole, and there is nothing to complete on it
@@ -93,8 +111,11 @@ export function buildInputDataTypeLib(schema: ValidationSchema | null | undefine
  * imported lazily on purpose: it pulls in Monaco, which the editor itself only
  * loads when one is actually opened.
  */
-export function useInputDataTypes(schema: ValidationSchema | null | undefined) {
-	const lib = useMemo(() => buildInputDataTypeLib(schema), [schema]);
+export function useInputDataTypes(
+	schema: ValidationSchema | null | undefined,
+	bodyMode: BodyMode = "buffer",
+) {
+	const lib = useMemo(() => buildInputDataTypeLib(schema, bodyMode), [schema, bodyMode]);
 
 	useEffect(() => {
 		if (!lib) return;

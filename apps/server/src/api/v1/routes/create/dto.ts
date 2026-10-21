@@ -1,6 +1,6 @@
 import z from "zod";
 import { observabilityFields, warningField } from "../../../../lib/observability";
-import { CONTENT_TYPES } from "../../../../lib/routeConfig";
+import { BODY_MODES, CONTENT_TYPES } from "../../../../lib/routeConfig";
 import { ROUTE_REGEX } from "../constants";
 import { routeSchemaValidationRefinement } from "../schema-validator";
 
@@ -20,6 +20,7 @@ export const requestBodySchema = z
 		devActive: z.boolean().optional(),
 		...observabilityFields,
 		acceptedContentTypes: z.array(z.enum(CONTENT_TYPES)).min(1).optional(),
+		bodyMode: z.enum(BODY_MODES).optional(),
 	})
 	.superRefine(routeSchemaValidationRefinement);
 

@@ -1,6 +1,16 @@
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { type DbTransactionType, db } from "../../../db";
 import { httpRouteConfigEntity } from "../../../db/schema";
+import { parseRouteConfig } from "../../../lib/routeConfig";
+
+/** The stored config, read through the same parser the workers use. */
+export async function readRouteConfig(routeId: string, tx?: DbTransactionType) {
+	const [row] = await (tx ?? db)
+		.select({ routeConfig: httpRouteConfigEntity.routeConfig })
+		.from(httpRouteConfigEntity)
+		.where(eq(httpRouteConfigEntity.routeId, routeId));
+	return parseRouteConfig(row?.routeConfig);
+}
 
 /**
  * `route_config` is an open bag, so a patch merges into whatever is already

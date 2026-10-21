@@ -28,6 +28,7 @@ import type { Context } from "hono";
 import { getCookie, setCookie } from "hono/cookie";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import jwt from "jsonwebtoken";
+import type { BodyMode } from "../../lib/routeConfig";
 import { getAppConfig } from "../../loaders/appconfigLoader";
 import {
 	dbIntegrationsCache,
@@ -118,7 +119,7 @@ export async function dispatch(
 	const trace = startRouteTrace(path, payload, traceFactory);
 	const completeTrace = traceCompleter(trace);
 	try {
-		const body = await readRouteBody(payload, path.acceptedContentTypes);
+		const body = await readRouteBody(payload, path.acceptedContentTypes, path.bodyMode);
 		const response = await runWithRouteObserver(observer, path, DEFAULT_ROUTE_TIMEOUT_SECONDS, () =>
 			executeRouteInternal(
 				{
@@ -130,6 +131,7 @@ export async function dispatch(
 					querySchema: path.querySchema,
 					paramsSchema: path.paramsSchema,
 					timeoutSeconds: path.timeoutSeconds,
+					bodyMode: path.bodyMode,
 					validators: resolveValidators?.(path.id),
 					trace,
 				},
@@ -169,6 +171,8 @@ export async function executeRouteInternal(
 		querySchema?: any;
 		paramsSchema?: any;
 		timeoutSeconds?: number;
+		/** a stream body has no shape to validate; the schema is ignored */
+		bodyMode?: BodyMode;
 		trace?: BlockTrace;
 		validators?: {
 			body?: CompiledRequestSchema;
@@ -202,7 +206,11 @@ export async function executeRouteInternal(
 		trigger,
 	);
 
-	if (routeInfo.bodySchema && Object.keys(routeInfo.bodySchema).length > 0) {
+	if (
+		routeInfo.bodyMode !== "stream" &&
+		routeInfo.bodySchema &&
+		Object.keys(routeInfo.bodySchema).length > 0
+	) {
 		const coerce = isFormBody(requestData.headers);
 		const result = await validateSchema(
 			coerce ? routeInfo.validators?.formBody : routeInfo.validators?.body,
@@ -271,7 +279,14 @@ export async function executeRouteInternal(
 		routeInfo.trace,
 	);
 	// only when spans are compiled in; untraced routes pay nothing (#628)
-	if (routeInfo.trace) context.traceInput = requestTraceInput(requestData, ctx?.req.raw?.url);
+	if (routeInfo.trace) {
+		context.traceInput = requestTraceInput(
+			// a stream is consumed by the graph; recording it would tell a viewer
+			// nothing and must not pull it back into memory
+			routeInfo.bodyMode === "stream" ? { ...requestData, body: "[stream]" } : requestData,
+			ctx?.req.raw?.url,
+		);
+	}
 
 	try {
 		const executionResult = await runBlocks(

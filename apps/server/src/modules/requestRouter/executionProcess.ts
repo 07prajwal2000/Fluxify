@@ -1,5 +1,6 @@
 import { setJobEnqueuer, setScheduleHorizon, setTriggerPayloadLimit } from "@fluxify/blocks";
 import { initializeLogger, logger } from "@fluxify/common";
+import type { HttpRoute } from "@fluxify/lib";
 import "../../lib/bigintJson";
 import type { TraceRunPayload } from "@fluxify/common/otlp";
 import { projectSettingsCache } from "../../loaders/projectSettingsLoader";
@@ -215,6 +216,18 @@ async function serveRoute(request: Request): Promise<Response> {
 	};
 
 	if (env.trigger.reply === "async") {
+		// A detached run cannot hand a live request stream to user code: the
+		// request is gone once the 202 is sent. Refuse before accepting it.
+		const matched = parser.getRouteId(env.payload.path, env.payload.method as HttpRoute["method"]);
+		if (matched?.bodyMode === "stream") {
+			return json(
+				{ message: "Streaming request bodies cannot be used with async replies" },
+				400,
+				ctx.responseHeaders,
+			);
+		}
+		// The route, if any, is buffered before the request outlives its reply.
+		await env.payload.bodyReader?.materialize();
 		const accepted = asyncExecutor?.submit(async () => {
 			// The HTTP response is already a 202. Do not retain the HTTP context or
 			// attempt late cookie/header writes while the detached route runs.

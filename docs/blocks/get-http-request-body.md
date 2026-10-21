@@ -33,7 +33,7 @@ What you get depends on the content type the caller used:
 | `application/json` | The parsed JSON — an object, an array, a number, whatever was sent |
 | `application/x-www-form-urlencoded` | An object of field names and text values |
 | `multipart/form-data` | An object where text fields are strings and uploaded files are file objects |
-| `application/octet-stream` | The raw binary body as a single file-like value |
+| `application/octet-stream` | The raw binary body as a single `Blob` — or a `ReadableStream<Uint8Array>` in pipe-stream mode |
 | `text/plain` | The text, exactly as sent |
 | A `GET` or `DELETE` request | `null` — those methods carry no body |
 
@@ -53,6 +53,22 @@ appears once stays a single value.
 ```json
 { "title": "Holiday photos", "tags": ["beach", "summer"] }
 ```
+
+### Piping a large upload
+
+For `application/octet-stream`, **Pipe request body as a stream** hands your
+workflow the live `ReadableStream<Uint8Array>` instead of a `Blob`. Fluxify does
+not buffer or size-limit the body in this mode, so it can be forwarded straight
+to `Bun.write`, an S3 multipart upload, or an `fs` stream:
+
+```javascript
+const body = getRequestBody();
+await Bun.write("/tmp/upload.bin", body);
+```
+
+A stream route accepts only `application/octet-stream`, has no body schema, and
+cannot be called with `x-fluxify-reply: async`. Read the stream once: it is the
+request itself, not a copy.
 
 ### Working with uploaded files
 
@@ -79,10 +95,11 @@ value you extract from it) and return that instead.
 
 ## Size limit
 
-Every request body is capped, 8 MB by default. A larger request is rejected
-with `413` and your workflow never starts. See
-[request body size](../deployments/production.md#request-body-size) for how to
-change the cap and why large uploads belong somewhere else.
+Every **buffered** request body is capped, 8 MB by default. A larger request is
+rejected with `413` and your workflow never starts. A pipe-stream
+`application/octet-stream` route is not buffered or counted, so it is exempt.
+See [request body size](../deployments/production.md#request-body-size) for how
+to change the cap and why large uploads need care.
 
 ## Example
 

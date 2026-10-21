@@ -2,10 +2,15 @@ import { generateID } from "@fluxify/lib";
 import type z from "zod";
 import { type DbTransactionType, db } from "../../../../db";
 import { CHAN_ON_ROUTE_CHANGE, publishMessage } from "../../../../db/redis";
+import { BadRequestError } from "../../../../errors/badRequestError";
 import { NotFoundError } from "../../../../errors/notFoundError";
 import { prodRecordingWarning } from "../../../../lib/observability";
-import { DEFAULT_CONTENT_TYPES } from "../../../../lib/routeConfig";
-import { audit, bodyFields, changedFields } from "../../../../modules/audit";
+import {
+	DEFAULT_BODY_MODE,
+	DEFAULT_CONTENT_TYPES,
+	streamBodyConfigError,
+} from "../../../../lib/routeConfig";
+import { audit, bodyFields } from "../../../../modules/audit";
 import { patchRouteConfig } from "../routeConfigRepository";
 import { routeConflictError } from "../routeConflict";
 import { findRouteConflict } from "../update/repository";
@@ -37,13 +42,18 @@ export default async function handleRequest(
 		const clash = await findRouteConflict(data, undefined, tx);
 		if (clash) throw routeConflictError(clash, data);
 		const id = presetId ?? generateID();
-		const { acceptedContentTypes, ...route } = data;
+		const { acceptedContentTypes, bodyMode = DEFAULT_BODY_MODE, ...route } = data;
+		const accepted = acceptedContentTypes ?? DEFAULT_CONTENT_TYPES;
+		const configError = streamBodyConfigError(accepted, bodyMode);
+		if (configError) throw new BadRequestError(configError);
+		// A pipe stream has no shape to describe, so a stale schema is not stored.
+		if (bodyMode === "stream") route.bodySchema = undefined;
 		const newRouteId = await createRoute({ ...route, id, createdBy: userId }, tx);
 		if (seedDefaultBlocks) await createDependency(newRouteId, tx);
 		await patchRouteConfig(
 			newRouteId,
 			data.projectId,
-			{ acceptedContentTypes: acceptedContentTypes ?? DEFAULT_CONTENT_TYPES },
+			{ acceptedContentTypes: accepted, bodyMode },
 			tx,
 		);
 		await audit.record({

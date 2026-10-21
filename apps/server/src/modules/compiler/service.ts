@@ -7,7 +7,7 @@ import {
 	routesEntity,
 	workflowsEntity,
 } from "../../db/schema";
-import { acceptedContentTypes } from "../../lib/routeConfig";
+import { acceptedContentTypes, bodyModeOf } from "../../lib/routeConfig";
 import { compileDependencies } from "../packages/service";
 import { artifactBuild, compileWithPlugins, loadPluginSets } from "../plugins/compile";
 import { readSnapshot } from "../versions/repository";
@@ -191,12 +191,13 @@ export async function compileRoute(routeId: string) {
 
 	const artifact: Pick<
 		RouteArtifact,
-		"routeId" | "projectId" | "projectName" | "acceptedContentTypes" | "compiledAt"
+		"routeId" | "projectId" | "projectName" | "acceptedContentTypes" | "bodyMode" | "compiledAt"
 	> = {
 		routeId,
 		projectId: route.projectId!,
 		projectName: route.projectName ?? "",
 		acceptedContentTypes: acceptedContentTypes(route.routeConfig),
+		bodyMode: bodyModeOf(route.routeConfig),
 		compiledAt,
 	};
 	await putPerEnv(routeKey(route.projectId!, routeId), artifact, perEnv, route, failures);

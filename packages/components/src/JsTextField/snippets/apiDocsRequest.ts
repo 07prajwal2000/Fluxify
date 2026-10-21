@@ -76,7 +76,8 @@ export const REQUEST_RESPONSE_DOCS: ApiDocItem[] = [
 		name: "getRequestBody",
 		kind: "function",
 		signature: "getRequestBody(): any",
-		description: "Returns parsed incoming request body payload.",
+		description:
+			"Returns the incoming request body: a parsed JSON/form value, a Blob for buffered bytes, or a ReadableStream<Uint8Array> when the route pipes an octet-stream body.",
 		category: "request",
 		example: "const body = getRequestBody();",
 		returns: "any",

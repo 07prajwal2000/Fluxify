@@ -32,6 +32,7 @@ const ROUTE = {
 	devActive: true,
 	timeoutSeconds: 30,
 	acceptedContentTypes: [],
+	bodyMode: "buffer",
 	paramsSchema: null,
 	querySchema: null,
 	bodySchema: null,

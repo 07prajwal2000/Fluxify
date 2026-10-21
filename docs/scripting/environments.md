@@ -62,7 +62,7 @@ A workflow has no HTTP request, so the request names exist but are empty:
 | `setHeader`, `setCookie` | Add to the response | Do nothing, there is no response |
 | `trigger` | `kind: "route"`, `source: "http"`, no `data` | `kind: "trigger"`, with the events in `trigger.data` |
 
-A route called with the header `x-fluxify-reply: async` runs in the background and answers `202` straight away. `setHeader` and `setCookie` do nothing there either.
+A route called with the header `x-fluxify-reply: async` runs in the background and answers `202` straight away. `setHeader` and `setCookie` do nothing there either. A route that pipes an `application/octet-stream` body cannot reply async: the request stream ends with the `202`, so the call is refused with `400`.
 
 ## `trigger`
 

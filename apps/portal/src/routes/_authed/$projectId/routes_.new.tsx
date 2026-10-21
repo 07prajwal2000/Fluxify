@@ -18,7 +18,9 @@ import { useMemo, useState } from "react";
 import { TbArrowLeft, TbArrowRight, TbCheck } from "react-icons/tb";
 import { RouteTelemetryHelp } from "@/components/routes/RouteTelemetryHelp";
 import {
+	type BodyMode,
 	bodyDataTypes,
+	bodyModeFor,
 	bodySchemaFor,
 	CONTENT_TYPE_OPTIONS,
 	describesSomething,
@@ -32,6 +34,7 @@ import {
 	paramConfigFrom,
 	paramsSchemaFrom,
 	QUERY_DATA_TYPES,
+	StreamBodyField,
 	sanitizePath,
 } from "@/components/routes/routeForm";
 import { showErrorNotification } from "@/lib/errorNotifier";
@@ -71,6 +74,7 @@ function CreateRoutePage() {
 	const [querySchema, setQuerySchema] = useState<ValidationSchema>(EMPTY_SCHEMA);
 	const [bodySchema, setBodySchema] = useState<ValidationSchema>(EMPTY_SCHEMA);
 	const [contentTypes, setContentTypes] = useState<string[]>(DEFAULT_CONTENT_TYPES);
+	const [bodyMode, setBodyMode] = useState<BodyMode>("buffer");
 	const [timeoutSeconds, setTimeoutSeconds] = useState(30);
 	const [active, setActive] = useState(true);
 	const [tracingEnabled, setTracingEnabled] = useState(false);
@@ -118,6 +122,7 @@ function CreateRoutePage() {
 				acceptedContentTypes: hasBody
 					? (contentTypes as [ContentType, ...ContentType[]])
 					: undefined,
+				bodyMode: hasBody ? bodyModeFor(contentTypes, bodyMode) : undefined,
 				paramsSchema: pathParams.length > 0 ? paramsSchema : undefined,
 				querySchema: describesSomething(querySchema) ? querySchema : undefined,
 				bodySchema: hasBody && describesSomething(bodySchema) ? bodySchema : undefined,
@@ -293,16 +298,34 @@ function CreateRoutePage() {
 								value={contentTypes}
 								onChange={(next) => {
 									const resolved = next.length > 0 ? next : DEFAULT_CONTENT_TYPES;
+									const mode = bodyModeFor(resolved, bodyMode);
 									setContentTypes(resolved);
-									setBodySchema((schema) => bodySchemaFor(schema, resolved));
+									setBodyMode(mode);
+									setBodySchema((schema) => bodySchemaFor(schema, resolved, mode));
 								}}
 							/>
-							<SchemaEditor
-								value={bodySchema}
-								onChange={setBodySchema}
-								allowedRootTypes={isBinaryBody(contentTypes) ? ["blob"] : undefined}
-								allowedDataTypes={bodyDataTypes(contentTypes)}
-							/>
+							{isBinaryBody(contentTypes) && (
+								<StreamBodyField
+									bodyMode={bodyMode}
+									onChange={(mode) => {
+										setBodyMode(mode);
+										setBodySchema((schema) => bodySchemaFor(schema, contentTypes, mode));
+									}}
+								/>
+							)}
+							{bodyModeFor(contentTypes, bodyMode) === "stream" ? (
+								<p className="text-xs text-muted">
+									A stream has no fields to validate. The route accepts raw bytes; read them from{" "}
+									<code className="font-mono">getRequestBody()</code>.
+								</p>
+							) : (
+								<SchemaEditor
+									value={bodySchema}
+									onChange={setBodySchema}
+									allowedRootTypes={isBinaryBody(contentTypes) ? ["blob"] : undefined}
+									allowedDataTypes={bodyDataTypes(contentTypes)}
+								/>
+							)}
 						</div>
 					)}
 
@@ -324,9 +347,11 @@ function CreateRoutePage() {
 										<SummaryItem
 											label="Body"
 											value={
-												bodySchema.dataType === "blob"
-													? "Binary payload"
-													: `${(bodySchema.properties ?? []).length} fields`
+												bodyModeFor(contentTypes, bodyMode) === "stream"
+													? "ReadableStream (piped)"
+													: bodySchema.dataType === "blob"
+														? "Binary payload"
+														: `${(bodySchema.properties ?? []).length} fields`
 											}
 										/>
 										<SummaryItem label="Content types" value={contentTypes.join(", ")} />

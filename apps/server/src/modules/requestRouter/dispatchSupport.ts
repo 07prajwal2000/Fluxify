@@ -1,4 +1,4 @@
-import { DEFAULT_CONTENT_TYPES } from "../../lib/routeConfig";
+import { type BodyMode, DEFAULT_BODY_MODE, DEFAULT_CONTENT_TYPES } from "../../lib/routeConfig";
 import type { RequestPayload } from "./types";
 
 export type RouteExecutionObserver = {
@@ -27,7 +27,11 @@ export async function runWithRouteObserver<T>(
 	}
 }
 
-export async function readRouteBody(payload: RequestPayload, acceptedContentTypes?: string[]) {
+export async function readRouteBody(
+	payload: RequestPayload,
+	acceptedContentTypes?: string[],
+	bodyMode: BodyMode = DEFAULT_BODY_MODE,
+) {
 	if (!payload.bodyReader) return payload.body;
-	return payload.bodyReader.parse(acceptedContentTypes ?? DEFAULT_CONTENT_TYPES);
+	return payload.bodyReader.parse(acceptedContentTypes ?? DEFAULT_CONTENT_TYPES, bodyMode);
 }

@@ -36,7 +36,9 @@ import { routesQuery } from "@/query/routesQuery";
 import { RouteMiddlewaresPanel } from "./RouteMiddlewaresPanel";
 import { RouteTelemetryHelp } from "./RouteTelemetryHelp";
 import {
+	type BodyMode,
 	bodyDataTypes,
+	bodyModeFor,
 	bodySchemaFor,
 	CONTENT_TYPE_OPTIONS,
 	describesSomething,
@@ -50,6 +52,7 @@ import {
 	paramConfigFrom,
 	paramsSchemaFrom,
 	QUERY_DATA_TYPES,
+	StreamBodyField,
 	sanitizePath,
 } from "./routeForm";
 
@@ -133,10 +136,13 @@ function RouteSettingsForm({
 	const [querySchema, setQuerySchema] = useState<ValidationSchema>(
 		route.querySchema ?? EMPTY_SCHEMA,
 	);
-	const [bodySchema, setBodySchema] = useState<ValidationSchema>(route.bodySchema ?? EMPTY_SCHEMA);
+	const [bodySchema, setBodySchema] = useState<ValidationSchema>(
+		route.bodyMode === "stream" ? EMPTY_SCHEMA : (route.bodySchema ?? EMPTY_SCHEMA),
+	);
 	const [contentTypes, setContentTypes] = useState<string[]>(
 		route.acceptedContentTypes.length > 0 ? route.acceptedContentTypes : DEFAULT_CONTENT_TYPES,
 	);
+	const [bodyMode, setBodyMode] = useState<BodyMode>(route.bodyMode);
 	const [timeoutSeconds, setTimeoutSeconds] = useState(route.timeoutSeconds);
 	const [active, setActive] = useState(route.active);
 	const [devActive, setDevActive] = useState(route.devActive);
@@ -191,6 +197,7 @@ function RouteSettingsForm({
 			devActive,
 			timeoutSeconds,
 			acceptedContentTypes: hasBody ? (contentTypes as [ContentType, ...ContentType[]]) : undefined,
+			bodyMode: hasBody ? bodyModeFor(contentTypes, bodyMode) : undefined,
 			// null, not undefined: an omitted field is skipped by the update, which
 			// would leave a schema the user just emptied still validating requests.
 			paramsSchema: pathParams.length > 0 ? paramsSchema : null,
@@ -206,6 +213,7 @@ function RouteSettingsForm({
 			timeoutSeconds,
 			hasBody,
 			contentTypes,
+			bodyMode,
 			pathParams.length,
 			paramsSchema,
 			querySchema,
@@ -378,17 +386,36 @@ function RouteSettingsForm({
 								value={contentTypes}
 								onChange={(next) => {
 									const resolved = next.length > 0 ? next : DEFAULT_CONTENT_TYPES;
+									const mode = bodyModeFor(resolved, bodyMode);
 									setContentTypes(resolved);
-									setBodySchema((schema) => bodySchemaFor(schema, resolved));
+									setBodyMode(mode);
+									setBodySchema((schema) => bodySchemaFor(schema, resolved, mode));
 								}}
 							/>
-							<SchemaEditor
-								value={bodySchema}
-								onChange={setBodySchema}
-								isReadOnly={readOnly}
-								allowedRootTypes={isBinaryBody(contentTypes) ? ["blob"] : undefined}
-								allowedDataTypes={bodyDataTypes(contentTypes)}
-							/>
+							{isBinaryBody(contentTypes) && (
+								<StreamBodyField
+									bodyMode={bodyMode}
+									isDisabled={readOnly}
+									onChange={(mode) => {
+										setBodyMode(mode);
+										setBodySchema((schema) => bodySchemaFor(schema, contentTypes, mode));
+									}}
+								/>
+							)}
+							{bodyModeFor(contentTypes, bodyMode) === "stream" ? (
+								<p className="text-xs text-muted">
+									A stream has no fields to validate. The route accepts raw bytes; read them from{" "}
+									<code className="font-mono">getRequestBody()</code>.
+								</p>
+							) : (
+								<SchemaEditor
+									value={bodySchema}
+									onChange={setBodySchema}
+									isReadOnly={readOnly}
+									allowedRootTypes={isBinaryBody(contentTypes) ? ["blob"] : undefined}
+									allowedDataTypes={bodyDataTypes(contentTypes)}
+								/>
+							)}
 						</Section>
 					</Tabs.Panel>
 

@@ -1,4 +1,5 @@
 import z from "zod";
+import { BODY_MODES } from "../../../../lib/routeConfig";
 
 export const requestRouteSchema = z.object({
 	id: z.uuidv7(),
@@ -24,6 +25,7 @@ export const responseSchema = z.object({
 	devTracingEnabled: z.boolean(),
 	devRecordExecution: z.boolean(),
 	acceptedContentTypes: z.array(z.string()),
+	bodyMode: z.enum(BODY_MODES),
 	/** the number of the version the working copy came from; null before the first (#738) */
 	headVersionNumber: z.number().int().nullable(),
 	/** the version production serves; null until one is promoted (#739) */

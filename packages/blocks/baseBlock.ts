@@ -320,7 +320,7 @@ const trigger: {
 function getQueryParam(key: string): string | undefined;
 function getRouteParam(key: string): string;
 function getHeader(key: string): string;
-function getRequestBody(): any;  // POST/PUT body: JSON value, form object (files included), or null
+function getRequestBody(): any;  // POST/PUT body: JSON value, form object (files included), a Blob, a ReadableStream on a pipe-stream octet-stream route, or null
 function getResponseBody(): any;           // after middlewares only: the reply's body (null elsewhere)
 function getResponseStatus(): number | null; // after middlewares only: the reply's status code (null elsewhere)
 

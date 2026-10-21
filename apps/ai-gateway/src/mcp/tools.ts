@@ -263,6 +263,7 @@ export const readTools: McpTool[] = [
 					"devTracingEnabled",
 					"devRecordExecution",
 					"acceptedContentTypes",
+					"bodyMode",
 					"bodySchema",
 					"querySchema",
 					"paramsSchema",
