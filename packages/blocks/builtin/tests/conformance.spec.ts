@@ -3,12 +3,16 @@
 // `@fluxify/sdk/testing` in packages/sdk, so the two cannot drift.
 import { afterEach } from "bun:test";
 import { type BranchStub, conformance } from "@fluxify/sdk/conformance";
+import { integrationRegistry } from "@fluxify/adapters";
+import { parseIntegrationKind } from "@fluxify/sdk/integrations";
 import { grantContext } from "@fluxify/sdk/runtime";
+import { z } from "zod";
 import { memoryKv, recordingLogger, type LogEntry } from "@fluxify/sdk/testing";
 import { toManifestEntry } from "@fluxify/sdk/blocks";
 import { BlockTypes } from "../../blockTypes";
 import type { BlockDTOType } from "../../builderTypes";
 import { compileGraph } from "../../compiler";
+import { closeCtxIntegrations, withCtxIntegrations } from "../ctxIntegrations";
 import { closeCtxPools } from "../ctxPool";
 import {
 	type BlockMeta,
@@ -31,9 +35,17 @@ const edge = (from: string, to: string, handle: string) => ({
 /** which response a handle reaches, by status */
 const STATUS: Record<string, string> = { source: "200", success: "201", failure: "400" };
 
+/** the fake variants the last run registered, so the next run can register its own */
+const fakeVariants: [string, string][] = [];
+const dropFakeVariants = () => {
+	for (const [group, variant] of fakeVariants.splice(0)) integrationRegistry.unregister(group, variant);
+};
+
 afterEach(async () => {
 	for (const name of customBlockNames(PROJECT)) unregisterBlock(PROJECT, name);
+	dropFakeVariants();
 	await closeCtxPools();
+	await closeCtxIntegrations();
 });
 
 conformance("runtime", async (def, opts = {}) => {
@@ -48,8 +60,26 @@ conformance("runtime", async (def, opts = {}) => {
 	};
 	// what the plugin loader wraps a block in: the permissions it declared, approved
 	const granted = { integrations: entry.permissions.integrations ?? [], appconfig: !!entry.permissions.appconfig };
-	const run: ModuleBlockRun = (args) =>
-		def.run({ ...args, ctx: grantContext(args.ctx, granted, `block ${def.name}`) } as any);
+	// fake integrations are variants of their own group in the real registry, found the way the worker finds a cached config
+	dropFakeVariants();
+	const fakes = opts.ctx?.integrations ?? {};
+	const found = new Map<string, { group: string; variant: string; config: object }>();
+	for (const [id, { kind, client }] of Object.entries(fakes)) {
+		const { group, variant = "Fake" } = parseIntegrationKind(kind)!;
+		if (!fakeVariants.some(([g, v]) => g === group && v === variant)) {
+			integrationRegistry.register({ group, variant, label: variant, configSchema: z.object({}), create: () => client } as any);
+			fakeVariants.push([group, variant]);
+		}
+		found.set(id, { group, variant, config: { id } });
+	}
+	const run: ModuleBlockRun = async (args) => {
+		const open = withCtxIntegrations(args.ctx, (id) => found.get(id));
+		try {
+			return await def.run({ ...args, ctx: grantContext(open.ctx, granted, `block ${def.name}`) } as any);
+		} finally {
+			open.release();
+		}
+	};
 	registerModuleBlock(PROJECT, def.name, run, meta);
 
 	// the canvas: entry -> block -> one response per output handle, stubs on the body handles

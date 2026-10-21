@@ -8,6 +8,7 @@ import type {
 	QueueProducer,
 } from "../context.js";
 import { type Handles, toHandleSpec } from "../handles.js";
+import { parseIntegrationKind } from "../integrations/variants.js";
 import type { Params, ParamValue } from "../params.js";
 import type { InvokeMode } from "../reserved.js";
 import {
@@ -15,6 +16,7 @@ import {
 	createExecuteHandle,
 	type ExecuteHandle,
 	grantContext,
+	type IntegrationSource,
 	invokeError,
 	type RunOutcome,
 	routeResult,
@@ -67,6 +69,12 @@ export type TestContext = {
 	http?: HttpClient;
 	/** app config read by `ctx.vars.getConfig`; throws `not stubbed` when absent */
 	config?: Record<string, string | number | boolean>;
+	/**
+	 * What `ctx.integrations.get(id)` returns, by id. `kind` is the integration's
+	 * own (`database`, `database/PostgreSQL`, `acme/store`) and must be granted by
+	 * the block's `permissions.integrations`; an id not listed here is unknown.
+	 */
+	integrations?: Record<string, { kind: string; client: unknown }>;
 	/** the pooled clients; share one `testPool()` across runs to see reuse. Default: fresh per run */
 	pool?: TestPool;
 };
@@ -159,6 +167,19 @@ function bodyHandles(
 	return handles;
 }
 
+function fakeIntegrations(fakes: NonNullable<TestContext["integrations"]>): IntegrationSource {
+	const find = (id: string) => (Object.hasOwn(fakes, id) ? fakes[id] : undefined);
+	return {
+		kind(id) {
+			const fake = find(id);
+			if (!fake) return undefined;
+			const parsed = parseIntegrationKind(fake.kind);
+			return { group: parsed?.group ?? fake.kind, variant: parsed?.variant ?? "" };
+		},
+		get: async (id) => find(id!)!.client as never,
+	};
+}
+
 function fakeContext(def: BlockDefinition<Params, Handles>, c: TestContext, logs: LogEntry[]) {
 	const http = c.http ?? unstubbedHttp();
 	const kv = c.kv ?? memoryKv();
@@ -186,6 +207,7 @@ function fakeContext(def: BlockDefinition<Params, Handles>, c: TestContext, logs
 		dbFactory: { getDbAdapter: () => c.db ?? notStubbed("db") },
 		kvFactory: { getKvAdapter: () => kv },
 		queueFactory: { getProducer: async () => queue },
+		integrations: fakeIntegrations(c.integrations ?? {}),
 	};
 	// a test grants what the block declares, the way a user approves it
 	const granted = {

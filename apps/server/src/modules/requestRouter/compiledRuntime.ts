@@ -2,6 +2,7 @@ import { DbConnectionManager, KvFactory, QueueProducerFactory } from "@fluxify/a
 import {
 	type BlockOutput,
 	type Context,
+	closeCtxIntegrations,
 	closeCtxPools,
 	customBlockCount,
 	instantiateCompiled,
@@ -293,6 +294,7 @@ export async function shutdownCompiledRuntime() {
 	await shutdownQueueTriggers();
 	await QueueProducerFactory.closeAll();
 	await closeCtxPools();
+	await closeCtxIntegrations();
 	await dbConnectionManager?.close();
 	dbConnectionManager = undefined;
 	setDbConnectionManager();
@@ -535,6 +537,7 @@ function applyProjectConfig(artifact: UnsealedProjectConfig) {
 			observability: payload.observabilityIntegrations,
 			ai: payload.aiIntegrations,
 			queue: payload.queueIntegrations,
+			plugin: payload.pluginIntegrations,
 		},
 		payload.missingValues?.integrations,
 	);

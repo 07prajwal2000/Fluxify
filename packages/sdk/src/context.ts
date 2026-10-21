@@ -45,7 +45,38 @@ export type {
 	QueueProducer,
 } from "./integrations/index.js";
 
-import type { DbAdapter, KvAdapter, QueueProducer } from "./integrations/index.js";
+import type {
+	BuiltInIntegrationAdapters,
+	DbAdapter,
+	KvAdapter,
+	QueueProducer,
+} from "./integrations/index.js";
+
+/**
+ * What `ctx.integrations.get<K>` resolves to: a built-in group name gives that
+ * group's adapter (`"database"` is a `DatabaseAdapter`); any other type is the
+ * client a plugin's own integration hands out and passes through unchanged.
+ */
+export type IntegrationClient<K> = K extends keyof BuiltInIntegrationAdapters
+	? BuiltInIntegrationAdapters[K]
+	: K extends string
+		? unknown
+		: K;
+
+/**
+ * The integrations a block was granted (`permissions.integrations`), by id: the
+ * value of a `param.integration` param. The same integration is the same client
+ * all through one request, and inside a database transaction `get<"database">`
+ * is the transaction's client, so a block there takes part in it.
+ */
+export interface IntegrationsContext {
+	/**
+	 * `id` is a `param.integration` value, which is undefined while the canvas left it empty.
+	 * Throws when the block was not granted the integration's kind, or when the
+	 * id is unknown, has no value in this environment, or belongs to another project.
+	 */
+	get<K = unknown>(id: string | undefined): Promise<IntegrationClient<K>>;
+}
 
 export type PoolOptions<T> = {
 	/** builds the client from `key` on first use (and again after it was closed or `key` changed) */
@@ -61,6 +92,8 @@ export interface BlockContext {
 	apiId: string;
 	/** request helpers, the logger and the HTTP client */
 	vars: BlockVars;
+	/** the integrations this block was granted, by id */
+	integrations: IntegrationsContext;
 	/** `getDbAdapter(<integration id>)`: a database integration (an `integration` param's value) */
 	dbFactory?: { getDbAdapter(connection: string): DbAdapter };
 	/** `getKvAdapter(<integration id>)`: a key-value integration */

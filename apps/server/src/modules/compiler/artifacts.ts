@@ -169,6 +169,8 @@ export type ProjectConfigPayload = {
 	aiIntegrations: Record<string, any>;
 	/** absent on configs published before queue integrations existed */
 	queueIntegrations?: Record<string, any>;
+	/** integrations of a plugin's own groups; absent before plugin integrations existed (I4) */
+	pluginIntegrations?: Record<string, any>;
 	projectSettings: Record<string, string>;
 	/**
 	 * What this environment has no value for (#733); only ever set on the

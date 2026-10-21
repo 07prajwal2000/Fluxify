@@ -10,6 +10,12 @@ export * from "./builtin/arrayOperations";
 export * from "./builtin/blockAiDescriptions";
 export * from "./builtin/blockSchemasMap";
 export * from "./builtin/compactSchemas";
+export {
+	closeCtxIntegrations,
+	ctxIntegrationStats,
+	type IntegrationFound,
+	withCtxIntegrations,
+} from "./builtin/ctxIntegrations";
 export { closeCtxPools } from "./builtin/ctxPool";
 export * from "./builtin/customBlock";
 export * from "./builtin/db/count";

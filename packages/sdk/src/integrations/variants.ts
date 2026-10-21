@@ -208,6 +208,13 @@ export type IntegrationVariantDef<G extends AnyIntegrationGroup = AnyIntegration
 				): Promise<SpecOf<G>["inspect"]>;
 				/** validates `inspect`'s request before the hook sees it */
 				inspectRequest?: z.ZodType;
+				/**
+				 * What decides which client `ctx.integrations` pools: configs with the
+				 * same key share one. Left out, the whole config is the key.
+				 */
+				poolKey?(config: SpecOf<G>["config"]): unknown;
+				/** closes a client `create` made when its pool slot idles out or the worker stops */
+				close?(client: SpecOf<G>["adapter"]): unknown;
 			} & (G extends "database"
 					? {
 							/** opens the pooled client the factory leases to `create` */
@@ -216,3 +223,27 @@ export type IntegrationVariantDef<G extends AnyIntegrationGroup = AnyIntegration
 						}
 					: unknown)
 		: never;
+
+/**
+ * A permission or a `param.integration` kind: a group (`database`, `acme/store`)
+ * or one variant of it (`database/PostgreSQL`, `acme/store/Fancy`).
+ */
+export function parseIntegrationKind(
+	kind: string,
+): { group: AnyIntegrationGroup; variant?: string } | undefined {
+	const builtIn = BUILT_IN_INTEGRATION_GROUPS.find((g) => kind === g || kind.startsWith(`${g}/`));
+	if (builtIn)
+		return {
+			group: builtIn,
+			...(kind === builtIn ? {} : { variant: kind.slice(builtIn.length + 1) }),
+		};
+	const [namespace, group, ...rest] = kind.split("/");
+	const name = `${namespace}/${group}`;
+	if (!group || !isIntegrationGroupName(name)) return undefined;
+	return { group: name, ...(rest.length ? { variant: rest.join("/") } : {}) };
+}
+
+/** Whether a granted `kind` reaches an integration of `group` and `variant`. */
+export function integrationKindCovers(kind: string, group: string, variant: string) {
+	return kind === group || kind === `${group}/${variant}`;
+}
