@@ -12,18 +12,27 @@ import type { requestBodySchema } from "./dto";
 
 export async function requestBodyValidator(ctx: Context, next: Next) {
 	const jsonData = await ctx.req.json();
-	const data = integrationConfigValidator(jsonData);
+	const projectId = ctx.req.param("projectId")!;
+	const data = integrationConfigValidator(jsonData, projectId);
 	ctx.set("config", data);
 	// development's config is the same shape, so it passes the same schema
 	if (jsonData.devConfig != null) {
-		ctx.set("devConfig", integrationConfigValidator({ ...jsonData, config: jsonData.devConfig }));
+		ctx.set(
+			"devConfig",
+			integrationConfigValidator({ ...jsonData, config: jsonData.devConfig }, projectId),
+		);
 	}
 	return next();
 }
 
-function integrationConfigValidator(jsonData: z.infer<typeof requestBodySchema>) {
+function integrationConfigValidator(
+	jsonData: z.infer<typeof requestBodySchema>,
+	projectId: string,
+) {
 	const config = jsonData.config;
-	const result = variantConfigSchema(jsonData.group, jsonData.variant).safeParse(config);
+	const result = variantConfigSchema(jsonData.group, jsonData.variant, projectId, {
+		create: true,
+	}).safeParse(config);
 	if (!result.success) {
 		const errors = mapZodErrorToFieldErrors(result.error);
 		throw new ValidationError(errors);

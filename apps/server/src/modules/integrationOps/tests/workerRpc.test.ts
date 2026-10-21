@@ -109,9 +109,9 @@ beforeAll(async () => {
 
 	// the project on both environments' workers; p2 on production's only
 	responders.push(
-		serveIntegrationOps(PROJECT, "development", () => configFor("development") as any, workerRegistry),
-		serveIntegrationOps(PROJECT, "production", () => configFor("production") as any, workerRegistry),
-		serveIntegrationOps(PROD_ONLY, "production", () => configFor("production") as any, workerRegistry),
+		serveIntegrationOps(PROJECT, "development", () => configFor("development") as any, { registry: workerRegistry }),
+		serveIntegrationOps(PROJECT, "production", () => configFor("production") as any, { registry: workerRegistry }),
+		serveIntegrationOps(PROD_ONLY, "production", () => configFor("production") as any, { registry: workerRegistry }),
 	);
 }, 180_000);
 

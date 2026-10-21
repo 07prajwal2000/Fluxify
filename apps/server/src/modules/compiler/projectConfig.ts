@@ -14,6 +14,7 @@ import { ENVIRONMENTS, missingIntegrationMessage } from "../../lib/envValues";
 import { loadAppConfigFor } from "../../loaders/appconfigLoader";
 import { configForEnv, resolveIntegrationConfig } from "../../loaders/integrationsLoader";
 import { projectSettingsCache } from "../../loaders/projectSettingsLoader";
+import { pluginVariantUnusable, syncProjectPluginVariants } from "../plugins/variants";
 import type { ProjectConfigArtifact, ProjectConfigPayload } from "./artifacts";
 import { projectConfigKey } from "./subjects";
 
@@ -54,6 +55,8 @@ export async function buildProjectConfig(
 		pluginIntegrations: {},
 	};
 	const missingIntegrations: Record<string, string> = {};
+	// from the rows, not this replica's watch: an approval on another replica may not have arrived yet
+	await syncProjectPluginVariants(projectId);
 
 	// scoped, not every row: an artifact is per project, so shipping them all
 	// would put every tenant's database password in every other tenant's worker.
@@ -68,7 +71,15 @@ export async function buildProjectConfig(
 			GROUP_FIELD[row.group as keyof typeof GROUP_FIELD] ??
 			(isIntegrationGroupName(row.group ?? "") ? "pluginIntegrations" : undefined);
 		if (!field) continue;
-		if (!integrationRegistry.get(row.group!, row.variant ?? "")) {
+		const unusable = row.projectId
+			? pluginVariantUnusable(row.projectId, row.group!, row.variant ?? "", env)
+			: undefined;
+		if (unusable) {
+			// kept, never dropped: using it fails and says the plugin is off
+			missingIntegrations[row.id] = `${row.name}: ${unusable}`;
+			continue;
+		}
+		if (!integrationRegistry.get(row.group!, row.variant ?? "", row.projectId ?? undefined)) {
 			const reason = `${row.name}: ${new UnknownIntegrationVariantError(row.group!, row.variant ?? "").message}`;
 			// as with a missing value: telemetry falls back to the console, anything else fails at use
 			if (row.group === integrationsGroupSchema.enum.observability)

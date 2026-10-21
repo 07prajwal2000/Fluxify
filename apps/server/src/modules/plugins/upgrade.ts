@@ -1,6 +1,7 @@
 import { ConflictError } from "../../errors/conflictError";
 import { NotFoundError } from "../../errors/notFoundError";
 import { diffManifests } from "./diff";
+import { pluginIntegrationUsers } from "./integrationUsage";
 import { getPluginRow, type PluginRecord } from "./repository";
 import { pluginUsage } from "./usage";
 
@@ -11,11 +12,16 @@ import { pluginUsage } from "./usage";
  */
 export async function upgradeDiff(row: PluginRecord) {
 	const from = row.live ?? (row.approval === "approved" ? row : null);
-	const old = from?.manifest ?? { ...row.manifest, blocks: {} };
+	const old = from?.manifest ?? { ...row.manifest, blocks: {}, integrations: [] };
 	return {
 		from: from && { version: from.version, integrity: from.integrity },
 		to: { version: row.version, integrity: row.integrity },
-		diff: diffManifests(old, row.manifest, await pluginUsage(row.projectId, row.name)),
+		diff: diffManifests(
+			old,
+			row.manifest,
+			await pluginUsage(row.projectId, row.name),
+			await pluginIntegrationUsers(row.projectId, old),
+		),
 	};
 }
 

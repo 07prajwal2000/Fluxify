@@ -31,6 +31,7 @@ import { DEBUG_TRACE_HEADER, encodeDebugTrace } from "./debugTrace";
 import { DEV_TOKEN_HEADER } from "./devToken";
 import { executionRuntimeEnvironment } from "./executionEnvironment";
 import { createHttpContext } from "./httpContext";
+import { loadPluginIntegrations } from "./pluginIntegrations";
 import { setPluginRefs } from "./pluginLoader";
 import {
 	dispatch,
@@ -72,7 +73,11 @@ process.on("message", (message: ExecutionMessage) => {
 	}
 	if (message.type === "job") return void executeJob(message.job);
 	if (message.type === "base-domain") return setBaseDomain(message.baseDomain);
-	if (message.type === "plugin-refs") return setPluginRefs(message.refs);
+	if (message.type === "plugin-refs") {
+		setPluginRefs(message.refs);
+		// a newly installed plugin's variants; failures are logged and fail at use
+		return void loadPluginIntegrations(message.integrations);
+	}
 	setMonitoring(message.enabled);
 });
 
@@ -102,6 +107,8 @@ async function bootstrap(nextBoot: ExecutionBootstrap) {
 	setBaseDomain(boot.baseDomain);
 	setTrustedOrigins(boot.trustedOrigins);
 	setPluginRefs(boot.pluginRefs);
+	// before the artifacts: the factories resolve a plugin variant by its registration (I6)
+	await loadPluginIntegrations(boot.pluginIntegrations);
 	// plugin code is imported before ready, so no request meets a half-loaded route
 	await initCompiledRuntime(boot.artifacts, boot.databaseIdleTimeoutMs);
 	ready = true;

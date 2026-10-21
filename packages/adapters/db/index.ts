@@ -26,7 +26,7 @@ import {
 	whereConditionSchema,
 } from "@fluxify/sdk/integrations";
 import { SQL } from "bun";
-import { databaseVariantFor } from "../integrations";
+import { configOwner, databaseVariantFor } from "../integrations";
 import { type DbConnectionLease, DbConnectionManager } from "./connectionManager";
 import { describeMongo, describeSql, type SchemaDetails, type SqlRun } from "./describe";
 import { buildMongoUrl, MongoAdapter } from "./mongoDbAdapter";
@@ -79,7 +79,7 @@ export class DbFactory {
 		if (connection in this.connectionMap) return this.connectionMap[connection];
 
 		// resolved before borrowing: an unknown dbType must not open or lease a pool
-		const variant = databaseVariantFor(cfg.dbType);
+		const variant = databaseVariantFor(cfg.dbType, configOwner(cfg));
 		const lease = this.connectionManager.borrow(connection, cfg);
 		this.connectionLeases[connection] = lease;
 		try {

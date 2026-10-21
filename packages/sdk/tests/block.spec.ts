@@ -24,11 +24,11 @@ const slack = block({
 	shape: "wide",
 	docs: "## When to use it",
 	invoke: ["sync"],
-	permissions: { integrations: ["slack"], appconfig: true },
+	permissions: { integrations: ["kv"], appconfig: true },
 	params: {
 		mode: param.select({ options: ["simple", "advanced"], default: "simple" }),
 		channel: param.string({ required: true, label: "Channel" }),
-		conn: param.integration({ kind: "slack" }),
+		conn: param.integration({ kind: "kv" }),
 		key: param.appconfig(),
 		shape: param.schema({ visibleWhen: { mode: "advanced" } }),
 		legacy: deprecated(param.string(), "Ignored since Oct 2026, removed in the Jan 2027 release; use `channel`."),
@@ -55,11 +55,11 @@ describe("toManifestEntry", () => {
 			shape: "wide",
 			docs: "## When to use it",
 			invoke: ["sync"],
-			permissions: { integrations: ["slack"], appconfig: true },
+			permissions: { integrations: ["kv"], appconfig: true },
 			params: {
 				mode: { type: "select", options: ["simple", "advanced"], default: "simple", order: 0 },
 				channel: { type: "string", required: true, label: "Channel", order: 1 },
-				conn: { type: "integration", kind: "slack", order: 2 },
+				conn: { type: "integration", kind: "kv", order: 2 },
 				key: { type: "appconfig", order: 3 },
 				shape: { type: "schema", visibleWhen: { mode: "advanced" }, order: 4 },
 				legacy: {
@@ -152,8 +152,8 @@ describe("block() rejects", () => {
 	});
 
 	it("an integration or appconfig param the permissions do not grant", () => {
-		expect(define({ params: { c: param.integration({ kind: "slack" }) } })).toThrow(
-			"permissions.integrations must list 'slack'",
+		expect(define({ params: { c: param.integration({ kind: "kv" }) } })).toThrow(
+			"permissions.integrations must list 'kv'",
 		);
 		expect(define({ params: { k: param.appconfig() } })).toThrow("permissions.appconfig must be true");
 	});

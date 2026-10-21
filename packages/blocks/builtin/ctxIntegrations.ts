@@ -1,4 +1,4 @@
-import { integrationRegistry } from "@fluxify/adapters";
+import { configOwner, integrationRegistry } from "@fluxify/adapters";
 import { DEFAULT_IDLE_TIMEOUT_MS, LeasedResources } from "@fluxify/lib";
 import { type IntegrationSource, leasePool } from "@fluxify/sdk/runtime";
 import type { Context } from "../baseBlock";
@@ -43,7 +43,7 @@ export function withCtxIntegrations(
 			if (group === "database") return ctx.dbFactory!.getDbAdapter(id) as never;
 			if (group === "kv") return ctx.kvFactory!.getKvAdapter(id) as never;
 			if (group === "queue") return (await ctx.queueFactory!.getProducer(id)) as never;
-			const def = integrationRegistry.require(group, variant);
+			const def = integrationRegistry.require(group, variant, configOwner(config));
 			if (!def.create) throw new Error(`${group} integration '${variant}' cannot be created`);
 			return (await pool(`${group}/${variant}`, def.poolKey ? def.poolKey(config) : config, {
 				create: () => def.create!(config, {} as never),

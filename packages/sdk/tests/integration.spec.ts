@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { block, fluxifyManifestSchema, param } from "../blocks.js";
+import { block, fluxifyManifestSchema, param, toManifestEntry } from "../blocks.js";
 import {
 	type DatabaseAdapter,
 	type IntegrationVariantDef,
@@ -9,7 +9,7 @@ import {
 	paramsConfigSchema,
 	toIntegrationEntry,
 } from "../integrations.js";
-import { openVariant, SECRET_VALUES, toVariantDef } from "../runtime.js";
+import { manifestVariantMeta, openVariant, SECRET_VALUES, toVariantDef } from "../runtime.js";
 import { memoryKv, runIntegration } from "../testing.js";
 
 const base = { label: "Hub", icon: "./hub.svg", variant: "Fake" };
@@ -125,6 +125,32 @@ describe("manifest lint rules", () => {
 		// manifests from before integrations stay valid
 		expect(manifest([]).success).toBe(true);
 	});
+
+	it("a block may be granted built-in kinds and this plugin's own groups only (#899)", () => {
+		const crm = { ...entry({ name: "acme/t/hub", group: "acme/crm", variant: "Hub" }), entry: "dist/integrations/hub.js" };
+		const asking = (integrations: string[]) => {
+			const b = block({
+				name: "acme/t/use",
+				label: "Use",
+				permissions: { integrations },
+				async run() {
+					return { output: null };
+				},
+			});
+			return fluxifyManifestSchema.safeParse({
+				name: "acme/t",
+				url: "https://x.dev",
+				sdk: ">=2026.10.2001",
+				blocks: { "acme/t/use": { ...toManifestEntry(b), entry: "dist/blocks/use.js" } },
+				integrations: [crm],
+			}).error?.issues.map((i) => i.message);
+		};
+		expect(asking(["kv", "database/PostgreSQL", "acme/crm", "acme/crm/Hub"])).toBeUndefined();
+		expect(asking(["other/crm"])?.[0]).toContain("is not one of this plugin's own integration groups (acme/crm)");
+		expect(asking(["acme/billing"])?.[0]).toContain("not one of this plugin's own");
+		// not a kind at all: refused by block() itself
+		expect(() => asking(["slack"])).toThrow("'slack' is not an integration kind");
+	});
 });
 
 describe("paramsConfigSchema", () => {
@@ -169,25 +195,71 @@ describe("toVariantDef", () => {
 		expect(seen.closes).toBe(1);
 	});
 
-	it("database: connect opens the pool, create leases a client of it, the pool closes it", async () => {
-		const db = { getSingle: async () => ({ id: 1 }) } as unknown as DatabaseAdapter;
+	it("database: connect opens the pool once, each create is its own adapter on it, the pool closes it", async () => {
 		let closes = 0;
+		let connects = 0;
+		/** one adapter per request, holding its own transaction state */
+		const adapterOn = (pool: { name: string }) => {
+			let inTx = false;
+			return {
+				getSingle: async () => ({ pool: pool.name, inTx }),
+				startTransaction: async () => void (inTx = true),
+			} as unknown as DatabaseAdapter;
+		};
 		const def = integration({
 			...base,
 			name: "acme/t/db",
 			group: "database",
 			extras: { conditionEditor: "sql", dbType: "acme" },
 			config: {},
-			connect: () => db,
+			connect: () => ({ name: `pool${++connects}` }),
+			adapter: adapterOn,
 			close: () => void closes++,
 		});
-		const v = toVariantDef(def);
+		const v = toVariantDef(def) as IntegrationVariantDef<"database">;
 		expect(v.extras).toEqual({ conditionEditor: "sql", dbType: "acme" });
-		const { client, close } = await openVariant(v, v.resolve!({}, {}));
-		expect(await (client as DatabaseAdapter).getSingle("t", [])).toEqual({ id: 1 });
+		const config = v.resolve!({}, {});
+		const pool = v.connect(config);
+		const [a, b] = [v.create(config, { pool }), v.create(config, { pool })];
+		await a.startTransaction();
+		expect(await a.getSingle("t", [])).toEqual({ pool: "pool1", inTx: true });
+		expect(await b.getSingle("t", [])).toEqual({ pool: "pool1", inTx: false });
+		// only the contract's methods: an optional one the adapter lacks reads as missing
+		expect((a as { introspect?: unknown }).introspect).toBeUndefined();
+		expect((a as { then?: unknown }).then).toBeUndefined();
+		await pool.close();
+		await pool.close();
+		expect([connects, closes]).toEqual([1, 1]);
+		const { client, close } = await openVariant(v, config);
+		expect(await (client as DatabaseAdapter).getSingle("t", [])).toEqual({ pool: "pool2", inTx: false });
 		await close();
-		await close();
-		expect(closes).toBe(1);
+	});
+
+	it("database: integration() refuses one without adapter()", () => {
+		expect(() =>
+			integration({
+				...base,
+				name: "acme/t/db",
+				group: "database",
+				extras: { conditionEditor: "sql", dbType: "acme" },
+				config: {},
+				connect: () => ({}),
+			} as never),
+		).toThrow("a database integration needs adapter(pool, config)");
+	});
+
+	it("manifestVariantMeta: validates and resolves from the manifest alone, with no code", () => {
+		const entry = { ...toIntegrationEntry(kvOf(memoryKv())), entry: "dist/integrations/kv.js" };
+		const meta = manifestVariantMeta(entry, "acme/t");
+		expect([meta.group, meta.variant, meta.plugin]).toEqual(["kv", entry.variant, "acme/t"]);
+		expect(meta.create).toBeUndefined();
+		expect(meta.test).toBeUndefined();
+		expect(meta.configSchema.safeParse({ url: "u", token: "cfg:T" }).success).toBe(true);
+		expect(meta.configSchema.safeParse({ url: "u", token: "T" }).success).toBe(false);
+		// the same resolved shape the worker's own def produces
+		expect(meta.resolve!({ url: "u", token: "cfg:T" }, { T: "s", OTHER: "x" })).toEqual(
+			toVariantDef(kvOf(memoryKv())).resolve!({ url: "u", token: "cfg:T" }, { T: "s", OTHER: "x" }),
+		);
 	});
 
 	it("a Test connection that throws fails with the message; no test hook means none offered", async () => {

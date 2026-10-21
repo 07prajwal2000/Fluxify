@@ -46,7 +46,7 @@ export default async function handleRequest(
 				...body,
 				// a normal update never wipes the OAuth connection; only Connect, refresh and Disconnect write it
 				...(integration.group === "mcp" ? sanitizeMcpOAuth(integration, body) : {}),
-				tags: integrationRegistry.tags(integration.group!, integration.variant!),
+				tags: integrationRegistry.tags(integration.group!, integration.variant!, projectId),
 			},
 			tx,
 		);
@@ -103,7 +103,7 @@ async function validateAppConfig(
 	variant: string,
 	tx: DbTransactionType,
 ) {
-	const parsedResult = variantConfigSchema(group, variant).safeParse(appConfig);
+	const parsedResult = variantConfigSchema(group, variant, projectId).safeParse(appConfig);
 	if (!parsedResult.success) {
 		throw new ValidationError(mapZodErrorToFieldErrors(parsedResult.error));
 	}

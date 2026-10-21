@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type { KvConnectionConfig } from "@fluxify/sdk/integrations";
-import { integrationRegistry } from "../integrations";
+import { configOwner, integrationRegistry, poolKeyFingerprint } from "../integrations";
 import type { BaseKVIntegration } from "./base";
 
 export type { KvConnectionConfig };
@@ -11,9 +11,15 @@ type Entry = { fingerprint: string; client: KvClient };
 
 /**
  * Hashes only what decides where a client connects; the raw secret is never
- * retained or logged. Mirrors `connectionFingerprint` for databases.
+ * retained or logged. Mirrors `connectionFingerprint` for databases. A plugin
+ * variant names its own with `poolKey`.
  */
 export function kvConnectionFingerprint(config: KvConnectionConfig) {
+	const own = poolKeyFingerprint(
+		integrationRegistry.get("kv", config.variant ?? "", configOwner(config)),
+		config as never,
+	);
+	if (own) return own;
 	const material = JSON.stringify({
 		variant: config.variant,
 		source: config.source,
@@ -66,7 +72,7 @@ export class KvFactory {
 	}
 
 	private static create(config: KvConnectionConfig): KvClient {
-		const variant = integrationRegistry.require("kv", config.variant ?? "");
+		const variant = integrationRegistry.require("kv", config.variant ?? "", configOwner(config));
 		if (!variant.create) throw new Error(`${config.variant} cannot be created`);
 		return variant.create(config, {}) as KvClient;
 	}

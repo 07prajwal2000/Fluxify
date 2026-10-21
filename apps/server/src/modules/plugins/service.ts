@@ -14,7 +14,7 @@ import { audit } from "../audit";
 import type { PluginArtifact } from "../compiler/artifacts";
 import { requestProjectCompile } from "../compiler/publisher";
 import { pluginKey } from "../compiler/subjects";
-import { blockMetaOf, isUsableIn, liveOf, requestedPermissions } from "./meta";
+import { blockMetaOf, integrationKindsOf, isUsableIn, liveOf, requestedPermissions } from "./meta";
 import {
 	getPluginRow,
 	insertPluginRow,
@@ -24,6 +24,7 @@ import {
 	updatePluginRow,
 } from "./repository";
 import { assertUpgradeSafe } from "./upgrade";
+import { pluginVariantState, syncPluginVariants, syncProjectPluginVariants } from "./variants";
 
 /**
  * The plugin registry (#857). Sources (P2) hand a version over with
@@ -144,6 +145,7 @@ export async function approvePlugin(
 	if (integrity && integrity !== row.integrity)
 		throw new ConflictError(`Plugin ${name} changed since it was reviewed; review it again`);
 	await assertUpgradeSafe(row);
+	await assertIntegrationKindsFree(row);
 	const approved = await updateAudited(row, {
 		approval: "approved",
 		approvedBy: caller.user.id,
@@ -214,8 +216,27 @@ const updateAudited = (row: PluginRecord, values: Partial<PluginInsert>) =>
 		return updated;
 	});
 
+/**
+ * Two plugins of one project cannot provide the same integration kind: a row
+ * names its kind, not its plugin, so it could not say which it means.
+ */
+async function assertIntegrationKindsFree(row: PluginRecord) {
+	await syncProjectPluginVariants(row.projectId);
+	for (const e of row.manifest.integrations ?? []) {
+		const owner = pluginVariantState(row.projectId, e.group, e.variant)?.plugin;
+		if (owner && owner !== row.name)
+			throw new ConflictError(
+				`Plugin ${row.name} provides integration variant ${e.group}/${e.variant}, which plugin ${owner} already provides in this project`,
+			);
+	}
+}
+
 export const listPlugins = listPluginRows;
-export const getPlugin = rowFor;
+/** with its integration variants summarised for the approval page (I6) */
+export const getPlugin = async (projectId: string, name: string) => {
+	const row = await rowFor(projectId, name);
+	return { ...row, integrations: integrationKindsOf(row.manifest) };
+};
 
 /**
  * What workers read: the plugin in each environment it may load in, nowhere
@@ -251,6 +272,7 @@ export function pluginArtifact(row: PluginRecord): PluginArtifact {
 				{ entry: b.entry, meta: blockMetaOf(b) },
 			]),
 		),
+		...(row.manifest.integrations?.length && { integrations: row.manifest.integrations }),
 		publishedAt: new Date().toISOString(),
 	};
 }
@@ -264,5 +286,7 @@ export function pluginArtifact(row: PluginRecord): PluginArtifact {
  */
 async function republish(row: PluginRecord, reason: string) {
 	await publishPlugin(row);
+	// this replica at once; the others through the artifact watch
+	await syncPluginVariants(row.projectId, row.name);
 	await requestProjectCompile(row.projectId, reason);
 }

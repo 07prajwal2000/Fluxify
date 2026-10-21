@@ -1,5 +1,7 @@
 import {
+	appConfigKeys,
 	INTEGRATION_OPS,
+	type IntegrationOp,
 	IntegrationOpError,
 	type IntegrationRegistry,
 	integrationRegistry,
@@ -12,6 +14,8 @@ import { EncryptionService } from "../../lib/encryption";
 import type { FluxifyEnv } from "../../lib/env";
 import { missingAppConfigMessage } from "../../lib/envValues";
 import type { ProjectConfigPayload } from "../compiler/artifacts";
+import type { PluginIntegrationRef } from "../requestRouter/pluginIntegrations";
+import { runOpInChild } from "./isolated";
 import {
 	INTEGRATION_OPS_QUEUE,
 	type IntegrationOpPayload,
@@ -25,15 +29,25 @@ import {
  * environment's app config. `projectConfig` is the project's published config
  * as this worker holds it.
  *
- * ponytail: hooks run in the supervisor; built-ins only until I6 decides where
- * plugin variants' hooks run (the execution child keeps plugin code away from
- * MASTER_ENCRYPTION_KEY, which the supervisor holds).
+ * A built-in's hook runs here. A plugin variant's never does: this process
+ * holds MASTER_ENCRYPTION_KEY, so its hook runs in a fresh child (I6,
+ * `runOpInChild`) that gets the stored config and only the app config values
+ * it references.
  */
 export function serveIntegrationOps(
 	projectId: string,
 	env: FluxifyEnv,
 	projectConfig: (projectId: string) => ProjectConfigPayload | undefined,
-	registry: IntegrationRegistry = integrationRegistry,
+	{
+		registry = integrationRegistry,
+		pluginRefs = () => [],
+		runIsolated = runOpInChild,
+	}: {
+		registry?: IntegrationRegistry;
+		/** where this node's plugin integration variants are */
+		pluginRefs?: () => PluginIntegrationRef[];
+		runIsolated?: typeof runOpInChild;
+	} = {},
 ): RpcResponder {
 	const responders = INTEGRATION_OPS.map((op) =>
 		rpcRespond<IntegrationOpRequest, unknown>(
@@ -45,7 +59,13 @@ export function serveIntegrationOps(
 				if (call.projectId !== projectId) {
 					throw new RpcError("FORBIDDEN", "Request belongs to another project");
 				}
-				if (!registry.get(call.group, call.variant)) {
+				const ref = registry.isBuiltIn(call.group, call.variant)
+					? undefined
+					: pluginRefs().find(
+							(r) =>
+								r.projectId === projectId && r.group === call.group && r.variant === call.variant,
+						);
+				if (!ref && !registry.get(call.group, call.variant, projectId)) {
 					throw new RpcError(
 						"NOT_FOUND",
 						`Integration variant "${call.group}/${call.variant}" is not installed on this ${env} worker`,
@@ -56,10 +76,11 @@ export function serveIntegrationOps(
 					throw new RpcError("NOT_FOUND", `This ${env} worker has no config for the project yet`);
 				}
 				try {
+					if (ref) return await runPluginOp(op, call, ref, config, runIsolated);
 					return await runIntegrationHook(
 						registry,
 						op,
-						call,
+						{ ...call, projectId },
 						(keys) => appConfigFromArtifact(config, keys),
 						call.timeoutMs,
 					);
@@ -75,6 +96,19 @@ export function serveIntegrationOps(
 		),
 	);
 	return { stop: async () => void (await Promise.all(responders.map((r) => r.stop()))) };
+}
+
+/** a plugin variant's op in its own child, with only the values its config references */
+function runPluginOp(
+	op: IntegrationOp,
+	call: IntegrationOpPayload,
+	ref: PluginIntegrationRef,
+	config: ProjectConfigPayload,
+	runIsolated: typeof runOpInChild,
+) {
+	const appConfig = appConfigFromArtifact(config, appConfigKeys(call.config));
+	const { timeoutMs, integrationId: _, projectId: __, ...rest } = call;
+	return runIsolated({ ref, op, call: rest, appConfig: [...appConfig], timeoutMs });
 }
 
 /**

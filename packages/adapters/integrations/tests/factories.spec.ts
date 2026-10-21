@@ -15,14 +15,15 @@ import { QueueProducerFactory } from "../../queue/producers";
  * plugin takes in I6 — is created by the same unchanged factories.
  */
 
-const registered: [string, string][] = [];
-function register(def: IntegrationVariantDef) {
-	integrationRegistry.register(def);
-	registered.push([def.group, def.variant]);
+const registered: [string, string, string | undefined][] = [];
+function register(def: IntegrationVariantDef, projectId?: string) {
+	integrationRegistry.register(def, projectId);
+	registered.push([def.group, def.variant, projectId]);
 }
 
 afterEach(async () => {
-	for (const [group, variant] of registered.splice(0)) integrationRegistry.unregister(group, variant);
+	for (const [group, variant, projectId] of registered.splice(0))
+		integrationRegistry.unregister(group, variant, projectId);
 	await KvFactory.ResetConnections();
 });
 
@@ -122,5 +123,81 @@ describe("a registered variant goes through the real factories", () => {
 		expect(factory.getKvAdapter("c")).toBe(client as never);
 		await KvFactory.ResetConnections();
 		expect(disconnect).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe("a plugin variant's own poolKey decides when a client is replaced (I6)", () => {
+	const configSchema = z.object({});
+	const P = "proj-poolkey";
+
+	it("KvFactory: a change in the poolKey replaces the client, a change outside it keeps it", async () => {
+		const disconnects: string[] = [];
+		const made: string[] = [];
+		register(
+			{
+				group: "kv",
+				variant: "Upstash",
+				label: "Upstash",
+				configSchema,
+				poolKey: (config: any) => config.url,
+				create: (config: any) => {
+					made.push(config.url);
+					return {
+						get: async () => config.url,
+						set: async () => {},
+						setex: async () => {},
+						delete: async () => {},
+						disconnect: async () => void disconnects.push(config.url),
+					};
+				},
+			} as never,
+			P,
+		);
+		const config = (url: string, label = "a") =>
+			({ variant: "Upstash", url, label, __projectId: P }) as never;
+		const first = new KvFactory({ c: config("redis://one") }).getKvAdapter("c");
+		// not in the poolKey: the same client
+		expect(new KvFactory({ c: config("redis://one", "b") }).getKvAdapter("c")).toBe(first);
+		// the built-in fingerprint never reads `url` for a plugin field like this; the poolKey does
+		KvFactory.synchronize({ c: config("redis://two") });
+		await Bun.sleep(0);
+		expect(disconnects).toEqual(["redis://one"]);
+		expect(await new KvFactory({ c: config("redis://two") }).getKvAdapter("c").get("k")).toBe("redis://two");
+		expect(made).toEqual(["redis://one", "redis://two"]);
+	});
+
+	it("DbConnectionManager: a change in the poolKey swaps the pool", async () => {
+		const closed: string[] = [];
+		register(
+			{
+				group: "database",
+				variant: "AcmeDB",
+				label: "AcmeDB",
+				configSchema,
+				extras: { conditionEditor: "sql", dbType: "acmedb" },
+				poolKey: (config: any) => config.dsn,
+				connect: (config: any) => ({ db: config.dsn, close: async () => void closed.push(config.dsn) }),
+				create: (_c: unknown, { pool }: any) => ({ pool: pool.db }) as never,
+			} as never,
+			P,
+		);
+		const config = (dsn: string) => ({ dbType: "acmedb", dsn, __projectId: P }) as never;
+		const manager = new DbConnectionManager();
+		const before = new DbFactory({ a: config("one") }, manager);
+		expect((before.getDbAdapter("a") as never as { pool: string }).pool).toBe("one");
+		before.dispose();
+		manager.synchronize({ a: config("two") });
+		const after = new DbFactory({ a: config("two") }, manager);
+		expect((after.getDbAdapter("a") as never as { pool: string }).pool).toBe("two");
+		after.dispose();
+		await manager.close();
+		expect(closed.sort()).toEqual(["one", "two"]);
+	});
+
+	it("a project's plugin variant is invisible to every other project", () => {
+		register({ group: "kv", variant: "Scoped", label: "Scoped", configSchema, create: () => ({}) } as never, P);
+		expect(() => new KvFactory({ c: { variant: "Scoped", __projectId: "other" } as never }).getKvAdapter("c")).toThrow(
+			"Scoped",
+		);
 	});
 });

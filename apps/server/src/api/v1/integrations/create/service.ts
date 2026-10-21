@@ -43,7 +43,7 @@ export default async function handleRequest(
 				devConfig: data.devConfig ?? null,
 				syncDev: data.syncDev ?? false,
 				projectId,
-				tags: integrationRegistry.tags(data.group, data.variant).join(","),
+				tags: integrationRegistry.tags(data.group, data.variant, projectId).join(","),
 			},
 			tx,
 		);

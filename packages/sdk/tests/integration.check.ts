@@ -35,7 +35,10 @@ function contractChecks() {
 	integration({ ...common, name: "acme/t/kv", group: "kv", config: {}, connect: async () => ({ get: async () => null }) });
 
 	// @ts-expect-error a database variant must say its condition editor and dbType
-	integration({ ...common, name: "acme/t/db", group: "database", config: {}, connect: () => db });
+	integration({ ...common, name: "acme/t/db", group: "database", config: {}, connect: () => db, adapter: () => db });
+
+	// @ts-expect-error a database variant must build each request's adapter
+	integration({ ...common, name: "acme/t/db", group: "database", extras: { conditionEditor: "sql", dbType: "acme" }, config: {}, connect: () => db });
 
 	const _db = integration({
 		...common,
@@ -43,8 +46,17 @@ function contractChecks() {
 		group: "database",
 		extras: { conditionEditor: "sql", dbType: "acme" },
 		config: {},
-		connect: () => db,
+		// the pool is anything; each request gets its own adapter on it
+		connect: () => ({ pool: true as const }),
+		adapter: (pool) => {
+			assert<Equal<typeof pool, { pool: true }>>();
+			return db;
+		},
+		test: (client) => {
+			assert<Equal<typeof client, DatabaseAdapter>>();
+		},
 	});
+	assert<Equal<IntegrationClient<typeof _db>, DatabaseAdapter>>();
 
 	// a plugin's own group hands out anything
 	const _crm = integration({

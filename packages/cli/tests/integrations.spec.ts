@@ -94,7 +94,7 @@ describe("blocks build: integrations", () => {
 			"src/integrations/a.ts": integrationSrc("a", {
 				group: "database",
 				variant: "Acme",
-				extra: `extras: { conditionEditor: "sql", dbType: "mysql" },`,
+				extra: `extras: { conditionEditor: "sql", dbType: "mysql" }, adapter: () => ({}) as any,`,
 				client: "({}) as any",
 			}),
 		});

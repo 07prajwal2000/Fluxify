@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { type CheckVisible, placeParams, prepareParams } from "./block.js";
 import type { Logger } from "./context.js";
-import type { BuiltInIntegrationAdapters } from "./integrations/index.js";
+import type { BuiltInIntegrationAdapters, DatabaseAdapter } from "./integrations/index.js";
 import {
 	type DatabaseVariantExtras,
 	type IntegrationGroup,
@@ -30,10 +30,19 @@ export type ConnectContext = {
 	signal: AbortSignal;
 };
 
-/** what a variant of a built-in group must hand out; a plugin's own group hands out anything */
-export type GroupContract<G extends string> = G extends IntegrationGroup
-	? BuiltInIntegrationAdapters[G]
-	: unknown;
+/**
+ * What `connect` must hand out: a built-in group's adapter, or anything for a
+ * plugin's own group. A database's `connect` opens its pooled client (anything);
+ * `adapter` builds the `DatabaseAdapter` each request gets from it.
+ */
+export type GroupContract<G extends string> = G extends "database"
+	? unknown
+	: G extends IntegrationGroup
+		? BuiltInIntegrationAdapters[G]
+		: unknown;
+
+/** what Test connection, describe and inspect get: a database's per-request adapter, else the client */
+export type HookClient<G extends string, C> = G extends "database" ? DatabaseAdapter : C;
 
 type Awaitable<T> = T | Promise<T>;
 
@@ -68,16 +77,29 @@ export type IntegrationDefinition<
 	/** opens the client. A secret field holds its app config key: read the value with `ctx.getConfig` */
 	connect(config: ParamValues<P>, ctx: ConnectContext): Awaitable<C>;
 	/** Test connection on a fresh client; a throw fails it with the message. Left out, the page has no Test button */
-	test?(client: C, config: ParamValues<P>): Awaitable<IntegrationTestResult | void>;
+	test?(client: HookClient<G, C>, config: ParamValues<P>): Awaitable<IntegrationTestResult | void>;
 	/** metadata for pickers and the AI agent (a database: `{ tables }`) */
-	describe?(client: C, config: ParamValues<P>): Awaitable<unknown>;
+	describe?(client: HookClient<G, C>, config: ParamValues<P>): Awaitable<unknown>;
 	/** answers one request (a database: a table's schema); `inspectRequest` checks the request first */
-	inspect?(client: C, request: z.infer<R>, config: ParamValues<P>): Awaitable<unknown>;
+	inspect?(
+		client: HookClient<G, C>,
+		request: z.infer<R>,
+		config: ParamValues<P>,
+	): Awaitable<unknown>;
 	inspectRequest?: R;
 	/** closes a client when its pool slot idles out, the worker stops, or a Test connection is done */
 	close?(client: C): unknown;
 } & (G extends "database"
-	? { extras: DatabaseVariantExtras }
+	? {
+			extras: DatabaseVariantExtras;
+			/**
+			 * One request's adapter on the pooled client `connect` opened. Called once
+			 * per request, so the transaction a block starts on it (`startTransaction`)
+			 * belongs to that request alone: keep transaction state on the adapter,
+			 * never on the pool.
+			 */
+			adapter(pool: C, config: ParamValues<P>): DatabaseAdapter;
+		}
 	: { extras?: Record<string, JsonValue> });
 
 /** any `integration(...)` result */
@@ -162,6 +184,10 @@ export function integration<
 	if (def.group.includes("/"))
 		throw new Error(
 			`integration ${def.name}: group '${def.group}' must be a built-in group or a plain name; the scope is added for you`,
+		);
+	if (def.group === "database" && typeof (def as { adapter?: unknown }).adapter !== "function")
+		throw new Error(
+			`integration ${def.name}: a database integration needs adapter(pool, config), the adapter each request gets`,
 		);
 	const parsed = integrationEntrySchema.safeParse(toIntegrationEntry(def as AnyIntegration));
 	if (!parsed.success) throw prettify(def.name, parsed.error);

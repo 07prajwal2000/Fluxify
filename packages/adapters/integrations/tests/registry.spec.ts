@@ -127,6 +127,52 @@ describe("IntegrationRegistry", () => {
 	});
 });
 
+describe("IntegrationRegistry: per project (I6)", () => {
+	it("a project's variant is visible to that project only, beside every shared one", () => {
+		const registry = fresh();
+		registry.register(kvVariant("Upstash"), "p1");
+		expect(registry.get("kv", "Upstash", "p1")?.label).toBe("Upstash");
+		expect(registry.get("kv", "Upstash", "p2")).toBeUndefined();
+		expect(registry.get("kv", "Upstash")).toBeUndefined();
+		expect(registry.variants("kv", "p1").map((d) => d.variant)).toEqual(["Redis", "Memcached", "Upstash"]);
+		expect(registry.variants("kv", "p2").map((d) => d.variant)).toEqual(["Redis", "Memcached"]);
+		expect(registry.isBuiltIn("kv", "Upstash")).toBe(false);
+		expect(() => registry.require("kv", "Upstash", "p2")).toThrow(UnknownIntegrationVariantError);
+	});
+
+	it("two projects may hold different versions of the same plugin variant", () => {
+		const registry = fresh();
+		registry.register(kvVariant("Upstash", { label: "v1" }), "p1");
+		registry.register(kvVariant("Upstash", { label: "v2" }), "p2");
+		expect([registry.get("kv", "Upstash", "p1")?.label, registry.get("kv", "Upstash", "p2")?.label]).toEqual([
+			"v1",
+			"v2",
+		]);
+		expect(() => registry.register(kvVariant("Upstash"), "p1")).toThrow("already registered");
+		expect(registry.unregister("kv", "Upstash", "p1")).toBe(true);
+		expect(registry.get("kv", "Upstash", "p2")?.label).toBe("v2");
+	});
+
+	it("a project's variant takes no built-in name, and its group is listed for it alone", () => {
+		const registry = fresh();
+		expect(() => registry.register(kvVariant("Redis"), "p1")).toThrow("already registered");
+		registry.register({ ...kvVariant("Hub"), group: "acme/crm" } as IntegrationVariantDef, "p1");
+		expect(registry.groups("p1").at(-1)).toBe("acme/crm");
+		expect(registry.groups("p2")).toEqual([...BUILT_IN_INTEGRATION_GROUPS]);
+		expect(registry.hasGroup("acme/crm", "p2")).toBe(false);
+	});
+
+	it("checks a database's dbType against the shared ones and the project's own only", () => {
+		const registry = fresh();
+		const db = (variant: string, dbType: string) =>
+			({ group: "database", variant, label: variant, configSchema, extras: { conditionEditor: "sql", dbType } }) as IntegrationVariantDef;
+		registry.register(db("Acme", "acme"), "p1");
+		registry.register(db("Acme", "acme"), "p2");
+		expect(() => registry.register(db("Other", "ACME"), "p1")).toThrow('reuses dbType "ACME"');
+		expect(() => registry.register(db("Pg2", "pg"), "p1")).toThrow('reuses dbType "pg"');
+	});
+});
+
 describe("the SDK's built-in names (plugin lint rules)", () => {
 	it("list every built-in variant name and alias, and every database dbType", () => {
 		const registry = fresh();
