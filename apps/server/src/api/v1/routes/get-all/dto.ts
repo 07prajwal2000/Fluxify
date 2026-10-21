@@ -20,10 +20,12 @@ export const requestQuerySchema = z
 		"filter.operator": z.enum(["eq", "neq", "gt", "gte", "lt", "lte", "like"]).optional(),
 		"filter.value": z.string().optional(),
 		projectId: z.uuidv7().optional(),
+		search: z.string().trim().optional().describe("matches name, path or method"),
 	})
 	.transform((q) => ({
 		page: q.page,
 		perPage: q.perPage,
+		search: q.search,
 		filter: {
 			field: q["filter.field"],
 			operator: q["filter.operator"],
