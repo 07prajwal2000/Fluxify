@@ -5,6 +5,9 @@ import {
 	UnknownIntegrationVariantError,
 } from "@fluxify/sdk/integrations";
 import z from "zod";
+// enter through the package index: builtins -> db adapters -> db/index -> integrations/index loops back
+// to builtins, so loading builtins first reads BUILT_IN_VARIANTS before it exists
+import "../index";
 import { BUILT_IN_VARIANTS } from "../builtins";
 import { IntegrationRegistry } from "../registry";
 
