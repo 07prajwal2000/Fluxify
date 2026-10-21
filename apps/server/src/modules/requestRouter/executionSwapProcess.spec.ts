@@ -1,7 +1,9 @@
 import { afterEach, expect, test } from "bun:test";
 import { createExecutionSupervisor, type ExecutionSupervisorOptions } from "./executionSupervisor";
 
-const port = 20_000 + Math.floor(Math.random() * 20_000);
+// below 32768: Linux hands 32768–60999 to outgoing connections, which made
+// a random port there "already in use" now and then on CI
+const port = 20_000 + Math.floor(Math.random() * 12_000);
 const options: ExecutionSupervisorOptions = {
 	projectId: "p1",
 	port,

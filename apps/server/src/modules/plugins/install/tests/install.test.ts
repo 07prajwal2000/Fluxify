@@ -338,7 +338,9 @@ describe("environments", () => {
 describe("a new version", () => {
 	it("replaces the process exactly once, answers with the new code, and removes the old directory", async () => {
 		const s = await projectWith([{ version: "2026.10.2001", tag: "v1" }]);
-		const port = 20_000 + Math.floor(Math.random() * 20_000);
+		// below 32768: Linux hands 32768–60999 to outgoing connections, which made
+		// a random port there "already in use" now and then on CI
+		const port = 20_000 + Math.floor(Math.random() * 12_000);
 		let worker: Awaited<ReturnType<typeof startWorker>> | undefined;
 		const supervisor = createExecutionSupervisor({
 			projectId: s.project,

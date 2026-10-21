@@ -16,7 +16,9 @@ import { createExecutionSupervisor } from "./executionSupervisor";
  */
 const P = "0192b1c4-3333-7000-8000-000000000001";
 const key = routeDebugKey(Buffer.alloc(32, 7).toString("base64"));
-const port = 20_000 + Math.floor(Math.random() * 20_000);
+// below 32768: Linux hands 32768–60999 to outgoing connections, which made
+// a random port there "already in use" now and then on CI
+const port = 20_000 + Math.floor(Math.random() * 12_000);
 
 const block = (id: string, type: BlockTypes, data: any = {}) => ({
 	id,
