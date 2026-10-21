@@ -1,7 +1,7 @@
 import type { z } from "zod";
 import type { AiAdapter } from "./ai.js";
 import type { BaasAdapter } from "./baas.js";
-import type { Connection, DatabaseAdapter, SchemaDetails } from "./database.js";
+import type { Connection, DatabaseAdapter, IntrospectedTable, SchemaDetails } from "./database.js";
 import type { KvAdapter, KvConnectionConfig } from "./kv.js";
 import type { McpAdapter } from "./mcp.js";
 import type { ObservabilityAdapter } from "./observability.js";
@@ -58,6 +58,24 @@ export class UnknownIntegrationVariantError extends Error {
 	}
 }
 
+/** What an op hook is handed besides the config. */
+export type IntegrationOpContext = {
+	/** `KEY` -> value, for each app config key the config references, in its environment */
+	appConfig: Map<string, string>;
+	/** what the caller asked for: observability's `signal`, a saved mcp integration's `oauth` */
+	options: Record<string, unknown>;
+};
+
+/** A Test connection's answer. A failure says why in `error`. */
+export type IntegrationTestResult = {
+	success: boolean;
+	error?: string;
+	/** connected, but something will not work (a MongoDB server with no replica set) */
+	warning?: string;
+	/** mcp only: what the server exposes */
+	tools?: Array<{ name: string; description: string }>;
+};
+
 /** A database variant's pooled client, opened once per integration and leased per request. */
 export type DatabasePool = { db: unknown; close(): Promise<void> };
 
@@ -74,6 +92,8 @@ interface BuiltInGroupSpecs {
 		config: Connection;
 		ctx: { pool: DatabasePool };
 		adapter: DatabaseAdapter;
+		/** the tables and columns pickers offer */
+		describe: { tables: IntrospectedTable[] };
 		inspect: SchemaDetails;
 	};
 	kv: {
@@ -81,6 +101,7 @@ interface BuiltInGroupSpecs {
 		ctx: Record<string, never>;
 		/** the factory caches one client per integration and closes it on change */
 		adapter: KvAdapter & { disconnect(): Promise<void> };
+		describe: unknown;
 		inspect: unknown;
 	};
 	queue: {
@@ -88,23 +109,44 @@ interface BuiltInGroupSpecs {
 		/** the producer factory's connector loader, so tests can stub the broker */
 		ctx: { loadConnector(type: string): Promise<QueueConnector> };
 		adapter: Promise<QueueProducer>;
+		describe: unknown;
 		inspect: unknown;
 	};
-	ai: { config: any; ctx: Record<string, never>; adapter: AiAdapter; inspect: unknown };
+	ai: {
+		config: any;
+		ctx: Record<string, never>;
+		adapter: AiAdapter;
+		describe: unknown;
+		inspect: unknown;
+	};
 	observability: {
 		config: any;
 		ctx: Record<string, never>;
 		adapter: ObservabilityAdapter;
+		describe: unknown;
 		inspect: unknown;
 	};
-	baas: { config: any; ctx: Record<string, never>; adapter: BaasAdapter; inspect: unknown };
-	mcp: { config: any; ctx: Record<string, never>; adapter: McpAdapter; inspect: unknown };
+	baas: {
+		config: any;
+		ctx: Record<string, never>;
+		adapter: BaasAdapter;
+		describe: unknown;
+		inspect: unknown;
+	};
+	mcp: {
+		config: any;
+		ctx: Record<string, never>;
+		adapter: McpAdapter;
+		describe: unknown;
+		inspect: unknown;
+	};
 }
 
 type PluginGroupSpec = {
 	config: any;
 	ctx: Record<string, unknown>;
 	adapter: unknown;
+	describe: unknown;
 	inspect: unknown;
 };
 
@@ -150,8 +192,22 @@ export type IntegrationVariantDef<G extends AnyIntegrationGroup = AnyIntegration
 				resolve?(stored: any, appConfig: Record<string, any> | undefined): any;
 				/** runtime config -> adapter, through the group's factory */
 				create?(config: SpecOf<G>["config"], ctx: SpecOf<G>["ctx"]): SpecOf<G>["adapter"];
-				test?(config: any, appConfig: Record<string, any> | undefined): Promise<boolean>;
-				inspect?(config: SpecOf<G>["config"]): Promise<SpecOf<G>["inspect"]>;
+				/**
+				 * The op hooks (I3): Test connection, metadata and inspect. Each gets the
+				 * stored config (validated, `cfg:` references unresolved) and the
+				 * environment's values of the keys it references in `ctx.appConfig`. They
+				 * run on a worker of the integration's environment, or in the admin for
+				 * a built-in.
+				 */
+				test?(config: any, ctx: IntegrationOpContext): Promise<IntegrationTestResult>;
+				describe?(config: any, ctx: IntegrationOpContext): Promise<SpecOf<G>["describe"]>;
+				inspect?(
+					config: any,
+					request: any,
+					ctx: IntegrationOpContext,
+				): Promise<SpecOf<G>["inspect"]>;
+				/** validates `inspect`'s request before the hook sees it */
+				inspectRequest?: z.ZodType;
 			} & (G extends "database"
 					? {
 							/** opens the pooled client the factory leases to `create` */

@@ -139,6 +139,7 @@ export const SKIPPED: Record<string, string> = {
 	"run-ephemeral-blocks": `${RUNS} (a scratch sandbox that is rolled back)`,
 	"validate-test-suite": "checks a suite against its last run and changes nothing",
 	"preview-llms-txt": "fetches a page to list its links and changes nothing",
+	"inspect-integration": "reads an integration (tables, a key) and changes nothing",
 	"connect-mcp-oauth":
 		"only starts the sign-in; the connection it leads to is recorded when the callback completes it",
 	"delete-recorded-runs": SCOPE,

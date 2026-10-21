@@ -38,7 +38,13 @@ import type {
 	UnsealedProjectConfig,
 	WorkflowArtifact,
 } from "../src/modules/compiler/artifacts";
-import { artifactId, artifactKind, pluginKey } from "../src/modules/compiler/subjects";
+import {
+	artifactId,
+	artifactKind,
+	pluginKey,
+	projectConfigKey,
+} from "../src/modules/compiler/subjects";
+import { serveIntegrationOps } from "../src/modules/integrationOps/workerHost";
 import { createJobWorker, type JobWorker } from "../src/modules/jobs/consumer";
 import {
 	artifactKindsForMode,
@@ -120,6 +126,8 @@ const testProcessEntry = fileURLToPath(
 );
 /** test-suite responders (#478), one per served project */
 const testRuns = new Map<string, RpcResponder>();
+/** test connection, metadata and inspect responders (I3), one per served project */
+const integrationOps = new Map<string, RpcResponder>();
 const artifacts = new Map<string, ArtifactEntry>();
 const timeoutProjects = new Map<string, boolean>();
 let shuttingDown = false;
@@ -284,10 +292,19 @@ function trackProject(entry: ArtifactEntry) {
 	});
 }
 
+/** the project's config as this worker holds it, unsealed */
+function projectConfig(projectId: string) {
+	return (artifacts.get(projectConfigKey(projectId))?.value as UnsealedProjectConfig | undefined)
+		?.payload;
+}
+
 /** Both of this project's broker consumers: queued work, and arriving work. */
 async function serveProject(projectId: string) {
 	await jobWorker.serve(projectId);
 	await triggerWorker.serveInternal(projectId);
+	if (!integrationOps.has(projectId)) {
+		integrationOps.set(projectId, serveIntegrationOps(projectId, FLUXIFY_ENV, projectConfig));
+	}
 	// suites run routes, so a workflow-only node never takes them
 	if (node.type !== "workflow" && !testRuns.has(projectId)) {
 		testRuns.set(
@@ -307,10 +324,13 @@ function unserveIfGone(projectId: string) {
 	servedProjects.delete(projectId);
 	const tests = testRuns.get(projectId);
 	testRuns.delete(projectId);
+	const ops = integrationOps.get(projectId);
+	integrationOps.delete(projectId);
 	void Promise.all([
 		jobWorker.unserve(projectId),
 		triggerWorker.unserveInternal(projectId),
 		tests?.stop(),
+		ops?.stop(),
 	]).catch((error) =>
 		logger.error(`consumers for ${projectId} failed to stop: ${String(error)}`, "WORKER"),
 	);

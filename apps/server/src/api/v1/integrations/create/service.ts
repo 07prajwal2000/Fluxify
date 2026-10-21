@@ -1,4 +1,4 @@
-import { integrationRegistry } from "@fluxify/adapters/integrations";
+import { appConfigKeys, integrationRegistry } from "@fluxify/adapters/integrations";
 import { generateID } from "@fluxify/lib";
 import type { z } from "zod";
 import { db } from "../../../../db";
@@ -68,22 +68,4 @@ export default async function handleRequest(
 	};
 }
 
-export function getAppConfigKeysFromData(integrationConfig: any) {
-	if (typeof integrationConfig !== "object" || integrationConfig === null) return [];
-	const keys = [] as string[];
-	const q = [integrationConfig] as any[];
-
-	while (q.length > 0) {
-		const obj = q.shift()!;
-		for (const key in obj) {
-			const value = obj[key];
-			if (typeof value === "object") {
-				q.push(value);
-			}
-			if (typeof value === "string" && value.startsWith("cfg:")) {
-				keys.push(value.slice(4));
-			}
-		}
-	}
-	return keys;
-}
+export const getAppConfigKeysFromData = appConfigKeys;

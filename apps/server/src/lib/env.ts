@@ -94,6 +94,16 @@ export const serverEnvSchema = baseEnvSchema.extend({
 			"How many days an audit log entry (Enterprise) is kept before it is deleted (default 30)",
 		),
 
+	INTEGRATION_WORKER_TIMEOUT_MS: z
+		.string()
+		.optional()
+		.refine((val) => !val || (Number.isInteger(Number(val)) && Number(val) > 0), {
+			message: "INTEGRATION_WORKER_TIMEOUT_MS must be a positive integer",
+		})
+		.describe(
+			"How long the admin waits for a worker to answer Test connection, metadata or inspect for a plugin integration, in milliseconds (default 15000)",
+		),
+
 	PROXY_URL: z
 		.string()
 		.optional()
@@ -487,6 +497,10 @@ export const RECORDING_MAX_AGE_DAYS = Number(getEnv("RECORDING_MAX_AGE_DAYS")) |
 
 /** audit log entries older than this many days are deleted by the daily retention job (#833) */
 export const AUDIT_LOG_MAX_AGE_DAYS = Number(getEnv("AUDIT_LOG_MAX_AGE_DAYS")) || 30;
+
+/** how long the admin waits for a worker's answer to an integration op (I3) */
+export const INTEGRATION_WORKER_TIMEOUT_MS =
+	Number(getEnv("INTEGRATION_WORKER_TIMEOUT_MS")) || 15_000;
 
 /** furthest ahead a Trigger Workflow block may schedule a run; a bad value fails boot */
 export const SCHEDULE_MAX_HORIZON_MS = parseDurationMs(

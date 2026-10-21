@@ -41,3 +41,24 @@ export function appConfigMap(config: Record<string, any> | undefined) {
 	}
 	return map;
 }
+
+/** Every app config key a stored config references (`cfg:KEY`), nested values included. */
+export function appConfigKeys(config: unknown) {
+	if (typeof config !== "object" || config === null) return [];
+	const keys = [] as string[];
+	const q = [config] as any[];
+
+	while (q.length > 0) {
+		const obj = q.shift()!;
+		for (const key in obj) {
+			const value = obj[key];
+			if (typeof value === "object") {
+				q.push(value);
+			}
+			if (typeof value === "string" && value.startsWith("cfg:")) {
+				keys.push(value.slice(4));
+			}
+		}
+	}
+	return keys;
+}

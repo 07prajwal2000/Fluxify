@@ -1,37 +1,29 @@
-import { beforeEach, describe, expect, it, mock } from "bun:test";
-import * as real from "@fluxify/adapters";
+import { afterAll, beforeEach, describe, expect, it, mock, spyOn } from "bun:test";
+import { integrationRegistry, MemcachedIntegration, RedisIntegration } from "@fluxify/adapters";
 
 const P = "019a0000-0000-7000-8000-000000000000";
 const I = "019a0000-0000-7000-8000-000000000001";
 
 let row: any;
 let roles: string[] = [];
-const describeConnection = mock(async () => ({ tables: ["users"] }) as any);
+// the database hook is what reaches the driver: (config, request, ctx)
+const describeConnection = spyOn(integrationRegistry.require("database", "PostgreSQL"), "inspect").mockImplementation(
+	async () => ({ tables: ["users"] }) as any,
+);
 const redis = { get: mock(async () => null as string | null), ttl: mock(async () => -2) };
 let memValue: string | null = null;
 
 mock.module("../../get-by-id/repository", () => ({ getIntegrationByID: async () => row }));
-mock.module("../../test-connection/service", () => ({ decodeAppConfig: async () => new Map() }));
 mock.module("../../../../auth/middleware", () => ({
 	requireProjectAccess: (role: string) => {
 		roles.push(role);
 		return async (_c: any, next: any) => next();
 	},
 }));
-mock.module("@fluxify/adapters", () => ({
-	...real,
-	describeConnection,
-	RedisIntegration: class {
-		static ExtractConnectionInfo = (c: any) => c;
-		getConnection = () => redis;
-		disconnect = async () => {};
-	},
-	MemcachedIntegration: class {
-		static ExtractConnectionInfo = (c: any) => c;
-		get = async () => memValue;
-		disconnect = async () => {};
-	},
-}));
+spyOn(RedisIntegration.prototype, "getConnection").mockImplementation(() => redis);
+spyOn(MemcachedIntegration.prototype, "get").mockImplementation(async () => memValue);
+// prototype and registry spies outlive this file in a shared `test:unit` process
+afterAll(() => mock.restore());
 
 const { getKvValue, getSchemaDetails, KV_VALUE_CAP } = await import("../service");
 const { Hono } = await import("hono");
@@ -49,9 +41,9 @@ describe("integration schema details", () => {
 	it("names only without tables, detail for the comma separated list", async () => {
 		row = pg;
 		expect(await getSchemaDetails(params)).toEqual({ tables: ["users"] } as any);
-		expect((describeConnection.mock.calls[0] as any[])[1]).toBeUndefined();
+		expect((describeConnection.mock.calls[0] as any[])[1].tables).toBeUndefined();
 		await getSchemaDetails(params, " users , orders,");
-		expect((describeConnection.mock.calls[1] as any[])[1]).toEqual(["users", "orders"]);
+		expect((describeConnection.mock.calls[1] as any[])[1].tables).toEqual(["users", "orders"]);
 	});
 
 	it("connects with the development config, never production's", async () => {
@@ -85,11 +77,11 @@ describe("integration schema details", () => {
 		await expect(getSchemaDetails(params, "nope")).rejects.toThrow('Failed to read schema: Unknown table "nope"');
 	});
 
-	it("both routes need the creator role", async () => {
+	it("every route needs the creator role", async () => {
 		roles = [];
 		const app = new Hono();
 		registerInspectRoutes(app as any);
-		expect(roles).toEqual(["creator", "creator"]);
+		expect(roles).toEqual(["creator", "creator", "creator"]);
 	});
 });
 

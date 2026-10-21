@@ -2,9 +2,11 @@ import { UnknownIntegrationVariantError } from "@fluxify/sdk/integrations";
 import { BUILT_IN_VARIANTS } from "./builtins";
 import { IntegrationRegistry } from "./registry";
 
+export { BUILT_IN_VARIANTS } from "./builtins";
 export * from "./builtinVariants";
+export * from "./ops";
 export { IntegrationRegistry } from "./registry";
-export { appConfigMap, expandStoredConfig } from "./resolve";
+export { appConfigKeys, appConfigMap, expandStoredConfig } from "./resolve";
 
 /**
  * The process's integration variants: every built-in, plus what plugins
