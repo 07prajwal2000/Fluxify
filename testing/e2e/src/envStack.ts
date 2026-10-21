@@ -12,6 +12,8 @@
 //
 // Prints one `ENV_STACK <json>` line once both workers serve, and shuts down
 // when its stdin closes.
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
 	docker,
@@ -166,6 +168,8 @@ async function apiKey(email: string) {
 }
 
 const children: Array<ReturnType<typeof Bun.spawn>> = [];
+// where workers install plugins: the default, /deps, is not writable on a CI runner
+const depsDir = mkdtempSync(join(tmpdir(), "fx-e2e-deps-"));
 
 async function worker(env: "production" | "development", port = freePort()) {
 	const healthPort = freePort();
@@ -175,6 +179,7 @@ async function worker(env: "production" | "development", port = freePort()) {
 			env: {
 				...process.env,
 				FLUXIFY_ENV: env,
+				FLUXIFY_DEPS_DIR: depsDir,
 				WORKER_PROJECT_ID: "*",
 				WORKER_MODE: "both",
 				WORKER_PORT: String(port),
@@ -247,6 +252,7 @@ for (const child of children) child.kill();
 await Promise.all(children.map((child) => child.exited));
 server.stop(true);
 router.stop(true);
+rmSync(depsDir, { recursive: true, force: true });
 await stopAuthServer();
 await Promise.all(containers.map((name) => docker.getContainer(name).remove({ force: true }).catch(() => {})));
 process.exit(0);
