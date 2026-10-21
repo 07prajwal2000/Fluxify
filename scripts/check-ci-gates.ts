@@ -17,6 +17,10 @@ const GATES: Record<string, { dir: string; jobs: string[] }> = {
 	blocks: { dir: "packages/blocks", jobs: ["test-packages-blocks"] },
 	sdk: { dir: "packages/sdk", jobs: ["test-packages-sdk"] },
 	cli: { dir: "packages/cli", jobs: ["test-packages-cli"] },
+	"example-agent-tools": {
+		dir: "examples/plugins/agent-tools",
+		jobs: ["test-examples-agent-tools"],
+	},
 	adapters: { dir: "packages/adapters", jobs: ["test-packages-adapters"] },
 	server: {
 		dir: "apps/server",
@@ -31,8 +35,8 @@ const GATES: Record<string, { dir: string; jobs: string[] }> = {
 const readJson = (path: string) => JSON.parse(readFileSync(path, "utf8"));
 const errors: string[] = [];
 
-// Workspace name -> { dir, deps }. Workspaces are `packages/*`, `apps/*` and
-// `testing/e2e`, read from the root package.json.
+// Workspace name -> { dir, deps }. Workspaces are `packages/*`, `apps/*`,
+// `examples/plugins/*` and `testing/e2e`, read from the root package.json.
 const workspaces = new Map<
 	string,
 	{ name: string; dir: string; deps: string[]; runtime: string[] }

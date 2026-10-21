@@ -146,6 +146,7 @@ export default withMermaid(
 						{ text: "Upgrading & Removing", link: "/plugins/upgrading" },
 						{ text: "Status & Troubleshooting", link: "/plugins/status" },
 						{ text: "Blocks on the Canvas", link: "/plugins/blocks-on-canvas" },
+						{ text: "Writing a Plugin", link: "/plugins/authoring/getting-started" },
 					],
 				},
 				{
@@ -340,6 +341,18 @@ export default withMermaid(
 							{ text: "Upgrading & Removing", link: "/plugins/upgrading" },
 							{ text: "Status & Troubleshooting", link: "/plugins/status" },
 							{ text: "Blocks on the Canvas", link: "/plugins/blocks-on-canvas" },
+						],
+					},
+					{
+						text: "Writing Plugins",
+						items: [
+							{ text: "Getting Started", link: "/plugins/authoring/getting-started" },
+							{ text: "Blocks", link: "/plugins/authoring/blocks" },
+							{ text: "Params", link: "/plugins/authoring/params" },
+							{ text: "Handles", link: "/plugins/authoring/handles" },
+							{ text: "Context", link: "/plugins/authoring/context" },
+							{ text: "Testing", link: "/plugins/authoring/testing" },
+							{ text: "Publishing", link: "/plugins/authoring/publishing" },
 						],
 					},
 				],

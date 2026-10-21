@@ -1,9 +1,9 @@
 import { afterAll, describe, expect, it } from "bun:test";
-import { existsSync } from "node:fs";
+import { existsSync, renameSync } from "node:fs";
 import { join } from "node:path";
 import { fluxifyManifestSchema } from "@fluxify/sdk/blocks";
 import { build } from "../src/build";
-import { blockSrc, cleanup, failures, LOCK, makePlugin } from "./helpers";
+import { blockSrc, cleanup, failures, LOCK, makePlugin, tmp } from "./helpers";
 
 afterAll(cleanup);
 
@@ -90,6 +90,17 @@ describe("blocks build", () => {
 		const { manifest, tarball } = await build(root);
 		expect(manifest.blocks["acme/t/hello"].icon).toBe("icons/logo.svg");
 		expect(await tarNames(root, tarball)).toContain("icons/logo.svg");
+	});
+
+	// bun resolves a relative --filename against the workspace root, not the plugin
+	it("packs a plugin that is a workspace member into its own folder", async () => {
+		const repo = tmp();
+		await Bun.write(join(repo, "package.json"), JSON.stringify({ name: "mono", workspaces: ["plug"] }));
+		const plugin = join(repo, "plug");
+		renameSync(await makePlugin(), plugin);
+		const { tarball } = await build(plugin);
+		expect(existsSync(join(plugin, tarball))).toBe(true);
+		expect(existsSync(join(repo, tarball))).toBe(false);
 	});
 });
 

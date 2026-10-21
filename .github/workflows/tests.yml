@@ -27,6 +27,7 @@ jobs:
       portal: ${{ steps.filter.outputs.portal == 'true' || inputs.full }}
       sdk: ${{ steps.filter.outputs.sdk == 'true' || inputs.full }}
       cli: ${{ steps.filter.outputs.cli == 'true' || inputs.full }}
+      example-agent-tools: ${{ steps.filter.outputs.example-agent-tools == 'true' || inputs.full }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -84,8 +85,10 @@ jobs:
               - 'testing/e2e/**'
               - 'apps/ai-gateway/**'
               - 'apps/server/**'
+              - 'examples/plugins/agent-tools/**'
               - 'packages/adapters/**'
               - 'packages/blocks/**'
+              - 'packages/cli/**'
               - 'packages/common/**'
               - 'packages/lib/**'
               - 'packages/sdk/**'
@@ -96,6 +99,17 @@ jobs:
               - '.github/workflows/tests.yml'
             cli:
               - 'apps/server/**'
+              - 'packages/adapters/**'
+              - 'packages/blocks/**'
+              - 'packages/cli/**'
+              - 'packages/common/**'
+              - 'packages/lib/**'
+              - 'packages/sdk/**'
+              - 'testing/mcp-math/**'
+              - '.github/workflows/tests.yml'
+            example-agent-tools:
+              - 'apps/server/**'
+              - 'examples/plugins/agent-tools/**'
               - 'packages/adapters/**'
               - 'packages/blocks/**'
               - 'packages/cli/**'
@@ -180,6 +194,23 @@ jobs:
         run: bun install
       - name: Run CLI Tests
         run: bun run test:cli
+
+  test-examples-agent-tools:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.example-agent-tools == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Install Dependencies
+        run: bun install
+      # the example is also what the plugin e2e uploads, so it must build with the CLI
+      - name: Test the agent-tools example plugin
+        run: bun run --cwd examples/plugins/agent-tools test
+      - name: Build the agent-tools example plugin
+        run: bun run --cwd examples/plugins/agent-tools build
 
   test-packages-adapters:
     needs: detect-changes
@@ -297,7 +328,7 @@ jobs:
   # to be `success`.
   require-all:
     if: ${{ always() && inputs.full }}
-    needs: [detect-changes, test-packages-lib, test-packages-blocks, test-packages-sdk, test-packages-cli, test-packages-adapters, test-e2e-graphs, test-testing-mcp-math, test-apps-server-unit, test-apps-server-integration, test-apps-portal, test-apps-ai-gateway]
+    needs: [detect-changes, test-packages-lib, test-packages-blocks, test-packages-sdk, test-packages-cli, test-examples-agent-tools, test-packages-adapters, test-e2e-graphs, test-testing-mcp-math, test-apps-server-unit, test-apps-server-integration, test-apps-portal, test-apps-ai-gateway]
     runs-on: ubuntu-latest
     steps:
       - name: Every test job must have succeeded
