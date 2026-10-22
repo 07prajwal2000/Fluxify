@@ -33,6 +33,21 @@ Fluxify checks every plugin's health **once an hour**, and you can run it yourse
 
 A scan only **reports**. It never un-approves a plugin or stops it running. When something is wrong, the status shows the reason; when it is fixed, the next scan clears it.
 
+## Integrations a plugin provides
+
+A plugin can add integration variants ([authoring](/plugins/authoring/integrations)). They appear under their built-in group with a **Plugin** badge, or under the plugin's scope, while the plugin is approved and enabled.
+
+Turning off both **Dev** and **Prod** does not delete the project's integrations of that plugin's kinds:
+
+- the plugin's variants disappear from the integrations page and from the create form
+- the existing integrations stay in the list, marked **plugin disabled**
+- a route or block that uses one fails with `plugin <name> is disabled`
+- creating another one is refused with `... belongs to a disabled plugin; enable the plugin to create one`
+
+With only **Prod** off, development keeps working and production fails with `plugin <name> is disabled in production`. Turn the switch back on to use the integration again; nothing about it was changed.
+
+The plugin cannot be removed while any of its integrations exist. Delete those integrations first ([removing a plugin](./upgrading#removing-a-plugin)).
+
 ## What the errors mean
 
 | Error | What it means | What to do |
@@ -54,5 +69,6 @@ Work down this list:
 1. Is the plugin **Approved** (not pending or rejected)?
 2. Is the right switch on, **Dev** for development and **Prod** for production?
 3. Does the plugin's page say **Installed on every worker**?
-4. Does the block use something the plugin wasn't **granted** (database, key-value store, queue, App Config)? The error names it. See [permissions](./approving#permissions).
-5. For production, was the route promoted after the plugin was approved there?
+4. Does the block use something the plugin wasn't **granted** (an integration kind, or App Config)? The error names it. See [permissions](./approving#permissions).
+5. Does the block use an integration the plugin provides? If the plugin is disabled, or disabled in this environment, the run says so ([above](#integrations-a-plugin-provides)).
+6. For production, was the route promoted after the plugin was approved there?

@@ -21,6 +21,10 @@ const GATES: Record<string, { dir: string; jobs: string[] }> = {
 		dir: "examples/plugins/agent-tools",
 		jobs: ["test-examples-agent-tools"],
 	},
+	"example-integrations": {
+		dir: "examples/plugins/integrations",
+		jobs: ["test-examples-integrations"],
+	},
 	adapters: { dir: "packages/adapters", jobs: ["test-packages-adapters"] },
 	server: {
 		dir: "apps/server",
