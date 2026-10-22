@@ -146,20 +146,48 @@ export const integrationsQuery = {
 			});
 		},
 	},
+	inspect: {
+		mutation(projectId: string) {
+			return useMutation({
+				mutationFn: (params: {
+					id: string;
+					body?: Record<string, unknown>;
+					env?: "development" | "production";
+				}) =>
+					integrationService.inspect(
+						projectId,
+						params.id,
+						params.body ?? {},
+						params.env ?? "development",
+					),
+			});
+		},
+	},
 };
 
 /** The variant list from the server, with the lookups the integration pickers need. */
 export function useIntegrationCatalog(projectId: string) {
-	const groups = integrationsQuery.getVariants.useQuery(projectId).data;
+	const query = integrationsQuery.getVariants.useQuery(projectId);
+	const groups = query.data;
 	return useMemo(() => {
 		// a body that is not a list (an error page, a stubbed client) must not take the canvas down
 		const list = Array.isArray(groups) ? groups : [];
 		const find = (group: string) => list.find((item) => item.group === group);
+		const variantMeta = (group: string, variant: string) =>
+			find(group)?.variants.find((v) => v.variant === variant);
 		return {
 			loaded: groups !== undefined,
+			isLoading: query.isLoading,
+			catalog: list,
+			items: list.flatMap((g) => g.variants.map((v) => ({ ...v, group: g.group }))),
 			groups: list.map((item) => item.group),
+			builtInGroups: list.filter((item) => item.builtIn),
+			pluginGroups: list.filter((item) => !item.builtIn),
 			variantsOf: (group: string) => find(group)?.variants.map((item) => item.variant) ?? [],
+			variantItemsOf: (group: string) => find(group)?.variants ?? [],
+			variantMeta,
 			labelOf: (group: string) => find(group)?.label ?? group,
+			pluginOf: (group: string, variant: string) => variantMeta(group, variant)?.plugin,
 		};
-	}, [groups]);
+	}, [groups, query.isLoading]);
 }

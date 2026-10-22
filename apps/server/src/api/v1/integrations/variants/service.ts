@@ -3,7 +3,7 @@ import {
 	isBuiltInIntegrationGroup,
 	UnknownIntegrationVariantError,
 } from "@fluxify/sdk/integrations";
-import type { z } from "zod";
+import { z } from "zod";
 import { BadRequestError } from "../../../../errors/badRequestError";
 import { isPluginVariantDisabled } from "../../../../modules/plugins/variants";
 import type { responseSchema } from "./dto";
@@ -22,15 +22,37 @@ export default function handleRequest(projectId: string): z.infer<typeof respons
 		variants: integrationRegistry
 			.variants(group, projectId)
 			.filter((def) => !isPluginVariantDisabled(projectId, group, def.variant))
-			.map((def) => ({
-				variant: def.variant,
-				label: def.label,
-				icon: def.icon,
-				tags: [...(def.tags ?? [])],
-				builtIn: integrationRegistry.isBuiltIn(group, def.variant),
-				...(def.plugin && { plugin: def.plugin, namespace: def.plugin.split("/")[0] }),
-				conditionEditor: def.group === "database" ? def.extras.conditionEditor : undefined,
-			})),
+			.map((def) => {
+				let configSchema: Record<string, unknown> | undefined;
+				try {
+					configSchema = z.toJSONSchema(def.configSchema, {
+						io: "input",
+						unrepresentable: "any",
+					}) as Record<string, unknown>;
+				} catch {
+					// safe fallback
+				}
+				const builtIn = integrationRegistry.isBuiltIn(group, def.variant);
+				return {
+					variant: def.variant,
+					label: def.label,
+					icon: def.icon,
+					tags: [...(def.tags ?? [])],
+					builtIn,
+					...(def.plugin && { plugin: def.plugin, namespace: def.plugin.split("/")[0] }),
+					conditionEditor: def.group === "database" ? def.extras.conditionEditor : undefined,
+					params: def.params,
+					tabs: def.tabs ? [...def.tabs] : undefined,
+					hasTest:
+						def.hasTest ??
+						(builtIn && ["database", "kv", "ai", "observability", "queue"].includes(def.group)),
+					hasDescribe: def.hasDescribe ?? (builtIn && def.group === "database"),
+					hasInspect: def.hasInspect ?? (builtIn && ["database", "kv"].includes(def.group)),
+					description: def.description,
+					docs: def.docs,
+					configSchema,
+				};
+			}),
 	}));
 	// a plugin's own group whose every variant is switched off has nothing to create
 	return groups.filter((g) => g.builtIn || g.variants.length);

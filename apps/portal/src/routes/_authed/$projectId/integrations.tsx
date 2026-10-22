@@ -1,6 +1,6 @@
 import { Button, cn, integrationIcons, Spinner } from "@fluxify/components";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { type ReactNode, useEffect } from "react";
+import { type ReactNode, useEffect, useMemo } from "react";
 import { FaRobot, FaTableList } from "react-icons/fa6";
 import { LuServerCrash } from "react-icons/lu";
 import {
@@ -11,14 +11,17 @@ import {
 	TbExternalLink,
 	TbHeartRateMonitor,
 	TbLock,
+	TbPlug,
 	TbPlugConnected,
 	TbServer,
 } from "react-icons/tb";
 import { VscMcp } from "react-icons/vsc";
 import { z } from "zod";
+import { pluginFolderIcon } from "@/components/canvas/plugins/pluginFolderIcon";
+import { CustomBlockIcon } from "@/components/customBlocks/IconPicker";
 import { IntegrationTestButtons } from "@/components/integrations/IntegrationTestButtons";
 import { createDynamicRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
-import { integrationsQuery } from "@/query/integrationsQuery";
+import { integrationsQuery, useIntegrationCatalog } from "@/query/integrationsQuery";
 import { projectsQuery } from "@/query/projectsQuery";
 import {
 	type IntegrationGroup,
@@ -49,7 +52,7 @@ export const Route = createFileRoute("/_authed/$projectId/integrations")({
 	component: IntegrationsPage,
 });
 
-const CONNECTORS: { name: string; type: IntegrationGroup; icon: ReactNode }[] = [
+const BUILT_IN_CONNECTORS: { name: string; type: string; icon: ReactNode }[] = [
 	{ name: "Databases", type: "database", icon: <TbDatabase size={18} /> },
 	{ name: "KV", type: "kv", icon: <FaTableList size={16} /> },
 	{ name: "AI", type: "ai", icon: <FaRobot size={16} /> },
@@ -63,7 +66,7 @@ const CONNECTORS: { name: string; type: IntegrationGroup; icon: ReactNode }[] = 
 	{ name: "MCP Servers", type: "mcp", icon: <VscMcp size={18} /> },
 ];
 
-function IntegrationsPage() {
+export function IntegrationsPage() {
 	const { projectId } = Route.useParams();
 	const { data: project } = projectsQuery.byId.useQuery(projectId);
 	usePageTitle(formatProjectTitle(project?.name, "Integrations"));
@@ -72,32 +75,54 @@ function IntegrationsPage() {
 	const { selectedMenu } = useIntegrationState();
 	const { setSelectedMenu } = useIntegrationActions();
 
-	// Fetch count of integrations per category
-	const { data: dbData } = integrationsQuery.getAll.useQuery(projectId, "database");
-	const { data: kvData } = integrationsQuery.getAll.useQuery(projectId, "kv");
-	const { data: aiData } = integrationsQuery.getAll.useQuery(projectId, "ai");
-	const { data: baasData } = integrationsQuery.getAll.useQuery(projectId, "baas");
-	const { data: obsData } = integrationsQuery.getAll.useQuery(projectId, "observability");
-	const { data: queueData } = integrationsQuery.getAll.useQuery(projectId, "queue");
-	const { data: mcpData } = integrationsQuery.getAll.useQuery(projectId, "mcp");
+	const catalog = useIntegrationCatalog(projectId);
+	const { data: allIntegrations = [] } = integrationsQuery.getBasicList.useQuery(projectId);
 
-	const counts: Record<IntegrationGroup, number> = {
-		database: dbData?.length ?? 0,
-		kv: kvData?.length ?? 0,
-		ai: aiData?.length ?? 0,
-		baas: baasData?.length ?? 0,
-		observability: obsData?.length ?? 0,
-		queue: queueData?.length ?? 0,
-		mcp: mcpData?.length ?? 0,
-	};
+	const countForGroup = (grp: string) => allIntegrations.filter((i) => i.group === grp).length;
+
+	const builtInGroupSet = useMemo(() => new Set(BUILT_IN_CONNECTORS.map((c) => c.type)), []);
+
+	// Group plugin-owned variants by namespace -> group -> variants
+	const namespaceTree = useMemo(() => {
+		const map = new Map<string, Map<string, Array<(typeof catalog.items)[number]>>>();
+		for (const item of catalog.items ?? []) {
+			if (builtInGroupSet.has(item.group)) continue;
+			const pluginName =
+				typeof item.plugin === "string"
+					? item.plugin
+					: (item.plugin as { name?: string } | undefined)?.name;
+			const pluginNs =
+				typeof item.plugin === "object"
+					? (item.plugin as { namespace?: string } | undefined)?.namespace
+					: undefined;
+			const ns =
+				item.namespace ??
+				pluginNs ??
+				pluginName?.split("/")[0] ??
+				item.group.split("/")[0] ??
+				"plugins";
+			if (!map.has(ns)) map.set(ns, new Map());
+			const groupsMap = map.get(ns)!;
+			if (!groupsMap.has(item.group)) groupsMap.set(item.group, []);
+			groupsMap.get(item.group)!.push(item);
+		}
+		for (const integration of allIntegrations) {
+			if (builtInGroupSet.has(integration.group)) continue;
+			const ns = integration.group.split("/")[0] || "plugins";
+			if (!map.has(ns)) map.set(ns, new Map());
+			const groupsMap = map.get(ns)!;
+			if (!groupsMap.has(integration.group)) groupsMap.set(integration.group, []);
+		}
+		return map;
+	}, [catalog.items, allIntegrations, builtInGroupSet]);
 
 	// sync selected group from URL (deep-link support)
 	useEffect(() => {
 		if (group && group !== selectedMenu) setSelectedMenu(group as IntegrationGroup);
 	}, [group]);
 
-	function selectGroup(type: IntegrationGroup) {
-		setSelectedMenu(type);
+	function selectGroup(type: string) {
+		setSelectedMenu(type as IntegrationGroup);
 		navigate({ to: ".", search: { group: type } });
 	}
 
@@ -129,36 +154,142 @@ function IntegrationsPage() {
 					<div className="mb-2 px-3 text-[10px] font-bold uppercase tracking-widest text-muted">
 						CATEGORIES
 					</div>
-					{CONNECTORS.map((c) => {
+					{BUILT_IN_CONNECTORS.map((c) => {
 						const active = selectedMenu === c.type;
-						const count = counts[c.type] ?? 0;
+						const count = countForGroup(c.type);
+						const pluginVariants = catalog.variantItemsOf(c.type).filter((v) => Boolean(v.plugin));
 						return (
-							<button
-								key={c.type}
-								type="button"
-								onClick={() => selectGroup(c.type)}
-								className={cn(
-									"flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-medium transition-all",
-									active
-										? "border-border bg-surface text-foreground shadow-sm"
-										: "border-transparent text-muted hover:bg-surface-secondary hover:text-foreground",
-								)}
-							>
-								<span className={cn(active ? "text-accent" : "text-muted")}>{c.icon}</span>
-								<span>{c.name}</span>
-								<span
+							<div key={c.type} className="flex flex-col gap-0.5">
+								<button
+									type="button"
+									onClick={() => selectGroup(c.type)}
 									className={cn(
-										"ml-auto rounded-full px-2 py-0.5 text-xs font-semibold",
+										"flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-medium transition-all",
 										active
-											? "bg-surface-secondary text-foreground"
-											: "bg-surface-secondary text-muted",
+											? "border-border bg-surface text-foreground shadow-sm"
+											: "border-transparent text-muted hover:bg-surface-secondary hover:text-foreground",
 									)}
 								>
-									{count}
-								</span>
-							</button>
+									<span className={cn(active ? "text-accent" : "text-muted")}>{c.icon}</span>
+									<span>{c.name}</span>
+									<span
+										className={cn(
+											"ml-auto rounded-full px-2 py-0.5 text-xs font-semibold",
+											active
+												? "bg-surface-secondary text-foreground"
+												: "bg-surface-secondary text-muted",
+										)}
+									>
+										{count}
+									</span>
+								</button>
+								{pluginVariants.map((v) => (
+									<div
+										key={`${c.type}:${v.variant}`}
+										role="button"
+										tabIndex={0}
+										onClick={() => selectGroup(c.type)}
+										onKeyDown={(e) => e.key === "Enter" && selectGroup(c.type)}
+										className="flex items-center gap-2 rounded-lg py-1.5 pl-8 pr-2.5 text-xs text-muted transition-colors hover:bg-surface-secondary hover:text-foreground cursor-pointer"
+									>
+										<span className="flex size-4 shrink-0 items-center justify-center">
+											{v.icon || (typeof v.plugin === "object" && (v.plugin as any)?.icon) ? (
+												<CustomBlockIcon
+													icon="custom"
+													iconUrl={v.icon || (v.plugin as any)?.icon}
+													size={14}
+												/>
+											) : (
+												<TbPlug size={14} />
+											)}
+										</span>
+										<span className="min-w-0 flex-1 truncate">{v.variant}</span>
+										<span className="rounded bg-accent/10 px-1.5 py-0.2 text-[10px] font-medium text-accent">
+											Plugin
+										</span>
+									</div>
+								))}
+							</div>
 						);
 					})}
+
+					{namespaceTree.size > 0 && (
+						<>
+							<div className="mt-4 mb-2 px-3 text-[10px] font-bold uppercase tracking-widest text-muted">
+								PLUGIN INTEGRATIONS
+							</div>
+							{Array.from(namespaceTree.entries()).map(([namespace, groupsMap]) => (
+								<div key={namespace} className="flex flex-col gap-1">
+									<div className="flex items-center gap-2 px-3 py-1 text-xs font-semibold text-muted">
+										<span className="flex size-4 shrink-0 items-center justify-center text-muted">
+											{pluginFolderIcon({ level: "scope", path: namespace })}
+										</span>
+										<span className="truncate">{namespace}</span>
+									</div>
+									{Array.from(groupsMap.entries()).map(([grp, variants]) => {
+										const active = selectedMenu === grp;
+										const count = countForGroup(grp);
+										return (
+											<div key={grp} className="flex flex-col gap-0.5">
+												<button
+													type="button"
+													onClick={() => selectGroup(grp)}
+													className={cn(
+														"flex items-center gap-2.5 rounded-xl border px-3 py-2 text-sm font-medium transition-all ml-2",
+														active
+															? "border-border bg-surface text-foreground shadow-sm"
+															: "border-transparent text-muted hover:bg-surface-secondary hover:text-foreground",
+													)}
+												>
+													<span className={cn(active ? "text-accent" : "text-muted")}>
+														{pluginFolderIcon({ level: "plugin", path: `${namespace}/${grp}` })}
+													</span>
+													<span className="truncate">{catalog.labelOf(grp)}</span>
+													<span
+														className={cn(
+															"ml-auto rounded-full px-2 py-0.5 text-xs font-semibold",
+															active
+																? "bg-surface-secondary text-foreground"
+																: "bg-surface-secondary text-muted",
+														)}
+													>
+														{count}
+													</span>
+												</button>
+												{variants.map((v) => (
+													<div
+														key={`${grp}:${v.variant}`}
+														role="button"
+														tabIndex={0}
+														onClick={() => selectGroup(grp)}
+														onKeyDown={(e) => e.key === "Enter" && selectGroup(grp)}
+														className="flex items-center gap-2 rounded-lg py-1.5 pl-9 pr-2.5 text-xs text-muted transition-colors hover:bg-surface-secondary hover:text-foreground cursor-pointer"
+													>
+														<span className="flex size-4 shrink-0 items-center justify-center">
+															{v.icon ||
+															(typeof v.plugin === "object" && (v.plugin as any)?.icon) ? (
+																<CustomBlockIcon
+																	icon="custom"
+																	iconUrl={v.icon || (v.plugin as any)?.icon}
+																	size={14}
+																/>
+															) : (
+																<TbPlug size={14} />
+															)}
+														</span>
+														<span className="min-w-0 flex-1 truncate">{v.variant}</span>
+														<span className="rounded bg-accent/10 px-1.5 py-0.2 text-[10px] font-medium text-accent">
+															Plugin
+														</span>
+													</div>
+												))}
+											</div>
+										);
+									})}
+								</div>
+							))}
+						</>
+					)}
 				</nav>
 
 				{/* Column 2 — Center configured list or active creation/editing */}
@@ -173,8 +304,9 @@ function IntegrationsPage() {
 	);
 }
 
-function IntegrationsList({ projectId, group }: { projectId: string; group: string }) {
+export function IntegrationsList({ projectId, group }: { projectId: string; group: string }) {
 	const navigate = useNavigate();
+	const catalog = useIntegrationCatalog(projectId);
 	const { data, isLoading, isError } = integrationsQuery.getAll.useQuery(projectId, group);
 	const openIntegration = (integrationId: string) =>
 		navigate({
@@ -206,39 +338,51 @@ function IntegrationsList({ projectId, group }: { projectId: string; group: stri
 
 	return (
 		<div className="flex flex-col gap-4">
-			{data.map((integration) => (
-				<div
-					key={integration.id}
-					role="button"
-					tabIndex={0}
-					onClick={() => openIntegration(integration.id)}
-					onKeyDown={(e) => e.key === "Enter" && openIntegration(integration.id)}
-					className="flex cursor-pointer flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface px-5 py-4 transition-colors hover:border-accent hover:bg-surface-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-				>
-					<div className="flex min-w-0 items-center gap-3">
-						<div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-surface-secondary text-accent">
-							{integrationIcons[integration.variant] ?? <TbDatabase size={18} />}
-						</div>
-						<div className="min-w-0">
-							<div className="truncate font-semibold text-foreground">{integration.name}</div>
-							<div className="text-xs text-muted">
-								{integration.variant} • {group}
+			{data.map((integration) => {
+				const isKnownVariant = (catalog.items ?? []).some(
+					(item) => item.group === group && item.variant === integration.variant,
+				);
+				return (
+					<div
+						key={integration.id}
+						role="button"
+						tabIndex={0}
+						onClick={() => openIntegration(integration.id)}
+						onKeyDown={(e) => e.key === "Enter" && openIntegration(integration.id)}
+						className="flex cursor-pointer flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface px-5 py-4 transition-colors hover:border-accent hover:bg-surface-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+					>
+						<div className="flex min-w-0 items-center gap-3">
+							<div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-surface-secondary text-accent">
+								{integrationIcons[integration.variant] ?? <TbDatabase size={18} />}
+							</div>
+							<div className="min-w-0">
+								<div className="flex items-center gap-2">
+									<span className="truncate font-semibold text-foreground">{integration.name}</span>
+									{!isKnownVariant && (
+										<span className="rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-medium text-warning">
+											plugin disabled
+										</span>
+									)}
+								</div>
+								<div className="text-xs text-muted">
+									{integration.variant} • {group}
+								</div>
 							</div>
 						</div>
-					</div>
 
-					<div
-						className="flex items-center gap-2"
-						onClick={(e) => e.stopPropagation()}
-						onKeyDown={(e) => e.stopPropagation()}
-					>
-						<span className="rounded-full border border-border bg-surface-secondary px-2.5 py-1 text-[11px] font-mono text-muted">
-							ID: {integration.id.slice(0, 8)}
-						</span>
-						<IntegrationTestButtons projectId={projectId} integrationId={integration.id} />
+						<div
+							className="flex items-center gap-2"
+							onClick={(e) => e.stopPropagation()}
+							onKeyDown={(e) => e.stopPropagation()}
+						>
+							<span className="rounded-full border border-border bg-surface-secondary px-2.5 py-1 text-[11px] font-mono text-muted">
+								ID: {integration.id.slice(0, 8)}
+							</span>
+							<IntegrationTestButtons projectId={projectId} integrationId={integration.id} />
+						</div>
 					</div>
-				</div>
-			))}
+				);
+			})}
 		</div>
 	);
 }

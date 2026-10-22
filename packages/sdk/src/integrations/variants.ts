@@ -201,6 +201,15 @@ export type IntegrationVariantMeta<G extends AnyIntegrationGroup = AnyIntegratio
 				plugin?: string;
 				/** the stored (form) config, validated on create, update and test */
 				configSchema: z.ZodType;
+				/** plugin variants: the raw params from manifest, for portal forms */
+				params?: Record<string, unknown>;
+				/** plugin variants: tab names */
+				tabs?: readonly string[];
+				hasTest?: boolean;
+				hasDescribe?: boolean;
+				hasInspect?: boolean;
+				description?: string;
+				docs?: string;
 			} & (G extends "database"
 				? { extras: DatabaseVariantExtras }
 				: { extras?: Record<string, unknown> })

@@ -24,6 +24,16 @@ export const responseSchema = z.array(
 				namespace: z.string().optional(),
 				/** databases only: editor for custom conditions */
 				conditionEditor: z.enum(["sql", "js"]).optional(),
+				/** plugin variants: the params that generate the form (and tabs) */
+				params: z.record(z.string(), z.unknown()).optional(),
+				tabs: z.array(z.string()).optional(),
+				hasTest: z.boolean().optional(),
+				hasDescribe: z.boolean().optional(),
+				hasInspect: z.boolean().optional(),
+				description: z.string().optional(),
+				docs: z.string().optional(),
+				/** json-schema of configSchema, for ai-gateway or tools */
+				configSchema: z.record(z.string(), z.unknown()).optional(),
 			}),
 		),
 	}),

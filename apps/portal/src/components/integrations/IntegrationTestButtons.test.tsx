@@ -2,7 +2,9 @@ import { afterAll, afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 
 // DOM only for this file; RTL reads `document` on import, so load it after.
-GlobalRegistrator.register();
+try {
+	GlobalRegistrator.register();
+} catch {}
 
 const { act, cleanup, fireEvent, render } = await import("@testing-library/react");
 const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query");

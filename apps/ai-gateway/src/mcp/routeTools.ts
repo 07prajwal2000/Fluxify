@@ -226,15 +226,98 @@ export const routeTools: McpTool[] = [
 			"The config fields one integration variant needs, with types, which are required (no '?') and blank defaults. Call it before save_integration or test_integration_connection.",
 		role: "viewer",
 		input: {
+			projectId: z
+				.string()
+				.optional()
+				.describe("The project id, needed to resolve plugin variants"),
 			group: integrationGroupNameSchema,
 			variant: z.string().describe("e.g. 'PostgreSQL', 'Redis', 'OpenAI'"),
 		},
-		// built from the server's own validation schemas; reads no project data
-		call: async (_api, a) => integrationSchema(a.group, a.variant),
+		call: async (api, a) => integrationSchema(api, a.group, a.variant, a.projectId),
 	},
 ];
 
-export function integrationSchema(group: string, variant: string) {
+type VariantsGroup = {
+	group: string;
+	label: string;
+	builtIn: boolean;
+	variants: Array<{
+		variant: string;
+		label: string;
+		configSchema?: Record<string, unknown>;
+		params?: Record<string, { default?: unknown }>;
+		builtIn: boolean;
+		[key: string]: unknown;
+	}>;
+};
+
+const variantsCache = new Map<string, { timestamp: number; groups: VariantsGroup[] }>();
+const CACHE_TTL_MS = 30_000;
+
+export async function getProjectVariants(
+	api: AdminApi,
+	projectId: string,
+): Promise<VariantsGroup[]> {
+	const cached = variantsCache.get(projectId);
+	const now = Date.now();
+	if (cached && now - cached.timestamp < CACHE_TTL_MS) {
+		return cached.groups;
+	}
+	const groups = await api.get(`/v1/${projectId}/integrations/variants`);
+	const list = Array.isArray(groups) ? (groups as VariantsGroup[]) : [];
+	variantsCache.set(projectId, { timestamp: now, groups: list });
+	return list;
+}
+
+export async function integrationSchema(
+	apiOrGroup: AdminApi | string,
+	groupOrVariant: string,
+	variantOrProjectId?: string,
+	maybeProjectId?: string,
+) {
+	let api: AdminApi | undefined;
+	let group: string;
+	let variant: string;
+	let projectId: string | undefined;
+
+	if (typeof apiOrGroup === "object" && apiOrGroup !== null && "get" in apiOrGroup) {
+		api = apiOrGroup as AdminApi;
+		group = groupOrVariant;
+		variant = variantOrProjectId as string;
+		projectId = maybeProjectId;
+	} else {
+		group = apiOrGroup as string;
+		variant = groupOrVariant;
+		projectId = variantOrProjectId;
+	}
+
+	if (api && projectId) {
+		try {
+			const groups = await getProjectVariants(api, projectId);
+			const g = groups.find((item) => item.group === group);
+			const v = g?.variants.find((item) => item.variant === variant || item.label === variant);
+			if (v) {
+				const configSchema = v.configSchema;
+				const config = configSchema ? renderCompactSchema(configSchema) : "Record<string, unknown>";
+				let defaults: unknown = {};
+				if (v.builtIn) {
+					defaults = getDefaultVariantValue(
+						variant as Parameters<typeof getDefaultVariantValue>[0],
+					);
+				} else if (v.params && typeof v.params === "object") {
+					const defs: Record<string, unknown> = {};
+					for (const [k, p] of Object.entries(v.params)) {
+						if (p && p.default !== undefined) defs[k] = p.default;
+					}
+					defaults = defs;
+				}
+				return { config, defaults };
+			}
+		} catch {
+			// fall through to local registry
+		}
+	}
+
 	const schema = integrationRegistry.get(group, variant)?.configSchema;
 	if (!schema) return `Unknown variant "${variant}" for group "${group}".`;
 	const json = z.toJSONSchema(schema, { io: "input", unrepresentable: "any" });

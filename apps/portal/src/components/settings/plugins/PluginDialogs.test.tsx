@@ -132,3 +132,95 @@ test("a refused removal lists who still uses the plugin, as links", async () => 
 	expect(link).toBeTruthy();
 	expect(document.body.textContent).toContain("In production");
 });
+
+test("an upgrade that has breaking integration changes shows them with blocking count and links", async () => {
+	const integrationDiff = {
+		...emptyDiff,
+		blocking: true,
+		blockers: ["integration crm/hubspot is breaking and used by 1 integration"],
+		changedIntegrations: [
+			{
+				kind: "crm/hubspot",
+				change: "apiKey parameter removed",
+				breaking: true,
+				usedBy: [{ id: "int-1", name: "Hubspot Production" }],
+			},
+		],
+		removedIntegrations: [
+			{
+				kind: "crm/salesforce",
+				usedBy: [{ id: "int-2", name: "Salesforce Dev" }],
+			},
+		],
+		addedIntegrations: ["crm/zendesk"],
+	};
+	upgradePreview.mockResolvedValue(preview(integrationDiff) as never);
+	wrap(<ApprovalDialog projectId="p1" plugin={upgrading()} open onOpenChange={() => {}} />);
+
+	await until(() => expect(document.body.textContent).toContain("crm/hubspot"));
+	expect(document.body.textContent).toContain("apiKey parameter removed");
+	expect(document.body.textContent).toContain("Breaking · 1 blocking");
+	expect(document.body.textContent).toContain("Hubspot Production");
+	expect(document.body.textContent).toContain("1 integration blocking");
+	expect(document.body.textContent).toContain("Salesforce Dev");
+	expect(document.body.textContent).toContain("crm/zendesk");
+	expect(button("Approve")?.disabled).toBe(true);
+});
+
+test("approval dialog shows plugin integrations with secret params and hooks", async () => {
+	const pluginWithIntegrations = {
+		...upgrading(),
+		integrations: [
+			{
+				group: "crm",
+				variant: "hubspot",
+				label: "HubSpot CRM",
+				ownGroup: true,
+				secretParams: ["apiKey", "appSecret"],
+				hooks: { test: true, describe: false, inspect: true },
+			},
+		],
+	};
+	upgradePreview.mockResolvedValue(preview(emptyDiff) as never);
+	wrap(
+		<ApprovalDialog projectId="p1" plugin={pluginWithIntegrations} open onOpenChange={() => {}} />,
+	);
+
+	await until(() => expect(document.body.textContent).toContain("HubSpot CRM"));
+	expect(document.body.textContent).toContain("crm/hubspot");
+	expect(document.body.textContent).toContain("apiKey, appSecret");
+	expect(document.body.textContent).toContain("test");
+	expect(document.body.textContent).toContain("inspect");
+});
+
+test("a refused removal with details.integrations lists blocking integrations as router links", async () => {
+	remove.mockRejectedValue(
+		conflict({
+			message: "Plugin acme/slack still provides integrations. Delete them first.",
+			details: {
+				integrations: [
+					{ id: "int-10", name: "My Slack Integration", group: "crm", variant: "slack" },
+				],
+			},
+		}),
+	);
+	wrap(
+		<RemovePluginDialog
+			projectId="p1"
+			name="acme/slack"
+			open
+			onOpenChange={() => {}}
+			onRemoved={() => {}}
+		/>,
+	);
+
+	await act(async () => void fireEvent.click(button("Remove")!));
+	await until(() =>
+		expect(document.body.textContent).toContain("Plugin acme/slack still provides integrations"),
+	);
+	const link = [...document.querySelectorAll("a")].find(
+		(a) => a.textContent === "My Slack Integration",
+	);
+	expect(link).toBeTruthy();
+	expect(document.body.textContent).toContain("crm/slack");
+});

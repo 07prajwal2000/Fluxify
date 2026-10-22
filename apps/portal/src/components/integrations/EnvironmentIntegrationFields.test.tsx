@@ -2,7 +2,9 @@ import { afterAll, afterEach, expect, mock, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 
 // DOM only for this file; RTL reads `document` on import, so load it after.
-GlobalRegistrator.register();
+try {
+	GlobalRegistrator.register();
+} catch {}
 
 mock.module("./ConnectorFields", () => ({
 	ConnectorFields: ({ name, config }: { name: string; config: Record<string, unknown> }) => (
@@ -11,6 +13,10 @@ mock.module("./ConnectorFields", () => ({
 			<span>Host: {String(config?.host ?? "")}</span>
 		</div>
 	),
+	setPath: (obj: Record<string, unknown>, path: string, value: unknown) => ({
+		...obj,
+		[path]: value,
+	}),
 }));
 
 const { cleanup, fireEvent, render } = await import("@testing-library/react");

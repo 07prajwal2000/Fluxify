@@ -16,6 +16,7 @@ export type EnvironmentIntegrationFieldsProps = {
 	syncDev: boolean;
 	onSyncDevChange: (sync: boolean) => void;
 	readOnly?: boolean;
+	formError?: string | null;
 	tools?: { name: string; description: string }[];
 	/** mcp, once the integration is saved: what Connect needs, per environment */
 	oauth?: {
@@ -45,6 +46,7 @@ export function EnvironmentIntegrationFields({
 	syncDev,
 	onSyncDevChange,
 	readOnly = false,
+	formError,
 	tools,
 	oauth,
 }: EnvironmentIntegrationFieldsProps) {
@@ -59,6 +61,14 @@ export function EnvironmentIntegrationFields({
 
 	return (
 		<div className="flex flex-col gap-6">
+			{formError && (
+				<div
+					role="alert"
+					className="rounded-xl border border-danger/40 bg-danger/10 p-4 text-sm text-danger"
+				>
+					{formError}
+				</div>
+			)}
 			{/* Production Section */}
 			<div className="flex flex-col gap-4 rounded-xl border border-border bg-surface p-4">
 				<div className="flex items-center justify-between border-b border-border pb-2">
