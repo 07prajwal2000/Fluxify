@@ -9,12 +9,11 @@ import {
 	TextField,
 	toast,
 } from "@fluxify/components";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { TbBolt, TbEdit, TbPlus, TbStack2 } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
-import { EditTriggerModal } from "@/components/triggers/EditTriggerModal";
 import { queueName } from "@/components/triggers/SqsTriggerFields";
 import { TriggerGroupsModal } from "@/components/triggers/TriggerGroupsModal";
 import { announceWarnings, DisabledReason } from "@/components/triggers/TriggerNotices";
@@ -46,7 +45,6 @@ function TriggersPage() {
 	const navigate = useNavigate();
 	const [page, setPage] = useState(1);
 	const [search, setSearch] = useState("");
-	const [editingTrigger, setEditingTrigger] = useState<TriggerListItem | null>(null);
 	const [pendingDelete, setPendingDelete] = useState<TriggerListItem | null>(null);
 	const [groupsOpen, setGroupsOpen] = useState(false);
 
@@ -121,7 +119,15 @@ function TriggersPage() {
 				/>
 			) : (
 				<Table>
-					<Table.Content aria-label="Triggers">
+					<Table.Content
+						aria-label="Triggers"
+						onRowAction={(key) =>
+							navigate({
+								to: "/$projectId/triggers/$triggerId",
+								params: { projectId, triggerId: String(key) },
+							})
+						}
+					>
 						<Table.Header>
 							<Table.Column id="name" isRowHeader>
 								Name
@@ -135,7 +141,7 @@ function TriggersPage() {
 						</Table.Header>
 						<Table.Body items={rows}>
 							{(trigger) => (
-								<Table.Row id={trigger.id}>
+								<Table.Row id={trigger.id} className="cursor-pointer">
 									<Table.Cell>{trigger.name}</Table.Cell>
 									<Table.Cell>
 										<span className="text-muted">
@@ -203,14 +209,14 @@ function TriggersPage() {
 									</Table.Cell>
 									<Table.Cell>
 										<div className="flex items-center justify-end gap-1">
-											<Button
-												isIconOnly
-												variant="ghost"
+											<Link
+												to="/$projectId/triggers/$triggerId"
+												params={{ projectId, triggerId: trigger.id }}
 												aria-label={`Edit ${trigger.name}`}
-												onPress={() => setEditingTrigger(trigger)}
+												className="inline-flex size-9 items-center justify-center rounded-lg text-foreground transition-colors hover:bg-surface-secondary"
 											>
 												<TbEdit size={16} />
-											</Button>
+											</Link>
 											<DeleteIconButton
 												aria-label="Delete trigger"
 												onPress={() => setPendingDelete(trigger)}
@@ -266,12 +272,6 @@ function TriggersPage() {
 				projectId={projectId}
 				isOpen={groupsOpen}
 				onClose={() => setGroupsOpen(false)}
-			/>
-
-			<EditTriggerModal
-				projectId={projectId}
-				trigger={editingTrigger}
-				onClose={() => setEditingTrigger(null)}
 			/>
 		</div>
 	);

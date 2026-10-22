@@ -31,13 +31,15 @@ import {
 import { ScheduleFields } from "@/components/workflows/ScheduleFields";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { triggersQuery } from "@/query/triggersQuery";
-import type { CreateTriggerBody, TriggerListItem, UpdateTriggerBody } from "@/services/triggers";
+import type { CreateTriggerBody, Trigger, UpdateTriggerBody } from "@/services/triggers";
 
 export type TriggerWizardProps = {
 	projectId: string;
-	initialTrigger?: TriggerListItem;
+	initialTrigger?: Trigger;
 	onBack: () => void;
 	onSuccess: () => void;
+	/** Fill the page's height so only the step scrolls (a saved trigger's page). */
+	fill?: boolean;
 };
 
 export function TriggerWizard({
@@ -45,6 +47,7 @@ export function TriggerWizard({
 	initialTrigger,
 	onBack,
 	onSuccess,
+	fill,
 }: TriggerWizardProps) {
 	const isEdit = Boolean(initialTrigger);
 	const create = triggersQuery.create.mutation();
@@ -352,15 +355,18 @@ export function TriggerWizard({
 	};
 
 	const steps: WizardStep[] = [
-		{
-			key: "type",
-			label: "Source",
-			title: isEdit ? "Trigger source" : "What starts it?",
-			description: isEdit
-				? "The source type is set when the trigger is created."
-				: "The rest of the form follows from this.",
-			content: <TypeSelector value={type} onChange={setType} disabled={isEdit} />,
-		},
+		// a saved trigger's source is fixed, so it shows in the header instead (#932)
+		...(isEdit
+			? []
+			: [
+					{
+						key: "type",
+						label: "Source",
+						title: "What starts it?",
+						description: "The rest of the form follows from this.",
+						content: <TypeSelector value={type} onChange={setType} />,
+					},
+				]),
 		{
 			key: "basics",
 			label: "Basics",
@@ -491,6 +497,17 @@ export function TriggerWizard({
 					: "A trigger is a source that starts one workflow."
 			}
 			onBack={onBack}
+			fill={fill}
+			badge={
+				isEdit && typeOption ? (
+					<span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2 py-0.5 text-xs font-medium text-foreground">
+						<span className="text-accent [&_svg]:size-3.5" aria-hidden>
+							{typeOption.icon}
+						</span>
+						{typeOption.label}
+					</span>
+				) : undefined
+			}
 			steps={steps}
 			submitLabel={isEdit ? "Save changes" : "Create trigger"}
 			isPending={isEdit ? update.isPending : create.isPending}

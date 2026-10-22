@@ -66,17 +66,15 @@ export const TRIGGER_TYPE_OPTIONS = [
 export function TypeSelector({
 	value,
 	onChange,
-	disabled,
 }: {
 	value: TriggerType;
 	onChange: (value: TriggerType) => void;
-	disabled?: boolean;
 }) {
 	return (
 		<div className="grid gap-2.5 sm:grid-cols-2">
 			{TRIGGER_TYPE_OPTIONS.map((option) => {
 				const selected = option.available && value === option.id;
-				const isOptionDisabled = !option.available || disabled;
+				const isOptionDisabled = !option.available;
 				const card = (
 					<button
 						key={option.id}
@@ -87,13 +85,9 @@ export function TypeSelector({
 							"group flex items-start gap-3.5 rounded-xl border p-3 text-left transition-all duration-150",
 							!option.available
 								? "cursor-not-allowed border-border/50 bg-surface/50 opacity-45"
-								: disabled
-									? selected
-										? "cursor-default border-accent/40 bg-accent/5 opacity-80"
-										: "cursor-not-allowed border-border/50 bg-surface/50 opacity-45"
-									: selected
-										? "border-accent bg-accent/10"
-										: "border-border bg-surface hover:border-accent hover:bg-surface-secondary",
+								: selected
+									? "border-accent bg-accent/10"
+									: "border-border bg-surface hover:border-accent hover:bg-surface-secondary",
 						)}
 					>
 						<span
