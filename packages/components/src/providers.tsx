@@ -7,7 +7,9 @@ import type { ReactNode } from "react";
 export function Providers({ children }: { children: ReactNode }) {
 	return (
 		<>
-			<ToastProvider placement="bottom end" width="min(24rem, calc(100vw - 2rem))" />
+			{/* expanded: several results at once (a failed test and its reason, then the retry)
+			    stay readable side by side instead of folding behind the newest (#690) */}
+			<ToastProvider isExpanded placement="bottom end" width="min(24rem, calc(100vw - 2rem))" />
 			{children}
 		</>
 	);
