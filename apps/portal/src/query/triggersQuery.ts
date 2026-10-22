@@ -9,6 +9,7 @@ import {
 
 const LIST_KEY = ["triggers", "list"];
 const groupsKey = (projectId: string) => ["triggers", "groups", projectId];
+const detailKey = (id: string) => ["triggers", "detail", id];
 
 export const triggersQuery = {
 	getAll: {
@@ -17,6 +18,16 @@ export const triggersQuery = {
 				queryKey: [...LIST_KEY, query],
 				queryFn: () => triggersService.getAll(query),
 				enabled,
+				refetchOnWindowFocus: false,
+			});
+		},
+	},
+	byId: {
+		useQuery(id: string) {
+			return useQuery({
+				queryKey: detailKey(id),
+				queryFn: () => triggersService.getById(id),
+				enabled: Boolean(id),
 				refetchOnWindowFocus: false,
 			});
 		},
@@ -94,7 +105,11 @@ export const triggersQuery = {
 			return useMutation({
 				mutationFn: (data: { id: string; body: UpdateTriggerBody }) =>
 					triggersService.update(data.id, data.body),
-				onSuccess: () => qc.invalidateQueries({ queryKey: LIST_KEY }),
+				onSuccess: (_result, data) => {
+					// the trigger's page seeds its form once from this: a stale copy would undo the save
+					qc.removeQueries({ queryKey: detailKey(data.id) });
+					return qc.invalidateQueries({ queryKey: LIST_KEY });
+				},
 			});
 		},
 	},

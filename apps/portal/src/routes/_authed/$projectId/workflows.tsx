@@ -114,7 +114,7 @@ function WorkflowsPage() {
 				/>
 			) : (
 				<Table>
-					<Table.Content aria-label="Workflows">
+					<Table.Content aria-label="Workflows" onRowAction={(key) => openCanvas(String(key))}>
 						<Table.Header>
 							<Table.Column id="name" isRowHeader>
 								Name
@@ -127,7 +127,7 @@ function WorkflowsPage() {
 						</Table.Header>
 						<Table.Body items={rows}>
 							{(workflow) => (
-								<Table.Row id={workflow.id}>
+								<Table.Row id={workflow.id} className="cursor-pointer">
 									<Table.Cell>
 										<div className="flex items-center gap-2">
 											<span>{workflow.name}</span>

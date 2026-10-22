@@ -92,6 +92,25 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 	const [picked, setPicked] = useState<Picks>({});
 	/** The plan the user turned down (by the seq of its message), so its bar stays away. */
 	const [dismissed, setDismissed] = useState(-1);
+	// The chat page is reused when the sidebar opens another conversation (#936): the run this one
+	// follows, its sent text and its live output stay behind. Reset while rendering, so the next
+	// conversation never paints a frame of the last one's; the stream effect then lets go of its run.
+	const [shown, setShown] = useState(conversationId);
+	if (shown !== conversationId) {
+		setShown(conversationId);
+		setLive(EMPTY_LIVE);
+		setStarted(null);
+		setPending(null);
+		setStartedAt(null);
+		setCompactStarted(false);
+		setAttempt(0);
+		setPicked({});
+		setDismissed(-1);
+	}
+	/** The conversation on screen now; a request that answers after the user moved on is dropped. */
+	const onScreen = useRef(conversationId);
+	onScreen.current = conversationId;
+	const left = () => onScreen.current !== conversationId;
 	const saved = detail.data?.settings;
 	const mode = picked.mode ?? saved?.mode ?? "manual";
 	const effort = picked.effort ?? saved?.effort ?? "none";
@@ -182,10 +201,11 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 				args.push(go.mentions);
 			}
 			const { runId } = await agentConversationsService.send(...args);
+			if (left()) return;
 			setPicked({ mode: go.mode, effort: go.effort });
 			setStarted(runId);
 		} catch (e) {
-			setPending(null);
+			if (!left()) setPending(null);
 			throw e;
 		}
 	};
@@ -199,6 +219,7 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 			text || undefined,
 		);
 		if (!runId) return void toast.info(message ?? "Nothing to compact yet");
+		if (left()) return;
 		setCompactStarted(true);
 		setStartedAt(Date.now());
 		setLive({ ...EMPTY_LIVE, lastEventAt: Date.now() });
@@ -235,6 +256,7 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 			...(chosenMode && { mode: chosenMode }),
 			...(effortGo && { effort: effortGo }),
 		});
+		if (left()) return;
 		setPicked({ mode: chosenMode ?? mode, effort: effortGo });
 		setLive({ ...EMPTY_LIVE, results, lastEventAt: Date.now() });
 		setStartedAt(Date.now());
@@ -245,6 +267,7 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 		await agentConversationsService.stop(projectId, conversationId);
 		// A queued or waiting run is stopped right here and sends no `done`.
 		const r = await refetch();
+		if (left()) return;
 		if (r.data?.run && !ACTIVE.has(r.data.run.status)) {
 			setStarted(null);
 			setPending(null);

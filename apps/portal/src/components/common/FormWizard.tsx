@@ -32,9 +32,18 @@ export function FormWizard({
 	submitLabel,
 	isPending,
 	onSubmit,
+	badge,
+	fill,
 }: {
 	title: string;
 	description: string;
+	/** Beside the title: what the form is about, e.g. a saved trigger's source. */
+	badge?: ReactNode;
+	/**
+	 * Fill the parent's height: the header, stepper and footer stay put and only
+	 * the step scrolls. The parent sets the height.
+	 */
+	fill?: boolean;
 	/** Where the arrow in the header goes — usually back to the list. */
 	onBack: () => void;
 	steps: WizardStep[];
@@ -53,18 +62,24 @@ export function FormWizard({
 	const canSubmit = steps.every((s) => s.isValid !== false);
 
 	return (
-		<div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
-			<div className="flex items-center gap-3">
+		<div className={cn("mx-auto flex w-full max-w-4xl flex-col gap-5", fill && "h-full min-h-0")}>
+			<div className={cn("flex items-center gap-3", fill && "shrink-0")}>
 				<Button isIconOnly variant="ghost" aria-label="Back" onPress={onBack}>
 					<TbArrowLeft size={18} />
 				</Button>
 				<div>
-					<h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+					<div className="flex flex-wrap items-center gap-2">
+						<h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+						{badge}
+					</div>
 					<p className="text-xs text-muted">{description}</p>
 				</div>
 			</div>
 
-			<nav aria-label="Setup steps" className="border-b border-border pb-3">
+			<nav
+				aria-label="Setup steps"
+				className={cn("border-b border-border pb-3", fill && "shrink-0")}
+			>
 				<ol className="flex flex-wrap gap-2">
 					{steps.map((item, index) => {
 						const reachable = index === 0 || canAdvance || index <= current;
@@ -103,7 +118,7 @@ export function FormWizard({
 				</ol>
 			</nav>
 
-			<div className="min-h-[340px]">
+			<div className={fill ? "min-h-0 flex-1 overflow-y-auto" : "min-h-[340px]"}>
 				<p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
 					Step {current + 1} of {steps.length}
 				</p>
@@ -114,7 +129,12 @@ export function FormWizard({
 				<div className="mt-4">{active.content}</div>
 			</div>
 
-			<div className="flex items-center justify-between border-t border-border pt-3.5">
+			<div
+				className={cn(
+					"flex items-center justify-between border-t border-border pt-3.5",
+					fill && "shrink-0",
+				)}
+			>
 				<Button
 					variant="ghost"
 					size="sm"

@@ -50,6 +50,11 @@ export const triggersService = {
 		return result.data;
 	},
 	/** `warnings`: settings that work but deserve a look, e.g. an SQS queue with no dead-letter queue. */
+	/** One saved trigger, for its own page (#932). */
+	async getById(id: string): Promise<Trigger> {
+		const result = await httpClient.get(`${baseUrl}/${id}`);
+		return result.data;
+	},
 	async create(data: CreateTriggerBody): Promise<z.infer<typeof triggerCreatedSchema>> {
 		const result = await httpClient.post(baseUrl, data);
 		return result.data;
