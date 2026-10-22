@@ -3,6 +3,8 @@ import { createFileRoute, isRedirect, redirect, useNavigate } from "@tanstack/re
 import { useState } from "react";
 import z from "zod";
 import { CanvasWorkbench } from "@/components/canvas";
+import { CanvasStatusBadges } from "@/components/canvas/CanvasStatusBadges";
+import { RecordingIndicator } from "@/components/recordings/RecordingControls";
 import { WorkflowWorkbenchTabs } from "@/components/routes/RouteWorkbenchTabs";
 import { SettingsSplitButton } from "@/components/sandboxes/SettingsSplitButton";
 import { CommitControls } from "@/components/versions/CommitControls";
@@ -78,6 +80,15 @@ function WorkflowCanvasPage() {
 				reload={() => workflowsService.getCanvasItems(workflowId)}
 				getRevision={() => workflowsService.getCanvasRevision(workflowId)}
 				save={(payload) => save.mutateAsync(payload)}
+				canvasOverlay={
+					<CanvasStatusBadges>
+						<ProductionChip kind="workflow" id={workflowId} projectId={projectId} />
+						<RecordingIndicator
+							dev={workflow?.devRecordExecution}
+							prod={workflow?.recordExecution}
+						/>
+					</CanvasStatusBadges>
+				}
 				headerLeft={
 					<>
 						<WorkflowSwitcher projectId={projectId} workflowId={workflowId} />
@@ -86,7 +97,6 @@ function WorkflowCanvasPage() {
 				}
 				headerActions={(canvas) => (
 					<>
-						<ProductionChip kind="workflow" id={workflowId} projectId={projectId} />
 						<CommitControls
 							kind="workflow"
 							id={workflowId}

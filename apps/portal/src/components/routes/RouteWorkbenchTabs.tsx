@@ -3,9 +3,6 @@ import { Link } from "@tanstack/react-router";
 import type { IconType } from "react-icons";
 import { TbFlask, TbHistory, TbTopologyStar3 } from "react-icons/tb";
 import { ProjectSpotlightHost } from "@/components/common/ProjectSpotlight";
-import { RecordingIndicator } from "@/components/recordings/RecordingControls";
-import { routesQuery } from "@/query/routesQuery";
-import { workflowsQuery } from "@/query/workflowsQuery";
 
 type Tab = { label: string; icon: IconType; to: string };
 
@@ -53,13 +50,7 @@ function WorkbenchTabs({ tabs, params }: { tabs: Tab[]; params: Record<string, s
 }
 
 export function RouteWorkbenchTabs({ projectId, routeId }: { projectId: string; routeId: string }) {
-	const { data: route } = routesQuery.byId.useQuery(routeId);
-	return (
-		<div className="flex items-center gap-2">
-			<WorkbenchTabs tabs={ROUTE_TABS} params={{ projectId, routeId }} />
-			<RecordingIndicator dev={route?.devRecordExecution} prod={route?.recordExecution} />
-		</div>
-	);
+	return <WorkbenchTabs tabs={ROUTE_TABS} params={{ projectId, routeId }} />;
 }
 
 /** a workflow's canvas and its test suites (#487) */
@@ -70,13 +61,7 @@ export function WorkflowWorkbenchTabs({
 	projectId: string;
 	workflowId: string;
 }) {
-	const { data: workflow } = workflowsQuery.byId.useQuery(workflowId);
-	return (
-		<div className="flex items-center gap-2">
-			<WorkbenchTabs tabs={WORKFLOW_TABS} params={{ projectId, workflowId }} />
-			<RecordingIndicator dev={workflow?.devRecordExecution} prod={workflow?.recordExecution} />
-		</div>
-	);
+	return <WorkbenchTabs tabs={WORKFLOW_TABS} params={{ projectId, workflowId }} />;
 }
 
 /** The shared topbar shell — the canvas grows its own, this is for the sibling views. */

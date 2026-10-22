@@ -70,6 +70,8 @@ export type CanvasWorkbenchProps = {
 	focusBlock?: { blockId: string; error?: string };
 	/** increment to open the playground from the page (a replayed run) */
 	playgroundToken?: number;
+	/** Rendered inside React Flow, for `<Panel>` overlays: the recording badge, for one. */
+	canvasOverlay?: ReactNode;
 };
 
 /** What the header controls may ask of the canvas they sit on. */
@@ -125,6 +127,7 @@ function CanvasWorkbenchInner({
 	readOnly = false,
 	focusBlock,
 	playgroundToken,
+	canvasOverlay,
 }: CanvasWorkbenchProps) {
 	const [pendingCount, setPendingCount] = useState(0);
 	const [isSaving, setIsSaving] = useState(false);
@@ -289,7 +292,9 @@ function CanvasWorkbenchInner({
 							edited.current = { graph: next, changes };
 							setPendingCount(changes.blocks.size + changes.edges.size);
 						}}
-					/>
+					>
+						{canvasOverlay}
+					</BlockCanvas>
 				)}
 			</div>
 		</div>
