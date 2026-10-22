@@ -1,4 +1,4 @@
-import { Button, cn, integrationIcons, Spinner } from "@fluxify/components";
+import { Button, Chip, cn, integrationIcons, Spinner, Table } from "@fluxify/components";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { type ReactNode, useEffect, useMemo } from "react";
 import { FaRobot, FaTableList } from "react-icons/fa6";
@@ -336,54 +336,53 @@ export function IntegrationsList({ projectId, group }: { projectId: string; grou
 		);
 	}
 
+	const knownVariants = new Set(
+		(catalog.items ?? []).filter((item) => item.group === group).map((item) => item.variant),
+	);
+
 	return (
-		<div className="flex flex-col gap-4">
-			{data.map((integration) => {
-				const isKnownVariant = (catalog.items ?? []).some(
-					(item) => item.group === group && item.variant === integration.variant,
-				);
-				return (
-					<div
-						key={integration.id}
-						role="button"
-						tabIndex={0}
-						onClick={() => openIntegration(integration.id)}
-						onKeyDown={(e) => e.key === "Enter" && openIntegration(integration.id)}
-						className="flex cursor-pointer flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface px-5 py-4 transition-colors hover:border-accent hover:bg-surface-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-					>
-						<div className="flex min-w-0 items-center gap-3">
-							<div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-surface-secondary text-accent">
-								{integrationIcons[integration.variant] ?? <TbDatabase size={18} />}
-							</div>
-							<div className="min-w-0">
-								<div className="flex items-center gap-2">
-									<span className="truncate font-semibold text-foreground">{integration.name}</span>
-									{!isKnownVariant && (
-										<span className="rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-medium text-warning">
+		<Table>
+			<Table.Content aria-label="Integrations" onRowAction={(key) => openIntegration(String(key))}>
+				<Table.Header>
+					<Table.Column id="name" isRowHeader>
+						Name
+					</Table.Column>
+					<Table.Column id="type">Type</Table.Column>
+					<Table.Column id="actions" aria-label="Actions">
+						{""}
+					</Table.Column>
+				</Table.Header>
+				<Table.Body items={data}>
+					{(integration) => (
+						<Table.Row id={integration.id} className="cursor-pointer">
+							<Table.Cell>
+								<div className="flex min-w-0 items-center gap-3">
+									<div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-secondary text-accent">
+										{integrationIcons[integration.variant] ?? <TbDatabase size={16} />}
+									</div>
+									<span className="truncate font-medium text-foreground">{integration.name}</span>
+									{!knownVariants.has(integration.variant) && (
+										<Chip size="sm" color="warning">
 											plugin disabled
-										</span>
+										</Chip>
 									)}
 								</div>
-								<div className="text-xs text-muted">
+							</Table.Cell>
+							<Table.Cell>
+								<span className="text-muted">
 									{integration.variant} • {group}
+								</span>
+							</Table.Cell>
+							<Table.Cell>
+								<div className="flex justify-end">
+									<IntegrationTestButtons projectId={projectId} integrationId={integration.id} />
 								</div>
-							</div>
-						</div>
-
-						<div
-							className="flex items-center gap-2"
-							onClick={(e) => e.stopPropagation()}
-							onKeyDown={(e) => e.stopPropagation()}
-						>
-							<span className="rounded-full border border-border bg-surface-secondary px-2.5 py-1 text-[11px] font-mono text-muted">
-								ID: {integration.id.slice(0, 8)}
-							</span>
-							<IntegrationTestButtons projectId={projectId} integrationId={integration.id} />
-						</div>
-					</div>
-				);
-			})}
-		</div>
+							</Table.Cell>
+						</Table.Row>
+					)}
+				</Table.Body>
+			</Table.Content>
+		</Table>
 	);
 }
 
