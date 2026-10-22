@@ -1,137 +1,105 @@
 ---
 title: Performance
-description: Benchmark results showing what compiling a flow once at save time is worth compared with interpreting it on every request.
+description: Load test results for a URL shortener built in Fluxify without code, compared with the same app hand-written in Bun and in Node.js.
 ---
 
 # Performance
 
-The [Request Lifecycle](/architecture/request-lifecycle) page explains that
-Fluxify translates your flow into code once, at save time, instead of walking
-it on every request. This page shows what that's actually worth.
+This page shows how a real Fluxify app behaves under load, and how it compares
+with the same app written by hand. The app is a URL shortener with three
+endpoints, hit by hundreds of simulated users at once.
 
 ::: info About these numbers
-This is one benchmark on one machine, run against a demo route. Your results
-will differ — a route that spends 200 ms waiting on a slow external API will be
-dominated by that wait, not by Fluxify. Treat the **ratios** as the meaningful
-part, not the absolute figures.
+Fluxify is in alpha. These results are what you get today, out of the box: the
+routes were built by dragging and dropping blocks, with no code and no tuning.
+Performance work is planned, and this page is the baseline to measure it
+against. This is one test on one developer machine, with the load generator
+running next to the app, so your results will differ. A route that waits on a
+slow external service will be dominated by that wait.
 :::
 
-## The test
+## What was tested
 
-A load generator ramped up to **100 concurrent users over 60 seconds** and
-called a single route as fast as it could.
+| Endpoint | What it does |
+| :--- | :--- |
+| Get URL by id | Returns which URL a short id points to |
+| Create short URL | Saves a new short URL and returns its id |
+| Redirect | The public link that sends a visitor to the target URL |
+
+The same three endpoints were built three ways, all behaving identically:
+
+| | How it was built |
+| :--- | :--- |
+| **Fluxify** | Drag and drop in the portal, no code |
+| **Bun** | Hand-written TypeScript on Bun, using the Hono web framework |
+| **Node.js** | The same hand-written code on Node.js 24 |
+
+Each one ran as **2 copies, each limited to 1 CPU and 1 GiB of memory**, behind
+the same proxy, with the same PostgreSQL database (1 CPU) and the same
+Redis-compatible cache in front for reads. The database held about 680,000
+short URLs. The cache started empty for every run.
 
 | | |
-|---|---|
-| Route | `GET /users?id=…` — reads one row and returns it |
-| Traffic mix | ids 1–2 exist (returns the row), ids 3–10 don't (returns 404) |
-| Concurrency | ramped to 100 simultaneous users |
-| Duration | 60 seconds |
-| Environment | containers on a single developer machine |
+| :--- | :--- |
+| Users | **500 at once**, ramped up over 10 seconds and held for 40 |
+| Pace | Each user sends the next request as soon as the last one returns |
+| Duration | 1 minute per run |
 
-Both engines ran the **same route, same data, same traffic mix** — around 20%
-found the row, around 80% correctly returned a 404. The 404s aren't errors in
-the test; they exercise the full pipeline (match the path, validate, run the
-route, query, return) and just happen to find no row.
+Traffic was a realistic mix: 65% reads of links that exist, 20% reads of links
+that don't (these return "not found" and always reach the database), and 15%
+new short URLs.
 
 ## Results
 
-### Throughput
+| | Fluxify | Bun | Node.js |
+| :--- | :--- | :--- | :--- |
+| Requests in 1 minute | 285,315 | **573,984** | 294,934 |
+| Throughput | 4,755 per second | **9,566 per second** | 4,915 per second |
+| Failed requests | 0 | 0 | 0 |
+| Median response time | 81 ms | 41 ms | **18 ms** |
+| 95th percentile | 171 ms | **83 ms** | 448 ms |
+| CPU used per request | 0.42 ms | **0.21 ms** | 0.40 ms |
 
-| | Interpreted | Translated | Change |
-|---|---|---|---|
-| Requests per second | 860.7 | **1,403.2** | **+63%** |
-| Requests in 60s | 51,650 | **84,198** | +63% |
+### Response time by request type (median / 95th percentile)
 
-### Response time
+| | Fluxify | Bun | Node.js |
+| :--- | :--- | :--- | :--- |
+| Redirect, link exists | 75 / 157 ms | 37 / 67 ms | 15 / 68 ms |
+| Get by id, link exists | 72 / 151 ms | 37 / 67 ms | 15 / 70 ms |
+| Redirect or get, link not found | 89 / 178 ms | 48 / 94 ms | 57 / 499 ms |
+| Create | 107 / 206 ms | 57 / 103 ms | 59 / 501 ms |
 
-| | Interpreted | Translated | Change |
-|---|---|---|---|
-| Average | 87.1 ms | **53.3 ms** | −39% |
-| Median | 91.0 ms | **51.5 ms** | −43% |
-| 90th percentile | 124.8 ms | **88.4 ms** | −29% |
-| 95th percentile | 134.8 ms | **101.1 ms** | −25% |
-| Fastest request | 4.09 ms | **0.53 ms** | −87% |
+## What to expect
 
-Measured only on the requests that found a row and returned data:
+- **No errors under load.** Every redirect, lookup, "not found" and create
+  returned the right answer, for all three.
+- **Fluxify, with no code written, handles about the same traffic as a
+  hand-written Node.js server.** About 4,800 requests per second against 4,900,
+  using about the same CPU per request.
+- **A hand-written Bun server handles about twice as much** on the same
+  hardware. Closing that gap is what the planned performance work is aimed at.
+- **Fluxify's response times are steady.** The slowest 5% of requests were
+  under 210 ms for every request type. The Node.js version was quicker for
+  most requests but its slowest ones took about 500 ms whenever they reached
+  the database.
+- **Requests that reach the database are the slow ones** for all three. Links
+  served from the cache are faster everywhere.
+- **The app copies' CPU was the limit** in all three runs, so the comparison is
+  CPU against CPU. If you need more, add copies or give each more CPU.
 
-| | Interpreted | Translated | Change |
-|---|---|---|---|
-| Average | 104.1 ms | **71.4 ms** | −31% |
-| Median | 111.9 ms | **72.5 ms** | −35% |
-| 95th percentile | 151.9 ms | **120.6 ms** | −21% |
-
-### Resources
-
-| | Interpreted | Translated | Change |
-|---|---|---|---|
-| Memory | 256 MB | **210 MB** | −18% |
-| CPU | 130% | **120%** | −8% |
-| **CPU time per request** | 1.51 ms | **0.86 ms** | **−43%** |
-
-```mermaid
-xychart-beta
-    title "Requests per second (higher is better)"
-    x-axis ["Interpreted", "Translated"]
-    y-axis "Requests / second" 0 --> 1600
-    bar [860.7, 1403.2]
-```
-
-```mermaid
-xychart-beta
-    title "Median response time in ms (lower is better)"
-    x-axis ["Interpreted", "Translated"]
-    y-axis "Milliseconds" 0 --> 120
-    bar [91.0, 51.5]
-```
-
-## Reading the results
-
-**Throughput and latency improved together.** Normally you trade one for the
-other: push more requests through and each one waits longer. Here the server
-handled 63% more traffic *while* responding faster, using less memory and less
-CPU. That only happens when each request genuinely got cheaper — which is
-exactly what removing the per-request interpretation does.
-
-**The floor is the clearest signal.** The fastest request went from 4.09 ms to
-0.53 ms. With no queueing and no contention, that figure is close to pure
-per-request overhead — and it dropped by a factor of about eight.
-
-**CPU per request is the number that matters for your bill.** At 0.86 ms of CPU
-per request instead of 1.51 ms, the same hardware serves roughly 75% more
-traffic. In practice that's the difference between three servers and two.
-
-**One caveat, honestly stated.** The slowest single request was *worse* on the
-translated engine (258 ms vs 215 ms), even though every percentile up to the
-95th improved. That's a small number of outliers, most likely ordinary garbage
-collection or noise from sharing a developer machine — not a pattern users
-would feel. It's listed here rather than omitted.
-
-## What this means for you
-
-You don't have to do anything to get this. There's no setting to enable and no
-different way to build your flows — translation is simply how Fluxify runs.
-
-What it changes is what you can expect:
-
-- **Simple routes get very fast.** With per-request overhead near zero, a route
-  that just reads and returns data is limited by your database, not by Fluxify.
-- **Your hosting goes further.** Roughly 43% less CPU per request means fewer
-  servers for the same traffic.
-- **Complex flows benefit most.** The savings scale with how many blocks your
-  flow has, because every one of them used to cost interpretation on every
-  single request.
-
-::: tip Where Fluxify is *not* the bottleneck
-If your route calls a slow external service, waits on a heavy database query,
-or processes a large payload, that work dominates and these gains are a small
-share of the total. This benchmark measures the engine's own overhead, which is
-precisely the part that used to be avoidable.
+::: warning Removing a worker during traffic
+Scaling down while requests are flowing can fail a small number of them. In one
+test, 802 of 406,256 requests (0.19%) failed in the seconds after a worker was
+removed. A fix is being tracked in
+[issue #940](https://github.com/Fluxify-rest/Fluxify/issues/940).
 :::
 
-## Running it yourself
+## Run it yourself
 
-The load-testing setup lives in `testing/load-testing` in the repository, and
-the [Deployments](/deployments/) guide covers standing up a stack to point it
-at. Use your own routes and your own data — a benchmark of someone else's
-workload only ever tells you so much.
+The full report, with every setting, the CPU use of each container, the
+earlier test runs and the caveats, is on GitHub:
+[URL shortener report](https://github.com/Fluxify-rest/Fluxify/blob/main/testing/load-testing/url-shortener/report.md).
+The test scripts, the exported routes and both hand-written servers sit next to
+it, so you can run the same test against your own stack. The
+[Deployments](/deployments/) guide covers standing one up. Use your own routes
+and data for the numbers that matter to you.

@@ -1,0 +1,6 @@
+**/node_modules
+k6
+config
+routes
+report.md
+README.md

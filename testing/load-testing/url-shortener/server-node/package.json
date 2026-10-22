@@ -1,0 +1,14 @@
+{
+	"name": "url-shortener-server-node",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"start": "node index.ts"
+	},
+	"dependencies": {
+		"@hono/node-server": "^1.19.0",
+		"hono": "^4.12.27",
+		"ioredis": "^5.11.1",
+		"pg": "^8.16.0"
+	}
+}

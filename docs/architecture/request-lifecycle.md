@@ -210,9 +210,8 @@ dedicated CPU-worker design.
 
 ### What the worker is *not* doing
 
-This is the interesting part, and the reason for the numbers on the
-[Performance](/architecture/performance) page. On every single request, the
-worker does **not**:
+This is the interesting part, and the reason requests are cheap. On every
+single request, the worker does **not**:
 
 - load your flow from the database
 - figure out which block comes next, over and over
