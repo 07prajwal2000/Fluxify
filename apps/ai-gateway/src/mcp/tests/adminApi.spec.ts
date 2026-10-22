@@ -27,6 +27,13 @@ describe("readableError", () => {
 		expect(readableError(400, body, "viewer")).toBe("Invalid input: id: Invalid UUID");
 	});
 
+	// #690: a body like { success: false, error } names its reason too
+	it("keeps a 400's error reason instead of a bare Invalid input", () => {
+		expect(readableError(400, { success: false, error: "connect ECONNREFUSED 10.0.0.5:5432" }, "creator")).toBe(
+			"Invalid input: connect ECONNREFUSED 10.0.0.5:5432",
+		);
+	});
+
 	it("falls back to the status for anything else", () => {
 		expect(readableError(500, "not json", "viewer")).toBe("Fluxify API error 500.");
 	});
