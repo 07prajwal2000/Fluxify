@@ -107,3 +107,27 @@ export function RecordingIndicator({
 		</Tooltip>
 	);
 }
+
+/**
+ * What the recording dots mean, said once for a whole list (#941): one chip in the
+ * indicator's style, "Development / Production recording" with a dot before each
+ * environment that records on it. Nothing when none does.
+ */
+export function RecordingLegend({ dev, prod }: { dev?: boolean; prod?: boolean }) {
+	if (!dev && !prod) return null;
+	const env = (key: keyof typeof DOT, label: string) => (
+		<span className="inline-flex items-center gap-1">
+			<span className={cn("size-2 rounded-full", DOT[key])} aria-hidden />
+			{label}
+		</span>
+	);
+	return (
+		<span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2 py-0.5 text-xs font-medium text-foreground">
+			{dev && env("development", "Development")}
+			{dev && prod && <span className="text-muted"> / </span>}
+			{prod && env("production", "Production")}
+			{/* real spaces, so it reads as words to a screen reader, not just with a gap */}
+			<span> recording</span>
+		</span>
+	);
+}

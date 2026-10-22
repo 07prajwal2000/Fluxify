@@ -29,7 +29,7 @@ import {
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
 import { RouteApiPlayground } from "@/components/RouteApiPlayground";
-import { RecordingIndicator } from "@/components/recordings/RecordingControls";
+import { RecordingIndicator, RecordingLegend } from "@/components/recordings/RecordingControls";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { PAGE_SIZES, usePageSize } from "@/lib/pageSize";
 import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
@@ -96,6 +96,8 @@ function RoutesPage() {
 	const [pendingPlayground, setPendingPlayground] = useState<RouteRow | null>(null);
 
 	const rows = (data?.data ?? []) as RouteRow[];
+	const recordsDev = rows.some((r) => r.devRecordExecution);
+	const recordsProd = rows.some((r) => r.recordExecution);
 
 	const totalPages = data?.pagination?.totalPages ?? 1;
 
@@ -187,16 +189,20 @@ function RoutesPage() {
 								{(route: RouteRow) => (
 									<Table.Row id={route.id} className="cursor-pointer">
 										<Table.Cell>
-											<Chip>{route.method}</Chip>
+											{/* recording shows as dots in the method chip; the legend under the table names them (#941) */}
+											<Chip>
+												<span className="flex items-center gap-1.5">
+													<RecordingIndicator
+														compact
+														dev={route.devRecordExecution}
+														prod={route.recordExecution}
+													/>
+													{route.method}
+												</span>
+											</Chip>
 										</Table.Cell>
 										<Table.Cell>
-											<div className="flex items-center gap-2">
-												<span className="font-mono text-sm">{route.path}</span>
-												<RecordingIndicator
-													dev={route.devRecordExecution}
-													prod={route.recordExecution}
-												/>
-											</div>
+											<span className="font-mono text-sm">{route.path}</span>
 										</Table.Cell>
 										<Table.Cell>{route.name}</Table.Cell>
 										<Table.Cell>
@@ -246,8 +252,9 @@ function RoutesPage() {
 				</div>
 			)}
 
-			<div className="flex shrink-0 items-center justify-end gap-3 text-sm text-muted">
-				<span>Rows per page:</span>
+			<div className="flex shrink-0 items-center gap-3 text-sm text-muted">
+				<RecordingLegend dev={recordsDev} prod={recordsProd} />
+				<span className="ml-auto">Rows per page:</span>
 				<Select
 					aria-label="Rows per page"
 					value={String(perPage)}

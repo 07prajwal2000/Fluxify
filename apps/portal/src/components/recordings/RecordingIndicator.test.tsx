@@ -5,7 +5,7 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 GlobalRegistrator.register();
 
 const { cleanup, render } = await import("@testing-library/react");
-const { RecordingIndicator } = await import("./RecordingControls");
+const { RecordingIndicator, RecordingLegend } = await import("./RecordingControls");
 
 afterEach(cleanup);
 afterAll(() => GlobalRegistrator.unregister());
@@ -42,4 +42,24 @@ test("compact is the dots alone, with the explanation as its title", () => {
 	expect(container.textContent).toBe("");
 	expect(dots(container)).toHaveLength(2);
 	expect(container.querySelector("[title]")?.getAttribute("title")).toContain("Development");
+});
+
+// The Routes list explains its method-chip dots once, under the table (#941).
+test("the legend is one chip: Development / Production recording, a dot before each", () => {
+	const { container } = render(<RecordingLegend dev prod />);
+	expect(container.textContent).toBe("Development / Production recording");
+	expect(container.querySelectorAll(".rounded-full.border")).toHaveLength(1);
+	expect(container.querySelector(".bg-accent")).not.toBeNull();
+	expect(container.querySelector(".bg-danger")).not.toBeNull();
+});
+
+test("the legend shows only the environments that record, and nothing when none do", () => {
+	const dev = render(<RecordingLegend dev prod={false} />).container;
+	expect(dev.textContent).toBe("Development recording");
+	cleanup();
+	expect(render(<RecordingLegend dev={false} prod />).container.textContent).toBe(
+		"Production recording",
+	);
+	cleanup();
+	expect(render(<RecordingLegend dev={false} prod={false} />).container.textContent).toBe("");
 });
