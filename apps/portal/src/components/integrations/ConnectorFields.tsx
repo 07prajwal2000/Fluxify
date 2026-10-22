@@ -139,6 +139,9 @@ export function ConnectorFields({
 				tabs={meta?.tabs}
 				config={formProps.config}
 				setField={formProps.setField}
+				name={formProps.name}
+				onName={formProps.onName}
+				hideName={formProps.hideName}
 				readOnly={formProps.readOnly}
 			/>
 		);

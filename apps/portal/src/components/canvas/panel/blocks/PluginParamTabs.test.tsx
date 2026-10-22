@@ -2,7 +2,9 @@ import { afterAll, afterEach, expect, mock, spyOn, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 
 // DOM only for this file; RTL reads `document` on import, so load it after.
-GlobalRegistrator.register();
+try {
+	GlobalRegistrator.register();
+} catch {}
 Element.prototype.scrollIntoView = () => {};
 class Observer {
 	observe() {}
@@ -43,6 +45,7 @@ const { CanvasChangesProvider, DISABLED_CHANGES } = await import("../../changes/
 const { PluginBlocksContext } = await import("../../plugins/PluginBlocksContext");
 const { blocksOf, slack } = await import("../../plugins/fixtures");
 const { integrationService } = await import("@/services/integrations");
+const { BlockSettings } = await import("../BlockSettings");
 const { PluginBlockSettings } = await import("./PluginBlockSettings");
 
 afterEach(cleanup);
@@ -247,4 +250,64 @@ test("read-only disables the keyValue, array and fieldMap editors", () => {
 	expect(buttons.filter((b) => !b.disabled && b.getAttribute("aria-disabled") !== "true")).toEqual(
 		[],
 	);
+});
+
+test("RTL (tabs): a plugin block with tabs: ['Body', 'Advanced'] shows the top-level tabs General, Body, Advanced, then Docs, with no Parameters tab; params with no tab land in General; a tab whose params are all hidden is not shown", () => {
+	const blockParams = {
+		subject: { type: "string", label: "Subject" },
+		html: { type: "string", label: "HTML Body", tab: "Body" },
+		timeout: {
+			type: "number",
+			label: "Timeout",
+			tab: "Advanced",
+			visibleWhen: { subject: "custom" },
+		},
+	};
+
+	function SettingsPanel({ data = {} }: { data?: Record<string, unknown> }) {
+		return (
+			<QueryClientProvider client={new QueryClient()}>
+				<PluginBlocksContext.Provider
+					value={blocksOf(slack([entry(blockParams, ["Body", "Advanced"])]))}
+				>
+					<CanvasChangesProvider value={{ ...DISABLED_CHANGES, enabled: true }}>
+						<ReactFlowProvider
+							defaultNodes={[{ id: "b1", type: TYPE, position: { x: 0, y: 0 }, data }]}
+						>
+							<BlockSettings
+								block={
+									{
+										id: "b1",
+										type: TYPE,
+										position: { x: 0, y: 0 },
+										data,
+									} as never
+								}
+							/>
+						</ReactFlowProvider>
+					</CanvasChangesProvider>
+				</PluginBlocksContext.Provider>
+			</QueryClientProvider>
+		);
+	}
+
+	const view1 = render(<SettingsPanel data={{ subject: "custom" }} />);
+	expect(view1.queryAllByRole("tab").map((t) => t.textContent)).toEqual([
+		"General",
+		"Body",
+		"Advanced",
+		"Docs",
+	]);
+	expect(view1.queryByRole("tab", { name: "Parameters" })).toBeNull();
+	expect(view1.getByText("Subject")).toBeDefined();
+	cleanup();
+
+	const view2 = render(<SettingsPanel data={{ subject: "default" }} />);
+	expect(view2.queryAllByRole("tab").map((t) => t.textContent)).toEqual([
+		"General",
+		"Body",
+		"Docs",
+	]);
+	expect(view2.queryByRole("tab", { name: "Advanced" })).toBeNull();
+	cleanup();
 });

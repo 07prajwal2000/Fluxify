@@ -1,4 +1,4 @@
-import { Button, CloseButton, cn, Label, Tabs } from "@fluxify/components";
+import { Button, CloseButton, cn, Input, Label, Tabs } from "@fluxify/components";
 import { isVisible, paramTabs } from "@fluxify/sdk";
 import type { HintParam, Param } from "@fluxify/sdk/blocks";
 import { ReactFlowProvider, useNodes, useReactFlow } from "@xyflow/react";
@@ -265,6 +265,9 @@ export type PluginIntegrationFormProps = {
 	tabs?: readonly string[];
 	config: Record<string, unknown>;
 	setField: (name: string, value: unknown) => void;
+	name?: string;
+	onName?: (name: string) => void;
+	hideName?: boolean;
 	readOnly?: boolean;
 };
 
@@ -275,6 +278,9 @@ export function PluginIntegrationFormInner({
 	tabs: declaredTabs,
 	config,
 	setField,
+	name,
+	onName,
+	hideName = false,
 	readOnly,
 }: PluginIntegrationFormProps) {
 	const [picked, setPicked] = useState<string>();
@@ -288,21 +294,42 @@ export function PluginIntegrationFormInner({
 		[variant, config],
 	);
 
+	const nameField =
+		!hideName && onName ? (
+			<div className="flex flex-col gap-1">
+				<label htmlFor="plugin-integration-name" className="text-xs font-medium text-foreground">
+					Integration Name <span className="text-danger">*</span>
+				</label>
+				<Input
+					id="plugin-integration-name"
+					value={name ?? ""}
+					onChange={(e) => onName?.(e.currentTarget.value)}
+					placeholder={`${variant} | Production`}
+					disabled={readOnly}
+				/>
+			</div>
+		) : null;
+
 	const tabs = visibleTabs(params, declaredTabs, config);
 	if (tabs.length === 0)
-		return <p className="text-xs text-muted">This connector has no configurable parameters.</p>;
+		return (
+			<div className="flex w-full flex-col gap-4">
+				{nameField}
+				<p className="text-xs text-muted">This connector has no configurable parameters.</p>
+			</div>
+		);
 
 	const selected = tabs.find((t) => t.name === picked)?.name ?? tabs[0]!.name;
 	if (picked !== undefined && picked !== selected) setPicked(undefined);
 
 	const panel = (items: string[]) => (
 		<div className="flex w-full flex-col gap-4">
-			{items.map((name) => (
+			{items.map((itemName) => (
 				<Item
-					key={name}
+					key={itemName}
 					block={block}
-					name={name}
-					param={params[name]!}
+					name={itemName}
+					param={params[itemName]!}
 					projectId={projectId}
 					setField={setField}
 					readOnly={readOnly}
@@ -312,7 +339,8 @@ export function PluginIntegrationFormInner({
 	);
 
 	return (
-		<>
+		<div className="flex w-full flex-col gap-4">
+			{nameField}
 			<NodeBridge config={config} setField={setField} />
 			{tabs.length === 1 ? (
 				panel(tabs[0]!.items)
@@ -339,7 +367,7 @@ export function PluginIntegrationFormInner({
 					))}
 				</Tabs>
 			)}
-		</>
+		</div>
 	);
 }
 

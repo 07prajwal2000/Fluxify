@@ -4,6 +4,7 @@ import { TbAlertCircle, TbAlertTriangle, TbInfoCircle } from "react-icons/tb";
 import { useBlockDiagnostics } from "../diagnostics";
 import { diagnosticSourceLabel } from "../diagnostics/types";
 import type { BlockNode } from "../types";
+import { usePluginBlockTabs } from "./blocks/PluginBlockSettings";
 import { DocsTab } from "./docs/DocsTab";
 import { SaveOutputField, savesOutput } from "./SaveOutputField";
 
@@ -68,11 +69,28 @@ export type BlockSettingsProps = {
  * then it says so. Docs is always last and never the default.
  */
 export function BlockSettings({ block, initialTab, openSeq, children }: BlockSettingsProps) {
-	const { generalExtras, blockTabs } = splitTabs(children);
+	const pluginTabs = usePluginBlockTabs(block);
+	const { generalExtras: baseGeneralExtras, blockTabs: baseBlockTabs } = splitTabs(children);
 	const { forBlock } = useBlockDiagnostics();
 	const diagnostics = forBlock(block.id);
 	const hasDiagnostics = diagnostics.length > 0;
 	const saves = savesOutput(block.type, block.data);
+
+	const generalExtras = pluginTabs
+		? [pluginTabs.generalContent, ...baseGeneralExtras]
+		: baseGeneralExtras;
+
+	const blockTabs = pluginTabs
+		? [
+				...pluginTabs.authorTabs.map((tab) => (
+					<TabHead key={tab.name} name={tab.name}>
+						{tab.children}
+					</TabHead>
+				)),
+				...baseBlockTabs.filter((t) => t.props.name !== "Parameters"),
+			]
+		: baseBlockTabs;
+
 	const showGeneral =
 		generalExtras.length > 0 || saves || (blockTabs.length === 0 && !hasDiagnostics);
 	const firstTab = showGeneral ? GENERAL_TAB : (blockTabs[0]?.props.name ?? DIAGNOSTICS_TAB);
@@ -156,10 +174,10 @@ export function BlockSettings({ block, initialTab, openSeq, children }: BlockSet
 			{hasDiagnostics && (
 				<Tabs.Panel id={DIAGNOSTICS_TAB} className="fx-panel__tab-panel">
 					<div className="flex flex-col gap-2 pt-1">
-						{diagnostics.map((diag, index) => (
+						{diagnostics.map((diag) => (
 							<button
 								type="button"
-								key={`${diag.source}-${index}`}
+								key={`${diag.source}:${diag.tab || ""}:${diag.message}`}
 								disabled={!diag.tab}
 								onClick={() => diag.tab && setPicked({ request, tab: diag.tab })}
 								className="flex items-start gap-2.5 rounded-md border border-border bg-surface-secondary/40 p-2.5 text-left text-xs enabled:hover:border-border-hover"

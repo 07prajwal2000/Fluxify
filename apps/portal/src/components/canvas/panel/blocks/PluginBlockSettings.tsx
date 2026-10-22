@@ -4,8 +4,9 @@ import type { HintParam, Param } from "@fluxify/sdk/blocks";
 import { useState } from "react";
 import { TbAlertTriangle } from "react-icons/tb";
 import { usePluginBlocks } from "../../plugins/PluginBlocksContext";
+import { isPluginType } from "../../plugins/pluginBlocks";
 import type { BlockNode } from "../../types";
-import { BlockSettings, GENERAL_TAB } from "../BlockSettings";
+import { GENERAL_TAB } from "../BlockSettings";
 import {
 	BlockAppConfigField,
 	BlockCheckboxField,
@@ -97,7 +98,7 @@ function ParamField({ block, name, param }: { block: BlockNode; name: string; pa
 }
 
 /** a param's field, or a hint's callout */
-function Item({ block, name, param }: { block: BlockNode; name: string; param: Param }) {
+export function Item({ block, name, param }: { block: BlockNode; name: string; param: Param }) {
 	return param.type === "hint" ? (
 		<PluginHint hint={param} />
 	) : (
@@ -109,8 +110,7 @@ function Item({ block, name, param }: { block: BlockNode; name: string; param: P
 export function PluginBlockGeneral({ block }: { block: BlockNode }) {
 	const def = usePluginBlocks().byType[block.type ?? ""];
 	if (!def) return null;
-	if (!def.deprecated && def.invoke.length < 2)
-		return <p className="text-xs text-muted">Nothing to set here; see Parameters.</p>;
+	if (!def.deprecated && def.invoke.length < 2) return null;
 	return (
 		<div className="flex w-full flex-col gap-4">
 			{def.deprecated && (
@@ -137,9 +137,9 @@ export function PluginBlockGeneral({ block }: { block: BlockNode }) {
 }
 
 /** the params (and hints) `visibleWhen` shows, by tab; a tab with no shown param is gone, whatever hints it has */
-function visibleTabs(
+export function visibleTabs(
 	params: Record<string, Param>,
-	tabs: string[] | undefined,
+	tabs: readonly string[] | undefined,
 	data: BlockNode["data"],
 ) {
 	// the runtime fills a default where the canvas left the param empty
@@ -147,12 +147,12 @@ function visibleTabs(
 	for (const [name, p] of Object.entries(params)) if ("default" in p) values[name] = p.default;
 	for (const [name, value] of Object.entries(data)) if (value != null) values[name] = value;
 	const shown = (name: string) => {
-		const when = params[name]!.visibleWhen;
+		const when = params[name]?.visibleWhen;
 		return !when || isVisible(when, values);
 	};
 	return paramTabs(params, tabs)
 		.map((tab) => ({ name: tab.name, items: tab.params.filter(shown) }))
-		.filter((tab) => tab.items.some((name) => params[name]!.type !== "hint"));
+		.filter((tab) => tab.items.some((name) => params[name]?.type !== "hint"));
 }
 
 /**
@@ -178,17 +178,18 @@ export function PluginBlockSettings({ block }: { block: BlockNode }) {
 	const tabs = visibleTabs(params, def.entry.tabs, block.data);
 	if (tabs.length === 0) return <p className="text-xs text-muted">This block has no parameters.</p>;
 	// a picked tab that is hidden now moves the selection to the first one shown, for good
-	const selected = tabs.find((t) => t.name === picked)?.name ?? tabs[0]!.name;
+	const selected = tabs.find((t) => t.name === picked)?.name ?? tabs[0]?.name ?? "";
 	if (picked !== undefined && picked !== selected) setPicked(undefined);
 
 	const panel = (items: string[]) => (
 		<div className="flex w-full flex-col gap-4">
-			{items.map((name) => (
-				<Item key={name} block={block} name={name} param={params[name]!} />
-			))}
+			{items.map((name) => {
+				const param = params[name];
+				return param ? <Item key={name} block={block} name={name} param={param} /> : null;
+			})}
 		</div>
 	);
-	if (tabs.length === 1) return panel(tabs[0]!.items);
+	if (tabs.length === 1 && tabs[0]) return panel(tabs[0].items);
 	return (
 		<Tabs
 			selectedKey={selected}
@@ -214,11 +215,56 @@ export function PluginBlockSettings({ block }: { block: BlockNode }) {
 	);
 }
 
-export const pluginBlockSettings = (block: BlockNode) => [
-	<BlockSettings.TabHead key="general" name={GENERAL_TAB}>
-		<PluginBlockGeneral block={block} />
-	</BlockSettings.TabHead>,
-	<BlockSettings.TabHead key="parameters" name="Parameters">
-		<PluginBlockSettings block={block} />
-	</BlockSettings.TabHead>,
-];
+export function usePluginBlockTabs(block: BlockNode) {
+	const isPlugin = isPluginType(block.type);
+	const { byType, isLoading } = usePluginBlocks();
+	if (!isPlugin) return null;
+	const def = block.type ? byType[block.type] : undefined;
+	const params = (def?.entry?.params ?? {}) as Record<string, Param>;
+	const tabs = def ? visibleTabs(params, def.entry.tabs, block.data) : [];
+	const generalTab = tabs.find((t) => t.name === GENERAL_TAB);
+	const otherTabs = tabs.filter((t) => t.name !== GENERAL_TAB);
+
+	const generalContent = (
+		<div key="plugin-general" className="flex w-full flex-col gap-4">
+			<PluginBlockGeneral block={block} />
+			{def ? (
+				generalTab && generalTab.items.length > 0 ? (
+					<div className="flex w-full flex-col gap-4">
+						{generalTab.items.map((name) => {
+							const param = params[name];
+							return param ? <Item key={name} block={block} name={name} param={param} /> : null;
+						})}
+					</div>
+				) : null
+			) : isLoading ? (
+				<div className="flex items-center justify-center p-6 text-muted">
+					<Spinner size="sm" />
+				</div>
+			) : (
+				<p className="text-xs text-muted">
+					This block's plugin is not installed in the project, so it has no settings.
+				</p>
+			)}
+		</div>
+	);
+
+	const authorTabs = otherTabs.map((tab) => ({
+		name: tab.name,
+		children: (
+			<div className="flex w-full flex-col gap-4">
+				{tab.items.map((name) => {
+					const param = params[name];
+					return param ? <Item key={name} block={block} name={name} param={param} /> : null;
+				})}
+			</div>
+		),
+	}));
+
+	return {
+		generalContent,
+		authorTabs,
+	};
+}
+
+export const pluginBlockSettings = (_block: BlockNode) => null;

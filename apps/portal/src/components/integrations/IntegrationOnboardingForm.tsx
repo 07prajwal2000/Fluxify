@@ -138,6 +138,10 @@ export function IntegrationOnboardingForm({
 	function saveIntegration() {
 		const isPlugin = Boolean(catalog.variantMeta(group, variant)?.plugin);
 		const parsed = parseIntegrationConfig(group, variant, config, isPlugin);
+		if (!name.trim()) {
+			toast.danger("Integration name is required");
+			return;
+		}
 		if (!parsed.success) {
 			toast.danger(parsed.error);
 			return;
@@ -156,7 +160,7 @@ export function IntegrationOnboardingForm({
 		setFormError(null);
 		create.mutate(
 			{
-				name,
+				name: name.trim(),
 				group,
 				variant,
 				config: parsed.data as Record<string, unknown>,

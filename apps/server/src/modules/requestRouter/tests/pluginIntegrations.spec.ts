@@ -71,4 +71,28 @@ describe("loadPluginIntegrations", () => {
 		]);
 		await loadPluginIntegrations([], registry);
 	});
+
+	it("loads a plugin integration importing @fluxify/sdk in worker registration", async () => {
+		const registry = new IntegrationRegistry(BUILT_IN_VARIANTS);
+		const path = join(root, "sdkImport.js");
+		await writeFile(
+			path,
+			`import { isIntegrationGroupName } from "@fluxify/sdk/integrations";
+			export default {
+				name: "acme/crm/sdkImport", label: "SdkImport", icon: "x", group: "crm",
+				variant: "SdkImport", config: {},
+				connect: () => ({ valid: isIntegrationGroupName("acme/crm") }),
+			};`,
+		);
+		expect(
+			await loadPluginIntegrations(
+				[ref("p1", path, { variant: "SdkImport" })],
+				registry,
+			),
+		).toEqual([]);
+		const def = registry.get("acme/crm", "SdkImport", "p1");
+		expect(def).toBeDefined();
+		expect(((await def?.create({})) as any).valid).toBe(true);
+		await loadPluginIntegrations([], registry);
+	});
 });

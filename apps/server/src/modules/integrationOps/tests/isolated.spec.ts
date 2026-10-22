@@ -88,4 +88,27 @@ describe("runOpInChild", () => {
 			}),
 		).rejects.toThrow("plugin acme/crm@1.0.0+aa integration acme/crm/Hub failed to load");
 	}, 30_000);
+
+	it("loads a plugin integration importing @fluxify/sdk in the isolated hook child", async () => {
+		const sdkEntry = join(root, "sdkHub.js");
+		await writeFile(
+			sdkEntry,
+			`import { isIntegrationGroupName } from "@fluxify/sdk/integrations";
+			export default {
+				name: "acme/crm/sdkHub", label: "SdkHub", icon: "x", group: "crm", variant: "SdkHub",
+				config: { token: { type: "secret", required: true } },
+				connect: (config, ctx) => ({ token: ctx.getConfig(config.token) }),
+				test: (client) => ({ success: isIntegrationGroupName("acme/crm"), warning: String(client.token) }),
+			};`,
+		);
+		const result = (await runOpInChild({
+			ref: { ...ref, variant: "SdkHub", entry: sdkEntry },
+			op: "test",
+			call: { group: "acme/crm", variant: "SdkHub", config: { token: "cfg:TOKEN" } },
+			appConfig: [["TOKEN", "s3cret"]],
+			timeoutMs: 5_000,
+		})) as { success: boolean; warning: string };
+		expect(result.success).toBe(true);
+		expect(result.warning).toBe("s3cret");
+	}, 30_000);
 });

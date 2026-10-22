@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { type BlockMeta, registerModuleBlock, unregisterById } from "@fluxify/blocks";
 import type { PluginPermissions } from "../../db/schema";
@@ -64,8 +64,9 @@ const label = (ref: PluginBlockRef) => `plugin ${ref.plugin}@${ref.version} bloc
 
 async function importBlock(key: string, ref: PluginBlockRef) {
 	provideHostPackages();
+	const entryPath = resolve(ref.entry);
 	try {
-		const run = (await import(pathToFileURL(ref.entry).href))?.default?.run;
+		const run = (await import(pathToFileURL(entryPath).href))?.default?.run;
 		if (typeof run !== "function") throw new Error("its default export has no run function");
 		// ids are unique across projects and blocks, or registering one drops another
 		const id = `${ref.plugin}@${ref.version}:${key}`;
@@ -74,7 +75,7 @@ async function importBlock(key: string, ref: PluginBlockRef) {
 		registerModuleBlock(ref.projectId, ref.type, granted, ref.meta, id);
 		loaded.set(key, { version: ref.version, id });
 	} catch (error) {
-		throw new Error(`${label(ref)} failed to load from ${ref.entry}: ${(error as Error).message}`);
+		throw new Error(`${label(ref)} failed to load from ${entryPath}: ${(error as Error).message}`);
 	}
 }
 

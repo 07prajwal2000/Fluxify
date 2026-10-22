@@ -1,6 +1,7 @@
 import { IntegrationRegistry, runIntegrationHook } from "@fluxify/adapters/integrations";
 import "../../lib/bigintJson";
 import { executionRuntimeEnvironment } from "../requestRouter/executionEnvironment";
+import { provideHostPackages } from "../requestRouter/hostPackages";
 import { importIntegration } from "../requestRouter/pluginIntegrations";
 import type { IsolatedOpReply, IsolatedOpRequest } from "./isolated";
 
@@ -14,6 +15,8 @@ import type { IsolatedOpReply, IsolatedOpRequest } from "./isolated";
 process.env = executionRuntimeEnvironment();
 process.argv = [];
 process.execArgv = [];
+
+provideHostPackages();
 
 const send = (message: IsolatedOpReply) => process.send?.(message);
 

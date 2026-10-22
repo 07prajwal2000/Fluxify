@@ -36,9 +36,9 @@ export const integrationService = {
 		group: string,
 		tags?: string[],
 	): Promise<z.infer<typeof getAllResponseSchema>> {
-		let url = `${getBaseUrl(projectId)}/list/${group}`;
+		let url = `${getBaseUrl(projectId)}/list?group=${encodeURIComponent(group)}`;
 		if (tags && tags.length > 0) {
-			url += `?tags=${tags.join(",")}`;
+			url += `&tags=${tags.join(",")}`;
 		}
 		const res = await httpClient.get(url);
 		return res.data;

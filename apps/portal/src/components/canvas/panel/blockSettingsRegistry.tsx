@@ -31,7 +31,6 @@ import { jsRunnerSettings } from "./blocks/JsRunnerSettings";
 import { kvOperationsSettings } from "./blocks/kv/KvOperationsSettings";
 import { kvRawSettings } from "./blocks/kv/KvRawSettings";
 import { orchestratorSettings } from "./blocks/OrchestratorSettings";
-import { pluginBlockSettings } from "./blocks/PluginBlockSettings";
 import { sendMessageSettings } from "./blocks/queue/SendMessageSettings";
 import { responseSettings } from "./blocks/ResponseSettings";
 import { retrySettings } from "./blocks/RetrySettings";
@@ -95,8 +94,7 @@ const NO_EXTRA_TABS_BUILTIN = new Set<string>([
 ]);
 
 export function blockSettingsTabs(type: string | undefined): BlockTabs | undefined {
-	if (!type || NO_EXTRA_TABS_BUILTIN.has(type)) return undefined;
-	if (isPluginType(type)) return pluginBlockSettings;
+	if (!type || NO_EXTRA_TABS_BUILTIN.has(type) || isPluginType(type)) return undefined;
 	const builtinTabs = BLOCK_SETTINGS_TABS[type];
 	if (builtinTabs) return builtinTabs;
 	return customBlockSettings;

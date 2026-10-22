@@ -30,6 +30,7 @@ import { DEBUG_ERROR_HEADER, debugError, debugRequested, encodeDebugError } from
 import { DEBUG_TRACE_HEADER, encodeDebugTrace } from "./debugTrace";
 import { DEV_TOKEN_HEADER } from "./devToken";
 import { executionRuntimeEnvironment } from "./executionEnvironment";
+import { provideHostPackages } from "./hostPackages";
 import { createHttpContext } from "./httpContext";
 import { loadPluginIntegrations } from "./pluginIntegrations";
 import { setPluginRefs } from "./pluginLoader";
@@ -56,6 +57,8 @@ let asyncExecutor: AsyncExecutor | undefined;
 process.env = executionRuntimeEnvironment();
 process.argv = [];
 process.execArgv = [];
+
+provideHostPackages();
 
 process.on("message", (message: ExecutionMessage) => {
 	if (message.type === "bootstrap") {

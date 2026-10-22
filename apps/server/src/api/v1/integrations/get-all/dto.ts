@@ -1,11 +1,31 @@
 import { z } from "zod";
 import { integrationGroupNameSchema } from "../schemas";
+
+const decodeGroup = (val: string) => {
+	try {
+		return decodeURIComponent(val);
+	} catch {
+		return val;
+	}
+};
+
+const groupSchema = z.string().transform(decodeGroup).pipe(integrationGroupNameSchema);
+
+export const requestProjectParamSchema = z.object({
+	projectId: z.uuidv7("Invalid projectId"),
+});
+
 export const requestRouteSchema = z.object({
 	projectId: z.uuidv7("Invalid projectId"),
-	group: integrationGroupNameSchema,
+	group: groupSchema,
 });
 
 export const requestQuerySchema = z.object({
+	tags: z.string().optional(),
+});
+
+export const requestQueryWithGroupSchema = z.object({
+	group: groupSchema,
 	tags: z.string().optional(),
 });
 

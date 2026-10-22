@@ -26,9 +26,14 @@ const plugin = validator("param", nameParamSchema, zodErrorCallbackParser);
 
 /** `scope/name` from the path, and the project from the query */
 const target = (ctx: HonoContext) => {
-	const { scope, name } = ctx.req.param() as z.infer<typeof nameParamSchema>;
-	return [ctx.req.query("projectId")!, `${scope}/${name}`] as const;
+	const params = ctx.req.param() as { scope?: string; name?: string; plugin?: string };
+	const fullName = params.plugin
+		? decodeURIComponent(params.plugin)
+		: `${params.scope}/${params.name}`;
+	return [ctx.req.query("projectId")!, fullName] as const;
 };
+
+const paths = (suffix = "") => [`/:scope/:name${suffix}`, `/:plugin${suffix}`] as const;
 
 /**
  * A project's plugins (#857): read, approve, reject, and where they run.
@@ -48,54 +53,49 @@ export default {
 			project,
 			async (ctx) => ctx.json(await service.listPlugins(ctx.req.valid("query").projectId)),
 		);
-		router.get(
-			"/:scope/:name",
-			doc(
-				"get-plugin",
-				"A plugin: manifest, version, approval, permissions, environments and status",
-				pluginSchema,
-			),
-			viewer,
-			project,
-			plugin,
-			async (ctx) => ctx.json(await service.getPlugin(...target(ctx))),
-		);
-		router.get(
-			"/:scope/:name/install-status",
-			doc(
-				"get-plugin-install-status",
-				"How far each worker got installing the plugin; an error on any worker is recorded as the plugin's status",
-				installStatusSchema,
-			),
-			viewer,
-			project,
-			plugin,
-			async (ctx) => ctx.json(await pluginInstallStatus(...target(ctx))),
-		);
-		router.get(
-			"/:scope/:name/usage",
-			doc(
-				"get-plugin-usage",
-				"Every route, workflow and custom block using a block of the plugin, working copy and promoted version, with the params, handles and invoke mode of each node",
-				usageSchema,
-			),
-			viewer,
-			project,
-			plugin,
-			async (ctx) => ctx.json(await pluginUsage(...target(ctx))),
-		);
-		router.get(
-			"/:scope/:name/upgrade-preview",
-			doc(
-				"get-plugin-upgrade-preview",
-				"The pending version against the approved one it would replace: what is removed, changed, deprecated or newly asked for, and whether approving is blocked",
-				upgradePreviewSchema,
-			),
-			viewer,
-			project,
-			plugin,
-			async (ctx) => ctx.json(await upgradePreview(...target(ctx))),
-		);
+
+		for (const p of paths("/install-status")) {
+			router.get(
+				p,
+				doc(
+					"get-plugin-install-status",
+					"How far each worker got installing the plugin; an error on any worker is recorded as the plugin's status",
+					installStatusSchema,
+				),
+				viewer,
+				project,
+				plugin,
+				async (ctx) => ctx.json(await pluginInstallStatus(...target(ctx))),
+			);
+		}
+		for (const p of paths("/usage")) {
+			router.get(
+				p,
+				doc(
+					"get-plugin-usage",
+					"Every route, workflow and custom block using a block of the plugin, working copy and promoted version, with the params, handles and invoke mode of each node",
+					usageSchema,
+				),
+				viewer,
+				project,
+				plugin,
+				async (ctx) => ctx.json(await pluginUsage(...target(ctx))),
+			);
+		}
+		for (const p of paths("/upgrade-preview")) {
+			router.get(
+				p,
+				doc(
+					"get-plugin-upgrade-preview",
+					"The pending version against the approved one it would replace: what is removed, changed, deprecated or newly asked for, and whether approving is blocked",
+					upgradePreviewSchema,
+				),
+				viewer,
+				project,
+				plugin,
+				async (ctx) => ctx.json(await upgradePreview(...target(ctx))),
+			);
+		}
 		router.post(
 			"/scan",
 			doc(
@@ -107,69 +107,95 @@ export default {
 			project,
 			async (ctx) => ctx.json(await scanProject(ctx.req.valid("query").projectId)),
 		);
-		router.post(
-			"/:scope/:name/scan",
-			doc(
-				"scan-plugin",
-				"Checks the plugin's source and its install on the workers now, and records the result. Creator or above.",
-				pluginSchema,
-			),
-			creator,
-			project,
-			plugin,
-			async (ctx) => ctx.json(await scanPlugin(...target(ctx))),
-		);
-		router.delete(
-			"/:scope/:name",
-			doc(
-				"delete-plugin",
-				"Removes the plugin from the project. Refused (409, with the users) while anything uses one of its blocks. Creator or above.",
-				removeResponseSchema,
-			),
-			creator,
-			project,
-			plugin,
-			async (ctx) => ctx.json(await removePlugin(...target(ctx), caller(ctx))),
-		);
-		router.post(
-			"/:scope/:name/approve",
-			doc(
-				"approve-plugin",
-				"Lets this version load, with the permissions its manifest asks for. An upgrade that removes something the project uses is refused (409, with the diff). Creator or above.",
-				pluginSchema,
-			),
-			creator,
-			project,
-			plugin,
-			validator("json", approveBodySchema, zodErrorCallbackParser),
-			async (ctx) =>
-				ctx.json(
-					await service.approvePlugin(...target(ctx), caller(ctx), ctx.req.valid("json").integrity),
+		for (const p of paths("/scan")) {
+			router.post(
+				p,
+				doc(
+					"scan-plugin",
+					"Checks the plugin's source and its install on the workers now, and records the result. Creator or above.",
+					pluginSchema,
 				),
-		);
-		router.post(
-			"/:scope/:name/reject",
-			doc("reject-plugin", "Stops every block of the plugin from loading", pluginSchema),
-			creator,
-			project,
-			plugin,
-			async (ctx) => ctx.json(await service.rejectPlugin(...target(ctx), caller(ctx))),
-		);
-		router.put(
-			"/:scope/:name/environments",
-			doc(
-				"set-plugin-environments",
-				"Switches the plugin on or off in development and in production",
-				pluginSchema,
-			),
-			creator,
-			project,
-			plugin,
-			validator("json", environmentsBodySchema, zodErrorCallbackParser),
-			async (ctx) =>
-				ctx.json(
-					await service.setPluginEnvironments(...target(ctx), ctx.req.valid("json"), caller(ctx)),
+				creator,
+				project,
+				plugin,
+				async (ctx) => ctx.json(await scanPlugin(...target(ctx))),
+			);
+		}
+		for (const p of paths("/approve")) {
+			router.post(
+				p,
+				doc(
+					"approve-plugin",
+					"Lets this version load, with the permissions its manifest asks for. An upgrade that removes something the project uses is refused (409, with the diff). Creator or above.",
+					pluginSchema,
 				),
-		);
+				creator,
+				project,
+				plugin,
+				validator("json", approveBodySchema, zodErrorCallbackParser),
+				async (ctx) =>
+					ctx.json(
+						await service.approvePlugin(
+							...target(ctx),
+							caller(ctx),
+							ctx.req.valid("json").integrity,
+						),
+					),
+			);
+		}
+		for (const p of paths("/reject")) {
+			router.post(
+				p,
+				doc("reject-plugin", "Stops every block of the plugin from loading", pluginSchema),
+				creator,
+				project,
+				plugin,
+				async (ctx) => ctx.json(await service.rejectPlugin(...target(ctx), caller(ctx))),
+			);
+		}
+		for (const p of paths("/environments")) {
+			router.put(
+				p,
+				doc(
+					"set-plugin-environments",
+					"Switches the plugin on or off in development and in production",
+					pluginSchema,
+				),
+				creator,
+				project,
+				plugin,
+				validator("json", environmentsBodySchema, zodErrorCallbackParser),
+				async (ctx) =>
+					ctx.json(
+						await service.setPluginEnvironments(...target(ctx), ctx.req.valid("json"), caller(ctx)),
+					),
+			);
+		}
+		for (const p of paths()) {
+			router.get(
+				p,
+				doc(
+					"get-plugin",
+					"A plugin: manifest, version, approval, permissions, environments and status",
+					pluginSchema,
+				),
+				viewer,
+				project,
+				plugin,
+				async (ctx) => ctx.json(await service.getPlugin(...target(ctx))),
+			);
+			router.delete(
+				p,
+				doc(
+					"delete-plugin",
+					"Removes the plugin from the project. Refused (409, with the users) while anything uses one of its blocks. Creator or above.",
+					removeResponseSchema,
+				),
+				creator,
+				project,
+				plugin,
+				async (ctx) => ctx.json(await removePlugin(...target(ctx), caller(ctx))),
+			);
+		}
 	},
 };

@@ -1,5 +1,8 @@
 import * as sdk from "@fluxify/sdk";
 import * as sdkBlocks from "@fluxify/sdk/blocks";
+import * as sdkIntegrations from "@fluxify/sdk/integrations";
+import * as sdkRuntime from "@fluxify/sdk/runtime";
+import * as sdkTesting from "@fluxify/sdk/testing";
 import * as zod from "zod";
 
 /**
@@ -15,6 +18,9 @@ import * as zod from "zod";
 const MODULES: Record<string, object> = {
 	"@fluxify/sdk": sdk,
 	"@fluxify/sdk/blocks": sdkBlocks,
+	"@fluxify/sdk/integrations": sdkIntegrations,
+	"@fluxify/sdk/runtime": sdkRuntime,
+	"@fluxify/sdk/testing": sdkTesting,
 	zod,
 	// zod 4's `zod` re-exports `zod/v4`: the same instances
 	"zod/v4": zod,
