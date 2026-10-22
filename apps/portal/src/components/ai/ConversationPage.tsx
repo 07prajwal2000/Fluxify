@@ -8,6 +8,8 @@ import { AgentPickers } from "./AgentPickers";
 import { ApprovalBar } from "./ApprovalBar";
 import { type ChatMessage, messageKey, showsNothing } from "./agentMessages";
 import { ChatHeader } from "./ChatHeader";
+import { ColdCacheHint } from "./ColdCacheHint";
+import { lastModelCallAt } from "./cacheIdle";
 import { PromptEditor } from "./PromptEditor";
 import { RunSummary } from "./RunSummary";
 import { ScrollToBottomButton } from "./ScrollToBottomButton";
@@ -127,13 +129,16 @@ export function ConversationPage() {
 
 			<div className="relative bg-background px-4 pt-2 pb-2">
 				<ScrollToBottomButton isVisible={!isAtBottom} onClick={() => scrollToBottom("smooth")} />
-				<div className="mx-auto w-full max-w-3xl">
+				<div className="relative mx-auto w-full max-w-3xl">
 					{conversation?.archived ? (
 						<div className="w-full rounded-2xl border border-border bg-surface p-4 text-center text-sm text-muted">
 							This conversation is archived and is read-only.
 						</div>
 					) : (
 						<>
+							<div className="absolute -top-8 right-0">
+								<ColdCacheHint lastCallAt={lastModelCallAt(chat.rows)} running={chat.running} />
+							</div>
 							{chat.approval && (
 								<ApprovalBar
 									projectId={projectId}
