@@ -2,6 +2,7 @@ import {
 	Button,
 	Chip,
 	CloseButton,
+	CustomSelect,
 	DeleteIconButton,
 	Input,
 	Label,
@@ -16,7 +17,15 @@ import {
 } from "@fluxify/components";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { TbChevronDown, TbEdit, TbPlayerPlay, TbPlus, TbRoute } from "react-icons/tb";
+import {
+	TbChevronDown,
+	TbEdit,
+	TbPlayerPlay,
+	TbPlus,
+	TbRoute,
+	TbSortAscending,
+	TbSortDescending,
+} from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
 import { RouteApiPlayground } from "@/components/RouteApiPlayground";
@@ -34,6 +43,13 @@ export const Route = createFileRoute("/_authed/$projectId/routes")({
 	),
 	component: RoutesPage,
 });
+
+type SortBy = "createdAt" | "updatedAt" | "name";
+const SORT_OPTIONS: { value: SortBy; label: string }[] = [
+	{ value: "createdAt", label: "Created" },
+	{ value: "updatedAt", label: "Updated" },
+	{ value: "name", label: "Name" },
+];
 
 export type RouteRow = {
 	id: string;
@@ -53,6 +69,9 @@ function RoutesPage() {
 	const [page, setPage] = useState(1);
 	const [perPage, setPerPage] = usePageSize("routes");
 	const [search, setSearch] = useState("");
+	// newest-created first, so toggling or editing a route never moves it (#723)
+	const [sortBy, setSortBy] = useState<SortBy>("createdAt");
+	const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 	const [debouncedSearch, setDebouncedSearch] = useState("");
 
 	useEffect(() => {
@@ -68,6 +87,8 @@ function RoutesPage() {
 		page,
 		perPage,
 		search: debouncedSearch,
+		sortBy,
+		sortOrder,
 	});
 	const toggle = routesQuery.toggleActive.mutation();
 	const remove = routesQuery.remove.mutation();
@@ -96,6 +117,28 @@ function RoutesPage() {
 						<Label className="sr-only">Search routes</Label>
 						<Input placeholder="Search routes" />
 					</TextField>
+					<div className="w-36">
+						<CustomSelect
+							aria-label="Sort routes by"
+							options={SORT_OPTIONS}
+							value={sortBy}
+							onChange={(next) => {
+								setSortBy(next as SortBy);
+								setPage(1);
+							}}
+						/>
+					</div>
+					<Button
+						isIconOnly
+						variant="outline"
+						aria-label={sortOrder === "desc" ? "Sorted descending" : "Sorted ascending"}
+						onPress={() => {
+							setSortOrder((o) => (o === "desc" ? "asc" : "desc"));
+							setPage(1);
+						}}
+					>
+						{sortOrder === "desc" ? <TbSortDescending size={16} /> : <TbSortAscending size={16} />}
+					</Button>
 					<Button variant="primary" onPress={openNew}>
 						<TbPlus size={16} /> New route
 					</Button>

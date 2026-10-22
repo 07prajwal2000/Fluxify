@@ -24,7 +24,7 @@ export default async function handleRequest(
 			: undefined,
 		isSystemAdmin ? undefined : inArray(routesEntity.projectId, projectIds),
 	);
-	const { result, totalCount } = await getRoutesList(offset, query.perPage, filterSQL);
+	const { result, totalCount } = await getRoutesList(offset, query.perPage, filterSQL, query.sort);
 	const hasNext = offset + result.length < totalCount;
 	return {
 		pagination: {

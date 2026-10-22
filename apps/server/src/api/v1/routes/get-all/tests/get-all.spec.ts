@@ -78,7 +78,7 @@ describe("handleRequest", () => {
         },
       ],
     });
-    expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 2, expect.any(Object));
+    expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 2, expect.any(Object), undefined);
   });
 
   it("should handle first page correctly", async () => {
@@ -105,7 +105,7 @@ describe("handleRequest", () => {
       page: 1,
       totalPages: 1,
     });
-    expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object));
+    expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object), undefined);
   });
 
   it("should handle last page correctly", async () => {
@@ -132,7 +132,7 @@ describe("handleRequest", () => {
       page: 2,
       totalPages: 2,
     });
-    expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(2, 2, expect.any(Object));
+    expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(2, 2, expect.any(Object), undefined);
   });
 
   it("should handle empty results", async () => {
@@ -150,7 +150,7 @@ describe("handleRequest", () => {
       },
       data: [],
     });
-    expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object));
+    expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object), undefined);
   });
 
   it("should calculate hasNext correctly when on middle page", async () => {
@@ -173,7 +173,7 @@ describe("handleRequest", () => {
     const result = await handleRequest(query, acl);
 
     expect(result.pagination.hasNext).toBe(true);
-    expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(2, 2, expect.any(Object));
+    expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(2, 2, expect.any(Object), undefined);
   });
 
   describe("filter functionality", () => {
@@ -206,7 +206,7 @@ describe("handleRequest", () => {
 
       expect(result.data).toHaveLength(1);
       expect(result.data[0].name).toBe("Test Route");
-      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object));
+      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object), undefined);
     });
 
     it("should apply like filter for string fields", async () => {
@@ -237,7 +237,7 @@ describe("handleRequest", () => {
       const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
-      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object));
+      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object), undefined);
     });
 
     it("should apply eq filter for method field", async () => {
@@ -269,7 +269,7 @@ describe("handleRequest", () => {
 
       expect(result.data).toHaveLength(1);
       expect(result.data[0].method).toBe(HttpMethod.POST);
-      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object));
+      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object), undefined);
     });
 
     it("should convert boolean string values", async () => {
@@ -300,7 +300,7 @@ describe("handleRequest", () => {
       const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
-      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object));
+      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object), undefined);
     });
 
     it("should convert numeric string values", async () => {
@@ -331,7 +331,7 @@ describe("handleRequest", () => {
       const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
-      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object));
+      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object), undefined);
     });
 
     it("should apply neq filter", async () => {
@@ -362,7 +362,7 @@ describe("handleRequest", () => {
       const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
-      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object));
+      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object), undefined);
     });
 
     it("should apply gt filter", async () => {
@@ -393,7 +393,7 @@ describe("handleRequest", () => {
       const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
-      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object));
+      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object), undefined);
     });
 
     it("should apply gte filter", async () => {
@@ -424,7 +424,7 @@ describe("handleRequest", () => {
       const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
-      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object));
+      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object), undefined);
     });
 
     it("should apply lt filter", async () => {
@@ -455,7 +455,7 @@ describe("handleRequest", () => {
       const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
-      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object));
+      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object), undefined);
     });
 
     it("should apply lte filter", async () => {
@@ -486,7 +486,7 @@ describe("handleRequest", () => {
       const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
-      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object));
+      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object), undefined);
     });
 
     it("should return all records when no filter is provided", async () => {
@@ -509,7 +509,7 @@ describe("handleRequest", () => {
       const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
-      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object));
+      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object), undefined);
     });
 
     it("should return all records when filter field is missing", async () => {
@@ -539,7 +539,7 @@ describe("handleRequest", () => {
       const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
-      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object));
+      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object), undefined);
     });
 
     it("should return all records when filter operator is missing", async () => {
@@ -569,7 +569,7 @@ describe("handleRequest", () => {
       const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
-      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object));
+      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object), undefined);
     });
 
     it("should return all records when filter value is missing", async () => {
@@ -599,7 +599,7 @@ describe("handleRequest", () => {
       const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
-      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object));
+      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object), undefined);
     });
 
     it("should return all records when invalid field is provided", async () => {
@@ -630,7 +630,7 @@ describe("handleRequest", () => {
       const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
-      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object));
+      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object), undefined);
     });
   });
 
@@ -654,7 +654,7 @@ describe("handleRequest", () => {
     const result = await handleRequest(query, acl);
 
     expect(result.data).toHaveLength(1);
-    expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object));
+    expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object), undefined);
   });
 
   it("should allow system admin to see all projects", async () => {
@@ -678,5 +678,27 @@ describe("handleRequest", () => {
 
     expect(result.data).toHaveLength(1);
     expect(result.data[0].projectId).toBe("proj2");
+  });
+});
+
+describe("sorting (#723)", () => {
+  const { requestQuerySchema } = require("../dto") as typeof import("../dto");
+  const list = getRoutesList as unknown as Mock<typeof getRoutesList>;
+  const acl: AuthACL[] = [{ projectId: "*", role: "admin" }];
+
+  it("lists newest-created first when no sort is asked for", async () => {
+    list.mockResolvedValue({ result: [], totalCount: 0 });
+    const query = requestQuerySchema.parse({});
+    expect(query.sort).toEqual({ by: "createdAt", order: "desc" });
+    await handleRequest(query, acl);
+    expect(list).toHaveBeenLastCalledWith(0, 10, expect.any(Object), { by: "createdAt", order: "desc" });
+  });
+
+  it("passes a chosen sort through, and refuses one it does not know", async () => {
+    list.mockResolvedValue({ result: [], totalCount: 0 });
+    await handleRequest(requestQuerySchema.parse({ sortBy: "name", sortOrder: "asc" }), acl);
+    expect(list).toHaveBeenLastCalledWith(0, 10, expect.any(Object), { by: "name", order: "asc" });
+    expect(requestQuerySchema.safeParse({ sortBy: "path" }).success).toBe(false);
+    expect(requestQuerySchema.safeParse({ sortOrder: "sideways" }).success).toBe(false);
   });
 });
