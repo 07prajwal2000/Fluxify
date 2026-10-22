@@ -96,6 +96,129 @@ services:
     networks:
       - fluxify_net
 
+  # Bun twin that uses Fluxify's own PostgresAdapter + RedisIntegration
+  # (url-shortener/server-adapter). Served at Host adapter.localhost.
+  lt-urlshortener-adapter:
+    <<: *limits
+    build:
+      context: ../../testing/load-testing/url-shortener
+      dockerfile: server-adapter/Dockerfile
+    image: lt-urlshortener-adapter:local
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      PG_URL: postgres://postgres:postgres@lt-urlshortener-postgres:5432/urlshortener
+      REDIS_URL: redis://lt-urlshortener-valkey:6379
+      BASE_URL: http://adapter.localhost:8080
+    labels:
+      - traefik.enable=true
+      - "traefik.http.routers.lt-adapter.rule=Host(`adapter.localhost`)"
+      - traefik.http.routers.lt-adapter.priority=100
+      - traefik.http.routers.lt-adapter.entrypoints=web
+      - traefik.http.services.lt-adapter.loadbalancer.server.port=3000
+    depends_on:
+      lt-urlshortener-postgres:
+        condition: service_healthy
+      lt-urlshortener-valkey:
+        condition: service_started
+    networks:
+      - fluxify_net
+
+  # Same as lt-urlshortener-adapter but routed by Fluxify's routing trie instead of Hono
+  # (server-adapter/index-trie.ts). Served at Host trie.localhost.
+  lt-urlshortener-trie:
+    <<: *limits
+    build:
+      context: ../../testing/load-testing/url-shortener
+      dockerfile: server-adapter/Dockerfile
+      args:
+        BUNDLE: dist-trie/index-trie.js
+    image: lt-urlshortener-trie:local
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      PG_URL: postgres://postgres:postgres@lt-urlshortener-postgres:5432/urlshortener
+      REDIS_URL: redis://lt-urlshortener-valkey:6379
+      BASE_URL: http://trie.localhost:8080
+    labels:
+      - traefik.enable=true
+      - "traefik.http.routers.lt-trie.rule=Host(`trie.localhost`)"
+      - traefik.http.routers.lt-trie.priority=100
+      - traefik.http.routers.lt-trie.entrypoints=web
+      - traefik.http.services.lt-trie.loadbalancer.server.port=3000
+    depends_on:
+      lt-urlshortener-postgres:
+        condition: service_healthy
+      lt-urlshortener-valkey:
+        condition: service_started
+    networks:
+      - fluxify_net
+
+  # The Fluxify route graphs compiled from url-shortener/fluxify-raw-routes (run
+  # `bun compile.ts` in fluxify-worker/), served by the worker image's own execution
+  # process through a minimal harness. Nothing is built: the harness and artifacts are
+  # mounted. Served at Host fw.localhost; scale with `--scale lt-urlshortener-fw=2`.
+  lt-urlshortener-fw:
+    <<: *limits
+    image: fluxify-worker:local
+    entrypoint: ["/usr/local/bin/bun", "/h/harness.ts"]
+    restart: unless-stopped
+    # the image checks the supervisor's health port, which the harness does not run
+    healthcheck:
+      disable: true
+    volumes:
+      - ../../testing/load-testing/url-shortener/fluxify-worker:/h:ro
+    labels:
+      - traefik.enable=true
+      - "traefik.http.routers.lt-fw.rule=Host(`fw.localhost`)"
+      - traefik.http.routers.lt-fw.priority=100
+      - traefik.http.routers.lt-fw.entrypoints=web
+      - traefik.http.services.lt-fw.loadbalancer.server.port=5600
+    depends_on:
+      lt-urlshortener-postgres:
+        condition: service_healthy
+      lt-urlshortener-valkey:
+        condition: service_started
+    networks:
+      - fluxify_net
+
+  # The compiled Fluxify route graphs run with only the routing trie, instantiateCompiled and
+  # the slim adapters around them (server-adapter/index-compiled.ts): no dispatch, validation
+  # or worker context. Nothing is built: the bundle and artifacts are mounted into the worker
+  # image, only for its Bun. Served at Host cp.localhost.
+  lt-urlshortener-compiled:
+    <<: *limits
+    image: fluxify-worker:local
+    entrypoint: ["/usr/local/bin/bun", "/c/index-compiled.js"]
+    healthcheck:
+      disable: true
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      ARTIFACTS: /h/dist/${LT_ARTIFACTS:-artifacts.json}
+      PG_URL: postgres://postgres:postgres@lt-urlshortener-postgres:5432/urlshortener
+      REDIS_URL: redis://lt-urlshortener-valkey:6379
+    working_dir: /c
+    volumes:
+      - ../../testing/load-testing/url-shortener/fluxify-worker:/h:ro
+      - ../../testing/load-testing/url-shortener/server-adapter/dist-compiled:/c:ro
+    labels:
+      - traefik.enable=true
+      - "traefik.http.routers.lt-cp.rule=Host(`cp.localhost`)"
+      - traefik.http.routers.lt-cp.priority=100
+      - traefik.http.routers.lt-cp.entrypoints=web
+      - traefik.http.services.lt-cp.loadbalancer.server.port=3000
+    depends_on:
+      lt-urlshortener-postgres:
+        condition: service_healthy
+      lt-urlshortener-valkey:
+        condition: service_started
+    networks:
+      - fluxify_net
+
   # Node.js twin of the Bun server (url-shortener/server-node): same routes, `pg`
   # instead of Bun SQL. Served at Host node.localhost; scale with
   # `--scale lt-urlshortener-node=2`.
