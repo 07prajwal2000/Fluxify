@@ -1,0 +1,127 @@
+# Load-test overlay for docker/production/docker-compose.yml.
+# Builds every image from the local checkout and caps each container at
+# 1 CPU / 1 GiB. Orchestrated workers get the same cap from the default claim.
+#
+#   cp docker/production/env.example docker/production/.env
+#   (set ORCHESTRATOR_WORKER_IMAGE=fluxify-worker:local in that .env)
+#   docker compose -f docker/production/docker-compose.yml -f testing/load-testing/docker-compose.yml up -d --build
+x-limits: &limits
+  cpus: 1
+  mem_limit: 1g
+  memswap_limit: 1g
+
+services:
+  traefik:
+    <<: *limits
+    cpus: 4 # the edge was the bottleneck at 1 CPU (~90% busy at 3.3k req/s)
+    # Same flags as the production file minus --accesslog: a line per request
+    # costs memory and CPU under load. A `command` list is replaced, not merged.
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedByDefault=false
+      - --providers.docker.endpoint=unix:///var/run/docker.sock
+      - --entrypoints.web.address=:80
+      - --api.dashboard=true
+      - --api.insecure=true
+      - --log.level=INFO
+  admin: { <<: *limits }
+  orchestrator: { <<: *limits }
+  worker-dev:
+    <<: *limits
+    image: fluxify-worker:local
+    build:
+      context: ../..
+      dockerfile: docker/worker-compiled/Dockerfile
+  postgres: { <<: *limits }
+  valkey: { <<: *limits }
+  nats: { <<: *limits }
+
+  # URL shortener test project's own data stores (not Fluxify's control plane).
+  # On fluxify_net: reach them from Fluxify as lt-urlshortener-postgres:5432 and
+  # lt-urlshortener-valkey:6379.
+  lt-urlshortener-postgres:
+    image: postgres:bullseye
+    container_name: lt-urlshortener-postgres
+    cpus: 1
+    mem_limit: 512m
+    memswap_limit: 512m
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: urlshortener
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d urlshortener"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fluxify_net
+  lt-urlshortener-valkey:
+    image: valkey/valkey:9.0-alpine
+    container_name: lt-urlshortener-valkey
+    cpus: 0.5
+    mem_limit: 512m
+    memswap_limit: 512m
+    networks:
+      - fluxify_net
+
+  # Hand-coded twin of the Fluxify routes (url-shortener/server), built like a
+  # production image and served through the same Traefik at Host ts.localhost.
+  lt-urlshortener-ts:
+    <<: *limits
+    build:
+      context: ../../testing/load-testing/url-shortener
+      dockerfile: server/Dockerfile
+    image: lt-urlshortener-ts:local
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      PG_URL: postgres://postgres:postgres@lt-urlshortener-postgres:5432/urlshortener
+      REDIS_URL: redis://lt-urlshortener-valkey:6379
+      BASE_URL: http://ts.localhost:8080
+    # Scale with `--scale lt-urlshortener-ts=2`; Traefik balances the replicas.
+    # For direct access without Traefik, add `ports: ["3100:3000"]` and keep one replica.
+    labels:
+      - traefik.enable=true
+      - "traefik.http.routers.lt-ts.rule=Host(`ts.localhost`)"
+      - traefik.http.routers.lt-ts.priority=100
+      - traefik.http.routers.lt-ts.entrypoints=web
+      - traefik.http.services.lt-ts.loadbalancer.server.port=3000
+    depends_on:
+      lt-urlshortener-postgres:
+        condition: service_healthy
+      lt-urlshortener-valkey:
+        condition: service_started
+    networks:
+      - fluxify_net
+
+  # Node.js twin of the Bun server (url-shortener/server-node): same routes, `pg`
+  # instead of Bun SQL. Served at Host node.localhost; scale with
+  # `--scale lt-urlshortener-node=2`.
+  lt-urlshortener-node:
+    <<: *limits
+    build:
+      context: ../../testing/load-testing/url-shortener
+      dockerfile: server-node/Dockerfile
+    image: lt-urlshortener-node:local
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      PG_URL: postgres://postgres:postgres@lt-urlshortener-postgres:5432/urlshortener
+      REDIS_URL: redis://lt-urlshortener-valkey:6379
+      BASE_URL: http://node.localhost:8080
+    labels:
+      - traefik.enable=true
+      - "traefik.http.routers.lt-node.rule=Host(`node.localhost`)"
+      - traefik.http.routers.lt-node.priority=100
+      - traefik.http.routers.lt-node.entrypoints=web
+      - traefik.http.services.lt-node.loadbalancer.server.port=3000
+    depends_on:
+      lt-urlshortener-postgres:
+        condition: service_healthy
+      lt-urlshortener-valkey:
+        condition: service_started
+    networks:
+      - fluxify_net
