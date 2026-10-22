@@ -3,9 +3,32 @@ import { faker } from "@faker-js/faker";
 import { docker, pullImage, startContainerWithRandomPort } from "@fluxify/adapters/containerTestHelpers";
 import { runIntegration } from "@fluxify/sdk/testing";
 import type Docker from "dockerode";
+import { Redis } from "ioredis";
 import cache from "./cache";
 
 const REDIS_IMAGE = "valkey/valkey:8-alpine";
+
+/** a container that accepts TCP is not a Redis that answers commands yet */
+async function waitForRedis(url: string) {
+	for (let attempt = 0; attempt < 100; attempt++) {
+		const client = new Redis(url, {
+			lazyConnect: true,
+			maxRetriesPerRequest: 1,
+			retryStrategy: () => null,
+		});
+		client.on("error", () => {});
+		try {
+			await client.connect();
+			await client.ping();
+			return;
+		} catch {
+			await Bun.sleep(100);
+		} finally {
+			client.disconnect();
+		}
+	}
+	throw new Error("the Redis container did not answer PING");
+}
 
 describe("Redis cache variant", () => {
 	const containerName = "fluxify-example-integrations-redis";
@@ -24,6 +47,7 @@ describe("Redis cache variant", () => {
 		);
 		container = started.container;
 		url = `redis://127.0.0.1:${started.port}`;
+		await waitForRedis(url);
 	}, 60_000);
 
 	afterAll(async () => {
