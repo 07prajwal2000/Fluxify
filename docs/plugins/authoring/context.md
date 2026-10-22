@@ -34,6 +34,7 @@ These parts of `ctx` reach the project's data, so a block must declare them in `
 | `integrations: ["database"]` | `ctx.dbFactory` | `ctx.dbFactory.getDbAdapter(id)`: a database integration's adapter |
 | `integrations: ["kv"]` | `ctx.kvFactory` | `ctx.kvFactory.getKvAdapter(id)`: a key-value store |
 | `integrations: ["queue"]` | `ctx.queueFactory` | `await ctx.queueFactory.getProducer(id)`: a message queue producer |
+| `integrations: ["acme/email"]` | `ctx.integrations.get(id)` | Any kind, built-in or one of your own groups ([below](#using-integrations-from-a-block)) |
 | `appconfig: true` | `ctx.vars.getConfig(key)` | A value from the project's app config |
 
 The `id` is what an [`integration` param](./params#integration-and-appconfig) hands to `run`. Declare the kind once, and the param picks which integration of that kind:
@@ -61,6 +62,65 @@ The adapters:
 ::: warning
 A permission limits what a block is given. It is not a sandbox: plugin code runs inside Fluxify, with the same reach as any code on the worker. Ask only for what the block uses.
 :::
+
+## Using integrations from a block
+
+`ctx.integrations.get(id)` opens the integration a `param.integration` param picked. It works for every group: the built-in ones, and a group your own plugin adds.
+
+```ts
+permissions: { integrations: ["kv"] },
+params: {
+	store: param.integration({ kind: "kv", required: true }),
+},
+async run({ params, ctx }) {
+	const kv = await ctx.integrations.get<"kv">(params.store);
+	await kv.setex("last-run", 60, new Date().toISOString());
+	return { output: await kv.get("last-run") };
+},
+```
+
+The type argument decides what `get` resolves to:
+
+| Type argument | What you get |
+| :--- | :--- |
+| `get<"kv">` | That built-in group's adapter: `get`, `set`, `setex` and `delete` |
+| `get<"database">` | A `DatabaseAdapter` |
+| `get<typeof myIntegration>` | What your integration's `connect` returns, typed for you |
+| `get<MyClient>` | A type of your own. It is passed through as written, so a wrong type is not caught |
+
+`ctx.integrations.get` is the one call that covers the built-in groups and a plugin's own groups. The group factories (`ctx.dbFactory`, `ctx.kvFactory`, `ctx.queueFactory`) still work and are what a variant-only grant cannot open; prefer `get` in new blocks.
+
+`params.store` is `undefined` while the canvas left the picker empty. `get` then fails with `no integration was selected` before it looks anything up.
+
+### The permission
+
+An `integration` param needs its kind in `permissions.integrations`. A kind is a group (`kv`, `acme/email`) or one variant of it (`kv/Redis`, `acme/email/smtp`):
+
+```ts
+permissions: { integrations: ["kv"] },          // every kv integration
+permissions: { integrations: ["kv/Redis"] },    // only Redis
+```
+
+The build refuses a block with an `integration` param but no permission for its kind. At run time the kind of the **selected** integration is checked again, so a grant of `kv/Redis` refuses a Memcached integration even if the canvas hands one over.
+
+### One client per request
+
+All through one request, `get` returns the **same** client for the same integration. Two blocks opening `acme/email` share one connection, and a client is not closed between them.
+
+For a database, the client is the request's adapter. Inside a transaction started by a DB transaction block, every later `get<"database">` in that request is the same adapter, so a block's queries join the transaction. The transaction ends with the request.
+
+### Errors an author will see
+
+| Error | When |
+| :--- | :--- |
+| `<block> was not granted kv integrations; approve a version that asks for it` | The block used a kind its approval does not cover |
+| `<block>: no integration was selected` | The param is empty |
+| `<block>: integration '<id>' does not exist, has no value in this environment, or belongs to another project` | The id is unknown, the environment has no config, or the row belongs to someone else |
+| `<name>: plugin acme/crm is disabled` | The integration belongs to a plugin switched off in both environments |
+| `<name>: plugin acme/crm is disabled in production` | The plugin is on for development but off for this environment |
+| `<name>: integration <name> has no development value` | The development config is missing and *Same as production* is off |
+
+A plugin that is switched off hides its variants from the integrations page and from the picker, but its existing integrations are kept. A route that uses one fails with the message above, and the integrations list marks the row **plugin disabled**.
 
 ## ctx.vars
 

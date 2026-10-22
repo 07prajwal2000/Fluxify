@@ -66,8 +66,9 @@ ${stubsOf(contract, "\t\t\t")}
 
 /** a database's per-request adapter: its transaction lives here, never on the pool */
 const adapterCode = () => `
-	adapter(pool) {
+	adapter(pool, config) {
 		void pool;
+		void config;
 		const client: DatabaseAdapter = {
 ${stubsOf(CONTRACTS.database, "\t\t\t")}
 		};

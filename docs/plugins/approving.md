@@ -12,6 +12,7 @@ A plugin does nothing until a creator approves it. Open **Settings → Plugins**
 | Section | What it tells you |
 | :--- | :--- |
 | **Blocks** | The blocks the plugin adds, with their shape and the ways they can run |
+| **Integrations provided** | The integration variants the plugin adds, when it has any |
 | **Approving grants** | Everything the plugin is asking to use, and what you grant by approving |
 | **Package** | Where it came from (upload, npm, link or folder), its exact version, and the Fluxify versions it supports |
 
@@ -26,7 +27,12 @@ By default a plugin's blocks can only work with the data passed to them. A permi
 | **Use the database integration** | Use the project's database connections |
 | **Use the kv integration** | Use the project's key-value stores |
 | **Use the queue integration** | Use the project's queues |
+| **Use the acme/email integration** | Use the project's integrations of a group the plugin adds. The name is the permission's kind |
 | **Read app config** | Read the project's App Config values |
+
+A permission names a **kind**: a group (`kv`, `acme/email`) or one variant of it (`kv/Redis`, `acme/email/smtp`). A group covers every variant of that group; a variant covers only itself.
+
+Adding an integration does not need a permission. The permission is for a **block** that uses one, and the approval covers the kinds the plugin's blocks ask for.
 
 A block that tries to use something it was not granted fails with a message naming the missing permission.
 

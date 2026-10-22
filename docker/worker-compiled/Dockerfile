@@ -85,6 +85,7 @@ COPY packages/sdk/package.json packages/sdk/package.json
 COPY testing/e2e/package.json testing/e2e/package.json
 COPY testing/mcp-math/package.json testing/mcp-math/package.json
 COPY examples/plugins/agent-tools/package.json examples/plugins/agent-tools/package.json
+COPY examples/plugins/integrations/package.json examples/plugins/integrations/package.json
 COPY scripts/setup-hooks.ts scripts/setup-hooks.ts
 
 RUN bun install --frozen-lockfile

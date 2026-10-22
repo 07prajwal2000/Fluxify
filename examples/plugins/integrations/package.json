@@ -1,0 +1,41 @@
+{
+	"name": "@fluxify/example-integrations",
+	"private": true,
+	"version": "1.0.0",
+	"description": "Example Fluxify plugin: a variant of the built-in kv group, a group of its own, and a block that uses it.",
+	"type": "module",
+	"license": "Apache-2.0",
+	"fluxify": {
+		"name": "fluxify-examples/integrations",
+		"url": "https://github.com/Fluxify-rest/Fluxify/tree/main/examples/plugins/integrations"
+	},
+	"files": [
+		"dist",
+		"icons",
+		"fluxify.json"
+	],
+	"scripts": {
+		"build": "fluxify-cli blocks build",
+		"test": "bun test"
+	},
+	"dependencies": {
+		"ioredis": "^5.11.1",
+		"nodemailer": "^7.0.13"
+	},
+	"peerDependencies": {
+		"@fluxify/sdk": ">=2026.10.2001",
+		"zod": "^4.0.0"
+	},
+	"devDependencies": {
+		"@faker-js/faker": "^10.3.0",
+		"@fluxify/adapters": "workspace:*",
+		"@fluxify/cli": "workspace:*",
+		"@fluxify/sdk": "workspace:*",
+		"@types/bun": "^1.4.0",
+		"@types/dockerode": "^4.0.1",
+		"@types/nodemailer": "^7.0.0",
+		"dockerode": "^4.0.9",
+		"typescript": "^5.9.2",
+		"zod": "^4.0.17"
+	}
+}

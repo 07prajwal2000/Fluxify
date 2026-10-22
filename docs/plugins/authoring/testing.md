@@ -180,6 +180,70 @@ it("calls the tools the prompt names and returns what they gave back", async () 
 
 The same idea chains plain blocks: pass `first.output` as `input` to the second `runBlock`, and `first.handle` tells you whether to run the success or the failure path.
 
+## Testing an integration
+
+`runIntegration(integration, options)` runs one `integration(...)` the way a worker runs it: the config is defaulted and checked, `getConfig` answers only the keys its own secret fields name, and each hook opens and closes a client. It needs no Fluxify runtime.
+
+```ts
+import { expect, it } from "bun:test";
+import { runIntegration } from "@fluxify/sdk/testing";
+import smtp from "./smtp";
+
+it("connects and tests with the password from app config", async () => {
+	const run = runIntegration(smtp, {
+		config: { host: "smtp.example.com", port: 587, username: "ada", password: "SMTP_PASSWORD" },
+		appConfig: { SMTP_PASSWORD: "secret" },
+	});
+	expect(await run.test()).toEqual({ success: true });
+});
+```
+
+### Options
+
+| Option | Meaning |
+| :--- | :--- |
+| `config` | The config as `connect` gets it. A secret field holds the App config **key**; `cfg:KEY` is accepted too, as the stored form uses it |
+| `appConfig` | The environment's App config values, by key. `getConfig` reads only the keys this integration's secret fields name |
+| `logger` | What `ctx.logger` writes to. Default is a recording logger, available as `run.logs` |
+
+An invalid config fails as it would on the integrations page, for example `Invalid configuration: host: param 'host' is required`.
+
+### The run
+
+| Member | What it does |
+| :--- | :--- |
+| `await run.client()` | Opens the client a block would get. Calling it again in the same run returns the same client |
+| `run.test()` | Runs `test` on a fresh client and closes it |
+| `run.describe()` | Runs `describe` on a fresh client and closes it |
+| `run.inspect(request?)` | Runs `inspect` on a fresh client, with `inspectRequest` checked first |
+| `await run.close()` | Closes the client `client()` opened |
+
+A hook the integration does not define throws, naming it: `Test connection is not available for acme/email/smtp integrations`.
+
+### The integrations fake in `runBlock`
+
+A block that calls `ctx.integrations.get(id)` is tested with `ctx.integrations`, a map from the param's value to what `get` returns:
+
+```ts
+const r = await runBlock(send, {
+	params: { mail: "mail", to: ["ada@example.com"], subject: "Hi", text: "Hello" },
+	ctx: {
+		integrations: {
+			mail: { kind: "acme/email", client: { sendEmail: async () => ({ messageId: "1" }) } },
+		},
+	},
+});
+```
+
+| Fake | What it is |
+| :--- | :--- |
+| `{ kind, client }` | A prebuilt client. `kind` is the integration's `group` or `group/variant` (`kv`, `kv/Redis`, `acme/email`) |
+| `{ integration, config, appConfig? }` | A real `integration(...)`. The harness connects it, reads the secret keys from `appConfig`, and pools it by its `poolKey` |
+
+The fake is checked against the block's `permissions.integrations`, the same way a worker checks the selected integration. A kind the block was not granted fails with `was not granted … integrations`; an id that is not in the map fails with `integration '<id>' does not exist …`.
+
+Use the real integration when the test is about `connect` or the client's behaviour, and a prebuilt client when it is about what the block sends.
+
 ## What the harness cannot mirror
 
 These are real differences. Cover them with a route in a development environment before you rely on them.

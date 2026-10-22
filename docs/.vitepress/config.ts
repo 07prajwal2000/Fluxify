@@ -351,6 +351,7 @@ export default withMermaid(
 							{ text: "Params", link: "/plugins/authoring/params" },
 							{ text: "Handles", link: "/plugins/authoring/handles" },
 							{ text: "Context", link: "/plugins/authoring/context" },
+							{ text: "Integrations", link: "/plugins/authoring/integrations" },
 							{ text: "Testing", link: "/plugins/authoring/testing" },
 							{ text: "Publishing", link: "/plugins/authoring/publishing" },
 						],
@@ -421,6 +422,7 @@ export default withMermaid(
 						text: "Integrations",
 						items: [
 							{ text: "Overview", link: "/integrations/" },
+							{ text: "Integrations from Plugins", link: "/integrations/plugin-integrations" },
 							{ text: "Databases", link: "/integrations/databases" },
 							{ text: "KV Stores", link: "/integrations/kv-stores" },
 							{ text: "Observability", link: "/integrations/observability" },

@@ -1,1 +1,1 @@
-refer @AGENT.md
+refer @AGENTS.md

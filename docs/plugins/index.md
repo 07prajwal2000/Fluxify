@@ -44,6 +44,7 @@ Until step 2, you can still draw its blocks on a canvas, but they will not run, 
 - **Settings → Plugins** in a project lists the plugins, and is where you add, approve and remove them.
 - The **Plugins** section of the block picker on a canvas offers their blocks ([using them](./blocks-on-canvas)).
 - The **Custom Blocks** page can also list them, read-only, with **Show plugin blocks**.
+- **Integrations** lists the services a plugin adds, under their built-in category or the plugin's own ([integrations from plugins](/integrations/plugin-integrations)).
 
 ## In this section
 

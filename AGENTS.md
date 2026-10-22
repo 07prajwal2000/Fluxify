@@ -272,7 +272,7 @@ Before you open the PR, grep `docs/deployments` for the old name or value.
 ---
 
 ## Codebase Discovery
-Use `codebase-memory-mcp` (`search_graph`, `query_graph`, `trace_path`, `get_code_snippet`) to locate code, trace callers, or understand architecture — it answers in far fewer tokens than scanning files. Fall back to grep/glob/file reads for exact text, non-code files, or anything the graph does not cover.
+Use the `cocoindex` MCP server (RAG/semantic search) first to locate code or understand architecture — describe what the code does in natural language rather than guessing keywords; it answers in far fewer tokens than scanning files. Fall back to grep/glob/file reads for exact text, non-code files, or anything cocoindex does not cover.
 
 ---
 

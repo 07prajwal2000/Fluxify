@@ -75,3 +75,7 @@ In the portal's integration form (both create and edit):
 - [**AI Models**](./ai-models.md): Power the AI assistant with OpenAI, Claude, Gemini, Mistral, or any OpenAI-compatible server.
 - [**Message Queues**](./message-queues.md): Start workflows from messages on a Kafka topic or a NATS JetStream stream.
 - [**MCP Servers**](./mcp-servers.md): Give the AI agent the tools of an external MCP server.
+
+## Integrations from plugins
+
+A [plugin](/plugins/) can add a variant of any category above, or a category of its own. Those connections appear in the same list, with a **Plugin** badge, and are created the same way. [Integrations from plugins](./plugin-integrations.md) covers where they appear, what a disabled plugin means, and why a plugin cannot be removed while its integrations exist.

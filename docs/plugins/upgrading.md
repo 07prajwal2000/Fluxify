@@ -29,6 +29,30 @@ Open the plugin and press **Review upgrade**. The dialog shows an **upgrade prev
 
 An upgrade is **blocked** when it removes something your project uses: a block, a setting, a connection point, or a way of running that a block in a route, workflow or custom block depends on. Both the working copy and the promoted production version count.
 
+The same rule covers the integrations a plugin provides. These changes block an upgrade **while the project has an integration of that kind**:
+
+| Change | Why it blocks |
+| :--- | :--- |
+| A variant is removed | Its integrations would point at a variant nothing provides |
+| A variant moves to another group | Its kind changes, so existing integrations no longer match |
+| A config field is removed | The stored config has a value that is no longer accepted |
+| A config field is now required, with no default | Existing integrations have no value for it |
+| A config field changes type | The stored value may not fit the new type |
+| A field changes between secret and plain | The stored form is different (`cfg:KEY` versus a value) |
+
+These do **not** block an upgrade, even while integrations exist:
+
+- an optional config field is added
+- a default, label, description, icon, docs, help text, tab or order changes
+- a variant is added
+- Test connection, metadata or inspect is added, changed or removed
+
+A blocking change only matters when an integration of that kind exists. Removing a variant the project never configured is fine, and a **new** variant never affects existing rows. The preview lists each blocking integration as a link, so you can open it and remove it before approving.
+
+::: info One integration row covers both environments
+An integration holds its development and production configs together. Deleting it removes both, so one row is one use in the upgrade preview.
+:::
+
 When it is blocked, **Approve** is disabled and the preview lists each use. To fix it:
 
 1. Open each listed route, workflow or custom block (the links go straight to it).
@@ -63,7 +87,7 @@ It still works. The author is telling you to move off it, usually before a later
 
 On the plugin's page, press **Remove**. Removal deletes the plugin from the project, its stored files, and any link requests.
 
-Removal is **blocked while anything uses it**: a route, workflow or custom block with one of its blocks, whether in the working copy or only in a promoted production version. The dialog lists each one as a link. Remove those blocks first (and promote, if the use was in production), then remove the plugin.
+Removal is **blocked while anything uses it**: a route, workflow or custom block with one of its blocks, whether in the working copy or only in a promoted production version. It is also blocked while the project has an **integration of one of the plugin's kinds**, because that integration would point at a variant nothing provides. The dialog lists each block use and each integration as a link. Remove those first (and promote, if the use was in production), then remove the plugin.
 
 ::: tip
 To stop a plugin running without removing it, turn off its **Dev** and **Prod** switches ([approval](./approving#dev-and-prod-switches)).
