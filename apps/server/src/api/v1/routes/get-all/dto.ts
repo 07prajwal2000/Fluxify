@@ -21,11 +21,19 @@ export const requestQuerySchema = z
 		"filter.value": z.string().optional(),
 		projectId: z.uuidv7().optional(),
 		search: z.string().trim().optional().describe("matches name, path or method"),
+		sortBy: z
+			.enum(["createdAt", "updatedAt", "name"])
+			.default("createdAt")
+			.describe(
+				"what the list is ordered by; createdAt by default, so toggling a route never moves it",
+			),
+		sortOrder: z.enum(["asc", "desc"]).default("desc").describe("desc (newest first) by default"),
 	})
 	.transform((q) => ({
 		page: q.page,
 		perPage: q.perPage,
 		search: q.search,
+		sort: { by: q.sortBy, order: q.sortOrder },
 		filter: {
 			field: q["filter.field"],
 			operator: q["filter.operator"],

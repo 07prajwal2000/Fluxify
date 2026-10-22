@@ -1,4 +1,11 @@
-import { Button, DeleteButton, integrationIcons, Spinner, toast } from "@fluxify/components";
+import {
+	Button,
+	Checkbox,
+	DeleteButton,
+	integrationIcons,
+	Spinner,
+	toast,
+} from "@fluxify/components";
 import {
 	getSchema,
 	humanReadableConnectorNames,
@@ -12,11 +19,10 @@ import {
 	EnvironmentIntegrationFields,
 	isConfigEmpty,
 } from "@/components/integrations/EnvironmentIntegrationFields";
-import { IntegrationInspectPanel } from "@/components/integrations/IntegrationInspectPanel";
 import { showTestResult } from "@/components/integrations/showTestResult";
 import { parseApiError, showErrorNotification } from "@/lib/errorNotifier";
 import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
-import { integrationsQuery, useIntegrationCatalog } from "@/query/integrationsQuery";
+import { integrationsQuery } from "@/query/integrationsQuery";
 import { projectsQuery } from "@/query/projectsQuery";
 import { useCanEditProject, useIsProjectAdmin } from "@/store/auth";
 
@@ -76,9 +82,6 @@ function IntegrationDetailsPage() {
 
 	const group = loaded.data?.group ?? "";
 	const variant = loaded.data?.variant ?? "";
-	const catalog = useIntegrationCatalog(projectId);
-	const meta = catalog.variantMeta(group, variant);
-	const hasInspect = Boolean(meta?.hasInspect || group === "database" || group === "kv");
 	const toList = () =>
 		navigate({ to: "/$projectId/integrations", params: { projectId }, search: { group } });
 
@@ -220,6 +223,15 @@ function IntegrationDetailsPage() {
 							group}
 					</p>
 				</div>
+				{/* in the header (#933): it decides whether the Development tab is used at all */}
+				<div className="ml-auto shrink-0">
+					<Checkbox
+						isSelected={syncDev}
+						onChange={setSyncDev}
+						isDisabled={!canWrite}
+						label="Same as prod"
+					/>
+				</div>
 			</div>
 
 			<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain border-t border-border pt-4 pr-1">
@@ -233,6 +245,7 @@ function IntegrationDetailsPage() {
 					setDevField={(path, value) => setDevConfig((c) => setPath(c ?? {}, path, value))}
 					syncDev={syncDev}
 					onSyncDevChange={setSyncDev}
+					tabs
 					group={group}
 					variant={variant}
 					readOnly={!canWrite}
@@ -252,15 +265,6 @@ function IntegrationDetailsPage() {
 							: undefined
 					}
 				/>
-				{hasInspect && (
-					<div className="mt-6">
-						<IntegrationInspectPanel
-							projectId={projectId}
-							integrationId={integrationId}
-							readOnly={!canWrite}
-						/>
-					</div>
-				)}
 			</div>
 
 			<div className="flex shrink-0 items-center justify-between border-t border-border pt-3.5">

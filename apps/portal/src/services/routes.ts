@@ -28,6 +28,8 @@ export type ListRoutesQuery = {
 	perPage?: number;
 	projectId: string;
 	search?: string;
+	sortBy?: "createdAt" | "updatedAt" | "name";
+	sortOrder?: "asc" | "desc";
 };
 
 export type { CanvasSavePayload } from "./canvas";
@@ -40,6 +42,8 @@ export const routesService = {
 		params.set("perPage", String(query.perPage ?? 10));
 		params.set("projectId", query.projectId);
 		if (query.search) params.set("search", query.search);
+		if (query.sortBy) params.set("sortBy", query.sortBy);
+		if (query.sortOrder) params.set("sortOrder", query.sortOrder);
 		const result = await httpClient.get(`${baseUrl}/list?${params.toString()}`);
 		return result.data;
 	},

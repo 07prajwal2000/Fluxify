@@ -146,23 +146,6 @@ export const integrationsQuery = {
 			});
 		},
 	},
-	inspect: {
-		mutation(projectId: string) {
-			return useMutation({
-				mutationFn: (params: {
-					id: string;
-					body?: Record<string, unknown>;
-					env?: "development" | "production";
-				}) =>
-					integrationService.inspect(
-						projectId,
-						params.id,
-						params.body ?? {},
-						params.env ?? "development",
-					),
-			});
-		},
-	},
 };
 
 /** The variant list from the server, with the lookups the integration pickers need. */

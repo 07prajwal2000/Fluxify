@@ -1,13 +1,17 @@
-import { count, desc, eq, type SQL } from "drizzle-orm";
+import { asc, count, desc, eq, type SQL } from "drizzle-orm";
 import { type DbTransactionType, db } from "../../../../db";
 import { projectsEntity, routesEntity } from "../../../../db/schema";
+
+export type RouteSort = { by: "createdAt" | "updatedAt" | "name"; order: "asc" | "desc" };
 
 export async function getRoutesList(
 	skip: number,
 	limit: number,
 	filter?: SQL<unknown>,
+	sort: RouteSort = { by: "createdAt", order: "desc" },
 	tx?: DbTransactionType,
 ) {
+	const direction = sort.order === "asc" ? asc : desc;
 	const result = await (tx ?? db)
 		.select({
 			id: routesEntity.id,
@@ -28,7 +32,8 @@ export async function getRoutesList(
 		.leftJoin(projectsEntity, eq(routesEntity.projectId, projectsEntity.id))
 		.where(filter)
 		.offset(skip)
-		.orderBy(desc(routesEntity.updatedAt))
+		// id breaks ties (same name or timestamp), so a page boundary never shuffles rows
+		.orderBy(direction(routesEntity[sort.by]), direction(routesEntity.id))
 		.limit(limit);
 	const totalCount = await getRoutesCount(filter, tx);
 	return { result, totalCount };

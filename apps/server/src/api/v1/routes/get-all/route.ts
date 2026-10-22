@@ -8,7 +8,8 @@ import handleRequest from "./service";
 
 const openApiOptions: DescribeRouteOptions = {
 	operationId: "get-routes-list",
-	description: "Returns a list of Routes sorted by createdAt with pagination details",
+	description:
+		"Returns a list of Routes with pagination details, newest-created first by default (sortBy, sortOrder)",
 	tags: ["Routes"],
 	responses: {
 		200: {
