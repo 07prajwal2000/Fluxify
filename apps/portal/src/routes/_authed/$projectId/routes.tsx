@@ -22,6 +22,7 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { RouteApiPlayground } from "@/components/RouteApiPlayground";
 import { RecordingIndicator } from "@/components/recordings/RecordingControls";
 import { showErrorNotification } from "@/lib/errorNotifier";
+import { PAGE_SIZES, usePageSize } from "@/lib/pageSize";
 import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
 import { projectsQuery } from "@/query/projectsQuery";
 import { routesQuery } from "@/query/routesQuery";
@@ -33,9 +34,6 @@ export const Route = createFileRoute("/_authed/$projectId/routes")({
 	),
 	component: RoutesPage,
 });
-
-// The list API caps perPage at 5–50.
-const PAGE_SIZES = [5, 10, 20, 50];
 
 export type RouteRow = {
 	id: string;
@@ -53,7 +51,7 @@ function RoutesPage() {
 	usePageTitle(formatProjectTitle(project?.name, "Routes"));
 	const navigate = useNavigate();
 	const [page, setPage] = useState(1);
-	const [perPage, setPerPage] = useState(5);
+	const [perPage, setPerPage] = usePageSize("routes");
 	const [search, setSearch] = useState("");
 	const [debouncedSearch, setDebouncedSearch] = useState("");
 
@@ -80,6 +78,8 @@ function RoutesPage() {
 
 	const totalPages = data?.pagination?.totalPages ?? 1;
 
+	const openCanvas = (routeId: string) =>
+		navigate({ to: "/$projectId/canvas/$routeId", params: { projectId, routeId } });
 	const openNew = () => navigate({ to: "/$projectId/routes/new", params: { projectId } });
 
 	return (
@@ -128,7 +128,7 @@ function RoutesPage() {
 			) : (
 				<div className="min-h-0 flex-1 overflow-y-auto">
 					<Table>
-						<Table.Content aria-label="Routes">
+						<Table.Content aria-label="Routes" onRowAction={(key) => openCanvas(String(key))}>
 							<Table.Header className="sticky top-0 z-10">
 								<Table.Column id="method">Method</Table.Column>
 								<Table.Column id="path" isRowHeader>
@@ -142,7 +142,7 @@ function RoutesPage() {
 							</Table.Header>
 							<Table.Body items={rows}>
 								{(route: RouteRow) => (
-									<Table.Row id={route.id}>
+									<Table.Row id={route.id} className="cursor-pointer">
 										<Table.Cell>
 											<Chip>{route.method}</Chip>
 										</Table.Cell>
@@ -178,12 +178,7 @@ function RoutesPage() {
 													isIconOnly
 													variant="ghost"
 													aria-label={`Edit ${route.name || route.path}`}
-													onPress={() =>
-														navigate({
-															to: "/$projectId/canvas/$routeId",
-															params: { projectId, routeId: route.id },
-														})
-													}
+													onPress={() => openCanvas(route.id)}
 												>
 													<TbEdit size={16} />
 												</Button>
