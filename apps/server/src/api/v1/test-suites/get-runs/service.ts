@@ -8,12 +8,13 @@ export default async function handleRequest(
 	target: SuiteTarget,
 	query: z.infer<typeof requestQuerySchema>,
 ) {
-	const { page, perPage } = query;
+	const { page, perPage, suiteId } = query;
 	const { result, totalCount } = await getTestRuns(
 		projectId,
 		target,
 		(page - 1) * perPage,
 		perPage,
+		suiteId,
 	);
 	const totalPages = Math.ceil(totalCount / perPage);
 	return {

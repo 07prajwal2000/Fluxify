@@ -103,7 +103,7 @@ export const testSuitesQuery = {
 		useQuery(
 			projectId: string,
 			target: SuiteTarget,
-			query: { page?: number; perPage?: number } = {},
+			query: { page?: number; perPage?: number; suiteId?: string } = {},
 		) {
 			return useQuery({
 				queryKey: [...runKey(projectId, target), query],

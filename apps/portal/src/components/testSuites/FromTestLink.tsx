@@ -28,7 +28,8 @@ export function FromTestLink({
 	const text = `From test: ${metadata.suiteName} · ${metadata.caseName}`;
 
 	if (testRun.isError) return <span>{text} (the test run was deleted)</span>;
-	const search = { runId: metadata.testRunId };
+	// the suite too, or the page opens its first suite, which may not be in this run
+	const search = { runId: metadata.testRunId, open: metadata.suiteId };
 	return target.type === "route" ? (
 		<Link
 			to="/$projectId/canvas/$routeId/test-suites"
