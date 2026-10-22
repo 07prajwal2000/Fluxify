@@ -20,9 +20,12 @@ test("shows when idle and not running, explaining the cost", () => {
 	const view = render(
 		<ColdCacheHint lastCallAt={Date.now() - CACHE_COLD_AFTER_MS - 1_000} running={false} />,
 	);
-	const chip = view.getByText("Idle chat");
-	expect(chip.closest("[aria-label]")?.getAttribute("aria-label")).toBe(
-		"This chat has been idle. The next message re-reads the history at full cost and may be slower.",
+	// the chip is the tooltip's trigger: without it, hovering opens nothing
+	const trigger = view.getByText("Idle chat").closest('[data-slot="tooltip-trigger"]');
+	expect(trigger).not.toBeNull();
+	expect(trigger?.getAttribute("tabindex")).toBe("0");
+	expect(trigger?.getAttribute("aria-label")).toBe(
+		"No messages for over 20 minutes, so the AI provider has likely dropped its cached copy of this conversation. Your next message sends the whole history again without that cache: it uses more tokens and may take longer to answer.",
 	);
 });
 
