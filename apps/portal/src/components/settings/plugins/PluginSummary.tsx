@@ -35,6 +35,72 @@ export function PluginBlocks({ plugin }: { plugin: Plugin }) {
 	);
 }
 
+export function PluginIntegrations({ plugin }: { plugin: Plugin }) {
+	const manifest = manifestOf(plugin) as any;
+	const integrations =
+		plugin.integrations ??
+		(manifest?.integrations ?? []).map((e: any) => ({
+			group: e.group,
+			variant: e.variant,
+			label: e.label ?? e.variant,
+			ownGroup: !["database", "kv", "ai", "baas", "observability", "queue", "mcp"].includes(
+				e.group,
+			),
+			secretParams: e.secretParams ?? [],
+			hooks: {
+				test: Boolean(e.hasTest),
+				describe: Boolean(e.hasDescribe),
+				inspect: Boolean(e.hasInspect),
+			},
+		}));
+
+	if (!integrations || integrations.length === 0) return null;
+
+	return (
+		<ul
+			className="flex flex-col divide-y divide-border rounded-lg border border-border"
+			data-testid="plugin-integrations-list"
+		>
+			{integrations.map((item: any) => {
+				const kind = `${item.group}/${item.variant}`;
+				const hooksList = [
+					item.hooks?.test && "test",
+					item.hooks?.describe && "describe",
+					item.hooks?.inspect && "inspect",
+				].filter(Boolean) as string[];
+
+				return (
+					<li key={kind} className="flex flex-col gap-1 px-3 py-2 text-xs">
+						<div className="flex flex-wrap items-center gap-2">
+							<span className="font-medium text-foreground text-sm">{item.label}</span>
+							<code className="font-mono text-xs text-muted">{kind}</code>
+							{item.ownGroup && <Badge tone="muted">Plugin group</Badge>}
+						</div>
+						{item.secretParams && item.secretParams.length > 0 && (
+							<p className="text-xs text-muted">
+								Secret params (App Config):{" "}
+								<span className="font-mono text-foreground">{item.secretParams.join(", ")}</span>
+							</p>
+						)}
+						<div className="flex items-center gap-1.5 text-xs text-muted">
+							<span>Hooks:</span>
+							{hooksList.length > 0 ? (
+								hooksList.map((h) => (
+									<Badge key={h} tone="muted">
+										{h}
+									</Badge>
+								))
+							) : (
+								<span>none</span>
+							)}
+						</div>
+					</li>
+				);
+			})}
+		</ul>
+	);
+}
+
 const Tick = ({ on, label }: { on: boolean; label: string }) =>
 	on ? (
 		<TbCheck size={16} className="text-success" aria-label={label} />

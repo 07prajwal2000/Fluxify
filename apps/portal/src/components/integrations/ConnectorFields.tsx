@@ -1,4 +1,6 @@
+import type { Param } from "@fluxify/sdk/blocks";
 import type { ComponentProps } from "react";
+import { useIntegrationCatalog } from "@/query/integrationsQuery";
 import { AiForm } from "./connectors/AiForm";
 import { CredentialsUrlForm } from "./connectors/CredentialsUrlForm";
 import { KafkaForm } from "./connectors/KafkaForm";
@@ -7,6 +9,7 @@ import { NatsForm } from "./connectors/NatsForm";
 import { ObservabilityForm } from "./connectors/ObservabilityForm";
 import { SendTimeoutField } from "./connectors/SendTimeoutField";
 import { SqsForm } from "./connectors/SqsForm";
+import { PluginIntegrationForm } from "./PluginIntegrationForm";
 
 const CRED_PLACEHOLDERS: Record<
 	string,
@@ -124,6 +127,26 @@ export function ConnectorFields({
 	readOnly?: boolean;
 	tools?: { name: string; description: string }[];
 }) {
+	const catalog = useIntegrationCatalog(formProps.projectId ?? "");
+	const meta = catalog.variantMeta(group, variant);
+
+	if (meta?.plugin || (meta?.params && Object.keys(meta.params).length > 0)) {
+		return (
+			<PluginIntegrationForm
+				projectId={formProps.projectId}
+				variant={variant}
+				params={(meta?.params ?? {}) as Record<string, Param>}
+				tabs={meta?.tabs}
+				config={formProps.config}
+				setField={formProps.setField}
+				name={formProps.name}
+				onName={formProps.onName}
+				hideName={formProps.hideName}
+				readOnly={formProps.readOnly}
+			/>
+		);
+	}
+
 	return (
 		<>
 			{group === "mcp" && <McpForm {...formProps} />}

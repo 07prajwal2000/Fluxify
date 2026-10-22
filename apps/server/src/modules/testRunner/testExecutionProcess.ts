@@ -14,6 +14,7 @@ import { hydrateProjectSettings } from "../../loaders/projectSettingsLoader";
 import { debugError } from "../requestRouter/debugError";
 import { executionRuntimeEnvironment } from "../requestRouter/executionEnvironment";
 import { setBlocksExecutor } from "../requestRouter/executor";
+import { provideHostPackages } from "../requestRouter/hostPackages";
 import { createHttpContext } from "../requestRouter/httpContext";
 import { loadPluginIntegrations } from "../requestRouter/pluginIntegrations";
 import { loadPluginBlocks, setPluginRefs } from "../requestRouter/pluginLoader";
@@ -53,6 +54,8 @@ import { runWorkflowSuite } from "./workflowSuite";
 process.env = executionRuntimeEnvironment();
 process.argv = [];
 process.execArgv = [];
+
+provideHostPackages();
 
 process.on("message", (message: TestBootstrapMessage) => {
 	if (message?.type !== "bootstrap") return;

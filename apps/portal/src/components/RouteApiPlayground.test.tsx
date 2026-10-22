@@ -27,6 +27,7 @@ mock.module("@fluxify/components", () => ({
 const router = await import("@tanstack/react-router");
 mock.module("@tanstack/react-router", () => ({
 	...router,
+	useBlocker: () => {},
 	Link: ({
 		to,
 		params,

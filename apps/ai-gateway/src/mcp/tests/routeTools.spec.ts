@@ -246,4 +246,37 @@ describe("route and workflow tools", () => {
 		);
 		expect(calls).toEqual([]);
 	});
+
+	it("get_integration_schema resolves a plugin variant from the server's variants endpoint", async () => {
+		const pluginGroups = [
+			{
+				group: "acme/crm",
+				label: "acme/crm",
+				builtIn: false,
+				variants: [
+					{
+						variant: "Acme",
+						label: "Acme CRM",
+						builtIn: false,
+						plugin: "acme/crm",
+						params: { token: { type: "secret", default: "cfg:MY_TOKEN" } },
+						configSchema: {
+							type: "object",
+							properties: { token: { type: "string" } },
+							required: ["token"],
+						},
+					},
+				],
+			},
+		];
+		const { api, calls } = fakeApi(pluginGroups);
+		const result: any = await run(
+			"get_integration_schema",
+			{ projectId: "p-variants-test", group: "acme/crm", variant: "Acme" },
+			api,
+		);
+		expect(calls[0].path).toBe("/v1/p-variants-test/integrations/variants");
+		expect(result.config).toContain("token: string;");
+		expect(result.defaults).toEqual({ token: "cfg:MY_TOKEN" });
+	});
 });

@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { type IntegrationRegistry, integrationRegistry } from "@fluxify/adapters/integrations";
 import { logger } from "@fluxify/common";
@@ -35,7 +35,7 @@ export const pluginIntegrationRefs = (
 		version: artifact.version,
 		group: i.group,
 		variant: i.variant,
-		entry: join(root, i.entry),
+		entry: resolve(root, i.entry),
 	}));
 
 /** what decides a ref's slot: one per project and kind */
@@ -53,8 +53,9 @@ const label = (ref: PluginIntegrationRef) =>
  */
 export async function importIntegration(ref: PluginIntegrationRef) {
 	provideHostPackages();
+	const entryPath = resolve(ref.entry);
 	try {
-		const mod = (await import(pathToFileURL(ref.entry).href))?.default as
+		const mod = (await import(pathToFileURL(entryPath).href))?.default as
 			| AnyIntegration
 			| undefined;
 		if (typeof mod?.connect !== "function")
@@ -64,7 +65,7 @@ export async function importIntegration(ref: PluginIntegrationRef) {
 			throw new Error(`it defines ${def.group}/${def.variant}, not the approved one`);
 		return def;
 	} catch (error) {
-		throw new Error(`${label(ref)} failed to load from ${ref.entry}: ${(error as Error).message}`);
+		throw new Error(`${label(ref)} failed to load from ${entryPath}: ${(error as Error).message}`);
 	}
 }
 
@@ -82,6 +83,7 @@ export async function loadPluginIntegrations(
 	refs: PluginIntegrationRef[] = [],
 	registry: IntegrationRegistry = integrationRegistry,
 ) {
+	provideHostPackages();
 	const wanted = new Map(refs.map((ref) => [integrationRefKey(ref), ref]));
 	for (const [key, version] of loaded) {
 		if (wanted.has(key)) continue;

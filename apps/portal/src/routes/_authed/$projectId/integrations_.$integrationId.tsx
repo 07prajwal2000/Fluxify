@@ -12,10 +12,11 @@ import {
 	EnvironmentIntegrationFields,
 	isConfigEmpty,
 } from "@/components/integrations/EnvironmentIntegrationFields";
+import { IntegrationInspectPanel } from "@/components/integrations/IntegrationInspectPanel";
 import { showTestResult } from "@/components/integrations/showTestResult";
-import { showErrorNotification } from "@/lib/errorNotifier";
+import { parseApiError, showErrorNotification } from "@/lib/errorNotifier";
 import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
-import { integrationsQuery } from "@/query/integrationsQuery";
+import { integrationsQuery, useIntegrationCatalog } from "@/query/integrationsQuery";
 import { projectsQuery } from "@/query/projectsQuery";
 import { useCanEditProject, useIsProjectAdmin } from "@/store/auth";
 
@@ -51,6 +52,8 @@ function IntegrationDetailsPage() {
 	const [devConfig, setDevConfig] = useState<Record<string, unknown> | null>(null);
 	const [syncDev, setSyncDev] = useState(false);
 	const [confirmDelete, setConfirmDelete] = useState(false);
+	const [formError, setFormError] = useState<string | null>(null);
+	const [testError, setTestError] = useState<string | null>(null);
 
 	// the MCP server sent the browser back after Connect
 	useEffect(() => {
@@ -73,6 +76,9 @@ function IntegrationDetailsPage() {
 
 	const group = loaded.data?.group ?? "";
 	const variant = loaded.data?.variant ?? "";
+	const catalog = useIntegrationCatalog(projectId);
+	const meta = catalog.variantMeta(group, variant);
+	const hasInspect = Boolean(meta?.hasInspect || group === "database" || group === "kv");
 	const toList = () =>
 		navigate({ to: "/$projectId/integrations", params: { projectId }, search: { group } });
 
@@ -86,14 +92,18 @@ function IntegrationDetailsPage() {
 		return <p className="py-16 text-center text-muted">Couldn't load this integration.</p>;
 
 	function parseConfig(cfg: Record<string, unknown> | null) {
-		const parsed = getSchema(group as never, variant as never)?.safeParse(cfg);
-		if (!parsed) toast.danger("Invalid connector selection");
-		else if (!parsed.success)
+		const schema = getSchema(group as never, variant as never);
+		if (!schema) return cfg;
+		const parsed = schema.safeParse(cfg);
+		if (!parsed.success) {
 			toast.danger(parsed.error.issues[0]?.message ?? "Invalid configuration");
-		else return parsed.data;
+			return null;
+		}
+		return parsed.data;
 	}
 
 	function save() {
+		setFormError(null);
 		if (!name.trim()) return toast.danger("Name is required");
 		const parsed = parseConfig(config);
 		if (!parsed) return;
@@ -113,13 +123,23 @@ function IntegrationDetailsPage() {
 				} as never,
 			},
 			{
-				onSuccess: () => toast.success("Integration updated"),
-				onError: (e) => showErrorNotification(e as Error),
+				onSuccess: () => {
+					setFormError(null);
+					toast.success("Integration updated");
+				},
+				onError: (e) => {
+					const { fieldErrors, message } = parseApiError(e);
+					const fieldless = fieldErrors?.find((err) => !err.field || err.field === "");
+					if (fieldless) setFormError(fieldless.message);
+					else if (message) setFormError(message);
+					showErrorNotification(e as Error);
+				},
 			},
 		);
 	}
 
 	function testConnection() {
+		setTestError(null);
 		const toTest = syncDev ? config : devConfig;
 		if (!syncDev && isConfigEmpty(toTest)) {
 			toast.danger(
@@ -134,9 +154,15 @@ function IntegrationDetailsPage() {
 			testSaved.mutate(integrationId, {
 				onSuccess: (res) => {
 					showTestResult(res);
+					if (!res?.success && res?.error) setTestError(res.error);
+					else setTestError(null);
 					if (res?.tools) setTestedTools(res.tools);
 				},
-				onError: (e) => showErrorNotification(e as Error),
+				onError: (e) => {
+					const { message } = parseApiError(e);
+					setTestError(message);
+					showErrorNotification(e as Error);
+				},
 			});
 			return;
 		}
@@ -145,20 +171,33 @@ function IntegrationDetailsPage() {
 			{
 				onSuccess: (res) => {
 					showTestResult(res);
+					if (!res?.success && res?.error) setTestError(res.error);
+					else setTestError(null);
 					if (res?.tools) setTestedTools(res.tools);
 				},
-				onError: (e) => showErrorNotification(e as Error),
+				onError: (e) => {
+					const { message } = parseApiError(e);
+					setTestError(message);
+					showErrorNotification(e as Error);
+				},
 			},
 		);
 	}
 
 	function testProduction() {
+		setTestError(null);
 		testProd.mutate(integrationId, {
 			onSuccess: (res) => {
 				showTestResult(res);
+				if (!res?.success && res?.error) setTestError(res.error);
+				else setTestError(null);
 				if (res?.tools) setTestedTools(res.tools);
 			},
-			onError: (e) => showErrorNotification(e as Error),
+			onError: (e) => {
+				const { message } = parseApiError(e);
+				setTestError(message);
+				showErrorNotification(e as Error);
+			},
 		});
 	}
 
@@ -197,6 +236,7 @@ function IntegrationDetailsPage() {
 					group={group}
 					variant={variant}
 					readOnly={!canWrite}
+					formError={formError}
 					tools={testedTools ?? undefined}
 					oauth={
 						group === "mcp"
@@ -212,6 +252,15 @@ function IntegrationDetailsPage() {
 							: undefined
 					}
 				/>
+				{hasInspect && (
+					<div className="mt-6">
+						<IntegrationInspectPanel
+							projectId={projectId}
+							integrationId={integrationId}
+							readOnly={!canWrite}
+						/>
+					</div>
+				)}
 			</div>
 
 			<div className="flex shrink-0 items-center justify-between border-t border-border pt-3.5">
@@ -222,34 +271,41 @@ function IntegrationDetailsPage() {
 				) : (
 					<span />
 				)}
-				<div className="flex items-center gap-2">
-					<Button
-						variant="outline"
-						size="sm"
-						isPending={test.isPending}
-						onPress={testConnection}
-						className="whitespace-nowrap"
-					>
-						<TbBolt size={14} className="text-accent" />
-						<span>Test connection</span>
-					</Button>
-					{canEdit && (
+				<div className="flex flex-col items-end gap-1">
+					{testError && (
+						<p role="status" className="text-xs text-danger">
+							{testError}
+						</p>
+					)}
+					<div className="flex items-center gap-2">
 						<Button
 							variant="outline"
 							size="sm"
-							isPending={testProd.isPending}
-							onPress={testProduction}
+							isPending={test.isPending}
+							onPress={testConnection}
 							className="whitespace-nowrap"
 						>
 							<TbBolt size={14} className="text-accent" />
-							<span>Test production credentials</span>
+							<span>Test connection</span>
 						</Button>
-					)}
-					{canWrite && (
-						<Button variant="primary" size="sm" isPending={update.isPending} onPress={save}>
-							Save changes
-						</Button>
-					)}
+						{canEdit && (
+							<Button
+								variant="outline"
+								size="sm"
+								isPending={testProd.isPending}
+								onPress={testProduction}
+								className="whitespace-nowrap"
+							>
+								<TbBolt size={14} className="text-accent" />
+								<span>Test production credentials</span>
+							</Button>
+						)}
+						{canWrite && (
+							<Button variant="primary" size="sm" isPending={update.isPending} onPress={save}>
+								Save changes
+							</Button>
+						)}
+					</div>
 				</div>
 			</div>
 

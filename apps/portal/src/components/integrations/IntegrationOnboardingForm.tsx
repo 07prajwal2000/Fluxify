@@ -1,46 +1,22 @@
-import { Button, cn, Input, integrationIcons, TextField, toast } from "@fluxify/components";
-import { getDefaultVariantValue, getSchema } from "@fluxify/server/src/api/v1/integrations/helpers";
+import { Button, integrationIcons, toast } from "@fluxify/components";
+import { getDefaultVariantValue } from "@fluxify/server/src/api/v1/integrations/helpers";
 import { useBlocker } from "@tanstack/react-router";
-import { type ReactNode, useRef, useState } from "react";
-import { FaRobot, FaTableList } from "react-icons/fa6";
-import {
-	TbArrowLeft,
-	TbArrowsExchange,
-	TbBolt,
-	TbCheck,
-	TbCloudCog,
-	TbDatabase,
-	TbHeartRateMonitor,
-	TbSearch,
-} from "react-icons/tb";
-import { VscMcp } from "react-icons/vsc";
-import { showErrorNotification } from "@/lib/errorNotifier";
+import { useRef, useState } from "react";
+import { TbArrowLeft, TbBolt } from "react-icons/tb";
+import { parseApiError, showErrorNotification } from "@/lib/errorNotifier";
 import { integrationsQuery, useIntegrationCatalog } from "@/query/integrationsQuery";
 import { useIsProjectAdmin } from "@/store/auth";
 import { setPath } from "./ConnectorFields";
 import { EnvironmentIntegrationFields, isConfigEmpty } from "./EnvironmentIntegrationFields";
+import {
+	CategoryStep,
+	GROUP_DETAILS,
+	ProviderStep,
+	parseIntegrationConfig,
+	type Step,
+	StepNav,
+} from "./IntegrationOnboardingSteps";
 import { showTestResult } from "./showTestResult";
-
-type Step = 1 | 2 | 3;
-
-const GROUP_DETAILS: Record<string, { description: string; icon: ReactNode }> = {
-	database: { description: "Connect a production database", icon: <TbDatabase size={20} /> },
-	kv: { description: "Connect a cache or key-value store", icon: <FaTableList size={18} /> },
-	ai: { description: "Connect an AI provider or compatible endpoint", icon: <FaRobot size={18} /> },
-	baas: { description: "Connect a managed backend service", icon: <TbCloudCog size={20} /> },
-	observability: {
-		description: "Send logs and telemetry to your stack",
-		icon: <TbHeartRateMonitor size={20} />,
-	},
-	queue: {
-		description: "Start workflows from a message queue",
-		icon: <TbArrowsExchange size={20} />,
-	},
-	mcp: {
-		description: "Connect an external MCP server",
-		icon: <VscMcp size={20} />,
-	},
-};
 
 /**
  * `group` and `variant` come from the URL, so refresh and back/forward keep
@@ -62,7 +38,8 @@ export function IntegrationOnboardingForm({
 }) {
 	const create = integrationsQuery.create.mutation(projectId);
 	const test = integrationsQuery.testConnection.mutation(projectId);
-	const { loaded, groups, variantsOf, labelOf } = useIntegrationCatalog(projectId);
+	const catalog = useIntegrationCatalog(projectId);
+	const { loaded, groups, variantsOf, labelOf } = catalog;
 	const variants = variantsOf(rawGroup);
 	const group = variants.length > 0 ? rawGroup : "";
 	const variant = variants.includes(rawVariant) ? rawVariant : "";
@@ -83,6 +60,8 @@ export function IntegrationOnboardingForm({
 	const [devConfig, setDevConfig] = useState<Record<string, unknown> | null>(null);
 	const [syncDev, setSyncDev] = useState(false);
 	const [query, setQuery] = useState("");
+	const [formError, setFormError] = useState<string | null>(null);
+	const [testError, setTestError] = useState<string | null>(null);
 	const saved = useRef(false);
 
 	const dirty =
@@ -119,27 +98,6 @@ export function IntegrationOnboardingForm({
 		if (nextStep === 2 && group) onSelect(group, "");
 	}
 
-	function variantCard(cardGroup: string, item: string) {
-		return (
-			<button
-				key={`${cardGroup}:${item}`}
-				type="button"
-				onClick={() => onSelect(cardGroup, item)}
-				className="group flex items-center gap-3.5 rounded-xl border border-border bg-surface p-3 text-left transition-all duration-150 hover:border-accent hover:bg-surface-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-			>
-				<span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-surface-secondary text-foreground transition-colors group-hover:bg-accent group-hover:text-accent-foreground">
-					{integrationIcons[item] ?? GROUP_DETAILS[cardGroup]?.icon}
-				</span>
-				<span className="min-w-0">
-					<span className="block truncate text-sm font-semibold text-foreground">{item}</span>
-					{cardGroup !== group && (
-						<span className="block truncate text-xs text-muted">{labelOf(cardGroup)}</span>
-					)}
-				</span>
-			</button>
-		);
-	}
-
 	function testIntegration() {
 		const toTest = syncDev ? config : devConfig;
 		if (!syncDev && isConfigEmpty(toTest)) {
@@ -148,59 +106,65 @@ export function IntegrationOnboardingForm({
 			);
 			return;
 		}
-		const schema = getSchema(group as never, variant as never);
-		if (!schema) {
-			toast.danger("Invalid connector selection");
-			return;
-		}
-		const parsed = schema.safeParse(toTest);
+		const isPlugin = Boolean(catalog.variantMeta(group, variant)?.plugin);
+		const parsed = parseIntegrationConfig(group, variant, toTest, isPlugin);
 		if (!parsed.success) {
-			toast.danger(parsed.error.issues[0]?.message ?? "Invalid configuration");
+			toast.danger(parsed.error);
 			return;
 		}
 
+		setTestError(null);
 		test.mutate(
-			{ group, variant, config: parsed.data },
+			{ group, variant, config: parsed.data as Record<string, unknown> },
 			{
 				onSuccess: (res) => {
 					showTestResult(res);
 					if (res?.tools) setTestedTools(res.tools);
 				},
-				onError: (error) => showErrorNotification(error as Error),
+				onError: (err: unknown) => {
+					const message =
+						err instanceof Error
+							? err.message
+							: typeof (err as { message?: unknown })?.message === "string"
+								? String((err as { message?: unknown }).message)
+								: "Connection test failed";
+					setTestError(message);
+					toast.danger(message);
+				},
 			},
 		);
 	}
 
 	function saveIntegration() {
-		const schema = getSchema(group as never, variant as never);
-		if (!schema) {
-			toast.danger("Invalid connector selection");
+		const isPlugin = Boolean(catalog.variantMeta(group, variant)?.plugin);
+		const parsed = parseIntegrationConfig(group, variant, config, isPlugin);
+		if (!name.trim()) {
+			toast.danger("Integration name is required");
 			return;
 		}
-		const parsed = schema.safeParse(config);
 		if (!parsed.success) {
-			toast.danger(parsed.error.issues[0]?.message ?? "Invalid configuration");
+			toast.danger(parsed.error);
 			return;
-		}
-		let parsedDev: unknown = null;
-		if (!syncDev && devConfig && !isConfigEmpty(devConfig)) {
-			const parsedDevResult = schema.safeParse(devConfig);
-			if (!parsedDevResult.success) {
-				toast.danger(
-					parsedDevResult.error.issues[0]?.message ?? "Invalid development configuration",
-				);
-				return;
-			}
-			parsedDev = parsedDevResult.data;
 		}
 
+		let parsedDev: unknown = null;
+		if (!syncDev && devConfig && !isConfigEmpty(devConfig)) {
+			const devResult = parseIntegrationConfig(group, variant, devConfig, isPlugin);
+			if (!devResult.success) {
+				toast.danger(devResult.error);
+				return;
+			}
+			parsedDev = devResult.data;
+		}
+
+		setFormError(null);
 		create.mutate(
 			{
-				name,
+				name: name.trim(),
 				group,
 				variant,
-				config: parsed.data,
-				devConfig: syncDev ? null : parsedDev,
+				config: parsed.data as Record<string, unknown>,
+				devConfig: syncDev ? null : (parsedDev as Record<string, unknown> | null),
 				syncDev,
 			} as never,
 			{
@@ -209,7 +173,16 @@ export function IntegrationOnboardingForm({
 					saved.current = true;
 					onSaved({ id, group });
 				},
-				onError: (error) => showErrorNotification(error as Error),
+				onError: (err: unknown) => {
+					const apiErr = parseApiError(err);
+					const pathless = apiErr.fieldErrors?.find((e) => !e.field || e.field === "");
+					if (pathless) {
+						setFormError(pathless.message);
+					} else {
+						setFormError(apiErr.message || "Failed to create integration");
+					}
+					showErrorNotification(err as Error);
+				},
 			},
 		);
 	}
@@ -220,157 +193,28 @@ export function IntegrationOnboardingForm({
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col gap-5">
-			<nav aria-label="Integration setup steps" className="shrink-0 border-b border-border pb-3">
-				<ol className="grid grid-cols-3 gap-2">
-					{(
-						[
-							[1, "Category"],
-							[2, "Provider"],
-							[3, "Configure"],
-						] as const
-					).map(([number, label]) => {
-						const available =
-							number === 1 ||
-							(number === 2 && Boolean(group)) ||
-							(number === 3 && Boolean(variant));
-						const complete = number < step;
-						const current = step === number;
-						return (
-							<li key={number}>
-								<button
-									type="button"
-									disabled={!available}
-									onClick={() => goToStep(number)}
-									className={cn(
-										"flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-xs font-medium transition-colors",
-										available
-											? current
-												? "text-foreground"
-												: "text-muted hover:bg-surface-secondary hover:text-foreground"
-											: "cursor-not-allowed text-muted/50",
-									)}
-								>
-									<span
-										className={cn(
-											"flex size-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-semibold transition-all",
-											complete || current
-												? "border-accent bg-accent text-accent-foreground"
-												: "border-border bg-surface-secondary text-muted",
-										)}
-									>
-										{complete ? <TbCheck size={12} strokeWidth={3} /> : number}
-									</span>
-									<span className="hidden truncate sm:inline">{label}</span>
-								</button>
-							</li>
-						);
-					})}
-				</ol>
-			</nav>
+			<StepNav step={step} group={group} variant={variant} onGoToStep={goToStep} />
 
 			<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
 				{step === 1 && (
-					<section aria-labelledby="integration-category-heading">
-						<div>
-							<p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
-								Step 1 of 3
-							</p>
-							<h2
-								id="integration-category-heading"
-								className="mt-1 text-lg font-semibold tracking-tight text-foreground"
-							>
-								What would you like to connect?
-							</h2>
-							<p className="mt-0.5 text-xs text-muted">
-								Choose a category, or search for a service by name.
-							</p>
-						</div>
-						<TextField
-							value={query}
-							onChange={setQuery}
-							aria-label="Search services"
-							className="mt-3.5"
-						>
-							<div className="relative w-full">
-								<TbSearch
-									size={16}
-									className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted"
-								/>
-								<Input autoFocus placeholder="Search services…" className="w-full pl-9" />
-							</div>
-						</TextField>
-						{search && (
-							<div className="mt-3.5 grid gap-2.5 sm:grid-cols-2">
-								{matches.length === 0 ? (
-									<p className="text-sm text-muted">No services match "{query.trim()}".</p>
-								) : (
-									matches.map(([g, v]) => variantCard(g, v))
-								)}
-							</div>
-						)}
-						<div className={cn("mt-3.5 grid gap-2.5 sm:grid-cols-2", search && "hidden")}>
-							{groups.map((item) => {
-								const detail = GROUP_DETAILS[item] ?? {
-									description: "Connect a service",
-									icon: <TbCloudCog size={20} />,
-								};
-								const isAvailable = variantsOf(item).length > 0;
-								return (
-									<button
-										key={item}
-										type="button"
-										disabled={!isAvailable}
-										onClick={() => onSelect(item, "")}
-										className={cn(
-											"group flex items-center gap-3.5 rounded-xl border p-3 text-left transition-all duration-150",
-											isAvailable
-												? "border-border bg-surface hover:border-accent hover:bg-surface-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-												: "cursor-not-allowed border-border/50 bg-surface/50 opacity-45",
-										)}
-									>
-										<span
-											className={cn(
-												"flex size-10 shrink-0 items-center justify-center rounded-lg transition-colors",
-												isAvailable
-													? "bg-accent/10 text-accent group-hover:bg-accent group-hover:text-accent-foreground"
-													: "bg-surface-secondary text-muted/50",
-											)}
-										>
-											{detail.icon}
-										</span>
-										<span className="min-w-0 flex-1">
-											<span className="block truncate text-sm font-semibold text-foreground">
-												{labelOf(item)}
-											</span>
-											<span className="mt-0.5 block truncate text-xs text-muted">
-												{isAvailable ? detail.description : "Coming soon"}
-											</span>
-										</span>
-									</button>
-								);
-							})}
-						</div>
-					</section>
+					<CategoryStep
+						query={query}
+						onQuery={setQuery}
+						matches={matches}
+						groups={groups}
+						catalog={catalog}
+						onSelect={onSelect}
+					/>
 				)}
 
 				{step === 2 && (
-					<section aria-labelledby="integration-provider-heading">
-						<div>
-							<p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
-								Step 2 of 3
-							</p>
-							<h2
-								id="integration-provider-heading"
-								className="mt-1 text-lg font-semibold tracking-tight text-foreground"
-							>
-								Choose a {groupName.toLowerCase()} provider
-							</h2>
-							<p className="mt-0.5 text-xs text-muted">Select the service you want to configure.</p>
-						</div>
-						<div className="mt-3.5 grid gap-2.5 sm:grid-cols-2">
-							{variants.map((item) => variantCard(group, item))}
-						</div>
-					</section>
+					<ProviderStep
+						group={group}
+						groupName={groupName}
+						variants={variants}
+						catalog={catalog}
+						onSelect={onSelect}
+					/>
 				)}
 
 				{step === 3 && (
@@ -418,7 +262,16 @@ export function IntegrationOnboardingForm({
 								onSyncDevChange={setSyncDev}
 								readOnly={group === "mcp" && !isAdmin}
 								tools={testedTools ?? undefined}
+								formError={formError}
 							/>
+							{testError && (
+								<div
+									role="alert"
+									className="mt-3 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-xs text-danger"
+								>
+									{testError}
+								</div>
+							)}
 						</div>
 					</section>
 				)}

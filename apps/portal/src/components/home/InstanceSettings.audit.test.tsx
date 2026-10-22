@@ -3,11 +3,14 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { ReactNode } from "react";
 
 // DOM only for this file; RTL reads `document` on import, so load it after.
-GlobalRegistrator.register();
+try {
+	GlobalRegistrator.register();
+} catch {}
 
 const router = await import("@tanstack/react-router");
 mock.module("@tanstack/react-router", () => ({
 	...router,
+	useBlocker: () => {},
 	Link: ({
 		to,
 		search,

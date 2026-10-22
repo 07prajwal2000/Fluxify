@@ -8,7 +8,13 @@ import type { Plugin } from "@/services/plugins";
 import { ApprovalDialog } from "./ApprovalDialog";
 import { ApprovalBadge, isUpgrade, StatusBadge, versionLabel } from "./PluginBadges";
 import { PluginInstallStatus } from "./PluginInstallStatus";
-import { PluginBlocks, PluginPermissions, PluginProvenance } from "./PluginSummary";
+import {
+	manifestOf,
+	PluginBlocks,
+	PluginIntegrations,
+	PluginPermissions,
+	PluginProvenance,
+} from "./PluginSummary";
 import { PluginUsage } from "./PluginUsage";
 import { PluginIcon, pluginMeta } from "./pluginBlockIcon";
 import { RemovePluginDialog } from "./RemovePluginDialog";
@@ -113,6 +119,12 @@ export function PluginPage({
 			<Section title="Blocks">
 				<PluginBlocks plugin={plugin} />
 			</Section>
+			{((plugin.integrations && plugin.integrations.length > 0) ||
+				(manifestOf(plugin) as any)?.integrations?.length > 0) && (
+				<Section title="Integrations">
+					<PluginIntegrations plugin={plugin} />
+				</Section>
+			)}
 			<Section title="Permissions">
 				<PluginPermissions plugin={plugin} />
 			</Section>

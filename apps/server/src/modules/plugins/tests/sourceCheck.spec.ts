@@ -1,5 +1,5 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, mock, spyOn } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as natsObjects from "../../../db/natsObjects";
@@ -77,7 +77,7 @@ describe("filesystem", () => {
 	it("is healthy until a file changes", async () => {
 		process.env.FLUXIFY_PLUGINS_DIR = dir;
 		const plugin = join(dir, "echo");
-		Bun.spawnSync(["mkdir", "-p", plugin]);
+		mkdirSync(plugin, { recursive: true });
 		writeFileSync(join(plugin, "fluxify.json"), "{}");
 		const fs = row({ source: "fs", location: "echo", integrity: hashFiles(await readTree(plugin)) });
 		expect(await checkSource(fs)).toBeNull();

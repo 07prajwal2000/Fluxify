@@ -2,8 +2,16 @@ import z from "zod";
 import { PLUGIN_APPROVALS, PLUGIN_SOURCES, PLUGIN_URL_STATUSES } from "../../../db/schema";
 
 export const projectQuerySchema = z.object({ projectId: z.string() });
-/** a plugin's `scope/name`, as two path segments */
-export const nameParamSchema = z.object({ scope: z.string(), name: z.string() });
+/** a plugin's `scope/name`, as two path segments or one encoded segment */
+export const nameParamSchema = z
+	.object({
+		scope: z.string().optional(),
+		name: z.string().optional(),
+		plugin: z.string().optional(),
+	})
+	.refine((p) => Boolean(p.plugin || (p.scope && p.name)), {
+		message: "Missing plugin name",
+	});
 
 export const approveBodySchema = z.object({
 	/** the integrity the creator reviewed; a plugin that changed since is refused (409) */

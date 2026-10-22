@@ -1,43 +1,39 @@
-import { afterAll, afterEach, expect, mock, test } from "bun:test";
+import { afterEach, expect, mock, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 
 // DOM only for this file; RTL reads `document` on import, so load it after.
-GlobalRegistrator.register();
-
-mock.module("./ConnectorFields", () => ({
-	ConnectorFields: ({ name, config }: { name: string; config: Record<string, unknown> }) => (
-		<div data-testid="connector-fields">
-			<span>Connector: {name}</span>
-			<span>Host: {String(config?.host ?? "")}</span>
-		</div>
-	),
-}));
+try {
+	GlobalRegistrator.register();
+} catch {}
 
 const { cleanup, fireEvent, render } = await import("@testing-library/react");
+const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query");
 const { EnvironmentIntegrationFields } = await import("./EnvironmentIntegrationFields");
 
 afterEach(cleanup);
-afterAll(() => GlobalRegistrator.unregister());
 
 function renderFields({
 	syncDev = false,
 	devConfig = null as Record<string, unknown> | null,
 	onSyncDevChange = mock(),
 } = {}) {
+	const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	return render(
-		<EnvironmentIntegrationFields
-			projectId="proj-1"
-			group="database"
-			variant="PostgreSQL"
-			name="main-db"
-			onName={mock()}
-			config={{ host: "prod.db.internal" }}
-			setField={mock()}
-			devConfig={devConfig}
-			setDevField={mock()}
-			syncDev={syncDev}
-			onSyncDevChange={onSyncDevChange}
-		/>,
+		<QueryClientProvider client={qc}>
+			<EnvironmentIntegrationFields
+				projectId="proj-1"
+				group="database"
+				variant="PostgreSQL"
+				name="main-db"
+				onName={mock()}
+				config={{ host: "prod.db.internal" }}
+				setField={mock()}
+				devConfig={devConfig}
+				setDevField={mock()}
+				syncDev={syncDev}
+				onSyncDevChange={onSyncDevChange}
+			/>
+		</QueryClientProvider>,
 	);
 }
 

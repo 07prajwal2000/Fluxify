@@ -6,7 +6,7 @@ import { parseApiError, showErrorNotification } from "@/lib/errorNotifier";
 import { pluginsQuery } from "@/query/pluginsQuery";
 import { type Plugin, type PluginUpgradeDiff, upgradeBlockedFromError } from "@/services/plugins";
 import { isUpgrade } from "./PluginBadges";
-import { manifestOf } from "./PluginSummary";
+import { manifestOf, PluginIntegrations } from "./PluginSummary";
 import { UpgradeDiff } from "./UpgradeDiff";
 
 function Grants({ plugin }: { plugin: Plugin }) {
@@ -99,6 +99,15 @@ export function ApprovalDialog({
 									</div>
 								)}
 								<Grants plugin={plugin} />
+								{((plugin.integrations && plugin.integrations.length > 0) ||
+									(manifestOf(plugin) as any)?.integrations?.length > 0) && (
+									<section className="flex flex-col gap-1.5">
+										<h4 className="text-xs font-semibold uppercase tracking-wider text-muted">
+											Integrations provided
+										</h4>
+										<PluginIntegrations plugin={plugin} />
+									</section>
+								)}
 								{upgrade && preview.isLoading && <Spinner size="sm" />}
 								{upgrade && preview.error && (
 									<p className="text-xs text-danger">{parseApiError(preview.error).message}</p>

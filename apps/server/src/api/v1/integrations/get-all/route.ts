@@ -1,10 +1,15 @@
-import { Hono } from "hono";
 import { type DescribeRouteOptions, describeRoute, resolver, validator } from "hono-openapi";
 import { validationErrorSchema } from "../../../../errors/validationError";
 import zodErrorCallbackParser from "../../../../middlewares/zodErrorCallbackParser";
 import type { HonoServer } from "../../../../types";
 import { requireProjectAccess } from "../../../auth/middleware";
-import { requestQuerySchema, requestRouteSchema, responseSchema } from "./dto";
+import {
+	requestProjectParamSchema,
+	requestQuerySchema,
+	requestQueryWithGroupSchema,
+	requestRouteSchema,
+	responseSchema,
+} from "./dto";
 import handleRequest from "./service";
 
 const openapiRouteOptions: DescribeRouteOptions = {
@@ -33,7 +38,20 @@ const openapiRouteOptions: DescribeRouteOptions = {
 
 export default function (app: HonoServer) {
 	app.get(
-		"/list/:group",
+		"/list",
+		describeRoute(openapiRouteOptions),
+		requireProjectAccess("creator", { key: "projectId", source: "param" }),
+		validator("param", requestProjectParamSchema, zodErrorCallbackParser),
+		validator("query", requestQueryWithGroupSchema, zodErrorCallbackParser),
+		async (c) => {
+			const { projectId } = c.req.valid("param");
+			const { group, tags } = c.req.valid("query");
+			const result = await handleRequest(projectId, group, tags);
+			return c.json(result);
+		},
+	);
+	app.get(
+		"/list/:group{.+$}",
 		describeRoute(openapiRouteOptions),
 		requireProjectAccess("creator", { key: "projectId", source: "param" }),
 		validator("param", requestRouteSchema, zodErrorCallbackParser),

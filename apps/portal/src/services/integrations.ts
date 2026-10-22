@@ -36,9 +36,9 @@ export const integrationService = {
 		group: string,
 		tags?: string[],
 	): Promise<z.infer<typeof getAllResponseSchema>> {
-		let url = `${getBaseUrl(projectId)}/list/${group}`;
+		let url = `${getBaseUrl(projectId)}/list?group=${encodeURIComponent(group)}`;
 		if (tags && tags.length > 0) {
-			url += `?tags=${tags.join(",")}`;
+			url += `&tags=${tags.join(",")}`;
 		}
 		const res = await httpClient.get(url);
 		return res.data;
@@ -105,6 +105,19 @@ export const integrationService = {
 		integrationId: string,
 	): Promise<z.infer<typeof getMetadataResponseSchema>> {
 		const res = await httpClient.get(`${getBaseUrl(projectId)}/${integrationId}/metadata`);
+		return res.data;
+	},
+	/** Runs inspect hook on an integration */
+	async inspect(
+		projectId: string,
+		id: string,
+		body: Record<string, unknown> = {},
+		env: "development" | "production" = "development",
+	): Promise<unknown> {
+		const res = await httpClient.post(
+			`${getBaseUrl(projectId)}/${id}/inspect?env=${encodeURIComponent(env)}`,
+			body,
+		);
 		return res.data;
 	},
 	/** Starts signing in to an MCP server; send the browser to the returned address. */

@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { TbAlertTriangle } from "react-icons/tb";
 import type { PluginUpgradeDiff } from "@/services/plugins";
@@ -92,6 +93,40 @@ export function UpgradeDiff({ diff, projectId }: { diff: PluginUpgradeDiff; proj
 					))}
 				</Section>
 			)}
+			{diff.removedIntegrations && diff.removedIntegrations.length > 0 && (
+				<Section title="Removed integrations" tone="danger">
+					{diff.removedIntegrations.map((r) => {
+						const count = r.usedBy?.length ?? 0;
+						return (
+							<li key={r.kind} className="flex flex-col gap-0.5">
+								<span className="flex flex-wrap items-center gap-2">
+									{code(r.kind)}
+									{count > 0 && (
+										<Badge tone="danger">
+											{`${count} ${count === 1 ? "integration" : "integrations"} blocking`}
+										</Badge>
+									)}
+								</span>
+								{count > 0 && (
+									<span className="flex flex-wrap items-center gap-2 pl-3 text-muted">
+										used by{" "}
+										{r.usedBy.map((u) => (
+											<Link
+												key={u.id}
+												to="/$projectId/integrations/$integrationId"
+												params={{ projectId, integrationId: u.id }}
+												className="text-accent underline font-medium hover:text-accent/80"
+											>
+												{u.name}
+											</Link>
+										))}
+									</span>
+								)}
+							</li>
+						);
+					})}
+				</Section>
+			)}
 			{diff.removedParams.length > 0 && (
 				<Section title="Removed params" tone="danger">
 					{diff.removedParams.map((r) => (
@@ -130,6 +165,42 @@ export function UpgradeDiff({ diff, projectId }: { diff: PluginUpgradeDiff; proj
 					))}
 				</Section>
 			)}
+			{diff.changedIntegrations && diff.changedIntegrations.length > 0 && (
+				<Section
+					title="Changed integrations"
+					tone={diff.changedIntegrations.some((c) => c.breaking) ? "danger" : undefined}
+				>
+					{diff.changedIntegrations.map((r) => {
+						const count = r.usedBy?.length ?? 0;
+						const isBlocking = r.breaking && count > 0;
+						return (
+							<li key={r.kind} className="flex flex-col gap-0.5">
+								<span className="flex flex-wrap items-center gap-2">
+									{code(r.kind)}: {r.change}
+									{r.breaking && (
+										<Badge tone="danger">{`Breaking${isBlocking ? ` · ${count} blocking` : ""}`}</Badge>
+									)}
+								</span>
+								{count > 0 && (
+									<span className="flex flex-wrap items-center gap-2 pl-3 text-muted">
+										used by{" "}
+										{r.usedBy.map((u) => (
+											<Link
+												key={u.id}
+												to="/$projectId/integrations/$integrationId"
+												params={{ projectId, integrationId: u.id }}
+												className="text-accent underline font-medium hover:text-accent/80"
+											>
+												{u.name}
+											</Link>
+										))}
+									</span>
+								)}
+							</li>
+						);
+					})}
+				</Section>
+			)}
 			{(p.integrations.length > 0 || p.appconfig) && (
 				<Section title="New permissions">
 					{p.integrations.map((i) => (
@@ -145,6 +216,15 @@ export function UpgradeDiff({ diff, projectId }: { diff: PluginUpgradeDiff; proj
 					{diff.addedBlocks.map((b) => (
 						<Item key={b} projectId={projectId}>
 							{code(b)}
+						</Item>
+					))}
+				</Section>
+			)}
+			{diff.addedIntegrations && diff.addedIntegrations.length > 0 && (
+				<Section title="New integrations">
+					{diff.addedIntegrations.map((kind) => (
+						<Item key={kind} projectId={projectId}>
+							{code(kind)}
 						</Item>
 					))}
 				</Section>
