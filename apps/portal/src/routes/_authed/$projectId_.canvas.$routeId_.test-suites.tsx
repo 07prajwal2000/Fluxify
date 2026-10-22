@@ -1,5 +1,5 @@
 import { toast } from "@fluxify/components";
-import { createFileRoute, isRedirect, redirect } from "@tanstack/react-router";
+import { createFileRoute, isRedirect, redirect, useNavigate } from "@tanstack/react-router";
 import { z } from "zod";
 import { RouteSwitcher } from "@/components/routes/RouteSwitcher";
 import { RouteWorkbenchTabs } from "@/components/routes/RouteWorkbenchTabs";
@@ -48,6 +48,7 @@ export const Route = createFileRoute("/_authed/$projectId_/canvas/$routeId_/test
 
 function TestSuitesPage() {
 	const { projectId, routeId } = Route.useParams();
+	const navigate = useNavigate();
 	const { data: route } = routesQuery.byId.useQuery(routeId);
 	const title = route
 		? `${route.method.toUpperCase()} ${route.path} | Route Tests`
@@ -61,6 +62,13 @@ function TestSuitesPage() {
 				projectId={projectId}
 				initialRunId={Route.useSearch().runId}
 				initialSuiteId={Route.useSearch().open}
+				onViewChange={({ suiteId, runId }) =>
+					navigate({
+						to: ".",
+						search: (prev) => ({ ...prev, open: suiteId, runId: runId ?? undefined }),
+						replace: true,
+					})
+				}
 				target={{ type: "route", id: routeId }}
 				headerLeft={
 					<>

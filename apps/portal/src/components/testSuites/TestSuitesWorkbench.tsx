@@ -154,10 +154,13 @@ export function TestSuitesWorkbench({
 	headerLeft,
 	initialRunId,
 	initialSuiteId,
+	onViewChange,
 }: {
 	projectId: string;
 	target: SuiteTarget;
 	headerLeft: ReactNode;
+	/** the suite picked or the run shown changed: the page keeps both in its URL */
+	onViewChange?: (view: { suiteId: string; runId: string | null }) => void;
 	/** a test trace's "From test" link opens its run's results (#627) */
 	initialRunId?: string;
 	/** a link from the agent chat opens this suite instead of the first */
@@ -174,6 +177,13 @@ export function TestSuitesWorkbench({
 	useEffect(() => {
 		if (initialRunId) setRunId(initialRunId);
 	}, [initialRunId]);
+	const [shownRunId, setShownRunId] = useState<string | null>(null);
+	const reportView = useRef(onViewChange);
+	reportView.current = onViewChange;
+	useEffect(() => {
+		// nothing to say until a suite is picked, or a link's suite would be dropped
+		if (selectedId) reportView.current?.({ suiteId: selectedId, runId: shownRunId });
+	}, [selectedId, shownRunId]);
 	const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null);
 	const [pendingClone, setPendingClone] = useState<{ id: string; name: string } | null>(null);
 
@@ -226,11 +236,16 @@ export function TestSuitesWorkbench({
 	);
 
 	// Open the first suite once the list arrives, so the editor is never blank
-	// when there is something to show.
+	// when there is something to show. A link to a run with no suite named opens
+	// one that ran in it, so the results panel has something to show.
 	useEffect(() => {
-		if (!selectedId && list.length > 0)
-			setSelectedId(list.find((s) => s.id === initialSuiteId)?.id ?? list[0].id);
-	}, [list, selectedId, initialSuiteId]);
+		if (selectedId || list.length === 0) return;
+		if (initialRunId && !initialSuiteId && activeRun.isLoading) return;
+		const ranInLink = activeRun.data?.suiteRuns
+			.map((s) => s.testSuiteId)
+			.find((id) => list.some((s) => s.id === id));
+		setSelectedId(list.find((s) => s.id === initialSuiteId)?.id ?? ranInLink ?? list[0].id);
+	}, [list, selectedId, initialSuiteId, initialRunId, activeRun.isLoading, activeRun.data]);
 
 	// Seed the form from the loaded suite. Keyed on the suite id, not the query
 	// data, so a background refetch cannot wipe unsaved edits.
@@ -474,8 +489,10 @@ export function TestSuitesWorkbench({
 					projectId={projectId}
 					target={target}
 					runId={runId}
+					suiteId={selectedId}
 					suiteNames={suiteNames}
 					onSelectRun={setRunId}
+					onShownRunChange={setShownRunId}
 				/>
 			</div>
 

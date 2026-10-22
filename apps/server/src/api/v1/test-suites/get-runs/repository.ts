@@ -1,6 +1,6 @@
-import { and, count, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq, inArray } from "drizzle-orm";
 import { db } from "../../../../db";
-import { testRunsEntity } from "../../../../db/schema";
+import { testRunsEntity, testSuiteRunsEntity } from "../../../../db/schema";
 import { type SuiteTarget, targetColumn } from "../../../../modules/testRunner/target";
 
 /**
@@ -14,10 +14,20 @@ export async function getTestRuns(
 	target: SuiteTarget,
 	skip: number,
 	take: number,
+	suiteId?: string,
 ) {
 	const where = and(
 		eq(testRunsEntity.projectId, projectId),
 		eq(targetColumn(testRunsEntity, target.type), target.id),
+		suiteId
+			? inArray(
+					testRunsEntity.id,
+					db
+						.select({ id: testSuiteRunsEntity.testRunId })
+						.from(testSuiteRunsEntity)
+						.where(eq(testSuiteRunsEntity.testSuiteId, suiteId)),
+				)
+			: undefined,
 	);
 
 	const result = await db

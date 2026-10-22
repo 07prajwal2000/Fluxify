@@ -101,11 +101,12 @@ export const testSuitesService = {
 	async getRuns(
 		projectId: string,
 		target: SuiteTarget,
-		query: { page?: number; perPage?: number } = {},
+		query: { page?: number; perPage?: number; suiteId?: string } = {},
 	): Promise<TestRunList> {
 		const params = new URLSearchParams();
 		params.set("page", String(query.page ?? 1));
 		params.set("perPage", String(query.perPage ?? 10));
+		if (query.suiteId) params.set("suiteId", query.suiteId);
 		const result = await httpClient.get(`${runsUrl(projectId, target)}?${params.toString()}`);
 		return result.data;
 	},

@@ -1,6 +1,6 @@
 import { Button, Chip, cn, DeleteButton, Spinner, Tabs } from "@fluxify/components";
 import type { SuiteRunResult } from "@fluxify/server/src/db/schema";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
 	TbAlertTriangle,
 	TbCheck,
@@ -164,10 +164,13 @@ export function formatWhen(value: unknown) {
 function RunHistory({
 	projectId,
 	target,
+	suiteId,
 	onSelect,
 }: {
 	projectId: string;
 	target: SuiteTarget;
+	/** only runs that included this suite */
+	suiteId?: string;
 	onSelect: (runId: string) => void;
 }) {
 	const [page, setPage] = useState(1);
@@ -180,6 +183,7 @@ function RunHistory({
 	const runs = testSuitesQuery.getRuns.useQuery(projectId, target, {
 		page,
 		perPage: 10,
+		suiteId,
 	});
 	const pagination = runs.data?.pagination;
 
@@ -197,7 +201,7 @@ function RunHistory({
 	}
 
 	return (
-		<div className="space-y-2 p-3">
+		<div className="space-y-2 py-3">
 			{items.map((run) => (
 				<div
 					key={run.id}
@@ -261,22 +265,54 @@ export function RunResults({
 	projectId,
 	target,
 	runId,
+	suiteId,
 	suiteNames,
 	onSelectRun,
+	onShownRunChange,
 }: {
 	projectId: string;
 	target: SuiteTarget;
+	/** a run started here or linked to; shown until another suite is picked */
 	runId: string | null;
+	/** the suite picked on the left: only its result and its runs are shown */
+	suiteId: string | null;
 	suiteNames: Record<string, string>;
 	onSelectRun: (runId: string | null) => void;
+	/** the run on screen changed: the page keeps it in its URL */
+	onShownRunChange?: (runId: string | null) => void;
 }) {
 	const [view, setView] = useState<"latest" | "history">("latest");
 	const [confirmClear, setConfirmClear] = useState(false);
 	const [trace, setTrace] = useState<OpenTrace | null>(null);
-	const run = testSuitesQuery.getRun.useQuery(projectId, target, runId);
+	// a run started, linked to, or picked from the history beats the suite's latest
+	const [pinned, setPinned] = useState<string | null>(runId);
+	useEffect(() => {
+		if (runId) setPinned(runId);
+	}, [runId]);
+	// a different suite drops it (not the first pick, which a link may have come with)
+	const previousSuite = useRef(suiteId);
+	useEffect(() => {
+		if (previousSuite.current && previousSuite.current !== suiteId) setPinned(null);
+		previousSuite.current = suiteId;
+	}, [suiteId]);
+	const latest = testSuitesQuery.getRuns.useQuery(projectId, target, {
+		page: 1,
+		perPage: 5,
+		suiteId: suiteId ?? undefined,
+	});
+	const shownRunId = pinned ?? latest.data?.data[0]?.id ?? null;
+	const reportShown = useRef(onShownRunChange);
+	reportShown.current = onShownRunChange;
+	useEffect(() => {
+		reportShown.current?.(shownRunId);
+	}, [shownRunId]);
+	const run = testSuitesQuery.getRun.useQuery(projectId, target, shownRunId);
 	const clear = testSuitesQuery.clearRuns.mutation(projectId, target);
 	const data = run.data;
 	const summary = data?.result as { error?: string } | null | undefined;
+	const suiteRuns = (data?.suiteRuns ?? []).filter((s) => !suiteId || s.testSuiteId === suiteId);
+	const passed = suiteRuns.filter((s) => s.status === "passed").length;
+	const failed = suiteRuns.filter((s) => ["failed", "timeout", "error"].includes(s.status)).length;
 
 	return (
 		<aside className="flex w-96 shrink-0 flex-col border-l border-border">
@@ -284,7 +320,7 @@ export function RunResults({
 				variant="secondary"
 				selectedKey={view}
 				onSelectionChange={(key) => setView(key as "latest" | "history")}
-				className="fx-panel__tabs p-4"
+				className="fx-panel__tabs min-h-0 flex-1 p-4"
 			>
 				<div className="flex items-center gap-2">
 					<Tabs.ListContainer className="flex-none">
@@ -300,25 +336,9 @@ export function RunResults({
 						</Tabs.List>
 					</Tabs.ListContainer>
 					{view === "latest" && data && (
-						<>
-							<span className="ml-auto flex items-center gap-2">
-								<Chip size="sm" color={data.env === "development" ? "accent" : "default"}>
-									{data.env === "development" ? "Dev" : "Prod"}
-								</Chip>
-								{data.deploymentId && (
-									<Chip size="sm" title="Ran as part of a promote">
-										Promote check
-									</Chip>
-								)}
-							</span>
-							<span className="text-xs text-muted">
-								{data.passedCount} passed · {data.failedCount} failed
-							</span>
-							<span className="flex items-center gap-1 text-xs text-muted">
-								<TbClock size={14} /> {formatDuration(data.durationMs)} ·{" "}
-								{formatWhen(data.startedAt ?? data.createdAt)}
-							</span>
-						</>
+						<span className="ml-auto text-xs text-muted">
+							{passed} passed · {failed} failed
+						</span>
 					)}
 					{view === "history" && (
 						<DeleteButton
@@ -334,25 +354,33 @@ export function RunResults({
 
 				<Tabs.Panel id="history" className="min-h-0 flex-1 overflow-y-auto">
 					<RunHistory
+						key={suiteId}
 						projectId={projectId}
 						target={target}
+						suiteId={suiteId ?? undefined}
 						onSelect={(id) => {
-							onSelectRun(id);
+							setPinned(id);
 							setView("latest");
 						}}
 					/>
 				</Tabs.Panel>
 				<Tabs.Panel id="latest" className="min-h-0 flex-1 overflow-y-auto">
-					{!runId ? (
-						<p className="p-6 text-center text-xs text-muted">
-							Run a suite to see its result here.
-						</p>
+					{!shownRunId ? (
+						latest.isLoading ? (
+							<div className="flex justify-center p-6">
+								<Spinner size="sm" />
+							</div>
+						) : (
+							<p className="p-6 text-center text-xs text-muted">
+								Run this suite to see its result here.
+							</p>
+						)
 					) : run.isLoading ? (
 						<div className="flex justify-center p-6">
 							<Spinner size="sm" />
 						</div>
 					) : (
-						<div className="space-y-2 p-3">
+						<div className="space-y-2 py-3">
 							{/* a run can fail outright — compilation error, or a restart
 						    mid-run — with no suite detail at all */}
 							{data?.status === "error" && (
@@ -360,7 +388,7 @@ export function RunResults({
 									{summary?.error ?? "The run failed before any suite reported."}
 								</div>
 							)}
-							{data?.suiteRuns.map((suiteRun) => (
+							{suiteRuns.map((suiteRun) => (
 								<SuiteRunRow
 									key={suiteRun.id}
 									projectId={projectId}
@@ -370,19 +398,39 @@ export function RunResults({
 									durationMs={suiteRun.durationMs}
 									result={suiteRun.result as SuiteRunResult | null}
 									traces={suiteRun.traces}
-									traceExpired={data.traceExpired}
+									traceExpired={Boolean(data?.traceExpired)}
 									onViewTrace={setTrace}
 								/>
 							))}
-							{data?.suiteRuns.length === 0 && data.status !== "error" && (
+							{data && suiteRuns.length === 0 && data.status !== "error" && (
 								<p className="p-6 text-center text-xs text-muted">
-									Waiting for the first suite to settle…
+									{data.suiteRuns.length > 0
+										? "This suite was not part of this run."
+										: "Waiting for the first suite to settle…"}
 								</p>
 							)}
 						</div>
 					)}
 				</Tabs.Panel>
 			</Tabs>
+
+			{/* which run this is, in the panel's bottom-right corner */}
+			{view === "latest" && data && (
+				<div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border px-4 py-2">
+					<Chip size="sm" color={data.env === "development" ? "accent" : "default"}>
+						{data.env === "development" ? "Dev" : "Prod"}
+					</Chip>
+					{data.deploymentId && (
+						<Chip size="sm" title="Ran as part of a promote">
+							Promote check
+						</Chip>
+					)}
+					<Chip size="sm">
+						<TbClock size={13} />
+						{formatDuration(data.durationMs)} · {formatWhen(data.startedAt ?? data.createdAt)}
+					</Chip>
+				</div>
+			)}
 
 			<TestTraceModal
 				projectId={projectId}
@@ -402,6 +450,7 @@ export function RunResults({
 						onSuccess: () => {
 							setConfirmClear(false);
 							// the shown run was just deleted too
+							setPinned(null);
 							onSelectRun(null);
 						},
 						onError: (error) => showErrorNotification(error as Error),

@@ -7,7 +7,9 @@ export const requestParamSchema = targetParamSchema.extend({
 	projectId: z.string(),
 });
 
-export const requestQuerySchema = paginationRequestQuerySchema;
+export const requestQuerySchema = paginationRequestQuerySchema.extend({
+	suiteId: z.string().max(50).optional().describe("only runs that included this suite"),
+});
 
 export const runSummarySchema = z.object({
 	id: z.string(),

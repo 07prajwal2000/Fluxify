@@ -13,6 +13,7 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { formatDuration } from "@/components/testSuites/CaseResults";
 import { formatWhen } from "@/components/testSuites/RunResults";
 import { showErrorNotification } from "@/lib/errorNotifier";
+import { PAGE_SIZES, usePageSize } from "@/lib/pageSize";
 import { recordingsQuery, useRecordingSwitch } from "@/query/recordingsQuery";
 import { routesQuery } from "@/query/routesQuery";
 import { sandboxesQuery } from "@/query/sandboxesQuery";
@@ -27,8 +28,7 @@ const ENV_OPTIONS = [
 	{ value: "development", label: "Development" },
 	{ value: "production", label: "Production" },
 ];
-// The list API caps perPage at 5–50.
-const PAGE_SIZE_OPTIONS = [5, 10, 20, 50].map((n) => ({ value: String(n), label: `${n} / page` }));
+const PAGE_SIZE_OPTIONS = PAGE_SIZES.map((n) => ({ value: String(n), label: `${n} / page` }));
 
 export function OutcomeIcon({ outcome }: { outcome: "success" | "failure" }) {
 	return outcome === "success" ? (
@@ -78,7 +78,7 @@ export function RecordedRunList({
 	const [sourceFilter, setSourceFilter] = useState<"all" | "test" | "live">("all");
 	const [envFilter, setEnvFilter] = useState<EnvFilter>("all");
 	const [focusedIndex, setFocusedIndex] = useState(-1);
-	const [perPage, setPerPage] = useState(5);
+	const [perPage, setPerPage] = usePageSize("recordedRuns");
 	const [search, setSearch] = useState("");
 	const [debouncedSearch, setDebouncedSearch] = useState("");
 	const retentionNote = useRetentionNote();

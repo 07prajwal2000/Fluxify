@@ -1,5 +1,5 @@
 import { toast } from "@fluxify/components";
-import { createFileRoute, isRedirect, redirect } from "@tanstack/react-router";
+import { createFileRoute, isRedirect, redirect, useNavigate } from "@tanstack/react-router";
 import { z } from "zod";
 import { WorkflowWorkbenchTabs } from "@/components/routes/RouteWorkbenchTabs";
 import { TestSuitesWorkbench } from "@/components/testSuites/TestSuitesWorkbench";
@@ -45,6 +45,7 @@ export const Route = createFileRoute(
 /** test suites for a workflow (#487): the same workbench as a route's, with an Input tab */
 function WorkflowTestSuitesPage() {
 	const { projectId, workflowId } = Route.useParams();
+	const navigate = useNavigate();
 	const { data: workflow } = workflowsQuery.byId.useQuery(workflowId);
 	usePageTitle(workflow?.name ? `${workflow.name} | Workflow Tests` : "Workflow Tests | Workflows");
 
@@ -54,6 +55,13 @@ function WorkflowTestSuitesPage() {
 				projectId={projectId}
 				initialRunId={Route.useSearch().runId}
 				initialSuiteId={Route.useSearch().open}
+				onViewChange={({ suiteId, runId }) =>
+					navigate({
+						to: ".",
+						search: (prev) => ({ ...prev, open: suiteId, runId: runId ?? undefined }),
+						replace: true,
+					})
+				}
 				target={{ type: "workflow", id: workflowId }}
 				headerLeft={
 					<>

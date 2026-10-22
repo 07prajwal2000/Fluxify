@@ -9,7 +9,9 @@ import { createFileRoute, isRedirect, redirect, useNavigate } from "@tanstack/re
 import { useMemo, useState } from "react";
 import z from "zod";
 import { CanvasWorkbench } from "@/components/canvas";
+import { CanvasStatusBadges } from "@/components/canvas/CanvasStatusBadges";
 import { RouteApiPlayground } from "@/components/RouteApiPlayground";
+import { RecordingIndicator } from "@/components/recordings/RecordingControls";
 import { RouteSettingsModal } from "@/components/routes/RouteSettingsModal";
 import { RouteSwitcher } from "@/components/routes/RouteSwitcher";
 import { RouteWorkbenchTabs } from "@/components/routes/RouteWorkbenchTabs";
@@ -106,6 +108,12 @@ function RouteCanvasPage() {
 				playgroundContent={
 					<RouteApiPlayground key={routeId} routeId={routeId} isFramed={false} enableCache />
 				}
+				canvasOverlay={
+					<CanvasStatusBadges>
+						<ProductionChip kind="route" id={routeId} projectId={projectId} />
+						<RecordingIndicator dev={route?.devRecordExecution} prod={route?.recordExecution} />
+					</CanvasStatusBadges>
+				}
 				reload={() => routesService.getCanvasItems(routeId)}
 				getRevision={() => routesService.getCanvasRevision(routeId)}
 				save={(payload) => save.mutateAsync(payload)}
@@ -117,7 +125,6 @@ function RouteCanvasPage() {
 				}
 				headerActions={(canvas) => (
 					<>
-						<ProductionChip kind="route" id={routeId} projectId={projectId} />
 						<CommitControls
 							kind="route"
 							id={routeId}
