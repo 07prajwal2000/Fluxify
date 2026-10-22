@@ -22,7 +22,7 @@ OPTIMIZATION.md
 
 # local license issuer keypair + minted test keys (packages/common/license/scripts/mint.ts)
 .license/
-
+.cocoindex_code
 # agent skills are personal tooling, not part of the repo
 .agents/
 .claude/skills/
