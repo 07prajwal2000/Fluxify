@@ -12,7 +12,7 @@ const missing = http.expectedStatuses(404);
 
 export const options = {
 	// Skip per-request DNS: a local k6 on Windows fails lookups of *.localhost under load.
-	hosts: { "urls.localhost": "127.0.0.1", "ts.localhost": "127.0.0.1", "node.localhost": "127.0.0.1" },
+	hosts: { "urls.localhost": "127.0.0.1", "ts.localhost": "127.0.0.1", "node.localhost": "127.0.0.1", "adapter.localhost": "127.0.0.1", "trie.localhost": "127.0.0.1", "fw.localhost": "127.0.0.1", "cp.localhost": "127.0.0.1" },
 	stages: [
 		{ duration: "20s", target: 500 },
 		{ duration: "2m30s", target: 500 },
