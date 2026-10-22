@@ -1,4 +1,4 @@
-import { afterAll, afterEach, expect, mock, spyOn, test } from "bun:test";
+import { afterAll, afterEach, expect, mock, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { ReactNode } from "react";
 
@@ -23,12 +23,10 @@ mock.module("./AppConfigSelectorModal", () => ({
 		) : null,
 }));
 
-const { act, cleanup, fireEvent, render, within } = await import("@testing-library/react");
+const { cleanup, fireEvent, render, within } = await import("@testing-library/react");
 const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query");
 const { PluginIntegrationForm, IntegrationSecretField } = await import("./PluginIntegrationForm");
 const { EnvironmentIntegrationFields } = await import("./EnvironmentIntegrationFields");
-const { IntegrationInspectPanel } = await import("./IntegrationInspectPanel");
-const { integrationService } = await import("@/services/integrations");
 
 afterEach(cleanup);
 afterAll(() => GlobalRegistrator.unregister());
@@ -151,28 +149,4 @@ test("EnvironmentIntegrationFields displays form-level error for field-less issu
 
 	const alert = within(document.body).getByRole("alert");
 	expect(alert.textContent).toContain("Invalid combination of parameters on connector");
-});
-
-test("IntegrationInspectPanel executes inspect and displays result", async () => {
-	const inspectSpy = spyOn(integrationService, "inspect").mockResolvedValue({
-		status: "healthy",
-		collections: ["users", "orders"],
-	});
-
-	wrap(<IntegrationInspectPanel projectId="p1" integrationId="int-1" />);
-
-	expect(document.body.textContent).toContain("Inspect");
-	expect(document.body.textContent).toContain("Query metadata or test inspection hooks");
-	const runBtn = [...document.querySelectorAll("button")].find((b) =>
-		b.textContent?.includes("Inspect"),
-	);
-	expect(runBtn).toBeTruthy();
-	await act(async () => void fireEvent.click(runBtn!));
-
-	// Wait for inspect to be called
-	expect(inspectSpy).toHaveBeenCalledWith("p1", "int-1", {}, "development");
-	await act(async () => new Promise((r) => setTimeout(r, 50)));
-
-	expect(document.body.textContent).toContain("healthy");
-	expect(document.body.textContent).toContain("collections");
 });

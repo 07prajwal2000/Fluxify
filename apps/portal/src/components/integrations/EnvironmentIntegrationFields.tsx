@@ -1,4 +1,5 @@
-import { Checkbox, Label } from "@fluxify/components";
+import { Checkbox, Chip, Label, Tabs } from "@fluxify/components";
+import { useState } from "react";
 import { TbAlertTriangle } from "react-icons/tb";
 import { ConnectorFields } from "./ConnectorFields";
 import type { McpOAuthTarget } from "./connectors/types";
@@ -18,6 +19,11 @@ export type EnvironmentIntegrationFieldsProps = {
 	readOnly?: boolean;
 	formError?: string | null;
 	tools?: { name: string; description: string }[];
+	/**
+	 * Production and Development as tabs, for a saved integration's page (#933). The page's
+	 * header holds Same as prod; Development is then disabled and says so.
+	 */
+	tabs?: boolean;
 	/** mcp, once the integration is saved: what Connect needs, per environment */
 	oauth?: {
 		integrationId: string;
@@ -49,7 +55,9 @@ export function EnvironmentIntegrationFields({
 	formError,
 	tools,
 	oauth,
+	tabs = false,
 }: EnvironmentIntegrationFieldsProps) {
+	const [envTab, setEnvTab] = useState<"production" | "development">("production");
 	const devEmpty = isConfigEmpty(devConfig);
 	const target = (env: McpOAuthTarget["env"]): McpOAuthTarget | undefined =>
 		oauth && {
@@ -59,16 +67,110 @@ export function EnvironmentIntegrationFields({
 			saved: oauth.saved[env],
 		};
 
+	const errorBox = formError && (
+		<div
+			role="alert"
+			className="rounded-xl border border-danger/40 bg-danger/10 p-4 text-sm text-danger"
+		>
+			{formError}
+		</div>
+	);
+	const productionFields = (
+		<ConnectorFields
+			projectId={projectId}
+			group={group}
+			variant={variant}
+			name={name}
+			onName={onName}
+			config={config}
+			setField={setField}
+			readOnly={readOnly}
+			tools={tools}
+			oauth={target("production")}
+		/>
+	);
+	const syncWarning = (
+		<div role="alert" className="rounded-xl border border-danger/30 bg-danger/10 p-4 text-danger">
+			<div className="flex items-start gap-3">
+				<TbAlertTriangle size={20} className="shrink-0 mt-0.5 text-danger" />
+				<div className="text-sm">
+					<p className="font-semibold text-danger">Same as production</p>
+					<p className="mt-1 text-xs text-danger/90">
+						Dev runs, dev triggers and AI agents will read and write production — same database,
+						same queues, same consumer groups. Use separate dev instances instead.
+					</p>
+				</div>
+			</div>
+		</div>
+	);
+	const devHint = devEmpty && (
+		<p className="text-xs text-warning">
+			Dev workers will fail until you set a development value or turn on Same as production.
+		</p>
+	);
+	const developmentFields = (
+		<ConnectorFields
+			projectId={projectId}
+			group={group}
+			variant={variant}
+			name={name}
+			onName={onName}
+			config={devConfig ?? {}}
+			setField={setDevField}
+			hideName
+			readOnly={readOnly}
+			tools={tools}
+			oauth={target("development")}
+		/>
+	);
+
+	if (tabs) {
+		// a disabled tab can't stay open: Same as prod sends it back to Production
+		const selected = syncDev ? "production" : envTab;
+		return (
+			<div className="flex flex-col gap-4">
+				{errorBox}
+				{syncDev && syncWarning}
+				<Tabs
+					variant="secondary"
+					selectedKey={selected}
+					onSelectionChange={(key) => setEnvTab(key as typeof envTab)}
+					disabledKeys={syncDev ? ["development"] : []}
+				>
+					<Tabs.ListContainer>
+						<Tabs.List aria-label="Environment">
+							<Tabs.Tab id="production">
+								Production
+								<Tabs.Indicator />
+							</Tabs.Tab>
+							<Tabs.Tab id="development">
+								<span className="flex items-center gap-2">
+									Development
+									{syncDev && (
+										<Chip size="sm" title="Uses the production settings">
+											Same as prod
+										</Chip>
+									)}
+								</span>
+								<Tabs.Indicator />
+							</Tabs.Tab>
+						</Tabs.List>
+					</Tabs.ListContainer>
+					<Tabs.Panel id="production" className="pt-4">
+						{productionFields}
+					</Tabs.Panel>
+					<Tabs.Panel id="development" className="flex flex-col gap-4 pt-4">
+						{devHint}
+						{developmentFields}
+					</Tabs.Panel>
+				</Tabs>
+			</div>
+		);
+	}
+
 	return (
 		<div className="flex flex-col gap-6">
-			{formError && (
-				<div
-					role="alert"
-					className="rounded-xl border border-danger/40 bg-danger/10 p-4 text-sm text-danger"
-				>
-					{formError}
-				</div>
-			)}
+			{errorBox}
 			{/* Production Section */}
 			<div className="flex flex-col gap-4 rounded-xl border border-border bg-surface p-4">
 				<div className="flex items-center justify-between border-b border-border pb-2">
@@ -80,18 +182,7 @@ export function EnvironmentIntegrationFields({
 						Production
 					</span>
 				</div>
-				<ConnectorFields
-					projectId={projectId}
-					group={group}
-					variant={variant}
-					name={name}
-					onName={onName}
-					config={config}
-					setField={setField}
-					readOnly={readOnly}
-					tools={tools}
-					oauth={target("production")}
-				/>
+				{productionFields}
 			</div>
 
 			{/* Toggle & Warning / Development Section */}
@@ -115,21 +206,7 @@ export function EnvironmentIntegrationFields({
 				</div>
 
 				{syncDev ? (
-					<div
-						role="alert"
-						className="rounded-xl border border-danger/30 bg-danger/10 p-4 text-danger"
-					>
-						<div className="flex items-start gap-3">
-							<TbAlertTriangle size={20} className="shrink-0 mt-0.5 text-danger" />
-							<div className="text-sm">
-								<p className="font-semibold text-danger">Same as production</p>
-								<p className="mt-1 text-xs text-danger/90">
-									Dev runs, dev triggers and AI agents will read and write production — same
-									database, same queues, same consumer groups. Use separate dev instances instead.
-								</p>
-							</div>
-						</div>
-					</div>
+					syncWarning
 				) : (
 					<div className="flex flex-col gap-4 pt-1">
 						<div className="flex items-center justify-between border-b border-border pb-2">
@@ -141,25 +218,8 @@ export function EnvironmentIntegrationFields({
 								Development
 							</span>
 						</div>
-						{devEmpty && (
-							<p className="text-xs text-warning">
-								Dev workers will fail until you set a development value or turn on Same as
-								production.
-							</p>
-						)}
-						<ConnectorFields
-							projectId={projectId}
-							group={group}
-							variant={variant}
-							name={name}
-							onName={onName}
-							config={devConfig ?? {}}
-							setField={setDevField}
-							hideName
-							readOnly={readOnly}
-							tools={tools}
-							oauth={target("development")}
-						/>
+						{devHint}
+						{developmentFields}
 					</div>
 				)}
 			</div>

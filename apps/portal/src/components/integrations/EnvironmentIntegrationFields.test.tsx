@@ -16,6 +16,7 @@ function renderFields({
 	syncDev = false,
 	devConfig = null as Record<string, unknown> | null,
 	onSyncDevChange = mock(),
+	tabs = false,
 } = {}) {
 	const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	return render(
@@ -32,6 +33,7 @@ function renderFields({
 				setDevField={mock()}
 				syncDev={syncDev}
 				onSyncDevChange={onSyncDevChange}
+				tabs={tabs}
 			/>
 		</QueryClientProvider>,
 	);
@@ -82,4 +84,33 @@ test("toggling Same as production invokes onSyncDevChange", () => {
 	const checkbox = view.getByLabelText("Same as production");
 	fireEvent.click(checkbox);
 	expect(onSyncDevChange).toHaveBeenCalledWith(true);
+});
+
+// The saved integration's page (#933): Production and Development as tabs, Same as prod in its header.
+const tab = (view: ReturnType<typeof render>, name: RegExp) => view.getByRole("tab", { name });
+
+test("as tabs, Production is open by default and the Same as prod checkbox is not in the form", () => {
+	const view = renderFields({ tabs: true, devConfig: { host: "localhost" } });
+	expect(tab(view, /Production/).getAttribute("aria-selected")).toBe("true");
+	expect(view.getByDisplayValue("prod.db.internal")).toBeTruthy();
+	expect(view.queryByDisplayValue("localhost")).toBeNull();
+	expect(view.queryByRole("checkbox", { name: /Same as prod/i })).toBeNull();
+});
+
+test("as tabs, Same as prod disables the Development tab and says why on it", () => {
+	const view = renderFields({ tabs: true, syncDev: true, devConfig: { host: "localhost" } });
+	const dev = tab(view, /Development/);
+	expect(dev.getAttribute("aria-disabled")).toBe("true");
+	expect(dev.textContent).toContain("Same as prod");
+	// the production warning still shows while it is on
+	expect(view.getByRole("alert").textContent).toContain("read and write production");
+});
+
+test("as tabs, without Same as prod the Development tab opens with its own values", () => {
+	const view = renderFields({ tabs: true, devConfig: { host: "localhost" } });
+	const dev = tab(view, /Development/);
+	expect(dev.getAttribute("aria-disabled")).not.toBe("true");
+	expect(dev.textContent).not.toContain("Same as prod");
+	fireEvent.click(dev);
+	expect(view.getByDisplayValue("localhost")).toBeTruthy();
 });
