@@ -462,3 +462,78 @@ test("older pages are dropped when a reload no longer joins them", async () => {
 	older.mockRestore();
 	stop.mockRestore();
 });
+
+/** Two conversations in one hook, as the chat page reuses it when the sidebar opens another (#936). */
+function setupSwitchable() {
+	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+	const wrapper = ({ children }: { children: ReactNode }) => (
+		<QueryClientProvider client={client}>{children}</QueryClientProvider>
+	);
+	return renderHook(({ id }: { id: string }) => useAgentConversation("p1", id), {
+		wrapper,
+		initialProps: { id: "c1" },
+	});
+}
+const otherConversation = {
+	...detail(
+		[user(0, "other chat"), assistant(1, [{ type: "text", text: "other answer" }])],
+		"completed",
+	),
+	conversation: { id: "c2", title: "other", archived: false } as never,
+	run: { id: "r9", status: "completed", stopReason: null } as never,
+};
+
+test("a run started in one conversation does not show in the next one opened (#936)", async () => {
+	get.mockImplementation((async (_p: string, id: string) =>
+		id === "c1"
+			? detail([user(0, "hi"), assistant(1, [{ type: "text", text: "hello" }])], "completed")
+			: otherConversation) as never);
+	const send = spyOn(agentConversationsService, "send").mockResolvedValue({ runId: "r2" });
+	const { result, rerender } = setupSwitchable();
+	await waitFor(() => expect(result.current.messages.length).toBe(2));
+	await act(() => result.current.send("question in A"));
+	const es = await stream();
+	act(() => es.emit({ type: "text", seq: 2, text: "A is thinking" }));
+	expect(texts(result.current.messages)).toContain("A is thinking");
+
+	rerender({ id: "c2" });
+	await waitFor(() =>
+		expect(texts(result.current.messages)).toEqual(["other chat", "other answer"]),
+	);
+	expect(result.current.running).toBe(false);
+	// A's stream is let go, and nothing of A follows into B
+	expect(es.closed).toBe(true);
+	expect(FakeEventSource.all.length).toBe(1);
+	send.mockRestore();
+});
+
+test("a send that answers after the user moved on does not start following there (#936)", async () => {
+	get.mockImplementation((async (_p: string, id: string) =>
+		id === "c1"
+			? detail([user(0, "hi"), assistant(1, [{ type: "text", text: "hello" }])], "completed")
+			: otherConversation) as never);
+	let answer: (v: { runId: string }) => void = () => {};
+	const send = spyOn(agentConversationsService, "send").mockReturnValue(
+		new Promise((r) => {
+			answer = r;
+		}) as never,
+	);
+	const { result, rerender } = setupSwitchable();
+	await waitFor(() => expect(result.current.messages.length).toBe(2));
+	let sent: Promise<void> = Promise.resolve();
+	act(() => {
+		sent = result.current.send("question in A");
+	});
+
+	rerender({ id: "c2" });
+	await waitFor(() =>
+		expect(texts(result.current.messages)).toEqual(["other chat", "other answer"]),
+	);
+	await act(async () => {
+		answer({ runId: "r2" });
+		await sent;
+	});
+	expect(result.current.running).toBe(false);
+	expect(FakeEventSource.all.length).toBe(0);
+	send.mockRestore();
+});
