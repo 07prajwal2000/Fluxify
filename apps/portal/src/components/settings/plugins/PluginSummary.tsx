@@ -1,6 +1,7 @@
 import { requestedPermissions } from "@fluxify/server/src/modules/plugins/meta";
 import type { ReactNode } from "react";
 import { TbCheck, TbExternalLink, TbX } from "react-icons/tb";
+import { IntegrationVariantIcon } from "@/components/integrations/IntegrationVariantIcon";
 import type { Plugin, PluginManifest } from "@/services/plugins";
 import { Badge, formatTime, SOURCE_LABEL } from "./PluginBadges";
 import { PluginBlockIcon, PluginTriggerIcon } from "./pluginBlockIcon";
@@ -111,6 +112,10 @@ export function PluginIntegrations({ plugin }: { plugin: Plugin }) {
 		}));
 
 	if (!integrations || integrations.length === 0) return null;
+	// the approval summary has no icon; the manifest entry does
+	const icons = new Map<string, string | undefined>(
+		(manifest?.integrations ?? []).map((e: any) => [`${e.group}/${e.variant}`, e.icon]),
+	);
 
 	return (
 		<ul
@@ -128,6 +133,12 @@ export function PluginIntegrations({ plugin }: { plugin: Plugin }) {
 				return (
 					<li key={kind} className="flex flex-col gap-1 px-3 py-2 text-xs">
 						<div className="flex flex-wrap items-center gap-2">
+							<IntegrationVariantIcon
+								variant={item.variant}
+								group={item.group}
+								icon={icons.get(kind)}
+								size={18}
+							/>
 							<span className="font-medium text-foreground text-sm">{item.label}</span>
 							<code className="font-mono text-xs text-muted">{kind}</code>
 							{item.ownGroup && <Badge tone="muted">Plugin group</Badge>}
