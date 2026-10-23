@@ -76,7 +76,7 @@ export const TRIGGER_DOCS: ApiDocItem[] = [
 		signature:
 			"const trigger.connection?: { raw: any; commit(): Promise<void>; moveToDLQ(error?: any): Promise<void>; lag(): Promise<number | null>; };",
 		description:
-			"Queue triggers only (Kafka, NATS, SQS, Redis Streams, RabbitMQ): commit marks the batch done, moveToDLQ parks it, lag counts what is waiting, and raw is the underlying client. Use raw with care.",
+			"The source's acknowledgement handle, when it hands one over: queue triggers (Kafka, NATS, SQS, Redis Streams, RabbitMQ) in manual commit mode, and plugin triggers whose author passes a connection to emit(). commit marks the batch done, moveToDLQ parks it, lag counts what is waiting, and raw is the underlying client. A plugin trigger is free not to pass one, so check before you use it. Use raw with care.",
 		category: "variables",
 		example: "if (trigger.connection) {\n  await trigger.connection.commit();\n}",
 		returns: "TriggerConnection | undefined",

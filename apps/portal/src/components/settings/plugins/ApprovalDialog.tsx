@@ -6,7 +6,7 @@ import { parseApiError, showErrorNotification } from "@/lib/errorNotifier";
 import { pluginsQuery } from "@/query/pluginsQuery";
 import { type Plugin, type PluginUpgradeDiff, upgradeBlockedFromError } from "@/services/plugins";
 import { isUpgrade } from "./PluginBadges";
-import { manifestOf, PluginIntegrations } from "./PluginSummary";
+import { manifestOf, PluginIntegrations, PluginTriggerKinds } from "./PluginSummary";
 import { UpgradeDiff } from "./UpgradeDiff";
 
 function Grants({ plugin }: { plugin: Plugin }) {
@@ -29,6 +29,17 @@ function Grants({ plugin }: { plugin: Plugin }) {
 			) : (
 				<p className="text-sm text-muted">No special permissions.</p>
 			)}
+		</section>
+	);
+}
+
+/** The trigger kinds this version ships, which approval switches on with the blocks. */
+function TriggerKinds({ plugin }: { plugin: Plugin }) {
+	if (!(manifestOf(plugin).triggers ?? []).length) return null;
+	return (
+		<section className="flex flex-col gap-1.5">
+			<h4 className="text-xs font-semibold uppercase tracking-wider text-muted">Trigger kinds</h4>
+			<PluginTriggerKinds plugin={plugin} />
 		</section>
 	);
 }
@@ -99,6 +110,7 @@ export function ApprovalDialog({
 									</div>
 								)}
 								<Grants plugin={plugin} />
+								<TriggerKinds plugin={plugin} />
 								{((plugin.integrations && plugin.integrations.length > 0) ||
 									(manifestOf(plugin) as any)?.integrations?.length > 0) && (
 									<section className="flex flex-col gap-1.5">

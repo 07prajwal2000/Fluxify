@@ -6,7 +6,7 @@ import { removePlugin } from "../../../modules/plugins/remove";
 import { scanPlugin, scanProject } from "../../../modules/plugins/scanner";
 import * as service from "../../../modules/plugins/service";
 import { upgradePreview } from "../../../modules/plugins/upgrade";
-import { pluginUsage } from "../../../modules/plugins/usage";
+import { pluginUsedBy } from "../../../modules/plugins/usage";
 import type { HonoContext, HonoServer } from "../../../types";
 import { caller, creator, doc, project, viewer } from "./common";
 import {
@@ -73,13 +73,13 @@ export default {
 				p,
 				doc(
 					"get-plugin-usage",
-					"Every route, workflow and custom block using a block of the plugin, working copy and promoted version, with the params, handles and invoke mode of each node",
+					"Everything using the plugin: its block nodes on routes, workflows and custom blocks (working copy and promoted version), its trigger rows, and the integrations of its kinds",
 					usageSchema,
 				),
 				viewer,
 				project,
 				plugin,
-				async (ctx) => ctx.json(await pluginUsage(...target(ctx))),
+				async (ctx) => ctx.json(await pluginUsedBy(...target(ctx))),
 			);
 		}
 		for (const p of paths("/upgrade-preview")) {

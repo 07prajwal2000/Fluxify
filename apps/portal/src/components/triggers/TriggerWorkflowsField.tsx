@@ -14,17 +14,20 @@ export function TriggerWorkflowsField({
 	projectId,
 	value,
 	onChange,
+	isDisabled,
 }: {
 	projectId: string;
 	value: string | null;
 	onChange: (value: string | null) => void;
+	/** A read-only trigger shows what it starts and cannot change it. */
+	isDisabled?: boolean;
 }) {
 	const [picking, setPicking] = useState(false);
 
 	return (
 		<div className="flex flex-col gap-2">
 			{value ? (
-				<WorkflowRow workflowId={value} onRemove={() => onChange(null)} />
+				<WorkflowRow workflowId={value} onRemove={isDisabled ? undefined : () => onChange(null)} />
 			) : (
 				<p className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-xs text-muted">
 					No workflow yet. A trigger with nothing attached is saved and idle — it starts firing as
@@ -32,24 +35,33 @@ export function TriggerWorkflowsField({
 				</p>
 			)}
 
-			<Button variant="outline" size="sm" className="self-start" onPress={() => setPicking(true)}>
-				<TbPlus size={14} /> {value ? "Change workflow" : "Choose workflow"}
-			</Button>
+			{!isDisabled && (
+				<>
+					<Button
+						variant="outline"
+						size="sm"
+						className="self-start"
+						onPress={() => setPicking(true)}
+					>
+						<TbPlus size={14} /> {value ? "Change workflow" : "Choose workflow"}
+					</Button>
 
-			<WorkflowSelectorModal
-				projectId={projectId}
-				isOpen={picking}
-				onOpenChange={setPicking}
-				onSelect={(id) => {
-					onChange(id);
-					setPicking(false);
-				}}
-			/>
+					<WorkflowSelectorModal
+						projectId={projectId}
+						isOpen={picking}
+						onOpenChange={setPicking}
+						onSelect={(id) => {
+							onChange(id);
+							setPicking(false);
+						}}
+					/>
+				</>
+			)}
 		</div>
 	);
 }
 
-function WorkflowRow({ workflowId, onRemove }: { workflowId: string; onRemove: () => void }) {
+function WorkflowRow({ workflowId, onRemove }: { workflowId: string; onRemove?: () => void }) {
 	const { data, isLoading } = workflowsQuery.byId.useQuery(workflowId);
 
 	return (
@@ -63,7 +75,7 @@ function WorkflowRow({ workflowId, onRemove }: { workflowId: string; onRemove: (
 					Inactive
 				</span>
 			)}
-			<DeleteIconButton aria-label="Remove workflow" size="sm" onPress={onRemove} />
+			{onRemove && <DeleteIconButton aria-label="Remove workflow" size="sm" onPress={onRemove} />}
 		</div>
 	);
 }

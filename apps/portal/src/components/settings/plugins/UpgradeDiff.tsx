@@ -48,6 +48,32 @@ function Item({
 }
 
 const code = (s: string) => <code className="font-mono">{s}</code>;
+
+/** The trigger rows of a kind, linked to their edit pages. */
+function TriggerLinks({
+	triggers,
+	projectId,
+}: {
+	triggers: { id: string; name: string }[];
+	projectId: string;
+}) {
+	if (triggers.length === 0) return null;
+	return (
+		<span className="flex flex-wrap items-center gap-2 pl-3 text-muted">
+			used by{" "}
+			{triggers.map((trigger) => (
+				<Link
+					key={trigger.id}
+					to="/$projectId/triggers/$triggerId"
+					params={{ projectId, triggerId: trigger.id }}
+					className="text-accent underline font-medium hover:text-accent/80"
+				>
+					{trigger.name}
+				</Link>
+			))}
+		</span>
+	);
+}
 const handleNames = (h: Record<string, unknown>) =>
 	Object.entries(h)
 		.map(
@@ -91,6 +117,39 @@ export function UpgradeDiff({ diff, projectId }: { diff: PluginUpgradeDiff; proj
 							{code(r.block)}
 						</Item>
 					))}
+				</Section>
+			)}
+			{diff.removedTriggers.length > 0 && (
+				<Section title="Removed trigger kinds" tone="danger">
+					{diff.removedTriggers.map((r) => (
+						<li key={r.kind} className="flex flex-col gap-0.5">
+							{code(r.kind)}
+							<TriggerLinks triggers={r.usedBy} projectId={projectId} />
+						</li>
+					))}
+				</Section>
+			)}
+			{diff.changedTriggers.length > 0 && (
+				<Section
+					title="Changed trigger kinds"
+					tone={diff.changedTriggers.some((c) => c.breaking) ? "danger" : undefined}
+				>
+					{diff.changedTriggers.map((r) => {
+						const count = r.usedBy.length;
+						return (
+							<li key={`${r.kind}-${r.change}`} className="flex flex-col gap-0.5">
+								<span className="flex flex-wrap items-center gap-2">
+									{code(r.kind)}: {r.change}
+									{r.breaking && (
+										<Badge tone="danger">
+											{`Breaking${count > 0 ? ` · ${count} blocking` : ""}`}
+										</Badge>
+									)}
+								</span>
+								<TriggerLinks triggers={r.usedBy} projectId={projectId} />
+							</li>
+						);
+					})}
 				</Section>
 			)}
 			{diff.removedIntegrations && diff.removedIntegrations.length > 0 && (
@@ -216,6 +275,15 @@ export function UpgradeDiff({ diff, projectId }: { diff: PluginUpgradeDiff; proj
 					{diff.addedBlocks.map((b) => (
 						<Item key={b} projectId={projectId}>
 							{code(b)}
+						</Item>
+					))}
+				</Section>
+			)}
+			{diff.addedTriggers.length > 0 && (
+				<Section title="New trigger kinds">
+					{diff.addedTriggers.map((kind) => (
+						<Item key={kind} projectId={projectId}>
+							{code(kind)}
 						</Item>
 					))}
 				</Section>

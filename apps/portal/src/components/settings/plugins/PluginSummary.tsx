@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { TbCheck, TbExternalLink, TbX } from "react-icons/tb";
 import type { Plugin, PluginManifest } from "@/services/plugins";
 import { Badge, formatTime, SOURCE_LABEL } from "./PluginBadges";
-import { PluginBlockIcon } from "./pluginBlockIcon";
+import { PluginBlockIcon, PluginTriggerIcon } from "./pluginBlockIcon";
 
 export const manifestOf = (p: Plugin) => p.manifest as unknown as PluginManifest;
 
@@ -31,6 +31,62 @@ export function PluginBlocks({ plugin }: { plugin: Plugin }) {
 					</div>
 				</li>
 			))}
+		</ul>
+	);
+}
+
+type TriggerKind = NonNullable<PluginManifest["triggers"]>[number];
+
+const triggerPermissions = (kind: TriggerKind) => {
+	const parts = [
+		...(kind.permissions.integrations?.length
+			? [`Integrations: ${kind.permissions.integrations.join(", ")}`]
+			: []),
+		...(kind.permissions.appconfig ? ["Read app config"] : []),
+	];
+	return parts.length ? parts.join(" · ") : "No special permissions.";
+};
+
+const triggerSecrets = (kind: TriggerKind) =>
+	Object.entries(kind.params ?? {})
+		.filter(([, param]) => (param as { type?: string }).type === "secret")
+		.map(([name]) => name);
+
+/** The trigger kinds a version ships: label, kind, permissions and whether they retry. */
+export function PluginTriggerKinds({ plugin }: { plugin: Plugin }) {
+	const triggers = manifestOf(plugin).triggers ?? [];
+	if (triggers.length === 0) return null;
+	return (
+		<ul
+			aria-label="Trigger kinds"
+			data-testid="plugin-trigger-kinds"
+			className="flex flex-col divide-y divide-border rounded-lg border border-border"
+		>
+			{triggers.map((kind) => {
+				const secrets = triggerSecrets(kind);
+				return (
+					<li key={kind.name} className="flex items-start gap-3 px-3 py-2">
+						<span className="mt-0.5 text-muted">
+							<PluginTriggerIcon icon={kind.icon} size={18} />
+						</span>
+						<div className="flex min-w-0 flex-col gap-0.5">
+							<div className="flex flex-wrap items-center gap-2 text-sm">
+								<span className="font-medium text-foreground">{kind.label}</span>
+								<code className="font-mono text-xs text-muted">{kind.name}</code>
+								{kind.retry && <Badge tone="muted">Retries</Badge>}
+							</div>
+							{kind.description && <p className="text-xs text-muted">{kind.description}</p>}
+							<p className="text-xs text-muted">{triggerPermissions(kind)}</p>
+							{secrets.length > 0 && (
+								<p className="text-xs text-muted">
+									Secret params (App Config):{" "}
+									<span className="font-mono text-foreground">{secrets.join(", ")}</span>
+								</p>
+							)}
+						</div>
+					</li>
+				);
+			})}
 		</ul>
 	);
 }

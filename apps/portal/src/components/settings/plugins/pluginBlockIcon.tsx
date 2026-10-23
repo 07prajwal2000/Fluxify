@@ -1,4 +1,5 @@
-import { TbPackage } from "react-icons/tb";
+import { useState } from "react";
+import { TbBolt, TbPackage } from "react-icons/tb";
 import { CustomBlockIcon, type IconValue } from "@/components/customBlocks/IconPicker";
 import type { Plugin, PluginManifest } from "@/services/plugins";
 
@@ -17,6 +18,32 @@ export function PluginBlockIcon({
 		<span className="mt-0.5 shrink-0 text-muted">
 			<CustomBlockIcon {...pluginBlockIcon(block)} size={size} />
 		</span>
+	);
+}
+
+/**
+ * A trigger kind's icon, or the bolt the Triggers page uses. A manifest can
+ * name an icon the portal cannot load, so a failed image falls back too.
+ */
+export function PluginTriggerIcon({ icon, size = 20 }: { icon?: string; size?: number }) {
+	const [broken, setBroken] = useState(false);
+	if (!icon || broken) {
+		return (
+			<span className="flex shrink-0" data-testid="plugin-trigger-icon-default">
+				<TbBolt size={size} />
+			</span>
+		);
+	}
+	return (
+		<img
+			src={icon}
+			alt=""
+			width={size}
+			height={size}
+			data-testid="plugin-trigger-icon"
+			className="shrink-0 rounded object-contain"
+			onError={() => setBroken(true)}
+		/>
 	);
 }
 

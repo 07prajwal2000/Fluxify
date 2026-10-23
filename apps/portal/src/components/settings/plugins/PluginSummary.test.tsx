@@ -4,9 +4,9 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 // DOM only for this file; RTL reads `document` on import, so load it after.
 GlobalRegistrator.register({ url: "http://localhost:5601/" });
 
-const { cleanup, render } = await import("@testing-library/react");
+const { cleanup, fireEvent, render } = await import("@testing-library/react");
 const { PluginBlocks } = await import("./PluginSummary");
-const { pluginBlockIcon } = await import("./pluginBlockIcon");
+const { pluginBlockIcon, PluginTriggerIcon } = await import("./pluginBlockIcon");
 const { plugin } = await import("./fixtures");
 
 afterEach(cleanup);
@@ -31,6 +31,20 @@ test("a block without one gets the default icon", () => {
 	const { container } = render(<PluginBlocks plugin={withIcon()} />);
 	expect(container.querySelector("img")).toBeNull();
 	expect(container.querySelector("svg")).not.toBeNull();
+});
+
+test("a trigger kind without an icon, or one that fails to load, gets the bolt", () => {
+	const empty = render(<PluginTriggerIcon icon="" />);
+	expect(empty.container.querySelector("img")).toBeNull();
+	expect(empty.container.querySelector("svg")).not.toBeNull();
+	cleanup();
+
+	const broken = render(<PluginTriggerIcon icon="data:image/png;base64,broken" />);
+	const img = broken.container.querySelector("img");
+	expect(img).not.toBeNull();
+	fireEvent.error(img!);
+	expect(broken.container.querySelector("img")).toBeNull();
+	expect(broken.container.querySelector("svg")).not.toBeNull();
 });
 
 test("pluginBlockIcon is the custom block icon value", () => {

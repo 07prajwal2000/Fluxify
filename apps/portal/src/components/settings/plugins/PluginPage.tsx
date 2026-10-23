@@ -14,6 +14,7 @@ import {
 	PluginIntegrations,
 	PluginPermissions,
 	PluginProvenance,
+	PluginTriggerKinds,
 } from "./PluginSummary";
 import { PluginUsage } from "./PluginUsage";
 import { PluginIcon, pluginMeta } from "./pluginBlockIcon";
@@ -119,6 +120,11 @@ export function PluginPage({
 			<Section title="Blocks">
 				<PluginBlocks plugin={plugin} />
 			</Section>
+			{(manifestOf(plugin).triggers ?? []).length > 0 && (
+				<Section title="Triggers">
+					<PluginTriggerKinds plugin={plugin} />
+				</Section>
+			)}
 			{((plugin.integrations && plugin.integrations.length > 0) ||
 				(manifestOf(plugin) as any)?.integrations?.length > 0) && (
 				<Section title="Integrations">

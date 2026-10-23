@@ -8,6 +8,23 @@ import { pluginsQuery } from "@/query/pluginsQuery";
 import { type Reference, referencesFromDeleteError } from "@/services/references";
 
 type IntegrationRef = { id: string; name: string; group?: string; variant?: string };
+type TriggerRef = { id: string; name: string; kind: string };
+
+function triggersFromDeleteError(
+	error: unknown,
+): { message: string; triggers: TriggerRef[] } | undefined {
+	const response = (error as { response?: { data?: unknown } } | undefined)?.response;
+	const data = response?.data as
+		| { message?: string; details?: { triggers?: TriggerRef[] } }
+		| undefined;
+	if (data?.details && Array.isArray(data.details.triggers) && data.details.triggers.length > 0) {
+		return {
+			message: typeof data.message === "string" ? data.message : "Still provides triggers",
+			triggers: data.details.triggers,
+		};
+	}
+	return undefined;
+}
 
 function integrationsFromDeleteError(
 	error: unknown,
@@ -52,6 +69,10 @@ export function RemovePluginDialog({
 		message: string;
 		integrations: IntegrationRef[];
 	}>();
+	const [blockedTriggers, setBlockedTriggers] = useState<{
+		message: string;
+		triggers: TriggerRef[];
+	}>();
 
 	function confirm() {
 		remove.mutate(name, {
@@ -71,6 +92,11 @@ export function RemovePluginDialog({
 					setBlockedIntegrations(integrationConflict);
 					return;
 				}
+				const triggerConflict = triggersFromDeleteError(e);
+				if (triggerConflict) {
+					setBlockedTriggers(triggerConflict);
+					return;
+				}
 				showErrorNotification(e);
 			},
 		});
@@ -83,6 +109,7 @@ export function RemovePluginDialog({
 				if (!o) {
 					setBlocked(undefined);
 					setBlockedIntegrations(undefined);
+					setBlockedTriggers(undefined);
 				}
 				onOpenChange(o);
 			}}
@@ -100,6 +127,28 @@ export function RemovePluginDialog({
 					references={blocked.references}
 					projectId={projectId}
 				/>
+			)}
+			{blockedTriggers && (
+				<div
+					role="alert"
+					className="mt-3 flex flex-col gap-2 rounded-lg border border-danger/40 bg-danger/10 p-3 text-xs"
+				>
+					<p className="font-medium text-danger">{blockedTriggers.message}</p>
+					<ul className="flex flex-col gap-1 pl-4 list-disc text-foreground">
+						{blockedTriggers.triggers.map((item) => (
+							<li key={item.id}>
+								<Link
+									to="/$projectId/triggers/$triggerId"
+									params={{ projectId, triggerId: item.id }}
+									className="text-accent underline font-medium hover:text-accent/80"
+								>
+									{item.name}
+								</Link>
+								<span className="text-muted"> ({item.kind})</span>
+							</li>
+						))}
+					</ul>
+				</div>
 			)}
 			{blockedIntegrations && (
 				<div

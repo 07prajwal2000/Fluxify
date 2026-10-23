@@ -163,22 +163,36 @@ const userRef = z.object({
 	name: z.string(),
 });
 
-export const usageSchema = z.array(
-	userRef.extend({
-		inWorkingCopy: z.boolean(),
-		inProduction: z.boolean(),
-		nodes: z.array(
-			z.object({
-				type: z.string(),
-				blockId: z.string(),
-				where: z.enum(["working_copy", "production"]),
-				params: z.array(z.string()),
-				handles: z.array(z.string()),
-				invoke: z.string(),
-			}),
-		),
-	}),
-);
+export const usageSchema = z.object({
+	/** routes, workflows and custom blocks using one of its blocks */
+	blocks: z.array(
+		userRef.extend({
+			inWorkingCopy: z.boolean(),
+			inProduction: z.boolean(),
+			nodes: z.array(
+				z.object({
+					type: z.string(),
+					blockId: z.string(),
+					where: z.enum(["working_copy", "production"]),
+					params: z.array(z.string()),
+					handles: z.array(z.string()),
+					invoke: z.string(),
+				}),
+			),
+		}),
+	),
+	/** the project's trigger rows of its kinds */
+	triggers: z.array(z.object({ id: z.string(), name: z.string(), kind: z.string() })),
+	/** the project's integrations of its kinds */
+	integrations: z.array(
+		z.object({
+			id: z.string(),
+			name: z.string(),
+			group: z.string(),
+			variant: z.string(),
+		}),
+	),
+});
 
 const usedBy = z.array(userRef);
 /** the project's integrations of a changed kind */
