@@ -51,7 +51,15 @@ export type TriggerRun = {
 	 * on, a rejection here stands for the last attempt failing.
 	 */
 	retry: boolean;
-	/** aborts `ctx.signal`, then awaits the function `start` returned; rejects when it does not return within `timeoutMs` */
+	/** what the trigger passed to `ctx.fail`, if it did; the instance is then stopped */
+	readonly failure: Error | undefined;
+	/** the next `ctx.fail`, once the instance it stopped has closed; rejects after `timeoutMs` */
+	failed(timeoutMs?: number): Promise<Error>;
+	/**
+	 * Aborts `ctx.signal`, then awaits the function `start` returned; rejects
+	 * when it does not return within `timeoutMs`. After `ctx.fail` it awaits
+	 * that stop instead of running a second one.
+	 */
 	stop(): Promise<void>;
 };
 
@@ -64,13 +72,14 @@ function within<T>(promise: Promise<T>, ms: number, what: string): Promise<T> {
 	return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
-/** records each `emit` and hands it out to `nextEmit` callers, in order */
-function emitRecorder(name: string) {
+/** records each `emit` and hands it out to `nextEmit` callers, in order; refused once `stopped()` */
+function emitRecorder(name: string, stopped: () => boolean) {
 	const emits: EmitCall[] = [];
 	const waiting: ((call: EmitCall) => void)[] = [];
 	let handed = 0;
-	const emit: TriggerContext["emit"] = (events, options) => {
+	const emit: TriggerContext["emit"] = async (events, options) => {
 		checkEmit(name, events, options);
+		if (stopped()) throw new Error(`trigger ${name} is no longer running`);
 		return new Promise<void>((resolve, reject) => {
 			const call: EmitCall = {
 				events,
@@ -126,8 +135,35 @@ export async function runTrigger<P extends Params>(
 		`trigger ${name}`,
 	);
 	const controller = new AbortController();
-	const recorder = emitRecorder(name);
-	const stopInstance = await within(
+	let failure: Error | undefined;
+	let halting: Promise<void> | undefined;
+	let stopInstance: (() => Promise<void>) | undefined;
+	const failedWaiters: (() => void)[] = [];
+	// one stop per instance, whether `stop()` or `ctx.fail` asked first
+	const halt = () =>
+		(halting ??= (async () => {
+			controller.abort();
+			try {
+				await within(stopInstance!(), ms, `trigger ${name}: stop() did not return`);
+			} finally {
+				leases.release();
+				if (!options.pool) await pooled.close();
+			}
+		})());
+	const recorder = emitRecorder(name, () => controller.signal.aborted);
+	const fail = (error: unknown) => {
+		if (failure || halting) return;
+		failure = error instanceof Error ? error : new Error(String(error));
+		// before `start` resolved there is nothing to stop yet; it stops once it has
+		if (stopInstance)
+			void halt().then(
+				() => {
+					for (const w of failedWaiters.splice(0)) w();
+				},
+				() => {},
+			);
+	};
+	stopInstance = await within(
 		def.start({
 			params: params as never,
 			integrations: integrations!,
@@ -135,26 +171,33 @@ export async function runTrigger<P extends Params>(
 			logger,
 			signal: controller.signal,
 			emit: recorder.emit,
+			fail,
 		}),
 		ms,
 		`trigger ${name}: start() did not resolve`,
 	);
 	if (typeof stopInstance !== "function")
 		throw new Error(`trigger ${name}: start() must resolve to its stop function`);
+	if (failure) await halt();
 	return {
 		emits: recorder.emits,
 		nextEmit: recorder.nextEmit,
 		logs,
 		signal: controller.signal,
 		retry: !!def.retry,
-		async stop() {
-			controller.abort();
-			try {
-				await within(stopInstance(), ms, `trigger ${name}: stop() did not return`);
-			} finally {
-				leases.release();
-				if (!options.pool) await pooled.close();
-			}
+		get failure() {
+			return failure;
 		},
+		async failed(timeoutMs = ms) {
+			if (!failure || !halting)
+				await within(
+					new Promise<void>((r) => failedWaiters.push(r)),
+					timeoutMs,
+					`trigger ${name}: no ctx.fail`,
+				);
+			else await halting;
+			return failure!;
+		},
+		stop: halt,
 	};
 }

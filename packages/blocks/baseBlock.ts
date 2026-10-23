@@ -23,7 +23,9 @@ export type TriggerSource =
 	/** a RabbitMQ queue (AMQP 0-9-1) */
 	| "rabbitmq"
 	| "pubsub"
-	| "servicebus";
+	| "servicebus"
+	/** a plugin trigger: its manifest name, e.g. `plugin:acme/pg/poller` */
+	| `plugin:${string}`;
 /** sync = caller waits for the result (req/res); async = fire-and-forget. */
 export type ReplyMode = "sync" | "async";
 

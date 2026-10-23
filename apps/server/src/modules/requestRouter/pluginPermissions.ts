@@ -15,7 +15,7 @@ export const NO_PERMISSIONS: PluginPermissions = { integrations: [], appconfig: 
  * environment's own config (a development worker has development values), and
  * answer a missing value by throwing the reason.
  */
-function integrationFor(projectId: string, id: string): IntegrationFound | undefined {
+export function integrationFor(projectId: string, id: string): IntegrationFound | undefined {
 	const config = findIntegrationConfig(id);
 	if (!ownsIntegration(config, projectId) || !config.group) return undefined;
 	return { group: config.group, variant: config.variant, config };

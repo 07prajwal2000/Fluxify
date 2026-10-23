@@ -73,6 +73,9 @@ describe("trigger()", () => {
 
 	it("refuses a bad name and reserved param names", () => {
 		expect(define({ name: "Acme/poll" })).toThrow("must be scope/name/.../trigger");
+		// `plugin:<name>` must fit the trigger row's 255-character type
+		expect(define({ name: `acme/t/${"a".repeat(241)}` })).not.toThrow();
+		expect(define({ name: `acme/t/${"a".repeat(242)}` })).toThrow("<=248 characters");
 		expect(define({ name: "acme/t/a", params: { any: param.string() } })).toThrow(
 			"param name 'any' is reserved",
 		);
@@ -251,6 +254,59 @@ describe("runTrigger", () => {
 		).rejects.toThrow("start() did not resolve within 20 ms");
 	});
 
+	it("ctx.fail stops the instance once: the signal aborts, the stop function runs, the error is kept", async () => {
+		const order: string[] = [];
+		let fail!: (error: unknown) => void;
+		const def = trigger({
+			...base,
+			name: "acme/t/a",
+			start: async (ctx) => {
+				fail = ctx.fail;
+				ctx.signal.addEventListener("abort", () => order.push("abort"));
+				return async () => void order.push("stop");
+			},
+		});
+		const run = await runTrigger(def);
+		expect(run.failure).toBeUndefined();
+		fail(new Error("lost the connection"));
+		fail(new Error("a second one"));
+		expect((await run.failed()).message).toBe("lost the connection");
+		expect(run.failure?.message).toBe("lost the connection");
+		await run.stop();
+		expect(order).toEqual(["abort", "stop"]);
+	});
+
+	it("a ctx.fail during start stops the instance as soon as start resolves", async () => {
+		const order: string[] = [];
+		const def = trigger({
+			...base,
+			name: "acme/t/a",
+			start: async (ctx) => {
+				ctx.fail("not a real error");
+				return async () => void order.push("stop");
+			},
+		});
+		const run = await runTrigger(def);
+		expect([order, run.signal.aborted, (await run.failed()).message]).toEqual([
+			["stop"],
+			true,
+			"not a real error",
+		]);
+	});
+
+	it("emit rejects once the instance stopped", async () => {
+		let emit!: (events: unknown[]) => Promise<void>;
+		const def = trigger({
+			...base,
+			name: "acme/t/a",
+			start: async (ctx) => ((emit = ctx.emit), async () => {}),
+		});
+		const run = await runTrigger(def);
+		await run.stop();
+		await expect(emit([1])).rejects.toThrow("trigger acme/t/a is no longer running");
+		expect(run.emits).toEqual([]);
+	});
+
 	it("getConfig reads the keys secret params name, or any key with permissions.appconfig", async () => {
 		const read = (def: AnyTrigger, params: Record<string, unknown>) => {
 			let getConfig!: (key: string) => unknown;
@@ -262,6 +318,8 @@ describe("runTrigger", () => {
 			{ token: "cfg:TOKEN" },
 		);
 		expect(own("TOKEN")).toBe("s");
+		// the param's stored value works too
+		expect(own("cfg:TOKEN")).toBe("s");
 		expect(() => own("OTHER")).toThrow("getConfig('OTHER') is not allowed");
 		const all = await read({ ...base, name: "acme/t/a", permissions: { appconfig: true } }, {});
 		expect(all("OTHER")).toBe("o");

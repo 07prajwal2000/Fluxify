@@ -199,10 +199,14 @@ export type IntegrationEntry = z.infer<typeof integrationEntrySchema>;
  * A plugin trigger as `fluxify.json` holds it: the definition minus `start`.
  * Its params are a block's, minus what only a request can fill.
  */
+/** a trigger row stores `plugin:<name>` in a 255-character column */
+export const MAX_TRIGGER_NAME_LENGTH = 255 - "plugin:".length;
+
 export const triggerEntrySchema = z
 	.strictObject({
 		name: z
 			.string()
+			.max(MAX_TRIGGER_NAME_LENGTH)
 			.regex(BLOCK_NAME, "must be scope/name/.../trigger: lowercase letters, digits, - and _"),
 		label: z.string().min(1),
 		description: z.string().optional(),

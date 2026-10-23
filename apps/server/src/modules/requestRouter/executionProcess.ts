@@ -12,7 +12,9 @@ import { registerWorkflowJobHandler } from "../jobs/workflowJob";
 import { exportTraceRun, resetProviders } from "../telemetry/destinations";
 import { RouteTraceRecorder, WorkflowTraceRecorder } from "../telemetry/routeRecorder";
 import { triggerPayloadLimit } from "../triggers/payloadLimit";
+import { refreshPluginTriggers } from "../triggers/pluginTriggerRuntime";
 import { setTriggerFaultReporter } from "../triggers/queueRuntime";
+import { guardProcess } from "../triggers/strayErrors";
 import { AsyncExecutor } from "./asyncExecutor";
 import {
 	applyArtifactUpdate,
@@ -60,6 +62,8 @@ process.argv = [];
 process.execArgv = [];
 
 provideHostPackages();
+// a floating promise, a plugin trigger's or anyone's, must not take the worker down
+guardProcess();
 
 process.on("message", (message: ExecutionMessage) => {
 	if (message.type === "bootstrap") {
@@ -80,6 +84,8 @@ process.on("message", (message: ExecutionMessage) => {
 	if (message.type === "plugin-refs") {
 		setPluginRefs(message.refs);
 		setPluginTriggerRefs(message.triggers);
+		// a trigger whose plugin was not installed yet starts now
+		void refreshPluginTriggers();
 		// a newly installed plugin's variants; failures are logged and fail at use
 		return void loadPluginIntegrations(message.integrations);
 	}
