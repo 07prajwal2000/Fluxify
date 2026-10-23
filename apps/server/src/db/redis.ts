@@ -45,23 +45,29 @@ function createRedisClient() {
 }
 
 export async function getCache(key: string): Promise<string> {
+	if (!redisClient) return "";
 	const value = await redisClient.get(key);
 	return value || "";
 }
 
 export async function setCacheEx(key: string, value: string, ttl: number = 120) {
+	if (!redisClient) return;
 	await redisClient.setex(key, ttl, value);
 }
 export async function hasCacheKey(key: string) {
+	if (!redisClient) return 0;
 	return redisClient.exists(key);
 }
 export async function deleteCacheKey(key: string) {
+	if (!redisClient) return 0;
 	return redisClient.del(key);
 }
 export async function setCache(key: string, value: string) {
+	if (!redisClient) return;
 	await redisClient.set(key, value);
 }
 export async function deleteCacheKeysByPattern(pattern: string) {
+	if (!redisClient) return;
 	const keys = await redisClient.keys(pattern);
 	if (keys.length > 0) {
 		await redisClient.del(...keys);
@@ -70,7 +76,7 @@ export async function deleteCacheKeysByPattern(pattern: string) {
 
 /** Batched read: one round trip for N keys instead of N round trips. */
 export async function mgetCache(keys: string[]): Promise<(string | null)[]> {
-	if (keys.length === 0) return [];
+	if (keys.length === 0 || !redisClient) return [];
 	return redisClient.mget(...keys);
 }
 

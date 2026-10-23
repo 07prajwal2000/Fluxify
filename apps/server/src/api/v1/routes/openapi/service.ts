@@ -15,10 +15,14 @@ import type { requestParamSchema } from "./dto";
 import { getActiveRoutes, getProject } from "./repository";
 
 export async function invalidateOpenApiCache(projectId?: string) {
-	if (projectId) {
-		await deleteCacheKey(`openapi-spec:${projectId}`);
-	} else {
-		await deleteCacheKeysByPattern(`openapi-spec:*`);
+	try {
+		if (projectId) {
+			await deleteCacheKey(`openapi-spec:${projectId}`);
+		} else {
+			await deleteCacheKeysByPattern(`openapi-spec:*`);
+		}
+	} catch (error) {
+		logger.warn("Failed to invalidate OpenAPI cache", "openapi", { error });
 	}
 }
 
