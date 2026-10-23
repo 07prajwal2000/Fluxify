@@ -250,6 +250,37 @@ describe("plugin rules", () => {
 		rejects(() => validatePlugin(withHub({})), `${NAME}/hub: its entry 'dist/integrations/hub.js' is not in the plugin's dist/`);
 	});
 
+	describe("triggers", () => {
+		const poll = {
+			name: `${NAME}/poll`,
+			label: "Poll",
+			icon: "icons/t.svg",
+			permissions: {},
+			params: {},
+			retry: false,
+			entry: "dist/triggers/poll.js",
+		};
+		const withPoll = (pack: Over = {}, over: object = {}) =>
+			withPluginIcons(
+				{ triggers: [{ ...poll, ...over }] },
+				{ "icons/t.svg": "<svg/>", "dist/triggers/poll.js": "export default {}", ...pack },
+			);
+
+		it("each icon goes to a data URL", () => {
+			const { manifest: m } = validatePlugin(withPoll());
+			expect(m.triggers?.[0]?.icon).toBe(`data:image/svg+xml;base64,${btoa("<svg/>")}`);
+		});
+		it("an icon over the limit, or not in the plugin, is refused", () => {
+			rejects(() => validatePlugin(withPoll({ "icons/t.svg": "a".repeat(ICON_URL_MAX) })), "the limit is");
+			rejects(() => validatePlugin(withPoll({ "icons/t.svg": null as never })), `${NAME}/poll: icon 'icons/t.svg' is not in the plugin`);
+		});
+		it("an entry that is not in the plugin's dist/ is refused", () =>
+			rejects(
+				() => validatePlugin(withPoll({ "dist/triggers/poll.js": null as never })),
+				`${NAME}/poll: its entry 'dist/triggers/poll.js' is not in the plugin's dist/`,
+			));
+	});
+
 	it("still takes a manifest without plugin icons or description", () => {
 		const { manifest: m } = validatePlugin(files());
 		expect([m.icon, m.scopeIcon, m.description]).toEqual([undefined, undefined, undefined]);

@@ -5,6 +5,7 @@ import {
 } from "@fluxify/sdk/integrations";
 import { z } from "zod";
 import { BadRequestError } from "../../../../errors/badRequestError";
+import { dataIcon } from "../../../../modules/plugins/sources/icons";
 import { isPluginVariantDisabled } from "../../../../modules/plugins/variants";
 import type { responseSchema } from "./dto";
 
@@ -36,7 +37,8 @@ export default function handleRequest(projectId: string): z.infer<typeof respons
 				return {
 					variant: def.variant,
 					label: def.label,
-					icon: def.icon,
+					// a plugin's icon is a data URL or nothing, whatever registered the variant
+					icon: def.plugin ? dataIcon(def.icon) : def.icon,
 					tags: [...(def.tags ?? [])],
 					builtIn,
 					...(def.plugin && { plugin: def.plugin, namespace: def.plugin.split("/")[0] }),

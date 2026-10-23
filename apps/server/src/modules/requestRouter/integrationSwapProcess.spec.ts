@@ -22,7 +22,7 @@ function version(v: string, variant = "Hub"): PluginIntegrationRef {
 		`export default { name: "acme/crm/${variant.toLowerCase()}", label: "${variant}", icon: "x", group: "crm",
 			variant: "${variant}", config: {}, connect: () => ({ version: "${v}" }) };`,
 	);
-	return { projectId: "p1", plugin: "acme/crm", version: v, group: "acme/crm", variant, entry };
+	return { projectId: "p1", plugin: "acme/crm", version: v, group: "acme/crm", variant, icon: "data:image/svg+xml;base64,PHN2Zy8+", entry };
 }
 
 let refs = [version("1.0.0")];

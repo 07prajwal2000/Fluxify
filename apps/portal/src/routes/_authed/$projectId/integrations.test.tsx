@@ -19,7 +19,7 @@ mock.module("@tanstack/react-router", () => ({
 	Link: ({ children, ...rest }: { children: ReactNode }) => <a {...rest}>{children}</a>,
 }));
 
-const { act, cleanup, render, within } = await import("@testing-library/react");
+const { act, cleanup, fireEvent, render, within } = await import("@testing-library/react");
 const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query");
 const { IntegrationsPage, IntegrationsList } = await import("./integrations");
 const { integrationService } = await import("@/services/integrations");
@@ -156,4 +156,38 @@ test("IntegrationsList marks existing integrations whose variant is disabled as 
 	expect(document.body.textContent).toContain("Prod Postgres");
 	expect(document.body.textContent).toContain("Old Custom DB");
 	expect(document.body.textContent).toContain("plugin disabled");
+});
+
+test("IntegrationsList shows a plugin variant's own icon, and the group's when the image fails (#977)", async () => {
+	const icon = "data:image/svg+xml;base64,PHN2Zy8+";
+	spyOn(integrationService, "getVariants").mockResolvedValue([
+		{
+			group: "acme/crm",
+			label: "acme/crm",
+			builtIn: false,
+			variants: [
+				{ variant: "HubSpot", label: "HubSpot", builtIn: false, plugin: "acme/crm", icon },
+			],
+		},
+	] as any);
+	spyOn(integrationService, "getAll").mockResolvedValue([
+		{
+			id: "int-1",
+			name: "Sales CRM",
+			group: "acme/crm",
+			variant: "HubSpot",
+			config: {},
+			devConfig: null,
+			syncDev: true,
+		},
+	]);
+
+	wrap(<IntegrationsList projectId="p1" group="acme/crm" />);
+	await act(async () => new Promise((r) => setTimeout(r, 60)));
+
+	const img = document.querySelector("tbody img");
+	expect(img?.getAttribute("src")).toBe(icon);
+	fireEvent.error(img!);
+	expect(document.querySelector("tbody img")).toBeNull();
+	expect(document.querySelector("tbody svg")).not.toBeNull();
 });

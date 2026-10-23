@@ -34,6 +34,7 @@ const ref = {
 	version: "1.0.0+aa",
 	group: "acme/crm",
 	variant: "Hub",
+	icon: "data:image/svg+xml;base64,PHN2Zy8+",
 	entry,
 };
 

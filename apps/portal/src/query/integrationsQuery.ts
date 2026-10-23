@@ -169,6 +169,12 @@ export function useIntegrationCatalog(projectId: string) {
 			variantsOf: (group: string) => find(group)?.variants.map((item) => item.variant) ?? [],
 			variantItemsOf: (group: string) => find(group)?.variants ?? [],
 			variantMeta,
+			/** a plugin variant's icon (a data URL); `group` narrows it when two groups share a variant name */
+			iconOf: (variant: string, group?: string) =>
+				(group
+					? variantMeta(group, variant)
+					: list.flatMap((g) => g.variants).find((v) => v.variant === variant)
+				)?.icon,
 			labelOf: (group: string) => find(group)?.label ?? group,
 			pluginOf: (group: string, variant: string) => variantMeta(group, variant)?.plugin,
 		};

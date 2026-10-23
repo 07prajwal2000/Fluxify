@@ -319,7 +319,7 @@ export const pluginKindsSchema = z.object({
 			version: z.string(),
 			label: z.string(),
 			description: z.string().optional(),
-			icon: z.string(),
+			icon: z.string().optional(),
 			/** the manifest params, which the wizard renders as block params */
 			params: z.record(z.string(), z.unknown()),
 			tabs: z.array(z.string()).optional(),

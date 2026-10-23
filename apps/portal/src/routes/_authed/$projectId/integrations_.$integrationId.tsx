@@ -19,10 +19,11 @@ import {
 	EnvironmentIntegrationFields,
 	isConfigEmpty,
 } from "@/components/integrations/EnvironmentIntegrationFields";
+import { IntegrationVariantIcon } from "@/components/integrations/IntegrationVariantIcon";
 import { showTestResult } from "@/components/integrations/showTestResult";
 import { parseApiError, showErrorNotification } from "@/lib/errorNotifier";
 import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
-import { integrationsQuery } from "@/query/integrationsQuery";
+import { integrationsQuery, useIntegrationCatalog } from "@/query/integrationsQuery";
 import { projectsQuery } from "@/query/projectsQuery";
 import { useCanEditProject, useIsProjectAdmin } from "@/store/auth";
 
@@ -47,6 +48,7 @@ function IntegrationDetailsPage() {
 	const testProd = integrationsQuery.testProductionConnection.mutation(projectId);
 	const testSaved = integrationsQuery.testExistingConnection.mutation(projectId);
 	const remove = integrationsQuery.remove.mutation(projectId);
+	const catalog = useIntegrationCatalog(projectId);
 
 	const [name, setName] = useState("");
 	const [testedTools, setTestedTools] = useState<{ name: string; description: string }[] | null>(
@@ -192,7 +194,12 @@ function IntegrationDetailsPage() {
 					<TbArrowLeft size={18} />
 				</Button>
 				<div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-surface-secondary text-accent">
-					{integrationIcons[variant] ?? <TbCloudCog size={20} />}
+					<IntegrationVariantIcon
+						variant={variant}
+						group={group}
+						icon={catalog.iconOf(variant, group)}
+						size={20}
+					/>
 				</div>
 				<div className="min-w-0">
 					<h1 className="truncate text-xl font-semibold tracking-tight">{loaded.data.name}</h1>

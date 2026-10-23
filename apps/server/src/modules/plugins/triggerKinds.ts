@@ -3,6 +3,7 @@ import type { DbTransactionType } from "../../db";
 import { pluginTriggerType } from "../triggers/types";
 import { isUsableIn, liveOf } from "./meta";
 import { listPluginRows } from "./repository";
+import { dataIcon } from "./sources/icons";
 
 /**
  * Plugin trigger kinds as admin metadata (T2): read from the approved manifest,
@@ -53,7 +54,7 @@ export async function usableTriggerKinds(projectId: string, kind?: string) {
 				version: row.version,
 				label: t.label,
 				description: t.description,
-				icon: t.icon,
+				icon: dataIcon(t.icon),
 				params: t.params,
 				tabs: t.tabs,
 				permissions: t.permissions,

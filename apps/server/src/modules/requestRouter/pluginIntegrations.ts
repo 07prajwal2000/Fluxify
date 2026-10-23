@@ -21,6 +21,8 @@ export type PluginIntegrationRef = {
 	/** namespaced for a plugin's own group (`acme/crm`) */
 	group: string;
 	variant: string;
+	/** the approved manifest's icon (a data URL); the module's own `icon` is a path and never used */
+	icon: string;
 	/** absolute path to the built module under `pluginDir(...)` */
 	entry: string;
 };
@@ -35,6 +37,7 @@ export const pluginIntegrationRefs = (
 		version: artifact.version,
 		group: i.group,
 		variant: i.variant,
+		icon: i.icon,
 		entry: resolve(root, i.entry),
 	}));
 
@@ -63,7 +66,8 @@ export async function importIntegration(ref: PluginIntegrationRef) {
 		const def = toVariantDef(mod, { plugin: ref.plugin });
 		if (def.group !== ref.group || def.variant !== ref.variant)
 			throw new Error(`it defines ${def.group}/${def.variant}, not the approved one`);
-		return def;
+		// what the creator approved, not the module's raw path
+		return { ...def, icon: ref.icon };
 	} catch (error) {
 		throw new Error(`${label(ref)} failed to load from ${entryPath}: ${(error as Error).message}`);
 	}

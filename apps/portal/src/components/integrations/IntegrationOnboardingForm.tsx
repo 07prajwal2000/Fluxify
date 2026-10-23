@@ -1,4 +1,4 @@
-import { Button, Checkbox, integrationIcons, toast } from "@fluxify/components";
+import { Button, Checkbox, toast } from "@fluxify/components";
 import { getDefaultVariantValue } from "@fluxify/server/src/api/v1/integrations/helpers";
 import { useBlocker } from "@tanstack/react-router";
 import { useRef, useState } from "react";
@@ -10,12 +10,12 @@ import { setPath } from "./ConnectorFields";
 import { EnvironmentIntegrationFields, isConfigEmpty } from "./EnvironmentIntegrationFields";
 import {
 	CategoryStep,
-	GROUP_DETAILS,
 	ProviderStep,
 	parseIntegrationConfig,
 	type Step,
 	StepNav,
 } from "./IntegrationOnboardingSteps";
+import { IntegrationVariantIcon } from "./IntegrationVariantIcon";
 import { showTestResult } from "./showTestResult";
 
 /**
@@ -240,7 +240,11 @@ export function IntegrationOnboardingForm({
 								/>
 								<div className="flex items-center gap-2 rounded-lg border border-border bg-surface-secondary px-3 py-1.5 text-xs text-foreground">
 									<span className="flex size-4 items-center justify-center text-accent">
-										{integrationIcons[variant] ?? GROUP_DETAILS[group]?.icon}
+										<IntegrationVariantIcon
+											variant={variant}
+											group={group}
+											icon={catalog.iconOf(variant, group)}
+										/>
 									</span>
 									<span className="font-medium text-foreground">{variant}</span>
 								</div>
