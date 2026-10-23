@@ -16,6 +16,7 @@ export default function (app: HonoServer) {
 
 			try {
 				const spec = await generateOpenApiSpec(param, new URL(ctx.req.url).origin, env);
+				ctx.header("Cache-Control", "no-cache, must-revalidate");
 				return ctx.json(spec);
 			} catch (error: any) {
 				if (error.message === "Project not found") {
