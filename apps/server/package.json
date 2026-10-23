@@ -35,6 +35,7 @@
 	"license": "Apache-2.0",
 	"description": "",
 	"devDependencies": {
+		"@ai-sdk/openai-compatible": "^3.0.0",
 		"@fluxify/mcp-math": "workspace:*",
 		"@fluxify/sdk": "workspace:*",
 		"@types/bun": "^1.4.0",
@@ -51,6 +52,7 @@
 		"typescript": "^6.0.3"
 	},
 	"dependencies": {
+		"@ai-sdk/provider": "^4.0.0",
 		"@better-auth/api-key": "1.6.23",
 		"@better-auth/oauth-provider": "1.6.23",
 		"@better-auth/sso": "^1.6.24",
@@ -62,6 +64,7 @@
 		"@hono/zod-validator": "^0.8.0",
 		"@modelcontextprotocol/sdk": "^1.29.0",
 		"@toon-format/toon": "^2.3.0",
+		"ai": "^7.0.0",
 		"better-auth": "1.6.23",
 		"dayjs": "^1.11.21",
 		"dotenv": "^17.4.2",

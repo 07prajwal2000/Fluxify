@@ -1,7 +1,9 @@
 import { configOwner, integrationRegistry } from "@fluxify/adapters";
 import { DEFAULT_IDLE_TIMEOUT_MS, LeasedResources } from "@fluxify/lib";
+import type { AiAdapter } from "@fluxify/sdk/integrations";
 import { type IntegrationSource, leasePool } from "@fluxify/sdk/runtime";
 import type { Context } from "../baseBlock";
+import { tracedAi } from "./ctxAiSpans";
 
 /**
  * Clients of integrations no built-in factory owns (a plugin's own group, ai,
@@ -45,11 +47,15 @@ export function withCtxIntegrations(
 			if (group === "queue") return (await ctx.queueFactory!.getProducer(id)) as never;
 			const def = integrationRegistry.require(group, variant, configOwner(config));
 			if (!def.create) throw new Error(`${group} integration '${variant}' cannot be created`);
-			return (await pool(`${group}/${variant}`, def.poolKey ? def.poolKey(config) : config, {
+			const client = await pool(`${group}/${variant}`, def.poolKey ? def.poolKey(config) : config, {
 				create: () => def.create!(config, {} as never),
 				destroy: (client) =>
 					def.close ? def.close(client as never) : (client as any)?.disconnect?.(),
-			})) as never;
+			});
+			// the pooled adapter is shared; the tracing is this block's
+			return (
+				group === "ai" && ctx.span ? tracedAi(client as AiAdapter, ctx.span) : client
+			) as never;
 		},
 	};
 	return { ctx: { ...ctx, integrations }, release };

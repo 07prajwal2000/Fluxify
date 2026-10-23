@@ -1,6 +1,7 @@
 // Type tests for `integration()` (I5): compiled by `bun run typecheck`, never run.
 import { block, param } from "../blocks.js";
-import type { DatabaseAdapter, KvAdapter } from "../integrations.js";
+import { generateText } from "ai";
+import type { AiAdapter, DatabaseAdapter, KvAdapter } from "../integrations.js";
 import { integration } from "../integrations.js";
 import type { IntegrationClient } from "../src/context.js";
 
@@ -33,6 +34,9 @@ function contractChecks() {
 
 	// @ts-expect-error a kv variant's client must be a whole KvAdapter
 	integration({ ...common, name: "acme/t/kv", group: "kv", config: {}, connect: async () => ({ get: async () => null }) });
+
+	// @ts-expect-error an ai variant must hand out a languageModel
+	integration({ ...common, name: "acme/t/ai", group: "ai", config: {}, connect: () => ({ embeddingModel: () => null as never }) });
 
 	// @ts-expect-error a database variant must say its condition editor and dbType
 	integration({ ...common, name: "acme/t/db", group: "database", config: {}, connect: () => db, adapter: () => db });
@@ -85,6 +89,11 @@ block({
 		// the I4 forms keep working
 		assert<Equal<Awaited<ReturnType<typeof ctx.integrations.get<"kv">>>, KvAdapter>>();
 		assert<Equal<Awaited<ReturnType<typeof ctx.integrations.get<{ n: 1 }>>>, { n: 1 }>>();
+		// the AI SDK takes the model as it is
+		const ai = await ctx.integrations.get<"ai">(params.conn);
+		assert<Equal<typeof ai, AiAdapter>>();
+		await generateText({ model: ai.languageModel(), prompt: "hi" });
+		await generateText({ model: ai.languageModel("gpt-5-mini"), prompt: "hi" });
 		return { output: await client.contacts() };
 	},
 });

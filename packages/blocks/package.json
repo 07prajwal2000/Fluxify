@@ -41,6 +41,7 @@
 		"@fluxify/common": "workspace:*",
 		"@fluxify/lib": "workspace:*",
 		"@fluxify/sdk": "workspace:*",
+		"ai": "^7.0.0",
 		"dayjs": "^1.11.19",
 		"jsonwebtoken": "^9.0.3",
 		"zod": "^4.0.17"

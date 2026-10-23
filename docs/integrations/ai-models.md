@@ -31,7 +31,11 @@ Connect to any service that follows the OpenAI API format (e.g., local LLMs via 
 
 ## Usage
 
-These integrations power the AI assistant. There are no AI blocks to call a model from inside a route yet.
+These integrations power the AI assistant. There are no built-in AI blocks yet, but a [plugin block](/plugins/authoring/integrations#ai-variants) can call a model through any of them.
+
+::: info Test connection
+**Test connection** asks the provider for its list of models. It checks the key and the address without running the model, so it uses no tokens.
+:::
 
 ## AI configuration
 

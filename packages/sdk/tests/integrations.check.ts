@@ -59,7 +59,7 @@ function contractTypeChecks() {
 	};
 
 	const mockAi: AiAdapter = {
-		createModel: () => ({}),
+		languageModel: () => null as never,
 	};
 
 	const mockObs: ObservabilityAdapter = {
@@ -138,7 +138,7 @@ function contractTypeChecks() {
 		get: async () => null,
 	};
 
-	// @ts-expect-error missing createModel on AiAdapter
+	// @ts-expect-error missing languageModel on AiAdapter
 	const _incompleteAi: AiAdapter = {};
 
 	// @ts-expect-error missing log methods on ObservabilityAdapter

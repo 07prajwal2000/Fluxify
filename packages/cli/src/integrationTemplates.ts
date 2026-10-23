@@ -29,13 +29,13 @@ const CONTRACTS: Record<
 	},
 	kv: { type: "KvAdapter", methods: ["get", "set", "setex", "delete"] },
 	queue: { type: "QueueProducer", methods: ["send", "client", "close"] },
-	ai: { type: "AiAdapter", methods: ["createModel"] },
+	ai: { type: "AiAdapter", methods: [] },
 	observability: { type: "ObservabilityAdapter", methods: ["logInfo", "logWarn", "logError"] },
 	baas: { type: "BaasAdapter", methods: ["client"] },
 	mcp: { type: "McpAdapter", methods: ["listTools", "callTool", "close"] },
 };
 
-const SYNC = new Set(["createModel", "logInfo", "logWarn", "logError", "client"]);
+const SYNC = new Set(["logInfo", "logWarn", "logError", "client"]);
 
 const label = (name: string) => name.split("/").at(-1)!;
 
@@ -53,6 +53,20 @@ function clientCode(group: string) {
 				return { region: config.region, tokenLength: token.length };
 			},
 		};`;
+	if (group === "ai")
+		return `// the AI SDK's own models, unwrapped: \`bun add @ai-sdk/openai-compatible\` (or your
+		// provider's package); \`ai\` and \`@ai-sdk/provider\` are peer dependencies the worker provides
+		const provider = createOpenAICompatible({
+			name: "${group}",
+			baseURL: \`https://\${config.region}.api.example.com/v1\`,
+			apiKey: token,
+		});
+		const client: AiAdapter = {
+			// no id: your default model
+			languageModel: (modelId = "default-chat-model") => provider.languageModel(modelId),
+			embeddingModel: (modelId = "default-embedding-model") => provider.embeddingModel(modelId),
+		};
+		return client;`;
 	if (group === "database")
 		return `// open your driver's pool with \`token\` here: one per integration, shared by every request
 		return { token };`;
@@ -84,7 +98,9 @@ export const integrationTemplate = (type: string, group: string) => {
 		group === "database"
 			? `\t// a database also says how hand-written conditions are written\n\textras: { conditionEditor: "sql", dbType: "${label(type)}" },\n`
 			: "";
-	return `import { param } from "@fluxify/sdk/blocks";
+	const provider =
+		group === "ai" ? `import { createOpenAICompatible } from "@ai-sdk/openai-compatible";\n` : "";
+	return `${provider}import { param } from "@fluxify/sdk/blocks";
 import { integration } from "@fluxify/sdk/integrations";
 ${imports}
 export default integration({

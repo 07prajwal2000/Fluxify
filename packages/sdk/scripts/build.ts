@@ -1,4 +1,4 @@
-// The npm package, in dist/: ESM bundles (zod stays a peer), declarations,
+// The npm package, in dist/: ESM bundles (zod and the AI SDK stay peers), declarations,
 // and a package.json whose exports point at them. The workspace keeps using
 // the TS source, so nothing here affects it. Pack or publish from dist/.
 import { rmSync } from "node:fs";
@@ -16,7 +16,7 @@ const built = await Bun.build({
 	// no Node or Bun APIs: the admin and the portal import the schemas too
 	target: "browser",
 	splitting: true,
-	external: ["zod"],
+	external: ["zod", "ai", "@ai-sdk/provider"],
 });
 if (!built.success) throw new AggregateError(built.logs, "bundle failed");
 // the test harness and the runtime contract it shares with the engine use node APIs
@@ -26,7 +26,7 @@ const node = await Bun.build({
 	format: "esm",
 	target: "node",
 	splitting: true,
-	external: ["zod"],
+	external: ["zod", "ai", "@ai-sdk/provider"],
 });
 if (!node.success) throw new AggregateError(node.logs, "bundle failed");
 await $`bun x tsgo -p ${root}/tsconfig.build.json`;

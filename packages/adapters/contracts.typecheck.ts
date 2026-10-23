@@ -191,9 +191,9 @@ function _typecheckNegative() {
 		logInfo: () => {},
 	};
 
-	// @ts-expect-error Incomplete AiAdapter (missing createModel)
+	// @ts-expect-error Incomplete AiAdapter (missing languageModel)
 	const _badAi: AiAdapter = {
-		createAgent: () => {},
+		embeddingModel: () => null as never,
 	};
 
 	// @ts-expect-error Incomplete QueueConnection

@@ -128,7 +128,7 @@ export default plugin({
 }
 ```
 
-Every worker runs your blocks on its own copy of both, so a plugin never carries its own and its blocks share one `zod` with the rest of Fluxify. The `@fluxify/sdk` range is written into the manifest as the Fluxify versions the plugin supports. Any other package you list in `dependencies` is installed on each worker from `bun.lock`, and is never bundled into your blocks.
+Every worker runs your blocks on its own copy of both, so a plugin never carries its own and its blocks share one `zod` with the rest of Fluxify. If your plugin uses the AI SDK, `ai` (`^7.0.0`) and `@ai-sdk/provider` (`^4.0.0`) follow the same rule: the worker provides them. The `@fluxify/sdk` range is written into the manifest as the Fluxify versions the plugin supports. Any other package you list in `dependencies` is installed on each worker from `bun.lock`, and is never bundled into your blocks.
 
 ## Names
 

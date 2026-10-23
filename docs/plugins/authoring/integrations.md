@@ -275,10 +275,96 @@ An `OutgoingMessage` is `{ destination, payload, key?, headers?, options? }`. `d
 
 ## AI variants
 
-An `ai` variant returns an `AiAdapter` with `createModel()` and, optionally, `createAgent(systemPrompt, tools)`.
+An `ai` variant returns an `AiAdapter`. Fluxify owns the connection (the provider, the key from App config, the base URL, pooling and tracing). The models it hands out are the [AI SDK](https://ai-sdk.dev)'s own, so you call `generateText`, `streamText`, `generateObject`, `tool()` or an `Agent` on them yourself.
 
-::: warning Wait for the AI contract
-The AI contract is changing to return AI SDK models. A variant written against the current `unknown` model shape will need to change. Wait for the updated contract before you publish an `ai` variant.
+```ts
+interface AiAdapter {
+	languageModel(modelId?: string): LanguageModelV4; // no id: the integration's default model
+	embeddingModel?(modelId?: string): EmbeddingModelV4;
+}
+```
+
+| Method | What it returns |
+| :--- | :--- |
+| `languageModel()` | The chat model the integration is set up with |
+| `languageModel("gpt-5-mini")` | Another model from the same provider and key |
+| `embeddingModel("text-embedding-3-small")` | An embedding model, where the provider has them |
+
+`ai` and `@ai-sdk/provider` are **peer dependencies**, like `@fluxify/sdk` and `zod`: the worker provides them, so your models and the worker's AI SDK are always the same version. A provider package (`@ai-sdk/openai-compatible`, `@ai-sdk/openai`, …) is an ordinary dependency.
+
+A variant for a provider the built-ins lack wraps that provider's AI SDK package:
+
+```ts
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+import { param } from "@fluxify/sdk/blocks";
+import { type AiAdapter, integration } from "@fluxify/sdk/integrations";
+
+export default integration({
+	name: "acme/llm/groq",
+	label: "Groq",
+	icon: "./icons/groq.svg",
+	group: "ai",
+	variant: "Groq",
+	config: {
+		model: param.string({ label: "Model", required: true }),
+		key: param.secret({ label: "API key", required: true }),
+	},
+	connect(config, ctx): AiAdapter {
+		const groq = createOpenAICompatible({
+			name: "groq",
+			baseURL: "https://api.groq.com/openai/v1",
+			apiKey: ctx.getConfig(config.key),
+		});
+		return { languageModel: (id = config.model) => groq.languageModel(id) };
+	},
+});
+```
+
+### Using a model from a block
+
+A block runs the model with the AI SDK. Here the model may call one tool, which saves a value through another integration. `stopWhen` bounds the loop:
+
+```ts
+import { block, param } from "@fluxify/sdk/blocks";
+import { generateText, stepCountIs, tool } from "ai";
+import { z } from "zod";
+
+export default block({
+	name: "acme/llm/remember",
+	label: "Remember",
+	permissions: { integrations: ["ai", "kv"] },
+	params: {
+		llm: param.integration({ kind: "ai", required: true }),
+		store: param.integration({ kind: "kv", required: true }),
+		prompt: param.string({ label: "Prompt", required: true }),
+	},
+	async run({ params, ctx }) {
+		const ai = await ctx.integrations.get<"ai">(params.llm);
+		const kv = await ctx.integrations.get<"kv">(params.store);
+		const { text } = await generateText({
+			model: ai.languageModel(),
+			prompt: params.prompt,
+			tools: {
+				remember: tool({
+					description: "Save a fact for later",
+					inputSchema: z.object({ key: z.string(), value: z.string() }),
+					execute: async ({ key, value }) => {
+						await kv.set(key, value);
+						return "saved";
+					},
+				}),
+			},
+			stopWhen: stepCountIs(5),
+		});
+		return { output: text };
+	},
+});
+```
+
+Every model call shows in the route's trace as a step under your block, named `ai:<provider>/<model>`, with its finish reason and token counts. Prompts and answers are not recorded.
+
+::: tip Long agent loops
+A sync route has a request timeout. Put a block that runs many model calls in an `async` or `queued` [invocation](./blocks#invoke), so the loop is not cut short.
 :::
 
 ## Observability variants
