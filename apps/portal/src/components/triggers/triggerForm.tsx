@@ -1,4 +1,5 @@
 import { cn, Description, Label, ListBox, NumberField, Select } from "@fluxify/components";
+import type { ReactNode } from "react";
 import { SiApachekafka, SiNatsdotio, SiRabbitmq, SiRedis } from "react-icons/si";
 import { TbBrandAws, TbClock } from "react-icons/tb";
 import type { TriggerGroup } from "@/services/triggers";
@@ -10,14 +11,28 @@ import type { TriggerGroup } from "@/services/triggers";
  * than four hundred lines of fields.
  */
 
-export type TriggerType = "schedule" | "kafka" | "nats" | "sqs" | "redis" | "rabbitmq";
+/** A built-in source, or a plugin kind's row type (`plugin:<scope>/<name>/<trigger>`). */
+export type TriggerType = string;
+
+/** One card on the Source step: a built-in or a plugin trigger kind. */
+export type TriggerSourceOption = {
+	id: TriggerType;
+	label: string;
+	hint: string;
+	icon: ReactNode;
+	/** A word beside the label, e.g. “Plugin”. */
+	badge?: string;
+	/** False greys the card out; its reason shows under the hint. */
+	available?: boolean;
+	disabledReason?: string;
+};
 
 export const TRIGGER_DEFAULTS = {
 	name: "",
 	description: "",
 };
 
-export const TRIGGER_TYPE_OPTIONS = [
+export const TRIGGER_TYPE_OPTIONS: TriggerSourceOption[] = [
 	{
 		id: "schedule",
 		label: "Schedule",
@@ -60,21 +75,24 @@ export const TRIGGER_TYPE_OPTIONS = [
 		icon: <SiRabbitmq size={20} />,
 		available: true,
 	},
-] as const;
+];
 
 /** Step one: what fires the trigger. Everything after it depends on the answer. */
 export function TypeSelector({
 	value,
+	options,
 	onChange,
 }: {
 	value: TriggerType;
+	options: TriggerSourceOption[];
 	onChange: (value: TriggerType) => void;
 }) {
 	return (
 		<div className="grid gap-2.5 sm:grid-cols-2">
-			{TRIGGER_TYPE_OPTIONS.map((option) => {
-				const selected = option.available && value === option.id;
-				const isOptionDisabled = !option.available;
+			{options.map((option) => {
+				const enabled = option.available !== false;
+				const selected = enabled && value === option.id;
+				const isOptionDisabled = !enabled;
 				const card = (
 					<button
 						key={option.id}
@@ -101,8 +119,13 @@ export function TypeSelector({
 							{option.icon}
 						</span>
 						<span className="min-w-0 flex-1">
-							<span className="flex items-center gap-2">
+							<span className="flex flex-wrap items-center gap-2">
 								<span className="text-sm font-semibold text-foreground">{option.label}</span>
+								{option.badge && (
+									<span className="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent">
+										{option.badge}
+									</span>
+								)}
 								{!option.available && (
 									<span className="rounded-full bg-surface-secondary px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted">
 										Coming soon
@@ -110,6 +133,9 @@ export function TypeSelector({
 								)}
 							</span>
 							<span className="mt-0.5 block text-xs text-muted">{option.hint}</span>
+							{option.disabledReason && (
+								<span className="mt-0.5 block text-xs text-warning">{option.disabledReason}</span>
+							)}
 						</span>
 					</button>
 				);
@@ -124,18 +150,21 @@ export function GroupSelect({
 	value,
 	onChange,
 	incoming = 1,
+	isDisabled,
 }: {
 	groups: TriggerGroup[];
 	value: string;
 	onChange: (value: string) => void;
 	/** How many triggers would join the picked group; a group they don't fit in can't be picked. */
 	incoming?: number;
+	isDisabled?: boolean;
 }) {
 	if (groups.length === 0) return null;
 	return (
 		<Select
 			fullWidth
 			variant="secondary"
+			isDisabled={isDisabled}
 			value={value || (groups.find((group) => group.isDefault)?.id ?? null)}
 			onChange={(next) => onChange(String(next))}
 		>

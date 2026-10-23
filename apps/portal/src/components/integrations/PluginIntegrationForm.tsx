@@ -1,5 +1,4 @@
 import { Button, CloseButton, cn, Input, Label, Tabs } from "@fluxify/components";
-import { isVisible, paramTabs } from "@fluxify/sdk";
 import type { HintParam, Param } from "@fluxify/sdk/blocks";
 import { ReactFlowProvider, useNodes, useReactFlow } from "@xyflow/react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -27,6 +26,7 @@ import {
 } from "../canvas/panel/fields";
 import type { BlockNode } from "../canvas/types";
 import { AppConfigSelectorModal } from "./AppConfigSelectorModal";
+import { pluginParamTabs } from "./pluginParamTabs";
 
 type ValueParam = Exclude<Param, HintParam>;
 
@@ -209,27 +209,12 @@ function Item({
 	);
 }
 
-function visibleTabs(
-	params: Record<string, Param>,
-	tabs: readonly string[] | undefined,
-	data: Record<string, unknown>,
-) {
-	const values: Record<string, unknown> = {};
-	for (const [name, p] of Object.entries(params)) if ("default" in p) values[name] = p.default;
-	for (const [name, value] of Object.entries(data)) if (value != null) values[name] = value;
-	const shown = (name: string) => {
-		const when = params[name]!.visibleWhen;
-		return !when || isVisible(when, values);
-	};
-	return paramTabs(params, tabs as string[])
-		.map((tab) => ({ name: tab.name, items: tab.params.filter(shown) }))
-		.filter((tab) => tab.items.some((name) => params[name]!.type !== "hint"));
-}
-
 function NodeBridge({
+	nodeId,
 	config,
 	setField,
 }: {
+	nodeId: string;
 	config: Record<string, unknown>;
 	setField: (name: string, value: unknown) => void;
 }) {
@@ -252,8 +237,8 @@ function NodeBridge({
 	// When parent config changes externally, sync back to nodeData
 	useEffect(() => {
 		prevDataRef.current = config;
-		updateNodeData("integration-form-node", config);
-	}, [config, updateNodeData]);
+		updateNodeData(nodeId, config);
+	}, [nodeId, config, updateNodeData]);
 
 	return null;
 }
@@ -310,7 +295,7 @@ export function PluginIntegrationFormInner({
 			</div>
 		) : null;
 
-	const tabs = visibleTabs(params, declaredTabs, config);
+	const tabs = pluginParamTabs(params, declaredTabs, config);
 	if (tabs.length === 0)
 		return (
 			<div className="flex w-full flex-col gap-4">
@@ -341,7 +326,7 @@ export function PluginIntegrationFormInner({
 	return (
 		<div className="flex w-full flex-col gap-4">
 			{nameField}
-			<NodeBridge config={config} setField={setField} />
+			<NodeBridge nodeId="integration-form-node" config={config} setField={setField} />
 			{tabs.length === 1 ? (
 				panel(tabs[0]!.items)
 			) : (
@@ -368,6 +353,77 @@ export function PluginIntegrationFormInner({
 				</Tabs>
 			)}
 		</div>
+	);
+}
+
+export type PluginParamFieldsProps = {
+	projectId: string;
+	/** the param renderer's block type; it only picks the fields, nothing loads */
+	variant: string;
+	params: Record<string, Param>;
+	/** the params this step shows, in order */
+	names: string[];
+	config: Record<string, unknown>;
+	setField: (name: string, value: unknown) => void;
+	readOnly?: boolean;
+	/** the server's refusal, by param name, shown under its field */
+	errors?: Record<string, string>;
+};
+
+/**
+ * The plugin param renderer for a caller that does not want its tab bar: a
+ * wizard step, for example, draws one tab's params. Same fields, same writers,
+ * as `PluginIntegrationForm` — it is that form's panel without the tabs.
+ */
+export function PluginParamFields({
+	projectId,
+	variant,
+	params,
+	names,
+	config,
+	setField,
+	readOnly,
+	errors,
+}: PluginParamFieldsProps) {
+	const nodeId = "plugin-param-fields-node";
+	const block: BlockNode = useMemo(
+		() => ({ id: nodeId, type: variant, position: { x: 0, y: 0 }, data: config }),
+		[variant, config],
+	);
+	const initialNodes = useMemo<BlockNode[]>(
+		() => [{ id: nodeId, type: variant, position: { x: 0, y: 0 }, data: config }],
+		[variant],
+	);
+
+	return (
+		<CanvasChangesProvider value={{ ...DISABLED_CHANGES, enabled: !readOnly }}>
+			<ReactFlowProvider defaultNodes={initialNodes}>
+				<NodeBridge nodeId={nodeId} config={config} setField={setField} />
+				<div className="flex w-full flex-col gap-4">
+					{names.map((itemName) => {
+						const param = params[itemName];
+						if (!param) return null;
+						return (
+							<div key={itemName} className="flex w-full flex-col gap-1">
+								<Item
+									block={block}
+									name={itemName}
+									param={param}
+									projectId={projectId}
+									setField={setField}
+									readOnly={readOnly}
+								/>
+								{errors?.[itemName] && (
+									<p role="alert" className="text-xs text-danger">
+										{errors[itemName]}
+									</p>
+								)}
+							</div>
+						);
+					})}
+				</div>
+			</ReactFlowProvider>
+		</CanvasChangesProvider>
 	);
 }
 

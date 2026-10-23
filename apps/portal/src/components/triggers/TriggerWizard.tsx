@@ -1,37 +1,38 @@
-import { Button, Checkbox, Input, Label, TextArea, TextField, toast } from "@fluxify/components";
+import { Button, toast } from "@fluxify/components";
+import type { Param } from "@fluxify/sdk/blocks";
 import { useState } from "react";
-import { FormWizard, SummaryItem, type WizardStep } from "@/components/common/FormWizard";
+import { TbPlug } from "react-icons/tb";
+import { FormWizard, type WizardStep } from "@/components/common/FormWizard";
+import { pluginReviewSections, pluginStepViews } from "@/components/triggers/PluginTriggerStep";
 import {
-	DELIVERY_DEFAULTS,
-	DeliveryFields,
-	hasGroup,
-	KafkaSourceFields,
-	NatsSourceFields,
-	topicList,
-} from "@/components/triggers/KafkaTriggerFields";
-import { isRabbitQueue, RabbitMqSourceFields } from "@/components/triggers/RabbitMqTriggerFields";
-import { isRedisName, RedisSourceFields } from "@/components/triggers/RedisTriggerFields";
-import {
-	isQueueUrl,
-	queueName,
-	SQS_MAX_BATCH,
-	SqsSourceFields,
-} from "@/components/triggers/SqsTriggerFields";
+	isPluginTriggerType,
+	pluginKindName,
+	pluginNameOfKind,
+	pluginSource,
+	pluginSourceOption,
+	pluginTriggerSteps,
+	sourceFieldErrors,
+} from "@/components/triggers/pluginTrigger";
+import { TriggerBasicsStep } from "@/components/triggers/TriggerBasicsStep";
 import { errorMessage, NoticeList } from "@/components/triggers/TriggerNotices";
+import { type ReviewSection, TriggerReview } from "@/components/triggers/TriggerReview";
 import { TriggerWorkflowsField } from "@/components/triggers/TriggerWorkflowsField";
 import {
-	BATCH_DEFAULTS,
-	BatchFields,
-	GroupSelect,
 	TRIGGER_DEFAULTS,
 	TRIGGER_TYPE_OPTIONS,
 	type TriggerType,
 	TypeSelector,
 } from "@/components/triggers/triggerForm";
-import { ScheduleFields } from "@/components/workflows/ScheduleFields";
-import { showErrorNotification } from "@/lib/errorNotifier";
+import { useBuiltInTriggerForm } from "@/components/triggers/useBuiltInTriggerForm";
+import { parseApiError, showErrorNotification } from "@/lib/errorNotifier";
+import { pluginsQuery } from "@/query/pluginsQuery";
 import { triggersQuery } from "@/query/triggersQuery";
-import type { CreateTriggerBody, Trigger, UpdateTriggerBody } from "@/services/triggers";
+import type {
+	CreateTriggerBody,
+	PluginTriggerKind,
+	Trigger,
+	UpdateTriggerBody,
+} from "@/services/triggers";
 
 export type TriggerWizardProps = {
 	projectId: string;
@@ -53,6 +54,7 @@ export function TriggerWizard({
 	const create = triggersQuery.create.mutation();
 	const update = triggersQuery.update.mutation();
 	const { data: groups } = triggersQuery.groups.useQuery(projectId);
+	const builtIn = useBuiltInTriggerForm(initialTrigger);
 
 	const [form, setForm] = useState({
 		name: initialTrigger?.name ?? TRIGGER_DEFAULTS.name,
@@ -64,138 +66,85 @@ export function TriggerWizard({
 	const [groupId, setGroupId] = useState(initialTrigger?.groupId ?? "");
 	const [workflowId, setWorkflowId] = useState<string | null>(initialTrigger?.workflowId ?? null);
 	const [active, setActive] = useState(initialTrigger ? initialTrigger.active : true);
-	const [schedule, setSchedule] = useState({
-		schedule: initialTrigger?.schedule ?? "",
-		timezone: initialTrigger?.timezone || "UTC",
-	});
-	const source = (initialTrigger?.source ?? {}) as {
-		topics?: string[];
-		consumerGroup?: string;
-		fromBeginning?: boolean;
-		createTopics?: boolean;
-		allowIdleConsumers?: boolean;
-		stream?: string;
-		filterSubjects?: string[];
-		queueUrl?: string;
-		waitTimeSeconds?: number;
-		visibilityTimeoutSec?: number;
-		consumer?: string;
-		claimIdleMs?: number;
-		dlqStream?: string;
-		queue?: string;
-	};
-	const integrationId = initialTrigger?.integrationId ?? "";
-	const [kafka, setKafka] = useState({
-		integrationId,
-		topics: (source.topics ?? []).join(", "),
-		consumerGroup: source.consumerGroup ?? null,
-		fromBeginning: Boolean(source.fromBeginning),
-		createTopics: Boolean(source.createTopics),
-		allowIdleConsumers: Boolean(source.allowIdleConsumers),
-	});
-	const [nats, setNats] = useState({
-		integrationId,
-		stream: source.stream ?? "",
-		subjects: (source.filterSubjects ?? []).join(", "),
-		consumerGroup: source.consumerGroup ?? null,
-		fromBeginning: Boolean(source.fromBeginning),
-	});
-	const [sqs, setSqs] = useState({
-		integrationId,
-		queueUrl: source.queueUrl ?? "",
-		waitTimeSeconds: source.waitTimeSeconds ?? 20,
-		visibilityTimeoutSec: source.visibilityTimeoutSec ?? 30,
-	});
-	const [redis, setRedis] = useState({
-		integrationId,
-		stream: source.stream ?? "",
-		consumerGroup: source.consumerGroup ?? null,
-		consumer: source.consumer ?? "",
-		fromBeginning: Boolean(source.fromBeginning),
-		claimIdleSec: Math.round((source.claimIdleMs ?? 60_000) / 1000),
-		dlqStream: source.dlqStream ?? "",
-	});
-	const [rabbit, setRabbit] = useState({ integrationId, queue: source.queue ?? "" });
-	const [batch, setBatch] = useState({
-		batchSize: initialTrigger?.batchSize ?? BATCH_DEFAULTS.batchSize,
-		maxWaitMs: initialTrigger?.maxWaitMs ?? BATCH_DEFAULTS.maxWaitMs,
-		maxBytes: initialTrigger?.maxBytes ?? BATCH_DEFAULTS.maxBytes,
-		concurrency: initialTrigger?.concurrency ?? BATCH_DEFAULTS.concurrency,
-	});
-	const [delivery, setDelivery] = useState({
-		commitMode: (initialTrigger?.commitMode as "auto" | "manual") ?? DELIVERY_DEFAULTS.commitMode,
-		maxAttempts: initialTrigger?.maxAttempts ?? DELIVERY_DEFAULTS.maxAttempts,
-		retryDelayMs: initialTrigger?.retryDelayMs ?? DELIVERY_DEFAULTS.retryDelayMs,
-	});
+	const [pluginValues, setPluginValues] = useState<Record<string, unknown>>(
+		(initialTrigger?.source as Record<string, unknown> | null) ?? {},
+	);
 	// Why the last save was refused, kept on screen: a toast is gone before an
 	// AWS permission list can be read.
 	const [error, setError] = useState<string | null>(null);
+	// `source.<param>` refusals, shown under the field that holds them.
+	const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 	// Saved, with something the user should read before the wizard closes.
 	const [warnings, setWarnings] = useState<string[]>([]);
+	// FormWizard owns its position unless a refused save needs to point at a step.
+	const [step, setStep] = useState(0);
 
 	const set = (key: keyof typeof TRIGGER_DEFAULTS, value: string) =>
 		setForm((previous) => ({ ...previous, [key]: value }));
+	const setPluginField = (name: string, value: unknown) =>
+		setPluginValues((previous) => ({ ...previous, [name]: value }));
+
+	const isPlugin = isPluginTriggerType(type);
+	const kindName = isPlugin ? pluginKindName(type) : undefined;
+	// The Source step lists every kind on create; an edit asks for its own only.
+	const kinds = triggersQuery.pluginKinds.useQuery(
+		projectId,
+		isEdit && kindName ? kindName : undefined,
+		!isEdit || isPlugin,
+	);
+	const kind: PluginTriggerKind | undefined = kindName
+		? kinds.data?.find((item) => item.kind === kindName)
+		: undefined;
+	const plugins = pluginsQuery.list.useQuery(projectId, isEdit && isPlugin);
+	const pluginRow =
+		isPlugin && kindName
+			? plugins.data?.find((item) => item.name === pluginNameOfKind(kindName))
+			: undefined;
+	const pluginCheckLoading = isEdit && isPlugin && (kinds.isLoading || plugins.isLoading);
+	// The kind endpoint only lists plugins switched on somewhere, so a missing
+	// kind is either a disabled plugin or one that dropped it in an upgrade.
+	const pluginOff =
+		isEdit &&
+		isPlugin &&
+		!pluginCheckLoading &&
+		!kind &&
+		Boolean(pluginRow) &&
+		!pluginRow?.devEnabled &&
+		!pluginRow?.prodEnabled;
+	const kindGone = isEdit && isPlugin && !pluginCheckLoading && !kind && !pluginOff;
+	const readOnly = pluginOff;
 
 	const nameIsValid = form.name.trim().length >= 2;
-	const isSqs = type === "sqs";
-	const isConnector = type !== "schedule";
-	const typeOption = TRIGGER_TYPE_OPTIONS.find((option) => option.id === type);
-	const topics = topicList(kafka.topics);
-	const subjects = topicList(nats.subjects);
-	const maxBatch = isSqs ? SQS_MAX_BATCH : undefined;
-	const batchSize = Math.min(batch.batchSize, maxBatch ?? batch.batchSize);
-
-	/** The fields that differ by type; the rest of the body is shared. */
-	const connectorFields = {
-		kafka: {
-			integrationId: kafka.integrationId,
-			source: {
-				topics,
-				// No group of their own means the generated one; the key is left off entirely.
-				...(kafka.consumerGroup ? { consumerGroup: kafka.consumerGroup.trim() } : {}),
-				fromBeginning: kafka.fromBeginning,
-				createTopics: kafka.createTopics,
-				allowIdleConsumers: kafka.allowIdleConsumers,
-			},
-		},
-		nats: {
-			integrationId: nats.integrationId,
-			source: {
-				stream: nats.stream.trim(),
-				...(subjects.length ? { filterSubjects: subjects } : {}),
-				...(nats.consumerGroup ? { consumerGroup: nats.consumerGroup.trim() } : {}),
-				fromBeginning: nats.fromBeginning,
-			},
-		},
-		sqs: {
-			integrationId: sqs.integrationId,
-			source: {
-				queueUrl: sqs.queueUrl.trim(),
-				waitTimeSeconds: sqs.waitTimeSeconds,
-				visibilityTimeoutSec: sqs.visibilityTimeoutSec,
-			},
-		},
-		redis: {
-			integrationId: redis.integrationId,
-			source: {
-				stream: redis.stream.trim(),
-				...(redis.consumerGroup ? { consumerGroup: redis.consumerGroup.trim() } : {}),
-				...(redis.consumer.trim() ? { consumer: redis.consumer.trim() } : {}),
-				fromBeginning: redis.fromBeginning,
-				claimIdleMs: redis.claimIdleSec * 1000,
-				...(redis.dlqStream.trim() ? { dlqStream: redis.dlqStream.trim() } : {}),
-			},
-		},
-		rabbitmq: { integrationId: rabbit.integrationId, source: { queue: rabbit.queue.trim() } },
+	const isConnector = !isPlugin && type !== "schedule";
+	const sourceOptions = [...TRIGGER_TYPE_OPTIONS, ...(kinds.data ?? []).map(pluginSourceOption)];
+	const typeOption = sourceOptions.find((option) => option.id === type) ?? {
+		id: type,
+		label: kindName ?? type,
+		hint: "",
+		icon: <TbPlug size={20} />,
+		available: true,
 	};
-	const typeFields = isConnector
+	const pluginParams = (kind?.params ?? {}) as Record<string, Param>;
+	const pluginSteps = kind ? pluginTriggerSteps(pluginParams, kind.tabs, pluginValues) : [];
+	const groupName =
+		(groups ?? []).find((group) => group.id === groupId)?.name ??
+		(groups ?? []).find((group) => group.isDefault)?.name ??
+		"Default";
+
+	const typeFields: Record<string, unknown> = isPlugin
 		? {
-				...connectorFields[type as keyof typeof connectorFields],
-				...batch,
-				batchSize,
-				...delivery,
+				// An unknown kind keeps its stored source: there are no params to rebuild it from.
+				source: kind
+					? pluginSource(pluginParams, pluginValues)
+					: ((initialTrigger?.source ?? {}) as Record<string, unknown>),
+				...(kind?.retry
+					? {
+							maxAttempts: builtIn.delivery.maxAttempts,
+							retryDelayMs: builtIn.delivery.retryDelayMs,
+						}
+					: {}),
 			}
-		: { schedule: schedule.schedule.trim(), timezone: schedule.timezone || "UTC" };
+		: builtIn.fieldsFor(type);
 
 	const done = (message: string) => ({
 		onSuccess: (result: { warnings?: string[] }) => {
@@ -204,13 +153,20 @@ export function TriggerWizard({
 			else onSuccess();
 		},
 		onError: (failure: unknown) => {
+			const byParam = sourceFieldErrors(parseApiError(failure).fieldErrors);
+			setFieldErrors(byParam);
 			setError(errorMessage(failure));
+			// Point at the first refused field, in the step that holds it.
+			const first = Object.keys(byParam)[0];
+			const index = first ? pluginSteps.findIndex((item) => item.items.includes(first)) : -1;
+			if (index >= 0) setStep((isEdit ? 1 : 2) + index);
 			showErrorNotification(failure as Error);
 		},
 	});
 
 	function submit() {
 		setError(null);
+		setFieldErrors({});
 		const shared = {
 			name: form.name.trim(),
 			description: form.description.trim() || undefined,
@@ -223,12 +179,7 @@ export function TriggerWizard({
 			update.mutate({ id: initialTrigger.id, body }, done("Trigger updated"));
 		} else {
 			create.mutate(
-				{
-					...shared,
-					type,
-					projectId,
-					workflowId: workflowId ?? undefined,
-				} as CreateTriggerBody,
+				{ ...shared, type, projectId, workflowId: workflowId ?? undefined } as CreateTriggerBody,
 				done("Trigger created"),
 			);
 		}
@@ -251,108 +202,56 @@ export function TriggerWizard({
 		);
 	}
 
-	const connectorSteps: Record<
-		Exclude<TriggerType, "schedule">,
-		Omit<WizardStep, "key" | "title">
-	> = {
-		nats: {
-			label: "Stream",
-			description: "The NATS integration to connect with, and the stream to read.",
-			isValid:
-				Boolean(nats.integrationId) &&
-				nats.stream.trim().length > 0 &&
-				hasGroup(nats.consumerGroup),
-			content: (
-				<NatsSourceFields projectId={projectId} value={nats} onChange={setNats} isEdit={isEdit} />
-			),
-		},
-		kafka: {
-			label: "Topics",
-			description: "The Kafka integration to connect with, and the topics to read.",
-			isValid: Boolean(kafka.integrationId) && topics.length > 0 && hasGroup(kafka.consumerGroup),
-			content: (
-				<KafkaSourceFields
-					projectId={projectId}
-					value={kafka}
-					onChange={setKafka}
-					isEdit={isEdit}
-				/>
-			),
-		},
-		sqs: {
-			label: "Queue",
-			description: "The SQS integration to connect with, and the queue to read.",
-			isValid: Boolean(sqs.integrationId) && isQueueUrl(sqs.queueUrl),
-			content: <SqsSourceFields projectId={projectId} value={sqs} onChange={setSqs} />,
-		},
-		redis: {
-			label: "Stream",
-			description: "The Redis integration to connect with, and the stream to read.",
-			isValid:
-				Boolean(redis.integrationId) &&
-				isRedisName(redis.stream.trim()) &&
-				hasGroup(redis.consumerGroup) &&
-				[redis.consumer, redis.dlqStream].every((name) => !name.trim() || isRedisName(name.trim())),
-			content: (
-				<RedisSourceFields
-					projectId={projectId}
-					value={redis}
-					onChange={setRedis}
-					isEdit={isEdit}
-				/>
-			),
-		},
-		rabbitmq: {
-			label: "Queue",
-			description: "The RabbitMQ integration to connect with, and the queue to read.",
-			isValid: Boolean(rabbit.integrationId) && isRabbitQueue(rabbit.queue.trim()),
-			content: <RabbitMqSourceFields projectId={projectId} value={rabbit} onChange={setRabbit} />,
-		},
-	};
+	const pluginStepsView: WizardStep[] = kind
+		? pluginStepViews({
+				projectId,
+				kind,
+				steps: pluginSteps,
+				values: pluginValues,
+				setField: setPluginField,
+				errors: fieldErrors,
+				readOnly,
+			})
+		: [];
 
-	const sourceSteps: WizardStep[] = isConnector
+	const reviewSections: ReviewSection[] = isPlugin
 		? [
 				{
-					key: "source",
-					title: "Say what it reads",
-					...connectorSteps[type as keyof typeof connectorSteps],
+					title: "Trigger",
+					rows: [
+						{ label: "Name", value: form.name.trim() },
+						{ label: "Trigger", value: kind?.label ?? typeOption.label },
+						...(kind ? [{ label: "Plugin", value: kind.plugin }] : []),
+						...(kind?.retry
+							? [{ label: "Attempts", value: String(builtIn.delivery.maxAttempts) }]
+							: []),
+						{ label: "Workflow", value: workflowId ? "Attached" : "None yet" },
+						{ label: "Worker Group", value: groupName },
+					],
 				},
-				{
-					key: "delivery",
-					label: "Delivery",
-					title: "Shape each run",
-					description: "How many messages one run gets, and what happens when a run fails.",
-					content: (
-						<div className="flex flex-col gap-6">
-							<BatchFields
-								value={batch}
-								maxBatch={maxBatch}
-								onChange={(key, next) => setBatch((previous) => ({ ...previous, [key]: next }))}
-							/>
-							<DeliveryFields value={delivery} onChange={setDelivery} nativeRetries={isSqs} />
-						</div>
-					),
-				},
+				...(kind ? pluginReviewSections(kind, pluginSteps, pluginValues) : []),
 			]
-		: [
-				{
-					key: "schedule",
-					label: "Schedule",
-					title: "Say when it runs",
-					description:
-						"The preview below is the schedule that will actually run — check it before moving on.",
-					isValid: schedule.schedule.trim().length > 0,
-					content: <ScheduleFields value={schedule} onChange={setSchedule} />,
-				},
-			];
+		: [{ rows: builtIn.reviewRows(type) }];
 
-	const readsFrom = {
-		kafka: <SummaryItem label="Topics" value={topics.join(", ")} mono />,
-		nats: <SummaryItem label="Stream" value={nats.stream.trim()} mono />,
-		sqs: <SummaryItem label="Queue" value={queueName(sqs.queueUrl)} mono />,
-		redis: <SummaryItem label="Stream" value={redis.stream.trim()} mono />,
-		rabbitmq: <SummaryItem label="Queue" value={rabbit.queue.trim()} mono />,
-	};
+	const notices: { status: "warning" | "danger"; title: string; items: string[] }[] = [];
+	if (pluginOff)
+		notices.push({
+			status: "warning",
+			title: "This trigger's plugin is off",
+			items: [
+				"The plugin is switched off in both environments, so this trigger is read-only and nothing runs it. Turn the plugin on in Settings → Plugins to edit it again.",
+			],
+		});
+	if (kindGone)
+		notices.push({
+			status: "danger",
+			title: "This trigger kind no longer exists",
+			items: [
+				kindName
+					? `No approved plugin of this project provides ${kindName} any more. The trigger is stopped; its saved settings are kept.`
+					: "No approved plugin of this project provides this kind any more.",
+			],
+		});
 
 	const steps: WizardStep[] = [
 		// a saved trigger's source is fixed, so it shows in the header instead (#932)
@@ -364,7 +263,7 @@ export function TriggerWizard({
 						label: "Source",
 						title: "What starts it?",
 						description: "The rest of the form follows from this.",
-						content: <TypeSelector value={type} onChange={setType} />,
+						content: <TypeSelector value={type} options={sourceOptions} onChange={setType} />,
 					},
 				]),
 		{
@@ -375,46 +274,37 @@ export function TriggerWizard({
 			isValid: nameIsValid,
 			content: (
 				<div className="flex flex-col gap-5">
-					<div className="flex items-center gap-3 rounded-xl border border-border/80 bg-surface-secondary/40 p-3">
-						<div className="flex size-9 items-center justify-center rounded-lg bg-accent/10 text-accent">
-							{typeOption?.icon}
-						</div>
-						<div className="min-w-0 flex-1">
-							<span className="text-[11px] font-medium uppercase tracking-wider text-muted">
-								Trigger Type
-							</span>
-							<p className="text-xs font-semibold text-foreground">{typeOption?.label}</p>
-						</div>
-					</div>
-
-					<TextField
-						isRequired
-						autoFocus
-						value={form.name}
-						onChange={(value) => set("name", value)}
-						isInvalid={form.name.length > 0 && !nameIsValid}
-					>
-						<Label>Name</Label>
-						<Input placeholder={isConnector ? "New orders" : "Nightly report"} />
-					</TextField>
-
-					<div className="flex flex-col gap-1.5">
-						<Label>Description</Label>
-						<TextArea
-							rows={2}
-							placeholder="What this trigger is for"
-							value={form.description}
-							onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-								set("description", e.target.value)
-							}
-						/>
-					</div>
-
-					<GroupSelect groups={groups ?? []} value={groupId} onChange={setGroupId} />
+					{notices.map((notice) => (
+						<NoticeList key={notice.title} {...notice} />
+					))}
+					<TriggerBasicsStep
+						isEdit={isEdit}
+						isConnector={isConnector || isPlugin}
+						typeLabel={typeOption.label}
+						typeIcon={typeOption.icon}
+						form={form}
+						set={set}
+						nameIsValid={nameIsValid}
+						groups={groups ?? []}
+						groupId={groupId}
+						onGroupChange={setGroupId}
+						retry={kind?.retry}
+						attempts={builtIn.delivery.maxAttempts}
+						onAttemptsChange={(value) =>
+							builtIn.setDelivery((previous) => ({ ...previous, maxAttempts: value }))
+						}
+						retryDelayMs={builtIn.delivery.retryDelayMs}
+						onRetryDelayChange={(value) =>
+							builtIn.setDelivery((previous) => ({ ...previous, retryDelayMs: value }))
+						}
+						disabledReason={initialTrigger?.active ? undefined : initialTrigger?.disabledReason}
+						readOnly={readOnly}
+					/>
 				</div>
 			),
 		},
-		...sourceSteps,
+		...(isPlugin ? [] : builtIn.stepsFor(type, projectId, isEdit)),
+		...pluginStepsView,
 		{
 			key: "workflow",
 			label: "Workflow",
@@ -422,7 +312,12 @@ export function TriggerWizard({
 			description:
 				"A trigger starts one workflow. To run another workflow from the same source, create a second trigger or use the Trigger Workflow block.",
 			content: (
-				<TriggerWorkflowsField projectId={projectId} value={workflowId} onChange={setWorkflowId} />
+				<TriggerWorkflowsField
+					projectId={projectId}
+					value={workflowId}
+					onChange={setWorkflowId}
+					isDisabled={readOnly}
+				/>
 			),
 		},
 		{
@@ -433,57 +328,16 @@ export function TriggerWizard({
 				? "Review the updated trigger configuration before saving."
 				: "Last look before the trigger goes live.",
 			content: (
-				<div className="flex flex-col gap-5">
-					<NoticeList
-						status="danger"
-						title="Fluxify turned this trigger off"
-						items={
-							initialTrigger?.disabledReason && !initialTrigger.active
-								? [initialTrigger.disabledReason]
-								: []
-						}
-					/>
-					<dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border">
-						<SummaryItem label="Name" value={form.name.trim()} />
-						{isConnector ? (
-							<>
-								{readsFrom[type as keyof typeof readsFrom]}
-								<SummaryItem label="Batch size" value={String(batchSize)} />
-								<SummaryItem
-									label="Commit"
-									value={delivery.commitMode === "manual" ? "From the workflow" : "After each run"}
-								/>
-							</>
-						) : (
-							<>
-								<SummaryItem label="Schedule" value={schedule.schedule} mono />
-								<SummaryItem label="Timezone" value={schedule.timezone} />
-							</>
-						)}
-						<SummaryItem label="Workflow" value={workflowId ? "Attached" : "None yet"} />
-						<SummaryItem
-							label="Worker Group"
-							value={
-								(groups ?? []).find((g) => g.id === groupId)?.name ??
-								(groups ?? []).find((g) => g.isDefault)?.name ??
-								"Default"
-							}
-						/>
-					</dl>
-
-					<Checkbox
-						isSelected={active}
-						onChange={setActive}
-						label={isEdit ? "Trigger is active" : "Turn this trigger on now"}
-						description={
-							isConnector
-								? "Turning it on checks the integration's credentials and the source with the broker first."
-								: "An inactive trigger never fires, and neither does an active one with no workflow attached."
-						}
-					/>
-
-					<NoticeList status="danger" title="Not saved" items={error ? [error] : []} />
-				</div>
+				<TriggerReview
+					sections={reviewSections}
+					active={active}
+					onActiveChange={setActive}
+					isEdit={isEdit}
+					isConnector={isConnector}
+					disabledReason={initialTrigger?.disabledReason}
+					error={error}
+					readOnly={readOnly}
+				/>
 			),
 		},
 	];
@@ -498,6 +352,9 @@ export function TriggerWizard({
 			}
 			onBack={onBack}
 			fill={fill}
+			readOnly={readOnly}
+			step={step}
+			onStepChange={setStep}
 			badge={
 				isEdit && typeOption ? (
 					<span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2 py-0.5 text-xs font-medium text-foreground">

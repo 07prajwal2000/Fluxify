@@ -34,6 +34,9 @@ export function FormWizard({
 	onSubmit,
 	badge,
 	fill,
+	step: controlledStep,
+	onStepChange,
+	readOnly,
 }: {
 	title: string;
 	description: string;
@@ -50,8 +53,18 @@ export function FormWizard({
 	submitLabel: string;
 	isPending?: boolean;
 	onSubmit: () => void;
+	/** The current step, when the caller needs to move it (a refused save). */
+	step?: number;
+	onStepChange?: (step: number) => void;
+	/** Show the steps but refuse to save; editing is disabled by the caller. */
+	readOnly?: boolean;
 }) {
-	const [step, setStep] = useState(0);
+	const [innerStep, setInnerStep] = useState(0);
+	const step = controlledStep ?? innerStep;
+	const setStep = (next: number) => {
+		setInnerStep(next);
+		onStepChange?.(next);
+	};
 	// Steps appear and disappear as the form is filled in; never point past the end.
 	const current = Math.min(step, steps.length - 1);
 	const active = steps[current]!;
@@ -144,18 +157,22 @@ export function FormWizard({
 					<TbArrowLeft size={16} /> Back
 				</Button>
 				{isLast ? (
-					<Button
-						variant="primary"
-						size="sm"
-						isPending={isPending}
-						isDisabled={!canSubmit}
-						onPress={onSubmit}
-					>
-						{submitLabel}
-					</Button>
+					readOnly ? (
+						<span />
+					) : (
+						<Button
+							variant="primary"
+							size="sm"
+							isPending={isPending}
+							isDisabled={!canSubmit}
+							onPress={onSubmit}
+						>
+							{submitLabel}
+						</Button>
+					)
 				) : (
 					<div className="flex items-center gap-2">
-						{canSubmit && (
+						{canSubmit && !readOnly && (
 							<Button variant="outline" size="sm" isPending={isPending} onPress={onSubmit}>
 								{submitLabel}
 							</Button>

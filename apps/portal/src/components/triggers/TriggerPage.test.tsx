@@ -28,6 +28,8 @@ afterAll(() => GlobalRegistrator.unregister());
 beforeEach(() => {
 	mock.restore();
 	spyOn(triggersService, "getGroups").mockResolvedValue([]);
+	// the wizard asks for the project's plugin kinds; this test has no HTTP
+	spyOn(triggersService, "getPluginKinds").mockResolvedValue([]);
 });
 
 const saved = {

@@ -10,6 +10,12 @@ import {
 const LIST_KEY = ["triggers", "list"];
 const groupsKey = (projectId: string) => ["triggers", "groups", projectId];
 const detailKey = (id: string) => ["triggers", "detail", id];
+const pluginKindsKey = (projectId: string, kind?: string) => [
+	"triggers",
+	"plugin-kinds",
+	projectId,
+	kind ?? "",
+];
 
 export const triggersQuery = {
 	getAll: {
@@ -28,6 +34,17 @@ export const triggersQuery = {
 				queryKey: detailKey(id),
 				queryFn: () => triggersService.getById(id),
 				enabled: Boolean(id),
+				refetchOnWindowFocus: false,
+			});
+		},
+	},
+	/** `kind` narrows it to one; without it, every kind the project can create */
+	pluginKinds: {
+		useQuery(projectId: string, kind?: string, enabled = true) {
+			return useQuery({
+				queryKey: pluginKindsKey(projectId, kind),
+				queryFn: () => triggersService.getPluginKinds(projectId, kind),
+				enabled: Boolean(projectId) && enabled,
 				refetchOnWindowFocus: false,
 			});
 		},

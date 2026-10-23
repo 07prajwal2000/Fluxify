@@ -6,6 +6,7 @@ import {
 	type groupListSchema,
 	type listSchema,
 	type patchSchema,
+	type pluginKindsSchema,
 	type previewSchema,
 	type triggerCreatedSchema,
 	type triggerSchema,
@@ -33,6 +34,8 @@ export type Trigger = z.infer<typeof triggerSchema>;
 /** A trigger as the list returns it — the workflow comes with its name. */
 export type TriggerListItem = z.infer<typeof listSchema>["data"][number];
 export type TriggerGroup = z.infer<typeof groupListSchema>["data"][number];
+/** A plugin trigger kind the project can create, with the params the wizard renders. */
+export type PluginTriggerKind = z.infer<typeof pluginKindsSchema>["data"][number];
 export type DeleteGroupOptions = z.infer<typeof deleteGroupQuerySchema>;
 export type SchedulePreview = z.infer<typeof previewSchema>;
 
@@ -74,6 +77,16 @@ export const triggersService = {
 	async detachWorkflow(id: string, workflowId: string): Promise<Trigger> {
 		const result = await httpClient.delete(`${baseUrl}/${id}/workflows/${workflowId}`);
 		return result.data;
+	},
+	/**
+	 * The plugin trigger kinds this project can create. A kind is namespaced
+	 * (`acme/pg/poller`), so it travels as a query param, never in a path.
+	 */
+	async getPluginKinds(projectId: string, kind?: string): Promise<PluginTriggerKind[]> {
+		const params = new URLSearchParams({ projectId });
+		if (kind) params.set("kind", kind);
+		const result = await httpClient.get(`${baseUrl}/plugin-kinds?${params.toString()}`);
+		return (result.data as z.infer<typeof pluginKindsSchema>).data;
 	},
 	async getGroups(projectId: string): Promise<TriggerGroup[]> {
 		const result = await httpClient.get(

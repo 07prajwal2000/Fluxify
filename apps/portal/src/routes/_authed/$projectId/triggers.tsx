@@ -14,6 +14,8 @@ import { useMemo, useState } from "react";
 import { TbBolt, TbEdit, TbPlus, TbStack2 } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
+import { Badge } from "@/components/settings/plugins/PluginBadges";
+import { isPluginTriggerType, pluginKindName } from "@/components/triggers/pluginTrigger";
 import { queueName } from "@/components/triggers/SqsTriggerFields";
 import { TriggerGroupsModal } from "@/components/triggers/TriggerGroupsModal";
 import { announceWarnings, DisabledReason } from "@/components/triggers/TriggerNotices";
@@ -54,6 +56,8 @@ function TriggersPage() {
 		perPage: 10,
 		search: search.trim() || undefined,
 	});
+	// The list carries a plugin row's type; the kind knows the label to show.
+	const { data: pluginKinds } = triggersQuery.pluginKinds.useQuery(projectId);
 	const update = triggersQuery.update.mutation();
 	const remove = triggersQuery.remove.mutation();
 
@@ -65,6 +69,8 @@ function TriggersPage() {
 	}, [data?.data]);
 	const totalPages = data?.pagination?.totalPages ?? 1;
 	const openNew = () => navigate({ to: "/$projectId/triggers/new", params: { projectId } });
+	const kindLabel = (type: string) =>
+		pluginKinds?.find((kind) => kind.type === type)?.label ?? pluginKindName(type);
 
 	return (
 		<div className="flex flex-col gap-4">
@@ -145,7 +151,14 @@ function TriggersPage() {
 									<Table.Cell>{trigger.name}</Table.Cell>
 									<Table.Cell>
 										<span className="text-muted">
-											{trigger.type === "schedule" ? (
+											{isPluginTriggerType(trigger.type) ? (
+												<span className="flex flex-wrap items-center gap-1.5">
+													<span className="text-xs font-medium text-foreground">
+														{kindLabel(trigger.type)}
+													</span>
+													<Badge tone="muted">Plugin</Badge>
+												</span>
+											) : trigger.type === "schedule" ? (
 												<span className="font-mono text-xs">{trigger.schedule}</span>
 											) : trigger.type === "nats" || trigger.type === "redis" ? (
 												<span className="font-mono text-xs">
@@ -204,6 +217,7 @@ function TriggersPage() {
 												}
 												label={trigger.active ? "Active" : "Inactive"}
 											/>
+											{trigger.pluginDisabled && <Badge tone="warning">Plugin disabled</Badge>}
 											<DisabledReason reason={trigger.active ? null : trigger.disabledReason} />
 										</div>
 									</Table.Cell>

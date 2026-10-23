@@ -18,7 +18,7 @@ const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query
 const { ApprovalDialog } = await import("./ApprovalDialog");
 const { RemovePluginDialog } = await import("./RemovePluginDialog");
 const { pluginsService } = await import("@/services/plugins");
-const { emptyDiff, upgrading } = await import("./fixtures");
+const { emptyDiff, plugin, upgrading } = await import("./fixtures");
 
 const upgradePreview = spyOn(pluginsService, "upgradePreview");
 const approve = spyOn(pluginsService, "approve");
@@ -191,6 +191,87 @@ test("approval dialog shows plugin integrations with secret params and hooks", a
 	expect(document.body.textContent).toContain("apiKey, appSecret");
 	expect(document.body.textContent).toContain("test");
 	expect(document.body.textContent).toContain("inspect");
+});
+
+test("approval lists the plugin's trigger kinds with their permissions", async () => {
+	const withTriggers = plugin({
+		manifest: {
+			...plugin().manifest,
+			triggers: [
+				{
+					name: "acme/slack/poll",
+					label: "Poll Slack",
+					description: "Polls a channel",
+					icon: "",
+					permissions: { integrations: ["kv"], appconfig: true },
+					retry: true,
+					params: {},
+					entry: "dist/triggers/poll.js",
+				},
+			],
+		} as never,
+	});
+	wrap(<ApprovalDialog projectId="p1" plugin={withTriggers} open onOpenChange={() => {}} />);
+
+	await until(() => expect(document.body.textContent).toContain("Trigger kinds"));
+	expect(document.body.textContent).toContain("Poll Slack");
+	expect(document.body.textContent).toContain("acme/slack/poll");
+	expect(document.body.textContent).toContain("Integrations: kv · Read app config");
+	expect(document.body.textContent).toContain("Retries");
+});
+
+test("an upgrade diff lists added, removed and changed trigger kinds", async () => {
+	upgradePreview.mockResolvedValue(
+		preview({
+			...emptyDiff,
+			blocking: true,
+			blockers: ['trigger kind acme/slack/poll is removed but used by trigger "Poller"'],
+			addedTriggers: ["acme/slack/hook"],
+			removedTriggers: [{ kind: "acme/slack/poll", usedBy: [{ id: "t1", name: "Poller" }] }],
+			changedTriggers: [
+				{
+					kind: "acme/slack/listen",
+					change: "retry turned on",
+					breaking: false,
+					usedBy: [{ id: "t2", name: "Listener" }],
+				},
+			],
+		}) as never,
+	);
+	wrap(<ApprovalDialog projectId="p1" plugin={upgrading()} open onOpenChange={() => {}} />);
+
+	await until(() => expect(document.body.textContent).toContain("Removed trigger kinds"));
+	expect(document.body.textContent).toContain("acme/slack/poll");
+	expect(document.body.textContent).toContain("Changed trigger kinds");
+	expect(document.body.textContent).toContain("retry turned on");
+	expect(document.body.textContent).toContain("New trigger kinds");
+	expect(document.body.textContent).toContain("acme/slack/hook");
+	const link = [...document.querySelectorAll("a")].find((a) => a.textContent === "Poller");
+	expect(link).toBeTruthy();
+});
+
+test("a refused removal with details.triggers lists the trigger rows as links", async () => {
+	remove.mockRejectedValue(
+		conflict({
+			message: 'Plugin acme/slack still provides triggers "Poller" (acme/slack/poll)',
+			details: { triggers: [{ id: "t1", name: "Poller", kind: "acme/slack/poll" }] },
+		}),
+	);
+	wrap(
+		<RemovePluginDialog
+			projectId="p1"
+			name="acme/slack"
+			open
+			onOpenChange={() => {}}
+			onRemoved={() => {}}
+		/>,
+	);
+
+	await act(async () => void fireEvent.click(button("Remove")!));
+	await until(() => expect(document.body.textContent).toContain("still provides triggers"));
+	const link = [...document.querySelectorAll("a")].find((a) => a.textContent === "Poller");
+	expect(link).toBeTruthy();
+	expect(document.body.textContent).toContain("(acme/slack/poll)");
 });
 
 test("a refused removal with details.integrations lists blocking integrations as router links", async () => {

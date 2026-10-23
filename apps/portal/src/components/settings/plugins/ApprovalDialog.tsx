@@ -4,8 +4,13 @@ import { useState } from "react";
 import { TbAlertTriangle } from "react-icons/tb";
 import { parseApiError, showErrorNotification } from "@/lib/errorNotifier";
 import { pluginsQuery } from "@/query/pluginsQuery";
-import { type Plugin, type PluginUpgradeDiff, upgradeBlockedFromError } from "@/services/plugins";
-import { isUpgrade } from "./PluginBadges";
+import {
+	type Plugin,
+	type PluginManifest,
+	type PluginUpgradeDiff,
+	upgradeBlockedFromError,
+} from "@/services/plugins";
+import { Badge, isUpgrade } from "./PluginBadges";
 import { manifestOf, PluginIntegrations } from "./PluginSummary";
 import { UpgradeDiff } from "./UpgradeDiff";
 
@@ -29,6 +34,42 @@ function Grants({ plugin }: { plugin: Plugin }) {
 			) : (
 				<p className="text-sm text-muted">No special permissions.</p>
 			)}
+		</section>
+	);
+}
+
+type TriggerKind = NonNullable<PluginManifest["triggers"]>[number];
+
+const permissionText = (kind: TriggerKind) => {
+	const parts = [
+		...(kind.permissions.integrations?.length
+			? [`Integrations: ${kind.permissions.integrations.join(", ")}`]
+			: []),
+		...(kind.permissions.appconfig ? ["Read app config"] : []),
+	];
+	return parts.length ? parts.join(" · ") : "No special permissions.";
+};
+
+/** The trigger kinds this version ships, which approval switches on with the blocks. */
+function TriggerKinds({ plugin }: { plugin: Plugin }) {
+	const triggers = manifestOf(plugin).triggers ?? [];
+	if (triggers.length === 0) return null;
+	return (
+		<section className="flex flex-col gap-1.5">
+			<h4 className="text-xs font-semibold uppercase tracking-wider text-muted">Trigger kinds</h4>
+			<ul className="flex flex-col divide-y divide-border rounded-lg border border-border">
+				{triggers.map((kind) => (
+					<li key={kind.name} className="flex flex-col gap-0.5 px-3 py-2">
+						<span className="flex flex-wrap items-center gap-2 text-sm">
+							<span className="font-medium text-foreground">{kind.label}</span>
+							<code className="font-mono text-xs text-muted">{kind.name}</code>
+							{kind.retry && <Badge tone="muted">Retries</Badge>}
+						</span>
+						{kind.description && <span className="text-xs text-muted">{kind.description}</span>}
+						<span className="text-xs text-muted">{permissionText(kind)}</span>
+					</li>
+				))}
+			</ul>
 		</section>
 	);
 }
@@ -99,6 +140,7 @@ export function ApprovalDialog({
 									</div>
 								)}
 								<Grants plugin={plugin} />
+								<TriggerKinds plugin={plugin} />
 								{((plugin.integrations && plugin.integrations.length > 0) ||
 									(manifestOf(plugin) as any)?.integrations?.length > 0) && (
 									<section className="flex flex-col gap-1.5">
