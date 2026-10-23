@@ -1,7 +1,7 @@
 import { GENERAL_TAB } from "@fluxify/sdk";
 import type { Param } from "@fluxify/sdk/blocks";
-import { TbPlug } from "react-icons/tb";
 import { type PluginParamTab, pluginParamTabs } from "@/components/integrations/pluginParamTabs";
+import { PluginTriggerIcon } from "@/components/settings/plugins/pluginBlockIcon";
 import type { TriggerSourceOption } from "@/components/triggers/triggerForm";
 import type { PluginTriggerKind } from "@/services/triggers";
 
@@ -23,11 +23,7 @@ export function pluginSourceOption(kind: PluginTriggerKind): TriggerSourceOption
 		id: kind.type,
 		label: kind.label,
 		hint: kind.description ?? `${kind.plugin} provides this trigger.`,
-		icon: kind.icon ? (
-			<img src={kind.icon} alt="" className="size-5 rounded object-contain" />
-		) : (
-			<TbPlug size={20} />
-		),
+		icon: <PluginTriggerIcon icon={kind.icon} />,
 		badge: "Plugin",
 		available: enabled,
 		disabledReason: enabled ? undefined : "Its plugin is switched off in this project.",

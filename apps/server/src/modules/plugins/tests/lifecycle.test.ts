@@ -40,14 +40,18 @@ describe("plugin upgrade", () => {
 		const { id } = await routeCalling(s, "success", { retries: 3 });
 
 		const usage = await call(s.as, "GET", s.path("/usage"));
-		expect(usage.body).toEqual([
-			expect.objectContaining({
-				kind: "route",
-				id,
-				inWorkingCopy: true,
-				nodes: [expect.objectContaining({ type: s.type, params: ["retries"], handles: ["success", "target"], invoke: "sync" })],
-			}),
-		]);
+		expect(usage.body).toEqual({
+			blocks: [
+				expect.objectContaining({
+					kind: "route",
+					id,
+					inWorkingCopy: true,
+					nodes: [expect.objectContaining({ type: s.type, params: ["retries"], handles: ["success", "target"], invoke: "sync" })],
+				}),
+			],
+			triggers: [],
+			integrations: [],
+		});
 
 		await upgradeTo(s, [entry(s.type)]);
 		const preview = await call(s.as, "GET", s.path("/upgrade-preview"));

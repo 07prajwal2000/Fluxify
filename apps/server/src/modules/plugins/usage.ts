@@ -9,6 +9,9 @@ import {
 	routesEntity,
 	workflowsEntity,
 } from "../../db/schema";
+import { pluginIntegrationUsers } from "./integrationUsage";
+import { getPluginRow } from "./repository";
+import { pluginTriggerUsers } from "./triggerUsage";
 
 /**
  * Who uses a plugin (#860), node by node: the upgrade diff needs to know which
@@ -175,6 +178,30 @@ export async function pluginUsage(projectId: string, name: string, tx: Conn = db
 	return [...users.values()].sort(
 		(a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name),
 	);
+}
+
+/**
+ * Everything the "Used by" panel lists for one plugin: its blocks on canvases,
+ * the project's trigger rows of its kinds, and the integrations of its kinds.
+ * A trigger and an integration are rows, not canvas nodes, so the upgrade diff
+ * still reads them through its own users, not this.
+ */
+export async function pluginUsedBy(projectId: string, name: string) {
+	const row = await getPluginRow(projectId, name);
+	const [blocks, triggers, integrations] = await Promise.all([
+		pluginUsage(projectId, name),
+		pluginTriggerUsers(projectId, name),
+		pluginIntegrationUsers(projectId, row?.manifest, row?.live?.manifest),
+	]);
+	return {
+		blocks,
+		triggers: triggers.map(({ id, name: triggerName, kind }) => ({
+			id,
+			name: triggerName,
+			kind,
+		})),
+		integrations,
+	};
 }
 
 /** a raw jsonb read may arrive as text */
