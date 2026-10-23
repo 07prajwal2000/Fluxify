@@ -29,29 +29,34 @@ export function ResponsePanel({
 				defaultSelectedKey="body"
 				className="api-playground-tabs api-playground-tabs--response flex min-h-0 flex-1 flex-col"
 			>
-				<Tabs.ListContainer className="shrink-0 px-3">
-					<div className="api-playground-response-tabs__bar">
-						<ResponseMetadata bytes={bytes} response={response} />
-						<Tabs.List
-							aria-label="Response contents"
-							style={{ width: "max-content", minWidth: 0, flex: "0 0 auto" }}
-							className="gap-5"
-						>
-							<Tabs.Tab id="body">
-								Body
-								<Tabs.Indicator />
-							</Tabs.Tab>
-							<Tabs.Tab id="headers">
-								Headers{" "}
-								{response && (
-									<span className="ml-1.5 rounded-full border border-border bg-surface px-1.5 py-0.5 text-[10px]">
-										{headers.length}
-									</span>
-								)}
-								<Tabs.Indicator />
-							</Tabs.Tab>
-						</Tabs.List>
-					</div>
+				<Tabs.ListContainer
+					className="api-playground-response-tabs__bar shrink-0 px-3"
+					render={(containerProps) => (
+						<div {...containerProps}>
+							<ResponseMetadata bytes={bytes} response={response} />
+							{containerProps.children}
+						</div>
+					)}
+				>
+					<Tabs.List
+						aria-label="Response contents"
+						style={{ width: "max-content", minWidth: 0, flex: "0 0 auto" }}
+						className="gap-5"
+					>
+						<Tabs.Tab id="body">
+							Body
+							<Tabs.Indicator />
+						</Tabs.Tab>
+						<Tabs.Tab id="headers">
+							Headers{" "}
+							{response && (
+								<span className="ml-1.5 rounded-full border border-border bg-surface px-1.5 py-0.5 text-[10px]">
+									{headers.length}
+								</span>
+							)}
+							<Tabs.Indicator />
+						</Tabs.Tab>
+					</Tabs.List>
 				</Tabs.ListContainer>
 				<Tabs.Panel id="body" className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
 					{response?.debugError && (

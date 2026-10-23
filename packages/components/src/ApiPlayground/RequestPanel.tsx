@@ -75,66 +75,71 @@ export function RequestPanel({
 				onSelectionChange={(key) => onTabChange(key as string)}
 				className="api-playground-tabs api-playground-tabs--request flex h-full flex-col"
 			>
-				<Tabs.ListContainer className="shrink-0 px-3">
-					<div className="flex h-full w-full items-center justify-between gap-3">
-						<Tabs.List
-							aria-label="Request configuration"
-							style={{ width: "max-content", minWidth: 0 }}
-							className="gap-5"
-						>
-							<Tabs.Tab id="params">
-								<span>Params</span>
-								{hasParamsError ? (
-									<span className="ml-1.5 inline-flex items-center gap-1 rounded-full border border-danger/40 bg-danger/10 px-1.5 py-0.5 text-[10px] font-semibold text-danger">
-										<TbAlertCircle size={12} />
-										<span>
-											{Object.keys(errors?.pathParams ?? {}).length +
-												Object.keys(errors?.queryParams ?? {}).length}
-										</span>
-									</span>
-								) : (
-									<span className="ml-1.5 rounded-full border border-border bg-surface px-1.5 py-0.5 text-[10px]">
-										{pathRows.length + queryRows.filter((row) => row.key).length}
-									</span>
-								)}
-								<Tabs.Indicator />
-							</Tabs.Tab>
-							<Tabs.Tab id="headers">
-								<span>Headers</span>{" "}
-								<span className="ml-1.5 rounded-full border border-border bg-surface px-1.5 py-0.5 text-[10px]">
-									{headerRows.filter((row) => row.key).length}
-								</span>
-								<Tabs.Indicator />
-							</Tabs.Tab>
-							<Tabs.Tab id="body">
-								<span>Body</span>
-								{hasBodyError ? (
-									<span className="ml-1.5 inline-flex items-center gap-1 rounded-full border border-danger/40 bg-danger/10 px-1.5 py-0.5 text-[10px] font-semibold text-danger">
-										<TbAlertCircle size={12} />
-									</span>
-								) : (
-									<span className="ml-1.5 rounded-full border border-border bg-surface px-1.5 py-0.5 text-[10px]">
-										{route.bodySchema ? 1 : 0}
-									</span>
-								)}
-								<Tabs.Indicator />
-							</Tabs.Tab>
-						</Tabs.List>
-						{onValidateChange && (
-							<div
-								title="Validate route parameters, query parameters, and body schemas client-side before sending. Disable to test raw server error responses."
-								className="inline-flex shrink-0 items-center"
-							>
-								<Checkbox
-									isSelected={validateBeforeSend}
-									onChange={onValidateChange}
-									className="font-sans text-xs text-muted select-none"
+				<Tabs.ListContainer
+					className="flex shrink-0 items-center justify-between gap-3 px-3"
+					render={(containerProps) => (
+						<div {...containerProps}>
+							{containerProps.children}
+							{onValidateChange && (
+								<div
+									title="Validate route parameters, query parameters, and body schemas client-side before sending. Disable to test raw server error responses."
+									className="inline-flex shrink-0 items-center"
 								>
-									Validate
-								</Checkbox>
-							</div>
-						)}
-					</div>
+									<Checkbox
+										isSelected={validateBeforeSend}
+										onChange={onValidateChange}
+										className="font-sans text-xs text-muted select-none"
+									>
+										Validate
+									</Checkbox>
+								</div>
+							)}
+						</div>
+					)}
+				>
+					<Tabs.List
+						aria-label="Request configuration"
+						style={{ width: "max-content", minWidth: 0 }}
+						className="gap-5"
+					>
+						<Tabs.Tab id="params">
+							<span>Params</span>
+							{hasParamsError ? (
+								<span className="ml-1.5 inline-flex items-center gap-1 rounded-full border border-danger/40 bg-danger/10 px-1.5 py-0.5 text-[10px] font-semibold text-danger">
+									<TbAlertCircle size={12} />
+									<span>
+										{Object.keys(errors?.pathParams ?? {}).length +
+											Object.keys(errors?.queryParams ?? {}).length}
+									</span>
+								</span>
+							) : (
+								<span className="ml-1.5 rounded-full border border-border bg-surface px-1.5 py-0.5 text-[10px]">
+									{pathRows.length + queryRows.filter((row) => row.key).length}
+								</span>
+							)}
+							<Tabs.Indicator />
+						</Tabs.Tab>
+						<Tabs.Tab id="headers">
+							<span>Headers</span>{" "}
+							<span className="ml-1.5 rounded-full border border-border bg-surface px-1.5 py-0.5 text-[10px]">
+								{headerRows.filter((row) => row.key).length}
+							</span>
+							<Tabs.Indicator />
+						</Tabs.Tab>
+						<Tabs.Tab id="body">
+							<span>Body</span>
+							{hasBodyError ? (
+								<span className="ml-1.5 inline-flex items-center gap-1 rounded-full border border-danger/40 bg-danger/10 px-1.5 py-0.5 text-[10px] font-semibold text-danger">
+									<TbAlertCircle size={12} />
+								</span>
+							) : (
+								<span className="ml-1.5 rounded-full border border-border bg-surface px-1.5 py-0.5 text-[10px]">
+									{route.bodySchema ? 1 : 0}
+								</span>
+							)}
+							<Tabs.Indicator />
+						</Tabs.Tab>
+					</Tabs.List>
 				</Tabs.ListContainer>
 				<Tabs.Panel id="params" className="min-h-0 flex-1 overflow-hidden p-3">
 					<div className="space-y-3">
