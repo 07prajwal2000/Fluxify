@@ -5,7 +5,7 @@
 // schedule firing into the right stream, only happen on the broker.
 import { afterAll, beforeAll, describe, expect, it, mock } from "bun:test";
 import { docker, pullImage, startContainerWithRandomPort } from "@fluxify/adapters/containerTestHelpers";
-import { closeNats, connectNats, type QueueConsumer, type RpcResponder } from "@fluxify/common/nats";
+import { closeNats, connectNats, type FluxifyQueueConsumer, type RpcResponder } from "@fluxify/common/nats";
 import type { NodeEntitlement } from "@fluxify/common/orchestrator";
 import type Docker from "dockerode";
 import type { FluxifyEnv } from "../../lib/env";
@@ -69,7 +69,7 @@ beforeAll(async () => {
 		await jobs.serve(PROJECT);
 		const triggers = new TriggerWorker({ projectId: PROJECT, env, run: record });
 		await triggers.start();
-		const fires: QueueConsumer = await startFireConsumer({ projectId: PROJECT, env });
+		const fires: FluxifyQueueConsumer = await startFireConsumer({ projectId: PROJECT, env });
 		const tests: RpcResponder = serveTestRuns(PROJECT, env, env);
 		stops.push(jobs.stop, () => triggers.stop(), fires.stop, tests.stop);
 	}

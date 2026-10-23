@@ -4,7 +4,7 @@ import {
 	dropWildcardConsumers,
 	ensureConsumer,
 	ensureStream,
-	type QueueConsumer,
+	type FluxifyQueueConsumer,
 } from "@fluxify/common/nats";
 import { natsConnection, natsName, natsStreamSpec } from "../../db/nats";
 import type { FluxifyEnv } from "../../lib/env";
@@ -81,7 +81,7 @@ export function createJobWorker(options: JobWorkerOptions): JobWorker {
 	};
 	const kinds = jobKindsForMode(config.mode);
 	const streamName = natsName(JOBS_STREAM, options.env);
-	const served = new Map<string, QueueConsumer[]>();
+	const served = new Map<string, FluxifyQueueConsumer[]>();
 	let stream: Promise<void> | undefined;
 
 	/**
@@ -137,7 +137,7 @@ export function createJobWorker(options: JobWorkerOptions): JobWorker {
 			served.set(projectId, []);
 			try {
 				await ensureJobsStream();
-				const consumers: QueueConsumer[] = [];
+				const consumers: FluxifyQueueConsumer[] = [];
 				for (const kind of kinds) consumers.push(await consume(projectId, kind));
 				served.set(projectId, consumers);
 				logger.debug(

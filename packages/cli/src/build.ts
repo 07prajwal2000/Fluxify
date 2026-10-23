@@ -14,12 +14,27 @@ import {
 	toIntegrationEntry,
 	toManifestEntry,
 } from "@fluxify/sdk/blocks";
+import {
+	type TriggerEntry,
+	toTriggerEntry,
+	triggerEntryPath,
+	triggerEntrySchema,
+} from "@fluxify/sdk/triggers";
 import { z } from "zod";
 import { lintDocs } from "./lint/docs";
 import { findUnawaited } from "./lint/unawaited";
 import { pack } from "./pack";
 import { fail, type Plugin, readPlugin } from "./plugin";
-import { BLOCKS, bundle, discover, type Found, INTEGRATIONS, load, posix } from "./sources";
+import {
+	BLOCKS,
+	bundle,
+	discover,
+	type Found,
+	INTEGRATIONS,
+	load,
+	posix,
+	TRIGGERS,
+} from "./sources";
 
 export type BuildResult = {
 	plugin: Plugin;
@@ -83,6 +98,7 @@ async function lint(
 	blocks: Found[],
 	entries: Record<string, ManifestEntry>,
 	integrations: Found[],
+	triggers: Found[],
 ) {
 	const warnings: string[] = [];
 	const stray = (type: string, def: Parameters<typeof strayTabs>[0]) => {
@@ -102,6 +118,7 @@ async function lint(
 			);
 	}
 	for (const i of integrations) stray(i.type, { tabs: i.def.tabs, params: i.def.config });
+	for (const t of triggers) stray(t.type, t.def);
 	return warnings;
 }
 
@@ -120,31 +137,39 @@ function entriesOf<E>(found: Found[], toEntry: (def: any) => unknown, schema: z.
 /** Builds the plugin at `root`: dist/, fluxify.json and the tarball. Throws a CliError on a failure. */
 export async function build(root: string): Promise<BuildResult> {
 	const plugin = await readPlugin(root);
-	const sources = [...discover(plugin, BLOCKS), ...discover(plugin, INTEGRATIONS)];
+	const sources = [BLOCKS, INTEGRATIONS, TRIGGERS].flatMap((kind) => discover(plugin, kind));
 	if (!sources.length)
 		fail("no blocks in src/blocks, add one with `fluxify-cli blocks create <name>`");
 	await bundle(plugin, sources);
 	const found = await load(plugin, sources);
 	const blocks = found.filter((f) => f.kind === BLOCKS);
 	const integrated = found.filter((f) => f.kind === INTEGRATIONS);
+	const triggered = found.filter((f) => f.kind === TRIGGERS);
 
 	const b = entriesOf(blocks, toManifestEntry, manifestEntrySchema);
 	const i = entriesOf<IntegrationEntry>(integrated, toIntegrationEntry, integrationEntrySchema);
-	if (b.problems.length || i.problems.length) fail(...b.problems, ...i.problems);
+	const t = entriesOf<TriggerEntry>(triggered, toTriggerEntry, triggerEntrySchema);
+	const problems = [...b.problems, ...i.problems, ...t.problems];
+	if (problems.length) fail(...problems);
 	const entries = b.entries;
 	// an over-long id would not fit a recorded span (#952), so refuse it now,
 	// with this plugin's real version, before anything is written
 	const idProblem = blockIdProblem(plugin.name, plugin.version, Object.keys(entries));
 	if (idProblem) fail(idProblem);
-	for (const [type, entry] of [...Object.entries(entries), ...Object.entries(i.entries)])
+	const shipped = [entries, i.entries, t.entries].flatMap((e) => Object.entries(e));
+	for (const [type, entry] of shipped as [string, { icon?: string }][])
 		if (entry.icon) entry.icon = shipIcon(plugin, type, entry.icon);
 	const { meta } = plugin;
 	const integrations = Object.entries(i.entries).map(([type, e]) => ({
 		entry: integrationEntryPath(type),
 		...e,
 	}));
+	const triggers = Object.entries(t.entries).map(([type, e]) => ({
+		entry: triggerEntryPath(type),
+		...e,
+	}));
 
-	// generated every build from src/index.ts, the blocks and the integrations: a hand edit does not survive it
+	// generated every build from src/index.ts and what src/ declares: a hand edit does not survive it
 	const manifest = fluxifyManifestSchema.safeParse({
 		...meta,
 		icon: meta.icon && shipIcon(plugin, meta.name, meta.icon),
@@ -154,6 +179,7 @@ export async function build(root: string): Promise<BuildResult> {
 			Object.entries(entries).map(([type, e]) => [type, { entry: blockEntryPath(type), ...e }]),
 		),
 		...(integrations.length && { integrations }),
+		...(triggers.length && { triggers }),
 	});
 	if (!manifest.success) fail(`fluxify.json is invalid: ${prettify(manifest.error)}`);
 	await Bun.write(
@@ -162,7 +188,7 @@ export async function build(root: string): Promise<BuildResult> {
 `,
 	);
 
-	const warnings = await lint(blocks, entries, integrated);
+	const warnings = await lint(blocks, entries, integrated, triggered);
 	const tarball = await pack(plugin, manifest.data!);
 	return { plugin, manifest: manifest.data!, tarball, warnings };
 }

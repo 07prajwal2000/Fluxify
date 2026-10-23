@@ -7,7 +7,7 @@ import {
 	pullImage,
 	startContainerWithRandomPort,
 } from "@fluxify/adapters/containerTestHelpers";
-import { closeNats, connectNats, type QueueConsumer } from "@fluxify/common/nats";
+import { closeNats, connectNats, type FluxifyQueueConsumer } from "@fluxify/common/nats";
 import { SQL } from "bun";
 import type Docker from "dockerode";
 import { drizzle } from "drizzle-orm/bun-sql";
@@ -18,7 +18,7 @@ const suffix = rand(8);
 const PG = { image: "postgres:16-alpine", name: `fluxify-audit-pg-test-${suffix}` };
 const NATS = { image: "nats:2.14", name: `fluxify-audit-nats-test-${suffix}` };
 const containers: Docker.Container[] = [];
-const consumers: QueueConsumer[] = [];
+const consumers: FluxifyQueueConsumer[] = [];
 let sql: SQL;
 let audit: typeof import("../audit");
 let gate: typeof import("../gate");

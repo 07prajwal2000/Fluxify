@@ -1,6 +1,6 @@
 import type { TriggerEvent } from "@fluxify/blocks";
 import { logger } from "@fluxify/common";
-import { consumeQueue, ensureConsumer, type QueueConsumer } from "@fluxify/common/nats";
+import { consumeQueue, ensureConsumer, type FluxifyQueueConsumer } from "@fluxify/common/nats";
 import { natsConnection, natsName } from "../../db/nats";
 import type { FluxifyEnv } from "../../lib/env";
 import { enqueueJob } from "../jobs/publisher";
@@ -40,7 +40,9 @@ export type FireConsumerOptions = {
 	env?: FluxifyEnv;
 };
 
-export async function startFireConsumer(options: FireConsumerOptions): Promise<QueueConsumer> {
+export async function startFireConsumer(
+	options: FireConsumerOptions,
+): Promise<FluxifyQueueConsumer> {
 	const nc = natsConnection();
 	const { env } = options;
 	await ensureSchedulesStream(env);

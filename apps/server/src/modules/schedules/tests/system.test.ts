@@ -8,7 +8,7 @@ import {
 	ensureConsumer,
 	natsConnection,
 	publishToStream,
-	type QueueConsumer,
+	type FluxifyQueueConsumer,
 	scheduleSubjects,
 } from "@fluxify/common/nats";
 import type Docker from "dockerode";
@@ -25,7 +25,7 @@ import { onSystemTick, publishSystemTicks } from "../system";
 const IMAGE = "nats:2.14";
 const NAME = "fluxify-system-ticks-test";
 let container: Docker.Container;
-const consumers: QueueConsumer[] = [];
+const consumers: FluxifyQueueConsumer[] = [];
 
 beforeAll(async () => {
 	await docker.getContainer(NAME).remove({ force: true }).catch(() => {});

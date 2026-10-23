@@ -11,6 +11,7 @@ import type { InvokeMode } from "../src/reserved.js";
 import type { BranchStub } from "../src/testing/runBlock.js";
 
 export { type IntegrationRunner, integrationConformance } from "./integrationConformance.js";
+export { type CaughtEmit, type TriggerRunner, triggerConformance } from "./triggerConformance.js";
 
 export type ConformanceOptions = {
 	params?: Record<string, unknown>;

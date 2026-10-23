@@ -1,8 +1,8 @@
 import { block, param } from "../blocks.js";
 import { integrationGroup } from "../integrations.js";
 import type { SpanRecord } from "../src/runtime/ctx.js";
-import { runBlock, runIntegration, testPool } from "../testing.js";
-import { conformance, integrationConformance } from "./conformance.js";
+import { runBlock, runIntegration, runTrigger, testPool } from "../testing.js";
+import { conformance, integrationConformance, triggerConformance } from "./conformance.js";
 
 /** spans by name, parent by name, error by message: what the suite compares */
 const normalizeSpans = (spans: SpanRecord[]) => {
@@ -51,5 +51,12 @@ integrationConformance("harness", {
 	async reset() {
 		await pool.close();
 		pool = testPool();
+	},
+});
+
+triggerConformance("harness", {
+	async start(def, params) {
+		const run = await runTrigger(def, { params: params as never });
+		return { nextEmit: () => run.nextEmit(), stop: () => run.stop() };
 	},
 });

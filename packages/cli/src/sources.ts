@@ -2,12 +2,13 @@ import { existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { blockEntryPath, integrationEntryPath } from "@fluxify/sdk/blocks";
+import { triggerEntryPath } from "@fluxify/sdk/triggers";
 import { Glob } from "bun";
 import { fail, type Plugin } from "./plugin";
 
-/** what a plugin ships from one folder of `src`: blocks or integrations */
+/** what a plugin ships from one folder of `src`: blocks, integrations or triggers */
 export type Kind = {
-	dir: "blocks" | "integrations";
+	dir: "blocks" | "integrations" | "triggers";
 	/** where the built module of `type` sits */
 	entry(type: string): string;
 	/** whether a module's default export is one of these */
@@ -26,6 +27,15 @@ export const INTEGRATIONS: Kind = {
 	entry: integrationEntryPath,
 	is: (def) => typeof def?.connect === "function" && typeof def.name === "string",
 	what: "an integration(...)",
+};
+export const TRIGGERS: Kind = {
+	dir: "triggers",
+	entry: triggerEntryPath,
+	is: (def) =>
+		typeof def?.start === "function" &&
+		typeof def.stop === "function" &&
+		typeof def.name === "string",
+	what: "a trigger(...)",
 };
 
 export type Source = { file: string; rel: string; type: string; kind: Kind };
@@ -50,7 +60,7 @@ export function discover(plugin: Plugin, kind: Kind): Source[] {
 	}));
 }
 
-/** one module per block and integration under dist/, shared code in dist/chunks, npm packages left to the worker's install */
+/** one module per block, integration and trigger under dist/, shared code in dist/chunks, npm packages left to the worker's install */
 export async function bundle(plugin: Plugin, sources: Source[]) {
 	rmSync(join(plugin.root, "dist"), { recursive: true, force: true });
 	const result = await Bun.build({

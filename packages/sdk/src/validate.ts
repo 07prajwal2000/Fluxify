@@ -61,18 +61,18 @@ export function checkTabs(params: Entry["params"], tabs: string[] | undefined, i
 }
 
 /**
- * The rules no single field can check: params against each other and the
- * permissions, invoke modes against the handles.
+ * Each param's name, `visibleWhen` and permission, and the tabs: the rules a
+ * block's and a trigger's params share. `reserved` is the names neither may take.
  */
-export function checkEntry(entry: Entry, ctx: z.RefinementCtx) {
-	const issue: Issue = (message, path) => ctx.addIssue({ code: "custom", message, path });
-	const { params, handles, invoke, permissions, tabs } = entry;
+export function checkParams(
+	entry: Pick<Entry, "params" | "permissions" | "tabs">,
+	reserved: readonly string[],
+	issue: Issue,
+) {
+	const { params, permissions } = entry;
 	for (const [name, p] of Object.entries(params)) {
-		if (RESERVED_PARAM_NAMES.includes(name))
-			issue(`param name '${name}' is reserved (${RESERVED_PARAM_NAMES.join(", ")})`, [
-				"params",
-				name,
-			]);
+		if (reserved.includes(name))
+			issue(`param name '${name}' is reserved (${reserved.join(", ")})`, ["params", name]);
 		if (p.visibleWhen) checkVisible(params, p.visibleWhen, ["params", name, "visibleWhen"], issue);
 		if (p.type === "integration" && !permissions.integrations?.includes(p.kind))
 			issue(
@@ -84,13 +84,24 @@ export function checkEntry(entry: Entry, ctx: z.RefinementCtx) {
 				"params",
 				name,
 			]);
+	}
+	checkTabs(params, entry.tabs, issue);
+}
+
+/**
+ * The rules no single field can check: params against each other and the
+ * permissions, invoke modes against the handles.
+ */
+export function checkEntry(entry: Entry, ctx: z.RefinementCtx) {
+	const issue: Issue = (message, path) => ctx.addIssue({ code: "custom", message, path });
+	const { params, handles, invoke } = entry;
+	checkParams(entry, RESERVED_PARAM_NAMES, issue);
+	for (const [name, p] of Object.entries(params))
 		if (p.type === "secret")
 			issue(
 				`param '${name}': a secret belongs to an integration's config; a block uses appconfig`,
 				["params", name],
 			);
-	}
-	checkTabs(params, tabs, issue);
 	// the caller never learns the outcome of an async or queued call, so there is no branch to take
 	const detached = invoke.filter((m) => m !== "sync");
 	if (handles.out.length === 2 && detached.length)

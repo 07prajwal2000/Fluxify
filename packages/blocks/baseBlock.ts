@@ -1,6 +1,6 @@
 import type { DbFactory, KvFactory, QueueProducerFactory } from "@fluxify/adapters";
 import type { AbstractLogger, HttpClient } from "@fluxify/lib";
-import type { IntegrationSource } from "@fluxify/sdk/runtime";
+import type { IntegrationSource, TriggerConnection } from "@fluxify/sdk/runtime";
 import type jwt from "jsonwebtoken";
 import z from "zod";
 import { variableNameError } from "./variableName";
@@ -61,18 +61,10 @@ export interface TriggerBatchMeta {
 }
 
 /**
- * The external queue a batch came from, bound to that batch. `raw` is the
- * connector's own client, for anything the helpers do not cover.
+ * The external queue a batch came from, bound to that batch: a built-in queue
+ * trigger's, or the one a plugin trigger passes to `ctx.emit`. One type for both.
  */
-export interface TriggerConnection {
-	raw: unknown;
-	/** Marks this batch processed. Automatic after success unless the trigger commits manually. */
-	commit(): Promise<void>;
-	/** Parks this batch on the integration's dead-letter destination. */
-	moveToDLQ(error?: unknown): Promise<void>;
-	/** Messages waiting behind the committed offset, or null if unknown. */
-	lag(): Promise<number | null>;
-}
+export type { TriggerConnection } from "@fluxify/sdk/runtime";
 
 /** Where this execution came from, so blocks/logging can branch on origin. */
 export interface TriggerContext {

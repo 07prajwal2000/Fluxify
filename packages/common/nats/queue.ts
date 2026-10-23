@@ -105,7 +105,7 @@ export interface ConsumeOptions<T> {
 	codec?: Codec<T>;
 }
 
-export interface QueueConsumer {
+export interface FluxifyQueueConsumer {
 	/** Stops delivery. In-flight handlers are left to finish. */
 	stop(): Promise<void>;
 }
@@ -120,7 +120,7 @@ export async function consumeQueue<T>(
 	durable: string,
 	handler: (message: QueueMessage<T>) => Promise<void>,
 	options: ConsumeOptions<T> = {},
-): Promise<QueueConsumer> {
+): Promise<FluxifyQueueConsumer> {
 	const concurrency = Math.max(1, options.concurrency ?? 1);
 	const ackMode = options.ack ?? "on-complete";
 	const failure = options.failure ?? "retry";
@@ -261,7 +261,7 @@ export async function consumeBatches<T>(
 	durable: string,
 	handler: (batch: QueueMessage<T>[]) => Promise<void>,
 	options: BatchOptions<T>,
-): Promise<QueueConsumer> {
+): Promise<FluxifyQueueConsumer> {
 	const maxMessages = Math.max(1, options.maxMessages);
 	// The broker will not accept a shorter poll, and a wait under a second is
 	// not a promise it can keep. A batch that fills early still returns early,
