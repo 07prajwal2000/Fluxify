@@ -207,6 +207,33 @@ describe("blocks build fails", () => {
 	});
 });
 
+describe("recorded block ids (#952)", () => {
+	// id = plugin + "@" + version + ":" + project (50, the maximum) + ":" + type
+	// with this plugin's version 1.2.3 and type `<plugin>/hello`, that is 2n + 64
+	const pluginName = (length: number) => `${"a".repeat(length - 2)}/b`;
+	const pluginOf = async (length: number) => {
+		const name = pluginName(length);
+		const type = `${name}/hello`;
+		return makePlugin(
+			{
+				"src/index.ts": `import { plugin } from "@fluxify/sdk";
+export default plugin(${JSON.stringify({ name, url: "https://example.com/acme" })});
+`,
+				"src/blocks/hello.ts": blockSrc(type),
+			},
+			{ fluxify: { name, url: "https://example.com/acme" } },
+		);
+	};
+
+	it("refuses a block whose id would be over the limit, naming it and how far over", async () => {
+		const root = await pluginOf(219);
+		const problems = await failures(root);
+		expect(problems).toHaveLength(1);
+		expect(problems[0]).toContain(`block '${pluginName(219)}/hello'`);
+		expect(problems[0]).toContain("2 over the 500-character limit");
+	});
+});
+
 describe("plugin metadata from src/index.ts", () => {
 	const manifestOf = async (root: string) => Bun.file(join(root, "fluxify.json")).json();
 	const pkgOf = async (root: string) => Bun.file(join(root, "package.json")).json();

@@ -1,6 +1,7 @@
 import { logger } from "@fluxify/common";
 import { consumeQueue, ensureStreamConsumer, type QueueConsumer } from "@fluxify/common/nats";
 import type { TraceRunPayload } from "@fluxify/common/otlp";
+import { MAX_BLOCK_ID_LENGTH } from "@fluxify/sdk";
 import { and, eq, inArray, lt, sql } from "drizzle-orm";
 import z from "zod";
 import { db } from "../../db";
@@ -31,6 +32,16 @@ const RETENTION_BATCH = 100;
 const outcome = z.enum(["success", "failure"]);
 const time = z.number().finite();
 const id = z.string().min(1).max(50);
+
+/**
+ * A recorded block id is the worker's library id for a plugin block
+ * (`<plugin>@<version>:<projectId>:<type>`), and it can be long (#952). A value
+ * past the column's width is cut at the end, never rejected: one long id must
+ * not cost the span or the run. The build refuses a plugin whose ids could
+ * reach this, so this only covers a run recorded before that check existed.
+ */
+const trimBlockId = (value: string) =>
+	value.length > MAX_BLOCK_ID_LENGTH ? value.slice(0, MAX_BLOCK_ID_LENGTH) : value;
 
 /** a test run's trace (#627); the worker supervisor attaches it, not the test child */
 const metadataSchema = z.object({
@@ -86,7 +97,7 @@ const runSchema = z
 					blockId: z.string(),
 					blockType: z.string(),
 					blockName: z.string().optional(),
-					customBlockId: z.string().max(50).optional(),
+					customBlockId: z.string().transform(trimBlockId).optional(),
 					startedAt: time,
 					endedAt: time,
 					outcome,

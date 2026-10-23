@@ -1,6 +1,6 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { basename, dirname, extname, isAbsolute, join, relative } from "node:path";
-import { GENERAL_TAB } from "@fluxify/sdk";
+import { blockIdProblem, GENERAL_TAB } from "@fluxify/sdk";
 import {
 	blockEntryPath,
 	type FluxifyManifest,
@@ -132,6 +132,10 @@ export async function build(root: string): Promise<BuildResult> {
 	const i = entriesOf<IntegrationEntry>(integrated, toIntegrationEntry, integrationEntrySchema);
 	if (b.problems.length || i.problems.length) fail(...b.problems, ...i.problems);
 	const entries = b.entries;
+	// an over-long id would not fit a recorded span (#952), so refuse it now,
+	// with this plugin's real version, before anything is written
+	const idProblem = blockIdProblem(plugin.name, plugin.version, Object.keys(entries));
+	if (idProblem) fail(idProblem);
 	for (const [type, entry] of [...Object.entries(entries), ...Object.entries(i.entries)])
 		if (entry.icon) entry.icon = shipIcon(plugin, type, entry.icon);
 	const { meta } = plugin;

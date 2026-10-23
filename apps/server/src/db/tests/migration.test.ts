@@ -364,6 +364,50 @@ describe("migrateDB", () => {
 		]);
 	});
 
+	test("a recorded block id keeps its value when its column widens to 500 (#952)", async () => {
+		const { url, client } = await newDatabase();
+		const folder = mkdtempSync(join(tmpdir(), "fluxify-migrations-"));
+		try {
+			cpSync(MIGRATIONS_FOLDER, folder, { recursive: true });
+			const journalPath = join(folder, "meta/_journal.json");
+			const meta = await Bun.file(journalPath).json();
+			// everything before 0027: custom_block_id is still varchar(50)
+			const from = meta.entries.findIndex(
+				(e: { tag: string }) => e.tag === "0027_trace_span_block_id_length",
+			);
+			meta.entries = meta.entries.slice(0, from);
+			await Bun.write(journalPath, JSON.stringify(meta));
+			await migrateDB(url, folder);
+		} finally {
+			rmSync(folder, { recursive: true, force: true });
+		}
+		await client`INSERT INTO projects (id, name, slug) VALUES ('p1', 'Shop', 'shop')`;
+		await client`INSERT INTO routes (id, name, path, method, project_id) VALUES ('r1', 'one', '/one', 'GET', 'p1')`;
+		const runId = crypto.randomUUID();
+		await client`INSERT INTO trace_runs (id, project_id, route_id, started_at, outcome, span_count)
+			VALUES (${runId}, 'p1', 'r1', now(), 'success', 1)`;
+		const before = "a".repeat(50);
+		await client`INSERT INTO trace_spans (run_id, seq, block_id, block_type, custom_block_id, started_at, ended_at, outcome)
+			VALUES (${runId}, 0, 'b', 'custom', ${before}, now(), now(), 'success')`;
+
+		await migrateDB(url);
+
+		const [column] = await client`SELECT character_maximum_length FROM information_schema.columns
+			WHERE table_name = 'trace_spans' AND column_name = 'custom_block_id'`;
+		expect(column.character_maximum_length).toBe(500);
+		// the value that was already there survives the widen unchanged
+		expect((await client`SELECT custom_block_id FROM trace_spans WHERE run_id = ${runId} AND seq = 0`)[0].custom_block_id).toBe(before);
+
+		const wide = "b".repeat(500);
+		await client`INSERT INTO trace_spans (run_id, seq, block_id, block_type, custom_block_id, started_at, ended_at, outcome)
+			VALUES (${runId}, 1, 'b', 'custom', ${wide}, now(), now(), 'success')`;
+		expect((await client`SELECT custom_block_id FROM trace_spans WHERE run_id = ${runId} AND seq = 1`)[0].custom_block_id).toBe(wide);
+		await expect(
+			client`INSERT INTO trace_spans (run_id, seq, block_id, block_type, custom_block_id, started_at, ended_at, outcome)
+				VALUES (${runId}, 2, 'b', 'custom', ${"c".repeat(501)}, now(), now(), 'success')`.execute(),
+		).rejects.toThrow(/too long/);
+	});
+
 	test("two migrators at once: one applies, the other waits and finds nothing to do", async () => {
 		const { url, client } = await newDatabase();
 		await Promise.all([migrateDB(url), migrateDB(url)]);

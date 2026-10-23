@@ -44,6 +44,8 @@ export default block({
 
 The block's type. It must be the plugin name plus the path of the file under `src/blocks`, in lowercase. The build stops if they differ. See [names](./getting-started#names).
 
+The type is also part of the id a recorded run stores for the block, `<plugin>@<version>:<project id>:<block type>`, which holds **500 characters**. The build budgets the longest project id (50) and stops, naming the block and how far over it is, when the id could not fit. Shorten the plugin name or a folder if that happens.
+
 ```ts
 name: "acme/slack/messages/post", // src/blocks/messages/post.ts in acme/slack
 ```

@@ -11,6 +11,7 @@ import {
 	type QueueConsumer,
 } from "@fluxify/common/nats";
 import type { TraceRunPayload } from "@fluxify/common/otlp";
+import { MAX_BLOCK_ID_LENGTH } from "@fluxify/sdk";
 import { SQL } from "bun";
 import type Docker from "dockerode";
 import { drizzle } from "drizzle-orm/bun-sql";
@@ -171,6 +172,31 @@ describe("recordings consumer", () => {
 		expect(spans[1].parent_seq).toBe(0);
 		expect(spans[1].error).toBe("Error: boom");
 		expect(spans[1].outcome).toBe("failure");
+	});
+
+	it("stores a span whose plugin block id is longer than the old 50 characters (#952)", async () => {
+		const id = `demo/toolkit@0.3.0:${"p".repeat(50)}:${"d".repeat(200 - "demo/toolkit@0.3.0:".length - 50 - 1)}`;
+		const run = makeRun();
+		run.spans[1]!.customBlockId = id;
+
+		expect(await recordings.persistRecording(run)).toBe("stored");
+
+		expect((await runRow(run.runId)).span_count).toBe(2);
+		expect((await spanRows(run.runId))[1].custom_block_id).toBe(id);
+	});
+
+	it("trims a block id at the end rather than dropping its span or the run (#952)", async () => {
+		const id = `demo/toolkit@0.3.0:${"p".repeat(50)}:${"d".repeat(MAX_BLOCK_ID_LENGTH)}`;
+		const run = makeRun();
+		run.spans[1]!.customBlockId = id;
+
+		expect(await recordings.persistRecording(run)).toBe("stored");
+
+		const spans = await spanRows(run.runId);
+		expect((await runRow(run.runId)).span_count).toBe(2);
+		expect(spans).toHaveLength(2);
+		expect(spans[1].custom_block_id).toBe(id.slice(0, MAX_BLOCK_ID_LENGTH));
+		expect(spans[1].custom_block_id).toHaveLength(MAX_BLOCK_ID_LENGTH);
 	});
 
 	it("stores a route that answered with a string status as a number (#625)", async () => {

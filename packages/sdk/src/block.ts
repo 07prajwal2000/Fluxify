@@ -47,7 +47,13 @@ export type RunResult<O extends string> = [O] extends [never]
 	: { output?: unknown; handle?: O };
 
 export type BlockDefinition<P extends Params, H extends Handles> = {
-	/** the block type: `scope/name/folder/.../block`, lowercase; `scope/name` is the plugin */
+	/**
+	 * The block type: `scope/name/folder/.../block`, lowercase; `scope/name` is
+	 * the plugin. It is part of the id a recorded span stores
+	 * (`<plugin>@<version>:<projectId>:<type>`), so a name long enough for that
+	 * id to exceed `MAX_BLOCK_ID_LENGTH` is refused at build time and by
+	 * `fluxifyManifestSchema` (#952).
+	 */
 	name: string;
 	label: string;
 	description?: string;
