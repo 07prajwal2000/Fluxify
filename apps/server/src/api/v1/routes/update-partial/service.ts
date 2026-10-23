@@ -150,9 +150,22 @@ export default async function handleRequest(
 		throw new ServerError("Something went wrong while updating the route");
 	}
 	await publishMessage(CHAN_ON_ROUTE_CHANGE, id);
-	if (data.active !== undefined && result.projectId) {
+	if (result.projectId) {
 		const { invalidateOpenApiCache } = await import("../openapi/service");
-		await invalidateOpenApiCache(result.projectId);
+		if (data.active !== undefined) {
+			await invalidateOpenApiCache(result.projectId, "production");
+		}
+		const devTouched =
+			data.devActive !== undefined ||
+			data.name !== undefined ||
+			data.path !== undefined ||
+			data.method !== undefined ||
+			data.bodySchema !== undefined ||
+			data.querySchema !== undefined ||
+			data.paramsSchema !== undefined;
+		if (devTouched) {
+			await invalidateOpenApiCache(result.projectId, "development");
+		}
 	}
 	return {
 		id: result.id,

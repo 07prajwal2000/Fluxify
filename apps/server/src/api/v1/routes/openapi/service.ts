@@ -11,13 +11,19 @@ import { projectHost } from "../../../../lib/hosting";
 import { acceptedContentTypes } from "../../../../lib/routeConfig";
 import { baseDomain, configuredBaseDomain } from "../../../../loaders/instanceSettingsLoader";
 import { projectSettingsCache } from "../../../../loaders/projectSettingsLoader";
-import type { requestParamSchema } from "./dto";
+import type { OpenApiEnv, requestParamSchema } from "./dto";
 import { getActiveRoutes, getProject } from "./repository";
 
-export async function invalidateOpenApiCache(projectId?: string) {
+export async function invalidateOpenApiCache(projectId?: string, env?: OpenApiEnv) {
 	try {
 		if (projectId) {
-			await deleteCacheKey(`openapi-spec:${projectId}`);
+			if (env) {
+				await deleteCacheKey(`openapi-spec:${projectId}:${env}`);
+			} else {
+				await deleteCacheKey(`openapi-spec:${projectId}`);
+				await deleteCacheKey(`openapi-spec:${projectId}:production`);
+				await deleteCacheKey(`openapi-spec:${projectId}:development`);
+			}
 		} else {
 			await deleteCacheKeysByPattern(`openapi-spec:*`);
 		}
@@ -148,10 +154,11 @@ export function specServerUrl(projectId: string, requestOrigin: string) {
 export async function generateOpenApiSpec(
 	param: z.infer<typeof requestParamSchema>,
 	requestOrigin: string,
+	env: OpenApiEnv = "production",
 ) {
 	const { projectId } = param;
 	const servers = [{ url: specServerUrl(projectId, requestOrigin) }];
-	const cacheKey = `openapi-spec:${projectId}`;
+	const cacheKey = `openapi-spec:${projectId}:${env}`;
 	const cached = await getCache(cacheKey);
 	if (cached) {
 		const { openapi, info, paths } = JSON.parse(cached);
@@ -161,7 +168,7 @@ export async function generateOpenApiSpec(
 	const project = await getProject(projectId);
 	if (!project) throw new NotFoundError("Project not found");
 
-	const routes = await getActiveRoutes(projectId);
+	const routes = await getActiveRoutes(projectId, env);
 	const paths: Record<string, any> = {};
 
 	for (const route of routes) {
@@ -211,7 +218,7 @@ export async function generateOpenApiSpec(
 	const openapi = {
 		openapi: "3.0.0",
 		info: {
-			title: project.name,
+			title: env === "development" ? `${project.name} (Development)` : project.name,
 			version: "1.0.0",
 		},
 		paths,

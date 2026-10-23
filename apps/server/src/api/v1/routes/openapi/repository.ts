@@ -7,6 +7,7 @@ import {
 	projectsEntity,
 	routesEntity,
 } from "../../../../db/schema";
+import type { OpenApiEnv } from "./dto";
 
 export async function getProject(projectId: string) {
 	const res = await db
@@ -17,7 +18,19 @@ export async function getProject(projectId: string) {
 	return res[0];
 }
 
-export async function getActiveRoutes(projectId: string) {
+export async function getActiveRoutes(projectId: string, env: OpenApiEnv = "production") {
+	if (env === "development") {
+		const rows = await db
+			.select({
+				route: routesEntity,
+				routeConfig: httpRouteConfigEntity.routeConfig,
+			})
+			.from(routesEntity)
+			.leftJoin(httpRouteConfigEntity, eq(httpRouteConfigEntity.routeId, routesEntity.id))
+			.where(and(eq(routesEntity.projectId, projectId), eq(routesEntity.devActive, true)));
+		return rows.map(({ route, routeConfig }) => ({ ...route, routeConfig }));
+	}
+
 	const rows = await db
 		.select({
 			route: routesEntity,
