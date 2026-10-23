@@ -1,4 +1,4 @@
-import { Button, integrationIcons, toast } from "@fluxify/components";
+import { Button, Checkbox, integrationIcons, toast } from "@fluxify/components";
 import { getDefaultVariantValue } from "@fluxify/server/src/api/v1/integrations/helpers";
 import { useBlocker } from "@tanstack/react-router";
 import { useRef, useState } from "react";
@@ -231,11 +231,19 @@ export function IntegrationOnboardingForm({
 									Configure {variant}
 								</h2>
 							</div>
-							<div className="flex items-center gap-2 rounded-lg border border-border bg-surface-secondary px-3 py-1.5 text-xs text-foreground">
-								<span className="flex size-4 items-center justify-center text-accent">
-									{integrationIcons[variant] ?? GROUP_DETAILS[group]?.icon}
-								</span>
-								<span className="font-medium text-foreground">{variant}</span>
+							<div className="flex items-center gap-3">
+								<Checkbox
+									isSelected={syncDev}
+									onChange={setSyncDev}
+									isDisabled={group === "mcp" && !isAdmin}
+									label="Same as prod"
+								/>
+								<div className="flex items-center gap-2 rounded-lg border border-border bg-surface-secondary px-3 py-1.5 text-xs text-foreground">
+									<span className="flex size-4 items-center justify-center text-accent">
+										{integrationIcons[variant] ?? GROUP_DETAILS[group]?.icon}
+									</span>
+									<span className="font-medium text-foreground">{variant}</span>
+								</div>
 							</div>
 						</div>
 						<p className="mt-0.5 text-xs text-muted">
@@ -263,6 +271,7 @@ export function IntegrationOnboardingForm({
 								readOnly={group === "mcp" && !isAdmin}
 								tools={testedTools ?? undefined}
 								formError={formError}
+								tabs
 							/>
 							{testError && (
 								<div
