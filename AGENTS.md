@@ -210,6 +210,19 @@ const get = () => spyOn(orchestrationService, "getProject").mockResolvedValue(st
 ```
 `spyOn` on a service method is scoped to that object and restorable; `mock.module` on a shared module is neither. Keep `mock.module` for modules that genuinely cannot be imported in a test process (node-only code in a DOM test), and say why in a comment.
 
+### Floating Errors in the Execution Process — Bun Exits, and ALS Misses Rejections
+**Issue:** one unhandled rejection or uncaught exception anywhere in the execution process (a plugin trigger's poll loop, a JS block's floating promise) made Bun exit with code 1. The supervisor respawned the child, but every in-flight route and workflow on the worker failed.
+**Cause / behaviour (verified on Bun 1.4.3):** Bun's default is to exit on both. `AsyncLocalStorage` does propagate into an author's background loop, and the `uncaughtException` handler sees the store for timers, `nextTick` and EventEmitter errors (not `queueMicrotask`). The `unhandledRejection` handler **never** sees the store.
+**Fix & Best Practices:**
+1. `guardProcess()` (`apps/server/src/modules/triggers/strayErrors.ts`) is installed in `executionProcess.ts`: it logs and never exits. Don't add a second handler elsewhere, and don't "fix" a crash by removing it.
+2. Attribution: the ALS scope first, then the error's stack naming exactly one running trigger module's file. Several instances of one kind are ambiguous, so they are only logged. Don't rely on `getStore()` inside `unhandledRejection`; it is always undefined.
+3. Run anything that isn't the trigger's own code (the workflow `emit` starts) under `triggerScope.exit(...)`, or its floating errors get blamed on the trigger.
+4. Plugin trigger authors should call `ctx.fail(error)` from their loop's `.catch`; that is the only fully reliable path.
+
+### A Child's IPC Message Sent Right Before `process.exit` Can Be Lost
+**Issue:** a process-spec fixture did `process.send(report); process.exit(0)` and the parent's `ipc` callback never fired; the test saw `undefined`.
+**Fix:** for a fixture that reports and exits, print one marker line to stdout (`console.log(\`REPORT ${JSON.stringify(x)}\`)`) and parse it from the piped stdout (`/REPORT (.*)/`). See `triggers/tests/strayErrorsChild.fixture.ts`. Use IPC only for a long-lived child.
+
 ---
 
 ## Documentation Writing Rules
