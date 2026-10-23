@@ -5,6 +5,7 @@ import type { AsyncExecutorLimits } from "./asyncExecutor";
 import type { ArtifactEntry } from "./compiledRuntime";
 import type { PluginIntegrationRef } from "./pluginIntegrations";
 import type { PluginBlockRef } from "./pluginLoader";
+import type { PluginTriggerRef } from "./pluginTriggers";
 
 /** handed to the isolated execution process over Bun IPC at spawn */
 export type ExecutionBootstrap = {
@@ -24,6 +25,8 @@ export type ExecutionBootstrap = {
 	pluginRefs?: PluginBlockRef[];
 	/** where this node's plugin integration variants are (I6); all imported before ready */
 	pluginIntegrations?: PluginIntegrationRef[];
+	/** where this node's plugin trigger kinds are (T2); held for the trigger runtime, never started here */
+	pluginTriggers?: PluginTriggerRef[];
 	/** hot-reloadable supervisor policy; false means no heartbeat or tracking */
 	workerTimeoutsEnabled: boolean;
 	/** verifies the admin's debug-call tokens (#671); empty turns debug errors off */
@@ -50,7 +53,12 @@ export type ExecutionMessage =
 	| { type: "monitoring"; enabled: boolean }
 	| { type: "base-domain"; baseDomain: string }
 	// a new set with no version changed; an upgrade replaces the process instead
-	| { type: "plugin-refs"; refs: PluginBlockRef[]; integrations?: PluginIntegrationRef[] }
+	| {
+			type: "plugin-refs";
+			refs: PluginBlockRef[];
+			integrations?: PluginIntegrationRef[];
+			triggers?: PluginTriggerRef[];
+	  }
 	// the supervisor owns NATS, the child owns user code: jobs cross here
 	| { type: "job"; job: JobEnvelope };
 

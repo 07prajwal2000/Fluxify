@@ -52,6 +52,9 @@ describe("diffManifests", () => {
 			addedIntegrations: [],
 			removedIntegrations: [],
 			changedIntegrations: [],
+			addedTriggers: [],
+			removedTriggers: [],
+			changedTriggers: [],
 			blocking: false,
 			blockers: [],
 		});

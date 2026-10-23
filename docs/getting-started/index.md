@@ -36,7 +36,7 @@ All of this is configured visually in the browser — no server framework knowle
 | ⚡ **Compiled Routes** | Your canvas is translated to JavaScript once, when you save. Requests run that code directly in Bun |
 | 🤖 **AI Assistant** | Describe a route and the assistant places and connects the blocks. Works with OpenAI, Anthropic, Gemini, Mistral, or any OpenAI-compatible server |
 | 🗄️ **Databases & Caches** | Blocks for PostgreSQL, MySQL, and MongoDB — query, insert, update, delete, transactions, plus raw queries. Redis and Memcached for caching |
-| ⏱️ **Workflows, Schedules & Triggers** | Run background work on a cron, an interval, a one-off time, or when a Redis stream message arrives. Kafka, NATS JetStream, and Amazon SQS triggers need an Enterprise license |
+| ⏱️ **Workflows, Schedules & Triggers** | Run background work on a cron, an interval, a one-off time, or when a message arrives on Kafka, NATS JetStream, Amazon SQS, RabbitMQ or a Redis stream |
 | 📜 **Custom Scripting** | Write JavaScript for advanced transformations, custom logic, or JWT handling, and package your own reusable blocks |
 | 🔗 **HTTP Networking** | Call external APIs, read headers and cookies, and shape responses — all with dedicated HTTP blocks |
 | 🧪 **Test Suites** | Check a route or workflow against requests and rules you write, and re-run it after every change |

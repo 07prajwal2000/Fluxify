@@ -42,11 +42,11 @@ export const blockMetaOf = (entry: ManifestEntry): BlockMeta => {
 	};
 };
 
-/** every block's permissions together: approval is per plugin */
+/** every block's and trigger's permissions together: approval is per plugin */
 export function requestedPermissions(manifest: FluxifyManifest): PluginPermissions {
 	const integrations = new Set<string>();
 	let appconfig = false;
-	for (const block of Object.values(manifest.blocks)) {
+	for (const block of [...Object.values(manifest.blocks), ...(manifest.triggers ?? [])]) {
 		for (const kind of block.permissions.integrations ?? []) integrations.add(kind);
 		appconfig ||= block.permissions.appconfig === true;
 	}

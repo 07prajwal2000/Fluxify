@@ -30,10 +30,17 @@ export type InternalTriggerMessage = {
 	retry?: RetryPolicy;
 };
 
+/** A plugin trigger's row type: `plugin:` and its manifest name, e.g. `plugin:acme/pg/poller`. */
+const PLUGIN_TYPE = "plugin:";
+export const isPluginTriggerType = (type: string) => type.startsWith(PLUGIN_TYPE);
+export const pluginTriggerType = (kind: string) => `${PLUGIN_TYPE}${kind}`;
+export const pluginTriggerKind = (type: string) => type.slice(PLUGIN_TYPE.length);
+
 /**
  * Whether a trigger is consumed by the execution process itself. External
- * queues are read right beside the workflow, with no copy onto the internal
- * broker; only `internal` travels over NATS. (Schedules publish no artifact.)
+ * queues and plugin triggers run right beside the workflow, with no copy onto
+ * the internal broker; only `internal` travels over NATS. (Schedules publish no
+ * artifact.)
  */
 export function consumedInExecution(type: string) {
 	return type !== "internal";

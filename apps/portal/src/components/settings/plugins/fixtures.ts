@@ -50,6 +50,9 @@ export const emptyDiff: PluginUpgradeDiff = {
 	addedIntegrations: [],
 	removedIntegrations: [],
 	changedIntegrations: [],
+	addedTriggers: [],
+	removedTriggers: [],
+	changedTriggers: [],
 	blocking: false,
 	blockers: [],
 };

@@ -15,6 +15,7 @@ import { ExecutionWatchdog } from "./executionWatchdog";
 import { markNotReady, markReady } from "./health";
 import { integrationRefKey, type PluginIntegrationRef } from "./pluginIntegrations";
 import type { PluginBlockRef } from "./pluginLoader";
+import { type PluginTriggerRef, triggerRefKey } from "./pluginTriggers";
 import type { ExecutionBootstrap, ExecutionEvent, ExecutionMessage } from "./threadTypes";
 
 /**
@@ -65,6 +66,8 @@ export interface ExecutionSupervisorOptions {
 	pluginRefs?: () => PluginBlockRef[];
 	/** Where this node's plugin integration variants are (I6), read at every spawn. */
 	pluginIntegrationRefs?: () => PluginIntegrationRef[];
+	/** Where this node's plugin trigger kinds are (T2), read at every spawn. */
+	pluginTriggerRefs?: () => PluginTriggerRef[];
 	/**
 	 * Upper bound of the random wait before a plugin upgrade or removal replaces
 	 * the child (#860), so workers that see one KV update together do not all
@@ -123,10 +126,17 @@ export function createExecutionSupervisor(
 	 */
 	let refVersions = new Map<string, string>();
 	const integrationRefs = () => options.pluginIntegrationRefs?.() ?? [];
-	const versionsOf = (refs: PluginBlockRef[], integrations: PluginIntegrationRef[]) =>
+	const triggerRefs = () => options.pluginTriggerRefs?.() ?? [];
+	const versionsOf = (
+		refs: PluginBlockRef[],
+		integrations: PluginIntegrationRef[],
+		triggers: PluginTriggerRef[] = triggerRefs(),
+	) =>
 		new Map([
 			...refs.map((ref) => [`${ref.projectId}:${ref.type}`, ref.version] as const),
 			...integrations.map((ref) => [integrationRefKey(ref), ref.version] as const),
+			// a trigger's new version restarts it on the fresh child: the graceful restart
+			...triggers.map((ref) => [triggerRefKey(ref), ref.version] as const),
 		]);
 
 	/**
@@ -223,7 +233,8 @@ export function createExecutionSupervisor(
 		spawnedAt = Date.now();
 		const pluginRefs = options.pluginRefs?.() ?? [];
 		const pluginIntegrations = integrationRefs();
-		refVersions = versionsOf(pluginRefs, pluginIntegrations);
+		const pluginTriggers = triggerRefs();
+		refVersions = versionsOf(pluginRefs, pluginIntegrations, pluginTriggers);
 		const bootstrap: ExecutionBootstrap = {
 			projectId: options.projectId,
 			port: options.port,
@@ -236,6 +247,7 @@ export function createExecutionSupervisor(
 			artifacts: options.artifacts(),
 			pluginRefs,
 			pluginIntegrations,
+			pluginTriggers,
 			workerTimeoutsEnabled: options.timeoutsEnabled(),
 			maxRequestBodyBytes: options.maxRequestBodyBytes,
 			scheduleHorizonMs: options.scheduleHorizonMs,
@@ -352,10 +364,17 @@ export function createExecutionSupervisor(
 			}
 			const refs = options.pluginRefs?.() ?? [];
 			const integrations = integrationRefs();
+			const triggers = triggerRefs();
 			// kept for a block that left: its module is still in the child, so a different
 			// version of it returning (removed, then approved again) is an upgrade too
-			for (const [key, version] of versionsOf(refs, integrations)) refVersions.set(key, version);
-			execution?.send({ type: "plugin-refs", refs, integrations } satisfies ExecutionMessage);
+			for (const [key, version] of versionsOf(refs, integrations, triggers))
+				refVersions.set(key, version);
+			execution?.send({
+				type: "plugin-refs",
+				refs,
+				integrations,
+				triggers,
+			} satisfies ExecutionMessage);
 		},
 
 		send(message) {

@@ -13,7 +13,7 @@ import { WORKFLOW_JOB } from "../jobs/subjects";
 import type { JobEnvelope } from "../jobs/types";
 import { runWorkflowJob } from "../jobs/workflowJob";
 import { compiledWorkflow } from "../requestRouter/compiledRuntime";
-import { consumedInExecution, type TriggerBatch } from "./types";
+import { consumedInExecution, isPluginTriggerType, type TriggerBatch } from "./types";
 
 /**
  * External queue triggers, consumed inside the execution process.
@@ -49,7 +49,9 @@ export function setTriggerFaultReporter(report: (fault: TriggerFault) => void) {
 
 /** A trigger artifact arriving, changing or being withdrawn. */
 export async function applyQueueTrigger(triggerId: string, artifact: TriggerArtifact | null) {
-	if (artifact && !consumedInExecution(artifact.type)) return;
+	// a plugin trigger is started by its own runtime (T3), never as a queue consumer
+	if (artifact && (!consumedInExecution(artifact.type) || isPluginTriggerType(artifact.type)))
+		return;
 	if (!artifact) {
 		triggers.delete(triggerId);
 		return manager.stop(triggerId);

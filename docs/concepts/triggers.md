@@ -211,7 +211,7 @@ empty.
 
 A Kafka trigger runs its workflow for messages arriving on one or more topics.
 It needs a [Kafka integration](/integrations/message-queues) for the brokers
-and credentials, and an enterprise license.
+and credentials. It works in **every edition**, with no license.
 
 | Setting | What it does |
 |---|---|
@@ -255,8 +255,8 @@ to failing messages and how the dead-letter topic works.
 ## Reading from NATS
 
 A NATS trigger runs its workflow for messages stored in a **JetStream stream**
-on your own NATS cluster. It needs a [NATS integration](/integrations/message-queues#nats)
-and an enterprise license.
+on your own NATS cluster. It needs a [NATS integration](/integrations/message-queues#nats).
+It works in **every edition**, with no license.
 
 | Setting | What it does |
 |---|---|

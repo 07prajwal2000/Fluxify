@@ -62,5 +62,5 @@ It is under active development. Some features are still settling and things can 
 :::
 
 ::: info Open source, with an Enterprise edition
-The core - the editor, routes, workflows, schedules and blocks - is free under the Apache 2.0 license. Single sign-on and the Kafka, NATS and SQS triggers need an Enterprise license. See [Editions and licensing](/deployments/editions).
+The core - the editor, routes, workflows, schedules and blocks - is free under the Apache 2.0 license. Single sign-on and audit logs need an Enterprise license. See [Editions and licensing](/deployments/editions).
 :::

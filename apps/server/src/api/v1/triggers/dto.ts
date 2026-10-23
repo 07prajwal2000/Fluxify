@@ -19,7 +19,14 @@ export const TRIGGER_TYPES = [
 	"redis",
 	"rabbitmq",
 ] as const;
-export const triggerTypeSchema = z.enum(TRIGGER_TYPES);
+/** a built-in type, or a plugin kind (`plugin:<scope>/<name>/…`), checked against the project's plugins */
+export const triggerTypeSchema = z.union([
+	z.enum(TRIGGER_TYPES),
+	z
+		.string()
+		.max(255)
+		.regex(/^plugin:[a-z0-9]/, "Not a trigger type"),
+]);
 
 /**
  * Batch settings, shared by create and patch.
@@ -284,8 +291,47 @@ export const listQuerySchema = z
 export const workflowLinkSchema = z.object({ id: z.string(), name: z.string() });
 
 export const listSchema = z.object({
-	data: z.array(triggerSchema.extend({ workflow: workflowLinkSchema.nullable() })),
+	data: z.array(
+		triggerSchema.extend({
+			workflow: workflowLinkSchema.nullable(),
+			/** a plugin trigger whose plugin is switched off in both environments */
+			pluginDisabled: z.boolean(),
+		}),
+	),
 	pagination: paginationResponseSchema,
+});
+
+/* ----------------------------------------------------------- plugin kinds */
+
+/** `kind` is namespaced (`acme/pg/poller`), so it travels as a query param, never in a path */
+export const pluginKindsQuerySchema = z.object({
+	projectId: z.uuidv7(),
+	kind: z.string().min(1).max(248).optional(),
+});
+
+export const pluginKindsSchema = z.object({
+	data: z.array(
+		z.object({
+			kind: z.string(),
+			/** the row type to create: `plugin:<kind>` */
+			type: z.string(),
+			plugin: z.string(),
+			version: z.string(),
+			label: z.string(),
+			description: z.string().optional(),
+			icon: z.string(),
+			/** the manifest params, which the wizard renders as block params */
+			params: z.record(z.string(), z.unknown()),
+			tabs: z.array(z.string()).optional(),
+			permissions: z.object({
+				integrations: z.array(z.string()).optional(),
+				appconfig: z.boolean().optional(),
+			}),
+			retry: z.boolean(),
+			/** where its plugin is switched on */
+			environments: z.object({ development: z.boolean(), production: z.boolean() }),
+		}),
+	),
 });
 
 /* ------------------------------------------------------------------ groups */

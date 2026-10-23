@@ -190,6 +190,7 @@ const supervisor = createExecutionSupervisor({
 	timeoutsEnabled: timeoutPolicyEnabled,
 	pluginRefs: () => plugins.refs(),
 	pluginIntegrationRefs: () => plugins.integrationRefs(),
+	pluginTriggerRefs: () => plugins.triggerRefs(),
 });
 
 function handleArtifactChange(entry: ArtifactEntry) {

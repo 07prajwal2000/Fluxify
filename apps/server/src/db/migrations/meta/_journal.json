@@ -197,6 +197,13 @@
 			"when": 1792762884522,
 			"tag": "0027_trace_span_block_id_length",
 			"breakpoints": true
+		},
+		{
+			"idx": 28,
+			"version": "7",
+			"when": 1792786952012,
+			"tag": "0028_trigger_type_length",
+			"breakpoints": true
 		}
 	]
 }

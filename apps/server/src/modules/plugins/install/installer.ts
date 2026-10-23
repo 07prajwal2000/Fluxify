@@ -12,6 +12,7 @@ import {
 	pluginIntegrationRefs,
 } from "../../requestRouter/pluginIntegrations";
 import { type PluginBlockRef, pluginBlockRefs } from "../../requestRouter/pluginLoader";
+import { type PluginTriggerRef, pluginTriggerRefs } from "../../requestRouter/pluginTriggers";
 import type { PluginFiles } from "../sources/tar";
 import { fetchPluginFiles } from "./source";
 
@@ -85,8 +86,12 @@ export function createPluginInstaller(options: PluginInstallerOptions) {
 		[...installed.values()].flatMap(({ artifact, slot, dir }) =>
 			pluginIntegrationRefs({ ...artifact, version: slot }, dir),
 		);
-	/** both kinds of ref, to tell whether an install changed what the child must load */
-	const snapshot = () => JSON.stringify([refs(), integrationRefs()]);
+	const triggerRefs = (): PluginTriggerRef[] =>
+		[...installed.values()].flatMap(({ artifact, slot, dir }) =>
+			pluginTriggerRefs({ ...artifact, version: slot }, dir),
+		);
+	/** every kind of ref, to tell whether an install changed what the child must load */
+	const snapshot = () => JSON.stringify([refs(), integrationRefs(), triggerRefs()]);
 
 	async function drain(key: string) {
 		for (let job = queued.get(key); job; job = queued.get(key)) {
@@ -213,6 +218,8 @@ export function createPluginInstaller(options: PluginInstallerOptions) {
 		refs,
 		/** where every installed plugin's integration variants are (I6) */
 		integrationRefs,
+		/** where every installed plugin's trigger kinds are (T2) */
+		triggerRefs,
 		/** resolves once every queued install has finished, however it ended */
 		async idle() {
 			while (running.size) await Promise.all(running.values());

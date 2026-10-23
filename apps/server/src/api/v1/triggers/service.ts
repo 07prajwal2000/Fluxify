@@ -11,6 +11,7 @@ import { ConflictError } from "../../../errors/conflictError";
 import { ForbiddenError } from "../../../errors/forbidError";
 import { NotFoundError } from "../../../errors/notFoundError";
 import { canAccessProject } from "../../../lib/acl";
+import type { FluxifyEnv } from "../../../lib/env";
 import { ENVIRONMENTS } from "../../../lib/envValues";
 import { audit, bodyFields, changedFields } from "../../../modules/audit";
 import type { TriggerArtifact } from "../../../modules/compiler/artifacts";
@@ -29,6 +30,7 @@ import type {
 	triggerSchema,
 } from "./dto";
 import { groupCapRefusal } from "./groupCap";
+import { pluginDisabledIds, pluginTriggerPart } from "./pluginTriggers";
 import {
 	deleteTriggerRow,
 	ensureDefaultGroup,
@@ -83,7 +85,7 @@ export async function createTrigger(
 
 		if (data.workflowId) await assertWorkflowInProject(data.workflowId, data.projectId, tx);
 		if (data.sandboxId) await assertOwnSandbox(data.projectId, data.sandboxId, userId, tx);
-		warnings = await assertConnector({ ...data, probe: true }, tx);
+		warnings = await assertConnector({ ...data, probe: true, creating: true }, tx);
 
 		if (await findTriggerByName(data.projectId, data.name, tx))
 			throw new ConflictError("trigger with that name already exists");
@@ -331,6 +333,7 @@ export async function listAllTriggers(
 	const names = await workflowNames(
 		result.flatMap((row) => (row.workflowId ? [row.workflowId] : [])),
 	);
+	const pluginDisabled = await pluginDisabledIds(result);
 	return {
 		pagination: {
 			page: query.page,
@@ -342,6 +345,7 @@ export async function listAllTriggers(
 			workflow: row.workflowId
 				? { id: row.workflowId, name: names.get(row.workflowId) ?? "" }
 				: null,
+			pluginDisabled: pluginDisabled.has(row.id),
 		})),
 	};
 }
@@ -443,7 +447,8 @@ export async function republish(trigger: Trigger) {
 	// consumer that read events and had nowhere to send them would drain the
 	// source into nothing. A sandbox runs as the workflow its id names (#735).
 	const target = trigger.workflowId ?? trigger.sandboxId;
-	if (!trigger.active || !target) return withdraw(trigger.projectId, trigger.id);
+	const plugin = await pluginTriggerPart(trigger);
+	if (!trigger.active || !target || plugin === null) return withdraw(trigger.projectId, trigger.id);
 
 	const artifact: TriggerArtifact = {
 		triggerId: trigger.id,
@@ -461,12 +466,19 @@ export async function republish(trigger: Trigger) {
 		commitMode: trigger.commitMode === "manual" ? "manual" : "auto",
 		maxAttempts: trigger.maxAttempts,
 		retryDelayMs: trigger.retryDelayMs,
+		...(plugin && { plugin: plugin.plugin }),
 		publishedAt: new Date().toISOString(),
 	};
+	// a plugin trigger runs only where its plugin loads, and stops where it is switched off
+	const pluginOn = plugin?.servedIn ?? (() => true);
 	// A sandbox is development's alone (#735); a workflow's trigger runs in each
 	// environment that workflow is live in.
-	if (trigger.sandboxId) await publishSandboxTrigger(key, artifact);
-	else await publishPerEnv(key, artifact, await findWorkflowSwitches(trigger.workflowId!));
+	if (trigger.sandboxId)
+		await (pluginOn("development")
+			? publishSandboxTrigger(key, artifact)
+			: withdraw(trigger.projectId, trigger.id));
+	else
+		await publishPerEnv(key, artifact, await findWorkflowSwitches(trigger.workflowId!), pluginOn);
 	logger.debug(`[triggers] published ${key}`, "TRIGGERS");
 }
 
@@ -477,10 +489,15 @@ export async function republish(trigger: Trigger) {
  * workflow that is not there, and retry forever — and it stops the moment that
  * environment's switch goes off, exactly as its schedule does.
  */
-async function publishPerEnv(key: string, artifact: TriggerArtifact, workflow: EnvSwitches | null) {
+async function publishPerEnv(
+	key: string,
+	artifact: TriggerArtifact,
+	workflow: EnvSwitches | null,
+	pluginOn: (env: FluxifyEnv) => boolean,
+) {
 	await Promise.all(
 		ENVIRONMENTS.map((env) =>
-			workflow && isServedIn(workflow, env)
+			workflow && isServedIn(workflow, env) && pluginOn(env)
 				? putArtifact(key, artifact, env)
 				: deleteArtifact(key, env),
 		),
