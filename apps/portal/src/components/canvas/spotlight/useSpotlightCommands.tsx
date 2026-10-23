@@ -1,4 +1,3 @@
-import { integrationIcons } from "@fluxify/components";
 import { useNavigate } from "@tanstack/react-router";
 import { useMemo } from "react";
 import {
@@ -22,6 +21,7 @@ import {
 	TbSun,
 } from "react-icons/tb";
 import { CustomBlockIcon } from "@/components/customBlocks/IconPicker";
+import { IntegrationVariantIcon } from "@/components/integrations/IntegrationVariantIcon";
 import { withBasePath } from "@/constants/routes";
 import { getTheme, toggleTheme } from "@/lib/theme";
 import { useIntegrationCatalog } from "@/query/integrationsQuery";
@@ -385,7 +385,14 @@ export function useSpotlightCommands({
 						subtitle: groupName,
 						category: "Integrations",
 						keywords: ["new", "create", "connect", "integration", group, groupName],
-						icon: integrationIcons[variant] ?? <TbPlugConnected size={15} />,
+						icon: (
+							<IntegrationVariantIcon
+								variant={variant}
+								group={group}
+								icon={catalog.iconOf(variant, group)}
+								size={15}
+							/>
+						),
 						onSelect: () => open("/$projectId/integrations/new", { group, variant }),
 					});
 				}

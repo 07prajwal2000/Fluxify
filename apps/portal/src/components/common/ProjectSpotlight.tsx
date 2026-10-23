@@ -1,4 +1,3 @@
-import { integrationIcons } from "@fluxify/components";
 import { humanReadableConnectorNames } from "@fluxify/server/src/api/v1/integrations/helpers";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
@@ -9,8 +8,9 @@ import {
 	type SpotlightCommand,
 	useSpotlightCommands,
 } from "@/components/canvas/spotlight";
+import { IntegrationVariantIcon } from "@/components/integrations/IntegrationVariantIcon";
 import { useTargetSpotlight } from "@/components/versions/useTargetSpotlight";
-import { integrationsQuery } from "@/query/integrationsQuery";
+import { integrationsQuery, useIntegrationCatalog } from "@/query/integrationsQuery";
 import { projectsQuery } from "@/query/projectsQuery";
 
 type ProjectSpotlightProps = {
@@ -30,6 +30,7 @@ export function ProjectSpotlight({ isOpen, onOpenChange, onSignOut }: ProjectSpo
 		projectId ?? "",
 		isOpen && query.trim() !== "",
 	);
+	const catalog = useIntegrationCatalog(projectId ?? "");
 	const close = () => onOpenChange(false);
 	const shared = useSpotlightCommands({ actions: [], onClose: close, inPlace: true });
 	// the route/workflow this page is about, if any: version history, commit, sandbox (#739)
@@ -87,7 +88,14 @@ export function ProjectSpotlight({ isOpen, onOpenChange, onSignOut }: ProjectSpo
 			subtitle: `${groupName} • ${integration.variant}`,
 			category: "Resources",
 			keywords: ["goto", "integration", integration.group, integration.variant, groupName],
-			icon: integrationIcons[integration.variant] ?? <TbPlugConnected size={15} />,
+			icon: (
+				<IntegrationVariantIcon
+					variant={integration.variant}
+					group={integration.group}
+					icon={catalog.iconOf(integration.variant, integration.group)}
+					size={15}
+				/>
+			),
 			onSelect: () => {
 				close();
 				navigate({

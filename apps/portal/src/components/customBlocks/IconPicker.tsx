@@ -16,9 +16,23 @@ export type IconValue = {
 };
 
 /** The icon a block shows, for both the preview here and (later) the canvas. */
-export function CustomBlockIcon({ icon, iconUrl, size = 18 }: IconValue & { size?: number }) {
+export function CustomBlockIcon({
+	icon,
+	iconUrl,
+	size = 18,
+	onError,
+}: IconValue & { size?: number; onError?: () => void }) {
 	if (icon === "custom" && iconUrl) {
-		return <img src={iconUrl} alt="" width={size} height={size} className="object-contain" />;
+		return (
+			<img
+				src={iconUrl}
+				alt=""
+				width={size}
+				height={size}
+				className="object-contain"
+				onError={onError}
+			/>
+		);
 	}
 	const Premade = icon === "premade-list" ? premadeIcon(iconUrl) : undefined;
 	return Premade ? <Premade size={size} /> : <TbBox size={size} />;

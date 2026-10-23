@@ -1,4 +1,4 @@
-import { Button, Chip, cn, integrationIcons, Spinner, Table } from "@fluxify/components";
+import { Button, Chip, cn, Spinner, Table } from "@fluxify/components";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { type ReactNode, useEffect, useMemo } from "react";
 import { FaRobot, FaTableList } from "react-icons/fa6";
@@ -20,6 +20,7 @@ import { z } from "zod";
 import { pluginFolderIcon } from "@/components/canvas/plugins/pluginFolderIcon";
 import { CustomBlockIcon } from "@/components/customBlocks/IconPicker";
 import { IntegrationTestButtons } from "@/components/integrations/IntegrationTestButtons";
+import { IntegrationVariantIcon } from "@/components/integrations/IntegrationVariantIcon";
 import { createDynamicRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
 import { integrationsQuery, useIntegrationCatalog } from "@/query/integrationsQuery";
 import { projectsQuery } from "@/query/projectsQuery";
@@ -358,7 +359,11 @@ export function IntegrationsList({ projectId, group }: { projectId: string; grou
 							<Table.Cell>
 								<div className="flex min-w-0 items-center gap-3">
 									<div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-secondary text-accent">
-										{integrationIcons[integration.variant] ?? <TbDatabase size={16} />}
+										<IntegrationVariantIcon
+											variant={integration.variant}
+											group={integration.group}
+											icon={catalog.iconOf(integration.variant, integration.group)}
+										/>
 									</div>
 									<span className="truncate font-medium text-foreground">{integration.name}</span>
 									{!knownVariants.has(integration.variant) && (

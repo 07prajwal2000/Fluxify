@@ -54,3 +54,26 @@ test("pluginBlockIcon is the custom block icon value", () => {
 	});
 	expect(pluginBlockIcon({} as never)).toEqual({});
 });
+
+test("an integration of the plugin shows its icon, from the manifest (#977)", async () => {
+	const { PluginIntegrations } = await import("./PluginSummary");
+	const icon = "data:image/svg+xml;base64,PHN2Zy8+";
+	const entry = { group: "acme/crm", variant: "Hub", label: "Hub", icon };
+	const p = plugin({
+		manifest: { ...plugin().manifest, integrations: [entry] } as never,
+		integrations: [
+			{
+				group: "acme/crm",
+				variant: "Hub",
+				label: "Hub",
+				ownGroup: true,
+				secretParams: [],
+				hooks: { test: false, describe: false, inspect: false },
+			},
+		],
+	});
+	const { container } = render(<PluginIntegrations plugin={p} />);
+	expect(container.querySelector("img")?.getAttribute("src")).toBe(icon);
+	fireEvent.error(container.querySelector("img")!);
+	expect(container.querySelector("img")).toBeNull();
+});

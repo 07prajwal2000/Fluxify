@@ -1,40 +1,11 @@
-import { cn, Input, integrationIcons, TextField } from "@fluxify/components";
+import { cn, Input, TextField } from "@fluxify/components";
 import { getSchema } from "@fluxify/server/src/api/v1/integrations/helpers";
-import type { ReactNode } from "react";
-import { FaRobot, FaTableList } from "react-icons/fa6";
-import {
-	TbArrowsExchange,
-	TbCheck,
-	TbCloudCog,
-	TbDatabase,
-	TbHeartRateMonitor,
-	TbPlug,
-	TbSearch,
-} from "react-icons/tb";
-import { VscMcp } from "react-icons/vsc";
-import { CustomBlockIcon } from "@/components/customBlocks/IconPicker";
+import { TbCheck, TbCloudCog, TbSearch } from "react-icons/tb";
 import type { useIntegrationCatalog } from "@/query/integrationsQuery";
+import { GROUP_DETAILS } from "./groupDetails";
+import { IntegrationVariantIcon } from "./IntegrationVariantIcon";
 
 export type Step = 1 | 2 | 3;
-
-export const GROUP_DETAILS: Record<string, { description: string; icon: ReactNode }> = {
-	database: { description: "Connect a production database", icon: <TbDatabase size={20} /> },
-	kv: { description: "Connect a cache or key-value store", icon: <FaTableList size={18} /> },
-	ai: { description: "Connect an AI provider or compatible endpoint", icon: <FaRobot size={18} /> },
-	baas: { description: "Connect a managed backend service", icon: <TbCloudCog size={20} /> },
-	observability: {
-		description: "Send logs and telemetry to your stack",
-		icon: <TbHeartRateMonitor size={20} />,
-	},
-	queue: {
-		description: "Start workflows from a message queue",
-		icon: <TbArrowsExchange size={20} />,
-	},
-	mcp: {
-		description: "Connect an external MCP server",
-		icon: <VscMcp size={20} />,
-	},
-};
 
 export function parseIntegrationConfig(
 	group: string,
@@ -128,7 +99,6 @@ export function VariantCard({
 	onSelect: (group: string, variant: string) => void;
 }) {
 	const meta = catalog.variantMeta(cardGroup, item);
-	const icon = meta?.icon;
 	const isPlugin = Boolean(meta?.plugin);
 	return (
 		<button
@@ -138,12 +108,7 @@ export function VariantCard({
 			className="group flex items-center gap-3.5 rounded-xl border border-border bg-surface p-3 text-left transition-all duration-150 hover:border-accent hover:bg-surface-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
 		>
 			<span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-surface-secondary text-foreground transition-colors group-hover:bg-accent group-hover:text-accent-foreground">
-				{integrationIcons[item] ??
-					(icon ? (
-						<CustomBlockIcon icon="custom" iconUrl={icon} />
-					) : (
-						(GROUP_DETAILS[cardGroup]?.icon ?? <TbPlug size={20} />)
-					))}
+				<IntegrationVariantIcon variant={item} group={cardGroup} icon={meta?.icon} size={20} />
 			</span>
 			<span className="min-w-0 flex-1">
 				<div className="flex items-center gap-2">

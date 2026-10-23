@@ -112,3 +112,28 @@ test("Escape key closes popover and focuses editor", () => {
 	expect(onClose).toHaveBeenCalled();
 	expect(focused).toBe(true);
 });
+
+test("an integration mention shows its plugin variant's icon (#977)", () => {
+	const icon = "data:image/svg+xml;base64,PHN2Zy8+";
+	const variantsSpy = spyOn(integrationsQuery.getVariants, "useQuery").mockReturnValue({
+		data: [
+			{
+				group: "acme/crm",
+				label: "acme/crm",
+				builtIn: false,
+				variants: [{ variant: "HubSpot", label: "HubSpot", builtIn: false, icon }],
+			},
+		],
+		isLoading: false,
+	} as never);
+	searchSpy.mockReturnValue({
+		results: [
+			{ type: "integration", id: "i1", name: "Sales CRM", group: "acme/crm", variant: "HubSpot" },
+		],
+		isLoading: false,
+		isFetching: false,
+	} as never);
+	const view = render(<MentionPopover projectId="p1" wasAtTyped={true} onClose={() => {}} />);
+	expect(view.container.ownerDocument.querySelector("img")?.getAttribute("src")).toBe(icon);
+	variantsSpy.mockRestore();
+});

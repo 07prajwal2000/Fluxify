@@ -24,6 +24,7 @@ import {
 	type PluginRecord,
 	updatePluginRow,
 } from "./repository";
+import { withDataIcons } from "./sources/icons";
 import { triggerKindsOf } from "./triggerKinds";
 import { pluginTriggerRows } from "./triggerUsage";
 import { assertUpgradeSafe } from "./upgrade";
@@ -234,10 +235,18 @@ async function assertIntegrationKindsFree(row: PluginRecord) {
 	}
 }
 
-export const listPlugins = listPluginRows;
+/** the row as an API returns it: a manifest icon is a data URL or absent, never a path */
+const withSafeIcons = <R extends PluginRecord>(row: R): R => ({
+	...row,
+	manifest: withDataIcons(row.manifest),
+	live: row.live && { ...row.live, manifest: withDataIcons(row.live.manifest) },
+});
+
+export const listPlugins = async (projectId: string) =>
+	(await listPluginRows(projectId)).map(withSafeIcons);
 /** with its integration variants (I6) and trigger kinds (T2) summarised for the approval page */
 export const getPlugin = async (projectId: string, name: string) => {
-	const row = await rowFor(projectId, name);
+	const row = withSafeIcons(await rowFor(projectId, name));
 	return {
 		...row,
 		integrations: integrationKindsOf(row.manifest),

@@ -106,6 +106,9 @@ async function main() {
 		await loadAppConfig();
 		// plugin variants first (I6): a row of a plugin's kind resolves only once it is registered
 		const { startPluginVariants } = await import("./modules/plugins/variants");
+		// rows stored with icon paths (#977) are fixed first, so the variants register data URLs
+		const { backfillPluginIcons } = await import("./modules/plugins/iconBackfill");
+		await backfillPluginIcons();
 		await startPluginVariants();
 		await loadIntegrations();
 		await loadProjectSettings();

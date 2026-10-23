@@ -1,20 +1,27 @@
-import { Input, integrationIcons, Spinner } from "@fluxify/components";
+import { Input, Spinner } from "@fluxify/components";
 import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { VscMcp } from "react-icons/vsc";
+import { IntegrationVariantIcon } from "@/components/integrations/IntegrationVariantIcon";
 import { useDebounce } from "@/hooks/useDebounce";
-import { integrationsQuery } from "@/query/integrationsQuery";
+import { integrationsQuery, useIntegrationCatalog } from "@/query/integrationsQuery";
 import { projectSettingsKeysQuery } from "@/query/projectSettingsKeysQuery";
 import { type Mention, useResourceSearch } from "@/query/resourceSearchQuery";
 import { REF_ICONS } from "./AgentRef";
 
-function MentionIcon({ res }: { res: Mention }) {
+/** its own component: only an integration mention reads the variants catalog */
+function IntegrationMentionIcon({ variant, projectId }: { variant: string; projectId: string }) {
+	const catalog = useIntegrationCatalog(projectId);
+	return (
+		<span className="inline-flex items-center [&>svg]:h-4 [&>svg]:w-4">
+			<IntegrationVariantIcon variant={variant} icon={catalog.iconOf(variant)} />
+		</span>
+	);
+}
+
+function MentionIcon({ res, projectId }: { res: Mention; projectId: string }) {
 	if (res.label?.startsWith("@")) return <VscMcp size={16} />;
-	if (res.type === "integration" && res.variant && integrationIcons[res.variant])
-		return (
-			<span className="inline-flex items-center [&>svg]:h-4 [&>svg]:w-4">
-				{integrationIcons[res.variant]}
-			</span>
-		);
+	if (res.type === "integration" && res.variant)
+		return <IntegrationMentionIcon variant={res.variant} projectId={projectId} />;
 	const Icon = REF_ICONS[res.type];
 	return <Icon size={16} />;
 }
@@ -142,7 +149,7 @@ export const MentionPopover = forwardRef<HTMLDivElement, Props>(function Mention
 								}`}
 							>
 								<div className={`shrink-0 ${i === selectedIndex ? "text-accent" : "text-muted"}`}>
-									<MentionIcon res={res} />
+									<MentionIcon res={res} projectId={projectId} />
 								</div>
 								<div className="flex min-w-0 flex-col">
 									<span className="truncate text-sm font-medium text-foreground">

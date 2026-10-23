@@ -1,9 +1,9 @@
-import { extname } from "node:path";
 import { blockIdProblem } from "@fluxify/sdk";
-import { type FluxifyManifest, fluxifyManifestSchema, ICON_URL_MAX } from "@fluxify/sdk/blocks";
+import { type FluxifyManifest, fluxifyManifestSchema } from "@fluxify/sdk/blocks";
 import { dependencyProblems, SDK_VERSION } from "@fluxify/sdk/runtime";
 import { z } from "zod";
 import { BadRequestError } from "../../../errors/badRequestError";
+import { inlineManifestIcons } from "./icons";
 import type { PluginFiles } from "./tar";
 
 /**
@@ -14,15 +14,6 @@ import type { PluginFiles } from "./tar";
  */
 export type ValidPlugin = { manifest: FluxifyManifest; version: string };
 
-const MIME: Record<string, string> = {
-	".svg": "image/svg+xml",
-	".png": "image/png",
-	".jpg": "image/jpeg",
-	".jpeg": "image/jpeg",
-	".gif": "image/gif",
-	".webp": "image/webp",
-};
-
 const json = (files: PluginFiles, path: string): unknown => {
 	try {
 		return JSON.parse(new TextDecoder().decode(files.get(path)));
@@ -30,35 +21,6 @@ const json = (files: PluginFiles, path: string): unknown => {
 		throw new BadRequestError(`${path} is not valid JSON`);
 	}
 };
-
-const tooLong = (type: string, icon: string, length: number) =>
-	new BadRequestError(
-		`${type}: icon '${icon.slice(0, 80)}' is ${length} characters as a data URL; the limit is ${ICON_URL_MAX}`,
-	);
-
-/**
- * The icon as the portal stores a custom block's: a base64 data URL, which has
- * a length limit. A path names a file only the tarball holds, so it is read
- * here; a data URL already is the value.
- */
-function iconDataUrl(files: PluginFiles, type: string, icon: string): string {
-	if (icon.startsWith("data:")) {
-		if (icon.length > ICON_URL_MAX) throw tooLong(type, icon, icon.length);
-		return icon;
-	}
-	const path = icon.replace(/^\.\//, "");
-	// a path that climbs or is absolute never names a file in the plugin, whatever the map holds
-	const bytes =
-		path.startsWith("/") || path.split("/").includes("..") ? undefined : files.get(path);
-	if (!bytes) throw new BadRequestError(`${type}: icon '${icon}' is not in the plugin`);
-	const mime = MIME[extname(path).toLowerCase()];
-	if (!mime)
-		throw new BadRequestError(`${type}: icon '${icon}' must be ${Object.keys(MIME).join(", ")}`);
-	const prefix = `data:${mime};base64,`;
-	const length = prefix.length + Math.ceil(bytes.length / 3) * 4;
-	if (length > ICON_URL_MAX) throw tooLong(type, icon, length);
-	return prefix + Buffer.from(bytes).toString("base64");
-}
 
 /** Throws a `BadRequestError` naming the first rule the files break. */
 export function validatePlugin(files: PluginFiles): ValidPlugin {
@@ -101,21 +63,16 @@ export function validatePlugin(files: PluginFiles): ValidPlugin {
 	const idProblem = blockIdProblem(manifest.name, pkg.version, Object.keys(manifest.blocks));
 	if (idProblem) throw new BadRequestError(idProblem);
 
-	// the stored manifest carries each icon as a data URL, not a path into the tarball
-	if (manifest.icon) manifest.icon = iconDataUrl(files, manifest.name, manifest.icon);
-	if (manifest.scopeIcon)
-		manifest.scopeIcon = iconDataUrl(files, `${manifest.name} scope`, manifest.scopeIcon);
-	for (const [type, block] of Object.entries(manifest.blocks)) {
-		if (!block.entry.startsWith("dist/") || !files.has(block.entry))
-			throw new BadRequestError(`${type}: its entry '${block.entry}' is not in the plugin's dist/`);
-		if (block.icon) block.icon = iconDataUrl(files, type, block.icon);
-	}
-	for (const integration of manifest.integrations ?? []) {
-		if (!files.has(integration.entry))
-			throw new BadRequestError(
-				`${integration.name}: its entry '${integration.entry}' is not in the plugin's dist/`,
-			);
-		integration.icon = iconDataUrl(files, integration.name, integration.icon);
-	}
+	// a module the manifest names has to be in the package, and where the CLI builds it
+	const entries: [string, string][] = [
+		...Object.entries(manifest.blocks).map(([type, b]): [string, string] => [type, b.entry]),
+		...[...(manifest.integrations ?? []), ...(manifest.triggers ?? [])].map(
+			(e): [string, string] => [e.name, e.entry],
+		),
+	];
+	for (const [name, entry] of entries)
+		if (!entry.startsWith("dist/") || !files.has(entry))
+			throw new BadRequestError(`${name}: its entry '${entry}' is not in the plugin's dist/`);
+	inlineManifestIcons(files, manifest);
 	return { manifest, version: pkg.version };
 }

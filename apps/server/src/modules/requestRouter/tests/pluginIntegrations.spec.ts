@@ -28,6 +28,7 @@ const ref = (projectId: string, entry: string, over: Partial<PluginIntegrationRe
 	version: "1.0.0+aa",
 	group: "acme/crm",
 	variant: "Hub",
+	icon: "data:image/svg+xml;base64,PHN2Zy8+",
 	entry,
 	...over,
 });
@@ -45,6 +46,14 @@ describe("loadPluginIntegrations", () => {
 		await loadPluginIntegrations([ref("p2", entry)], registry);
 		expect(registry.get("acme/crm", "Hub", "p1")).toBeUndefined();
 		expect(registry.get("acme/crm", "Hub", "p2")).toBeDefined();
+		await loadPluginIntegrations([], registry);
+	});
+
+	it("registers the approved manifest's icon, not the module's own path", async () => {
+		const registry = new IntegrationRegistry(BUILT_IN_VARIANTS);
+		const entry = await moduleFile("icon.js", { group: "crm", variant: "Hub" });
+		await loadPluginIntegrations([ref("p1", entry)], registry);
+		expect(registry.get("acme/crm", "Hub", "p1")?.icon).toBe("data:image/svg+xml;base64,PHN2Zy8+");
 		await loadPluginIntegrations([], registry);
 	});
 
