@@ -8,7 +8,7 @@ import {
 	connectNats,
 	natsConnection,
 	publishToStream,
-	type QueueConsumer,
+	type FluxifyQueueConsumer,
 } from "@fluxify/common/nats";
 import type { TraceRunPayload } from "@fluxify/common/otlp";
 import { MAX_BLOCK_ID_LENGTH } from "@fluxify/sdk";
@@ -22,7 +22,7 @@ import { RouteTraceRecorder } from "../../telemetry/routeRecorder";
 const PG = { image: "postgres:16-alpine", name: "fluxify-recordings-pg-test" };
 const NATS = { image: "nats:2.14", name: "fluxify-recordings-nats-test" };
 const containers: Docker.Container[] = [];
-const consumers: QueueConsumer[] = [];
+const consumers: FluxifyQueueConsumer[] = [];
 let sql: SQL;
 let recordings: typeof import("../consumer");
 let stream: typeof import("../stream");

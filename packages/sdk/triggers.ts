@@ -1,0 +1,14 @@
+// `@fluxify/sdk/triggers`: write a plugin trigger, which waits for a signal and
+// hands it to Fluxify to run the attached workflow.
+export {
+	type TriggerEntry,
+	triggerEntryPath,
+	triggerEntrySchema,
+} from "./src/manifest.js";
+export type { EmitOptions, TriggerConnection, TriggerContext } from "./src/runtime/trigger.js";
+export { type AnyTrigger, type TriggerDefinition, toTriggerEntry, trigger } from "./src/trigger.js";
+export {
+	BLOCK_ONLY_FIELDS,
+	RESERVED_TRIGGER_PARAM_NAMES,
+	TRIGGER_PARAM_TYPES,
+} from "./src/validateTrigger.js";

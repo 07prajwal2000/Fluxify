@@ -7,6 +7,6 @@
 		"emitDeclarationOnly": true,
 		"outDir": "dist"
 	},
-	"files": ["index.ts", "blocks.ts", "testing.ts", "runtime.ts", "integrations.ts"],
+	"files": ["index.ts", "blocks.ts", "testing.ts", "runtime.ts", "integrations.ts", "triggers.ts"],
 	"exclude": []
 }

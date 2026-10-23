@@ -176,7 +176,7 @@ export type FakeIntegration =
 	| { kind: string; client: unknown }
 	| ({ integration: AnyIntegration } & RunIntegrationOptions);
 
-type Pool = ReturnType<typeof leasePool>["pool"];
+export type Pool = ReturnType<typeof leasePool>["pool"];
 
 /** a real integration, connected through `pool` by its `poolKey`, as the worker pools it */
 function realIntegration(
@@ -195,7 +195,10 @@ function realIntegration(
 	return { kind, get };
 }
 
-function fakeIntegrations(fakes: Record<string, FakeIntegration>, pool: Pool): IntegrationSource {
+export function fakeIntegrations(
+	fakes: Record<string, FakeIntegration>,
+	pool: Pool,
+): IntegrationSource {
 	const sources = new Map<
 		string,
 		{ kind: { group: string; variant: string }; get(): Promise<unknown> }

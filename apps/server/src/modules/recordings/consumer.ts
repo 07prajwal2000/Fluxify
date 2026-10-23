@@ -1,5 +1,9 @@
 import { logger } from "@fluxify/common";
-import { consumeQueue, ensureStreamConsumer, type QueueConsumer } from "@fluxify/common/nats";
+import {
+	consumeQueue,
+	ensureStreamConsumer,
+	type FluxifyQueueConsumer,
+} from "@fluxify/common/nats";
 import type { TraceRunPayload } from "@fluxify/common/otlp";
 import { MAX_BLOCK_ID_LENGTH } from "@fluxify/sdk";
 import { and, eq, inArray, lt, sql } from "drizzle-orm";
@@ -138,7 +142,7 @@ function jsonbValue(value: unknown) {
 	return sql`${JSON.stringify(value)}::text::jsonb`;
 }
 
-export async function startRecordingConsumer(): Promise<QueueConsumer[]> {
+export async function startRecordingConsumer(): Promise<FluxifyQueueConsumer[]> {
 	const nc = natsConnection();
 	// not caught: NATS is a hard dependency, and an admin that silently records
 	// nothing is worse than one that refuses to boot

@@ -10,7 +10,12 @@ const dist = join(root, "dist");
 rmSync(dist, { recursive: true, force: true });
 
 const built = await Bun.build({
-	entrypoints: [`${root}/index.ts`, `${root}/blocks.ts`, `${root}/integrations.ts`],
+	entrypoints: [
+		`${root}/index.ts`,
+		`${root}/blocks.ts`,
+		`${root}/integrations.ts`,
+		`${root}/triggers.ts`,
+	],
 	outdir: dist,
 	format: "esm",
 	// no Node or Bun APIs: the admin and the portal import the schemas too
@@ -48,6 +53,7 @@ await Bun.write(
 				".": entry("index"),
 				"./blocks": entry("blocks"),
 				"./integrations": entry("integrations"),
+				"./triggers": entry("triggers"),
 				"./testing": entry("testing"),
 				"./runtime": entry("runtime"),
 			},

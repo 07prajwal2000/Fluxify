@@ -15,6 +15,7 @@
 		"./blocks": "./blocks.ts",
 		"./integrations": "./integrations.ts",
 		"./integrations/*": "./src/integrations/*.ts",
+		"./triggers": "./triggers.ts",
 		"./runtime": "./runtime.ts",
 		"./testing": "./testing.ts",
 		"./conformance": "./tests/conformance.ts"

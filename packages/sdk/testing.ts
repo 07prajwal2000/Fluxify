@@ -24,3 +24,9 @@ export {
 	type TestContext,
 } from "./src/testing/runBlock.js";
 export { type RunIntegrationOptions, runIntegration } from "./src/testing/runIntegration.js";
+export {
+	type EmitCall,
+	type RunTriggerOptions,
+	runTrigger,
+	type TriggerRun,
+} from "./src/testing/runTrigger.js";

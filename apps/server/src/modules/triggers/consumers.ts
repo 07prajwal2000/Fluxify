@@ -5,7 +5,7 @@ import {
 	dropWildcardConsumers,
 	ensureConsumer,
 	ensureStream,
-	type QueueConsumer,
+	type FluxifyQueueConsumer,
 } from "@fluxify/common/nats";
 import { natsConnection, natsName, natsStreamSpec } from "../../db/nats";
 import type { FluxifyEnv } from "../../lib/env";
@@ -78,13 +78,13 @@ const DEFAULTS = {
 	defaultAckWaitMs: 5 * 60_000,
 };
 
-type Running = { consumer: QueueConsumer; artifact: TriggerArtifact };
+type Running = { consumer: FluxifyQueueConsumer; artifact: TriggerArtifact };
 
 export class TriggerWorker {
 	private readonly options: Required<TriggerWorkerOptions>;
 	private readonly running = new Map<string, Running>();
 	/** Project id → its internal-subject consumer. */
-	private readonly internal = new Map<string, QueueConsumer>();
+	private readonly internal = new Map<string, FluxifyQueueConsumer>();
 	private started = false;
 	private readonly stream: string;
 	/** A subject in this worker's environment. */

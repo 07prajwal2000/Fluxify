@@ -4,6 +4,7 @@ import type { Condition, VisibleWhenInput } from "./params.js";
 import { CTX_SPAN_TYPE, ICON_URL_MAX, INVOKE_MODES } from "./reserved.js";
 import { checkEntry, RESERVED_PARAM_NAMES } from "./validate.js";
 import { checkIntegrationEntry, permissionKindIssue } from "./validateIntegration.js";
+import { checkTriggerEntry } from "./validateTrigger.js";
 
 const scalar = z.union([z.string(), z.number(), z.boolean()]);
 
@@ -107,6 +108,22 @@ const tabsSchema = z
 	.refine((t) => new Set(t).size === t.length, "tabs must be unique")
 	.optional();
 
+/** what a block or a trigger may reach; the user approves it */
+const permissionsSchema = z.strictObject({
+	integrations: z
+		.array(
+			z
+				.string()
+				.min(1)
+				.superRefine((kind, ctx) => {
+					const message = permissionKindIssue(kind);
+					if (message) ctx.addIssue({ code: "custom", message });
+				}),
+		)
+		.optional(),
+	appconfig: z.boolean().optional(),
+});
+
 /** scope/name(/folder)*: lowercase segments, at least scope, plugin and block */
 export const BLOCK_NAME = /^[a-z0-9][a-z0-9_-]*(\/[a-z0-9][a-z0-9_-]*){2,}$/;
 
@@ -132,20 +149,7 @@ export const manifestEntrySchema = z
 			.array(z.enum(INVOKE_MODES))
 			.min(1)
 			.refine((m) => new Set(m).size === m.length, "invoke modes must be unique"),
-		permissions: z.strictObject({
-			integrations: z
-				.array(
-					z
-						.string()
-						.min(1)
-						.superRefine((kind, ctx) => {
-							const message = permissionKindIssue(kind);
-							if (message) ctx.addIssue({ code: "custom", message });
-						}),
-				)
-				.optional(),
-			appconfig: z.boolean().optional(),
-		}),
+		permissions: permissionsSchema,
 		params: z.record(z.string().min(1), paramSchema),
 		/** the settings tabs in order (see `paramTabs`) */
 		tabs: tabsSchema,
@@ -191,6 +195,29 @@ export const integrationEntrySchema = z
 
 export type IntegrationEntry = z.infer<typeof integrationEntrySchema>;
 
+/**
+ * A plugin trigger as `fluxify.json` holds it: the definition minus `start`.
+ * Its params are a block's, minus what only a request can fill.
+ */
+export const triggerEntrySchema = z
+	.strictObject({
+		name: z
+			.string()
+			.regex(BLOCK_NAME, "must be scope/name/.../trigger: lowercase letters, digits, - and _"),
+		label: z.string().min(1),
+		description: z.string().optional(),
+		/** a path inside the plugin, a data URL once approved */
+		icon: z.string().min(1),
+		permissions: permissionsSchema,
+		params: z.record(z.string().min(1), paramSchema),
+		tabs: tabsSchema,
+		/** a failed run is retried by the trigger's Attempts setting before `emit` rejects */
+		retry: z.boolean(),
+	})
+	.superRefine(checkTriggerEntry);
+
+export type TriggerEntry = z.infer<typeof triggerEntrySchema>;
+
 /** scope/name: the plugin's permanent identity */
 export const PLUGIN_NAME = /^[a-z0-9][a-z0-9_-]*\/[a-z0-9][a-z0-9_-]*$/;
 /** the SDK versions a plugin works with: `>=`, `^` or `~` and one version, or an exact one */
@@ -229,6 +256,8 @@ export const fluxifyManifestSchema = pluginMetaSchema
 		blocks: z.record(z.string(), manifestEntrySchema.and(z.object({ entry: z.string() }))),
 		/** absent on manifests from before integrations */
 		integrations: z.array(integrationEntrySchema.and(z.object({ entry: z.string() }))).optional(),
+		/** absent on manifests from before triggers */
+		triggers: z.array(triggerEntrySchema.and(z.object({ entry: z.string() }))).optional(),
 	})
 	.superRefine((m, ctx) => {
 		for (const [type, b] of Object.entries(m.blocks)) {
@@ -240,16 +269,21 @@ export const fluxifyManifestSchema = pluginMetaSchema
 				issue(`must be '${blockEntryPath(type)}'`, ["entry"]);
 		}
 		checkIntegrations(m.name, m.integrations ?? [], ctx);
-		// the kinds a block may be granted: built-ins and this plugin's own groups (#899)
+		checkTriggers(m.name, m.triggers ?? [], ctx);
+		// the kinds a block or trigger may be granted: built-ins and this plugin's own groups (#899)
 		const own = new Set((m.integrations ?? []).map((e) => e.group).filter((g) => g.includes("/")));
-		for (const [type, b] of Object.entries(m.blocks))
-			for (const [i, kind] of (b.permissions.integrations ?? []).entries()) {
+		const granted = [
+			...Object.entries(m.blocks).map(([type, b]) => [["blocks", type], b] as const),
+			...(m.triggers ?? []).map((t, i) => [["triggers", i], t] as const),
+		];
+		for (const [at, e] of granted)
+			for (const [i, kind] of (e.permissions.integrations ?? []).entries()) {
 				const message = permissionKindIssue(kind, own);
 				if (message)
 					ctx.addIssue({
 						code: "custom",
 						message,
-						path: ["blocks", type, "permissions", "integrations", i],
+						path: [...at, "permissions", "integrations", i],
 					});
 			}
 	});
@@ -278,6 +312,28 @@ function checkIntegrations(
 			issue(`variant '${variant}' is declared twice in this plugin`, ["variant"]);
 		names.add(e.name);
 		variants.add(variant.toLowerCase());
+	}
+}
+
+/** where a trigger's built module sits: `scope/name/a/b` is `dist/triggers/a/b.js` */
+export const triggerEntryPath = (name: string) =>
+	`dist/triggers/${name.split("/").slice(2).join("/")}.js`;
+
+/** each trigger inside the plugin, at its fixed entry, and one per name */
+function checkTriggers(
+	plugin: string,
+	list: (TriggerEntry & { entry: string })[],
+	ctx: z.RefinementCtx,
+) {
+	const names = new Set<string>();
+	for (const [i, e] of list.entries()) {
+		const issue = (message: string, path: string[]) =>
+			ctx.addIssue({ code: "custom", message, path: ["triggers", i, ...path] });
+		if (!e.name.startsWith(`${plugin}/`)) issue(`is not inside plugin '${plugin}'`, ["name"]);
+		else if (e.entry !== triggerEntryPath(e.name))
+			issue(`must be '${triggerEntryPath(e.name)}'`, ["entry"]);
+		if (names.has(e.name)) issue(`'${e.name}' is declared twice`, ["name"]);
+		names.add(e.name);
 	}
 }
 

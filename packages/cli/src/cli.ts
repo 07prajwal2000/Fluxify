@@ -2,7 +2,7 @@ import { relative } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { parseArgs } from "node:util";
 import { build } from "./build";
-import { create, createIntegration } from "./create";
+import { create, createIntegration, createTrigger } from "./create";
 import { init } from "./init";
 import { CliError, findPluginRoot } from "./plugin";
 
@@ -14,6 +14,8 @@ const USAGE = `usage:
   fluxify-cli integrations create <name> [--group <group>]
       add src/integrations/<name>.ts: a variant of a built-in group (database, kv, queue,
       ai, observability, baas, mcp) or of a group of the plugin's own (default: <name>)
+  fluxify-cli triggers create <name>
+      add src/triggers/<name>.ts: a poll loop that hands what it finds to a workflow
   fluxify-cli blocks build
       dist/, fluxify.json and <scope>-<name>-<version>.tgz`;
 
@@ -81,6 +83,11 @@ export async function main(argv: string[], cwd = process.cwd()): Promise<number>
 			console.log(`wrote ${files.join(", ")} in ${relative(cwd, root) || "."}`);
 			return 0;
 		}
+		if (group === "triggers" && creating) {
+			const { root, files } = await createTrigger({ cwd, name });
+			console.log(`wrote ${files.join(", ")} in ${relative(cwd, root) || "."}`);
+			return 0;
+		}
 		if (group !== "blocks") return usage(1);
 		if (creating) {
 			const { root, files } = await create({ cwd, name });
@@ -93,9 +100,12 @@ export async function main(argv: string[], cwd = process.cwd()): Promise<number>
 			const { plugin, manifest, tarball, warnings } = await build(root);
 			for (const w of warnings) console.warn(`warn  ${w}`);
 			const count = Object.keys(manifest.blocks).length;
-			const integrations = manifest.integrations?.length;
+			const extra = [
+				[manifest.integrations?.length, "integration(s)"],
+				[manifest.triggers?.length, "trigger(s)"],
+			].flatMap(([n, what]) => (n ? [`, ${n} ${what}`] : []));
 			console.log(
-				`built ${plugin.name}@${plugin.version}: ${count} block(s)${integrations ? `, ${integrations} integration(s)` : ""} -> ${tarball}`,
+				`built ${plugin.name}@${plugin.version}: ${count} block(s)${extra.join("")} -> ${tarball}`,
 			);
 			return 0;
 		}

@@ -1,5 +1,9 @@
 import { logger } from "@fluxify/common";
-import { consumeBatches, ensureStreamConsumer, type QueueConsumer } from "@fluxify/common/nats";
+import {
+	consumeBatches,
+	ensureStreamConsumer,
+	type FluxifyQueueConsumer,
+} from "@fluxify/common/nats";
 import { natsConnection } from "../../db/nats";
 import { onSystemTick } from "../schedules/system";
 import { deleteExpiredAuditEvents } from "./retention";
@@ -35,7 +39,7 @@ export async function writeAuditBatch(
 	return valid.length;
 }
 
-export async function startAuditConsumer(): Promise<QueueConsumer[]> {
+export async function startAuditConsumer(): Promise<FluxifyQueueConsumer[]> {
 	const nc = natsConnection();
 	// not caught: NATS is a hard dependency, and an admin that silently
 	// writes no audit trail is worse than one that refuses to boot

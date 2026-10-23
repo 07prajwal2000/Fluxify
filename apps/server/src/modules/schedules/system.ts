@@ -2,9 +2,9 @@ import { logger } from "@fluxify/common";
 import {
 	consumeQueue,
 	ensureConsumer,
+	type FluxifyQueueConsumer,
 	fireTtlSeconds,
 	publishSchedule,
-	type QueueConsumer,
 } from "@fluxify/common/nats";
 import { natsConnection } from "../../db/nats";
 import { ensureSchedulesStream } from "./reconciler";
@@ -67,7 +67,7 @@ export async function onSystemTick(
 	tick: SystemTick,
 	job: string,
 	handler: () => Promise<void>,
-): Promise<QueueConsumer> {
+): Promise<FluxifyQueueConsumer> {
 	const nc = natsConnection();
 	await ensureSchedulesStream("production");
 	const durable = systemJobConsumerName(job);
