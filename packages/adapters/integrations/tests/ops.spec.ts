@@ -202,12 +202,12 @@ describe("observability test", () => {
 });
 
 describe("hooks every built-in has", () => {
-	it("test on all, describe and inspect on databases, inspect on KV stores", () => {
+	it("test on all, describe on databases and AI, inspect on databases, KV stores and AI", () => {
 		for (const group of ["database", "kv", "ai", "observability", "queue", "mcp"]) {
 			for (const def of integrationRegistry.variants(group) as any[]) {
 				expect(typeof def.test).toBe("function");
-				expect(typeof def.describe).toBe(group === "database" ? "function" : "undefined");
-				expect(typeof def.inspect).toBe(["database", "kv"].includes(group) ? "function" : "undefined");
+				expect(typeof def.describe).toBe(["database", "ai"].includes(group) ? "function" : "undefined");
+				expect(typeof def.inspect).toBe(["database", "kv", "ai"].includes(group) ? "function" : "undefined");
 			}
 		}
 	});

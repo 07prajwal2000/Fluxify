@@ -1,50 +1,15 @@
-import { ChatAnthropic } from "@langchain/anthropic";
-import { createAgent, type DynamicStructuredTool, Tool } from "langchain";
-import { type AiAdapter, BaseAiIntegration } from "./baseAiIntegration";
+import { createAnthropic } from "@ai-sdk/anthropic";
+import { BaseAiIntegration } from "./baseAiIntegration";
 
-type AnthropicVariantConfig = {
-	apiKey: string;
-	model: string;
-};
-
-export class AnthropicIntegration extends BaseAiIntegration implements AiAdapter {
-	public static variant = "Anthropic";
-
-	constructor(private readonly config: AnthropicVariantConfig) {
-		super();
-	}
-
-	override createAgent(systemPrompt: string, tools: DynamicStructuredTool[]) {
-		const model = this.createModel();
-		return createAgent({
-			model,
-			tools,
-			systemPrompt,
-		});
-	}
-
-	override createModel() {
-		return new ChatAnthropic({
-			apiKey: this.config.apiKey,
-			model: this.config.model,
-		});
-	}
-
-	static ExtractConnectionInfo(config: AnthropicVariantConfig, appConfigs: Map<string, string>) {
-		if (config.apiKey.startsWith("cfg:")) {
-			const apiKey = appConfigs.get(config.apiKey.slice(4));
-			if (!apiKey) {
-				throw new Error("API key not found");
-			}
-			config.apiKey = apiKey;
-		}
-		return config;
-	}
-
-	static async TestConnection(config: AnthropicVariantConfig, appConfigs: Map<string, string>) {
-		const extractedConfig = this.ExtractConnectionInfo(config, appConfigs);
-		const model = new AnthropicIntegration(extractedConfig).createModel();
-		const result = await model.invoke("Say OK");
-		return result.content.length > 0;
-	}
+export class AnthropicIntegration extends BaseAiIntegration {
+	static override variant = "Anthropic";
+	static override provider = {
+		name: "Anthropic",
+		create: (c, fetch) => createAnthropic({ apiKey: c.apiKey, fetch }),
+		models: {
+			url: () => "https://api.anthropic.com/v1/models",
+			headers: (c) => ({ "x-api-key": c.apiKey, "anthropic-version": "2023-06-01" }),
+			ids: (body) => body.data.map((m: { id: string }) => m.id),
+		},
+	} satisfies typeof BaseAiIntegration.provider;
 }

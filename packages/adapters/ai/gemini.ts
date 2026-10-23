@@ -1,50 +1,16 @@
-import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
-import { createAgent, type DynamicStructuredTool, DynamicTool, Tool } from "langchain";
-import { type AiAdapter, BaseAiIntegration } from "./baseAiIntegration";
+import { createGoogle } from "@ai-sdk/google";
+import { BaseAiIntegration } from "./baseAiIntegration";
 
-type GeminiVariantConfig = {
-	apiKey: string;
-	model: string;
-};
-
-export class GeminiIntegration extends BaseAiIntegration implements AiAdapter {
-	public static variant = "Gemini";
-
-	constructor(private readonly config: GeminiVariantConfig) {
-		super();
-	}
-
-	override createAgent(systemPrompt: string, tools: DynamicStructuredTool[]) {
-		const model = this.createModel();
-		return createAgent({
-			model,
-			tools,
-			systemPrompt,
-		});
-	}
-
-	override createModel() {
-		return new ChatGoogleGenerativeAI({
-			apiKey: this.config.apiKey,
-			model: this.config.model,
-		});
-	}
-
-	static ExtractConnectionInfo(config: GeminiVariantConfig, appConfigs: Map<string, string>) {
-		if (config.apiKey.startsWith("cfg:")) {
-			const apiKey = appConfigs.get(config.apiKey.slice(4));
-			if (!apiKey) {
-				throw new Error("API key not found");
-			}
-			config.apiKey = apiKey;
-		}
-		return config;
-	}
-
-	static async TestConnection(config: GeminiVariantConfig, appConfigs: Map<string, string>) {
-		const extractedConfig = this.ExtractConnectionInfo(config, appConfigs);
-		const llm = new GeminiIntegration(extractedConfig).createModel();
-		const result = await llm.invoke("Say OK");
-		return result.content.length > 0;
-	}
+export class GeminiIntegration extends BaseAiIntegration {
+	static override variant = "Gemini";
+	static override provider = {
+		name: "Gemini",
+		create: (c, fetch) => createGoogle({ apiKey: c.apiKey, fetch }),
+		models: {
+			url: () => "https://generativelanguage.googleapis.com/v1beta/models",
+			headers: (c) => ({ "x-goog-api-key": c.apiKey }),
+			// `models/gemini-2.5-flash` -> the id the AI SDK takes
+			ids: (body) => body.models.map((m: { name: string }) => m.name.replace(/^models\//, "")),
+		},
+	} satisfies typeof BaseAiIntegration.provider;
 }

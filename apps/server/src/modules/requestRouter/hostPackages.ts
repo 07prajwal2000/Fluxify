@@ -1,13 +1,16 @@
+import * as aiProvider from "@ai-sdk/provider";
 import * as sdk from "@fluxify/sdk";
 import * as sdkBlocks from "@fluxify/sdk/blocks";
 import * as sdkIntegrations from "@fluxify/sdk/integrations";
 import * as sdkRuntime from "@fluxify/sdk/runtime";
 import * as sdkTesting from "@fluxify/sdk/testing";
+import * as ai from "ai";
 import * as zod from "zod";
 
 /**
- * Makes a plugin's `import "@fluxify/sdk/..."` and `import "zod"` load this
- * process's own modules (`HOST_PACKAGES`): one runtime contract, one zod.
+ * Makes a plugin's `import "@fluxify/sdk/..."`, `"zod"`, `"ai"` and
+ * `"@ai-sdk/provider"` load this process's own modules (`HOST_PACKAGES`): one
+ * runtime contract, one zod, one AI SDK.
  *
  * A Bun runtime plugin, not a symlink into the plugin's node_modules: the
  * worker images ship bundles and no node_modules, so there is no host copy on
@@ -24,6 +27,8 @@ const MODULES: Record<string, object> = {
 	zod,
 	// zod 4's `zod` re-exports `zod/v4`: the same instances
 	"zod/v4": zod,
+	ai,
+	"@ai-sdk/provider": aiProvider,
 };
 
 let provided = false;

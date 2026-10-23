@@ -1,52 +1,15 @@
-import { ChatMistralAI } from "@langchain/mistralai";
-import { createAgent, type DynamicStructuredTool } from "langchain";
-import { type AiAdapter, BaseAiIntegration } from "./baseAiIntegration";
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+import { BaseAiIntegration, openAiModels } from "./baseAiIntegration";
 
-type MistralVariantConfig = {
-	apiKey: string;
-	model: string;
-};
+const BASE_URL = "https://api.mistral.ai/v1";
 
-export class MistralIntegration extends BaseAiIntegration implements AiAdapter {
-	public static variant = "Mistral";
-
-	constructor(private readonly config: MistralVariantConfig) {
-		super();
-	}
-
-	static ExtractConnectionInfo(config: MistralVariantConfig, appConfigs: Map<string, string>) {
-		if (config.apiKey.startsWith("cfg:")) {
-			const apiKey = appConfigs.get(config.apiKey.slice(4));
-			if (!apiKey) {
-				throw new Error("API key not found");
-			}
-			config.apiKey = apiKey;
-		}
-		return config;
-	}
-
-	override createModel() {
-		return new ChatMistralAI({
-			apiKey: this.config.apiKey,
-			model: this.config.model,
-		});
-	}
-
-	override createAgent(systemPrompt: string, tools: DynamicStructuredTool[]) {
-		const model = this.createModel();
-		return createAgent({
-			model,
-			tools,
-			systemPrompt,
-		});
-	}
-
-	static async TestConnection(config: MistralVariantConfig, appConfigs: Map<string, string>) {
-		const extractedConfig = this.ExtractConnectionInfo(config, appConfigs);
-		const model = new MistralIntegration(extractedConfig).createModel();
-		const result = await model.invoke("Say OK", {
-			timeout: 5_000,
-		});
-		return result.content.length > 0;
-	}
+/** Mistral's API is OpenAI-compatible: the compatible client at Mistral's URL, kept as a variant for stored rows */
+export class MistralIntegration extends BaseAiIntegration {
+	static override variant = "Mistral";
+	static override provider = {
+		name: "Mistral",
+		create: (c, fetch) =>
+			createOpenAICompatible({ name: "mistral", baseURL: BASE_URL, apiKey: c.apiKey, fetch }),
+		models: openAiModels(BASE_URL),
+	} satisfies typeof BaseAiIntegration.provider;
 }

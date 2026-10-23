@@ -1,12 +1,12 @@
 import sdkPackage from "../../package.json";
 
 /**
- * The packages a worker provides to every plugin: one runtime contract and one
- * zod instance. A plugin lists them in `peerDependencies`, never `dependencies`,
+ * The packages a worker provides to every plugin: one runtime contract, one
+ * zod instance and one AI SDK (a plugin's model objects and the host's `ai` agree). A plugin lists them in `peerDependencies`, never `dependencies`,
  * and never installs its own copy. The CLI and the registry check the same
  * rules here, so an upload never passes what `blocks build` refuses.
  */
-export const HOST_PACKAGES = ["@fluxify/sdk", "zod"] as const;
+export const HOST_PACKAGES = ["@fluxify/sdk", "zod", "ai", "@ai-sdk/provider"] as const;
 const hosted = new Set<string>(HOST_PACKAGES);
 
 /** the SDK this build ships, checked against a plugin's `sdk` range */
