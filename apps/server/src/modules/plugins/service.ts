@@ -2,6 +2,7 @@ import { type FluxifyManifest, fluxifyManifestSchema } from "@fluxify/sdk/blocks
 import type { User } from "better-auth";
 import { z } from "zod";
 import { hasProjectAccess } from "../../api/auth/common";
+import { republish as republishTrigger } from "../../api/v1/triggers/service";
 import { db } from "../../db";
 import { deleteArtifact, putArtifact } from "../../db/natsKv";
 import type { AuthACL } from "../../db/schema";
@@ -23,6 +24,8 @@ import {
 	type PluginRecord,
 	updatePluginRow,
 } from "./repository";
+import { triggerKindsOf } from "./triggerKinds";
+import { pluginTriggerRows } from "./triggerUsage";
 import { assertUpgradeSafe } from "./upgrade";
 import { pluginVariantState, syncPluginVariants, syncProjectPluginVariants } from "./variants";
 
@@ -232,10 +235,14 @@ async function assertIntegrationKindsFree(row: PluginRecord) {
 }
 
 export const listPlugins = listPluginRows;
-/** with its integration variants summarised for the approval page (I6) */
+/** with its integration variants (I6) and trigger kinds (T2) summarised for the approval page */
 export const getPlugin = async (projectId: string, name: string) => {
 	const row = await rowFor(projectId, name);
-	return { ...row, integrations: integrationKindsOf(row.manifest) };
+	return {
+		...row,
+		integrations: integrationKindsOf(row.manifest),
+		triggers: triggerKindsOf(row.manifest),
+	};
 };
 
 /**
@@ -273,6 +280,7 @@ export function pluginArtifact(row: PluginRecord): PluginArtifact {
 			]),
 		),
 		...(row.manifest.integrations?.length && { integrations: row.manifest.integrations }),
+		...(row.manifest.triggers?.length && { triggers: row.manifest.triggers }),
 		publishedAt: new Date().toISOString(),
 	};
 }
@@ -288,5 +296,8 @@ async function republish(row: PluginRecord, reason: string) {
 	await publishPlugin(row);
 	// this replica at once; the others through the artifact watch
 	await syncPluginVariants(row.projectId, row.name);
+	// its triggers follow it: published where it loads, withdrawn where it is off, rows kept
+	for (const trigger of await pluginTriggerRows(row.projectId, row.name))
+		await republishTrigger(trigger);
 	await requestProjectCompile(row.projectId, reason);
 }

@@ -2,6 +2,8 @@ import type { FluxifyManifest, ManifestEntry } from "@fluxify/sdk/blocks";
 import { diffIntegrations, type IntegrationDiff, integrationBlockers } from "./integrationDiff";
 import type { IntegrationUser } from "./integrationUsage";
 import { requestedPermissions } from "./meta";
+import { diffTriggers, type TriggerDiff, triggerBlockers } from "./triggerDiff";
+import type { TriggerUser } from "./triggerUsage";
 import type { PluginUser } from "./usage";
 
 /**
@@ -17,30 +19,31 @@ import type { PluginUser } from "./usage";
 /** who uses a removed or deprecated thing; empty when nothing does */
 export type UsedBy = { kind: PluginUser["kind"]; id: string; name: string }[];
 
-export type ManifestDiff = IntegrationDiff & {
-	addedBlocks: string[];
-	removedBlocks: { block: string; usedBy: UsedBy }[];
-	removedParams: { block: string; param: string; usedBy: UsedBy }[];
-	removedHandles: { block: string; handle: string; usedBy: UsedBy }[];
-	changedInvoke: { block: string; removed: string[]; added: string[]; usedBy: UsedBy }[];
-	changedHandlesOrShape: {
-		block: string;
-		before: Pick<ManifestEntry, "handles" | "shape">;
-		after: Pick<ManifestEntry, "handles" | "shape">;
-	}[];
-	/** what the new version asks for that the old did not */
-	addedPermissions: { integrations: string[]; appconfig: boolean };
-	deprecations: {
-		block: string;
-		param?: string;
-		handle?: string;
-		message: string;
-		inUse: boolean;
-	}[];
-	blocking: boolean;
-	/** one line per blocking change, for the 409 */
-	blockers: string[];
-};
+export type ManifestDiff = IntegrationDiff &
+	TriggerDiff & {
+		addedBlocks: string[];
+		removedBlocks: { block: string; usedBy: UsedBy }[];
+		removedParams: { block: string; param: string; usedBy: UsedBy }[];
+		removedHandles: { block: string; handle: string; usedBy: UsedBy }[];
+		changedInvoke: { block: string; removed: string[]; added: string[]; usedBy: UsedBy }[];
+		changedHandlesOrShape: {
+			block: string;
+			before: Pick<ManifestEntry, "handles" | "shape">;
+			after: Pick<ManifestEntry, "handles" | "shape">;
+		}[];
+		/** what the new version asks for that the old did not */
+		addedPermissions: { integrations: string[]; appconfig: boolean };
+		deprecations: {
+			block: string;
+			param?: string;
+			handle?: string;
+			message: string;
+			inUse: boolean;
+		}[];
+		blocking: boolean;
+		/** one line per blocking change, for the 409 */
+		blockers: string[];
+	};
 
 type Entry = ManifestEntry;
 const handlesOf = (e: Entry) => [
@@ -55,6 +58,8 @@ export function diffManifests(
 	usage: PluginUser[],
 	/** the project's integrations of the old version's kinds */
 	integrationUsers: IntegrationUser[] = [],
+	/** the project's triggers of the plugin's kinds (T2) */
+	triggerUsers: TriggerUser[] = [],
 ): ManifestDiff {
 	const usedBy = (block: string, uses: (n: PluginUser["nodes"][number]) => boolean): UsedBy =>
 		usage
@@ -73,6 +78,7 @@ export function diffManifests(
 		blocking: false,
 		blockers: [],
 		...diffIntegrations(old, next, integrationUsers),
+		...diffTriggers(old, next, triggerUsers),
 	};
 
 	for (const [block, before] of Object.entries(old.blocks) as [string, Entry][]) {
@@ -157,7 +163,7 @@ export function diffManifests(
 			diff.blockers.push(
 				`invoke mode ${r.removed.join("/")} of ${r.block} is removed but used by ${names(r.usedBy)}`,
 			);
-	diff.blockers.push(...integrationBlockers(diff));
+	diff.blockers.push(...integrationBlockers(diff), ...triggerBlockers(diff));
 	diff.blocking = diff.blockers.length > 0;
 	return diff;
 }

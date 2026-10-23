@@ -1,5 +1,6 @@
 import type { BlockMeta } from "@fluxify/blocks";
 import type { IntegrationEntry } from "@fluxify/sdk/blocks";
+import type { TriggerEntry } from "@fluxify/sdk/triggers";
 import type { PluginPermissions } from "../../db/schema";
 
 /**
@@ -151,7 +152,26 @@ export type TriggerArtifact = {
 	maxAttempts?: number;
 	/** External queues: wait between those runs. */
 	retryDelayMs?: number;
+	/**
+	 * Plugin triggers (`type` is `plugin:<kind>`) only: the kind and the plugin
+	 * version that provides it. Its params are `source`, as stored; `maxAttempts`
+	 * is the Attempts setting `retry` opts into.
+	 */
+	plugin?: PluginTriggerArtifact;
 	publishedAt: string;
+};
+
+/** the plugin a plugin trigger's artifact runs, as a `PluginTriggerRef` names it on the worker */
+export type PluginTriggerArtifact = {
+	/** the trigger's manifest name, e.g. `acme/pg/poller` */
+	kind: string;
+	/** the plugin, `scope/name` */
+	name: string;
+	version: string;
+	/** the plugin archive's hash: what the worker's installed copy must match */
+	integrity: string;
+	/** the manifest's `retry`: a failed run is retried by `maxAttempts` before `emit` rejects */
+	retry: boolean;
 };
 
 /**
@@ -251,6 +271,12 @@ export type PluginArtifact = {
 	 * Absent on artifacts published before integrations.
 	 */
 	integrations?: (IntegrationEntry & { entry: string })[];
+	/**
+	 * Its trigger kinds (T2), as the approved manifest declares them: workers
+	 * hold each `entry` as a `PluginTriggerRef`. Absent on artifacts published
+	 * before triggers.
+	 */
+	triggers?: (TriggerEntry & { entry: string })[];
 	publishedAt: string;
 };
 

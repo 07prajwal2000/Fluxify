@@ -131,7 +131,7 @@ Every field accepts an [App Config](/concepts/app-config) key.
 **Test connection** logs in and reads your account's JetStream details. It fails
 if the login is refused or JetStream is not enabled for the account.
 
-NATS triggers need an enterprise license, as Kafka triggers do.
+NATS triggers work in **every edition**, with no license, as every queue trigger does.
 
 ### Streams and the dead-letter subject
 

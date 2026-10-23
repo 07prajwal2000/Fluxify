@@ -11,14 +11,15 @@ import { InUseError } from "../references/service";
 import { IntegrationsInUseError, pluginIntegrationUsers } from "./integrationUsage";
 import { getPluginRow } from "./repository";
 import { assertCreator, type Caller } from "./service";
+import { pluginTriggerUsers, TriggersInUseError } from "./triggerUsage";
 import { pluginUsage } from "./usage";
 import { syncPluginVariants } from "./variants";
 
 /**
  * Removes a plugin (#860). Refused while a working copy or a promoted version
  * uses any of its blocks, the same rule as deleting a custom block, and while
- * an integration of one of its kinds exists (I6): those rows would point at a
- * variant nothing provides. Then the
+ * an integration or a trigger of one of its kinds exists (I6, T2): those rows
+ * would point at a kind nothing provides. Then the
  * row, its URL requests, both environments' artifacts and its tarballs go;
  * workers see the artifact go and stop serving it.
  */
@@ -31,6 +32,8 @@ export async function removePlugin(projectId: string, name: string, caller: Call
 	// the pending version's kinds too: an integration may already use one an upgrade adds
 	const integrations = await pluginIntegrationUsers(projectId, row.manifest, row.live?.manifest);
 	if (integrations.length) throw new IntegrationsInUseError(name, integrations);
+	const triggers = await pluginTriggerUsers(projectId, name);
+	if (triggers.length) throw new TriggersInUseError(name, triggers);
 
 	await db.transaction(async (tx) => {
 		await tx

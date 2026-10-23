@@ -15,7 +15,7 @@ The **Send Message** block publishes messages from a route or workflow to a mess
 - Don't use it to start one of your own workflows directly. [Trigger Workflow](./trigger-workflow.md) does that with no queue to set up.
 
 ::: info Editions
-Sending to **RabbitMQ** or a **Redis stream** works in every edition. Kafka, NATS and SQS need an enterprise license, the same as their triggers. Saving a block that points at one of them without a license is refused with the same error. A block saved while licensed keeps sending after the license lapses.
+Sending works in every edition, with no license, for every queue: Kafka, NATS, SQS, RabbitMQ and Redis streams.
 :::
 
 ## Inputs

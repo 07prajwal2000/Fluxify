@@ -3,6 +3,7 @@ import { type DescribeRouteOptions, describeRoute, resolver, validator } from "h
 import { errorSchema } from "../../../errors/customError";
 import { validationErrorSchema } from "../../../errors/validationError";
 import zodErrorCallbackParser from "../../../middlewares/zodErrorCallbackParser";
+import { usableTriggerKinds } from "../../../modules/plugins/triggerKinds";
 import type { HonoServer } from "../../../types";
 import { requireLoggedIn, requireProjectAccess } from "../../auth/middleware";
 import {
@@ -17,6 +18,8 @@ import {
 	listQuerySchema,
 	listSchema,
 	patchSchema,
+	pluginKindsQuerySchema,
+	pluginKindsSchema,
 	previewQuerySchema,
 	previewSchema,
 	triggerCreatedSchema,
@@ -170,6 +173,23 @@ export default {
 			requireLoggedIn(),
 			validator("query", previewQuerySchema, zodErrorCallbackParser),
 			(ctx) => ctx.json(previewSchedule(ctx.req.valid("query"))),
+		);
+
+		router.get(
+			"/plugin-kinds",
+			describeRoute(
+				describe(
+					"get-plugin-trigger-kinds",
+					"Lists the plugin trigger kinds a project can create, with their params; `kind` narrows it to one",
+					json(pluginKindsSchema),
+				),
+			),
+			requireProjectAccess("viewer", { key: "projectId", source: "query" }),
+			validator("query", pluginKindsQuerySchema, zodErrorCallbackParser),
+			async (ctx) => {
+				const { projectId, kind } = ctx.req.valid("query");
+				return ctx.json({ data: await usableTriggerKinds(projectId, kind) });
+			},
 		);
 
 		router.get(

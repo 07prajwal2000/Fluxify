@@ -70,6 +70,24 @@ export const pluginSchema = z.object({
 			}),
 		)
 		.optional(),
+	/** its trigger kinds (T2), with what each may reach and its secret params. Get-plugin only. */
+	triggers: z
+		.array(
+			z.object({
+				kind: z.string(),
+				/** the row type a trigger of it has: `plugin:<kind>` */
+				type: z.string(),
+				label: z.string(),
+				description: z.string().optional(),
+				permissions: z.object({
+					integrations: z.array(z.string()).optional(),
+					appconfig: z.boolean().optional(),
+				}),
+				retry: z.boolean(),
+				secretParams: z.array(z.string()),
+			}),
+		)
+		.optional(),
 	status: z.enum(["ok", "error"]),
 	lastError: z.string().nullable(),
 	scannedAt: z.coerce.string().nullable(),
@@ -201,6 +219,18 @@ export const upgradePreviewSchema = z.object({
 				usedBy: integrationUsedBy,
 			}),
 		),
+		/** trigger kinds the new version adds */
+		addedTriggers: z.array(z.string()),
+		removedTriggers: z.array(z.object({ kind: z.string(), usedBy: integrationUsedBy })),
+		/** `breaking`: blocks approval while `usedBy` (the triggers of the kind) is not empty */
+		changedTriggers: z.array(
+			z.object({
+				kind: z.string(),
+				change: z.string(),
+				breaking: z.boolean(),
+				usedBy: integrationUsedBy,
+			}),
+		),
 		deprecations: z.array(
 			z.object({
 				block: z.string(),
@@ -216,5 +246,8 @@ export const upgradePreviewSchema = z.object({
 	}),
 });
 
-/** a refused remove (409) lists the integrations of the plugin's kinds in `details.integrations` */
+/**
+ * a refused remove (409) lists the integrations of the plugin's kinds in
+ * `details.integrations`, and its triggers in `details.triggers`
+ */
 export const removeResponseSchema = z.object({ name: z.string() });

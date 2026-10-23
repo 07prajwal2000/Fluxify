@@ -24,11 +24,11 @@ A trigger starts one workflow. It can run on the clock (a cron or interval sched
 | `internal` | From inside Fluxify. It has no clock and no queue. | Nothing else. |
 | `redis` | For each entry of a Redis stream. | A `Redis` KV integration, `source`. |
 | `rabbitmq` | For each message of an existing RabbitMQ queue. | A `RabbitMQ` integration, `source`. |
-| `kafka` | For each message on Kafka topics. Needs an enterprise licence. | A `Kafka` integration, `source`. |
-| `nats` | For each message of a NATS JetStream stream. Needs an enterprise licence. | A `NATS` integration, `source`. |
-| `sqs` | For each message of an SQS queue. Needs an enterprise licence. | An `SQS` integration, `source`. |
+| `kafka` | For each message on Kafka topics. | A `Kafka` integration, `source`. |
+| `nats` | For each message of a NATS JetStream stream. | A `NATS` integration, `source`. |
+| `sqs` | For each message of an SQS queue. | An `SQS` integration, `source`. |
 
-`get_instance_info` shows the licence. Without one, creating a `kafka`, `nats` or `sqs` trigger fails with a 403.
+Every trigger type works in every edition, with no licence.
 
 ## Create a schedule trigger
 
@@ -178,7 +178,6 @@ These apply to queue triggers.
 | `Fluxify API error 409: trigger with that name already exists` | Pick another name. |
 | `Fluxify API error 400: Workflow belongs to a different project` | Use a workflow of the same project. |
 | `Not found: Workflow ... not found` | Wrong `workflowId`. Use `list_workflows`. |
-| `Fluxify API error 403` on `kafka`, `nats` or `sqs` | No enterprise licence. |
 | Broker message, such as a missing stream or queue | The source does not exist or the credentials fail. Fix it and save again. |
 
 Nothing runs when the trigger is off, has no workflow, or the workflow is inactive. All three must be right. Check `list_triggers` for `disabledReason`. For a worked example see [Recipe, workflow with a cron trigger](/agents/recipes/workflow-cron-trigger).

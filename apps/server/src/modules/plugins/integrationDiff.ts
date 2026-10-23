@@ -32,7 +32,7 @@ const required = (p: Param) =>
 	(p as { default?: unknown }).default === undefined;
 
 /** how one param moved, or undefined when nothing a stored config depends on did */
-function paramChange(name: string, before: Param | undefined, after: Param | undefined) {
+export function paramChange(name: string, before: Param | undefined, after: Param | undefined) {
 	if (!before && !after) return undefined;
 	if (!after)
 		return before!.type === "hint"

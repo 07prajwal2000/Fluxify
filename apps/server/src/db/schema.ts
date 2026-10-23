@@ -763,8 +763,8 @@ export const triggersEntity = pgTable(
 			.$defaultFn(() => generateID()),
 		name: varchar({ length: 255 }).notNull(),
 		description: text(),
-		/** `internal` today. `cron`, `kafka`, `sqs` … are the same row. */
-		type: varchar({ length: 50 }).notNull(),
+		/** `internal`, `schedule`, a queue (`kafka`, `sqs` …), or a plugin kind (`plugin:<scope>/<name>/…`). */
+		type: varchar({ length: 255 }).notNull(),
 		projectId: varchar("project_id", { length: 50 })
 			.references(() => projectsEntity.id, { onDelete: "cascade" })
 			.notNull(),

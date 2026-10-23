@@ -34,6 +34,7 @@ import { provideHostPackages } from "./hostPackages";
 import { createHttpContext } from "./httpContext";
 import { loadPluginIntegrations } from "./pluginIntegrations";
 import { setPluginRefs } from "./pluginLoader";
+import { setPluginTriggerRefs } from "./pluginTriggers";
 import {
 	dispatch,
 	envelopeFromHttp,
@@ -78,6 +79,7 @@ process.on("message", (message: ExecutionMessage) => {
 	if (message.type === "base-domain") return setBaseDomain(message.baseDomain);
 	if (message.type === "plugin-refs") {
 		setPluginRefs(message.refs);
+		setPluginTriggerRefs(message.triggers);
 		// a newly installed plugin's variants; failures are logged and fail at use
 		return void loadPluginIntegrations(message.integrations);
 	}
@@ -110,6 +112,7 @@ async function bootstrap(nextBoot: ExecutionBootstrap) {
 	setBaseDomain(boot.baseDomain);
 	setTrustedOrigins(boot.trustedOrigins);
 	setPluginRefs(boot.pluginRefs);
+	setPluginTriggerRefs(boot.pluginTriggers);
 	// before the artifacts: the factories resolve a plugin variant by its registration (I6)
 	await loadPluginIntegrations(boot.pluginIntegrations);
 	// plugin code is imported before ready, so no request meets a half-loaded route
