@@ -34,8 +34,8 @@ export function JavaScriptTextArea({
 				size="sm"
 				variant="ghost"
 				aria-label="Expand code editor"
-				// clear of the vertical scrollbar
-				className="absolute top-1 right-3 z-10 h-6 w-6 min-w-0 bg-surface/80 text-muted hover:text-foreground"
+				// inside the editor's top-right corner, clear of its 8px vertical scrollbar (#950)
+				className="absolute top-1.5 right-3 z-10 size-6 min-w-0 rounded-md border border-border bg-surface/90 text-muted backdrop-blur-sm hover:bg-surface-secondary hover:text-foreground"
 				onPress={() => setIsExpanded(true)}
 			>
 				<TbArrowsMaximize className="size-3.5" />

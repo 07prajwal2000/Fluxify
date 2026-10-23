@@ -12,6 +12,8 @@
 @source "./ApiPlayground";
 @source "./ReorderableList";
 @source "./JsTextField/SuggestionsDropdown.tsx";
+/* the JS editor's expand button: unscanned, its `top-*` never existed and it fell to the bottom-right (#950) */
+@source "./JavaScriptTextArea";
 
 @theme {
 	/* Configurable type. Swap this one line to change the product typeface. */
