@@ -343,7 +343,10 @@ describe("test connection", () => {
 
 	it("tests the development credentials by default", async () => {
 		const res = await test("creator", "test-existing-connection");
-		expect(res.status).toBe(400);
+		// development's port 1 answers nothing: the test ran and failed, with its reason (#690)
+		expect(res.status).toBe(200);
+		expect(res.body).toMatchObject({ success: false });
+		expect(res.body.error).toBeTruthy();
 	});
 
 	it("MCP tests the development credentials too, and has no way to name production", async () => {

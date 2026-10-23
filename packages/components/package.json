@@ -10,8 +10,8 @@
 		"typecheck": "tsgo --noEmit"
 	},
 	"dependencies": {
-		"@heroui/react": "3.2.2",
-		"@heroui/styles": "3.2.2",
+		"@heroui/react": "3.2.6",
+		"@heroui/styles": "3.2.6",
 		"@monaco-editor/react": "^4.7.0",
 		"clsx": "^2.1.1",
 		"monaco-editor": "^0.56.0",

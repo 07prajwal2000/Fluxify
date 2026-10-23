@@ -2,7 +2,9 @@ import { afterEach, describe, expect, it, mock, spyOn } from "bun:test";
 import { OpenAIIntegration } from "@fluxify/adapters";
 
 mock.module("../repository", () => ({ getAppConfigs: async () => [] }));
-const { testIntegrationConnection } = await import("../service");
+const { testIntegrationConnection, default: handleRequest } = await import("../service");
+const { audit } = await import("../../../../../modules/audit");
+const { BadRequestError } = await import("../../../../../errors/badRequestError");
 
 const config = { apiKey: "test-key", model: "gpt-test" };
 const test = (timeoutMs?: number) =>
@@ -28,3 +30,27 @@ describe("testIntegrationConnection", () => {
 		expect(result.error).toStartWith("Invalid configuration: model:");
 	});
 });
+
+// #690: a probe that ran and failed is an answer (200), only a bad request is a 400
+describe("handleRequest", () => {
+	const body = (cfg: Record<string, unknown>) => ({ group: "ai", variant: "OpenAI", config: cfg }) as never;
+
+	it("answers a failed probe with the reason instead of throwing", async () => {
+		spyOn(audit, "record").mockResolvedValue(undefined as never);
+		spyOn(OpenAIIntegration, "TestConnection").mockRejectedValue(new Error("401 Incorrect API key provided"));
+		expect(await handleRequest("p1", body(config))).toEqual({
+			success: false,
+			error: "401 Incorrect API key provided",
+		});
+	});
+
+	it("refuses config fields that are wrong as a bad request, before any probe", async () => {
+		spyOn(audit, "record").mockResolvedValue(undefined as never);
+		const probe = spyOn(OpenAIIntegration, "TestConnection");
+		const refused = handleRequest("p1", body({ apiKey: "test-key" }));
+		await expect(refused).rejects.toBeInstanceOf(BadRequestError);
+		await expect(refused).rejects.toThrow(/^Invalid configuration: model:/);
+		expect(probe).not.toHaveBeenCalled();
+	});
+});
+

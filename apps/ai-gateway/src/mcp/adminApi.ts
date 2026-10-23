@@ -40,8 +40,10 @@ export type AdminApi = {
  * own message is kept where it says something the status does not.
  */
 export function readableError(status: number, body: unknown, role: ToolRole): string {
-	const b = (body ?? {}) as { message?: unknown };
-	const message = typeof b.message === "string" ? b.message : "";
+	const b = (body ?? {}) as { message?: unknown; error?: unknown };
+	// most errors say why in `message`; a `{ success: false, error }` body says it in `error` (#690)
+	const message =
+		typeof b.message === "string" ? b.message : typeof b.error === "string" ? b.error : "";
 	switch (status) {
 		case 400: {
 			// the zod issues the server sends, each naming its field path and reason (#779)

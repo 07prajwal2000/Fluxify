@@ -1,5 +1,7 @@
 import { expandCfg, type McpOAuth, type OtlpSignal } from "@fluxify/adapters";
+import { integrationRegistry } from "@fluxify/adapters/integrations";
 import type { z } from "zod";
+import { BadRequestError } from "../../../../errors/badRequestError";
 import type { FluxifyEnv } from "../../../../lib/env";
 import { audit } from "../../../../modules/audit";
 import { decodeAppConfig } from "../../../../modules/integrationOps/appConfig";
@@ -51,10 +53,28 @@ export async function testIntegrationConnection(
 	}
 }
 
+/**
+ * Tests a config before it is saved. A probe that ran and failed is an answer
+ * (`success: false` with the reason, #690); only config the caller got wrong is
+ * a bad request. A plugin variant's schema lives on its worker, so there its
+ * probe reports wrong fields the same way it reports any other failure.
+ */
 export default async function handleRequest(
 	projectId: string,
 	body: z.infer<typeof requestBodySchema>,
 ): Promise<Result> {
+	// built-ins only: a plugin variant's schema is on its worker, not in this registry
+	const def = integrationRegistry.isBuiltIn(body.group, body.variant)
+		? integrationRegistry.get(body.group, body.variant)
+		: undefined;
+	const parsed = def?.configSchema.safeParse(body.config);
+	if (parsed && !parsed.success) {
+		throw new BadRequestError(
+			`Invalid configuration: ${parsed.error.issues
+				.map((i) => (i.path.length ? `${i.path.join(".")}: ` : "") + i.message)
+				.join("; ")}`,
+		);
+	}
 	const result = await testIntegrationConnection(projectId, body.group, body.variant, body.config);
 	await audit.record({
 		projectId,
