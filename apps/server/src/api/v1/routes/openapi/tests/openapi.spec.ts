@@ -1,5 +1,5 @@
 import { describe, it, expect, mock, spyOn, beforeEach } from "bun:test";
-import { generateOpenApiSpec } from "../service";
+import { generateOpenApiSpec, invalidateOpenApiCache } from "../service";
 import * as repo from "../repository";
 import * as redis from "../../../../../db/redis";
 import { NotFoundError } from "../../../../../errors/notFoundError";
@@ -55,6 +55,20 @@ describe("OpenAPI Service Tests", () => {
       expect(await serverUrl()).toBe("https://billing.example.com");
       withSubdomain("payments");
       expect(await serverUrl()).toBe("https://payments.example.com");
+    });
+  });
+
+  describe("invalidateOpenApiCache", () => {
+    it("deletes key for specific projectId", async () => {
+      const deleteKeySpy = spyOn(redis, "deleteCacheKey").mockResolvedValue(undefined as any);
+      await invalidateOpenApiCache("p1");
+      expect(deleteKeySpy).toHaveBeenCalledWith("openapi-spec:p1");
+    });
+
+    it("deletes by pattern when no projectId provided", async () => {
+      const deletePatternSpy = spyOn(redis, "deleteCacheKeysByPattern").mockResolvedValue(undefined as any);
+      await invalidateOpenApiCache();
+      expect(deletePatternSpy).toHaveBeenCalledWith("openapi-spec:*");
     });
   });
 

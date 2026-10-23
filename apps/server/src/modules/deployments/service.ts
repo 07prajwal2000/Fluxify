@@ -173,7 +173,13 @@ export async function deployVersion(
 			});
 		});
 		// the usual change signal: the compiler republishes production from the new pointer
-		if (passed) await announceChange(kind, id, started.projectId);
+		if (passed) {
+			await announceChange(kind, id, started.projectId);
+			if (kind === "route") {
+				const { invalidateOpenApiCache } = await import("../../api/v1/routes/openapi/service");
+				await invalidateOpenApiCache(started.projectId);
+			}
+		}
 	};
 	if (quickPassed && plan && plan.runs.length > 0) {
 		// the request has its answer: pending, to be polled

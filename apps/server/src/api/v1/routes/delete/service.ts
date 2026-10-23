@@ -37,7 +37,11 @@ export default async function handleRequest(
 	// the compiler resolves a route's project from the database, so once the row
 	// is gone it can no longer work out which artifact key to drop — workers would
 	// keep serving the deleted route from KV. Drop it here, where we still know.
-	if (projectId) await dropRoute(projectId, id);
+	if (projectId) {
+		await dropRoute(projectId, id);
+		const { invalidateOpenApiCache } = await import("../openapi/service");
+		await invalidateOpenApiCache(projectId);
+	}
 	await publishMessage(CHAN_ON_ROUTE_CHANGE, id);
 	return "";
 }

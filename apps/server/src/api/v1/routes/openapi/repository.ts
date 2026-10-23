@@ -1,6 +1,12 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNotNull } from "drizzle-orm";
 import { db } from "../../../../db";
-import { httpRouteConfigEntity, projectsEntity, routesEntity } from "../../../../db/schema";
+import {
+	type CanvasSnapshot,
+	canvasVersionsEntity,
+	httpRouteConfigEntity,
+	projectsEntity,
+	routesEntity,
+} from "../../../../db/schema";
 
 export async function getProject(projectId: string) {
 	const res = await db
@@ -13,9 +19,36 @@ export async function getProject(projectId: string) {
 
 export async function getActiveRoutes(projectId: string) {
 	const rows = await db
-		.select({ route: routesEntity, routeConfig: httpRouteConfigEntity.routeConfig })
+		.select({
+			route: routesEntity,
+			routeConfig: httpRouteConfigEntity.routeConfig,
+			snapshot: canvasVersionsEntity.snapshot,
+		})
 		.from(routesEntity)
+		.innerJoin(canvasVersionsEntity, eq(canvasVersionsEntity.id, routesEntity.prodVersionId))
 		.leftJoin(httpRouteConfigEntity, eq(httpRouteConfigEntity.routeId, routesEntity.id))
-		.where(and(eq(routesEntity.projectId, projectId), eq(routesEntity.active, true)));
-	return rows.map(({ route, routeConfig }) => ({ ...route, routeConfig }));
+		.where(
+			and(
+				eq(routesEntity.projectId, projectId),
+				eq(routesEntity.active, true),
+				isNotNull(routesEntity.prodVersionId),
+			),
+		);
+	return rows.map(({ route, routeConfig, snapshot }) => {
+		const settings = (snapshot as CanvasSnapshot | null)?.settings;
+		return {
+			...route,
+			...(settings
+				? {
+						path: settings.path ?? route.path,
+						method: settings.method ?? route.method,
+						bodySchema: settings.bodySchema ?? route.bodySchema,
+						querySchema: settings.querySchema ?? route.querySchema,
+						paramsSchema: settings.paramsSchema ?? route.paramsSchema,
+						timeoutSeconds: settings.timeoutSeconds ?? route.timeoutSeconds,
+					}
+				: {}),
+			routeConfig,
+		};
+	});
 }

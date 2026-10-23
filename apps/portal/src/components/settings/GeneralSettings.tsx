@@ -102,6 +102,10 @@ function OpenApiSpecUrl({ projectId }: { projectId: string }) {
 				<p className="text-sm text-muted">
 					Import this URL into Postman, Insomnia or a client generator.
 				</p>
+				<p className="text-xs text-muted">
+					The OpenAPI spec reflects production routes only. Routes appear after you promote them to
+					production; development-only routes are not included.
+				</p>
 			</div>
 			<div className="flex items-center gap-2">
 				<TextField value={url} isReadOnly aria-label="OpenAPI spec URL" className="flex-1">
