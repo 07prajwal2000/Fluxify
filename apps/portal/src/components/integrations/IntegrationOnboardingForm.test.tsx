@@ -107,8 +107,8 @@ test("IntegrationOnboardingForm displays test connection error text verbatim", a
 		expect(document.body.textContent).toContain("Configure CockroachDB");
 	});
 
-	// Turn on Same as production so test does not bail on empty dev config
-	const syncDevCheckbox = within(document.body).getByLabelText("Same as production");
+	// Turn on Same as prod so test does not bail on empty dev config
+	const syncDevCheckbox = within(document.body).getByLabelText("Same as prod");
 	await act(async () => void fireEvent.click(syncDevCheckbox));
 
 	const testBtn = within(document.body).getByRole("button", { name: /Test connection/i });
@@ -195,7 +195,7 @@ test("IntegrationOnboardingForm renders Name field for plugin variant and sends 
 	const activeNameInput = getNameInput();
 	await act(async () => void fireEvent.change(activeNameInput, { target: { value: "My SMTP" } }));
 
-	const syncDev = within(document.body).getByLabelText("Same as production");
+	const syncDev = within(document.body).getByLabelText("Same as prod");
 	await act(async () => void fireEvent.click(syncDev));
 
 	await act(async () => void fireEvent.click(saveBtn));
