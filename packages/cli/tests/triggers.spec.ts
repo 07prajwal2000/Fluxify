@@ -16,8 +16,7 @@ export default trigger({
 	icon: "./icons/poll.svg",
 	${extra}
 	params: { topic: param.string(), every: param.number({ default: 5, tab: "Source" }) },
-	start: async () => {},
-	stop: async () => {},
+	start: async () => async () => {},
 });
 `;
 const ICON = { "icons/poll.svg": "<svg/>" };

@@ -6,9 +6,6 @@ const label = (name: string) => name.split("/").at(-1)!;
 export const triggerTemplate = (type: string) => `import { param } from "@fluxify/sdk/blocks";
 import { trigger } from "@fluxify/sdk/triggers";
 
-// the loop's handle, so stop() can wait for it to finish
-let loop: Promise<void> | undefined;
-
 export default trigger({
 	name: "${type}",
 	label: "${label(type)}",
@@ -22,7 +19,7 @@ export default trigger({
 				const timer = setTimeout(resolve, ms);
 				ctx.signal.addEventListener("abort", () => (clearTimeout(timer), resolve()), { once: true });
 			});
-		loop = (async () => {
+		const loop = (async () => {
 			while (!ctx.signal.aborted) {
 				// fetch new items from your source here (bring your own client)
 				const items: unknown[] = [];
@@ -38,10 +35,10 @@ export default trigger({
 				await wait(ctx.params.intervalSeconds * 1000);
 			}
 		})();
-	},
-	async stop() {
-		// ctx.signal is already aborted: wait for the loop to see it
-		await loop;
+		// called once ctx.signal is aborted: wait for the loop to see it, close your client here
+		return async () => {
+			await loop;
+		};
 	},
 });
 `;

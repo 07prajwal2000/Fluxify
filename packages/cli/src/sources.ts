@@ -31,10 +31,7 @@ export const INTEGRATIONS: Kind = {
 export const TRIGGERS: Kind = {
 	dir: "triggers",
 	entry: triggerEntryPath,
-	is: (def) =>
-		typeof def?.start === "function" &&
-		typeof def.stop === "function" &&
-		typeof def.name === "string",
+	is: (def) => typeof def?.start === "function" && typeof def.name === "string",
 	what: "a trigger(...)",
 };
 

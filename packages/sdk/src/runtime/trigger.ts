@@ -37,7 +37,7 @@ export interface TriggerContext<P extends Params = Params> {
 	 */
 	getConfig(key: string): string | number | boolean;
 	logger: Logger;
-	/** aborted when Fluxify stops the trigger, before it calls `stop` */
+	/** aborted when Fluxify stops the trigger, before it calls the function `start` returned */
 	signal: AbortSignal;
 	/**
 	 * Runs the attached workflow once with `events`, one item per event (the

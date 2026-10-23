@@ -3,7 +3,7 @@ import { fluxifyManifestSchema, param } from "../blocks.js";
 import { runTrigger } from "../testing.js";
 import { type AnyTrigger, toTriggerEntry, trigger, triggerEntryPath } from "../triggers.js";
 
-const base = { label: "Poll", icon: "./poll.svg", start: async () => {}, stop: async () => {} };
+const base = { label: "Poll", icon: "./poll.svg", start: async () => async () => {} };
 const define = (def: Record<string, unknown>) => () => trigger({ ...base, ...def } as unknown as AnyTrigger);
 
 describe("trigger()", () => {
@@ -34,9 +34,34 @@ describe("trigger()", () => {
 		});
 	});
 
-	it("refuses a missing start or stop", () => {
+	it("refuses a missing start, and a leftover stop", () => {
 		expect(define({ name: "acme/t/a", start: undefined })).toThrow("trigger acme/t/a: start() is required");
-		expect(define({ name: "acme/t/a", stop: undefined })).toThrow("trigger acme/t/a: stop() is required");
+		expect(define({ name: "acme/t/a", stop: async () => {} })).toThrow(
+			"trigger acme/t/a: stop() is gone: return the stop function from start()",
+		);
+	});
+
+	it("fails a start that resolves without a stop function", async () => {
+		const bad = trigger({ ...base, name: "acme/t/a", start: (async () => {}) as never });
+		await expect(runTrigger(bad)).rejects.toThrow(
+			"trigger acme/t/a: start() must resolve to its stop function",
+		);
+	});
+
+	it("two runs of one definition stop independently", async () => {
+		const closed: string[] = [];
+		const def = trigger({
+			...base,
+			name: "acme/t/a",
+			params: { id: param.string({ required: true }) },
+			start: async (ctx) => async () => void closed.push(ctx.params.id),
+		});
+		const a = await runTrigger(def, { params: { id: "a" } });
+		const b = await runTrigger(def, { params: { id: "b" } });
+		await a.stop();
+		expect([closed, a.signal.aborted, b.signal.aborted]).toEqual([["a"], true, false]);
+		await b.stop();
+		expect(closed).toEqual(["a", "b"]);
 	});
 
 	it("refuses a block-only field", () => {
@@ -80,7 +105,7 @@ describe("trigger()", () => {
 			...base,
 			name: "acme/t/a",
 			params: { every: param.number({ default: 5 }), topic: param.string({ required: true }) },
-			start: async (ctx) => void seen.push(ctx.params),
+			start: async (ctx) => (seen.push(ctx.params), async () => {}),
 		});
 		await (await runTrigger(def, { params: { topic: "t" } })).stop();
 		expect(seen).toEqual([{ every: 5, topic: "t" }]);
@@ -145,6 +170,7 @@ describe("runTrigger", () => {
 					() => committed.push("ok"),
 					(e: Error) => committed.push(`failed: ${e.message}`),
 				);
+				return async () => {};
 			},
 		});
 
@@ -185,6 +211,7 @@ describe("runTrigger", () => {
 					} catch (e) {
 						errors.push((e as Error).message);
 					}
+				return async () => {};
 			},
 		});
 		await (await runTrigger(def)).stop();
@@ -194,7 +221,7 @@ describe("runTrigger", () => {
 		]);
 	});
 
-	it("stop aborts the signal before stop() runs", async () => {
+	it("stop aborts the signal before the returned stop function runs", async () => {
 		const order: string[] = [];
 		let signal!: AbortSignal;
 		const def = trigger({
@@ -203,8 +230,8 @@ describe("runTrigger", () => {
 			start: async (ctx) => {
 				signal = ctx.signal;
 				signal.addEventListener("abort", () => order.push("abort"));
+				return async () => void order.push(`stop, aborted: ${signal.aborted}`);
 			},
-			stop: async () => void order.push(`stop, aborted: ${signal.aborted}`),
 		});
 		const run = await runTrigger(def);
 		expect(run.signal.aborted).toBe(false);
@@ -213,10 +240,11 @@ describe("runTrigger", () => {
 	});
 
 	it("fails a stop that does not return, and a start that does not resolve", async () => {
-		const hung = () => new Promise<void>(() => {});
-		const run = await runTrigger(trigger({ ...base, name: "acme/t/a", stop: hung }), {
-			timeoutMs: 20,
-		});
+		const hung = () => new Promise<never>(() => {});
+		const run = await runTrigger(
+			trigger({ ...base, name: "acme/t/a", start: async () => hung }),
+			{ timeoutMs: 20 },
+		);
 		await expect(run.stop()).rejects.toThrow("trigger acme/t/a: stop() did not return within 20 ms");
 		await expect(
 			runTrigger(trigger({ ...base, name: "acme/t/a", start: hung }), { timeoutMs: 20 }),
@@ -226,7 +254,7 @@ describe("runTrigger", () => {
 	it("getConfig reads the keys secret params name, or any key with permissions.appconfig", async () => {
 		const read = (def: AnyTrigger, params: Record<string, unknown>) => {
 			let getConfig!: (key: string) => unknown;
-			const t = trigger({ ...def, start: async (ctx) => void (getConfig = ctx.getConfig) });
+			const t = trigger({ ...def, start: async (ctx) => ((getConfig = ctx.getConfig), async () => {}) });
 			return runTrigger(t, { params, appConfig: { TOKEN: "s", OTHER: "o" } }).then(() => getConfig);
 		};
 		const own = await read(
@@ -246,7 +274,7 @@ describe("runTrigger", () => {
 			...base,
 			name: "acme/t/a",
 			permissions: { integrations: ["kv"] },
-			start: async (ctx) => void (get = (id) => ctx.integrations.get(id)),
+			start: async (ctx) => ((get = (id) => ctx.integrations.get(id)), async () => {}),
 		});
 		await runTrigger(def, {
 			integrations: { k: { kind: "kv", client: "kv-client" }, d: { kind: "database", client: 1 } },

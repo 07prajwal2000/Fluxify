@@ -196,8 +196,8 @@ export const integrationEntrySchema = z
 export type IntegrationEntry = z.infer<typeof integrationEntrySchema>;
 
 /**
- * A plugin trigger as `fluxify.json` holds it: the definition minus `start`
- * and `stop`. Its params are a block's, minus what only a request can fill.
+ * A plugin trigger as `fluxify.json` holds it: the definition minus `start`.
+ * Its params are a block's, minus what only a request can fill.
  */
 export const triggerEntrySchema = z
 	.strictObject({

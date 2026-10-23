@@ -8,7 +8,7 @@ type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ?
 	: false;
 const assert = <T extends true>() => {};
 
-const common = { label: "Poll", icon: "./poll.svg", stop: async () => {} };
+const common = { label: "Poll", icon: "./poll.svg" };
 
 function contextChecks() {
 	trigger({
@@ -37,6 +37,7 @@ function contextChecks() {
 			await ctx.emit([], { connection });
 			// @ts-expect-error a connection must have the queue-trigger shape
 			await ctx.emit([], { connection: { commit: async () => {} } });
+			return async () => {};
 		},
 	});
 }
@@ -56,10 +57,18 @@ assert<
 >();
 
 function definitionChecks() {
-	// @ts-expect-error stop is required
+	// @ts-expect-error start must return its stop function
 	trigger({ name: "acme/t/a", label: "A", icon: "./a.svg", start: async () => {} });
 	// @ts-expect-error start is required
-	trigger({ name: "acme/t/a", label: "A", icon: "./a.svg", stop: async () => {} });
+	trigger({ name: "acme/t/a", label: "A", icon: "./a.svg" });
+	trigger({
+		name: "acme/t/a",
+		label: "A",
+		icon: "./a.svg",
+		start: async () => async () => {},
+		// @ts-expect-error stop moved: return it from start()
+		stop: async () => {},
+	});
 	trigger({
 		...common,
 		name: "acme/t/a",
@@ -68,7 +77,7 @@ function definitionChecks() {
 			// @ts-expect-error visibleWhen is checked against the trigger's own params, as a block's
 			extra: param.string({ visibleWhen: { mode: "c" } }),
 		},
-		start: async () => {},
+		start: async () => async () => {},
 	});
 }
 

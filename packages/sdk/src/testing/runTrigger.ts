@@ -22,7 +22,7 @@ export type RunTriggerOptions<P extends Params> = {
 	logger?: Logger;
 	/** pooled integration clients; share one `testPool()` to see reuse. Default: fresh per run */
 	pool?: TestPool;
-	/** how long `start` may take to resolve and `stop` to return; default 5000 ms */
+	/** how long `start` may take to resolve and the returned stop function to return; default 5000 ms */
 	timeoutMs?: number;
 };
 
@@ -51,7 +51,7 @@ export type TriggerRun = {
 	 * on, a rejection here stands for the last attempt failing.
 	 */
 	retry: boolean;
-	/** aborts `ctx.signal`, then awaits `stop`; rejects when it does not return within `timeoutMs` */
+	/** aborts `ctx.signal`, then awaits the function `start` returned; rejects when it does not return within `timeoutMs` */
 	stop(): Promise<void>;
 };
 
@@ -127,7 +127,7 @@ export async function runTrigger<P extends Params>(
 	);
 	const controller = new AbortController();
 	const recorder = emitRecorder(name);
-	await within(
+	const stopInstance = await within(
 		def.start({
 			params: params as never,
 			integrations: integrations!,
@@ -139,6 +139,8 @@ export async function runTrigger<P extends Params>(
 		ms,
 		`trigger ${name}: start() did not resolve`,
 	);
+	if (typeof stopInstance !== "function")
+		throw new Error(`trigger ${name}: start() must resolve to its stop function`);
 	return {
 		emits: recorder.emits,
 		nextEmit: recorder.nextEmit,
@@ -148,7 +150,7 @@ export async function runTrigger<P extends Params>(
 		async stop() {
 			controller.abort();
 			try {
-				await within(def.stop(), ms, `trigger ${name}: stop() did not return`);
+				await within(stopInstance(), ms, `trigger ${name}: stop() did not return`);
 			} finally {
 				leases.release();
 				if (!options.pool) await pooled.close();

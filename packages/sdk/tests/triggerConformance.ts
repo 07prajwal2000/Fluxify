@@ -43,8 +43,8 @@ function emitting(batches: { events: unknown[]; connection?: TriggerConnection }
 					() => outcomes.push("resolved"),
 					(e: Error) => outcomes.push(`rejected: ${e.message}`),
 				);
+			return async () => {};
 		},
-		stop: async () => {},
 	});
 	return { def, outcomes };
 }
@@ -57,8 +57,10 @@ export function triggerConformance(name: string, runner: TriggerRunner) {
 				...base,
 				name: "conf/test/start",
 				params: { every: param.number({ default: 5 }), topic: param.string({ required: true }) },
-				start: async (ctx) => void seen.push(ctx.params),
-				stop: async () => {},
+				start: async (ctx) => {
+					seen.push(ctx.params);
+					return async () => {};
+				},
 			});
 			await (await runner.start(def, { topic: "t" })).stop();
 			expect(seen).toEqual([{ every: 5, topic: "t" }]);
@@ -71,7 +73,6 @@ export function triggerConformance(name: string, runner: TriggerRunner) {
 				start: async () => {
 					throw new Error("cannot connect");
 				},
-				stop: async () => {},
 			});
 			await expect(runner.start(def)).rejects.toThrow("cannot connect");
 		});
@@ -105,20 +106,40 @@ export function triggerConformance(name: string, runner: TriggerRunner) {
 			await running.stop();
 		});
 
-		it("stop aborts ctx.signal, then calls stop, which ends the poll loop", async () => {
+		it("stop aborts ctx.signal, then calls the function start returned", async () => {
 			const order: string[] = [];
 			const def = trigger({
 				...base,
 				name: "conf/test/stop",
 				start: async (ctx) => {
 					ctx.signal.addEventListener("abort", () => order.push("abort"));
+					return async () => void order.push("stop");
 				},
-				stop: async () => void order.push("stop"),
 			});
 			const running = await runner.start(def);
 			expect(order).toEqual([]);
 			await running.stop();
 			expect(order).toEqual(["abort", "stop"]);
+		});
+
+		it("two instances of one trigger: stopping one leaves the other running, and each closes its own resource", async () => {
+			const closed: string[] = [];
+			const aborted: string[] = [];
+			const def = trigger({
+				...base,
+				name: "conf/test/two",
+				params: { id: param.string({ required: true }) },
+				start: async (ctx) => {
+					ctx.signal.addEventListener("abort", () => aborted.push(ctx.params.id));
+					return async () => void closed.push(ctx.params.id);
+				},
+			});
+			const a = await runner.start(def, { id: "a" });
+			const b = await runner.start(def, { id: "b" });
+			await a.stop();
+			expect([aborted, closed]).toEqual([["a"], ["a"]]);
+			await b.stop();
+			expect([aborted, closed]).toEqual([["a", "b"], ["a", "b"]]);
 		});
 	});
 }

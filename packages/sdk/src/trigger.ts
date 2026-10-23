@@ -31,16 +31,19 @@ export type TriggerDefinition<P extends Params = Params> = {
 	 * the loop going in the background, and end it when `ctx.signal` aborts.
 	 * Idempotency, batching, commits and coordinating replicas are yours: every
 	 * worker of the trigger's group runs `start`.
+	 *
+	 * Returns this instance's stop function, which closes what this call opened.
+	 * One definition can run as several triggers at once, each with its own
+	 * `ctx`, so the cleanup lives in the closure. Fluxify calls it after
+	 * `ctx.signal` aborts, and it must return. Nothing to close: `async () => {}`.
 	 */
-	start(ctx: TriggerContext<P>): Promise<void>;
-	/** closes what `start` opened; called after `ctx.signal` aborts, and must return */
-	stop(): Promise<void>;
+	start(ctx: TriggerContext<P>): Promise<() => Promise<void>>;
 };
 
 /** any `trigger(...)` result */
 export type AnyTrigger = TriggerDefinition<any>;
 
-/** The definition minus `start` and `stop`, as manifest data. */
+/** The definition minus `start`, as manifest data. */
 export function toTriggerEntry(def: AnyTrigger): TriggerEntry {
 	const entry = {
 		name: def.name,
@@ -57,14 +60,14 @@ export function toTriggerEntry(def: AnyTrigger): TriggerEntry {
 /**
  * Defines a plugin trigger. Default-export the result from a file under
  * `src/triggers`. Throws on an invalid definition, naming it: params as a
- * block's are checked, a missing `start` or `stop`, and a block-only field.
+ * block's are checked, a missing `start`, a leftover `stop`, and a block-only field.
  */
 export function trigger<const P extends Params = {}>(
 	def: TriggerDefinition<P> & { params?: NoInfer<CheckVisible<P>> },
 ): TriggerDefinition<P> {
 	const fail = (message: string) => new Error(`trigger ${String(def.name)}: ${message}`);
-	for (const hook of ["start", "stop"] as const)
-		if (typeof def[hook] !== "function") throw fail(`${hook}() is required`);
+	if (typeof def.start !== "function") throw fail("start() is required");
+	if ("stop" in def) throw fail("stop() is gone: return the stop function from start()");
 	const blockOnly = BLOCK_ONLY_FIELDS.filter((f) => f in def);
 	if (blockOnly.length) throw fail(`${blockOnly.join(", ")} belong to a block, not a trigger`);
 	const parsed = triggerEntrySchema.safeParse(toTriggerEntry(def));
