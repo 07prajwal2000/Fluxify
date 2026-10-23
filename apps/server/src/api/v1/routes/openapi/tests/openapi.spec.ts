@@ -1,5 +1,6 @@
 import { describe, it, expect, mock, spyOn, beforeEach } from "bun:test";
-import { generateOpenApiSpec } from "../service";
+import { normalizeEnv } from "../dto";
+import { generateOpenApiSpec, invalidateOpenApiCache } from "../service";
 import * as repo from "../repository";
 import * as redis from "../../../../../db/redis";
 import { NotFoundError } from "../../../../../errors/notFoundError";
@@ -25,8 +26,8 @@ describe("OpenAPI Service Tests", () => {
     const withSubdomain = (subdomain: string) => {
       projectSettingsCache.p1 = { "settings.routing.subdomain": subdomain } as any;
     };
-    const serverUrl = async () =>
-      (await generateOpenApiSpec({ projectId: "p1" }, ORIGIN)).servers[0].url;
+    const serverUrl = async (env?: any) =>
+      (await generateOpenApiSpec({ projectId: "p1" }, ORIGIN, env)).servers[0].url;
 
     beforeEach(() => {
       spyOn(redis, "getCache").mockResolvedValue(JSON.stringify({ openapi: "3.0.0", paths: {} }));
@@ -56,12 +57,96 @@ describe("OpenAPI Service Tests", () => {
       withSubdomain("payments");
       expect(await serverUrl()).toBe("https://payments.example.com");
     });
+
+    it("appends /_/dev/ to server URL for development environment", async () => {
+      expect(await serverUrl("development")).toBe("http://localhost:8080/_/dev/");
+      withSubdomain("billing");
+      expect(await serverUrl("development")).toBe("http://billing.localhost:8080/_/dev/");
+      withDomain("example.com");
+      expect(await serverUrl("development")).toBe("https://billing.example.com/_/dev/");
+    });
+  });
+
+  describe("normalizeEnv", () => {
+    it("normalizes dev and development to development", () => {
+      expect(normalizeEnv("dev")).toBe("development");
+      expect(normalizeEnv("development")).toBe("development");
+    });
+
+    it("defaults other or undefined values to production", () => {
+      expect(normalizeEnv("prod")).toBe("production");
+      expect(normalizeEnv("production")).toBe("production");
+      expect(normalizeEnv()).toBe("production");
+      expect(normalizeEnv("unknown")).toBe("production");
+    });
+  });
+
+  describe("invalidateOpenApiCache", () => {
+    it("deletes all keys for specific projectId when env omitted", async () => {
+      const deleteKeySpy = spyOn(redis, "deleteCacheKey").mockResolvedValue(undefined as any);
+      await invalidateOpenApiCache("p1");
+      expect(deleteKeySpy).toHaveBeenCalledWith("openapi-spec:p1");
+      expect(deleteKeySpy).toHaveBeenCalledWith("openapi-spec:p1:production");
+      expect(deleteKeySpy).toHaveBeenCalledWith("openapi-spec:p1:development");
+    });
+
+    it("deletes key for specific projectId and environment", async () => {
+      const deleteKeySpy = spyOn(redis, "deleteCacheKey").mockResolvedValue(undefined as any);
+      await invalidateOpenApiCache("p1", "development");
+      expect(deleteKeySpy).toHaveBeenCalledWith("openapi-spec:p1:development");
+    });
+
+    it("deletes by pattern when no projectId provided", async () => {
+      const deletePatternSpy = spyOn(redis, "deleteCacheKeysByPattern").mockResolvedValue(undefined as any);
+      await invalidateOpenApiCache();
+      expect(deletePatternSpy).toHaveBeenCalledWith("openapi-spec:*");
+    });
   });
 
   it("returns cached spec if available", async () => {
     spyOn(redis, "getCache").mockResolvedValue(JSON.stringify({ openapi: "3.0.0", info: { title: "cached" }, paths: {} }));
     const result = await generateOpenApiSpec({ projectId: "p1" }, ORIGIN);
     expect(result.servers).toEqual([{ url: ORIGIN }]);
+  });
+
+  it("generates development spec when env is development", async () => {
+    spyOn(repo, "getProject").mockResolvedValue({ id: "p1", name: "My API" } as any);
+    const getActiveSpy = spyOn(repo, "getActiveRoutes").mockResolvedValue([
+      {
+        id: "r1",
+        method: "get",
+        name: "Dev Route",
+        path: "/dev-only",
+      },
+    ] as any);
+
+    const spec = await generateOpenApiSpec({ projectId: "p1" }, ORIGIN, "development");
+    expect(getActiveSpy).toHaveBeenCalledWith("p1", "development");
+    expect(spec.info.title).toBe("My API (Development)");
+    expect(spec.paths["/dev-only"]).toBeDefined();
+  });
+
+  it("includes all routes in development spec including production routes", async () => {
+    spyOn(repo, "getProject").mockResolvedValue({ id: "p1", name: "My API" } as any);
+    const getActiveSpy = spyOn(repo, "getActiveRoutes").mockResolvedValue([
+      {
+        id: "r1",
+        method: "get",
+        name: "Dev Route",
+        path: "/dev-only",
+      },
+      {
+        id: "r2",
+        method: "post",
+        name: "Prod Route",
+        path: "/prod-endpoint",
+      },
+    ] as any);
+
+    const spec = await generateOpenApiSpec({ projectId: "p1" }, ORIGIN, "development");
+    expect(getActiveSpy).toHaveBeenCalledWith("p1", "development");
+    expect(spec.paths["/dev-only"]).toBeDefined();
+    expect(spec.paths["/prod-endpoint"]).toBeDefined();
   });
 
   it("throws NotFoundError if project does not exist", async () => {

@@ -11,14 +11,24 @@ import { projectHost } from "../../../../lib/hosting";
 import { acceptedContentTypes } from "../../../../lib/routeConfig";
 import { baseDomain, configuredBaseDomain } from "../../../../loaders/instanceSettingsLoader";
 import { projectSettingsCache } from "../../../../loaders/projectSettingsLoader";
-import type { requestParamSchema } from "./dto";
+import type { OpenApiEnv, requestParamSchema } from "./dto";
 import { getActiveRoutes, getProject } from "./repository";
 
-export async function invalidateOpenApiCache(projectId?: string) {
-	if (projectId) {
-		await deleteCacheKey(`openapi-spec:${projectId}`);
-	} else {
-		await deleteCacheKeysByPattern(`openapi-spec:*`);
+export async function invalidateOpenApiCache(projectId?: string, env?: OpenApiEnv) {
+	try {
+		if (projectId) {
+			if (env) {
+				await deleteCacheKey(`openapi-spec:${projectId}:${env}`);
+			} else {
+				await deleteCacheKey(`openapi-spec:${projectId}`);
+				await deleteCacheKey(`openapi-spec:${projectId}:production`);
+				await deleteCacheKey(`openapi-spec:${projectId}:development`);
+			}
+		} else {
+			await deleteCacheKeysByPattern(`openapi-spec:*`);
+		}
+	} catch (error) {
+		logger.warn("Failed to invalidate OpenAPI cache", "openapi", { error });
 	}
 }
 
@@ -121,7 +131,7 @@ function buildParameter(
 function safelyParseJSON(str: string) {
 	try {
 		return JSON.parse(str);
-	} catch (e) {
+	} catch (_e) {
 		return null;
 	}
 }
@@ -132,22 +142,34 @@ function safelyParseJSON(str: string) {
  * (a local install) the request's own scheme and port are kept, as the
  * playground does.
  */
-export function specServerUrl(projectId: string, requestOrigin: string) {
+export function specServerUrl(
+	projectId: string,
+	requestOrigin: string,
+	env: OpenApiEnv = "production",
+) {
 	const subdomain = projectSettingsCache[projectId]?.["settings.routing.subdomain"];
 	const host = subdomain ? projectHost(subdomain, baseDomain()) : baseDomain();
-	if (configuredBaseDomain()) return `https://${host}`;
-	const url = new URL(requestOrigin);
-	url.hostname = host;
-	return url.origin;
+	const base = configuredBaseDomain()
+		? `https://${host}`
+		: (() => {
+				const url = new URL(requestOrigin);
+				url.hostname = host;
+				return url.origin;
+			})();
+	if (env === "development") {
+		return `${base}/_/dev/`;
+	}
+	return base;
 }
 
 export async function generateOpenApiSpec(
 	param: z.infer<typeof requestParamSchema>,
 	requestOrigin: string,
+	env: OpenApiEnv = "production",
 ) {
 	const { projectId } = param;
-	const servers = [{ url: specServerUrl(projectId, requestOrigin) }];
-	const cacheKey = `openapi-spec:${projectId}`;
+	const servers = [{ url: specServerUrl(projectId, requestOrigin, env) }];
+	const cacheKey = `openapi-spec:${projectId}:${env}`;
 	const cached = await getCache(cacheKey);
 	if (cached) {
 		const { openapi, info, paths } = JSON.parse(cached);
@@ -157,7 +179,7 @@ export async function generateOpenApiSpec(
 	const project = await getProject(projectId);
 	if (!project) throw new NotFoundError("Project not found");
 
-	const routes = await getActiveRoutes(projectId);
+	const routes = await getActiveRoutes(projectId, env);
 	const paths: Record<string, any> = {};
 
 	for (const route of routes) {
@@ -207,7 +229,7 @@ export async function generateOpenApiSpec(
 	const openapi = {
 		openapi: "3.0.0",
 		info: {
-			title: project.name,
+			title: env === "development" ? `${project.name} (Development)` : project.name,
 			version: "1.0.0",
 		},
 		paths,

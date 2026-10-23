@@ -1,4 +1,4 @@
-import { Button, Input, Label, Spinner, TextField, toast } from "@fluxify/components";
+import { Button, Input, Label, Spinner, Tabs, TextField, toast } from "@fluxify/components";
 import type { RequestBodySchema } from "@fluxify/server/src/api/v1/projects/settings/keys/upsert/dto";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -91,9 +91,13 @@ function GeneralSettingsForm({
 	);
 }
 
+type OpenApiEnv = "production" | "development";
+
 /** The project's OpenAPI JSON, public so Postman or a client generator can import it by URL. */
 function OpenApiSpecUrl({ projectId }: { projectId: string }) {
-	const url = `${window.location.origin}/_/admin/api/v1/routes/${projectId}/openapi.json`;
+	const [env, setEnv] = useState<OpenApiEnv>("production");
+	const baseUrl = `${window.location.origin}/_/admin/api/v1/routes/${projectId}/openapi.json`;
+	const url = env === "development" ? `${baseUrl}?env=dev` : baseUrl;
 
 	return (
 		<div className="flex flex-col gap-4 border-t border-border pt-6">
@@ -103,8 +107,39 @@ function OpenApiSpecUrl({ projectId }: { projectId: string }) {
 					Import this URL into Postman, Insomnia or a client generator.
 				</p>
 			</div>
+
+			<Tabs
+				selectedKey={env}
+				onSelectionChange={(key) => setEnv(key as OpenApiEnv)}
+				variant="secondary"
+			>
+				<Tabs.ListContainer>
+					<Tabs.List aria-label="OpenAPI environment">
+						<Tabs.Tab id="production">
+							Production
+							<Tabs.Indicator />
+						</Tabs.Tab>
+						<Tabs.Tab id="development">
+							Development
+							<Tabs.Indicator />
+						</Tabs.Tab>
+					</Tabs.List>
+				</Tabs.ListContainer>
+			</Tabs>
+
+			<p className="text-xs text-muted">
+				{env === "production"
+					? "The production OpenAPI spec reflects promoted production routes only. Routes appear after you promote them to production; development-only routes are not included."
+					: "The development OpenAPI spec reflects all routes currently active in development, using their latest working-copy configurations."}
+			</p>
+
 			<div className="flex items-center gap-2">
-				<TextField value={url} isReadOnly aria-label="OpenAPI spec URL" className="flex-1">
+				<TextField
+					value={url}
+					isReadOnly
+					aria-label={`${env === "production" ? "Production" : "Development"} OpenAPI spec URL`}
+					className="flex-1"
+				>
 					<Input className="font-mono text-xs" />
 				</TextField>
 				<Button

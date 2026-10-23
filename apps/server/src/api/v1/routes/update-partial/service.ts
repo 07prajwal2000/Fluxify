@@ -150,6 +150,10 @@ export default async function handleRequest(
 		throw new ServerError("Something went wrong while updating the route");
 	}
 	await publishMessage(CHAN_ON_ROUTE_CHANGE, id);
+	if (result.projectId) {
+		const { invalidateOpenApiCache } = await import("../openapi/service");
+		await invalidateOpenApiCache(result.projectId);
+	}
 	return {
 		id: result.id,
 		name: result.name!,
