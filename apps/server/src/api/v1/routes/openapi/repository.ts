@@ -24,11 +24,25 @@ export async function getActiveRoutes(projectId: string, env: OpenApiEnv = "prod
 			.select({
 				route: routesEntity,
 				routeConfig: httpRouteConfigEntity.routeConfig,
+				snapshot: canvasVersionsEntity.snapshot,
 			})
 			.from(routesEntity)
+			.leftJoin(canvasVersionsEntity, eq(canvasVersionsEntity.id, routesEntity.prodVersionId))
 			.leftJoin(httpRouteConfigEntity, eq(httpRouteConfigEntity.routeId, routesEntity.id))
-			.where(and(eq(routesEntity.projectId, projectId), eq(routesEntity.devActive, true)));
-		return rows.map(({ route, routeConfig }) => ({ ...route, routeConfig }));
+			.where(eq(routesEntity.projectId, projectId));
+		return rows.map(({ route, routeConfig, snapshot }) => {
+			const settings = (snapshot as CanvasSnapshot | null)?.settings;
+			return {
+				...route,
+				path: route.path ?? settings?.path,
+				method: route.method ?? settings?.method,
+				bodySchema: route.bodySchema ?? settings?.bodySchema,
+				querySchema: route.querySchema ?? settings?.querySchema,
+				paramsSchema: route.paramsSchema ?? settings?.paramsSchema,
+				timeoutSeconds: route.timeoutSeconds ?? settings?.timeoutSeconds,
+				routeConfig,
+			};
+		});
 	}
 
 	const rows = await db

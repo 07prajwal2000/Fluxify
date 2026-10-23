@@ -152,20 +152,7 @@ export default async function handleRequest(
 	await publishMessage(CHAN_ON_ROUTE_CHANGE, id);
 	if (result.projectId) {
 		const { invalidateOpenApiCache } = await import("../openapi/service");
-		if (data.active !== undefined) {
-			await invalidateOpenApiCache(result.projectId, "production");
-		}
-		const devTouched =
-			data.devActive !== undefined ||
-			data.name !== undefined ||
-			data.path !== undefined ||
-			data.method !== undefined ||
-			data.bodySchema !== undefined ||
-			data.querySchema !== undefined ||
-			data.paramsSchema !== undefined;
-		if (devTouched) {
-			await invalidateOpenApiCache(result.projectId, "development");
-		}
+		await invalidateOpenApiCache(result.projectId);
 	}
 	return {
 		id: result.id,

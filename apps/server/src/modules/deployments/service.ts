@@ -177,7 +177,7 @@ export async function deployVersion(
 			await announceChange(kind, id, started.projectId);
 			if (kind === "route") {
 				const { invalidateOpenApiCache } = await import("../../api/v1/routes/openapi/service");
-				await invalidateOpenApiCache(started.projectId, "production");
+				await invalidateOpenApiCache(started.projectId);
 			}
 		}
 	};

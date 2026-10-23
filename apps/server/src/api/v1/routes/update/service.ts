@@ -20,7 +20,6 @@ export default async function handleRequest(
 	data: z.infer<typeof requestBodySchema>,
 	acl: AuthACL[] = [],
 ): Promise<z.infer<typeof responseSchema>> {
-	let activeChanged = false;
 	const result = await db.transaction(async (tx) => {
 		const existingRoute = await getRouteById(id, tx);
 		if (!existingRoute) {
@@ -29,7 +28,6 @@ export default async function handleRequest(
 		if (!canAccessProject(acl, existingRoute.projectId ?? "", "creator")) {
 			throw new ForbiddenError();
 		}
-		activeChanged = existingRoute.active !== data.active;
 		const wanted = { ...data, projectId: existingRoute.projectId ?? "" };
 		const clash = await findRouteConflict(wanted, id, tx);
 		if (clash) throw routeConflictError(clash, wanted);
@@ -83,10 +81,7 @@ export default async function handleRequest(
 	await publishMessage(CHAN_ON_ROUTE_CHANGE, id);
 	if (result.projectId) {
 		const { invalidateOpenApiCache } = await import("../openapi/service");
-		await invalidateOpenApiCache(result.projectId, "development");
-		if (activeChanged) {
-			await invalidateOpenApiCache(result.projectId, "production");
-		}
+		await invalidateOpenApiCache(result.projectId);
 	}
 	return {
 		id: result.id,

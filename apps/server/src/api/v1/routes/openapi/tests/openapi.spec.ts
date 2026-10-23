@@ -118,6 +118,29 @@ describe("OpenAPI Service Tests", () => {
     expect(spec.paths["/dev-only"]).toBeDefined();
   });
 
+  it("includes all routes in development spec including production routes", async () => {
+    spyOn(repo, "getProject").mockResolvedValue({ id: "p1", name: "My API" } as any);
+    const getActiveSpy = spyOn(repo, "getActiveRoutes").mockResolvedValue([
+      {
+        id: "r1",
+        method: "get",
+        name: "Dev Route",
+        path: "/dev-only",
+      },
+      {
+        id: "r2",
+        method: "post",
+        name: "Prod Route",
+        path: "/prod-endpoint",
+      },
+    ] as any);
+
+    const spec = await generateOpenApiSpec({ projectId: "p1" }, ORIGIN, "development");
+    expect(getActiveSpy).toHaveBeenCalledWith("p1", "development");
+    expect(spec.paths["/dev-only"]).toBeDefined();
+    expect(spec.paths["/prod-endpoint"]).toBeDefined();
+  });
+
   it("throws NotFoundError if project does not exist", async () => {
     spyOn(repo, "getProject").mockResolvedValue(null);
     expect(generateOpenApiSpec({ projectId: "p1" }, ORIGIN)).rejects.toThrow(NotFoundError);
