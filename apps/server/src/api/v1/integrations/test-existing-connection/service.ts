@@ -1,6 +1,5 @@
 import type { OtlpSignal } from "@fluxify/adapters";
 import type { z } from "zod";
-import { BadRequestError } from "../../../../errors/badRequestError";
 import { NotFoundError } from "../../../../errors/notFoundError";
 import type { FluxifyEnv } from "../../../../lib/env";
 import { ADMIN_CONNECTION_ENV, configForAdminEnv } from "../adminEnv";
@@ -30,9 +29,6 @@ export default async function handleRequest(
 		integration.group === "mcp" ? mcpOAuthFor(integration, env) : undefined,
 		integration.id,
 	);
-	if (!result.success) {
-		throw new BadRequestError(result.error || "Failed to test connection");
-	}
-
+	// a failed probe is an answer with its reason, as for an unsaved config (#690)
 	return result;
 }

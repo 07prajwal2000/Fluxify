@@ -75,8 +75,10 @@ describe("mcp integration", () => {
 	it("a wrong key fails test connection with the reason", async () => {
 		const id = await create({ config: config(math.url, await keyConfig("nope")), syncDev: true });
 		const res = await call("project_admin", `/integrations/test-existing-connection/${id}`);
-		expect(res.status).toBe(400);
-		expect(res.body.message ?? res.body.error).toBeTruthy();
+		// a test that ran and failed is an answer, not a bad request (#690)
+		expect(res.status).toBe(200);
+		expect(res.body.success).toBe(false);
+		expect(res.body.error).toBeTruthy();
 	});
 
 	it("a creator cannot create, update or delete, but can read", async () => {
@@ -135,6 +137,8 @@ describe("mcp integration", () => {
 		});
 		expect(synced.status).toBeLessThan(300);
 		// "same as prod": development now reads the production config, which has no key
-		expect((await test()).status).toBe(400);
+		const sameAsProd = await test();
+		expect(sameAsProd.status).toBe(200);
+		expect(sameAsProd.body.success).toBe(false);
 	});
 });

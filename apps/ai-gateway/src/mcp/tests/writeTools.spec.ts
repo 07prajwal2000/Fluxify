@@ -109,15 +109,29 @@ describe("write tools", () => {
 		]);
 	});
 
-	// #672: a saved integration that failed its test came back as a tool error, not a result
-	it("test_integration_connection returns the failure reason for a saved one", async () => {
+	// #672, #690: a failed test is a result carrying its reason, saved or not
+	it("test_integration_connection returns the failure reason, saved or unsaved", async () => {
 		const reason = 'password authentication failed for user "app"';
-		const fetcher = () => Response.json({ message: reason, type: "regular" }, { status: 400 });
+		const fetcher = () => Response.json({ success: false, error: reason });
 		const api = adminApi(fetcher, {}, "creator");
-		expect(await run("test_integration_connection", { projectId: "p", integrationId: "i1" }, api)).toEqual({
-			success: false,
-			error: reason,
-		});
+		const failed = { success: false, error: reason };
+		expect(await run("test_integration_connection", { projectId: "p", integrationId: "i1" }, api)).toEqual(failed);
+		expect(
+			await run(
+				"test_integration_connection",
+				{ projectId: "p", group: "database", variant: "PostgreSQL", config: { host: "x" } },
+				api,
+			),
+		).toEqual(failed);
+		// config the agent got wrong is still an error, and it says which field
+		const invalid = adminApi(
+			() => Response.json({ message: "Invalid configuration: port: Expected number", type: "regular" }, { status: 400 }),
+			{},
+			"creator",
+		);
+		await expect(
+			run("test_integration_connection", { projectId: "p", group: "database", variant: "PostgreSQL", config: {} }, invalid),
+		).rejects.toThrow("Invalid input: Invalid configuration: port: Expected number");
 		// a role error is still an error
 		const denied = adminApi(() => Response.json({}, { status: 403 }), {}, "creator");
 		await expect(run("test_integration_connection", { projectId: "p", integrationId: "i1" }, denied)).rejects.toThrow(

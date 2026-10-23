@@ -59,7 +59,6 @@ function IntegrationDetailsPage() {
 	const [syncDev, setSyncDev] = useState(false);
 	const [confirmDelete, setConfirmDelete] = useState(false);
 	const [formError, setFormError] = useState<string | null>(null);
-	const [testError, setTestError] = useState<string | null>(null);
 
 	// the MCP server sent the browser back after Connect
 	useEffect(() => {
@@ -142,7 +141,6 @@ function IntegrationDetailsPage() {
 	}
 
 	function testConnection() {
-		setTestError(null);
 		const toTest = syncDev ? config : devConfig;
 		if (!syncDev && isConfigEmpty(toTest)) {
 			toast.danger(
@@ -157,15 +155,9 @@ function IntegrationDetailsPage() {
 			testSaved.mutate(integrationId, {
 				onSuccess: (res) => {
 					showTestResult(res);
-					if (!res?.success && res?.error) setTestError(res.error);
-					else setTestError(null);
 					if (res?.tools) setTestedTools(res.tools);
 				},
-				onError: (e) => {
-					const { message } = parseApiError(e);
-					setTestError(message);
-					showErrorNotification(e as Error);
-				},
+				onError: (e) => showErrorNotification(e as Error),
 			});
 			return;
 		}
@@ -174,33 +166,20 @@ function IntegrationDetailsPage() {
 			{
 				onSuccess: (res) => {
 					showTestResult(res);
-					if (!res?.success && res?.error) setTestError(res.error);
-					else setTestError(null);
 					if (res?.tools) setTestedTools(res.tools);
 				},
-				onError: (e) => {
-					const { message } = parseApiError(e);
-					setTestError(message);
-					showErrorNotification(e as Error);
-				},
+				onError: (e) => showErrorNotification(e as Error),
 			},
 		);
 	}
 
 	function testProduction() {
-		setTestError(null);
 		testProd.mutate(integrationId, {
 			onSuccess: (res) => {
 				showTestResult(res);
-				if (!res?.success && res?.error) setTestError(res.error);
-				else setTestError(null);
 				if (res?.tools) setTestedTools(res.tools);
 			},
-			onError: (e) => {
-				const { message } = parseApiError(e);
-				setTestError(message);
-				showErrorNotification(e as Error);
-			},
+			onError: (e) => showErrorNotification(e as Error),
 		});
 	}
 
@@ -276,11 +255,7 @@ function IntegrationDetailsPage() {
 					<span />
 				)}
 				<div className="flex flex-col items-end gap-1">
-					{testError && (
-						<p role="status" className="text-xs text-danger">
-							{testError}
-						</p>
-					)}
+					{/* a test's result is a toast (stacked, #690), so it is not repeated here */}
 					<div className="flex items-center gap-2">
 						<Button
 							variant="outline"

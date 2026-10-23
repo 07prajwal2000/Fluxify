@@ -36,7 +36,7 @@ mock.module(
 );
 
 // not `screen`: it stays bound to the document of whichever test file loaded RTL first
-const { cleanup, fireEvent, render, within } = await import("@testing-library/react");
+const { cleanup, fireEvent, render } = await import("@testing-library/react");
 const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query");
 const { ReactFlowProvider, useNodes } = await import("@xyflow/react");
 const { CanvasChangesProvider, DISABLED_CHANGES } = await import("../../changes/ChangesContext");
@@ -168,9 +168,10 @@ test("visibleWhen shows a param when the select says so, and a hidden one keeps 
 });
 
 test("a deprecated param carries its message; a deprecated block gets a banner", () => {
-	const { getByText, getByRole } = setup({ over: { deprecated: "Use Post v2." } });
+	const { getByText } = setup({ over: { deprecated: "Use Post v2." } });
 	expect(getByText(/Deprecated: Use channel; removed in January\./)).toBeDefined();
-	expect(within(getByRole("status")).getByText("Deprecated: Use Post v2.")).toBeDefined();
+	// the banner is a status; HeroUI's spinner is one too (3.2.6), so find the banner by its text
+	expect(getByText("Deprecated: Use Post v2.").closest('[role="status"]')).not.toBeNull();
 });
 
 test("one invoke mode shows no dropdown; several show only the allowed ones", () => {
