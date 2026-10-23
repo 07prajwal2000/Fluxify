@@ -45,8 +45,16 @@ export interface TriggerContext<P extends Params = Params> {
 	 * succeeds and rejects when it fails. With `retry: true` it rejects only
 	 * after the trigger's Attempts setting is used up; without it there is one
 	 * run per call, and retrying is yours. Commit only after it resolves.
+	 * Once the instance stopped, it rejects without running.
 	 */
 	emit(events: unknown[], options?: EmitOptions): Promise<void>;
+	/**
+	 * Reports a fatal error from your own background loop, which Fluxify cannot
+	 * see otherwise. The instance stops (`ctx.signal` aborts, then your stop
+	 * function runs) and starts again after a backoff; after repeated failures
+	 * the trigger is turned off with this error's message as the reason.
+	 */
+	fail(error: unknown): void;
 }
 
 const CONNECTION_METHODS = ["commit", "moveToDLQ", "lag"] as const;
@@ -62,9 +70,16 @@ export function checkEmit(name: string, events: unknown, options?: EmitOptions) 
 		throw new TypeError(`trigger ${name}: emit's connection needs ${missing.join(", ")}()`);
 }
 
+/** the app config keys a trigger's secret params name (a stored `cfg:<KEY>` or a bare key) */
+export const triggerSecretKeys = (trigger: { params?: Params }, params: Record<string, unknown>) =>
+	Object.entries(trigger.params ?? {})
+		.filter(([k, p]) => p.type === "secret" && typeof params[k] === "string")
+		.map(([k]) => secretKey(params[k] as string));
+
 /**
  * `ctx.getConfig` for one trigger: every key when it was granted app config,
- * else the keys its secret params name (a stored `cfg:<KEY>` or a bare key).
+ * else the keys its secret params name. Takes the key or a secret param's
+ * stored value (`cfg:<KEY>`), so `ctx.getConfig(ctx.params.token)` works.
  */
 export function triggerGetConfig(
 	name: string,
@@ -72,12 +87,9 @@ export function triggerGetConfig(
 	params: Record<string, unknown>,
 	appConfig: Record<string, string | number | boolean | undefined>,
 ) {
-	const own = new Set(
-		Object.entries(trigger.params ?? {})
-			.filter(([k, p]) => p.type === "secret" && typeof params[k] === "string")
-			.map(([k]) => secretKey(params[k] as string)),
-	);
-	return (key: string) => {
+	const own = new Set(triggerSecretKeys(trigger, params));
+	return (stored: string) => {
+		const key = secretKey(stored);
 		if (!trigger.permissions?.appconfig && !own.has(key))
 			throw new Error(
 				`trigger ${name}: getConfig('${key}') is not allowed; it reads the keys its secret params name, or any key with permissions.appconfig`,

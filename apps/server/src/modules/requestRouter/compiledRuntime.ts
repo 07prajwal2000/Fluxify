@@ -37,6 +37,11 @@ import type {
 } from "../compiler/artifacts";
 import { artifactId, artifactKind } from "../compiler/subjects";
 import {
+	applyPluginTrigger,
+	refreshPluginTriggers,
+	shutdownPluginTriggers,
+} from "../triggers/pluginTriggerRuntime";
+import {
 	applyQueueTrigger,
 	refreshQueueTriggers,
 	shutdownQueueTriggers,
@@ -291,6 +296,7 @@ export function applyArtifactUpdate(key: string, value: any | null) {
 /** Releases all long-lived database clients before the execution process exits. */
 export async function shutdownCompiledRuntime() {
 	// consumers first: their in-flight batches still hold database leases
+	await shutdownPluginTriggers();
 	await shutdownQueueTriggers();
 	await QueueProducerFactory.closeAll();
 	await closeCtxPools();
@@ -356,12 +362,15 @@ function applyByKind(key: string, value: any | null) {
 			devTokenHashes.delete(key.split(".")[1]!);
 			return setProjectSubdomain(key.split(".")[1]!, "");
 		case "trigger":
-			return void applyQueueTrigger(artifactId(key), value as TriggerArtifact | null).catch(
-				(error) =>
-					logger.error(
-						`[worker] failed to apply trigger ${key}: ${String(error)}`,
-						"WORKER.compiled",
-					),
+			// each runtime ignores the types it does not run; a withdrawal names none
+			return void Promise.all([
+				applyQueueTrigger(artifactId(key), value as TriggerArtifact | null),
+				applyPluginTrigger(artifactId(key), value as TriggerArtifact | null),
+			]).catch((error) =>
+				logger.error(
+					`[worker] failed to apply trigger ${key}: ${String(error)}`,
+					"WORKER.compiled",
+				),
 			);
 	}
 }
@@ -554,6 +563,8 @@ function applyProjectConfig(artifact: UnsealedProjectConfig) {
 	);
 	// same for queue consumers: rotated credentials restart, deleted ones stop
 	void refreshQueueTriggers();
+	// and plugin triggers whose secrets or integrations changed
+	void refreshPluginTriggers();
 	devTokenHashes.set(artifact.projectId, payload.devTokenHash);
 	hydrateProjectSettings(artifact.projectId, payload.projectSettings);
 	setProjectSubdomain(

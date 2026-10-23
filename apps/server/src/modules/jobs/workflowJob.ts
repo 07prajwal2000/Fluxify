@@ -23,9 +23,10 @@ export type WorkflowTraceFactory = {
 	): WorkflowTrace;
 };
 
-/** What an external queue adds to a run: its connection and batch metadata. */
+/** What an external queue or a plugin trigger adds to a run: its connection and batch metadata. */
 export type QueueRunExtras = {
-	connection: TriggerConnection;
+	/** a plugin trigger's `emit` may pass none */
+	connection?: TriggerConnection;
 	meta: Partial<TriggerBatchMeta>;
 };
 

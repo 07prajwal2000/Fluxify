@@ -46,10 +46,18 @@ let reportFault: (fault: TriggerFault) => void = () => undefined;
 export function setTriggerFaultReporter(report: (fault: TriggerFault) => void) {
 	reportFault = report;
 }
+/** for the plugin trigger runtime, which reports the same way */
+export const reportTriggerFault = (fault: TriggerFault) => reportFault(fault);
+
+/** runs of one batch before it is given up on: the trigger's Attempts setting, capped */
+export const maxAttemptsOf = (artifact: TriggerArtifact) =>
+	Math.min(MAX_ATTEMPTS, Math.max(1, artifact.maxAttempts ?? DEFAULT_MAX_ATTEMPTS));
+export const retryDelayOf = (artifact: TriggerArtifact) =>
+	artifact.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS;
 
 /** A trigger artifact arriving, changing or being withdrawn. */
 export async function applyQueueTrigger(triggerId: string, artifact: TriggerArtifact | null) {
-	// a plugin trigger is started by its own runtime (T3), never as a queue consumer
+	// a plugin trigger is started by its own runtime (pluginTriggerRuntime.ts), never as a queue consumer
 	if (artifact && (!consumedInExecution(artifact.type) || isPluginTriggerType(artifact.type)))
 		return;
 	if (!artifact) {
@@ -163,10 +171,8 @@ export async function runBatch(triggerId: string, batch: QueueBatch, connection:
 	const manual = artifact.commitMode === "manual";
 	// The broker counts deliveries and dead-letters: one run each, failures go back to it.
 	const native = connection.deadLettersNatively;
-	const maxAttempts = native
-		? batch.attempt
-		: Math.min(MAX_ATTEMPTS, Math.max(1, artifact.maxAttempts ?? DEFAULT_MAX_ATTEMPTS));
-	const retryDelayMs = artifact.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS;
+	const maxAttempts = native ? batch.attempt : maxAttemptsOf(artifact);
+	const retryDelayMs = retryDelayOf(artifact);
 	let failure: unknown;
 	for (let attempt = batch.attempt; attempt <= maxAttempts; attempt++) {
 		const current = { ...batch, attempt };

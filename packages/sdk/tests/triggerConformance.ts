@@ -3,7 +3,12 @@
 // runner settles each `emit` the way a workflow run ends. Workspace-only.
 import { describe, expect, it } from "bun:test";
 import { param } from "../blocks.js";
-import { type AnyTrigger, type TriggerConnection, trigger } from "../triggers.js";
+import {
+	type AnyTrigger,
+	type TriggerConnection,
+	type TriggerContext,
+	trigger,
+} from "../triggers.js";
 
 /** one `emit` the runner caught; settle it as the attached workflow's run ending */
 export type CaughtEmit = {
@@ -20,7 +25,12 @@ export type TriggerRunner = {
 	start(
 		def: AnyTrigger,
 		params?: Record<string, unknown>,
-	): Promise<{ nextEmit(): Promise<CaughtEmit>; stop(): Promise<void> }>;
+	): Promise<{
+		nextEmit(): Promise<CaughtEmit>;
+		stop(): Promise<void>;
+		/** resolves with the error's message once a `ctx.fail` has stopped the instance */
+		failed(): Promise<string>;
+	}>;
 };
 
 const base = { label: "Conf", icon: "./conf.svg" };
@@ -118,6 +128,39 @@ export function triggerConformance(name: string, runner: TriggerRunner) {
 			});
 			const running = await runner.start(def);
 			expect(order).toEqual([]);
+			await running.stop();
+			expect(order).toEqual(["abort", "stop"]);
+		});
+
+		it("emit after the instance stopped rejects without running", async () => {
+			let emit!: TriggerContext["emit"];
+			const def = trigger({
+				...base,
+				name: "conf/test/late",
+				start: async (ctx) => {
+					emit = ctx.emit;
+					return async () => {};
+				},
+			});
+			await (await runner.start(def)).stop();
+			await expect(emit([1])).rejects.toThrow("is no longer running");
+		});
+
+		it("ctx.fail stops the instance: ctx.signal aborts, then the function start returned runs", async () => {
+			const order: string[] = [];
+			const def = trigger({
+				...base,
+				name: "conf/test/fail",
+				start: async (ctx) => {
+					ctx.signal.addEventListener("abort", () => order.push("abort"));
+					setTimeout(() => ctx.fail(new Error("lost the connection")), 0);
+					return async () => void order.push("stop");
+				},
+			});
+			const running = await runner.start(def);
+			expect(await running.failed()).toContain("lost the connection");
+			expect(order).toEqual(["abort", "stop"]);
+			// stopping it now does not run the stop function a second time
 			await running.stop();
 			expect(order).toEqual(["abort", "stop"]);
 		});

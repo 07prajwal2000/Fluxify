@@ -116,7 +116,7 @@ export async function startStack(
 	});
 	plugins.registerHandler(app);
 	for (const router of routers) router.registerHandler(app);
-	return { sql };
+	return { sql, url };
 }
 
 export async function stopStack() {

@@ -57,6 +57,10 @@ integrationConformance("harness", {
 triggerConformance("harness", {
 	async start(def, params) {
 		const run = await runTrigger(def, { params: params as never });
-		return { nextEmit: () => run.nextEmit(), stop: () => run.stop() };
+		return {
+			nextEmit: () => run.nextEmit(),
+			stop: () => run.stop(),
+			failed: async () => (await run.failed()).message,
+		};
 	},
 });

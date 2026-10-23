@@ -34,7 +34,8 @@ export default trigger({
 					}
 				await wait(ctx.params.intervalSeconds * 1000);
 			}
-		})();
+			// anything else that throws is fatal: Fluxify stops this instance and starts it again
+		})().catch((error) => ctx.fail(error));
 		// called once ctx.signal is aborted: wait for the loop to see it, close your client here
 		return async () => {
 			await loop;
