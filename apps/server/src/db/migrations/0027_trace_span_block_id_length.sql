@@ -1,0 +1,1 @@
+ALTER TABLE "trace_spans" ALTER COLUMN "custom_block_id" SET DATA TYPE varchar(500);

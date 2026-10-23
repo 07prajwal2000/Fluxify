@@ -1,4 +1,5 @@
 import { extname } from "node:path";
+import { blockIdProblem } from "@fluxify/sdk";
 import { type FluxifyManifest, fluxifyManifestSchema, ICON_URL_MAX } from "@fluxify/sdk/blocks";
 import { dependencyProblems, SDK_VERSION } from "@fluxify/sdk/runtime";
 import { z } from "zod";
@@ -95,6 +96,10 @@ export function validatePlugin(files: PluginFiles): ValidPlugin {
 		throw new BadRequestError(
 			`package.json says the plugin is '${String(pkg.fluxify?.name)}' but fluxify.json says '${manifest.name}'`,
 		);
+	// every span of a block this plugin provides records this id (#952); one that
+	// could not fit the column is refused here, naming the block
+	const idProblem = blockIdProblem(manifest.name, pkg.version, Object.keys(manifest.blocks));
+	if (idProblem) throw new BadRequestError(idProblem);
 
 	// the stored manifest carries each icon as a data URL, not a path into the tarball
 	if (manifest.icon) manifest.icon = iconDataUrl(files, manifest.name, manifest.icon);

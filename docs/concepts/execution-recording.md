@@ -55,8 +55,9 @@ A run keeps at most:
 | **1,000 blocks** (spans) per run | Later blocks are not saved |
 | **256 KB** per run | Later blocks are not saved |
 | **8 KB** per input or output | The value is cut short |
+| **500 characters** per custom block's id | The id is cut at the end |
 
-A run or value that was cut is marked **truncated**, so you know you are not seeing all of it.
+A run or an input/output value that was cut is marked **truncated**, so you know you are not seeing all of it. The custom block id is cut silently: you never see it, and cutting it keeps the block and the run instead of throwing them away. This covers runs recorded before the build started refusing ids that could be too long, and any id that reaches the server from elsewhere. A longer id never drops the span or the run.
 
 ## Track Execution
 

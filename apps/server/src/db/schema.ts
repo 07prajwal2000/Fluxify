@@ -1871,8 +1871,8 @@ export const traceSpansEntity = pgTable(
 		blockId: text("block_id").notNull(),
 		blockType: text("block_type").notNull(),
 		blockName: text("block_name"),
-		/** no foreign key: a recording outlives an edit or delete of the block */
-		customBlockId: varchar("custom_block_id", { length: 50 }),
+		/** no foreign key: a recording outlives an edit or delete of the block. 500: a plugin block's library id is long (#952) */
+		customBlockId: varchar("custom_block_id", { length: 500 }),
 		/** set on a middleware's own span (#579) */
 		middleware: jsonb().$type<TraceSpanRecord["middleware"]>(),
 		startedAt: timestamp("started_at", { withTimezone: true }).notNull(),

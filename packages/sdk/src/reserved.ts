@@ -23,3 +23,14 @@ export const CTX_SPAN_TYPE = "span";
 
 /** the longest `iconUrl` (a data URL) a custom block may hold; the CLI checks a plugin's icons against it */
 export const ICON_URL_MAX = 68266;
+
+/**
+ * The longest custom block id a recorded span may hold (#952): the id the
+ * worker's block library knows a plugin block by,
+ * `${plugin}@${version}:${projectId}:${type}`, is stored on every span it ran.
+ * A longer one is cut to this length and the span is still recorded.
+ */
+export const MAX_BLOCK_ID_LENGTH = 500;
+
+/** `projects.id` is a varchar(50), so a block id can never carry a longer one. */
+export const MAX_PROJECT_ID_LENGTH = 50;

@@ -138,6 +138,7 @@ Every worker runs your blocks on its own copy of both, so a plugin never carries
 | Block | The plugin name, then any folders, then the block: `scope/name/folder/block` | `acme/slack/messages/post` |
 
 - **The plugin name is permanent.** Its approval, its blocks in routes and its upgrades all hang on it. A package with a different name is added as a different plugin, not as an upgrade.
+- **Long names have a limit.** A recorded run stores each block's id as `<plugin>@<version>:<project id>:<block type>`, and that field holds **500 characters**. The build counts your plugin name, the version, the block's type and the longest a project id can be (50 characters), and stops with an error that names the block and how far over it is. If you hit it, shorten the plugin name, a folder or the block name.
 - **A block's type is its path.** `src/blocks/messages/post.ts` must be named `acme/slack/messages/post`. A block can sit directly under the plugin (`acme/slack/post`). Renaming or moving a block breaks every route that uses it, so [deprecate](./publishing#deprecate-before-you-remove) it and add a new one instead.
 - **Folders show in the picker.** The block picker and the Custom Blocks page group blocks by `scope/name` and then by these folders.
 - **`url` is required** and must be `https://`. It is the Docs link on the plugin and on each of its blocks, so point it at your source or your documentation.

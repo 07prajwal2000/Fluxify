@@ -161,6 +161,24 @@ describe("plugin rules", () => {
 				),
 			"exact version",
 		));
+	it("refuses a block whose recorded id could not fit (#952)", () => {
+		// with this version, the id is 2 * plugin length + 70; this is 8 over 500
+		const plugin = `${"a".repeat(218)}/b`;
+		const type = `${plugin}/step`;
+		const pack = pluginFiles({
+			"package.json": JSON.stringify({
+				name: `@${plugin}`,
+				version: VERSION,
+				fluxify: { name: plugin, url: "https://x.dev" },
+			}),
+			"fluxify.json": JSON.stringify(manifest(plugin, [entry(type)])),
+		});
+		expect(() =>
+			validatePlugin(
+				new Map(Object.entries(pack).map(([path, text]) => [path, new TextEncoder().encode(String(text))])),
+			),
+		).toThrow(new RegExp(`block '${type}': .*over the 500-character limit`));
+	});
 
 	const withIcon = (icon: string, pack: Over = {}) =>
 		files({

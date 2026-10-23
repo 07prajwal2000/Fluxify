@@ -1,3 +1,4 @@
+import { MAX_BLOCK_ID_LENGTH } from "@fluxify/sdk";
 import { z } from "zod";
 import { traceOutcomeEnum } from "../../../../db/schema";
 import { targetParamSchema } from "../../../../modules/testRunner/target";
@@ -24,7 +25,7 @@ export const responseSchema = runSummarySchema.extend({
 			blockId: z.string(),
 			blockType: z.string(),
 			blockName: z.string().nullable(),
-			customBlockId: z.string().nullable(),
+			customBlockId: z.string().max(MAX_BLOCK_ID_LENGTH).nullable(),
 			middleware: z.any().nullable(),
 			startedAt: z.any(),
 			endedAt: z.any(),

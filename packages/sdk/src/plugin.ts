@@ -6,6 +6,11 @@ import { type PluginMeta, pluginMetaSchema } from "./manifest.js";
  * it to write `fluxify.json` and checks `package.json` against it. `name`
  * (`scope/name`) is permanent: a different name is a different plugin. Icons
  * are paths inside the plugin, like a block's. Throws on an invalid definition.
+ *
+ * `name` is also the plugin part of every recorded block id
+ * (`<plugin>@<version>:<projectId>:<type>`), so a name (together with its
+ * blocks) long enough for that id to exceed `MAX_BLOCK_ID_LENGTH` is refused
+ * by `fluxifyManifestSchema` and by `blocks build` (#952).
  */
 export function plugin<const M extends PluginMeta>(meta: M): M {
 	const parsed = pluginMetaSchema.safeParse(meta);
