@@ -131,7 +131,7 @@ function buildParameter(
 function safelyParseJSON(str: string) {
 	try {
 		return JSON.parse(str);
-	} catch (e) {
+	} catch (_e) {
 		return null;
 	}
 }
@@ -142,13 +142,24 @@ function safelyParseJSON(str: string) {
  * (a local install) the request's own scheme and port are kept, as the
  * playground does.
  */
-export function specServerUrl(projectId: string, requestOrigin: string) {
+export function specServerUrl(
+	projectId: string,
+	requestOrigin: string,
+	env: OpenApiEnv = "production",
+) {
 	const subdomain = projectSettingsCache[projectId]?.["settings.routing.subdomain"];
 	const host = subdomain ? projectHost(subdomain, baseDomain()) : baseDomain();
-	if (configuredBaseDomain()) return `https://${host}`;
-	const url = new URL(requestOrigin);
-	url.hostname = host;
-	return url.origin;
+	const base = configuredBaseDomain()
+		? `https://${host}`
+		: (() => {
+				const url = new URL(requestOrigin);
+				url.hostname = host;
+				return url.origin;
+			})();
+	if (env === "development") {
+		return `${base}/_/dev/`;
+	}
+	return base;
 }
 
 export async function generateOpenApiSpec(
@@ -157,7 +168,7 @@ export async function generateOpenApiSpec(
 	env: OpenApiEnv = "production",
 ) {
 	const { projectId } = param;
-	const servers = [{ url: specServerUrl(projectId, requestOrigin) }];
+	const servers = [{ url: specServerUrl(projectId, requestOrigin, env) }];
 	const cacheKey = `openapi-spec:${projectId}:${env}`;
 	const cached = await getCache(cacheKey);
 	if (cached) {

@@ -26,8 +26,8 @@ describe("OpenAPI Service Tests", () => {
     const withSubdomain = (subdomain: string) => {
       projectSettingsCache.p1 = { "settings.routing.subdomain": subdomain } as any;
     };
-    const serverUrl = async () =>
-      (await generateOpenApiSpec({ projectId: "p1" }, ORIGIN)).servers[0].url;
+    const serverUrl = async (env?: any) =>
+      (await generateOpenApiSpec({ projectId: "p1" }, ORIGIN, env)).servers[0].url;
 
     beforeEach(() => {
       spyOn(redis, "getCache").mockResolvedValue(JSON.stringify({ openapi: "3.0.0", paths: {} }));
@@ -56,6 +56,14 @@ describe("OpenAPI Service Tests", () => {
       expect(await serverUrl()).toBe("https://billing.example.com");
       withSubdomain("payments");
       expect(await serverUrl()).toBe("https://payments.example.com");
+    });
+
+    it("appends /_/dev/ to server URL for development environment", async () => {
+      expect(await serverUrl("development")).toBe("http://localhost:8080/_/dev/");
+      withSubdomain("billing");
+      expect(await serverUrl("development")).toBe("http://billing.localhost:8080/_/dev/");
+      withDomain("example.com");
+      expect(await serverUrl("development")).toBe("https://billing.example.com/_/dev/");
     });
   });
 

@@ -29,7 +29,7 @@ export async function getActiveRoutes(projectId: string, env: OpenApiEnv = "prod
 			.from(routesEntity)
 			.leftJoin(canvasVersionsEntity, eq(canvasVersionsEntity.id, routesEntity.prodVersionId))
 			.leftJoin(httpRouteConfigEntity, eq(httpRouteConfigEntity.routeId, routesEntity.id))
-			.where(eq(routesEntity.projectId, projectId));
+			.where(and(eq(routesEntity.projectId, projectId), eq(routesEntity.devActive, true)));
 		return rows.map(({ route, routeConfig, snapshot }) => {
 			const settings = (snapshot as CanvasSnapshot | null)?.settings;
 			return {
