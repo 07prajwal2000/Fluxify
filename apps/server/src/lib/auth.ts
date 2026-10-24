@@ -159,6 +159,10 @@ export function initializeAuth(db: DB) {
 			}),
 		},
 		advanced: {
+			// session cookie is `fluxify.session_token` (`__Secure-` prefixed over HTTPS)
+			cookiePrefix: "fluxify",
+			// only admin requests (api, ui, mcp) carry the session; user routes never see it
+			defaultCookieAttributes: { path: "/_/admin/" },
 			database: {
 				generateId: generateID,
 			},
