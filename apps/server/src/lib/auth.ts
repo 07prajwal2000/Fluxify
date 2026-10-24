@@ -159,6 +159,8 @@ export function initializeAuth(db: DB) {
 			}),
 		},
 		advanced: {
+			// session cookie is `fluxify.session_token` (`__Secure-` prefixed over HTTPS)
+			cookiePrefix: "fluxify",
 			database: {
 				generateId: generateID,
 			},
