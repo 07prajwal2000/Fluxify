@@ -123,11 +123,14 @@ export function RecordedRunViewer({
 							<FromTestLink projectId={projectId} target={target} metadata={root.metadata} />
 						)}
 						<OutcomeIcon outcome={root.outcome} />
-						{root.statusCode != null && (
-							<span className="font-mono text-foreground">{root.statusCode}</span>
+						{target.type === "route" && root.statusCode != null && (
+							<span className="font-mono text-foreground">Status {root.statusCode}</span>
 						)}
 						<RecordingTime timestamp={root.startedAt} />
-						<span>{formatDuration(root.durationMs)}</span>
+						<span>
+							{target.type === "workflow" ? "Duration" : "Response time"}{" "}
+							{formatDuration(root.durationMs)}
+						</span>
 						<IncompleteChip run={root} />
 						{replay && onReplay && (
 							<Button size="sm" variant="outline" onPress={() => onReplay(replay)}>
