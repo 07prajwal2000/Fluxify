@@ -5,6 +5,7 @@ import { requestedPermissions } from "./meta";
 import { diffTriggers, type TriggerDiff, triggerBlockers } from "./triggerDiff";
 import type { TriggerUser } from "./triggerUsage";
 import type { PluginUser } from "./usage";
+import { type IntegrationKinds, variantsChange } from "./variantDiff";
 
 /**
  * What an upgrade changes for this project (#860), as data for the upgrade
@@ -26,6 +27,8 @@ export type ManifestDiff = IntegrationDiff &
 		removedParams: { block: string; param: string; usedBy: UsedBy }[];
 		removedHandles: { block: string; handle: string; usedBy: UsedBy }[];
 		changedInvoke: { block: string; removed: string[]; added: string[]; usedBy: UsedBy }[];
+		/** an integration param's `variants` changed; it breaks the nodes set to a variant it dropped */
+		changedVariants: { block: string; param: string; change: string; usedBy: UsedBy }[];
 		changedHandlesOrShape: {
 			block: string;
 			before: Pick<ManifestEntry, "handles" | "shape">;
@@ -60,6 +63,8 @@ export function diffManifests(
 	integrationUsers: IntegrationUser[] = [],
 	/** the project's triggers of the plugin's kinds (T2) */
 	triggerUsers: TriggerUser[] = [],
+	/** the project's integrations, for the variant a stored param value points at */
+	kinds: IntegrationKinds = new Map(),
 ): ManifestDiff {
 	const usedBy = (block: string, uses: (n: PluginUser["nodes"][number]) => boolean): UsedBy =>
 		usage
@@ -72,13 +77,14 @@ export function diffManifests(
 		removedParams: [],
 		removedHandles: [],
 		changedInvoke: [],
+		changedVariants: [],
 		changedHandlesOrShape: [],
 		addedPermissions: { integrations: [], appconfig: false },
 		deprecations: [],
 		blocking: false,
 		blockers: [],
 		...diffIntegrations(old, next, integrationUsers),
-		...diffTriggers(old, next, triggerUsers),
+		...diffTriggers(old, next, triggerUsers, kinds),
 	};
 
 	for (const [block, before] of Object.entries(old.blocks) as [string, Entry][]) {
@@ -87,14 +93,23 @@ export function diffManifests(
 			diff.removedBlocks.push({ block, usedBy: usedBy(block, () => true) });
 			continue;
 		}
-		// a hint holds no value, so removing one breaks nothing
-		for (const [param, p] of Object.entries(before.params))
+		for (const [param, p] of Object.entries(before.params)) {
+			// a hint holds no value, so removing one breaks nothing
 			if (!after.params[param] && p.type !== "hint")
 				diff.removedParams.push({
 					block,
 					param,
 					usedBy: usedBy(block, (n) => n.params.includes(param)),
 				});
+			const variants = variantsChange(param, p, after.params[param]);
+			if (variants)
+				diff.changedVariants.push({
+					block,
+					param,
+					change: variants.change,
+					usedBy: usedBy(block, (n) => variants.drops(n.values?.[param], kinds)),
+				});
+		}
 		const kept = handlesOf(after);
 		for (const handle of handlesOf(before))
 			if (!kept.includes(handle))
@@ -162,6 +177,11 @@ export function diffManifests(
 		if (r.usedBy.length)
 			diff.blockers.push(
 				`invoke mode ${r.removed.join("/")} of ${r.block} is removed but used by ${names(r.usedBy)}`,
+			);
+	for (const r of diff.changedVariants)
+		if (r.usedBy.length)
+			diff.blockers.push(
+				`block ${r.block}: ${r.change}, but ${names(r.usedBy)} set it to another variant`,
 			);
 	diff.blockers.push(...integrationBlockers(diff), ...triggerBlockers(diff));
 	diff.blocking = diff.blockers.length > 0;

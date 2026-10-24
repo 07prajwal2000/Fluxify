@@ -30,14 +30,65 @@
 	},
 	"peerDependencies": {
 		"@ai-sdk/provider": "^4.0.0",
+		"@aws-sdk/client-sqs": "^3.1130.0",
+		"@nats-io/jetstream": "3.4.0",
+		"@platformatic/kafka": "^2.11.0",
+		"@types/bun": "^1.4.0",
+		"@types/memcached": "^2.2.10",
 		"ai": "^7.0.0",
+		"amqplib": "^2.2.0",
+		"ioredis": "^5.11.1",
+		"memcached": "^2.2.2",
+		"mongodb": "7.2.0",
+		"mysql2": "^3.18.1",
 		"zod": "^4.0.0"
+	},
+	"peerDependenciesMeta": {
+		"@aws-sdk/client-sqs": {
+			"optional": true
+		},
+		"@nats-io/jetstream": {
+			"optional": true
+		},
+		"@platformatic/kafka": {
+			"optional": true
+		},
+		"@types/bun": {
+			"optional": true
+		},
+		"@types/memcached": {
+			"optional": true
+		},
+		"amqplib": {
+			"optional": true
+		},
+		"ioredis": {
+			"optional": true
+		},
+		"memcached": {
+			"optional": true
+		},
+		"mongodb": {
+			"optional": true
+		},
+		"mysql2": {
+			"optional": true
+		}
 	},
 	"devDependencies": {
 		"@ai-sdk/provider": "^4.0.0",
+		"@aws-sdk/client-sqs": "^3.1130.0",
+		"@nats-io/jetstream": "3.4.0",
+		"@platformatic/kafka": "^2.11.0",
 		"@types/bun": "^1.4.0",
+		"@types/memcached": "^2.2.10",
 		"@typescript/native-preview": "^7.0.0-dev.20260219.1",
 		"ai": "^7.0.0",
+		"amqplib": "^2.2.0",
+		"ioredis": "^5.11.1",
+		"memcached": "^2.2.2",
+		"mongodb": "7.2.0",
+		"mysql2": "^3.18.1",
 		"zod": "^4.0.17"
 	}
 }

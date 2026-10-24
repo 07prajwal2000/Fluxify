@@ -18,7 +18,7 @@ import { type DirectedCanvasEdge, findCycleEdgeIds } from "./cycleDetection";
 import { takeDroppedWarnings } from "./droppedFields";
 import { assertOutputHandles } from "./handleRules";
 import { assertJoinsSupported } from "./joinSupport";
-import { parentPluginSpecs, pluginSpecsOf } from "./pluginSpecs";
+import { assertPluginBlockParams, parentPluginSpecs, pluginSpecsOf } from "./pluginSpecs";
 import {
 	deleteBlocks,
 	deleteEdges,
@@ -367,6 +367,7 @@ export async function saveCanvas(
 			tx,
 			await specsFor(data.changes.blocks.map((b) => b.type)),
 		);
+		await assertPluginBlockParams(parent, data.changes.blocks, tx);
 		await assertNoCustomBlockRecursion(parent, data, deleteBlockIds, tx);
 		await assertEdgeTargetsExist(parent, data, deleteBlockIds, tx);
 		await assertCanvasHasNoCycles(parent, data, deleteBlockIds, deleteEdgeIds, tx);

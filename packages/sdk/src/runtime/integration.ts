@@ -20,6 +20,7 @@ import type {
 } from "../integrations/variants.js";
 import type { IntegrationEntry } from "../manifest.js";
 import { fingerprint } from "./ctx.js";
+import { setRaw } from "./raw.js";
 
 /** where a resolved config carries its own secrets' values, next to the fields */
 export const SECRET_VALUES = "__secretValues";
@@ -242,11 +243,15 @@ export function toVariantDef(
 			opening.catch(() => {});
 			return { db: opening, close: keep(opening) };
 		};
-		hooks.create = ((resolved: Resolved, { pool }: { pool: DatabasePool }) =>
-			lazyClient(
-				(pool.db as Promise<Opened>).then((o) => adapterOf(o.client, configOf(def, resolved))),
+		hooks.create = ((resolved: Resolved, { pool }: { pool: DatabasePool }) => {
+			const opening = pool.db as Promise<Opened>;
+			const client = lazyClient(
+				opening.then((o) => adapterOf(o.client, configOf(def, resolved))),
 				DATABASE_METHODS,
-			)) as never;
+			);
+			setRaw(client, async () => (await opening).client);
+			return client;
+		}) as never;
 		Object.assign(hooks, { connect });
 	} else if (group === "kv") {
 		hooks.create = ((resolved: Resolved) => {
@@ -257,6 +262,7 @@ export function toVariantDef(
 				{ disconnect: () => closeClient(client) },
 			);
 			closers.set(client, keep(opening));
+			setRaw(client, async () => (await opening).client);
 			return client;
 		}) as never;
 	} else {

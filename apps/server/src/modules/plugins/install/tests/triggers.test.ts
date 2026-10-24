@@ -149,6 +149,40 @@ describe("plugin triggers: create and update", () => {
 		const patched = await s.api("PATCH", `/triggers/${ok.body.id}`, { source: { every: 3 } });
 		expect(fields(patched)).toEqual(["source.table"]);
 	});
+
+	it("refuses an integration of a variant the param does not take, on create, update and enable", async () => {
+		const s = await setup();
+		const stream = param.integration({ kind: "kv", variants: ["Redis"] });
+		expect((await s.upload(pollTgz("2026.10.2001", toTriggerEntry(poller({ stream }))))).status).toBe(200);
+		expect((await s.post(`/${NAME}/approve`, {})).status).toBe(200);
+		expect((await s.put(`/${NAME}/environments`, { dev: true, prod: false })).status).toBe(200);
+		const workflowId = Bun.randomUUIDv7();
+		await sql`INSERT INTO workflows (id, name, project_id) VALUES (${workflowId}, 'wf', ${s.project})`;
+		const redis = await integration(s, "kv", "Redis");
+		const memcached = await integration(s, "kv", "Memcached");
+		const refusal = [
+			{
+				field: "source.stream",
+				message: `integration "${memcached.name}" is Memcached; this field takes only Redis`,
+			},
+		];
+
+		const refused = await create({ ...s, workflowId }, { source: { table: "jobs", stream: memcached.id } });
+		expect(refused.status).toBe(400);
+		expect(refused.body.errors).toEqual(refusal);
+
+		const ok = await create({ ...s, workflowId }, { source: { table: "jobs", stream: redis.id } });
+		expect(ok.status).toBe(200);
+		const id = ok.body.id as string;
+		const update = await s.api("PATCH", `/triggers/${id}`, { source: { table: "jobs", stream: memcached.id } });
+		expect(update.body.errors).toEqual(refusal);
+
+		// a row holding a disallowed variant (as after an upgrade) cannot be switched back on
+		await sql`UPDATE triggers SET active = false, source = ${JSON.stringify({ table: "jobs", stream: memcached.id })}::text::jsonb WHERE id = ${id}`;
+		const enable = await s.api("PATCH", `/triggers/${id}`, { active: true });
+		expect(enable.status).toBe(400);
+		expect(enable.body.errors).toEqual(refusal);
+	});
 });
 
 describe("plugin triggers: artifacts and lifecycle", () => {

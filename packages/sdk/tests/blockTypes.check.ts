@@ -1,7 +1,7 @@
 // Type tests: compiled by `bun run typecheck`, never run. An `@ts-expect-error`
 // with no error under it fails the typecheck, so each one proves a rejection.
 import type { ZodType } from "zod";
-import { block, deprecated, handle, param } from "../blocks.js";
+import { block, deprecated, handle, type IntegrationId, param } from "../blocks.js";
 import type { DatabaseAdapter, KvAdapter } from "../integrations.js";
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
@@ -36,7 +36,7 @@ block({
 					channel: string;
 					count: number;
 					mode?: "simple" | "advanced";
-					conn?: string;
+					conn?: IntegrationId<"kv">;
 					key?: string;
 					shape?: { zod: ZodType; schema: unknown };
 					where?: import("../blocks.js").Condition[];

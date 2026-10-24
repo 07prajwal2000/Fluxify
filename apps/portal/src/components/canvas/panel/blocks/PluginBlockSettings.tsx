@@ -14,6 +14,7 @@ import {
 	BlockJsTextField,
 	BlockSelectField,
 } from "../fields";
+import { integrationParamPicker } from "../integrationField";
 import {
 	PluginArrayField,
 	PluginFieldMapField,
@@ -69,7 +70,7 @@ function ParamField({ block, name, param }: { block: BlockNode; name: string; pa
 					blockId={block.id}
 					data={block.data}
 					name={name}
-					group={param.kind}
+					{...integrationParamPicker(param)}
 					label={label}
 					description={hint}
 				/>

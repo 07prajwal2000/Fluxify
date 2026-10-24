@@ -46,6 +46,7 @@ describe("diffManifests", () => {
 			removedParams: [],
 			removedHandles: [],
 			changedInvoke: [],
+			changedVariants: [],
 			changedHandlesOrShape: [],
 			addedPermissions: { integrations: [], appconfig: false },
 			deprecations: [],

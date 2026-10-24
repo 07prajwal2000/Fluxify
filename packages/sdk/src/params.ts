@@ -67,8 +67,29 @@ type NoDefault = Omit<Common<never>, "default">;
 /** a JS expression the compiler evaluates per request; `run` gets the result */
 export type JsParam = NoDefault & { type: "js" };
 export type JsonParam = Common<JsonValue> & { type: "json" };
-/** an integration of `kind` the user picks; `run` gets its id, for `ctx.dbFactory` and the like */
-export type IntegrationParam = NoDefault & { type: "integration"; kind: string };
+/** an integration of `kind` the user picks; `run` gets its id, for `ctx.integrations` */
+export type IntegrationParam = NoDefault & {
+	type: "integration";
+	kind: string;
+	/**
+	 * Only these variants of the group (`["Redis"]`): the picker offers no
+	 * other, the server refuses any other, and `ctx.integrations.connection`
+	 * types `raw` as theirs. Left out, every variant of the group.
+	 */
+	variants?: readonly string[];
+};
+
+/** only a type: what an integration param's value carries for `connection` */
+export declare const integrationBrand: unique symbol;
+
+/**
+ * An integration param's value: the integration's id, a plain string at run
+ * time. Its type remembers the param's kind and `variants` (`never` when it
+ * lists none), so `ctx.integrations.connection(id)` knows what it can be.
+ */
+export type IntegrationId<K extends string = string, V extends string = never> = string & {
+	readonly [integrationBrand]?: { kind: K; variants: V };
+};
 /** an app config key the user picks; `run` gets the key, read it with `ctx.vars.getConfig` */
 export type AppConfigParam = Common<string> & { type: "appconfig" };
 /**
@@ -168,21 +189,23 @@ export const hint = <const O extends Omit<HintParam, "type" | "text">>(
 /** The value `run` gets for a param. */
 export type ParamValue<P> = P extends { type: "select"; options: readonly (infer V)[] }
 	? V
-	: P extends { type: "string" | "integration" | "appconfig" | "secret" }
-		? string
-		: P extends { type: "number" }
-			? number
-			: P extends { type: "boolean" }
-				? boolean
-				: P extends { type: "conditions" }
-					? Condition[]
-					: P extends { type: "schema" }
-						? CompiledSchema
-						: P extends { type: "keyValue" | "fieldMap" }
-							? Record<string, unknown>
-							: P extends { type: "array" }
-								? unknown[]
-								: unknown;
+	: P extends { type: "integration"; kind: infer K extends string }
+		? IntegrationId<K, P extends { variants: readonly (infer V extends string)[] } ? V : never>
+		: P extends { type: "string" | "appconfig" | "secret" }
+			? string
+			: P extends { type: "number" }
+				? number
+				: P extends { type: "boolean" }
+					? boolean
+					: P extends { type: "conditions" }
+						? Condition[]
+						: P extends { type: "schema" }
+							? CompiledSchema
+							: P extends { type: "keyValue" | "fieldMap" }
+								? Record<string, unknown>
+								: P extends { type: "array" }
+									? unknown[]
+									: unknown;
 
 type Present<P> = P extends { required: true }
 	? true

@@ -35,6 +35,10 @@ const node = await Bun.build({
 });
 if (!node.success) throw new AggregateError(node.logs, "bundle failed");
 await $`bun x tsgo -p ${root}/tsconfig.build.json`;
+// declaration emit drops the @ts-expect-error on each optional peer's import, so a missing
+// driver would fail an author's build without skipLibCheck. The file holds only types,
+// so it is its own declaration.
+await Bun.write(`${dist}/src/integrations/raw.d.ts`, Bun.file(`${root}/src/integrations/raw.ts`));
 
 const pkg = await Bun.file(`${root}/package.json`).json();
 const entry = (name: string) => ({ types: `./${name}.d.ts`, import: `./${name}.js` });

@@ -105,7 +105,7 @@ export class MySqlAdapter implements DatabaseAdapter {
 	async raw(query: string | any, params?: any[]): Promise<any> {
 		if (typeof query !== "string") throw new Error("raw() accepts only string queries.");
 
-		const conn = this.getConnection();
+		const conn = this.executor();
 		// rows only: the full result carries a BigInt `numAffectedRows` that JSON cannot serialize
 		const compiled = mysqlPlaceholders(query, params);
 		const result = await conn.executeQuery(CompiledQuery.raw(compiled.sql, compiled.params));
@@ -145,7 +145,7 @@ export class MySqlAdapter implements DatabaseAdapter {
 		cursor: DbCursor,
 		options?: QueryOptions,
 	): Promise<DbPage> {
-		const { qb, qualifiers } = this.select(this.getConnection(), table, conditions, options);
+		const { qb, qualifiers } = this.select(this.executor(), table, conditions, options);
 		const sorts = cursorSorts(
 			activeSorts(sort),
 			cursor.keys,
@@ -205,7 +205,7 @@ export class MySqlAdapter implements DatabaseAdapter {
 	/** a read on the SQL saved for its shape, built only the first time */
 	private read(read: CachedRead, build: () => Compilable) {
 		const run = async (sql: string, params: readonly unknown[]) =>
-			(await this.getConnection().executeQuery(CompiledQuery.raw(sql, [...params]))).rows;
+			(await this.executor().executeQuery(CompiledQuery.raw(sql, [...params]))).rows;
 		return cachedRead(this.db, run, read, build);
 	}
 
@@ -243,7 +243,7 @@ export class MySqlAdapter implements DatabaseAdapter {
 	}
 
 	async insert(table: string, data: any, onConflict?: OnConflict): Promise<any> {
-		const conn = this.getConnection();
+		const conn = this.executor();
 		if (onConflict) {
 			const { rows, counters } = upsertRows([data], onConflict);
 			return (await this.upsert(conn, table, rows, counters, onConflict))[0] ?? null;
@@ -286,7 +286,7 @@ export class MySqlAdapter implements DatabaseAdapter {
 		// cache the key first: looked up inside the transaction, it takes a second pooled
 		// connection, and parallel bulk inserts on a small pool then wait on each other forever
 		await this.primaryKey(table);
-		return useTransaction ? this.withTransaction(insertChunks) : insertChunks(this.getConnection());
+		return useTransaction ? this.withTransaction(insertChunks) : insertChunks(this.executor());
 	}
 
 	async update(table: string, data: any, conditions: DBConditionType[]): Promise<WriteResult> {
@@ -507,7 +507,13 @@ export class MySqlAdapter implements DatabaseAdapter {
 		await this.setMode(DbAdapterMode.NORMAL);
 	}
 
-	private getConnection(): Kysely<FluxifyDatabase> {
+	/** the mysql2 pool, outside any transaction this adapter holds */
+	getConnection(): Pool {
+		return this.pool;
+	}
+
+	/** the transaction's Kysely while one is open, else the pool's */
+	private executor(): Kysely<FluxifyDatabase> {
 		return this.mode === DbAdapterMode.TRANSACTION && this.transactionDb
 			? this.transactionDb
 			: this.db;

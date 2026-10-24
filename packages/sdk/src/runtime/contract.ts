@@ -1,8 +1,9 @@
 // The parts of running a programmable block that the engine and the test
 // harness (`@fluxify/sdk/testing`) must agree on, written once.
 import type { BlockContext, IntegrationsContext } from "../context.js";
-import { integrationKindCovers } from "../integrations/variants.js";
+import { canonicalVariant, integrationKindCovers } from "../integrations/variants.js";
 import { INVOKE_MODES } from "../reserved.js";
+import { rawOf } from "./raw.js";
 
 export type Branch = {
 	id: string;
@@ -126,9 +127,16 @@ const GATED = [
  * (undefined when it is unknown here: no such id, no value in this environment,
  * another project's).
  */
-export interface IntegrationSource extends IntegrationsContext {
+export interface IntegrationSource extends Pick<IntegrationsContext, "get"> {
 	kind(id: string): { group: string; variant: string } | undefined;
 }
+
+/** `ctx` with the gated `integrations`, which also answers `connection` */
+export type Granting<C extends { integrations?: IntegrationSource }> = Omit<C, "integrations"> & {
+	integrations: undefined extends C["integrations"]
+		? IntegrationsContext | undefined
+		: IntegrationsContext;
+};
 
 /**
  * A plugin block's `ctx` reaching only what was granted: integrations of the
@@ -141,7 +149,7 @@ export function grantContext<
 	C extends Pick<BlockContext, "vars" | (typeof GATED)[number][0]> & {
 		integrations?: IntegrationSource;
 	},
->(ctx: C, granted: Granted, label: string): C {
+>(ctx: C, granted: Granted, label: string): Granting<C> {
 	const deny = (what: string): never => {
 		throw new Error(`${label} was not granted ${what}; approve a version that asks for it`);
 	};
@@ -157,20 +165,31 @@ export function grantContext<
 		(out as any)[field] = { [method]: () => deny(`${kind} integrations`) };
 	}
 	const source = ctx.integrations;
+	/** the integration's kind, once it is known to be granted */
+	const gate = (id: string | undefined) => {
+		if (!id) throw new Error(`${label}: no integration was selected`);
+		const found = source!.kind(id);
+		if (!found)
+			throw new Error(
+				`${label}: integration '${id}' does not exist, has no value in this environment, or belongs to another project`,
+			);
+		const { group, variant } = found;
+		if (!granted.integrations.some((kind) => integrationKindCovers(kind, group, variant)))
+			deny(`${group} integrations`);
+		return found;
+	};
 	if (source)
 		(out as any).integrations = {
 			async get(id: string | undefined) {
-				if (!id) throw new Error(`${label}: no integration was selected`);
-				const found = source.kind(id);
-				if (!found)
-					throw new Error(
-						`${label}: integration '${id}' does not exist, has no value in this environment, or belongs to another project`,
-					);
-				const { group, variant } = found;
-				if (!granted.integrations.some((kind) => integrationKindCovers(kind, group, variant)))
-					deny(`${group} integrations`);
+				gate(id);
 				return source.get(id);
 			},
+			async connection(id: string | undefined) {
+				const { group, variant } = gate(id);
+				const client = await source.get(id);
+				const raw = await rawOf(group, variant, client);
+				return { variant: canonicalVariant(group, variant), client, raw } as never;
+			},
 		} satisfies IntegrationsContext;
-	return out;
+	return out as unknown as Granting<C>;
 }

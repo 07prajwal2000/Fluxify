@@ -5,6 +5,7 @@ import {
 	type EdgeDTOSchemaType,
 	type HandleSpec,
 } from "@fluxify/blocks";
+import type { ManifestEntry } from "@fluxify/sdk/blocks";
 import type { DbTransactionType } from "../../db";
 import type { FluxifyEnv } from "../../lib/env";
 import { blockMetaOf, liveOf, unusableReason } from "./meta";
@@ -95,11 +96,18 @@ export const artifactBuild = ({
  */
 export async function canvasPluginSpecs(projectId: string | null, tx?: DbTransactionType) {
 	const specs: Record<string, HandleSpec> = {};
-	if (!projectId) return specs;
+	for (const [type, entry] of Object.entries(await canvasPluginEntries(projectId, tx)))
+		specs[type] = entry.handles as HandleSpec;
+	return specs;
+}
+
+/** the manifest entry of every plugin block a canvas may hold, by type (see `canvasPluginSpecs`) */
+export async function canvasPluginEntries(projectId: string | null, tx?: DbTransactionType) {
+	const entries: Record<string, ManifestEntry> = {};
+	if (!projectId) return entries;
 	for (const row of (await listPluginRows(projectId, tx)).map(liveOf)) {
 		if (row.approval === "rejected") continue;
-		for (const [type, entry] of Object.entries(row.manifest.blocks))
-			specs[type] = entry.handles as HandleSpec;
+		Object.assign(entries, row.manifest.blocks);
 	}
-	return specs;
+	return entries;
 }

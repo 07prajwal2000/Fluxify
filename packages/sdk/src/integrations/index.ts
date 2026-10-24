@@ -5,6 +5,7 @@ export * from "./kv.js";
 export * from "./mcp.js";
 export * from "./observability.js";
 export * from "./queue.js";
+export type * from "./raw.js";
 export * from "./variants.js";
 
 import type { AiAdapter, AiInspectResult } from "./ai.js";

@@ -79,6 +79,10 @@ export interface PickerModalProps {
 	onRefresh?: () => void | Promise<void>;
 	isRefreshing?: boolean;
 	closeOnSelect?: boolean;
+	/** the title when there is nothing to pick; default "No integrations found" */
+	emptyTitle?: string;
+	/** offered when there is nothing to pick, instead of `createIntegrationUrl`'s button */
+	emptyAction?: ReactNode;
 }
 
 export function IntegrationPickerModal({
@@ -93,6 +97,8 @@ export function IntegrationPickerModal({
 	onRefresh,
 	isRefreshing,
 	closeOnSelect = true,
+	emptyTitle,
+	emptyAction,
 }: PickerModalProps) {
 	const [search, setSearch] = useState("");
 
@@ -185,23 +191,26 @@ export function IntegrationPickerModal({
 										<TbDatabase size={32} />
 									</span>
 									<div className="flex flex-col gap-1.5">
-										<p className="text-sm font-semibold text-foreground">No integrations found</p>
+										<p className="text-sm font-semibold text-foreground">
+											{emptyTitle ?? "No integrations found"}
+										</p>
 										<p className="max-w-[280px] text-xs leading-relaxed text-muted-foreground">
 											You haven't connected any integrations yet. Create one to get started.
 										</p>
 									</div>
-									{createIntegrationUrl && (
-										<Button
-											variant="primary"
-											size="sm"
-											onPress={() => {
-												window.open(createIntegrationUrl, "_blank", "noopener,noreferrer");
-											}}
-										>
-											<TbPlus size={14} className="mr-1" />
-											Create Integration
-										</Button>
-									)}
+									{emptyAction ??
+										(createIntegrationUrl && (
+											<Button
+												variant="primary"
+												size="sm"
+												onPress={() => {
+													window.open(createIntegrationUrl, "_blank", "noopener,noreferrer");
+												}}
+											>
+												<TbPlus size={14} className="mr-1" />
+												Create Integration
+											</Button>
+										))}
 								</div>
 							) : !hasResults ? (
 								/* Search produced no results */
@@ -310,6 +319,9 @@ export function IntegrationSelector({
 	description,
 	className,
 	readonly = false,
+	emptyTitle,
+	emptyAction,
+	errorMessage,
 }: IntegrationSelectorProps) {
 	const [loaded, setLoaded] = useState<Integration[]>([]);
 	// injected entries need no fetch and always come first
@@ -520,6 +532,11 @@ export function IntegrationSelector({
 					</div>
 				</div>
 
+				{errorMessage && (
+					<p role="alert" className="text-xs leading-normal text-danger">
+						{errorMessage}
+					</p>
+				)}
 				{selectedIntegration?.external && selectedIntegration.hint && (
 					<p className="text-xs leading-normal text-accent">{selectedIntegration.hint}</p>
 				)}
@@ -539,6 +556,8 @@ export function IntegrationSelector({
 				modalSize={modalSize}
 				modalHeight={modalHeight}
 				onRefresh={fetchIntegrations}
+				emptyTitle={emptyTitle}
+				emptyAction={emptyAction}
 				isRefreshing={loadStatus === "loading"}
 			/>
 		</>

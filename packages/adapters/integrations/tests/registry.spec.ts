@@ -3,6 +3,7 @@ import {
 	BUILT_IN_DB_TYPES,
 	BUILT_IN_INTEGRATION_GROUPS,
 	BUILT_IN_VARIANT_NAMES,
+	canonicalVariant,
 	type IntegrationVariantDef,
 	isIntegrationGroupName,
 	UnknownIntegrationVariantError,
@@ -181,5 +182,13 @@ describe("the SDK's built-in names (plugin lint rules)", () => {
 		expect([...BUILT_IN_DB_TYPES].sort()).toEqual(
 			registry.variants("database").map((v) => v.extras.dbType).sort(),
 		);
+	});
+
+	it("map every built-in alias to its variant's name", () => {
+		const registry = fresh();
+		for (const group of BUILT_IN_INTEGRATION_GROUPS)
+			for (const def of registry.variants(group))
+				for (const alias of def.aliases ?? [])
+					expect(canonicalVariant(group, alias)).toBe(def.variant);
 	});
 });

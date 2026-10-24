@@ -46,11 +46,14 @@ export type {
 } from "./integrations/index.js";
 
 import type {
+	BUILT_IN_VARIANT_ALIASES,
 	BuiltInIntegrationAdapters,
 	DbAdapter,
 	KvAdapter,
 	QueueProducer,
 } from "./integrations/index.js";
+import type { BuiltInVariantRaw } from "./integrations/raw.js";
+import type { integrationBrand } from "./params.js";
 
 /**
  * What `ctx.integrations.get<K>` resolves to: a built-in group name gives that
@@ -69,6 +72,65 @@ export type IntegrationClient<K> = K extends keyof BuiltInIntegrationAdapters
 				: K;
 
 /**
+ * An integration as `connection` hands it out: which variant it is (its name,
+ * never an alias), the group's contract (what `get` returns) and the
+ * variant's own client. Narrow on `variant` to reach a variant's `raw`.
+ */
+export type IntegrationConnection<V extends string = string, C = unknown, R = unknown> = {
+	variant: V;
+	client: C;
+	/**
+	 * The variant's own client (ioredis for Redis), undefined where it has none.
+	 * A database's is its pool, outside any transaction a block started.
+	 */
+	raw: R;
+};
+
+type Groups = keyof BuiltInVariantRaw;
+type Aliases = typeof BUILT_IN_VARIANT_ALIASES;
+type Canonical<G, V> = G extends keyof Aliases
+	? V extends keyof Aliases[G]
+		? Aliases[G][V]
+		: V
+	: V;
+/** one connection per variant listed; a name Fluxify does not ship is a plugin's, its `raw` unknown */
+type BuiltInConnection<G extends Groups, V> = V extends string
+	? Canonical<G, V> extends infer N extends keyof BuiltInVariantRaw[G] & string
+		? IntegrationConnection<N, BuiltInIntegrationAdapters[G], BuiltInVariantRaw[G][N]>
+		: IntegrationConnection<V, BuiltInIntegrationAdapters[G], unknown>
+	: never;
+
+/** a param of `kind` taking variants `V` (`never`: the kind's own variant, or the whole group) */
+export type ConnectionFor<K extends string, V extends string = never> = K extends Groups
+	? [V] extends [never]
+		? // every variant Fluxify ships, and any a plugin adds
+				| BuiltInConnection<K, keyof BuiltInVariantRaw[K]>
+				| IntegrationConnection<string, BuiltInIntegrationAdapters[K], unknown>
+		: BuiltInConnection<K, V>
+	: K extends `${infer G extends Groups}/${infer KV}`
+		? BuiltInConnection<G, [V] extends [never] ? KV : V>
+		: IntegrationConnection<[V] extends [never] ? string : V>;
+
+/** what `connection(id)` resolves to for a `param.integration` value; a plain string gives the loosest */
+export type ConnectionOf<I> = I extends { readonly [integrationBrand]?: infer B }
+	? NonNullable<B> extends { kind: infer K extends string; variants: infer V extends string }
+		? ConnectionFor<K, V>
+		: IntegrationConnection
+	: IntegrationConnection;
+
+/** `connection<typeof x>`: a plugin integration's, whose `raw` is what its `connect` returned */
+export type PluginConnection<K extends PluginIntegrationLike> = IntegrationConnection<
+	K["variant"],
+	IntegrationClient<K>,
+	Awaited<ReturnType<K["connect"]>>
+>;
+type PluginIntegrationLike = {
+	connect(config: any, ctx: any): unknown;
+	variant: string;
+	config: object;
+};
+
+/**
  * The integrations a block was granted (`permissions.integrations`), by id: the
  * value of a `param.integration` param. The same integration is the same client
  * all through one request, and inside a database transaction `get<"database">`
@@ -81,6 +143,14 @@ export interface IntegrationsContext {
 	 * id is unknown, has no value in this environment, or belongs to another project.
 	 */
 	get<K = unknown>(id: string | undefined): Promise<IntegrationClient<K>>;
+	/**
+	 * `get`, with the integration's variant and its own client: typed from the
+	 * param, so `variants: ["Redis"]` gives an ioredis `raw`, and several give a
+	 * union to narrow on `variant`. `connection<typeof x>(id)` for a plugin's
+	 * integration. Same grants and errors as `get`; `client` is what `get` returns.
+	 */
+	connection<I extends string>(id: I | undefined): Promise<ConnectionOf<I>>;
+	connection<K extends PluginIntegrationLike>(id: string | undefined): Promise<PluginConnection<K>>;
 }
 
 export type PoolOptions<T> = {

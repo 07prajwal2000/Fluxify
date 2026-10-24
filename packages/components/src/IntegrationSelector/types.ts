@@ -64,6 +64,12 @@ export interface IntegrationSelectorProps {
 	 * empty-state view inside the picker modal.
 	 */
 	createIntegrationUrl?: string;
+	/** The picker's title when there is nothing to pick, e.g. "No Redis integration yet". */
+	emptyTitle?: string;
+	/** What the empty picker offers instead of `createIntegrationUrl`'s button, e.g. a router link. */
+	emptyAction?: ReactNode;
+	/** Shown under the field as an error, e.g. a saved value the field no longer takes. */
+	errorMessage?: string;
 	/** Integration group (e.g. 'observability', 'database') to filter or append as query param. */
 	group?: string;
 	/** Label text for the "Choose" button. Defaults to "Choose". */

@@ -480,6 +480,12 @@ export interface DatabaseAdapter {
 	startTransaction(isolation?: IsolationLevel): Promise<void>;
 	commitTransaction(): Promise<void>;
 	rollbackTransaction(): Promise<void>;
+	/**
+	 * The driver's own client this adapter queries through (`ctx.integrations.connection(...).raw`).
+	 * It bypasses Fluxify's request-scoped transaction: a query sent on it is
+	 * outside any transaction a block started and sees none of its uncommitted writes.
+	 */
+	getConnection?(): unknown;
 }
 
 export type IDbAdapter = DatabaseAdapter;
