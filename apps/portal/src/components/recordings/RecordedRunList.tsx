@@ -11,7 +11,6 @@ import { useEffect, useState } from "react";
 import { TbCheck, TbPlayerRecord, TbSearch, TbX } from "react-icons/tb";
 import { EmptyState } from "@/components/common/EmptyState";
 import { formatDuration } from "@/components/testSuites/CaseResults";
-import { formatWhen } from "@/components/testSuites/RunResults";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { PAGE_SIZES, usePageSize } from "@/lib/pageSize";
 import { recordingsQuery, useRecordingSwitch } from "@/query/recordingsQuery";
@@ -20,6 +19,7 @@ import { sandboxesQuery } from "@/query/sandboxesQuery";
 import { workflowsQuery } from "@/query/workflowsQuery";
 import type { RecordedRunSummary, RecordingTarget } from "@/services/recordings";
 import { useRetentionNote } from "./RecordingControls";
+import { RecordingTime } from "./RecordingTime";
 import { isIncomplete } from "./spans";
 
 type EnvFilter = "all" | "development" | "production";
@@ -82,13 +82,6 @@ export function RecordedRunList({
 	const [search, setSearch] = useState("");
 	const [debouncedSearch, setDebouncedSearch] = useState("");
 	const retentionNote = useRetentionNote();
-
-	// "5m ago" is worked out at render; re-render each minute so it keeps moving
-	const [, setNow] = useState(0);
-	useEffect(() => {
-		const timer = window.setInterval(() => setNow(Date.now()), 60_000);
-		return () => window.clearInterval(timer);
-	}, []);
 
 	useEffect(() => {
 		const timer = setTimeout(() => {
@@ -361,7 +354,7 @@ export function RecordedRunList({
 								)}
 								<span className="flex-1 truncate text-xs text-muted">
 									{run.metadata && <span className="text-foreground">{run.metadata.label} · </span>}
-									{formatWhen(run.startedAt)}
+									<RecordingTime timestamp={run.startedAt} />
 								</span>
 								{run.parentRunId && (
 									<Chip size="sm" title="Forked by an async custom block">
