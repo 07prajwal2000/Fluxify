@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { integrationMetadataOptions } from "@/query/findResourceQuery";
 import { BLOCK_TYPES } from "../blocks/blockTypes";
 import { readDbBinding } from "../panel/blocks/db/conditions";
+import { DB_TABLE_BLOCKS } from "./dbOutputType";
 import { type InferOutput, resolveInputType } from "./resolveInputType";
 
 type GraphNode = { id: string; type?: string; data?: unknown };
@@ -31,9 +32,19 @@ const cachedInfer: InferOutput = (source, inputType) => {
 function typedPart(node: GraphNode): unknown {
 	const data = (node.data ?? {}) as Record<string, unknown>;
 	if (node.type === BLOCK_TYPES.jsrunner) return [node.id, data.value];
-	if (node.type === BLOCK_TYPES.db_getsingle || node.type === BLOCK_TYPES.db_getall) {
+	if (node.type === BLOCK_TYPES.db_native) return [node.id, data.js];
+	if (DB_TABLE_BLOCKS.has(node.type ?? "")) {
 		const { connectionId, tableName } = readDbBinding({ data });
-		return [node.id, node.type, connectionId, tableName, data.columns, data.joins, data.paging];
+		return [
+			node.id,
+			node.type,
+			connectionId,
+			tableName,
+			data.columns,
+			data.joins,
+			data.paging,
+			data.onConflict,
+		];
 	}
 	return null;
 }

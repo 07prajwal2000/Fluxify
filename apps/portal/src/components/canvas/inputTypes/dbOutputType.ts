@@ -1,3 +1,4 @@
+import { BLOCK_TYPES } from "../blocks/blockTypes";
 import { normalizeJoin } from "../panel/blocks/db/conditions";
 
 /** The slice of the integration metadata the type needs. */
@@ -235,3 +236,51 @@ export const singleOutputType = (row: string) => `${row} | null`;
 /** `Get All` hands on a list; cursor paging wraps it. */
 export const allOutputType = (row: string, paging: unknown) =>
 	paging === "cursor" ? `{ rows: (${row})[]; nextCursor: string | null }` : `(${row})[]`;
+
+/** The block types whose output is read from a table. */
+export const DB_TABLE_BLOCKS: ReadonlySet<string> = new Set([
+	BLOCK_TYPES.db_getsingle,
+	BLOCK_TYPES.db_getall,
+	BLOCK_TYPES.db_exists,
+	BLOCK_TYPES.db_count,
+	BLOCK_TYPES.db_insert,
+	BLOCK_TYPES.db_insertbulk,
+	BLOCK_TYPES.db_update,
+	BLOCK_TYPES.db_delete,
+]);
+
+/**
+ * What a table block hands to its next block (for Row Exists, down its
+ * `success` handle). Writes return whole rows, every column, as the database
+ * gave them back; reads return the columns the block picked.
+ */
+export function dbBlockOutput(
+	type: string | undefined,
+	data: Record<string, unknown>,
+	meta: DbMeta | null,
+	tableName: string,
+): string {
+	const picked = () => dbRowType(meta, { tableName, columns: data.columns, joins: data.joins });
+	const whole = () => dbRowType(meta, { tableName });
+	switch (type) {
+		case BLOCK_TYPES.db_getsingle:
+			return singleOutputType(picked());
+		case BLOCK_TYPES.db_exists:
+			return picked();
+		case BLOCK_TYPES.db_getall:
+			return allOutputType(picked(), data.paging);
+		case BLOCK_TYPES.db_count:
+			return "number";
+		case BLOCK_TYPES.db_insert: {
+			const skipped = (data.onConflict as { action?: unknown } | undefined)?.action === "ignore";
+			return skipped ? `${whole()} | null` : whole();
+		}
+		case BLOCK_TYPES.db_insertbulk:
+			return `(${whole()})[]`;
+		case BLOCK_TYPES.db_update:
+		case BLOCK_TYPES.db_delete:
+			return `{ count: number; affected: (${whole()})[] }`;
+		default:
+			return "any";
+	}
+}
