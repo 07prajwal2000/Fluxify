@@ -250,18 +250,20 @@ Use the real integration when the test is about `connect` or the client's behavi
 
 ```ts
 // source: examples/plugins/integrations/src/triggers/orders.test.ts
+// ...
 const run = await runTrigger(orders, {
 	params: { database: "db", table: "jobs", everySeconds: 60, batchSize: 2 },
 	integrations: {
-		db: { kind: "database/PostgreSQL", client: {}, raw: new SQL(url) },
+		db: { kind: "database/PostgreSQL", client: {}, raw: fakePostgres(rows, updated) },
 	},
 });
 try {
 	const call = await run.nextEmit();
 	expect(call.events).toEqual(rows);
-	// nothing is committed while the run is still going
+	// the claim is still open while the workflow runs
+	expect(updated).toEqual([]);
 	call.resolve();
-	await untilDone();
+	await until(() => updated, (ids) => ids.length === 2);
 	expect(updated).toEqual([1, 2]);
 } finally {
 	await run.stop();

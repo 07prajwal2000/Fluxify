@@ -413,31 +413,44 @@ The [integrations example](https://github.com/Fluxify-rest/Fluxify/tree/main/exa
 
 ```ts
 // source: examples/plugins/integrations/src/triggers/orders.ts
+// ...
 params: {
 	database: param.integration({
+		// ...
 		kind: "database",
 		variants: ["PostgreSQL", "MySQL"],
 		required: true,
 	}),
-	table: param.string({ label: "Table", required: true }),
-	everySeconds: param.number({ label: "Poll every (seconds)", default: 10 }),
-	batchSize: param.number({ label: "Rows per poll", default: 50 }),
+	// ...
+	everySeconds: param.number({
+		label: "Poll every (seconds)",
+		default: 10,
+	}),
+	// ...
+	batchSize: param.number({
+		label: "Rows per poll",
+		// ...
+		default: 50,
+	}),
 },
 async start(ctx) {
 	const connection = await ctx.integrations.connection(ctx.params.database);
-	const limit = ctx.params.batchSize;
-	const emit = (rows) => ctx.emit(rows);
+	const table = ctx.params.table;
+	// ...
+	const limit = Math.max(BATCH_MIN, Math.min(BATCH_MAX, Math.floor(ctx.params.batchSize)));
+	const everyMs = Math.max(1, ctx.params.everySeconds) * 1_000;
+	const emit: Emit = (rows) => ctx.emit(rows);
 	const poll =
 		connection.variant === "PostgreSQL"
-			? () => pollPostgres(connection.raw, ctx.params.table, limit, emit)
-			: () => pollMysql(connection.raw, ctx.params.table, limit, emit);
+			? () => pollPostgres(connection.raw, table, limit, emit)
+			: () => pollMysql(connection.raw, table, limit, emit);
 	const loop = (async () => {
 		while (!ctx.signal.aborted) {
 			const handled = await poll().catch((error) => {
 				ctx.logger.logError(error);
 				return 0;
 			});
-			if (handled < limit) await pause(ctx.signal, ctx.params.everySeconds * 1000);
+			if (handled < limit) await pause(ctx.signal, everyMs);
 		}
 	})().catch((error) => ctx.fail(error));
 	return async () => {
