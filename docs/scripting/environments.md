@@ -74,7 +74,7 @@ trigger: {
   id?: string;
   data: { data: any; meta: { id?: string; receivedAt?: string; source?: string } }[];
   meta: { batchId: string; size: number; attempt?: number; /* ... */ };
-  connection?: { raw; commit(); moveToDLQ(error?); lag() };   // queue triggers only
+  connection?: { raw; commit(); moveToDLQ(error?); lag() };   // queue triggers in manual commit mode, and plugin triggers that pass one
 }
 ```
 

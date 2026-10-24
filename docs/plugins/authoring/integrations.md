@@ -415,6 +415,122 @@ async run({ params, ctx }) {
 
 `get<typeof yourIntegration>` gives the type your `connect` returned, so the block needs no hand-written client type. `param.integration` needs its kind in `permissions.integrations`, and the build refuses a block that has one without the other. [Context](./context#using-integrations-from-a-block) covers the request-scoped client, transactions and the errors a user or an author will see.
 
+## Variant-specific integrations
+
+A `param.integration` can name the **variants** it accepts:
+
+```ts
+params: {
+	store: param.integration({ kind: "kv", variants: ["Redis"], required: true }),
+},
+```
+
+`variants` changes three things:
+
+- The picker offers only integrations of those variants. A Memcached integration is not in the list.
+- The server refuses a value of any other variant on save, on enable and on an upgrade, with a message that names the variants: `integration "cache" is Memcached; this field takes only Redis`.
+- `ctx.integrations.connection(id)` types the variant's own client for you.
+
+The names are the variants Fluxify shows in its own pickers: `Redis`, `Memcached`, `PostgreSQL`, `MySQL`, `MongoDB`, `Kafka`, `NATS`, `SQS`, `RabbitMQ`, `OpenAI`, `Anthropic`, `Gemini`, `Mistral`, `OpenAI Compatible`, `Open Telemetry`, `Loki`, `http`. A plugin variant uses the `variant` its `integration({...})` declares.
+
+The build stops when:
+
+| Problem | The error says |
+| :--- | :--- |
+| `variants` is an empty list | `variants lists at least one variant; leave it out for every variant` |
+| The same name twice | `variants must be unique` |
+| The kind already names a variant (`kv/Redis`) | `kind 'kv/Redis' names a variant already; write kind 'kv' to list variants` |
+| A name the kind's group does not have | `'Foo' is not a variant of kv; known: Redis, Memcached` |
+
+The permission still names the **group**, not the variant: `permissions: { integrations: ["kv"] }`.
+
+### connection, not get
+
+`ctx.integrations.connection(id)` is `get` with two extras: which variant the integration is, and the variant's own client.
+
+```ts
+const connection = await ctx.integrations.connection(ctx.params.store);
+connection.variant; // "Redis"
+connection.client;  // the kv adapter: get, set, setex, delete
+connection.raw;     // the ioredis Redis client
+```
+
+| Member | What it is |
+| :--- | :--- |
+| `variant` | The variant's name, never an alias |
+| `client` | What `get` would return: the group's adapter, or your own integration's client |
+| `raw` | The variant's own client. `undefined` where it has none |
+
+The type follows the param. With one variant, `raw` is that client and needs no check. With several, `raw` is a union, and you **narrow on `variant`** before using it:
+
+```ts
+params: {
+	database: param.integration({
+		kind: "database",
+		variants: ["PostgreSQL", "MySQL"],
+		required: true,
+	}),
+},
+async run({ params, ctx }) {
+	const connection = await ctx.integrations.connection(params.database);
+	if (connection.variant === "PostgreSQL") {
+		await connection.raw`SELECT 1`; // Bun's SQL
+	} else {
+		await connection.raw.query("SELECT 1"); // mysql2's pool
+	}
+},
+```
+
+Without `variants`, the type covers every built-in variant of the group plus a plugin variant whose `raw` is `unknown`, so it cannot be narrowed to one client. List the variants when you use `raw`.
+
+For an integration your own plugin provides, `connection<typeof myIntegration>(id)` types `raw` as what its `connect` returned. `connection` has the same grants and errors as `get`.
+
+### What raw is, per variant
+
+| Group | Variant | `raw` |
+| :--- | :--- | :--- |
+| `kv` | Redis | An ioredis `Redis` |
+| `kv` | Memcached | The `memcached` client |
+| `database` | PostgreSQL | Bun's `SQL` |
+| `database` | MySQL | A mysql2 `Pool` |
+| `database` | MongoDB | A `Db` |
+| `queue` | Kafka | A `Producer` |
+| `queue` | NATS | A `JetStreamClient` |
+| `queue` | SQS | An `SQS` client |
+| `queue` | RabbitMQ | A `ConfirmChannel` |
+| `ai`, `observability`, `mcp` | every variant | `undefined` |
+| any group | a plugin variant | What its `connect` returned |
+
+The types of those drivers are **optional peer dependencies**. Installing one, for example `bun add -d ioredis` or `bun add -d mysql2`, gives you its real types and completion on `raw`. Without it, `raw` is `unknown` and the file still compiles. Your plugin does not need the driver at run time: the worker opens the integration's client and hands it over.
+
+::: warning A database's raw client is outside the transaction
+For a database variant, `raw` is the **pool**, not the request's transaction. A query sent on it runs in its own transaction, does not see a transaction another block started, and is not rolled back with it. Use `client` for the request's adapter, and reach for `raw` only when you need a query the adapter does not offer.
+:::
+
+### The Redis-streams case
+
+A trigger that reads a Redis stream needs `XREADGROUP` and `XACK`, which the KV adapter does not have. Narrowing the param to Redis is what makes them available:
+
+```ts
+permissions: { integrations: ["kv"] },
+params: {
+	store: param.integration({ kind: "kv", variants: ["Redis"], required: true }),
+},
+async start(ctx) {
+	const connection = await ctx.integrations.connection(ctx.params.store);
+	const redis = connection.raw; // ioredis, typed from the param
+	// XREADGROUP, then ctx.emit, then XACK once the run resolved
+},
+```
+
+Without `variants`, the same call could be handed a Memcached integration and would fail at run time.
+
+### When a saved integration no longer fits
+
+A saved value of a variant the param no longer accepts is not cleared. The field shows an error that names the variants it takes, and the trigger or block is refused on save, enable or upgrade until it points at a fitting integration.
+
+Narrowing `variants` in a new plugin version blocks the upgrade only while one of the project's saved values is of a dropped variant. Widening the list, or adding `variants` that every saved value already fits, blocks nothing. [Upgrading](/plugins/upgrading) lists the rest of the rules.
+
 ## Limits
 
 - A plugin can add variants to the seven built-in groups, and groups of its own.

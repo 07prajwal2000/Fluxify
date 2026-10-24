@@ -23,6 +23,7 @@ Open the plugin and press **Review upgrade**. The dialog shows an **upgrade prev
 | **Changed shape or handles** | A block that looks or connects differently |
 | **New permissions** | Anything the new version asks for on top of what you granted |
 | **New blocks** | Blocks that are new in this version |
+| **Triggers** | Trigger kinds the new version adds, removes or changes, and the triggers of yours each change affects |
 | **Deprecations** | Things the author marked as going away. **In use** means one of your routes uses it now |
 
 ### What blocks an upgrade
@@ -48,6 +49,28 @@ These do **not** block an upgrade, even while integrations exist:
 - Test connection, metadata or inspect is added, changed or removed
 
 A blocking change only matters when an integration of that kind exists. Removing a variant the project never configured is fine, and a **new** variant never affects existing rows. The preview lists each blocking integration as a link, so you can open it and remove it before approving.
+
+### Trigger kinds
+
+A trigger the project created keeps its settings in the project, so a change to its kind blocks the upgrade **while a trigger of that kind exists**:
+
+| Change | Why it blocks |
+| :--- | :--- |
+| A trigger kind is removed | Its triggers would have no code to start |
+| A param is now required, with no default | Existing triggers have no value for it |
+| A param is removed, changes type, or changes between secret and plain | The stored value may not fit the new param |
+| An integration param now takes a different kind | The stored integration may be of the wrong kind |
+| A permission is dropped | An existing trigger may use it |
+| `variants` is narrowed | A stored integration may be of a dropped variant |
+
+These do **not** block, even while triggers exist:
+
+- a new trigger kind
+- an optional param is added
+- a label, description or icon changes
+- `retry` is turned on or off. It is listed, and a trigger that stays on keeps its **Max attempts** setting
+
+The trigger changes follow the same rule as blocks and integrations: the preview names each affected trigger as a link, and the upgrade is refused while one remains. Removing a trigger kind the project never used is fine.
 
 ::: info One integration row covers both environments
 An integration holds its development and production configs together. Deleting it removes both, so one row is one use in the upgrade preview.
@@ -87,8 +110,8 @@ It still works. The author is telling you to move off it, usually before a later
 
 On the plugin's page, press **Remove**. Removal deletes the plugin from the project, its stored files, and any link requests.
 
-Removal is **blocked while anything uses it**: a route, workflow or custom block with one of its blocks, whether in the working copy or only in a promoted production version. It is also blocked while the project has an **integration of one of the plugin's kinds**, because that integration would point at a variant nothing provides. The dialog lists each block use and each integration as a link. Remove those first (and promote, if the use was in production), then remove the plugin.
+Removal is **blocked while anything uses it**: a route, workflow or custom block with one of its blocks, whether in the working copy or only in a promoted production version. It is also blocked while the project has an **integration of one of the plugin's kinds**, because that integration would point at a variant nothing provides, and while the project has a **trigger created from one of its kinds**, because that trigger would have no code to start. The dialog lists each block use, each integration and each trigger as a link. Remove those first (and promote, if the use was in production), then remove the plugin.
 
 ::: tip
-To stop a plugin running without removing it, turn off its **Dev** and **Prod** switches ([approval](./approving#dev-and-prod-switches)).
+To stop a plugin running without removing it, turn off its **Dev** and **Prod** switches ([approval](./approving#dev-and-prod-switches)). Its triggers stop and keep their settings, and its integrations keep working once the switch is back on.
 :::

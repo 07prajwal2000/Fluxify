@@ -167,7 +167,7 @@ const trigger: {
 | `trigger.id` | `string \| undefined` | Correlation id, when there is one. |
 | `trigger.data` | `TriggerEvent[]` | The events of the run. Always a list, even for one event. Workflows only. |
 | `trigger.meta` | object | Batch details. `size` is how many events. Workflows only. |
-| `trigger.connection` | object \| `undefined` | Queue triggers only (Kafka, NATS, SQS, Redis Streams, RabbitMQ). `commit()` marks the batch done, `moveToDLQ()` parks it, `lag()` counts what is waiting, and `raw` is the underlying client. Use `raw` with care; see [Using the client directly](../concepts/triggers.md#using-the-client-directly). |
+| `trigger.connection` | object \| `undefined` | A queue trigger in manual commit mode (Kafka, NATS, SQS, Redis Streams, RabbitMQ), or a plugin trigger whose author passed a connection. `commit()` marks the batch done, `moveToDLQ()` parks it, `lag()` counts what is waiting, and `raw` is the underlying client. Use `raw` with care; see [Using the client directly](../concepts/triggers.md#using-the-client-directly). |
 
 ```javascript
 if (trigger.source === "schedule") {

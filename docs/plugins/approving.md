@@ -13,6 +13,7 @@ A plugin does nothing until a creator approves it. Open **Settings → Plugins**
 | :--- | :--- |
 | **Blocks** | The blocks the plugin adds, with their shape and the ways they can run |
 | **Integrations provided** | The integration variants the plugin adds, when it has any |
+| **Triggers provided** | The trigger kinds the plugin adds, what each may reach, and whether Fluxify retries its runs |
 | **Approving grants** | Everything the plugin is asking to use, and what you grant by approving |
 | **Package** | Where it came from (upload, npm, link or folder), its exact version, and the Fluxify versions it supports |
 
@@ -32,9 +33,9 @@ By default a plugin's blocks can only work with the data passed to them. A permi
 
 A permission names a **kind**: a group (`kv`, `acme/email`) or one variant of it (`kv/Redis`, `acme/email/smtp`). A group covers every variant of that group; a variant covers only itself.
 
-Adding an integration does not need a permission. The permission is for a **block** that uses one, and the approval covers the kinds the plugin's blocks ask for.
+Adding an integration does not need a permission. The permission is for a **block or trigger** that uses one, and the approval covers the kinds the plugin's blocks and triggers ask for. A trigger asks for the same permissions a block does.
 
-A block that tries to use something it was not granted fails with a message naming the missing permission.
+A block or trigger that tries to use something it was not granted fails with a message naming the missing permission.
 
 ::: warning
 A permission limits what a block is *given*. It is not a sandbox: plugin code runs inside Fluxify. Approve only plugins whose source you trust.
@@ -59,9 +60,11 @@ Each plugin has a **Dev** and a **Prod** checkbox in the list.
 
 | Switch | Default | Meaning |
 | :--- | :---: | :--- |
-| **Dev** | On | The approved plugin's blocks run in the development environment |
-| **Prod** | Off | The approved plugin's blocks run in production |
+| **Dev** | On | The approved plugin's blocks and triggers run in the development environment |
+| **Prod** | Off | The approved plugin's blocks and triggers run in production |
 
 Turn **Prod** on when you are ready for production to use the plugin. A route or workflow that uses a plugin block can only be promoted to production while that plugin is approved and enabled there. Turning a switch off stops the blocks from loading in that environment, so any route that uses them stops working there.
+
+A plugin trigger runs where its plugin is enabled **and** the workflow it starts is live. Turning the plugin's switch off stops the trigger; the trigger row and its settings are kept, and turning the switch back on starts it again. Its existing integrations stay too, marked **plugin disabled** ([status](./status#integrations-a-plugin-provides)).
 
 Approving, rejecting and changing a switch are recorded in the audit log and recompile the project's routes.
