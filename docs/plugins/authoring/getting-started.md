@@ -5,7 +5,7 @@ description: Create, test, build and ship a Fluxify plugin with the CLI, what is
 
 # Writing a plugin
 
-A plugin is one package of blocks. You write each block as a small TypeScript file, test it without a running Fluxify, build it into a `.tgz` archive, and hand that to your team or publish it to npm. This page takes you from nothing to a built plugin. The pages after it cover each part in detail.
+A plugin is one package of blocks, and optionally integrations and triggers. You write each one as a small TypeScript file, test it without a running Fluxify, build it into a `.tgz` archive, and hand that to your team or publish it to npm. This page takes you from nothing to a built plugin. The pages after it cover each part in detail.
 
 ::: warning The SDK and CLI are not on npm yet
 `@fluxify/sdk` and `@fluxify/cli` live in the [Fluxify repository](https://github.com/Fluxify-rest/Fluxify) (`packages/sdk` and `packages/cli`) and will be published to npm. Until they are, `bun add` and `bunx` for them fail. Work from a checkout instead: run the CLI as `bun packages/cli/bin.ts`, or start your plugin inside the repository like the [agent-tools example](https://github.com/Fluxify-rest/Fluxify/tree/main/examples/plugins/agent-tools). Everything below is the same once they are published.
@@ -36,6 +36,13 @@ bunx fluxify-cli blocks create messages/post
 ```
 
 This writes `src/blocks/messages/post.ts` and a test next to it. The block's type is the plugin name plus its path: `acme/slack/messages/post`. Open the file and replace the example with your block ([the block reference](./blocks)).
+
+A plugin can also add an integration ([reference](./integrations)) and a trigger ([reference](./triggers)):
+
+```sh
+bunx fluxify-cli integrations create mail --group email
+bunx fluxify-cli triggers create orders
+```
 
 ## 3. Test it
 
@@ -84,10 +91,12 @@ acme-slack/
 ├─ bun.lock            needed only if the plugin has runtime dependencies
 ├─ src/
 │  ├─ index.ts         plugin({ name, url, ... })
-│  └─ blocks/
-│     └─ messages/
-│        ├─ post.ts          a block
-│        └─ post.test.ts     its test
+│  ├─ blocks/
+│  │  └─ messages/
+│  │     ├─ post.ts          a block
+│  │     └─ post.test.ts     its test
+│  ├─ integrations/          optional: connections the plugin adds
+│  └─ triggers/              optional: sources that start a workflow
 ├─ icons/              images the plugin or its blocks use
 ├─ dist/               built blocks (generated)
 └─ fluxify.json        the manifest (generated)
@@ -149,5 +158,7 @@ Every worker runs your blocks on its own copy of both, so a plugin never carries
 - [Params](./params): the settings a user fills in
 - [Handles](./handles): inputs, outputs and nested chains
 - [Context](./context): what `ctx` gives a block
-- [Testing](./testing): `runBlock` and its fakes
+- [Integrations](./integrations): connections a plugin adds
+- [Triggers](./triggers): sources a plugin watches
+- [Testing](./testing): `runBlock`, `runIntegration`, `runTrigger` and their fakes
 - [Publishing](./publishing): versions, deprecation and upgrades

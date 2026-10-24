@@ -2,7 +2,7 @@
 	"name": "@fluxify/example-integrations",
 	"private": true,
 	"version": "1.0.0",
-	"description": "Example Fluxify plugin: a variant of the built-in kv group, a group of its own, and a block that uses it.",
+	"description": "Example Fluxify plugin: a variant of the built-in kv group, a group of its own, a block that uses it, and a database trigger.",
 	"type": "module",
 	"license": "Apache-2.0",
 	"fluxify": {
@@ -35,6 +35,7 @@
 		"@types/dockerode": "^4.0.1",
 		"@types/nodemailer": "^7.0.0",
 		"dockerode": "^4.0.9",
+		"mysql2": "^3.18.1",
 		"typescript": "^5.9.2",
 		"zod": "^4.0.17"
 	}

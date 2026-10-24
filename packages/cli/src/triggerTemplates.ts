@@ -16,8 +16,16 @@ export default trigger({
 	async start(ctx) {
 		const wait = (ms: number) =>
 			new Promise<void>((resolve) => {
-				const timer = setTimeout(resolve, ms);
-				ctx.signal.addEventListener("abort", () => (clearTimeout(timer), resolve()), { once: true });
+				// an abort that arrived while the last emit was running must not wait a full interval
+				if (ctx.signal.aborted) return resolve();
+				let timer: ReturnType<typeof setTimeout>;
+				const done = () => {
+					clearTimeout(timer);
+					ctx.signal.removeEventListener("abort", done);
+					resolve();
+				};
+				timer = setTimeout(done, ms);
+				ctx.signal.addEventListener("abort", done, { once: true });
 			});
 		const loop = (async () => {
 			while (!ctx.signal.aborted) {

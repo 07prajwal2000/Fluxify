@@ -482,6 +482,27 @@ Things to know when publishing or declaring through it:
 - **The channel is shared** by every run of the trigger on that worker. A slow
   call on it holds up the others.
 
+## Triggers from plugins
+
+A plugin can add a **trigger kind** of its own: it waits for a signal from a service Fluxify has no built-in reader for — a table of your own, a web API, a broker the plugin knows — and starts the workflow when something arrives. These are **plugin triggers**.
+
+In the trigger wizard they appear as **Source** options next to Schedules and the built-in sources, with a **Plugin** badge. Choose one, and the author's own steps appear between **Basics** and **Workflow**:
+
+| Step | What it holds |
+| :--- | :--- |
+| **Source** | The plugin trigger kind, with its label, description and icon |
+| **Basics** | The trigger's name, description and worker group |
+| **Settings** | The settings the author declares with no step of their own. Shown only when there are any |
+| The author's steps | One per tab the author declares, in their order, such as **Connection** and **Polling** |
+| **Workflow** | The workflow the trigger starts |
+| **Review** | Every setting, before you save |
+
+**Max attempts** and **Retry delay** appear only when the plugin asks Fluxify to retry a failed run. Batching, commit mode and dead-lettering do not: the plugin owns delivery and decides when an event is committed.
+
+Where it runs is the same as any other trigger: in every environment where its workflow is live and the plugin is enabled, on every worker of its group. Every worker of the group runs the plugin's listener, so the plugin is responsible for sharing the work — a queue's consumer group, row locking, or a group with one replica.
+
+A plugin trigger that keeps failing is turned off by Fluxify, with the reason shown on the trigger and on its edit page. Fix the cause and turn it back on. A trigger whose plugin is switched off stays in the list, marked **plugin disabled**, and starts again when the plugin is back on.
+
 ## Starting a workflow from a canvas
 
 Not everything that starts a workflow comes from outside. The

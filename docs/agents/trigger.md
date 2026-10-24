@@ -27,8 +27,9 @@ A trigger starts one workflow. It can run on the clock (a cron or interval sched
 | `kafka` | For each message on Kafka topics. | A `Kafka` integration, `source`. |
 | `nats` | For each message of a NATS JetStream stream. | A `NATS` integration, `source`. |
 | `sqs` | For each message of an SQS queue. | An `SQS` integration, `source`. |
+| `plugin:<kind>` | When a trigger kind a plugin adds reports an event. | An approved plugin that is enabled in the environment, and `source` with that kind's params. |
 
-Every trigger type works in every edition, with no licence.
+Every built-in trigger type works in every edition, with no licence.
 
 ## Create a schedule trigger
 
@@ -72,6 +73,36 @@ On create, on enabling, and on any change to `source` or `integrationId`, Fluxif
 
 `warnings` lists settings that work but need a look, for example a missing dead-letter queue. Read them.
 
+## Create a plugin trigger
+
+A plugin can add a trigger kind, and the project creates triggers from it like any other source. The type is `plugin:` followed by the kind, and the kind's **params go in `source`**, not in `integrationId`:
+
+```json
+{
+  "projectId": "<project id>",
+  "name": "Order poller",
+  "type": "plugin:acme/shop/orders",
+  "source": {
+    "database": "<database integration id>",
+    "table": "orders",
+    "everySeconds": 10
+  },
+  "workflowId": "<workflow id>",
+  "active": true
+}
+```
+
+- The kind is the trigger's name as the plugin declares it, for example `acme/shop/orders`. The person who installed the plugin knows it, and the trigger wizard lists it.
+- `source` is checked against the kind's params. A wrong or missing param is a 400 that names the field, such as `source.table: param 'table' is required`.
+- A `secret` param holds an App config key as `cfg:<KEY>`, exactly as an integration stores it.
+- An `integration` param holds the **id** of an integration in the same project, of the kind the param takes and one the plugin was granted. A wrong variant is refused with the variants it takes.
+- `integrationId` is refused for a plugin trigger, with `A plugin trigger takes its integrations as params, in source`.
+- A kind from a plugin that is not approved is refused with `No approved plugin of this project provides trigger <kind>`. Creating one while the plugin is disabled is refused with `plugin <name> is disabled`.
+- `batchSize`, `maxWaitMs`, `maxBytes`, `concurrency`, `commitMode` and dead-letter settings do not apply. The plugin owns batching and delivery.
+- `maxAttempts` and `retryDelayMs` apply only when the kind declares that Fluxify retries its runs. Otherwise they are unused.
+
+The trigger runs wherever its workflow is live and the plugin is enabled. A trigger Fluxify turned off keeps the reason in `disabledReason`. Setting `active: true` clears the reason, re-checks the trigger and its params, and starts a fresh failure count.
+
 ## Update a trigger
 
 Pass `triggerId` and only the fields that change.
@@ -95,7 +126,7 @@ Pass `triggerId` and only the fields that change.
 | `workflowId` | string or null | A workflow of the same project. May be left out: the trigger is then saved and idle. | none |
 | `sandboxId` | string or null | One of **your own** sandboxes, run instead of a workflow, on development workers with development values. Never together with `workflowId`, never for `schedule`. Only you see such a trigger. `null` detaches it. | none |
 | `groupId` | string | A trigger group of the same project. Leave it out for the default group. | default group |
-| `integrationId` | string | Queue types only. An integration of the right kind in this project. Never for `schedule` or `internal`. | none |
+| `integrationId` | string | Built-in queue types only. An integration of the right kind in this project. Never for `schedule`, `internal` or `plugin:<kind>`. | none |
 | `payload` | any JSON | Static data handed to the workflow. Use it for sources that carry none. | none |
 | `active` | boolean | Only active triggers run. | `false` |
 
@@ -129,7 +160,7 @@ Five-field cron is refused: `A cron expression needs six fields — seconds, min
 
 ## Batch and retry fields
 
-These apply to queue triggers.
+These apply to the built-in queue triggers. A plugin trigger owns batching and delivery, so its `maxAttempts` and `retryDelayMs` matter only when the kind declares that Fluxify retries its runs.
 
 | Field | Rule | Default | Meaning |
 | --- | --- | --- | --- |
@@ -143,7 +174,7 @@ These apply to queue triggers.
 
 ## Source by type
 
-`source` is an object. It is required for queue types.
+`source` is an object. It is required for queue types and for a plugin trigger.
 
 | Type | Field | Rule |
 | --- | --- | --- |
@@ -163,6 +194,7 @@ These apply to queue triggers.
 | `sqs` | `queueUrl` | Required. A URL. |
 | | `waitTimeSeconds` | Optional. 0 to 20. |
 | | `visibilityTimeoutSec` | Optional. 1 to 43200. |
+| `plugin:<kind>` | the kind's params | Each param the plugin declares, by name under `source`. A required one must be present, a `secret` is `cfg:<KEY>`, and an `integration` is an integration id of the param's kind. |
 
 ## Common errors
 

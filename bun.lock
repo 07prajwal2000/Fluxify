@@ -198,6 +198,7 @@
         "@types/dockerode": "^4.0.1",
         "@types/nodemailer": "^7.0.0",
         "dockerode": "^4.0.9",
+        "mysql2": "^3.18.1",
         "typescript": "^5.9.2",
         "zod": "^4.0.17",
       },

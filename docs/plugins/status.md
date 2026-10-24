@@ -48,6 +48,22 @@ With only **Prod** off, development keeps working and production fails with `plu
 
 The plugin cannot be removed while any of its integrations exist. Delete those integrations first ([removing a plugin](./upgrading#removing-a-plugin)).
 
+## Triggers a plugin provides
+
+A plugin can add **trigger kinds**: the Source step of the trigger wizard offers them next to the built-in sources, marked **Plugin** ([authoring](/plugins/authoring/triggers)). A trigger of one of those kinds runs wherever the plugin is enabled and the workflow it starts is live.
+
+Turning the plugin off in both environments stops its triggers. Nothing is deleted:
+
+- the trigger rows and their settings stay
+- the list marks them **plugin disabled**
+- creating another trigger of that kind is refused
+
+Turn the switch back on and the triggers start again; each one is re-checked on the way. The same is true when only **Prod** is off: development keeps running and production stops.
+
+**Deleting an integration** that a plugin trigger uses switches that trigger off, with the reason shown on it, and keeps the row. Turning the trigger back on re-checks its settings, so an integration that no longer exists is refused with the field named.
+
+The runtime also turns a trigger off when it keeps failing: a `start` that throws or never resolves, a `ctx.fail(error)` from the trigger's own loop, or an error traced to it. The reason is shown on the trigger row and on its edit page. Turning the trigger back on starts a fresh failure count.
+
 ## What the errors mean
 
 | Error | What it means | What to do |
@@ -72,3 +88,14 @@ Work down this list:
 4. Does the block use something the plugin wasn't **granted** (an integration kind, or App Config)? The error names it. See [permissions](./approving#permissions).
 5. Does the block use an integration the plugin provides? If the plugin is disabled, or disabled in this environment, the run says so ([above](#integrations-a-plugin-provides)).
 6. For production, was the route promoted after the plugin was approved there?
+
+## A trigger won't run
+
+Work down this list:
+
+1. Is the plugin **Approved**, with the right **Dev** or **Prod** switch on for this environment?
+2. Does the plugin's page say **Installed on every worker**?
+3. Is the trigger itself switched on? A trigger Fluxify switched off shows its reason on the row and on the edit page ([above](#triggers-a-plugin-provides)).
+4. Is the workflow it starts live in this environment? The workflow's own switch must be on, and production needs a [promoted version](/concepts/versioning#what-production-serves).
+5. Are the trigger's integration settings still valid? Deleting an integration switches the trigger off; turning it back on refuses a value that no longer exists.
+6. For a plugin trigger, is its plugin enabled in this environment? Otherwise the row is marked **plugin disabled** and nothing starts.

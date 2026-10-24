@@ -1,11 +1,11 @@
 ---
-title: Testing Plugin Blocks
-description: Unit-test a plugin block with runBlock from @fluxify/sdk/testing, fake what it talks to, stub its body handles, and chain blocks by hand, plus what the harness cannot check.
+title: Testing a Plugin
+description: Unit-test a plugin block with runBlock, an integration with runIntegration and a trigger with runTrigger from @fluxify/sdk/testing, fake what they talk to, and see what the harness cannot check.
 ---
 
 # Testing
 
-`@fluxify/sdk/testing` runs one block the way a Fluxify worker would, with no server, database or network. It uses the same rules as the real runtime for defaults, required params, errors, output handles and permissions, so a test that passes here behaves the same there.
+`@fluxify/sdk/testing` runs one block, integration or trigger the way a Fluxify worker would, with no server, database or network. It uses the same rules as the real runtime for defaults, required params, errors, output handles and permissions, so a test that passes here behaves the same there.
 
 ```ts
 import { expect, it } from "bun:test";
@@ -243,6 +243,83 @@ const r = await runBlock(send, {
 The fake is checked against the block's `permissions.integrations`, the same way a worker checks the selected integration. A kind the block was not granted fails with `was not granted … integrations`; an id that is not in the map fails with `integration '<id>' does not exist …`.
 
 Use the real integration when the test is about `connect` or the client's behaviour, and a prebuilt client when it is about what the block sends.
+
+## Testing a trigger
+
+`runTrigger(trigger, options)` runs one `trigger({...})` the way Fluxify would: the params are defaulted and checked, the integrations are granted from `permissions`, and `start` gets a `ctx` whose `emit` **records each call** for the test to settle.
+
+```ts
+// source: examples/plugins/integrations/src/triggers/orders.test.ts
+// ...
+const run = await runTrigger(orders, {
+	params: { database: "db", table: "jobs", everySeconds: 60, batchSize: 2 },
+	integrations: {
+		db: { kind: "database/PostgreSQL", client: {}, raw: fakePostgres(rows, updated) },
+	},
+});
+try {
+	const call = await run.nextEmit();
+	expect(call.events).toEqual(rows);
+	// the claim is still open while the workflow runs
+	expect(updated).toEqual([]);
+	call.resolve();
+	await until(() => updated, (ids) => ids.length === 2);
+	expect(updated).toEqual([1, 2]);
+} finally {
+	await run.stop();
+}
+```
+
+### Options
+
+| Option | Meaning |
+| :--- | :--- |
+| `params` | The params as the wizard stores them. Required ones must be present, and TypeScript says so |
+| `integrations` | What `ctx.integrations.get(id)` and `connection(id)` return, by id, as in `runBlock` ([below](#the-integrations-fake)) |
+| `appConfig` | The environment's App config values, by key, for `ctx.getConfig` |
+| `logger` | What `ctx.logger` writes to. Default is a recording logger, available as `run.logs` |
+| `pool` | Pooled clients. Share one `testPool()` to see reuse. Default: fresh per run |
+| `timeoutMs` | How long `start` may take to resolve and how long the stop function may take to return. Default 5000 ms |
+
+A `start` that throws or hangs rejects `runTrigger`. A `start` that resolves to something other than a function also rejects.
+
+### The run
+
+| Member | What it does |
+| :--- | :--- |
+| `run.emits` | Every `emit` call so far, in order: `{ events, connection, settled, resolve(), reject(error?) }` |
+| `run.nextEmit(timeoutMs?)` | The next call not yet handed out. Rejects after the timeout, 5000 ms by default |
+| `run.logs` | Every `ctx.logger` line |
+| `run.signal` | The `AbortSignal` the trigger got |
+| `run.retry` | The definition's `retry` flag |
+| `run.failure` | What the trigger passed to `ctx.fail`, if it did |
+| `run.failed(timeoutMs?)` | Waits for the next `ctx.fail` and resolves with the error |
+| `await run.stop()` | Aborts `ctx.signal`, then awaits the function `start` returned |
+
+An `emit` stays pending until the test settles it, which stands in for the workflow run:
+
+| Call | What the trigger sees |
+| :--- | :--- |
+| `call.resolve()` | The run succeeded: `emit` resolves |
+| `call.reject(error?)` | The run failed: `emit` rejects with `error` |
+
+- Settling the same call twice throws.
+- `emit` after `stop()` rejects without being recorded.
+- `ctx.fail` stops the instance once, whether `stop()` or `ctx.fail` came first; `run.failed()` waits for that stop to finish.
+- The harness does **not** simulate attempts. With `retry: true`, one call is still one `emit` to settle; rejecting it stands for the last attempt failing.
+
+### The integrations fake
+
+`runTrigger` takes the same fakes as `runBlock`:
+
+| Fake | What it is |
+| :--- | :--- |
+| `{ kind, client, raw? }` | A prebuilt client. `kind` names the variant (`database/PostgreSQL`, `kv/Redis`), and `raw` is what `connection(id).raw` hands out |
+| `{ integration, config, appConfig? }` | A real `integration(...)`, connected and pooled the way a worker does it |
+
+A trigger that uses `connection(id).raw` is tested by passing the client it expects under the matching `kind`. That is how the PostgreSQL poller is tested without a database; the same suite also runs one case against a real PostgreSQL container, because a fake cannot prove `FOR UPDATE SKIP LOCKED` holds the rows.
+
+The start of a trigger is also the only thing a harness can test this way: `emit` does not run a workflow, and the group placement, restarts and turn-off count belong to the runtime. Cover those with a route or workflow in a development environment.
 
 ## What the harness cannot mirror
 

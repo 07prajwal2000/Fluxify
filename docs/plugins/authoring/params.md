@@ -36,7 +36,7 @@ A param with `required: true` or a `default` is always there, so its type has no
 | `select` | A dropdown | One of the `options`, typed as that union | `options` (required) |
 | `js` | A code editor | Whatever the code returned | |
 | `json` | A JSON editor | A JSON value | |
-| `integration` | A picker of the project's integrations of one kind | The integration's id, a `string` | `kind` (required) |
+| `integration` | A picker of the project's integrations of one kind | The integration's id, a `string` | `kind` (required), `variants` |
 | `appconfig` | A picker of the project's app config keys | The key, a `string` | |
 | `conditions` | The same conditions builder the If block uses | `Condition[]` | |
 | `schema` | The schema builder | `{ zod, schema }`, compiled | |
@@ -111,6 +111,20 @@ async run({ params, ctx }) {
 	const url = ctx.vars.getConfig(params.key!);
 },
 ```
+
+An `integration` param can also name the **variants** it accepts, so a Memcached integration cannot be handed to code that speaks Redis:
+
+```ts
+params: {
+	database: param.integration({
+		kind: "database",
+		variants: ["PostgreSQL", "MySQL"],
+		required: true,
+	}),
+},
+```
+
+The picker offers only those variants, the server refuses any other, and `ctx.integrations.connection` types each variant's own client. See [Variant-specific integrations](./integrations#variant-specific-integrations).
 
 ### conditions
 
