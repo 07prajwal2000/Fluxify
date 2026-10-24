@@ -68,6 +68,10 @@ const spanMetadataSchema = z.object({
 	/** R5: nesting; `parent` is a `ctx.span` id (a uuid), `owner` a block id */
 	owner: z.string().max(50).optional(),
 	parent: z.string().max(50).optional(),
+	/** the headers a route answered with, on its entrypoint span */
+	response: z
+		.object({ status: z.number().int().optional(), headers: z.record(z.string(), z.string()) })
+		.optional(),
 });
 
 /** Only what the insert relies on; anything else is stored as it came. */

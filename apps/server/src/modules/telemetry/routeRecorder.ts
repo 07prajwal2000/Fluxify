@@ -32,8 +32,11 @@ export type RecordedWorkflow = {
 
 export type TraceOutcome = "success" | "failure";
 
+/** what a route answered with; the recorder files it on the entrypoint span */
+export type RouteResponse = { headers: Record<string, string> };
+
 export type RequestTrace = BlockTrace & {
-	complete(outcome: TraceOutcome, statusCode?: number): void;
+	complete(outcome: TraceOutcome, statusCode?: number, response?: RouteResponse): void;
 };
 
 export type WorkflowTrace = BlockTrace & {
@@ -108,9 +111,10 @@ export abstract class BaseTraceRecorder implements BlockTrace {
 
 	protected abstract targetAttributes(): Partial<TraceRunPayload>;
 
-	protected finishRun(outcome: TraceOutcome, statusCode?: number): void {
+	protected finishRun(outcome: TraceOutcome, statusCode?: number, response?: RouteResponse): void {
 		if (this.completed) return;
 		this.completed = true;
+		if (response) this.recordResponse(statusCode, response);
 
 		const run: TraceRunPayload = {
 			runId: this.runId,
@@ -131,6 +135,24 @@ export abstract class BaseTraceRecorder implements BlockTrace {
 		} catch {
 			// Sending telemetry must never affect execution.
 		}
+	}
+
+	/** the response is only known once the run ends, so it joins the top-level entrypoint span then */
+	private recordResponse(status: number | undefined, response: RouteResponse) {
+		const entry = this.state.spans.find(
+			(span) =>
+				span.blockType === "entrypoint" && span.parentSeq === undefined && !span.customBlockId,
+		);
+		if (!entry) return;
+		const headers = safeValue(response.headers).value;
+		if (!headers || typeof headers !== "object") return;
+		entry.metadata = {
+			...entry.metadata,
+			response: {
+				...(status === undefined ? {} : { status }),
+				headers: headers as Record<string, string>,
+			},
+		};
 	}
 
 	private enter(invocation: CustomBlockInvocation, scope: TraceScope): CustomBlockScope {
@@ -255,8 +277,8 @@ export class RouteTraceRecorder extends BaseTraceRecorder implements RequestTrac
 		super(onComplete, parent);
 	}
 
-	complete(outcome: TraceOutcome, statusCode?: number): void {
-		this.finishRun(outcome, statusCode);
+	complete(outcome: TraceOutcome, statusCode?: number, response?: RouteResponse): void {
+		this.finishRun(outcome, statusCode, response);
 	}
 
 	protected createDetached(parent: ParentLink) {

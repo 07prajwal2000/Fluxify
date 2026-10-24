@@ -60,6 +60,8 @@ export type TraceSpanMetadata = {
 	owner?: string;
 	/** a `ctx.span` child nested in another: that span's `blockId` (R5) */
 	parent?: string;
+	/** a route's own entrypoint span only: the headers the run answered with */
+	response?: { status?: number; headers: Record<string, string> };
 };
 
 export type TraceRunPayload = {

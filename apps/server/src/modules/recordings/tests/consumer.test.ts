@@ -366,14 +366,16 @@ describe("recordings consumer", () => {
 
 		it("keeps a span's position and switch pick next to its mock (#628)", async () => {
 			const run = makeRun({ routeId: "r-off", metadata: metadata("tr-pos") });
-			run.spans[0]!.metadata = { position: { x: 12.5, y: -40 } };
+			// a route's entrypoint also keeps what it answered with
+			const response = { status: 201, headers: { "x-trace": "t1" } };
+			run.spans[0]!.metadata = { position: { x: 12.5, y: -40 }, response };
 			run.spans[1]!.metadata = { mocked: { input: true }, position: { x: 0, y: 0 }, next: "b1" };
 			await stream.publishRecording(run);
 			await until(async () => Boolean(await runRow(run.runId)));
 
 			const spans = await spanRows(run.runId);
 			expect(spans.map((span: { metadata: unknown }) => span.metadata)).toEqual([
-				{ position: { x: 12.5, y: -40 } },
+				{ position: { x: 12.5, y: -40 }, response },
 				{ mocked: { input: true }, position: { x: 0, y: 0 }, next: "b1" },
 			]);
 		});
