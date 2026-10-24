@@ -1,5 +1,6 @@
 import { BLOCK_TYPES } from "../blocks/blockTypes";
 import { readDbBinding } from "../panel/blocks/db/conditions";
+import { CHAIN_FAILURE, fixedOutput, loopItem, PASS_THROUGH, scriptOf } from "./blockOutputs";
 import { DB_TABLE_BLOCKS, type DbMeta, dbBlockOutput } from "./dbOutputType";
 
 type GraphNode = { id: string; type?: string; data?: unknown };
@@ -17,14 +18,6 @@ export type InputTypeContext = {
 
 /** Blocks further back than this are not followed: `any` beats a slow editor. */
 const MAX_DEPTH = 12;
-
-/** The data field a block's script lives in. */
-const SCRIPT_FIELD: Record<string, string> = {
-	[BLOCK_TYPES.jsrunner]: "value",
-	[BLOCK_TYPES.db_native]: "js",
-};
-
-const TRANSACTION_FAILURE = '{ reason: "rollback" | "error" | "timeout"; message: string }';
 
 /** Which handle of its block an edge leaves from; the canvas names them `<blockId>-<kind>`. */
 function handleKind({ source, sourceHandle }: GraphEdge): string {
@@ -65,9 +58,9 @@ export async function resolveInputType(
 			),
 		);
 
-	/** The last block of a transaction's executor chain, as long as it is a single line of blocks. */
-	const chainEnd = (transactionId: string): string | null => {
-		const start = edges.find((e) => e.source === transactionId && handleKind(e) === "executor");
+	/** The last block of an executor chain, as long as it is a single line of blocks. */
+	const chainEnd = (ownerId: string): string | null => {
+		const start = edges.find((e) => e.source === ownerId && handleKind(e) === "executor");
 		const seen = new Set<string>();
 		let current = start?.target ?? null;
 		while (current && !seen.has(current)) {
@@ -83,23 +76,39 @@ export async function resolveInputType(
 		const type = node.type ?? "";
 		const data = (node.data ?? {}) as Record<string, unknown>;
 		const here = [...path, node.id];
-		if (type === BLOCK_TYPES.db_transaction) {
-			if (kind === "failure") return TRANSACTION_FAILURE;
-			// the first block of the chain gets what the transaction got
-			if (kind === "executor") return inputOf(node.id, here);
+		const input = () => inputOf(node.id, here);
+		const fixed = fixedOutput(type, data);
+
+		if (PASS_THROUGH.has(type) || (type === BLOCK_TYPES.triggerWorkflow && fixed === null)) {
+			return input();
+		}
+		if (type in CHAIN_FAILURE) {
+			if (kind === "failure") return CHAIN_FAILURE[type];
+			// the first block of the chain gets what the block got
+			if (kind === "executor") return input();
 			const last = kind === "success" ? chainEnd(node.id) : null;
 			return last ? outputOf(last, "source", path) : "any";
 		}
-		if (type === BLOCK_TYPES.db_exists && kind === "failure") return inputOf(node.id, here);
+		if (type === BLOCK_TYPES.forloop || type === BLOCK_TYPES.foreachloop) {
+			if (kind === "executor")
+				return loopItem(
+					type,
+					data,
+					type === BLOCK_TYPES.foreachloop && data.useParam ? await input() : "any",
+				);
+			return kind === "source" ? "undefined" : "any";
+		}
+		if (type === BLOCK_TYPES.orchestrator) return kind === "orchestrate" ? input() : "any";
+		if (type === BLOCK_TYPES.db_exists && kind === "failure") return input();
 		if (DB_TABLE_BLOCKS.has(type) && (kind === "source" || kind === "success")) {
 			const { connectionId, tableName } = readDbBinding({ data });
 			const meta = connectionId ? await ctx.loadDbMeta(connectionId) : null;
 			return dbBlockOutput(type, data, meta, tableName);
 		}
-		const field = SCRIPT_FIELD[type];
-		const script = field ? data[field] : undefined;
-		if (kind !== "source" || typeof script !== "string") return "any";
-		return ctx.infer(script, await inputOf(node.id, here));
+		if (kind !== "source") return "any";
+		if (fixed !== null) return fixed;
+		const script = scriptOf(type, data);
+		return typeof script === "string" ? ctx.infer(script, await input()) : "any";
 	};
 
 	const outputOf = (id: string, kind: string, path: string[]): Promise<string> => {

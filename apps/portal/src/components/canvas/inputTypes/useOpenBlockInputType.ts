@@ -3,9 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { integrationMetadataOptions } from "@/query/findResourceQuery";
-import { BLOCK_TYPES } from "../blocks/blockTypes";
-import { readDbBinding } from "../panel/blocks/db/conditions";
-import { DB_TABLE_BLOCKS } from "./dbOutputType";
+import { typeDependencies } from "./blockOutputs";
 import { type InferOutput, resolveInputType } from "./resolveInputType";
 
 type GraphNode = { id: string; type?: string; data?: unknown };
@@ -28,27 +26,6 @@ const cachedInfer: InferOutput = (source, inputType) => {
 	return hit;
 };
 
-/** What a block's output type can depend on; the rest of its data is not read. */
-function typedPart(node: GraphNode): unknown {
-	const data = (node.data ?? {}) as Record<string, unknown>;
-	if (node.type === BLOCK_TYPES.jsrunner) return [node.id, data.value];
-	if (node.type === BLOCK_TYPES.db_native) return [node.id, data.js];
-	if (DB_TABLE_BLOCKS.has(node.type ?? "")) {
-		const { connectionId, tableName } = readDbBinding({ data });
-		return [
-			node.id,
-			node.type,
-			connectionId,
-			tableName,
-			data.columns,
-			data.joins,
-			data.paging,
-			data.onConflict,
-		];
-	}
-	return null;
-}
-
 /**
  * Types `input` in every editor of the block whose settings are open, from the
  * blocks wired into it. The types are global in Monaco, so this follows the
@@ -66,7 +43,7 @@ export function useOpenBlockInputType(
 		() =>
 			blockId
 				? JSON.stringify([
-						nodes.map(typedPart).filter(Boolean),
+						nodes.map(typeDependencies).filter(Boolean),
 						edges.map((edge) => [edge.source, edge.sourceHandle, edge.target]),
 					])
 				: "",

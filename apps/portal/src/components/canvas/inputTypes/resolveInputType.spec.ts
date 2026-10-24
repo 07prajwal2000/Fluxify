@@ -178,4 +178,82 @@ describe("resolveInputType", () => {
 
 		expect(await resolveInputType("c", nodes, edges, ctx())).toBe("A<any>");
 	});
+
+	const block = (id: string, type: string, data: Record<string, unknown> = {}) => ({ id, type, data });
+	/** what a JS Runner "c" wired to block "x" by `kind` sees as input */
+	const after = (x: ReturnType<typeof block>, kind = "source", before: ReturnType<typeof block>[] = []) =>
+		resolveInputType(
+			"c",
+			[...before, x, runner("c", "C")],
+			[...before.map((b) => edge(b.id, x.id)), edge(x.id, "c", kind)],
+			ctx(),
+		);
+
+	it("hands on what a pass-through block received", async () => {
+		const a = [runner("a", "A")];
+
+		for (const [type, kind] of [
+			["if", "success"],
+			["if", "failure"],
+			["switch", "case"],
+			["consolelog", "source"],
+			["cloud_logs", "source"],
+			["httpsetheader", "source"],
+			["httpsetcookie", "source"],
+			["trigger_workflow", "source"],
+		]) {
+			expect(await after(block("p", type), kind, a)).toBe("A<any>");
+		}
+	});
+
+	it("types a trigger workflow set to Later as its run handle", async () => {
+		expect(await after(block("w", "trigger_workflow", { mode: "later" }))).toBe(
+			"{ id: string; runAt: string }",
+		);
+	});
+
+	it("types the fixed-shape blocks", async () => {
+		expect(await after(block("h", "httprequest"))).toBe("{ data: any; status: number }");
+		expect(await after(block("h", "httpgetheader"))).toBe("string");
+		expect(await after(block("h", "httpgetparam", { mode: "multiple" }))).toBe("string[]");
+		expect(await after(block("h", "error_handler"))).toBe("string");
+		expect(await after(block("h", "arrayops"))).toBe("any[]");
+	});
+
+	it("types a KV Raw script and a JS Transformer, but not a field-map Transformer", async () => {
+		expect(await after(block("k", "kv_raw", { js: "K" }))).toBe("K<any>");
+		expect(await after(block("t", "transformer", { useJs: true, js: "T" }))).toBe("T<any>");
+		expect(await after(block("t", "transformer", { useJs: false, js: "T" }))).toBe("any");
+	});
+
+	it("types a retry like a transaction", async () => {
+		const retry = block("r", "retry");
+		const nodes = [retry, dbBlock("g", "db_count"), runner("c", "C")];
+		const wired = (kind: string) => [edge("r", "g", "executor"), edge("r", "c", kind)];
+
+		expect(await resolveInputType("c", nodes, wired("success"), ctx())).toBe("number");
+		expect(await resolveInputType("c", nodes, [...wired("failure")].slice(1), ctx())).toBe(
+			"{ attempts: number; message: string }",
+		);
+	});
+
+	it("gives each round of a loop its item, and the code after it nothing", async () => {
+		const list = dbBlock("d", "db_getall", { columns: ["id"] });
+		const loop = (data: Record<string, unknown>) => block("l", "foreachloop", data);
+		const body = (l: ReturnType<typeof block>, before: unknown[]) =>
+			resolveInputType("c", [...before, l, runner("c", "C")] as never, [edge("d", "l"), edge("l", "c", "executor")], ctx());
+
+		expect(await body(loop({ useParam: true }), [list])).toBe("(({ id: number; })[])[number]");
+		expect(await body(loop({ useParam: false }), [list])).toBe("any");
+		expect(await after(block("f", "forloop"), "executor")).toBe("number");
+		expect(await after(block("f", "forloop"), "source")).toBe("undefined");
+		expect(await after(block("f", "foreachloop"), "source")).toBe("undefined");
+	});
+
+	it("gives each orchestrator branch the orchestrator's input", async () => {
+		const a = [runner("a", "A")];
+
+		expect(await after(block("o", "orchestrator"), "orchestrate", a)).toBe("A<any>");
+		expect(await after(block("o", "orchestrator"), "source", a)).toBe("any");
+	});
 });
