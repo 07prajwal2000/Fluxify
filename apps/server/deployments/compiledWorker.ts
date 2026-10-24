@@ -78,6 +78,8 @@ import "../src/lib/bigintJson";
 const port = Number(getEnv("WORKER_PORT")) || 5600;
 const healthPort = Number(getEnv("WORKER_HEALTH_PORT")) || port + 1;
 const HEARTBEAT_CHECK_MS = 500;
+/** Keep serving this long after readiness turns 503, while the edge catches up (#940). */
+const drainGraceMs = Number(getEnv("WORKER_DRAIN_GRACE_SEC") || 0) * 1_000;
 /** Idle database integration timeout, supplied to the execution process. */
 const databaseIdleTimeoutMs = Number(getEnv("INTEGRATION_TIMEOUT_POLICY_IN_SEC") || 450) * 1_000;
 const asyncExecutor = asyncExecutorLimitsFromEnv();
@@ -549,7 +551,9 @@ startup()
  * Deprovisioning a node means draining it, in this order:
  *
  * readiness 503 first, so the load balancer stops sending new requests while
- * the ones in flight are still being answered; then the child finishes them;
+ * the ones in flight are still being answered; a grace window in which new
+ * ones are still accepted, for an edge that only learns on its next poll; then
+ * the child finishes them;
  * then the license slot is handed back explicitly rather than waiting out its
  * TTL, or every rolling replace would stall for a lease.
  */
@@ -557,8 +561,9 @@ async function shutdown(sig: string, code = 0) {
 	if (shuttingDown) return;
 	shuttingDown = true;
 	markDraining();
-	supervisor.stop();
 	logger.info(`received ${sig} — draining`);
+	await Bun.sleep(drainGraceMs);
+	supervisor.stop();
 	try {
 		await jobWorker.stop();
 		await fireConsumer?.stop();

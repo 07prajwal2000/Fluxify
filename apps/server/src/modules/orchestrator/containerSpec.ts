@@ -102,6 +102,15 @@ export const SERVES_HTTP: readonly string[] = ["route", "both"];
  * the worker drains (#336), which is what takes a node off the edge before it stops. */
 export const READY_PATH = "/_/admin/api/healthchecks/ready";
 
+/** How often Traefik polls a node's readiness. */
+export const EDGE_HEALTH_INTERVAL_SEC = 5;
+/**
+ * How long a Docker node keeps serving after readiness turns 503, before it
+ * stops accepting (#940). Longer than one poll, so Traefik has dropped it by
+ * the time it refuses anything. Kubernetes has `PRE_STOP_SECONDS` instead.
+ */
+export const DRAIN_GRACE_SEC = 10;
+
 /**
  * The two paths a development request is served on, matched exactly as the
  * fixed `worker-dev` service matches them: `/_/dev` but not `/_/devices`.
@@ -182,7 +191,7 @@ function edgeLabels(node: DesiredNode, options: SpecOptions): Record<string, str
 		// describe whether the node is serving.
 		[`traefik.http.services.${name}.loadbalancer.healthcheck.path`]: READY_PATH,
 		[`traefik.http.services.${name}.loadbalancer.healthcheck.port`]: String(options.healthPort),
-		[`traefik.http.services.${name}.loadbalancer.healthcheck.interval`]: "10s",
+		[`traefik.http.services.${name}.loadbalancer.healthcheck.interval`]: `${EDGE_HEALTH_INTERVAL_SEC}s`,
 	};
 }
 
@@ -251,6 +260,7 @@ export function buildContainerSpec(node: DesiredNode, options: SpecOptions): Con
 		...options.passthroughEnv,
 		...workerEnv(node, options),
 		FLUXIFY_NODE_ID: nodeId,
+		WORKER_DRAIN_GRACE_SEC: String(DRAIN_GRACE_SEC),
 		...(options.plugins ? { FLUXIFY_PLUGINS_DIR: options.plugins.dir } : {}),
 	};
 
