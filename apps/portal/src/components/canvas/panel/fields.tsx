@@ -25,6 +25,7 @@ import { customBlocksQuery } from "@/query/customBlocksQuery";
 import { useCanvasChanges } from "../changes/ChangesContext";
 import type { BlockData } from "../types";
 import type { CustomBlockInputParam } from "./blocks/CustomBlockSettings";
+import { toNumberIfNumeric, useDraftText } from "./useDraftText";
 
 export { BlockIntegrationField, type BlockIntegrationFieldProps } from "./integrationField";
 
@@ -194,15 +195,11 @@ export function BlockJsTextField({
 }: BlockJsTextFieldProps) {
 	const { updateNodeData } = useReactFlow();
 	const { enabled: editable } = useCanvasChanges();
-	const rawValue = data[name];
-	const value =
-		typeof rawValue === "string"
-			? rawValue
-			: typeof rawValue === "object" && rawValue !== null
-				? JSON.stringify(rawValue)
-				: rawValue != null
-					? String(rawValue)
-					: "";
+	const [value, onChange] = useDraftText(
+		data[name],
+		(val) => updateNodeData(blockId, { [name]: val }),
+		toNumberIfNumeric,
+	);
 
 	return (
 		<JsTextField
@@ -216,12 +213,7 @@ export function BlockJsTextField({
 			value={value}
 			disableJs={disableJs}
 			suggestions={suggestions}
-			onChange={(next) => {
-				const trimmed = next.trim();
-				const num = Number(trimmed);
-				const val = trimmed !== "" && !isNaN(num) && !trimmed.startsWith("js:") ? num : next;
-				updateNodeData(blockId, { [name]: val });
-			}}
+			onChange={onChange}
 		/>
 	);
 }

@@ -5,6 +5,7 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { useCanvasChanges } from "../../changes/ChangesContext";
 import type { BlockNode } from "../../types";
 import type { SelectOption } from "../fields";
+import { toNumberIfNumeric, toText, useDraftText } from "../useDraftText";
 
 /** One field of a row; the same field the block shows in Single mode. */
 export type RowField = {
@@ -22,21 +23,38 @@ export type RowField = {
 
 type Row = Record<string, unknown>;
 
-const toText = (value: unknown) =>
-	typeof value === "string"
-		? value
-		: value && typeof value === "object"
-			? JSON.stringify(value)
-			: value == null
-				? ""
-				: String(value);
-
-const toNumberIfNumeric = (next: string): unknown => {
-	const trimmed = next.trim();
-	return trimmed !== "" && !trimmed.startsWith("js:") && !Number.isNaN(Number(trimmed))
-		? Number(trimmed)
-		: next;
-};
+/** A row's text field; keeps its own draft so the caret survives typing. */
+function RowTextField({
+	field,
+	label,
+	value,
+	isDisabled,
+	onWrite,
+}: {
+	field: RowField;
+	label: string;
+	value: unknown;
+	isDisabled: boolean;
+	onWrite: (value: unknown) => void;
+}) {
+	const [draft, onChange] = useDraftText(
+		value,
+		onWrite,
+		field.numeric ? toNumberIfNumeric : undefined,
+	);
+	return (
+		<JsTextField
+			fullWidth
+			variant="secondary"
+			aria-label={label}
+			isDisabled={isDisabled}
+			disableJs={field.disableJs}
+			placeholder={field.placeholder ?? field.label}
+			value={draft}
+			onChange={onChange}
+		/>
+	);
+}
 
 /**
  * Single / Multiple mode for a Set or Get block. Single renders `single`, the
@@ -154,19 +172,12 @@ export function SingleOrMultiple({
 												</Select.Popover>
 											</Select>
 										) : (
-											<JsTextField
-												fullWidth
-												variant="secondary"
-												aria-label={`${field.label} ${index + 1}`}
+											<RowTextField
+												field={field}
+												label={`${field.label} ${index + 1}`}
+												value={row[field.name]}
 												isDisabled={!editable}
-												disableJs={field.disableJs}
-												placeholder={field.placeholder ?? field.label}
-												value={toText(row[field.name])}
-												onChange={(next) =>
-													update(index, {
-														[field.name]: field.numeric ? toNumberIfNumeric(next) : next,
-													})
-												}
+												onWrite={(value) => update(index, { [field.name]: value })}
 											/>
 										)}
 									</div>
