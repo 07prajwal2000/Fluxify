@@ -246,11 +246,18 @@ describe("plugin triggers: the runtime", () => {
 			const claims = () => sql.unsafe(`SELECT job_id, pid FROM ${table}_claims`) as Promise<{ job_id: number; pid: number }[]>;
 			const done = async () => Number((await sql.unsafe(`SELECT count(*) AS n FROM ${table} WHERE done`))[0].n);
 
-			// both workers are taking rows
-			for (let i = 0; i < 300; i++) {
-				const by = new Set((await claims()).map((c) => c.pid));
+			// both workers have finished a row: a claim alone is not enough, since the
+			// kill below happens before the claimed row's run completes
+			for (let i = 0; i < 600; i++) {
+				const by = new Set(
+					(
+						await sql.unsafe(
+							`SELECT DISTINCT pid FROM ${table} WHERE pid IS NOT NULL`,
+						)
+					).map((r: { pid: number }) => r.pid),
+				);
 				if (pids.every((pid) => by.has(pid))) break;
-				await Bun.sleep(50);
+				await Bun.sleep(25);
 			}
 			// kill the first while it holds a row it has not finished
 			for (let i = 0; i < 300; i++) {
