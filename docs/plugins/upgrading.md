@@ -30,6 +30,8 @@ Open the plugin and press **Review upgrade**. The dialog shows an **upgrade prev
 
 An upgrade is **blocked** when it removes something your project uses: a block, a setting, a connection point, or a way of running that a block in a route, workflow or custom block depends on. Both the working copy and the promoted production version count.
 
+Changing a `number` param's `min`, `max` or `integer` rule is listed under the same section, and blocks while a saved value falls outside the new bounds. Widening a range, or adding a limit every saved value already meets, breaks nothing.
+
 The same rule covers the integrations a plugin provides. These changes block an upgrade **while the project has an integration of that kind**:
 
 | Change | Why it blocks |
@@ -40,11 +42,13 @@ The same rule covers the integrations a plugin provides. These changes block an 
 | A config field is now required, with no default | Existing integrations have no value for it |
 | A config field changes type | The stored value may not fit the new type |
 | A field changes between secret and plain | The stored form is different (`cfg:KEY` versus a value) |
+| A number config field's bounds are narrowed | A saved config value may fall outside the new range |
 
 These do **not** block an upgrade, even while integrations exist:
 
 - an optional config field is added
 - a default, label, description, icon, docs, help text, tab or order changes
+- a number field's bounds are widened, or a bound every saved value already meets is added
 - a variant is added
 - Test connection, metadata or inspect is added, changed or removed
 
@@ -62,6 +66,7 @@ A trigger the project created keeps its settings in the project, so a change to 
 | An integration param now takes a different kind | The stored integration may be of the wrong kind |
 | A permission is dropped | An existing trigger may use it |
 | `variants` is narrowed | A stored integration may be of a dropped variant |
+| A number param's bounds are narrowed | A saved value may fall outside the new range |
 
 These do **not** block, even while triggers exist:
 

@@ -2,6 +2,7 @@ import type { FluxifyManifest, ManifestEntry } from "@fluxify/sdk/blocks";
 import { diffIntegrations, type IntegrationDiff, integrationBlockers } from "./integrationDiff";
 import type { IntegrationUser } from "./integrationUsage";
 import { requestedPermissions } from "./meta";
+import { rangeChange } from "./paramRange";
 import { diffTriggers, type TriggerDiff, triggerBlockers } from "./triggerDiff";
 import type { TriggerUser } from "./triggerUsage";
 import type { PluginUser } from "./usage";
@@ -29,6 +30,8 @@ export type ManifestDiff = IntegrationDiff &
 		changedInvoke: { block: string; removed: string[]; added: string[]; usedBy: UsedBy }[];
 		/** an integration param's `variants` changed; it breaks the nodes set to a variant it dropped */
 		changedVariants: { block: string; param: string; change: string; usedBy: UsedBy }[];
+		/** a number param's bounds changed; it breaks the nodes whose saved value no longer fits */
+		changedRanges: { block: string; param: string; change: string; usedBy: UsedBy }[];
 		changedHandlesOrShape: {
 			block: string;
 			before: Pick<ManifestEntry, "handles" | "shape">;
@@ -78,6 +81,7 @@ export function diffManifests(
 		removedHandles: [],
 		changedInvoke: [],
 		changedVariants: [],
+		changedRanges: [],
 		changedHandlesOrShape: [],
 		addedPermissions: { integrations: [], appconfig: false },
 		deprecations: [],
@@ -108,6 +112,14 @@ export function diffManifests(
 					param,
 					change: variants.change,
 					usedBy: usedBy(block, (n) => variants.drops(n.values?.[param], kinds)),
+				});
+			const range = rangeChange(param, p, after.params[param]);
+			if (range)
+				diff.changedRanges.push({
+					block,
+					param,
+					change: range.change,
+					usedBy: usedBy(block, (n) => range.drops(n.values?.[param])),
 				});
 		}
 		const kept = handlesOf(after);
@@ -182,6 +194,11 @@ export function diffManifests(
 		if (r.usedBy.length)
 			diff.blockers.push(
 				`block ${r.block}: ${r.change}, but ${names(r.usedBy)} set it to another variant`,
+			);
+	for (const r of diff.changedRanges)
+		if (r.usedBy.length)
+			diff.blockers.push(
+				`block ${r.block}: ${r.change}, but ${names(r.usedBy)} set it outside the range`,
 			);
 	diff.blockers.push(...integrationBlockers(diff), ...triggerBlockers(diff));
 	diff.blocking = diff.blockers.length > 0;

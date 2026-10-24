@@ -51,6 +51,7 @@ export {
 	type IntegrationParam,
 	type JsonValue,
 	type KeyValueParam,
+	numberParamProblem,
 	type Param,
 	type Params,
 	type ParamType,

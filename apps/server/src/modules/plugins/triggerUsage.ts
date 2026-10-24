@@ -10,14 +10,17 @@ export type TriggerUser = {
 	name: string;
 	kind: string;
 	params: string[];
-	/** the string values it sets, by param: an integration param's id among them */
-	values?: Record<string, string>;
+	/** the scalar values it sets, by param: an integration param's id, or a number param's value */
+	values?: Record<string, string | number>;
 };
 
-/** a stored params object's string values, for what an integration param points at */
-export const stringValues = (params: Record<string, unknown>) =>
+/** a stored params object's scalar values, for an integration id and a number param's bounds */
+export const scalarValues = (params: Record<string, unknown>) =>
 	Object.fromEntries(
-		Object.entries(params).filter((e): e is [string, string] => typeof e[1] === "string"),
+		Object.entries(params).filter(
+			(entry): entry is [string, string | number] =>
+				typeof entry[1] === "string" || typeof entry[1] === "number",
+		),
 	);
 
 /** every trigger row of plugin `name`'s kinds: type `plugin:<name>/…` */
@@ -43,7 +46,7 @@ export async function pluginTriggerUsers(projectId: string, name: string): Promi
 			params: Object.entries((r.source ?? {}) as Record<string, unknown>)
 				.filter(([, v]) => v !== undefined && v !== null)
 				.map(([k]) => k),
-			values: stringValues((r.source ?? {}) as Record<string, unknown>),
+			values: scalarValues((r.source ?? {}) as Record<string, unknown>),
 		}))
 		.sort((a, b) => a.name.localeCompare(b.name));
 }

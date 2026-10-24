@@ -171,6 +171,17 @@ describe("paramsConfigSchema", () => {
 			"param 'size' must be a number, got string",
 		]);
 	});
+
+	it("checks a number config's bounds and integerness", () => {
+		const bounded = paramsConfigSchema({
+			port: param.number({ required: true, min: 1, max: 65_535, integer: true }),
+		});
+		const messages = (v: object) => bounded.safeParse(v).error?.issues.map((i) => i.message);
+		expect(bounded.safeParse({ port: 5432 }).success).toBe(true);
+		expect(messages({ port: 0 })).toEqual(["param 'port' must be at least 1, got 0"]);
+		expect(messages({ port: 65_536 })).toEqual(["param 'port' must be at most 65535, got 65536"]);
+		expect(messages({ port: 5432.5 })).toEqual(["param 'port' must be an integer"]);
+	});
 });
 
 describe("toVariantDef", () => {

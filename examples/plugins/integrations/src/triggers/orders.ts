@@ -1,5 +1,5 @@
 import { param } from "@fluxify/sdk/blocks";
-import { trigger } from "@fluxify/sdk/triggers";
+import { poll, trigger } from "@fluxify/sdk/triggers";
 import type { SQL } from "bun";
 import type { Pool } from "mysql2";
 
@@ -7,8 +7,6 @@ type Row = { id: number; payload: unknown };
 type Emit = (rows: Row[]) => Promise<void>;
 
 const TABLE_NAME = /^[a-z_][a-z0-9_]*$/i;
-const BATCH_MIN = 1;
-const BATCH_MAX = 1_000;
 
 /**
  * Claim a batch, run it, mark it done, in one transaction. A worker killed
@@ -57,21 +55,6 @@ async function pollMysql(pool: Pool, table: string, limit: number, emit: Emit) {
 	}
 }
 
-/** a wait that wakes the moment the trigger is stopped */
-function pause(signal: AbortSignal, ms: number) {
-	if (signal.aborted) return Promise.resolve();
-	return new Promise<void>((resolve) => {
-		let timer: ReturnType<typeof setTimeout>;
-		function done() {
-			clearTimeout(timer);
-			signal.removeEventListener("abort", done);
-			resolve();
-		}
-		timer = setTimeout(done, ms);
-		signal.addEventListener("abort", done, { once: true });
-	});
-}
-
 export default trigger({
 	name: "fluxify-examples/integrations/orders",
 	label: "New orders",
@@ -95,36 +78,41 @@ export default trigger({
 		everySeconds: param.number({
 			label: "Poll every (seconds)",
 			default: 10,
+			description: "From 1 to 3600.",
+			min: 1,
+			max: 3600,
+			integer: true,
 		}),
 		batchSize: param.number({
 			label: "Rows per poll",
-			description: "The most rows one workflow run receives.",
+			description: "The most rows one workflow run receives. From 1 to 1000.",
 			default: 50,
+			min: 1,
+			max: 1000,
+			integer: true,
 		}),
 	},
 	async start(ctx) {
 		const connection = await ctx.integrations.connection(ctx.params.database);
 		const table = ctx.params.table;
 		if (!TABLE_NAME.test(table)) throw new Error(`'${table}' is not a plain table name`);
-		const limit = Math.max(BATCH_MIN, Math.min(BATCH_MAX, Math.floor(ctx.params.batchSize)));
-		const everyMs = Math.max(1, ctx.params.everySeconds) * 1_000;
+		const limit = ctx.params.batchSize;
 		const emit: Emit = (rows) => ctx.emit(rows);
-		const poll =
+		const claim =
 			connection.variant === "PostgreSQL"
 				? () => pollPostgres(connection.raw, table, limit, emit)
 				: () => pollMysql(connection.raw, table, limit, emit);
-		const loop = (async () => {
-			while (!ctx.signal.aborted) {
-				const handled = await poll().catch((error) => {
-					// the claim rolled back, so the rows stay for the next poll
-					ctx.logger.logError(error);
-					return 0;
-				});
-				if (handled < limit) await pause(ctx.signal, everyMs);
-			}
-		})().catch((error) => ctx.fail(error));
-		return async () => {
-			await loop;
-		};
+		return poll(ctx, {
+			every: ctx.params.everySeconds * 1_000,
+			async tick() {
+				const handled = await claim();
+				// a full batch means there may be more waiting: read again at once
+				return handled === limit ? "again" : undefined;
+			},
+			onError(error) {
+				// the claim rolled back, so the rows stay for the next poll
+				ctx.logger.logError(error);
+			},
+		});
 	},
 });

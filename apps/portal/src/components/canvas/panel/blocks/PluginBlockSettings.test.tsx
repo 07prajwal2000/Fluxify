@@ -66,7 +66,7 @@ const entry = (over: Record<string, unknown> = {}) => ({
 const params = {
 	mode: { type: "select", options: ["simple", "advanced"], label: "Mode", default: "simple" },
 	channel: { type: "string", label: "Channel", required: true, description: "Where to post" },
-	retries: { type: "number", label: "Retries" },
+	retries: { type: "number", label: "Retries", min: 1, max: 5, integer: true },
 	notify: { type: "boolean", label: "Notify" },
 	expr: { type: "js", label: "Expression" },
 	extra: { type: "json", label: "Extra" },
@@ -146,6 +146,19 @@ test("a string and a number save under the param name, the number as a number", 
 	fireEvent.blur(retries);
 	expect(nodes[0]?.data.channel).toBe("#ops");
 	expect(nodes[0]?.data.retries).toBe(3);
+});
+
+test("a number param carries its bounds, and refuses a value outside them", () => {
+	const { getByLabelText } = setup();
+	const retries = getByLabelText("Retries") as HTMLInputElement;
+	expect([retries.type, retries.min, retries.max, retries.step]).toEqual(["number", "1", "5", "1"]);
+	fireEvent.change(retries, { target: { value: "9" } });
+	fireEvent.blur(retries);
+	expect(nodes[0]?.data.retries).toBeUndefined();
+	expect(retries.value).toBe("");
+	fireEvent.change(retries, { target: { value: "4" } });
+	fireEvent.blur(retries);
+	expect(nodes[0]?.data.retries).toBe(4);
 });
 
 test("a boolean saves as a boolean", () => {

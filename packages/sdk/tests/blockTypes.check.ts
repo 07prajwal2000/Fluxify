@@ -94,6 +94,12 @@ param.select({ options: ["a", "b"], default: "c" });
 // js and schema params take no default
 // @ts-expect-error
 param.js({ default: "1" });
+// a number param's bounds are numbers, and integer is a boolean
+param.number({ min: 0, max: 10, integer: true });
+// @ts-expect-error
+param.number({ min: "0" });
+// @ts-expect-error
+param.number({ integer: "yes" });
 
 // out shapes: terminal, source (default), success/failure only
 block({ name: "acme/x/t", label: "T", handles: { out: [] }, run: () => ({ output: 1 }) });

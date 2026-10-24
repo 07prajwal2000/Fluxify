@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { BlockContext } from "./context.js";
 import { type BodyHandle, type Handles, type OutHandle, toHandleSpec } from "./handles.js";
 import { type ManifestEntry, manifestEntrySchema } from "./manifest.js";
-import type { CheckWhen, Params, ParamValues } from "./params.js";
+import { type CheckWhen, numberParamProblem, type Params, type ParamValues } from "./params.js";
 import { INVOKE_MODES, type InvokeMode } from "./reserved.js";
 import { GENERAL_TAB, paramTabs } from "./tabs.js";
 
@@ -168,6 +168,10 @@ function misfit(p: Params[string], value: unknown) {
 		return `must be one of ${p.options.join(", ")}, got ${JSON.stringify(value)}`;
 	const type = TYPEOF[p.type];
 	if (type && typeof value !== type) return `must be a ${type}, got ${typeof value}`;
+	if (p.type === "number") {
+		const problem = numberParamProblem(p, value as number);
+		if (problem) return problem;
+	}
 	if (p.type === "conditions" && !Array.isArray(value)) return "must be an array of conditions";
 	if (p.type === "schema" && !(typeof value === "object" && value !== null && "zod" in value))
 		return "must be a compiled schema { zod, schema } (in a test, pass both)";

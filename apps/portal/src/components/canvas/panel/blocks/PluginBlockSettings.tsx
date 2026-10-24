@@ -49,7 +49,9 @@ function ParamField({ block, name, param }: { block: BlockNode; name: string; pa
 		case "string":
 			return <BlockJsTextField {...shared} placeholder={param.default} />;
 		case "number":
-			return <PluginNumberField {...shared} />;
+			return (
+				<PluginNumberField {...shared} min={param.min} max={param.max} integer={param.integer} />
+			);
 		case "boolean":
 			return <BlockCheckboxField {...shared} />;
 		case "select":

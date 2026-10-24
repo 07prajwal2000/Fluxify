@@ -9,7 +9,7 @@ A trigger waits for a signal from anywhere — a poll of a database, a message o
 
 ```ts
 import { param } from "@fluxify/sdk/blocks";
-import { trigger } from "@fluxify/sdk/triggers";
+import { poll, trigger } from "@fluxify/sdk/triggers";
 
 export default trigger({
 	name: "acme/shop/orders/new",
@@ -22,16 +22,13 @@ export default trigger({
 	},
 	async start(ctx) {
 		const db = await ctx.integrations.connection(ctx.params.database);
-		const loop = (async () => {
-			while (!ctx.signal.aborted) {
+		return poll(ctx, {
+			every: 5_000,
+			async tick() {
 				const rows = await readNewOrders(db, ctx.params.table);
 				if (rows.length) await ctx.emit(rows);
-				await pause(ctx.signal, 5_000);
-			}
-		})().catch((error) => ctx.fail(error));
-		return async () => {
-			await loop;
-		};
+			},
+		});
 	},
 });
 ```
@@ -118,7 +115,13 @@ The settings the user fills in, typed from the declaration so `params` in `start
 params: {
 	database: param.integration({ kind: "database", required: true }),
 	table: param.string({ label: "Table", required: true }),
-	everySeconds: param.number({ label: "Poll every (seconds)", default: 30 }),
+	everySeconds: param.number({
+		label: "Poll every (seconds)",
+		default: 30,
+		min: 1,
+		max: 86_400,
+		integer: true,
+	}),
 },
 ```
 
@@ -162,17 +165,79 @@ It returns that instance's **stop function**. Fluxify aborts `ctx.signal` first,
 ```ts
 async start(ctx) {
 	const client = new MyClient(ctx.getConfig(ctx.params.token));
-	const loop = poll(client, ctx).catch((error) => ctx.fail(error));
-	return async () => {
-		await loop;
-		await client.close();
-	};
+	return poll(ctx, {
+		every: 5_000,
+		async tick() {
+			const items = await client.read();
+			if (items.length) await ctx.emit(items);
+		},
+	});
 },
 ```
 
 Nothing to close is `async () => {}`.
 
 There is no top-level `stop` field. `trigger()` refuses one, because one definition can run as several instances and each one's cleanup belongs to its own `start` call.
+
+## Polling and waiting
+
+`@fluxify/sdk/triggers` ships the two helpers almost every trigger needs, so the loop does not have to be written by hand. Both are browser- and Node-safe and add no dependency.
+
+### `poll(ctx, { every, tick, onError? })`
+
+`poll` starts `tick` at once, waits `every` milliseconds after it returns, and repeats until `ctx.signal` aborts. It returns the stop function `start` resolves to.
+
+```ts
+import { poll, trigger } from "@fluxify/sdk/triggers";
+
+async start(ctx) {
+	return poll(ctx, {
+		every: ctx.params.pollIntervalMs,
+		async tick() {
+			const items = await readBatch(ctx.params.queue);
+			if (items.length) await ctx.emit(items.map(decode));
+			// a full batch means more may be waiting: do not sleep before the next read
+			return items.length === ctx.params.batchSize ? "again" : undefined;
+		},
+	});
+},
+```
+
+| It does | It does not |
+| :--- | :--- |
+| Run `tick` until `ctx.signal` aborts | Back off on its own — the restart-with-backoff and turn-off after 5 failures are the runtime's |
+| Wait `every` between ticks, unless `tick` returned `"again"` | Commit, acknowledge or dead-letter anything — delivery stays yours |
+| Wait for the tick in progress when it stops, so the runtime's 10-second stop limit still applies | Report an error raised after the trigger stopped |
+| Log a failed tick as a warning and keep going by default | Swallow an error you call fatal through `onError` |
+
+**Errors.** When `tick` throws, `poll` calls `onError(error)`. Without one it logs a warning and waits `every`, which suits a transient connection error. Return `"fail"` from `onError` — or throw from it — to report the error through `ctx.fail` and end the loop, for something that will never fix itself. Returning `"fail"` reports the tick's error; throwing reports the error you threw.
+
+```ts
+onError(error) {
+	// a wrong key type never fixes itself: stop and let Fluxify report it
+	if (String(error).includes("WRONGTYPE")) return "fail";
+	ctx.logger.logWarn(error);
+},
+```
+
+A failed `emit` is a failed **run**, not a failed loop: catch it inside `tick` if the source should try the same items again, or let `tick` throw and have `onError` decide.
+
+**Stopping.** Fluxify aborts `ctx.signal` first, then calls the stop function `poll` returned. That function waits for the current tick to finish; a tick that never returns is a stop that times out.
+
+### `sleep(ms, signal)`
+
+`sleep` resolves after `ms`, or at once when `signal` aborts. It resolves rather than rejects on abort, so a loop only has to re-check `signal.aborted`, and it always removes its listener — a loop that waits a thousand times leaves none behind.
+
+```ts
+import { sleep } from "@fluxify/sdk/triggers";
+
+while (!ctx.signal.aborted) {
+	await work();
+	await sleep(1_000, ctx.signal);
+}
+```
+
+Check `ctx.signal.aborted` before waiting, not just inside the listener: stop can arrive while the work is still running, and a listener added to an already-aborted signal never fires. `poll` already does both, which is why most triggers need only the one call.
 
 ## The context
 
@@ -287,6 +352,8 @@ const loop = (async () => {
 })().catch((error) => ctx.fail(error));
 ```
 
+With [`poll`](#polling-and-waiting) you do not call it yourself: return `"fail"` from `onError` to report the tick's error, or throw from `onError` to report the error you threw, and `poll` calls `ctx.fail` and ends the loop.
+
 ::: warning Call `ctx.fail` from the loop's `catch`
 An error nobody catches does not crash the worker — the execution process logs it and stays up — but it is only blamed on your trigger when Fluxify can prove which trigger it came from. With two instances of one kind running, it cannot, so the error is only logged and your loop is not restarted. Calling `ctx.fail` from the loop's `catch` is the reliable path.
 :::
@@ -343,20 +410,15 @@ Fluxify does not deduplicate for you: only you know what "already handled" means
 `ctx.signal` aborts when Fluxify stops the trigger: a withdrawn plugin, a disabled plugin, a group move, a version upgrade, a shutdown. Your loop should check it every round, and every wait should wake when it aborts:
 
 ```ts
-function pause(ctx: TriggerContext, ms: number) {
-	if (ctx.signal.aborted) return Promise.resolve();
-	return new Promise<void>((resolve) => {
-		let timer: ReturnType<typeof setTimeout>;
-		function done() {
-			clearTimeout(timer);
-			ctx.signal.removeEventListener("abort", done);
-			resolve();
-		}
-		timer = setTimeout(done, ms);
-		ctx.signal.addEventListener("abort", done, { once: true });
-	});
+import { sleep } from "@fluxify/sdk/triggers";
+
+while (!ctx.signal.aborted) {
+	await work();
+	await sleep(5_000, ctx.signal);
 }
 ```
+
+`sleep` resolves at once on abort and always removes its listener, so a long-running loop does not leave listeners behind. A hand-written timer must clear it and remove the listener itself; the [polling helpers](#polling-and-waiting) already do this, and `poll` checks `ctx.signal.aborted` before every tick and every wait.
 
 Check `ctx.signal.aborted` before waiting, not just inside the listener: stop can arrive while an `emit` is still running, and a listener added to an already-aborted signal never fires.
 
@@ -399,7 +461,7 @@ An instance that stayed up for **60 seconds** starts the count again, so a trigg
 bunx fluxify-cli triggers create orders/new
 ```
 
-This writes `src/triggers/orders/new.ts`, a test and a placeholder icon. The template is a poll loop that honours `ctx.signal`, emits a batch, and calls `ctx.fail` from its `catch`. The trigger's kind is the plugin name plus the path: `acme/shop/orders/new`.
+This writes `src/triggers/orders/new.ts`, a test and a placeholder icon. The template uses `poll`: it honours `ctx.signal`, waits between ticks, emits a batch and logs a failed run. The trigger's kind is the plugin name plus the path: `acme/shop/orders/new`.
 
 | Flag | Meaning |
 | :--- | :--- |
@@ -425,43 +487,49 @@ params: {
 	everySeconds: param.number({
 		label: "Poll every (seconds)",
 		default: 10,
+		description: "From 1 to 3600.",
+		min: 1,
+		max: 3600,
+		integer: true,
 	}),
 	// ...
 	batchSize: param.number({
 		label: "Rows per poll",
 		// ...
 		default: 50,
+		min: 1,
+		max: 1000,
+		integer: true,
 	}),
 },
 async start(ctx) {
 	const connection = await ctx.integrations.connection(ctx.params.database);
 	const table = ctx.params.table;
 	// ...
-	const limit = Math.max(BATCH_MIN, Math.min(BATCH_MAX, Math.floor(ctx.params.batchSize)));
-	const everyMs = Math.max(1, ctx.params.everySeconds) * 1_000;
+	const limit = ctx.params.batchSize;
 	const emit: Emit = (rows) => ctx.emit(rows);
-	const poll =
+	const claim =
 		connection.variant === "PostgreSQL"
 			? () => pollPostgres(connection.raw, table, limit, emit)
 			: () => pollMysql(connection.raw, table, limit, emit);
-	const loop = (async () => {
-		while (!ctx.signal.aborted) {
-			const handled = await poll().catch((error) => {
-				ctx.logger.logError(error);
-				return 0;
-			});
-			if (handled < limit) await pause(ctx.signal, everyMs);
-		}
-	})().catch((error) => ctx.fail(error));
-	return async () => {
-		await loop;
-	};
+	return poll(ctx, {
+		every: ctx.params.everySeconds * 1_000,
+		async tick() {
+			const handled = await claim();
+			// a full batch means there may be more waiting: read again at once
+			return handled === limit ? "again" : undefined;
+		},
+		onError(error) {
+			// the claim rolled back, so the rows stay for the next poll
+			ctx.logger.logError(error);
+		},
+	});
 },
 ```
 
 | File | What it shows |
 | :--- | :--- |
-| `src/triggers/orders.ts` | `variants`, narrowing on `variant`, `FOR UPDATE SKIP LOCKED`, `emit` then commit, and `ctx.fail` in the loop's `catch` |
+| `src/triggers/orders.ts` | `variants`, narrowing on `variant`, `FOR UPDATE SKIP LOCKED`, `emit` then commit, `poll` with `"again"` for a full batch, and `onError` logging |
 | `src/triggers/orders.test.ts` | `runTrigger` with a fake connection for each variant, and a real PostgreSQL container |
 
 ## Next

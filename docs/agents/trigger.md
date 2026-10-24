@@ -93,7 +93,7 @@ A plugin can add a trigger kind, and the project creates triggers from it like a
 ```
 
 - The kind is the trigger's name as the plugin declares it, for example `acme/shop/orders`. The person who installed the plugin knows it, and the trigger wizard lists it.
-- `source` is checked against the kind's params. A wrong or missing param is a 400 that names the field, such as `source.table: param 'table' is required`.
+- `source` is checked against the kind's params. A wrong or missing param is a 400 that names the field, such as `source.table: param 'table' is required`. A `number` param outside its `min`/`max`, or a fraction where it asks for `integer`, is refused the same way, such as `source.everySeconds: param 'everySeconds' must be at least 1, got 0`.
 - A `secret` param holds an App config key as `cfg:<KEY>`, exactly as an integration stores it.
 - An `integration` param holds the **id** of an integration in the same project, of the kind the param takes and one the plugin was granted. A wrong variant is refused with the variants it takes.
 - `integrationId` is refused for a plugin trigger, with `A plugin trigger takes its integrations as params, in source`.

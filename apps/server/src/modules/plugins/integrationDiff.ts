@@ -1,5 +1,6 @@
 import type { FluxifyManifest, IntegrationEntry } from "@fluxify/sdk/blocks";
-import { type IntegrationUser, kindOf } from "./integrationUsage";
+import { type IntegrationConfigUser, kindOf } from "./integrationUsage";
+import { rangeChange } from "./paramRange";
 
 /** who uses a changed kind: the project's integrations of it */
 export type IntegrationUsedBy = { id: string; name: string }[];
@@ -62,10 +63,15 @@ export function paramChange(name: string, before: Param | undefined, after: Para
 export function diffIntegrations(
 	old: FluxifyManifest,
 	next: FluxifyManifest,
-	users: IntegrationUser[],
+	users: IntegrationConfigUser[],
 ): IntegrationDiff {
 	const usedBy = (kind: string) =>
 		users.filter((u) => kindOf(u) === kind).map(({ id, name }) => ({ id, name }));
+	/** the values a row stored for one config param, in either environment */
+	const storedValues = (user: IntegrationConfigUser, param: string) =>
+		[user.config, user.devConfig]
+			.filter((c): c is Record<string, unknown> => typeof c === "object" && c !== null)
+			.map((c) => c[param]);
 	const before = new Map<string, Entry>((old.integrations ?? []).map((e) => [e.name, e]));
 	const after = new Map<string, Entry>((next.integrations ?? []).map((e) => [e.name, e]));
 	const diff: IntegrationDiff = {
@@ -80,13 +86,20 @@ export function diffIntegrations(
 			diff.removedIntegrations.push({ kind, usedBy: usedBy(kind) });
 			continue;
 		}
-		const change = (change: string, breaking: boolean) =>
-			diff.changedIntegrations.push({ kind, change, breaking, usedBy: usedBy(kind) });
+		const change = (change: string, breaking: boolean, used: IntegrationUsedBy = usedBy(kind)) =>
+			diff.changedIntegrations.push({ kind, change, breaking, usedBy: used });
 		if (kindOf(now) !== kind) change(`now ${kindOf(now)}`, true);
 		const params = new Set([...Object.keys(was.configSchema), ...Object.keys(now.configSchema)]);
 		for (const param of params) {
 			const moved = paramChange(param, was.configSchema[param], now.configSchema[param]);
 			if (moved) change(moved.change, moved.breaking);
+			const range = rangeChange(param, was.configSchema[param], now.configSchema[param]);
+			if (range) {
+				const affected = users
+					.filter((u) => kindOf(u) === kind && storedValues(u, param).some(range.drops))
+					.map(({ id, name: label }) => ({ id, name: label }));
+				change(range.change, affected.length > 0, affected);
+			}
 		}
 	}
 	return diff;

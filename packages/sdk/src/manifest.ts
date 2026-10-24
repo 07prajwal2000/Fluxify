@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { handleSpecSchema } from "./handles.js";
 import type { Condition, VisibleWhenInput } from "./params.js";
+import { numberParamProblem } from "./params.js";
 import { CTX_SPAN_TYPE, ICON_URL_MAX, INVOKE_MODES } from "./reserved.js";
 import { checkEntry, RESERVED_PARAM_NAMES } from "./validate.js";
 import {
@@ -55,7 +56,30 @@ const condition: z.ZodType<Condition> = z.lazy(() =>
 /** One param of a manifest entry. */
 export const paramSchema = z.discriminatedUnion("type", [
 	typed("string", z.string()),
-	typed("number", z.number()),
+	z
+		.strictObject({
+			type: z.literal("number"),
+			...common,
+			default: z.number().optional(),
+			min: z.number().optional(),
+			max: z.number().optional(),
+			integer: z.boolean().optional(),
+		})
+		.superRefine((p, ctx) => {
+			if (p.min !== undefined && p.max !== undefined && p.min > p.max)
+				ctx.addIssue({
+					code: "custom",
+					message: "number min must not be above max",
+					path: ["min"],
+				});
+			const problem = p.default === undefined ? undefined : numberParamProblem(p, p.default);
+			if (problem)
+				ctx.addIssue({
+					code: "custom",
+					message: `number default ${problem}`,
+					path: ["default"],
+				});
+		}),
 	typed("boolean", z.boolean()),
 	z
 		.strictObject({

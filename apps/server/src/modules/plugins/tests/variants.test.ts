@@ -19,6 +19,27 @@ async function integration(project: string, variant: string) {
 	return id;
 }
 
+describe("plugin block params: number bounds", () => {
+	it("a save refuses a value outside a number param's bounds, naming the block and the param", async () => {
+		const s = await setup();
+		await (await service()).registerPluginVersion(
+			s.project,
+			version(s.name, "sha-1", [
+				entry(`${s.name}/step`, {
+					params: { batch: { type: "number", min: 1, max: 10, integer: true } },
+				}),
+			]),
+		);
+
+		const refused = await routeCalling(s, "success", { batch: 11 });
+		expect(refused.saved.status).toBe(400);
+		expect(refused.saved.body.errors).toEqual([
+			{ field: expect.any(String), message: "Step: batch: must be at most 10, got 11" },
+		]);
+		expect((await routeCalling(s, "success", { batch: 10 })).saved.status).toBe(200);
+	});
+});
+
 describe("plugin block params: variants", () => {
 	it("a save refuses another variant, naming the block and the variants", async () => {
 		const s = await setup();

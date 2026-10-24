@@ -59,7 +59,15 @@ export type Condition =
 export type CompiledSchema = { zod: ZodType; schema: unknown };
 
 export type StringParam = Common<string> & { type: "string" };
-export type NumberParam = Common<number> & { type: "number" };
+export type NumberParam = Common<number> & {
+	type: "number";
+	/** the smallest value accepted; the panel refuses less, and so does the runtime */
+	min?: number;
+	/** the largest value accepted; the panel refuses more, and so does the runtime */
+	max?: number;
+	/** only whole numbers */
+	integer?: boolean;
+};
 export type BooleanParam = Common<boolean> & { type: "boolean" };
 export type SelectParam = Common<string> & { type: "select"; options: readonly string[] };
 type NoDefault = Omit<Common<never>, "default">;
@@ -146,6 +154,22 @@ export type Param =
 
 export type ParamType = Param["type"];
 export type Params = Record<string, Param>;
+
+/**
+ * Why `value` does not fit a number param's bounds, or undefined when it does.
+ * The rule the runtime, the server's save checks and the panel apply, written
+ * once so they cannot drift.
+ */
+export function numberParamProblem(
+	param: Pick<NumberParam, "min" | "max" | "integer">,
+	value: number,
+): string | undefined {
+	if (param.integer && !Number.isInteger(value)) return "must be an integer";
+	if (param.min !== undefined && value < param.min)
+		return `must be at least ${param.min}, got ${value}`;
+	if (param.max !== undefined && value > param.max)
+		return `must be at most ${param.max}, got ${value}`;
+}
 
 type Options<T extends ParamType> = Omit<Extract<Param, { type: T }>, "type">;
 

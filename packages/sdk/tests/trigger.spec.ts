@@ -116,6 +116,25 @@ describe("trigger()", () => {
 			"param 'topic' is required",
 		);
 	});
+
+	it("checks number params against their bounds when the trigger starts", async () => {
+		const def = trigger({
+			...base,
+			name: "acme/t/bounded",
+			params: { every: param.number({ default: 5, min: 1, max: 60, integer: true }) },
+			start: async () => async () => {},
+		});
+		await expect(runTrigger(def, { params: { every: 0 } })).rejects.toThrow(
+			"param 'every' must be at least 1, got 0",
+		);
+		await expect(runTrigger(def, { params: { every: 1.5 } })).rejects.toThrow(
+			"param 'every' must be an integer",
+		);
+		await expect(runTrigger(def, { params: { every: 61 } })).rejects.toThrow(
+			"param 'every' must be at most 60, got 61",
+		);
+		await (await runTrigger(def, { params: { every: 60 } })).stop();
+	});
 });
 
 const manifest = (triggers?: unknown[]) => ({

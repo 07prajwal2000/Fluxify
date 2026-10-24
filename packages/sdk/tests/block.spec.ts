@@ -196,6 +196,66 @@ describe("run", () => {
 		expect(() => call({})).toThrow("param 'need' is required");
 		expect(() => call({ need: null })).toThrow("param 'need' is required");
 	});
+
+	it("checks a number's bounds and integerness before run", () => {
+		const bounded = block({
+			name: "acme/x/bounded",
+			label: "Bounded",
+			params: { n: param.number({ min: 1, max: 10, integer: true }) },
+			run: ({ params }) => ({ output: params.n }),
+		});
+		const accept = (n: unknown) =>
+			(bounded.run({ params: { n } } as any) as { output: unknown }).output;
+		expect([accept(1), accept(10)]).toEqual([1, 10]);
+		expect(() => accept(0)).toThrow("param 'n' must be at least 1, got 0");
+		expect(() => accept(11)).toThrow("param 'n' must be at most 10, got 11");
+		expect(() => accept(2.5)).toThrow("param 'n' must be an integer");
+		// a fraction is fine when the param does not ask for whole numbers
+		const loose = block({
+			name: "acme/x/loose",
+			label: "Loose",
+			params: { n: param.number({ min: 0.5, max: 2 }) },
+			run: ({ params }) => ({ output: params.n }),
+		});
+		expect((loose.run({ params: { n: 1.5 } } as any) as { output: unknown }).output).toBe(1.5);
+	});
+});
+
+describe("number param bounds", () => {
+	it("refuses a min above the max, and a default outside the bounds", () => {
+		expect(define({ params: { n: param.number({ min: 5, max: 1 }) } })).toThrow(
+			"number min must not be above max",
+		);
+		expect(define({ params: { n: param.number({ min: 1, max: 10, default: 0 }) } })).toThrow(
+			"number default must be at least 1, got 0",
+		);
+		expect(define({ params: { n: param.number({ max: 10, default: 11 }) } })).toThrow(
+			"number default must be at most 10, got 11",
+		);
+		expect(define({ params: { n: param.number({ integer: true, default: 1.5 }) } })).toThrow(
+			"number default must be an integer",
+		);
+	});
+
+	it("writes them into the manifest entry", () => {
+		const entry = toManifestEntry(
+			block({
+				name: "acme/x/bounded",
+				label: "Bounded",
+				params: { n: param.number({ min: 1, max: 10, integer: true, default: 5 }) },
+				run,
+			}),
+		);
+		expect(entry.params.n).toEqual({
+			type: "number",
+			min: 1,
+			max: 10,
+			integer: true,
+			default: 5,
+			order: 0,
+		});
+		expect(manifestEntrySchema.parse(entry)).toEqual(entry);
+	});
 });
 
 describe("nextVersion", () => {

@@ -74,7 +74,14 @@ Use it as the connection the Send email block sends through: a company mail serv
 - **Test connection** opens a transport and asks the server to authenticate, without sending a message.`,
 	config: {
 		host: param.string({ label: "Host", required: true }),
-		port: param.number({ label: "Port", required: true, default: 587 }),
+		port: param.number({
+			label: "Port",
+			required: true,
+			default: 587,
+			min: 1,
+			max: 65_535,
+			integer: true,
+		}),
 		secure: param.boolean({
 			label: "Implicit TLS",
 			description: "On for port 465; off for STARTTLS on port 587.",

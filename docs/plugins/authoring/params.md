@@ -31,7 +31,7 @@ A param with `required: true` or a `default` is always there, so its type has no
 | Type | The user sees | `run` receives | Extra options |
 | :--- | :--- | :--- | :--- |
 | `string` | A one-line text box that accepts `js:` expressions | `string` | |
-| `number` | A number box | `number` | |
+| `number` | A number box | `number` | `min`, `max`, `integer` |
 | `boolean` | A checkbox | `boolean` | |
 | `select` | A dropdown | One of the `options`, typed as that union | `options` (required) |
 | `js` | A code editor | Whatever the code returned | |
@@ -77,13 +77,35 @@ A `string` param always arrives as a string: if the expression returns an object
 ```ts
 params: {
 	text: param.string({ label: "Message", required: true }),
-	retries: param.number({ default: 3 }),
+	retries: param.number({ default: 3, min: 1, max: 10, integer: true }),
 	silent: param.boolean({ default: false }),
 	mode: param.select({ options: ["simple", "advanced"], default: "simple" }),
 },
 ```
 
 `select` options must be unique, and `default` must be one of them. `params.mode` is typed `"simple" | "advanced"`.
+
+### number bounds
+
+`min` and `max` are inclusive limits on a `number` param, and `integer: true` accepts whole numbers only. The settings panel sets the input's limits from them and refuses a value outside them, so a typo is caught while the user saves rather than when the block runs.
+
+```ts
+params: {
+	port: param.number({ label: "Port", default: 5432, min: 1, max: 65_535, integer: true }),
+	intervalMs: param.number({ label: "Every (ms)", default: 1_000, min: 10 }),
+	threshold: param.number({ label: "Threshold", default: 0.5 }), // any number
+},
+```
+
+The same check runs before `run` and when a trigger starts, so a value saved by an older version or sent through the API fails with a message that says what it broke:
+
+| Value | Error |
+| :--- | :--- |
+| `0` with `min: 1` | `param 'port' must be at least 1, got 0` |
+| `65_536` with `max: 65_535` | `param 'port' must be at most 65535, got 65536` |
+| `1.5` with `integer: true` | `param 'port' must be an integer` |
+
+A `min` above the `max`, or a `default` outside the bounds, fails the build. Changing the bounds in a later version is listed in the upgrade diff, and narrowing a range blocks the upgrade while something saved falls outside it, the same as narrowing an integration param's `variants`.
 
 ### js and json
 

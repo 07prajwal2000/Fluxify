@@ -8,6 +8,8 @@ export {
 	triggerEntrySchema,
 } from "./src/manifest.js";
 export type { IntegrationId } from "./src/params.js";
+export type { PollContext, PollOptions, PollTick } from "./src/runtime/poll.js";
+export { poll, sleep } from "./src/runtime/poll.js";
 export type { EmitOptions, TriggerConnection, TriggerContext } from "./src/runtime/trigger.js";
 export { type AnyTrigger, type TriggerDefinition, toTriggerEntry, trigger } from "./src/trigger.js";
 export {
