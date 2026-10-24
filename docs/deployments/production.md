@@ -876,6 +876,12 @@ logs — a `NATS_TOKEN` mismatch or a missing `MASTER_ENCRYPTION_KEY` is the usu
 cause. You can hit the probe directly from inside the network at
 `/_/admin/api/healthchecks/ready` on port **5601**.
 
+**Scaling down takes a few seconds longer than you expect**
+That is on purpose. A worker that is being removed first reports itself as not
+ready, then keeps answering requests for about 10 seconds while the load
+balancer (which checks every 5 seconds) stops sending it traffic. Only then
+does it finish its in-flight work and stop, so no request is dropped.
+
 **A worker exits immediately on start**
 It refuses to run without `WORKER_PROJECT_ID` or `MASTER_ENCRYPTION_KEY`, and
 says which one is missing in its logs. Both come from your shared `.env`. A

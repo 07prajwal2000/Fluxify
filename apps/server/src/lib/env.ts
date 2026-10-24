@@ -29,6 +29,16 @@ export const serverEnvSchema = baseEnvSchema.extend({
 			"Port the compiled worker's supervisor serves health/readiness on (defaults to WORKER_PORT + 1)",
 		),
 
+	WORKER_DRAIN_GRACE_SEC: z
+		.string()
+		.optional()
+		.refine((val) => !val || (Number.isInteger(Number(val)) && Number(val) >= 0), {
+			message: "WORKER_DRAIN_GRACE_SEC must be a non-negative integer",
+		})
+		.describe(
+			"Seconds a compiled worker keeps serving after readiness turns 503 on shutdown, so the load balancer drops it first (set by the orchestrator on Docker; default 0)",
+		),
+
 	INTEGRATION_TIMEOUT_POLICY_IN_SEC: z
 		.string()
 		.optional()

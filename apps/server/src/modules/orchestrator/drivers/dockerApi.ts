@@ -1,7 +1,13 @@
 import { logger } from "@fluxify/common";
 import { CATCH_ALL } from "@fluxify/common/orchestrator";
 import { getEnv } from "../../../lib/env";
-import { type ContainerSpec, LABELS, MANAGED_BY, MANAGED_LABEL } from "../containerSpec";
+import {
+	type ContainerSpec,
+	DRAIN_GRACE_SEC,
+	LABELS,
+	MANAGED_BY,
+	MANAGED_LABEL,
+} from "../containerSpec";
 import type { ObservedNode } from "../plan";
 
 /**
@@ -153,15 +159,15 @@ export async function startNode(spec: ContainerSpec): Promise<string> {
  * still goes away.
  */
 export async function drainNode(containerId: string, timeoutSec: number): Promise<void> {
-	await dockerFetch(`/containers/${containerId}/stop?t=${timeoutSec}`, { method: "POST" }).catch(
-		(error) => {
-			// Already stopped is a 304, and a container that vanished is a 404 —
-			// both mean the node is not serving, which is what stopping was for.
-			logger.warn(
-				`stop of ${containerId.slice(0, 12)} did not apply: ${String(error)}`,
-				"ORCHESTRATOR.docker",
-			);
-		},
-	);
+	await dockerFetch(`/containers/${containerId}/stop?t=${timeoutSec + DRAIN_GRACE_SEC}`, {
+		method: "POST",
+	}).catch((error) => {
+		// Already stopped is a 304, and a container that vanished is a 404 —
+		// both mean the node is not serving, which is what stopping was for.
+		logger.warn(
+			`stop of ${containerId.slice(0, 12)} did not apply: ${String(error)}`,
+			"ORCHESTRATOR.docker",
+		);
+	});
 	await dockerFetch(`/containers/${containerId}?force=true`, { method: "DELETE" });
 }
