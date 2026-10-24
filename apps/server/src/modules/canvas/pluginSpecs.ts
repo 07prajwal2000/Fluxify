@@ -1,4 +1,5 @@
 import type { HandleSpecs } from "@fluxify/blocks";
+import { numberParamProblem } from "@fluxify/sdk/blocks";
 import type { DbTransactionType } from "../../db";
 import { ValidationError } from "../../errors/validationError";
 import { projectIdOf } from "../audit";
@@ -30,8 +31,9 @@ export function pluginSpecsOf(parent: CanvasParent, tx?: DbTransactionType) {
 /**
  * The plugin blocks a save writes: an `integration` param naming an integration
  * of this project takes it only when it is of the param's kind and `variants`,
- * and granted, the rule a plugin trigger's params follow. An id naming nothing
- * here is the runtime's error to report, as for built-in blocks.
+ * and granted, the rule a plugin trigger's params follow; a `number` param's
+ * value must fit its bounds. An id naming nothing here is the runtime's error to
+ * report, as for built-in blocks.
  */
 export async function assertPluginBlockParams(
 	parent: CanvasParent,
@@ -50,6 +52,12 @@ export async function assertPluginBlockParams(
 		const data = (block.data ?? {}) as Record<string, unknown>;
 		for (const [name, param] of Object.entries(entry.params)) {
 			const value = data[name];
+			if (param.type === "number" && typeof value === "number") {
+				const problem = numberParamProblem(param, value);
+				if (problem)
+					errors.push({ field: block.id, message: `${entry.label}: ${name}: ${problem}` });
+				continue;
+			}
 			if (param.type !== "integration" || typeof value !== "string" || !value) continue;
 			const found = await projectIntegration(value, projectId, tx);
 			const message = found && integrationParamProblem(owner, param, found);

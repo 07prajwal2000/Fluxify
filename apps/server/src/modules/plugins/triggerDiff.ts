@@ -1,5 +1,6 @@
 import type { FluxifyManifest } from "@fluxify/sdk/blocks";
 import { paramChange } from "./integrationDiff";
+import { rangeChange } from "./paramRange";
 import type { TriggerUser } from "./triggerUsage";
 import { type IntegrationKinds, variantsChange } from "./variantDiff";
 
@@ -29,7 +30,8 @@ type Entry = NonNullable<FluxifyManifest["triggers"]>[number];
  * removed or retyped affects the rows that set it; one newly required affects
  * the rows that do not; a narrowed grant affects every row of the kind, since
  * its integration params may point at a kind no longer granted; narrowed
- * `variants` affect the rows whose integration (by `kinds`) it drops. Label, icon and
+ * `variants` affect the rows whose integration (by `kinds`) it drops; narrowed
+ * number bounds affect the rows whose saved value no longer fits. Label, icon and
  * description changes are not listed; a `retry` change is, and breaks nothing.
  */
 export function diffTriggers(
@@ -70,6 +72,11 @@ export function diffTriggers(
 			if (variants) {
 				const usedBy = rows(kind, (u) => variants.drops(u.values?.[name], kinds));
 				change(variants.change, usedBy.length > 0, usedBy);
+			}
+			const range = rangeChange(name, p, q);
+			if (range) {
+				const usedBy = rows(kind, (u) => range.drops(u.values?.[name]));
+				change(range.change, usedBy.length > 0, usedBy);
 			}
 		}
 		const dropped = (was.permissions.integrations ?? []).filter(

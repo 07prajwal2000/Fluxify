@@ -1,7 +1,7 @@
 import { ConflictError } from "../../errors/conflictError";
 import { NotFoundError } from "../../errors/notFoundError";
 import { diffManifests } from "./diff";
-import { pluginIntegrationUsers } from "./integrationUsage";
+import { pluginIntegrationConfigUsers } from "./integrationUsage";
 import { getPluginRow, type PluginRecord } from "./repository";
 import { pluginTriggerUsers } from "./triggerUsage";
 import { pluginUsage } from "./usage";
@@ -22,7 +22,7 @@ export async function upgradeDiff(row: PluginRecord) {
 			old,
 			row.manifest,
 			await pluginUsage(row.projectId, row.name),
-			await pluginIntegrationUsers(row.projectId, old),
+			await pluginIntegrationConfigUsers(row.projectId, old),
 			await pluginTriggerUsers(row.projectId, row.name),
 			await projectIntegrationKinds(row.projectId),
 		),

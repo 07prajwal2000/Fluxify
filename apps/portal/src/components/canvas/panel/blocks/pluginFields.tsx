@@ -8,6 +8,7 @@ import {
 	TextField,
 	type ValidationSchema,
 } from "@fluxify/components";
+import { numberParamProblem } from "@fluxify/sdk/blocks";
 import { useReactFlow } from "@xyflow/react";
 import { useEffect, useState } from "react";
 import { useCanvasChanges } from "../../changes/ChangesContext";
@@ -19,10 +20,14 @@ type Props = {
 	name: string;
 	label: string;
 	hint?: string;
+	/** the param's bounds, so the input and its arrows refuse what the runtime refuses */
+	min?: number;
+	max?: number;
+	integer?: boolean;
 };
 
 /** A number param: kept as text while typed, saved as a number on blur; empty clears it. */
-export function PluginNumberField({ blockId, data, name, label, hint }: Props) {
+export function PluginNumberField({ blockId, data, name, label, hint, min, max, integer }: Props) {
 	const { updateNodeData } = useReactFlow();
 	const { enabled: editable } = useCanvasChanges();
 	const stored = data[name] == null ? "" : String(data[name]);
@@ -30,14 +35,22 @@ export function PluginNumberField({ blockId, data, name, label, hint }: Props) {
 	useEffect(() => setText(stored), [stored]);
 	const commit = () => {
 		const next = text.trim() === "" ? undefined : Number(text);
-		if (next !== undefined && Number.isNaN(next)) return setText(stored);
+		if (
+			next !== undefined &&
+			(!Number.isFinite(next) || numberParamProblem({ min, max, integer }, next))
+		)
+			return setText(stored);
 		if (String(next ?? "") !== stored) updateNodeData(blockId, { [name]: next });
 	};
 	return (
 		<TextField fullWidth variant="secondary" isDisabled={!editable} value={text} onChange={setText}>
 			<Label>{label}</Label>
 			<Input
+				type="number"
 				inputMode="decimal"
+				min={min}
+				max={max}
+				step={integer ? 1 : "any"}
 				onBlur={commit}
 				onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
 			/>

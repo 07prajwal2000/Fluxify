@@ -20,7 +20,13 @@ const trigger = (over: Record<string, unknown> = {}) => ({
 });
 const withTriggers = (...triggers: ReturnType<typeof trigger>[]) =>
 	({ ...manifest(NAME, []), triggers }) as never;
-const row = (params: string[], id = "t1"): TriggerUser => ({ id, name: id, kind: KIND, params });
+const row = (params: string[], id = "t1", values?: Record<string, string | number>): TriggerUser => ({
+	id,
+	name: id,
+	kind: KIND,
+	params,
+	...(values && { values }),
+});
 
 const diff = (before: ReturnType<typeof trigger>, after: ReturnType<typeof trigger>, users = [row(["table"])]) =>
 	diffManifests(withTriggers(before), withTriggers(after), [], [], users);
@@ -60,6 +66,33 @@ describe("upgrade diff: triggers", () => {
 			{ kind: KIND, change: "param every removed", breaking: true, usedBy: [] },
 		]);
 		expect(removed.blocking).toBe(false);
+	});
+
+	it("a narrowed number range breaks the rows outside it, and widening breaks nothing", () => {
+		const before = trigger({
+			params: { ...trigger().params, every: { type: "number", default: 5, min: 1, max: 10 } },
+		});
+		const after = trigger({
+			params: { ...trigger().params, every: { type: "number", default: 5, min: 2, max: 8 } },
+		});
+		const outside = diff(before, after, [row(["table", "every"], "t1", { every: 9 })]);
+		expect(outside.changedTriggers).toEqual([
+			{
+				kind: KIND,
+				change: "param every now takes numbers from 2 to 8",
+				breaking: true,
+				usedBy: [{ id: "t1", name: "t1" }],
+			},
+		]);
+		expect(outside.blocking).toBe(true);
+		expect(outside.blockers).toEqual([
+			`trigger kind ${KIND}: param every now takes numbers from 2 to 8, but used by trigger "t1"`,
+		]);
+
+		const inside = diff(before, after, [row(["table", "every"], "t1", { every: 3 })]);
+		expect(inside.changedTriggers[0]).toMatchObject({ breaking: false, usedBy: [] });
+		expect(inside.blocking).toBe(false);
+		expect(diff(after, before, [row(["table", "every"], "t1", { every: 9 })]).blocking).toBe(false);
 	});
 
 	it("a param switched between secret and plain breaks the rows that set it", () => {

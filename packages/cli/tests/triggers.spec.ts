@@ -35,7 +35,17 @@ describe("triggers create", () => {
 				label: "poll",
 				icon: "icons/poll.svg",
 				permissions: {},
-				params: { intervalSeconds: { type: "number", label: "Poll every (seconds)", default: 30, order: 0 } },
+				params: {
+					intervalSeconds: {
+						type: "number",
+						label: "Poll every (seconds)",
+						default: 30,
+						min: 1,
+						max: 86400,
+						integer: true,
+						order: 0,
+					},
+				},
 				retry: false,
 			},
 		]);

@@ -27,7 +27,7 @@ A tool whose chain throws does not fail the agent: its entry in \`calls\` holds 
 	invoke: ["sync"],
 	params: {
 		prompt: param.string({ label: "Prompt", required: true }),
-		maxCalls: param.number({ label: "Max tool calls", default: 5 }),
+		maxCalls: param.number({ label: "Max tool calls", default: 5, min: 1, integer: true }),
 	},
 	handles: {
 		out: [handle.out("success"), handle.out("failure")],
