@@ -3,7 +3,7 @@ import { useState } from "react";
 import { TbArrowLeft, TbArrowRight, TbExternalLink } from "react-icons/tb";
 import { formatDuration } from "@/components/testSuites/CaseResults";
 import type { RecordedRun, RecordedSpan } from "@/services/recordings";
-import { EntryInputView, entryInput } from "./EntryInputView";
+import { EntryInputView, EntryResponseView, entryInput } from "./EntryInputView";
 import { PayloadViewer } from "./PayloadViewer";
 import { OutcomeIcon } from "./RecordedRunList";
 import { SpanTimeline } from "./SpanTimeline";
@@ -92,6 +92,7 @@ function SpanCard({
 				truncated={span.truncated}
 				mocked={span.metadata?.mocked?.output}
 			/>
+			<EntryResponseView span={span} />
 		</div>
 	);
 }

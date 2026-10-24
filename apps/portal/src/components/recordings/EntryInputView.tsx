@@ -43,7 +43,9 @@ function KeyValues({ title, value }: { title: string; value: unknown }) {
 							<td className="w-1/3 truncate px-3 py-1 font-mono text-muted" title={name}>
 								{name}
 							</td>
-							<td className="break-all px-3 py-1 font-mono text-foreground">{show(item)}</td>
+							<td className="whitespace-pre-wrap break-all px-3 py-1 font-mono text-foreground">
+								{show(item)}
+							</td>
 						</tr>
 					))}
 				</tbody>
@@ -91,5 +93,25 @@ export function EntryInputView({ span }: { span: RecordedSpan }) {
 		<RequestView input={entry.input} truncated={span.truncated} />
 	) : (
 		<TriggerView input={entry.input} truncated={span.truncated} />
+	);
+}
+
+/**
+ * What a route answered with: its status and the headers it set. Only on a
+ * route's own entrypoint, and only for runs recorded after the headers were kept.
+ */
+export function EntryResponseView({ span }: { span: RecordedSpan }) {
+	const response = span.metadata?.response;
+	if (!response || entryInput(span)?.kind !== "request") return null;
+	return (
+		<div className="space-y-2">
+			<p className="text-xs font-semibold text-foreground">Response</p>
+			{response.status != null && (
+				<div className="flex items-center gap-2 text-xs">
+					<Chip size="sm">{response.status}</Chip>
+				</div>
+			)}
+			<KeyValues title="Headers" value={response.headers} />
+		</div>
 	);
 }

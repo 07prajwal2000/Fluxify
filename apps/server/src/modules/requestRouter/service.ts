@@ -148,7 +148,9 @@ export async function dispatch(
 				trigger,
 			),
 		);
-		completeTrace(response.status >= 400 ? "failure" : "success", response.status);
+		completeTrace(response.status >= 400 ? "failure" : "success", response.status, {
+			headers: answeredHeaders(httpCtx),
+		});
 		return response;
 	} catch (error) {
 		if (error instanceof RequestBodyError) {
@@ -159,6 +161,18 @@ export async function dispatch(
 		completeTrace("failure", 500);
 		throw error;
 	}
+}
+
+/** the headers a run set on its response; repeated ones (Set-Cookie) join on a new line */
+function answeredHeaders(httpCtx?: Context) {
+	// the execution process's own context keeps them apart from Hono's `res`
+	const headers: Headers | undefined =
+		(httpCtx as { responseHeaders?: Headers } | undefined)?.responseHeaders ??
+		httpCtx?.res?.headers;
+	const out: Record<string, string> = {};
+	for (const [name, value] of headers ?? [])
+		out[name] = name in out ? `${out[name]}\n${value}` : value;
+	return out;
 }
 
 export async function executeRouteInternal(

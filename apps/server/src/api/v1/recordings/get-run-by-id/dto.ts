@@ -51,6 +51,13 @@ export const responseSchema = runSummarySchema.extend({
 					/** R5: the programmable block that ran this span, and the `ctx.span` it nests in */
 					owner: z.string().optional(),
 					parent: z.string().optional(),
+					/** a route's entrypoint span: the status and headers the run answered with */
+					response: z
+						.object({
+							status: z.number().int().optional(),
+							headers: z.record(z.string(), z.string()),
+						})
+						.optional(),
 				})
 				.nullable(),
 		}),

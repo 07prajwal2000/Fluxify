@@ -3,7 +3,11 @@ import type { RequestPayload } from "./types";
 
 /** A request-local recorder supplied by the isolated execution process. */
 export type RouteTrace = BlockTrace & {
-	complete(outcome: "success" | "failure", statusCode?: number): void;
+	complete(
+		outcome: "success" | "failure",
+		statusCode?: number,
+		response?: { headers: Record<string, string> },
+	): void;
 };
 
 /**
@@ -76,13 +80,17 @@ export function startRouteTrace(
 
 export function traceCompleter(trace?: RouteTrace) {
 	let complete = false;
-	return (outcome: "success" | "failure", statusCode?: number) => {
+	return (
+		outcome: "success" | "failure",
+		statusCode?: number,
+		response?: { headers: Record<string, string> },
+	) => {
 		if (complete) return;
 		complete = true;
 		// typed number, but a response block can hand over its configured "200" (#625)
 		const status = Number(statusCode);
 		try {
-			trace?.complete(outcome, Number.isInteger(status) ? status : undefined);
+			trace?.complete(outcome, Number.isInteger(status) ? status : undefined, response);
 		} catch {
 			// A failed IPC hand-off is telemetry loss, never a failed route.
 		}

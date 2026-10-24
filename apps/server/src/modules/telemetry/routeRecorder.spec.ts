@@ -10,6 +10,42 @@ const route = {
 };
 
 describe("RouteTraceRecorder", () => {
+	it("files the response headers on the top-level entrypoint span only", () => {
+		const runs: any[] = [];
+		const recorder = new RouteTraceRecorder(route, (run) => runs.push(run));
+		const span = (blockId: string, blockType: string) => ({
+			blockId,
+			blockType,
+			startedAt: 1,
+			endedAt: 2,
+			outcome: "success" as const,
+		});
+		recorder.recordSpan(span("entry", "entrypoint"));
+		recorder.recordSpan(span("res", "response"));
+		recorder.complete("success", 200, { headers: { "x-trace": "t1", "set-cookie": "a=1\nb=2" } });
+
+		const [entry, response] = runs[0].spans;
+		expect(entry.metadata.response).toEqual({
+			status: 200,
+			headers: { "x-trace": "t1", "set-cookie": "a=1\nb=2" },
+		});
+		expect(response.metadata).toBeUndefined();
+	});
+
+	it("records nothing extra when the run has no response headers", () => {
+		const runs: any[] = [];
+		const recorder = new RouteTraceRecorder(route, (run) => runs.push(run));
+		recorder.recordSpan({
+			blockId: "entry",
+			blockType: "entrypoint",
+			startedAt: 1,
+			endedAt: 2,
+			outcome: "success",
+		});
+		recorder.complete("success", 200);
+		expect(runs[0].spans[0].metadata).toBeUndefined();
+	});
+
 	it("emits one bounded, serializable completed route run", () => {
 		const runs: any[] = [];
 		const recorder = new RouteTraceRecorder(route, (run) => runs.push(run));
