@@ -60,7 +60,7 @@ export class RedisIntegration extends BaseKVIntegration implements KvAdapter {
 		await this.client.del(key);
 	}
 
-	getConnection(): any {
+	getConnection(): Redis {
 		return this.client;
 	}
 

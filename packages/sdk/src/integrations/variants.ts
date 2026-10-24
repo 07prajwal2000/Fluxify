@@ -38,6 +38,36 @@ export const BUILT_IN_VARIANT_NAMES: Record<
 	queue: ["Kafka", "NATS", "SQS", "RabbitMQ"],
 	mcp: ["http"],
 };
+/** a built-in variant's older names still stored on rows -> its name */
+export const BUILT_IN_VARIANT_ALIASES = {
+	observability: { "Open Telemetry Logs": "Open Telemetry" },
+} as const satisfies { [G in IntegrationGroup]?: Record<string, string> };
+
+/** A variant's own name for an alias of a built-in one; any other name as it is. */
+export function canonicalVariant(group: string, variant: string): string {
+	const aliases = (BUILT_IN_VARIANT_ALIASES as Record<string, Record<string, string>>)[group];
+	return (aliases && Object.hasOwn(aliases, variant) && aliases[variant]) || variant;
+}
+
+/** whether `variant` (a name or an alias) is one Fluxify ships for `group` */
+export function isBuiltInVariant(group: string, variant: string) {
+	return isBuiltInIntegrationGroup(group) && BUILT_IN_VARIANT_NAMES[group].includes(variant);
+}
+
+/**
+ * Whether an integration param's `variants` takes an integration of `variant`.
+ * Names and aliases match each other; no `variants` takes every variant.
+ */
+export function variantAllowed(
+	variants: readonly string[] | undefined,
+	group: string,
+	variant: string,
+) {
+	if (!variants) return true;
+	const name = canonicalVariant(group, variant);
+	return variants.some((v) => canonicalVariant(group, v) === name);
+}
+
 /** the built-in database variants' `dbType`s; a plugin database variant needs its own */
 export const BUILT_IN_DB_TYPES: readonly string[] = ["pg", "mongo", "mysql"];
 

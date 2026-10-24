@@ -5,6 +5,7 @@ import { pluginIntegrationUsers } from "./integrationUsage";
 import { getPluginRow, type PluginRecord } from "./repository";
 import { pluginTriggerUsers } from "./triggerUsage";
 import { pluginUsage } from "./usage";
+import { projectIntegrationKinds } from "./variantDiff";
 
 /**
  * An upgrade (#860): the pending version against the approved one it would
@@ -23,6 +24,7 @@ export async function upgradeDiff(row: PluginRecord) {
 			await pluginUsage(row.projectId, row.name),
 			await pluginIntegrationUsers(row.projectId, old),
 			await pluginTriggerUsers(row.projectId, row.name),
+			await projectIntegrationKinds(row.projectId),
 		),
 	};
 }

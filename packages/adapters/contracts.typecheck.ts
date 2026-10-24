@@ -4,6 +4,7 @@
  */
 import type {
 	AiAdapter,
+	BuiltInVariantRaw,
 	DatabaseAdapter,
 	IntrospectedTable,
 	KvAdapter,
@@ -218,5 +219,26 @@ function _typecheckNegative() {
 
 	void [_badDb, _badKv, _badObs, _badAi, _badQueueConn, _badQueueProd, _badQueueConnector, _badMcp];
 }
+
+// ---------------------------------------------------------------------------
+// 3. `connection(...).raw`: the SDK's per-variant types are what the adapters hand out
+// ---------------------------------------------------------------------------
+
+type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+type Holds<T extends true> = T;
+type Raw = BuiltInVariantRaw;
+type Client<P extends { client(): Promise<unknown> }> = Awaited<ReturnType<P["client"]>>;
+
+export type RawMatchesAdapters = [
+	Holds<Same<Raw["kv"]["Redis"], ReturnType<RedisIntegration["getConnection"]>>>,
+	Holds<Same<Raw["kv"]["Memcached"], ReturnType<MemcachedIntegration["getConnection"]>>>,
+	Holds<Same<Raw["database"]["PostgreSQL"], ReturnType<PostgresAdapter["getConnection"]>>>,
+	Holds<Same<Raw["database"]["MySQL"], ReturnType<MySqlAdapter["getConnection"]>>>,
+	Holds<Same<Raw["database"]["MongoDB"], ReturnType<MongoAdapter["getConnection"]>>>,
+	Holds<Same<Raw["queue"]["Kafka"], Client<KafkaProducer>>>,
+	Holds<Same<Raw["queue"]["NATS"], Client<NatsProducer>>>,
+	Holds<Same<Raw["queue"]["SQS"], Client<SqsProducer>>>,
+	Holds<Same<Raw["queue"]["RabbitMQ"], Client<RabbitMqProducer>>>,
+];
 
 void [_typecheckPositive, _typecheckNegative];

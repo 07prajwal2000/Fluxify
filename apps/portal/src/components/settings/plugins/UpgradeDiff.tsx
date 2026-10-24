@@ -215,6 +215,18 @@ export function UpgradeDiff({ diff, projectId }: { diff: PluginUpgradeDiff; proj
 					))}
 				</Section>
 			)}
+			{diff.changedVariants.length > 0 && (
+				<Section
+					title="Changed integration variants"
+					tone={diff.changedVariants.some((r) => r.usedBy.length) ? "danger" : undefined}
+				>
+					{diff.changedVariants.map((r) => (
+						<Item key={`${r.block}.${r.param}`} usedBy={r.usedBy} projectId={projectId}>
+							{code(r.block)}: {r.change}
+						</Item>
+					))}
+				</Section>
+			)}
 			{diff.changedHandlesOrShape.length > 0 && (
 				<Section title="Changed shape or handles">
 					{diff.changedHandlesOrShape.map((r) => (

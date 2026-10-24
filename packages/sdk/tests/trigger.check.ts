@@ -1,7 +1,7 @@
 // Type tests for `trigger()` (T1): compiled by `bun run typecheck`, never run.
 import { param } from "../blocks.js";
 import type { DatabaseAdapter } from "../integrations.js";
-import { type TriggerConnection, trigger } from "../triggers.js";
+import { type IntegrationId, type TriggerConnection, trigger } from "../triggers.js";
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2
 	? true
@@ -21,7 +21,9 @@ function contextChecks() {
 			token: param.secret(),
 		},
 		async start(ctx) {
-			assert<Equal<typeof ctx.params, { db: string; every: number; token?: string }>>();
+			assert<
+				Equal<typeof ctx.params, { db: IntegrationId<"database">; every: number; token?: string }>
+			>();
 			const db = await ctx.integrations.get<"database">(ctx.params.db);
 			assert<Equal<typeof db, DatabaseAdapter>>();
 			assert<Equal<typeof ctx.signal, AbortSignal>>();

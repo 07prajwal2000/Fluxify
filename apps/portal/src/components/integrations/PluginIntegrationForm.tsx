@@ -24,6 +24,7 @@ import {
 	BlockJsTextField,
 	BlockSelectField,
 } from "../canvas/panel/fields";
+import { integrationParamPicker } from "../canvas/panel/integrationField";
 import type { BlockNode } from "../canvas/types";
 import { AppConfigSelectorModal } from "./AppConfigSelectorModal";
 import { pluginParamTabs } from "./pluginParamTabs";
@@ -152,7 +153,7 @@ function ParamField({
 					blockId={block.id}
 					data={block.data}
 					name={name}
-					group={param.kind}
+					{...integrationParamPicker(param)}
 					label={label}
 					description={hint}
 				/>

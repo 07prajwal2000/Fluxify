@@ -1,3 +1,4 @@
+import { variantAllowed } from "@fluxify/sdk/integrations";
 import { BadRequestError } from "../../../errors/badRequestError";
 import { missingIntegrationMessage, pickValue } from "../../../lib/envValues";
 import { isPluginTriggerType } from "../../../modules/triggers/types";
@@ -107,7 +108,8 @@ export async function assertConnector(
 	if (
 		!integration ||
 		(integration.projectId ?? check.projectId) !== check.projectId ||
-		integration.variant !== label
+		// the same rule as an integration param's `variants`, so a stored alias matches too
+		!variantAllowed([label], integration.group ?? "", integration.variant ?? "")
 	)
 		throw new BadRequestError(
 			`${connector.article} ${label} trigger needs a ${label} integration from this project`,

@@ -107,27 +107,29 @@ export function openContext(
 		target: artifact.workflowId,
 	});
 	const open = withCtxIntegrations(base, (id) => integrationFor(artifact.projectId, id));
-	const granted = grantContext(
-		{ vars: { getConfig } as never, integrations: open.ctx.integrations },
-		ref.permissions,
-		label,
-	).integrations!;
+	const source = open.ctx.integrations;
 	const clients = new Map<string, Promise<unknown>>();
+	// below the gate, so every call is checked and `get` and `connection` share one client
 	const get = (id: string | undefined) => {
 		const key = String(id);
 		let client = clients.get(key);
 		if (!client) {
-			client = granted.get(id);
+			client = source.get(id);
 			clients.set(key, client);
 			// a failed open is not kept: the next call tries again
 			client.catch(() => clients.delete(key));
 		}
-		return client;
+		return client as never;
 	};
+	const { integrations } = grantContext(
+		{ vars: { getConfig } as never, integrations: { kind: source.kind, get } },
+		ref.permissions,
+		label,
+	);
 	const tag = `[trigger ${artifact.triggerId} ${def.name}]`;
 	const ctx: TriggerContext = {
 		params: params as never,
-		integrations: { get } as TriggerContext["integrations"],
+		integrations,
 		getConfig,
 		logger: {
 			logInfo: (value) => logger.info(`${tag} ${logLine(value)}`, TAG),

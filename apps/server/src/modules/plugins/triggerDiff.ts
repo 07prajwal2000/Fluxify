@@ -1,6 +1,7 @@
 import type { FluxifyManifest } from "@fluxify/sdk/blocks";
 import { paramChange } from "./integrationDiff";
 import type { TriggerUser } from "./triggerUsage";
+import { type IntegrationKinds, variantsChange } from "./variantDiff";
 
 /** who a changed trigger kind affects: the project's triggers of it */
 export type TriggerUsedBy = { id: string; name: string }[];
@@ -27,13 +28,15 @@ type Entry = NonNullable<FluxifyManifest["triggers"]>[number];
  * The triggers half of `diffManifests`. Kinds are matched by name. A param
  * removed or retyped affects the rows that set it; one newly required affects
  * the rows that do not; a narrowed grant affects every row of the kind, since
- * its integration params may point at a kind no longer granted. Label, icon and
+ * its integration params may point at a kind no longer granted; narrowed
+ * `variants` affect the rows whose integration (by `kinds`) it drops. Label, icon and
  * description changes are not listed; a `retry` change is, and breaks nothing.
  */
 export function diffTriggers(
 	old: FluxifyManifest,
 	next: FluxifyManifest,
 	users: TriggerUser[],
+	kinds: IntegrationKinds = new Map(),
 ): TriggerDiff {
 	const before = new Map<string, Entry>((old.triggers ?? []).map((e) => [e.name, e]));
 	const after = new Map<string, Entry>((next.triggers ?? []).map((e) => [e.name, e]));
@@ -63,6 +66,11 @@ export function diffTriggers(
 				change(moved.change, moved.breaking, usedBy);
 			} else if (p?.type === "integration" && q?.type === "integration" && p.kind !== q.kind)
 				change(`param ${name} now takes a ${q.kind}, not a ${p.kind}`, true, rows(kind, sets));
+			const variants = variantsChange(name, p, q);
+			if (variants) {
+				const usedBy = rows(kind, (u) => variants.drops(u.values?.[name], kinds));
+				change(variants.change, usedBy.length > 0, usedBy);
+			}
 		}
 		const dropped = (was.permissions.integrations ?? []).filter(
 			(k) => !(now.permissions.integrations ?? []).includes(k),

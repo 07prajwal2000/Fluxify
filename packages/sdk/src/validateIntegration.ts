@@ -95,6 +95,31 @@ export function permissionKindIssue(kind: string, own?: ReadonlySet<string>) {
 	return undefined;
 }
 
+/**
+ * An integration param's `variants`: each a variant of the kind's group that
+ * Fluxify ships (a name or an alias) or this plugin provides. A kind that
+ * already names a variant (`kv/Redis`) takes no `variants`.
+ */
+export function variantsIssue(
+	kind: string,
+	variants: readonly string[],
+	provided: readonly { group: string; variant: string }[],
+) {
+	const parsed = parseIntegrationKind(kind);
+	if (!parsed) return undefined; // the permission check names a bad kind
+	if (parsed.variant !== undefined)
+		return `kind '${kind}' names a variant already; write kind '${parsed.group}' to list variants`;
+	const { group } = parsed;
+	const known = [
+		...(isBuiltInIntegrationGroup(group) ? BUILT_IN_VARIANT_NAMES[group] : []),
+		...provided.filter((p) => p.group === group).map((p) => p.variant),
+	];
+	const unknown = variants.filter((v) => !known.includes(v));
+	if (unknown.length)
+		return `${unknown.map((v) => `'${v}'`).join(", ")} ${unknown.length > 1 ? "are not variants" : "is not a variant"} of ${group}; known: ${known.join(", ") || "none"}`;
+	return undefined;
+}
+
 /** The rules of an integration manifest entry no single field can check. */
 export function checkIntegrationEntry(e: Entry, ctx: z.RefinementCtx) {
 	const issue: Issue = (message, path) => ctx.addIssue({ code: "custom", message, path });

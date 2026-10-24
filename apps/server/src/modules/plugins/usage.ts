@@ -11,7 +11,7 @@ import {
 } from "../../db/schema";
 import { pluginIntegrationUsers } from "./integrationUsage";
 import { getPluginRow } from "./repository";
-import { pluginTriggerUsers } from "./triggerUsage";
+import { pluginTriggerUsers, stringValues } from "./triggerUsage";
 
 /**
  * Who uses a plugin (#860), node by node: the upgrade diff needs to know which
@@ -33,6 +33,8 @@ export type PluginNodeUse = {
 	/** handles the node's edges are wired to: in, out and body */
 	handles: string[];
 	invoke: string;
+	/** the string values it sets, by param: an integration param's id among them */
+	values?: Record<string, string>;
 };
 
 export type PluginUser = {
@@ -96,6 +98,7 @@ export function nodeUses(
 					.sort(),
 				handles: [...handles].sort(),
 				invoke: typeof data.invoke === "string" ? data.invoke : "sync",
+				values: stringValues(data),
 			};
 		});
 }

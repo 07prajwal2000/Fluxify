@@ -217,6 +217,10 @@ export const upgradePreviewSchema = z.object({
 				usedBy,
 			}),
 		),
+		/** an integration param's variants changed; blocks approval while `usedBy` is not empty */
+		changedVariants: z.array(
+			z.object({ block: z.string(), param: z.string(), change: z.string(), usedBy }),
+		),
 		changedHandlesOrShape: z.array(
 			z.object({ block: z.string(), before: handlesAndShape, after: handlesAndShape }),
 		),

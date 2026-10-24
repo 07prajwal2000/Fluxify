@@ -109,7 +109,7 @@ export class PostgresAdapter implements DatabaseAdapter {
 	async raw(query: string | any, params?: any[]): Promise<any> {
 		if (typeof query !== "string") throw new Error("raw() accepts only string queries.");
 
-		const conn = this.getConnection();
+		const conn = this.executor();
 		// rows only: the full result carries a BigInt `numAffectedRows` that JSON cannot serialize
 		const result = await conn.executeQuery(CompiledQuery.raw(query, params ?? []));
 		return result.rows;
@@ -155,7 +155,7 @@ export class PostgresAdapter implements DatabaseAdapter {
 		cursor: DbCursor,
 		options?: QueryOptions,
 	): Promise<DbPage> {
-		const { qb, qualifiers } = this.select(this.getConnection(), table, conditions, options);
+		const { qb, qualifiers } = this.select(this.executor(), table, conditions, options);
 		const sorts = cursorSorts(
 			activeSorts(sort),
 			cursor.keys,
@@ -236,13 +236,13 @@ export class PostgresAdapter implements DatabaseAdapter {
 	}
 
 	async delete(table: string, conditions: DBConditionType[]): Promise<WriteResult> {
-		const qb = this.buildQuery(conditions, this.getConnection().deleteFrom(table as never));
+		const qb = this.buildQuery(conditions, this.executor().deleteFrom(table as never));
 		const affected = await qb.returningAll().execute();
 		return { count: affected.length, affected };
 	}
 
 	async insert(table: string, data: any, onConflict?: OnConflict): Promise<any> {
-		const conn = this.getConnection();
+		const conn = this.executor();
 		const { rows, counters } = upsertRows([data], onConflict);
 		const qb = conn.insertInto(table as never).values(rows[0] as never);
 		const res = await withConflict(qb, table, rows, counters, onConflict)
@@ -278,7 +278,7 @@ export class PostgresAdapter implements DatabaseAdapter {
 		};
 
 		if (!useTransaction || this.mode === DbAdapterMode.TRANSACTION)
-			return insertChunks(this.getConnection());
+			return insertChunks(this.executor());
 
 		// A transaction of its own on a reserved connection, not the adapter's mode: parallel
 		// chains share this adapter and must not join it. Not Kysely's db.transaction(): the
@@ -306,7 +306,7 @@ export class PostgresAdapter implements DatabaseAdapter {
 	 * another run updated while we waited has a new ctid, the join would miss it and lose the update.
 	 */
 	async update(table: string, data: any, conditions: DBConditionType[]): Promise<WriteResult> {
-		const conn = this.getConnection();
+		const conn = this.executor();
 		const set = sqlCounterSet(data) as never;
 		const pk = await this.primaryKey(table);
 		if (pk.length === 0) {
@@ -395,7 +395,13 @@ export class PostgresAdapter implements DatabaseAdapter {
 		}
 	}
 
-	private getConnection(): Kysely<FluxifyDatabase> {
+	/** the pool (Bun `SQL`), outside any transaction this adapter holds */
+	getConnection(): SQL {
+		return this.sql;
+	}
+
+	/** the transaction's Kysely while one is open, else the pool's */
+	private executor(): Kysely<FluxifyDatabase> {
 		return this.mode === DbAdapterMode.TRANSACTION && this.transactionDb
 			? this.transactionDb
 			: this.db;

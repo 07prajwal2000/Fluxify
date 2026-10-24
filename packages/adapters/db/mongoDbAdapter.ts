@@ -58,6 +58,11 @@ export class MongoAdapter implements DatabaseAdapter {
 		}
 	}
 
+	/** the configured database, outside any transaction's session */
+	getConnection(): Db {
+		return this.db;
+	}
+
 	async raw(): Promise<Db> {
 		return this.db;
 	}

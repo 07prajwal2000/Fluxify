@@ -47,6 +47,8 @@ export {
 	type FieldMapParam,
 	type HintParam,
 	hint,
+	type IntegrationId,
+	type IntegrationParam,
 	type JsonValue,
 	type KeyValueParam,
 	type Param,

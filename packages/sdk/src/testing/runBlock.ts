@@ -24,6 +24,7 @@ import {
 } from "../runtime/contract.js";
 import { createSpan, leasePool, type SpanRecord } from "../runtime/ctx.js";
 import { openVariant } from "../runtime/integration.js";
+import { setRaw } from "../runtime/raw.js";
 import { evaluateParams } from "./evaluate.js";
 import {
 	type LogEntry,
@@ -74,7 +75,8 @@ export type TestContext = {
 	config?: Record<string, string | number | boolean>;
 	/**
 	 * What `ctx.integrations.get(id)` returns, by id: a prebuilt `client` of
-	 * `kind` (`database`, `database/PostgreSQL`, `acme/store`), or a real
+	 * `kind` (`database`, `database/PostgreSQL`, `acme/store`), with the `raw`
+	 * `connection(id)` hands out (`kind` names its variant), or a real
 	 * `integration(...)` with its config, connected (and pooled by its `poolKey`)
 	 * the way a worker does. The kind must be granted by the block's
 	 * `permissions.integrations`; an id not listed here is unknown.
@@ -173,7 +175,13 @@ function bodyHandles(
 }
 
 export type FakeIntegration =
-	| { kind: string; client: unknown }
+	| {
+			/** `database`, `kv/Redis`, `acme/store`: name the variant to give `connection` one */
+			kind: string;
+			client: unknown;
+			/** what `connection(id).raw` is: the variant's own client (an ioredis fake for Redis) */
+			raw?: unknown;
+	  }
 	| ({ integration: AnyIntegration } & RunIntegrationOptions);
 
 export type Pool = ReturnType<typeof leasePool>["pool"];
@@ -211,6 +219,7 @@ export function fakeIntegrations(
 			else {
 				const parsed = parseIntegrationKind(fake.kind);
 				const kind = { group: parsed?.group ?? fake.kind, variant: parsed?.variant ?? "" };
+				if ("raw" in fake) setRaw(fake.client, () => fake.raw);
 				sources.set(id, { kind, get: async () => fake.client });
 			}
 		return sources.get(id);

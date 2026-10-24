@@ -64,7 +64,7 @@ export class MemcachedIntegration extends BaseKVIntegration implements KvAdapter
 		});
 	}
 
-	getConnection(): any {
+	getConnection(): Memcached {
 		return this.client;
 	}
 

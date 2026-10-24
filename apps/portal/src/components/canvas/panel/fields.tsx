@@ -6,7 +6,6 @@ import {
 	type FieldInfo,
 	FieldInfoButton,
 	Input,
-	IntegrationSelector,
 	JsTextField,
 	type JsTextFieldSuggestion,
 	Label,
@@ -22,12 +21,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppConfigField } from "@/components/appConfig/AppConfigField";
 import type { AppConfigExtraItem } from "@/components/integrations/AppConfigSelectorModal";
 import { WorkflowField } from "@/components/workflows/WorkflowField";
-import { withBasePath } from "@/constants/routes";
 import { customBlocksQuery } from "@/query/customBlocksQuery";
-import { integrationService } from "@/services/integrations";
 import { useCanvasChanges } from "../changes/ChangesContext";
 import type { BlockData } from "../types";
 import type { CustomBlockInputParam } from "./blocks/CustomBlockSettings";
+
+export { BlockIntegrationField, type BlockIntegrationFieldProps } from "./integrationField";
 
 export type FieldProps = {
 	blockId: string;
@@ -253,146 +252,6 @@ export function BlockCheckboxField({
 			label={label}
 			description={hint ?? description}
 			onChange={(next) => updateNodeData(blockId, { [name]: next })}
-		/>
-	);
-}
-
-/**
- * On a custom block's canvas, the block's own `integration_selector` input
- * parameters are offered alongside the project's integrations. Picking one
- * writes `param:<name>`, which the engine substitutes with whatever the calling
- * block was configured with — so the concrete integration is chosen on the
- * caller's side, not here. `blockId` is only present on the custom block route,
- * which is what keeps this out of route canvases.
- */
-function useCustomBlockParamIntegrations(
-	projectId: string,
-	customBlockId: string | undefined,
-	group: string,
-) {
-	const { data: blocks } = customBlocksQuery.getAll.useQuery(projectId);
-
-	return useMemo(() => {
-		if (!customBlockId) return undefined;
-		const block = blocks?.find((b) => b.id === customBlockId);
-		const params = Array.isArray(block?.inputParams)
-			? (block.inputParams as CustomBlockInputParam[])
-			: [];
-		const matching = params.filter(
-			(param) => param.type === "integration_selector" && param.group === group,
-		);
-		if (matching.length === 0) return undefined;
-		return matching.map((param) => ({
-			id: `param:${param.name}`,
-			name: param.label || param.name,
-			group,
-			variant: "Input parameter",
-			config: {},
-			external: true,
-			hint: `Set by whoever places this block — the “${param.label || param.name}” input.`,
-		}));
-	}, [blocks, customBlockId, group]);
-}
-
-export type BlockIntegrationFieldProps = {
-	blockId: string;
-	data: BlockData;
-	name: string;
-	group?: string;
-	/** integrations of other groups also offered, limited to these variants (Redis for Send Message) */
-	extraGroups?: { group: string; variants: string[] }[];
-	/** variants of `group` left out, e.g. a broker the block cannot use yet */
-	excludeVariants?: string[];
-	label?: ReactNode;
-	description?: string;
-};
-
-/**
- * An integration selector block setting field backed by IntegrationSelector.
- */
-export function BlockIntegrationField({
-	blockId,
-	data,
-	name,
-	group = "database",
-	extraGroups,
-	excludeVariants,
-	label,
-	description,
-}: BlockIntegrationFieldProps) {
-	const { updateNodeData } = useReactFlow();
-	const { enabled: editable } = useCanvasChanges();
-	const params = useParams({ strict: false }) as {
-		projectId?: string;
-		blockId?: string;
-	};
-	const projectId = params?.projectId ?? "";
-	const selectedId = typeof data[name] === "string" ? (data[name] as string) : "";
-	const injectedIntegrations = useCustomBlockParamIntegrations(projectId, params?.blockId, group);
-
-	const extraKey = JSON.stringify(extraGroups ?? []);
-	const excludeKey = JSON.stringify(excludeVariants ?? []);
-	const loadIntegrations = useCallback(async () => {
-		if (!projectId) return [];
-		const extras: { group: string; variants: string[] }[] = JSON.parse(extraKey);
-		const excluded: string[] = JSON.parse(excludeKey);
-		const lists = await Promise.all([
-			((await integrationService.getAll(projectId, group)) || []).filter(
-				(item) => !excluded.includes(item.variant),
-			),
-			...extras.map(async (extra) =>
-				((await integrationService.getAll(projectId, extra.group)) || []).filter((item) =>
-					extra.variants.includes(item.variant),
-				),
-			),
-		]);
-		return lists
-			.flatMap((list) => list || [])
-			.map((item) => ({
-				id: item.id,
-				name: item.name,
-				group: item.group,
-				variant: item.variant,
-				config: (item.config ?? {}) as Record<string, unknown>,
-				tags: item.tags,
-			}));
-	}, [projectId, group, extraKey, excludeKey]);
-
-	const handleTestConnection = useCallback(
-		async (id: string) => {
-			if (!projectId || !id) return;
-			await integrationService.testExistingConnection(projectId, id);
-		},
-		[projectId],
-	);
-
-	const groupParam = group ? `?group=${encodeURIComponent(group)}` : "";
-	const openPath = selectedId ? `/${encodeURIComponent(selectedId)}` : groupParam;
-
-	return (
-		<IntegrationSelector
-			label={label}
-			description={description}
-			group={group}
-			selectedId={selectedId}
-			loadIntegrations={loadIntegrations}
-			injectedIntegrations={injectedIntegrations}
-			readonly={!editable}
-			onSelect={(id) => {
-				if (!editable) return;
-				updateNodeData(blockId, { [name]: id });
-			}}
-			onTestConnection={projectId ? handleTestConnection : undefined}
-			openInNewTabUrl={
-				projectId ? withBasePath(`/${projectId}/integrations${openPath}`) : undefined
-			}
-			createIntegrationUrl={
-				projectId
-					? withBasePath(
-							`/${projectId}/integrations/new${group ? `?group=${encodeURIComponent(group)}` : ""}`,
-						)
-					: undefined
-			}
 		/>
 	);
 }

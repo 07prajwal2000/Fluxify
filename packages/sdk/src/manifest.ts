@@ -3,7 +3,11 @@ import { handleSpecSchema } from "./handles.js";
 import type { Condition, VisibleWhenInput } from "./params.js";
 import { CTX_SPAN_TYPE, ICON_URL_MAX, INVOKE_MODES } from "./reserved.js";
 import { checkEntry, RESERVED_PARAM_NAMES } from "./validate.js";
-import { checkIntegrationEntry, permissionKindIssue } from "./validateIntegration.js";
+import {
+	checkIntegrationEntry,
+	permissionKindIssue,
+	variantsIssue,
+} from "./validateIntegration.js";
 import { checkTriggerEntry } from "./validateTrigger.js";
 
 const scalar = z.union([z.string(), z.number(), z.boolean()]);
@@ -67,7 +71,16 @@ export const paramSchema = z.discriminatedUnion("type", [
 		}),
 	bare("js"),
 	typed("json", z.json()),
-	z.strictObject({ type: z.literal("integration"), ...common, kind: z.string().min(1) }),
+	z.strictObject({
+		type: z.literal("integration"),
+		...common,
+		kind: z.string().min(1),
+		variants: z
+			.array(z.string().min(1))
+			.min(1, "variants lists at least one variant; leave it out for every variant")
+			.refine((v) => new Set(v).size === v.length, "variants must be unique")
+			.optional(),
+	}),
 	typed("appconfig", z.string()),
 	bare("secret"),
 	typed("conditions", z.array(condition)),
@@ -280,7 +293,18 @@ export const fluxifyManifestSchema = pluginMetaSchema
 			...Object.entries(m.blocks).map(([type, b]) => [["blocks", type], b] as const),
 			...(m.triggers ?? []).map((t, i) => [["triggers", i], t] as const),
 		];
-		for (const [at, e] of granted)
+		const provided = (m.integrations ?? []).map((e) => ({ group: e.group, variant: e.variant }));
+		for (const [at, e] of granted) {
+			for (const [name, p] of Object.entries(e.params)) {
+				if (p.type !== "integration" || !p.variants) continue;
+				const message = variantsIssue(p.kind, p.variants, provided);
+				if (message)
+					ctx.addIssue({
+						code: "custom",
+						message: `param '${name}': ${message}`,
+						path: [...at, "params", name, "variants"],
+					});
+			}
 			for (const [i, kind] of (e.permissions.integrations ?? []).entries()) {
 				const message = permissionKindIssue(kind, own);
 				if (message)
@@ -290,6 +314,7 @@ export const fluxifyManifestSchema = pluginMetaSchema
 						path: [...at, "permissions", "integrations", i],
 					});
 			}
+		}
 	});
 
 /** where an integration's built module sits: `scope/name/a/b` is `dist/integrations/a/b.js` */

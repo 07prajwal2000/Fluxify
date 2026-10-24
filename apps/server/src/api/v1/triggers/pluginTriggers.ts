@@ -1,4 +1,4 @@
-import { integrationKindCovers, paramsConfigSchema } from "@fluxify/sdk/integrations";
+import { paramsConfigSchema } from "@fluxify/sdk/integrations";
 import type { TriggerEntry } from "@fluxify/sdk/triggers";
 import { and, eq, like } from "drizzle-orm";
 import { type DbTransactionType, db } from "../../../db";
@@ -7,10 +7,10 @@ import { ValidationError } from "../../../errors/validationError";
 import type { FluxifyEnv } from "../../../lib/env";
 import type { PluginTriggerArtifact } from "../../../modules/compiler/artifacts";
 import { isUsableIn, liveOf } from "../../../modules/plugins/meta";
+import { integrationParamProblem, projectIntegration } from "../../../modules/plugins/paramCheck";
 import { listPluginRows } from "../../../modules/plugins/repository";
 import { findTriggerKind } from "../../../modules/plugins/triggerKinds";
 import { isPluginTriggerType, pluginTriggerKind } from "../../../modules/triggers/types";
-import { findIntegration } from "./repository";
 
 /**
  * Plugin triggers (T2): a row of type `plugin:<kind>` whose params live in its
@@ -19,7 +19,6 @@ import { findIntegration } from "./repository";
  */
 
 type FieldError = { field: string; message: string };
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type PluginTriggerCheck = {
 	type: string;
@@ -77,31 +76,14 @@ async function paramErrors(
 		}
 		const value = source[name];
 		if (param.type !== "integration" || typeof value !== "string") continue;
-		const message = await integrationProblem(entry, param.kind, value, projectId, tx);
+		const found = await projectIntegration(value, projectId, tx);
+		const owner = { label: `trigger ${entry.name}`, granted: entry.permissions.integrations ?? [] };
+		const message = found
+			? integrationParamProblem(owner, param, found)
+			: `no integration ${value} in this project`;
 		if (message) errors.push({ field, message });
 	}
 	return errors;
-}
-
-/** an `integration` param points at an integration of this project, of its kind, which the trigger was granted */
-async function integrationProblem(
-	entry: TriggerEntry,
-	kind: string,
-	id: string,
-	projectId: string,
-	tx?: DbTransactionType,
-) {
-	// the id column is a uuid: anything else is an error from Postgres, not a 400
-	const integration = UUID.test(id) ? await findIntegration(id, tx) : undefined;
-	if (!integration || (integration.projectId ?? projectId) !== projectId)
-		return `no integration ${id} in this project`;
-	const group = integration.group ?? "";
-	const variant = integration.variant ?? "";
-	const granted = entry.permissions.integrations ?? [];
-	if (!integrationKindCovers(kind, group, variant))
-		return `integration "${integration.name}" is ${group}/${variant}, not a ${kind}`;
-	if (!granted.some((k) => integrationKindCovers(k, group, variant)))
-		return `trigger ${entry.name} was not granted ${group}/${variant} integrations`;
 }
 
 /**
