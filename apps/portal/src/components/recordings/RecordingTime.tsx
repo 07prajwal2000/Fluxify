@@ -52,9 +52,7 @@ export function RecordingTime({
 
 	return (
 		<Tooltip delay={200}>
-			<Tooltip.Trigger
-				render={(props) => <span {...props} className={className} title={absolute} />}
-			>
+			<Tooltip.Trigger render={(props) => <span {...props} className={className} />}>
 				{relative}
 			</Tooltip.Trigger>
 			<Tooltip.Content className="whitespace-nowrap">{absolute}</Tooltip.Content>
