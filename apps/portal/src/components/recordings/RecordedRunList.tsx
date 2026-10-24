@@ -340,8 +340,8 @@ export function RecordedRunList({
 								className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 p-3 text-left"
 							>
 								<OutcomeIcon outcome={run.outcome} />
-								{run.statusCode != null && (
-									<span className="font-mono text-xs text-foreground">{run.statusCode}</span>
+								{target.type === "route" && run.statusCode != null && (
+									<span className="font-mono text-xs text-foreground">Status {run.statusCode}</span>
 								)}
 								<span className="shrink-0 font-mono text-[11px] text-foreground">{run.graph}</span>
 								<Chip size="sm" color={run.values === "development" ? "accent" : "default"}>
@@ -363,7 +363,8 @@ export function RecordedRunList({
 								)}
 								<IncompleteChip run={run} />
 								<span className="text-xs text-muted">{run.spanCount} blocks</span>
-								<span className="w-16 text-right text-xs text-muted">
+								<span className="shrink-0 text-right text-xs text-muted">
+									{target.type === "workflow" ? "Duration" : "Response time"}{" "}
 									{formatDuration(run.durationMs)}
 								</span>
 							</button>

@@ -111,3 +111,27 @@ test("a version id narrows the list to that version's runs", async () => {
 		expect(runs.mock.calls.some((call) => call[2]?.versionId === "version-2")).toBe(true),
 	);
 });
+
+test("route runs show Status and Response time labels; workflows show Duration without Status", async () => {
+	stub();
+	const routeView = mount();
+	await until(() => expect(routeView.getAllByText("Status 200").length).toBe(2));
+	expect(routeView.getAllByText("Response time 10ms").length).toBe(2);
+	routeView.unmount();
+
+	const workflowView = render(
+		<QueryClientProvider
+			client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+		>
+			<RecordedRunList
+				projectId="p1"
+				target={{ type: "workflow", id: "w1" }}
+				emptyHint="run workflow"
+				onOpen={() => {}}
+			/>
+		</QueryClientProvider>,
+	);
+	await until(() => expect(workflowView.getAllByText("Duration 10ms").length).toBe(2));
+	expect(workflowView.queryByText("Status 200")).toBeNull();
+	workflowView.unmount();
+});
