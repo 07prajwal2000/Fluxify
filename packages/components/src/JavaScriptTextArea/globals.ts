@@ -96,6 +96,11 @@ declare interface Blob {
   stream(): ReadableStream<Uint8Array>;
   slice(start?: number, end?: number, contentType?: string): Blob;
 }
+/** a file from a multipart upload */
+declare interface File extends Blob {
+  readonly name: string;
+  readonly lastModified: number;
+}
 /**
  * get the data this run was given — an HTTP request body, or a workflow payload.
  *
@@ -132,8 +137,13 @@ declare const httpRequestRoute: string;
  * @example const users = await dbQuery("SELECT * FROM users WHERE id = $1", [id]);
  */
 declare function dbQuery(query: string, params?: unknown[]): Promise<any[]>;
+/**
+ * Declared empty; the editor merges the previous block's output type into it
+ * as \`value\` (see blockInputTypes.ts). Until it does, \`input\` is \`any\`.
+ */
+declare interface FluxifyBlockInput {}
 /** The output of the previous block */
-declare const input: any;
+declare const input: "value" extends keyof FluxifyBlockInput ? FluxifyBlockInput["value"] : any;
 /** One event a trigger collected, with what the source said about it. */
 declare interface FluxifyTriggerEvent {
   /** The event's payload. */

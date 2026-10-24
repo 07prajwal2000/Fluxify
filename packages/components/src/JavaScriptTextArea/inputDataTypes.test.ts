@@ -60,6 +60,24 @@ describe("buildInputDataTypeLib", () => {
 		expect(lib).toContain('"content-type": string;');
 	});
 
+	it("types a multipart file as File, and several files as File[]", () => {
+		const lib = buildInputDataTypeLib({
+			dataType: "object",
+			properties: [
+				{ key: "avatar", dataType: "file", required: true },
+				{
+					key: "docs",
+					dataType: "arr",
+					required: true,
+					items: { key: "item", dataType: "file" },
+				},
+			],
+		});
+
+		expect(lib).toContain("avatar: File;");
+		expect(lib).toContain("docs: File[];");
+	});
+
 	it("switches getRequestBody to a stream for a pipe route", () => {
 		expect(buildInputDataTypeLib(null, "stream")).toContain(
 			"interface FluxifyStreamMode",

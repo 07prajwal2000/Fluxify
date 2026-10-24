@@ -36,7 +36,7 @@ function readString(...candidates: unknown[]): string {
  * both to look up column suggestions, and every one of them used to re-derive
  * it with its own chain of `typeof` checks.
  */
-export function readDbBinding(block: BlockNode) {
+export function readDbBinding(block: Pick<BlockNode, "data">) {
 	return {
 		connectionId: readString(
 			block.data.connection,

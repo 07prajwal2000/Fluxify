@@ -1,8 +1,28 @@
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, queryOptions, useQuery } from "@tanstack/react-query";
 import { useCallback, useMemo } from "react";
 import { integrationsQuery } from "@/query/integrationsQuery";
 import { findResourceService } from "@/services/findResource";
 import { integrationService } from "@/services/integrations";
+
+/** Shared with code that reads the cache outside a component (`queryClient.ensureQueryData`). */
+export function integrationMetadataOptions(projectId: string, integrationId?: string) {
+	return queryOptions({
+		queryKey: ["integrations", projectId, "metadata", integrationId],
+		queryFn: async () => {
+			if (!projectId || !integrationId) return null;
+			try {
+				return await integrationService.getMetadata(projectId, integrationId);
+			} catch {
+				// gracefully ignore metadata loading errors
+				return null;
+			}
+		},
+		enabled: Boolean(projectId) && Boolean(integrationId),
+		staleTime: 5 * 60 * 1000,
+		retry: false,
+		refetchOnWindowFocus: false,
+	});
+}
 
 export const findResourceQuery = {
 	search: {
@@ -23,22 +43,7 @@ export const findResourceQuery = {
 	getIntegrationMetadata: {
 		/** Fetches integration metadata (e.g. database tables and columns) */
 		useQuery(projectId: string, integrationId?: string) {
-			return useQuery({
-				queryKey: ["integrations", projectId, "metadata", integrationId],
-				queryFn: async () => {
-					if (!projectId || !integrationId) return null;
-					try {
-						return await integrationService.getMetadata(projectId, integrationId);
-					} catch {
-						// gracefully ignore metadata loading errors
-						return null;
-					}
-				},
-				enabled: Boolean(projectId) && Boolean(integrationId),
-				staleTime: 5 * 60 * 1000,
-				retry: false,
-				refetchOnWindowFocus: false,
-			});
+			return useQuery(integrationMetadataOptions(projectId, integrationId));
 		},
 	},
 };
