@@ -4,13 +4,13 @@ import { TbArrowLeft, TbPlayerPlay } from "react-icons/tb";
 import { SplitPane } from "@/components/common/SplitPane";
 import { formatDuration } from "@/components/testSuites/CaseResults";
 import { FromTestLink } from "@/components/testSuites/FromTestLink";
-import { formatWhen } from "@/components/testSuites/RunResults";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { customBlocksQuery } from "@/query/customBlocksQuery";
 import { recordingsQuery } from "@/query/recordingsQuery";
 import type { RecordedSpan, RecordingTarget } from "@/services/recordings";
 import { OverlayCanvas } from "./OverlayCanvas";
 import { IncompleteChip, OutcomeIcon } from "./RecordedRunList";
+import { RecordingTime } from "./RecordingTime";
 import { type Replay, replayOf } from "./replay";
 import { type SpanActions, SpanDetail } from "./SpanDetail";
 import { type Frame, rootCanvasId, spansAt } from "./spans";
@@ -126,7 +126,7 @@ export function RecordedRunViewer({
 						{root.statusCode != null && (
 							<span className="font-mono text-foreground">{root.statusCode}</span>
 						)}
-						<span>{formatWhen(root.startedAt)}</span>
+						<RecordingTime timestamp={root.startedAt} />
 						<span>{formatDuration(root.durationMs)}</span>
 						<IncompleteChip run={root} />
 						{replay && onReplay && (

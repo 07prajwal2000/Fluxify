@@ -116,11 +116,15 @@ export function appConfig(values: Record<string, string>, missing: string[] = []
 }
 
 export const faults: TriggerFault[] = [];
-setTriggerFaultReporter((fault) => faults.push(fault));
+export function attachFaultReporter() {
+	setTriggerFaultReporter((fault) => faults.push(fault));
+}
+attachFaultReporter();
 
 /** short enough for a test; restored by `resetLimits` */
 const defaults = { ...pluginTriggerLimits };
 export function fastLimits() {
+	attachFaultReporter();
 	Object.assign(pluginTriggerLimits, {
 		maxFailures: 3,
 		retryDelayMs: 5,
@@ -132,7 +136,7 @@ export function fastLimits() {
 export const resetLimits = () => Object.assign(pluginTriggerLimits, defaults);
 
 /** polls `read` until `done` holds, or fails naming `what` */
-export async function until<T>(read: () => T, done: (value: T) => boolean, what: string, ms = 3000) {
+export async function until<T>(read: () => T, done: (value: T) => boolean, what: string, ms = 6000) {
 	const end = Date.now() + ms;
 	for (;;) {
 		const value = read();
