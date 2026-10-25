@@ -29,8 +29,8 @@ export function UserMessage({ query }: { query: string }) {
 
 	return (
 		<div className="group flex w-full justify-end">
-			<div className="flex max-w-[65%] flex-col items-end gap-1">
-				<Card className="relative overflow-hidden rounded-2xl rounded-br-sm border-none bg-default-100 !p-0 shadow-none">
+			<div className="flex min-w-0 max-w-[65%] flex-col items-end gap-1">
+				<Card className="relative max-w-full overflow-hidden rounded-2xl rounded-br-sm border-none bg-default-100 !p-0 shadow-none">
 					<div className="px-4 py-3 text-sm leading-relaxed text-foreground/80">
 						<div
 							ref={contentRef}
@@ -41,7 +41,9 @@ export function UserMessage({ query }: { query: string }) {
 								components={
 									{
 										p: ({ children }: any) => (
-											<p className="m-0 mb-2 last:mb-0 whitespace-pre-wrap">{children}</p>
+											<p className="m-0 mb-2 last:mb-0 whitespace-pre-wrap [overflow-wrap:anywhere]">
+												{children}
+											</p>
 										),
 										...refComponents,
 									} as any

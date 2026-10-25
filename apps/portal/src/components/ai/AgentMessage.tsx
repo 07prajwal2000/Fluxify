@@ -26,7 +26,9 @@ function Reasoning({ part }: { part: ReasoningPart }) {
 			</summary>
 			{text && (
 				<>
-					<p className="mt-1 whitespace-pre-wrap border-l-2 border-border pl-3">{text}</p>
+					<p className="mt-1 whitespace-pre-wrap border-l-2 border-border pl-3 [overflow-wrap:anywhere]">
+						{text}
+					</p>
 					{/* long thinking puts the top toggle far away */}
 					<button
 						type="button"
@@ -63,7 +65,7 @@ export function AgentMessage({
 			<UserMessage query={message.parts.map((p) => (p.type === "text" ? p.text : "")).join("")} />
 		);
 	return (
-		<div className="flex w-full flex-col gap-2">
+		<div className="flex w-full min-w-0 flex-col gap-2">
 			{message.parts.map((p, i) => (
 				// biome-ignore lint/suspicious/noArrayIndexKey: parts only ever append
 				<PartView key={i} part={p} waiting={waiting} running={running} />

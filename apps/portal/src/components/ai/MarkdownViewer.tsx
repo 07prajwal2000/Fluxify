@@ -39,7 +39,7 @@ interface MarkdownViewerProps {
 
 export function MarkdownViewer({ content }: MarkdownViewerProps) {
 	return (
-		<div className="w-full text-left text-sm text-foreground/80 leading-relaxed">
+		<div className="w-full min-w-0 text-left text-sm text-foreground/80 leading-relaxed [overflow-wrap:anywhere]">
 			<ReactMarkdown
 				remarkPlugins={[remarkGfm, remarkDirective, remarkDirectiveRehype]}
 				components={
