@@ -19,6 +19,30 @@ function Schema({ title, value }: { title: string; value: unknown }) {
 	);
 }
 
+type StoredResponseSchema = { statusCode: number; schema: ValidationSchema };
+
+/** One summary per status code. A version from before response schemas existed has no list at all. */
+function ResponseSchemas({ value }: { value: unknown }) {
+	const schemas = Array.isArray(value) ? (value as StoredResponseSchema[]) : [];
+	return (
+		<Section
+			title="Response schemas"
+			description={
+				schemas.length ? "What each status code answered at this version." : "None saved."
+			}
+		>
+			<div className="flex flex-col gap-3">
+				{schemas.map(({ statusCode, schema }) => (
+					<div key={statusCode}>
+						<p className="mb-1 font-mono text-xs text-muted">{statusCode}</p>
+						<SchemaSummary schema={schema} />
+					</div>
+				))}
+			</div>
+		</Section>
+	);
+}
+
 function MiddlewareNames({ projectId, ids }: { projectId: string; ids: string[] }) {
 	const { data } = middlewaresQuery.getAll.useQuery(projectId);
 	if (ids.length === 0) return <p className="text-xs text-muted">None.</p>;
@@ -69,6 +93,7 @@ export function VersionSettings({
 					<Schema title="Path params" value={settings.paramsSchema} />
 					<Schema title="Query string" value={settings.querySchema} />
 					<Schema title="Request body" value={settings.bodySchema} />
+					<ResponseSchemas value={settings.responseSchemas} />
 				</>
 			)}
 			{(kind === "route" || kind === "workflow") && (

@@ -1,5 +1,5 @@
 import { Button, Tabs } from "@heroui/react";
-import { useMemo } from "react";
+import { type ReactNode, useMemo } from "react";
 import { TbClock, TbCopy, TbDatabase } from "react-icons/tb";
 import { DebugErrorView } from "../DebugError";
 import { MonacoEditor as Editor } from "../JavaScriptTextArea/monacoEditor";
@@ -9,9 +9,11 @@ import { formatResponseBody, inferLanguage, responseHeaders, statusTone } from "
 export function ResponsePanel({
 	response,
 	onSelectBlock,
+	renderActions,
 }: {
 	response?: ApiPlaygroundResponse;
 	onSelectBlock?: (blockId: string, message: string) => void;
+	renderActions?: (response: ApiPlaygroundResponse) => ReactNode;
 }) {
 	const headers = useMemo(() => responseHeaders(response?.headers), [response?.headers]);
 	const mimeType =
@@ -91,6 +93,9 @@ export function ResponsePanel({
 							>
 								<TbCopy size={14} />
 							</Button>
+							{renderActions && (
+								<div className="absolute bottom-3 right-3 z-10">{renderActions(response)}</div>
+							)}
 						</div>
 					) : (
 						<EmptyResponse />

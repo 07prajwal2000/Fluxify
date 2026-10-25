@@ -46,6 +46,8 @@ export function ApiPlayground({
 	onStateChange,
 	onSelectBlock,
 	editableRequest = false,
+	renderResponseActions,
+	schemasTab,
 }: ApiPlaygroundProps) {
 	const [method, setMethod] = useState(declaredRoute.method);
 	const route = useMemo(
@@ -331,8 +333,13 @@ export function ApiPlayground({
 					onHeaderRowsChange={setHeaderRows}
 					onRequestBodyChange={handleRequestBodyChange}
 					onContentTypeChange={setContentType}
+					schemasTab={schemasTab}
 				/>
-				<ResponsePanel response={response} onSelectBlock={onSelectBlock} />
+				<ResponsePanel
+					response={response}
+					onSelectBlock={onSelectBlock}
+					renderActions={renderResponseActions}
+				/>
 			</div>
 		</Card>
 	);

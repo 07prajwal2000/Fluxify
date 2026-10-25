@@ -23,6 +23,8 @@ export const AUDITED: Record<string, string> = {
 	"delete-route": `${V}/routes/delete/service.ts`,
 	"partial-update-route": `${V}/routes/update-partial/service.ts`,
 	"set-route-middlewares": `${V}/middlewares/service.ts`,
+	"put-route-response-schema": "modules/responseSchemas/service.ts",
+	"delete-route-response-schema": "modules/responseSchemas/service.ts",
 	// canvases: one save path for every kind
 	"save-canvas-state": "modules/canvas/service.ts",
 	"save-workflow-canvas-state": "modules/canvas/service.ts",

@@ -204,6 +204,11 @@ export async function checkoutVersion(
 	const { changed, projectId, ...result } = outcome;
 	// the usual change signal, so development recompiles the restored canvas
 	if (changed && projectId) await announceChange(kind, id, projectId);
+	// the development spec lists the route's response schemas, which a checkout just replaced
+	if (changed && projectId && kind === "route") {
+		const { invalidateOpenApiCache } = await import("../../api/v1/routes/openapi/service");
+		await invalidateOpenApiCache(projectId, "development");
+	}
 	return result;
 }
 

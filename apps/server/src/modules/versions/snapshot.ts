@@ -23,6 +23,7 @@ import {
 	upsertBlocks,
 	upsertEdges,
 } from "../canvas/repository";
+import { listResponseSchemas, replaceResponseSchemas } from "../responseSchemas/repository";
 
 /**
  * A version's content, in and out of the working copy (#738). Both directions
@@ -98,7 +99,14 @@ async function readSettings(kind: CanvasVersionKind, id: string, tx: DbTransacti
 		})
 		.from(routesEntity)
 		.where(eq(routesEntity.id, id));
-	return { ...row!, middlewares: await routeMiddlewareIds(id, tx) };
+	return {
+		...row!,
+		middlewares: await routeMiddlewareIds(id, tx),
+		responseSchemas: (await listResponseSchemas(id, tx)).map(({ statusCode, schema }) => ({
+			statusCode,
+			schema,
+		})),
+	};
 }
 
 /** A route's middleware ids per phase, in run order. */
@@ -249,6 +257,11 @@ async function restoreSettings(
 			timeoutSeconds: settings.timeoutSeconds,
 		})
 		.where(eq(routesEntity.id, target.id));
+
+	// a version from before response schemas existed has none to put back: leave the working copy's alone
+	if (settings.responseSchemas) {
+		await replaceResponseSchemas(target.id, settings.responseSchemas, tx);
+	}
 
 	// a middleware deleted since is skipped, not an error: nothing can attach it again
 	const before = settings.middlewares?.before ?? [];

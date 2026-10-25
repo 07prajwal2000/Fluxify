@@ -11,6 +11,7 @@
 		"./blockKeys": "./blockKeys.ts",
 		"./blockTypes": "./blockTypes.ts",
 		"./imports": "./imports.ts",
+		"./inferSchema": "./schema/inferSchema.ts",
 		"./layout": "./layout.ts",
 		"./literalExpressions": "./literalExpressions.ts",
 		"./schema": "./schema/index.ts",
