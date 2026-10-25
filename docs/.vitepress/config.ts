@@ -119,6 +119,7 @@ export default withMermaid(
 						{ text: "HTTP Client", link: "/concepts/http-client" },
 						{ text: "Evaluators", link: "/concepts/evaluators" },
 						{ text: "Middlewares", link: "/concepts/middlewares" },
+						{ text: "Response Schemas", link: "/concepts/response-schemas" },
 						{ text: "Sandbox", link: "/concepts/sandbox" },
 						{ text: "Workflows", link: "/concepts/workflows" },
 						{ text: "Triggers", link: "/concepts/triggers" },

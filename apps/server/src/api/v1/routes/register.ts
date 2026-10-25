@@ -9,6 +9,7 @@ import registerGetByIdRoute from "./get-by-id/route";
 import registerGetCanvasItems from "./get-canvas-items/route";
 import registerGetCanvasRevision from "./get-canvas-revision/route";
 import registerOpenapiRoute from "./openapi/route";
+import registerResponseSchemas from "./response-schemas/route";
 import registerSaveCanvasState from "./save-canvas-state/route";
 import registerUpdateRoute from "./update/route";
 import registerUpdatePartialRoute from "./update-partial/route";
@@ -27,6 +28,7 @@ export default {
 		registerGetCanvasRevision(router);
 		registerSaveCanvasState(router);
 		registerOpenapiRoute(router);
+		registerResponseSchemas(router);
 		registerCallRoute(router);
 		registerVersionRoutes(router, "route");
 		registerDeploymentRoutes(router, "route");

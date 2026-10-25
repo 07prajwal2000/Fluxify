@@ -27,7 +27,14 @@ function useRefresh(kind: VersionKind, id: string, checkout: boolean) {
 		const keys = [
 			listKey(kind, id),
 			[segment, id, "by-id"],
-			...(checkout ? [[segment, id, "canvas-items"], [segment, "list"], ["middlewares"]] : []),
+			...(checkout
+				? [
+						[segment, id, "canvas-items"],
+						[segment, id, "response-schemas"],
+						[segment, "list"],
+						["middlewares"],
+					]
+				: []),
 		];
 		return Promise.all([
 			...keys.map((queryKey) => qc.invalidateQueries({ queryKey, refetchType: "all" })),

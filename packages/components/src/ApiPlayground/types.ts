@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { DebugErrorInfo } from "../DebugError";
 
 export type ApiSchemaRule = {
@@ -144,4 +145,8 @@ export type ApiPlaygroundProps = {
 	 * and `route.path` are where it starts.
 	 */
 	editableRequest?: boolean;
+	/** Extra controls beside the response's status, for the host to act on a response. */
+	renderResponseActions?: (response: ApiPlaygroundResponse) => ReactNode;
+	/** Adds a "Schemas" tab to the response panel, holding whatever the host renders. */
+	schemasTab?: ReactNode;
 };

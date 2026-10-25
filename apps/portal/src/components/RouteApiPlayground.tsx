@@ -13,6 +13,8 @@ import { useOptionalCanvasPlayground } from "@/components/canvas/PlaygroundConte
 import { EmptyState } from "@/components/common/EmptyState";
 import { EnvPicker, type RunEnv } from "@/components/common/EnvPicker";
 import { findNewRun, recordedRunIds } from "@/components/recordings/latestRun";
+import { ResponseSchemasPanel } from "@/components/routes/responseSchemas/ResponseSchemasPanel";
+import { SaveSchemaButton } from "@/components/routes/responseSchemas/SaveSchemaButton";
 import {
 	DEV_ROUTE_PREFIX,
 	DEV_URL_NOTE,
@@ -26,6 +28,7 @@ import { useDevToken, useDevWorkerUrl } from "@/components/sandboxes/useDevWorke
 import { useProjectApiBaseUrl } from "@/components/settings/SubdomainField";
 import { routesQuery } from "@/query/routesQuery";
 import { sandboxesQuery } from "@/query/sandboxesQuery";
+import { useCanEditProject } from "@/store/auth";
 import { useCanvasPlaygroundCacheStore } from "@/store/canvasPlaygroundCache";
 
 type RouteApiPlaygroundProps = {
@@ -65,6 +68,7 @@ export function RouteApiPlayground({
 	// hands us onOpenRecording instead
 	const playground = useOptionalCanvasPlayground();
 	const projectId = route.data?.projectId ?? "";
+	const canEdit = useCanEditProject(projectId);
 	// The preview and the request use the project's own address, subdomain
 	// included. Development adds `/_/dev`; production is the bare address.
 	const apiBase = useProjectApiBaseUrl(projectId).replace(/\/+$/, "");
@@ -177,6 +181,12 @@ export function RouteApiPlayground({
 					route={route.data}
 					initialState={initialState}
 					onStateChange={handleStateChange}
+					renderResponseActions={
+						canEdit
+							? (response) => <SaveSchemaButton routeId={routeId} response={response} />
+							: undefined
+					}
+					schemasTab={<ResponseSchemasPanel routeId={routeId} projectId={projectId} />}
 				/>
 			</div>
 			{/* the environment on screen is the one that keeps runs: development records

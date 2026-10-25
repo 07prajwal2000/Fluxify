@@ -17,6 +17,7 @@ Versions are numbered in order for each route or workflow: v1, v2, v3 and so on.
 | The block settings and where each block sits on the canvas | The **Active** and **Development active** switches |
 | The route's path and method | Recording and tracing settings |
 | The body, query and params schemas | Triggers and test suites |
+| The response schemas, one per status code | |
 | The timeout | |
 | The middlewares a route uses, before and after, in order | |
 
@@ -26,7 +27,7 @@ Things in the right-hand column are settings about *how you run* the route, not 
 
 The route or workflow you edit is its **working copy**. Every save you make to it still goes live on development straight away, exactly as before. A version is a copy you take of it, so the working copy keeps going.
 
-The working copy has **uncommitted changes** when it differs from the version it came from. Editing the canvas, or changing the path, method, schemas, timeout or middlewares, makes it so. Changing the name or a switch does not.
+The working copy has **uncommitted changes** when it differs from the version it came from. Editing the canvas, or changing the path, method, schemas (request or response), timeout or middlewares, makes it so. Changing the name or a switch does not.
 
 ## Committing a version
 

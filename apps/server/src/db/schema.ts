@@ -540,6 +540,8 @@ export type CanvasSnapshot = {
 		querySchema?: unknown;
 		paramsSchema?: unknown;
 		middlewares?: { before: string[]; after: string[] };
+		/** routes only; absent in versions committed before response schemas existed */
+		responseSchemas?: { statusCode: number; schema: Record<string, unknown> }[];
 	};
 };
 
@@ -1250,6 +1252,33 @@ export const httpRouteConfigEntity = pgTable(
 			.$onUpdate(() => new Date()),
 	},
 	(table) => [index("idx_http_route_config_project_id").on(table.projectId)],
+);
+
+/**
+ * What a route answers per status code, in the schema editor's format. This is
+ * the development copy; a version keeps its own in `CanvasSnapshot` and
+ * checkout writes it back here. One schema per route and status code.
+ */
+export const routeResponseSchemasEntity = pgTable(
+	"route_response_schemas",
+	{
+		id: uuid()
+			.$defaultFn(() => generateID())
+			.primaryKey(),
+		routeId: varchar("route_id", { length: 50 })
+			.notNull()
+			.references(() => routesEntity.id, { onDelete: "cascade" }),
+		statusCode: integer("status_code").notNull(),
+		schema: jsonb("schema").$type<Record<string, unknown>>().notNull(),
+		createdAt: timestamp("created_at").defaultNow().notNull(),
+		updatedAt: timestamp("updated_at")
+			.defaultNow()
+			.notNull()
+			.$onUpdate(() => new Date()),
+	},
+	(table) => [
+		uniqueIndex("uq_route_response_schemas_route_status").on(table.routeId, table.statusCode),
+	],
 );
 
 /* ============================================================================
