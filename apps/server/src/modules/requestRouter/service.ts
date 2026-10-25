@@ -147,9 +147,12 @@ export async function dispatch(
 				trigger,
 			),
 		);
-		completeTrace(response.status >= 400 ? "failure" : "success", response.status, {
-			headers: answeredHeaders(httpCtx),
-		});
+		// the headers are copied for the trace only; untraced routes skip it
+		completeTrace(
+			response.status >= 400 ? "failure" : "success",
+			response.status,
+			trace && { headers: answeredHeaders(httpCtx) },
+		);
 		return response;
 	} catch (error) {
 		if (error instanceof RequestBodyError) {

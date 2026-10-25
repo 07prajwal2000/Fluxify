@@ -267,14 +267,14 @@ describe("promote", () => {
 		await compile("routes", id);
 		const live1 = await prodArtifact("routes", project, id);
 		expect(live1?.routeVersion).toBe(v1);
-		expect(live1?.source).toContain("return 'one';");
+		expect(live1?.source).toContain("('one')");
 
 		const second = await deploy(as, "routes", id, v2, "second release");
 		expect(second.body).toMatchObject({ status: "live", action: "promote", versionNumber: 2 });
 		await compile("routes", id);
 		const live2 = await prodArtifact("routes", project, id);
 		expect(live2?.routeVersion).toBe(v2);
-		expect(live2?.source).toContain("return 'two';");
+		expect(live2?.source).toContain("('two')");
 
 		// editing the working copy and recompiling must not touch production
 		await edit(as, "routes", id, "return 'edited';");
@@ -282,14 +282,14 @@ describe("promote", () => {
 		const afterEdit = await prodArtifact("routes", project, id);
 		expect(afterEdit?.routeVersion).toBe(v2);
 		expect(afterEdit?.source).toBe(live2?.source);
-		expect((await artifact("routes", project, id, "development"))?.source).toContain("return 'edited';");
+		expect((await artifact("routes", project, id, "development"))?.source).toContain("('edited')");
 
 		const back = await deploy(as, "routes", id, v1, "it broke");
 		expect(back.body).toMatchObject({ status: "live", action: "rollback", versionNumber: 1 });
 		await compile("routes", id);
 		const rolledBack = await prodArtifact("routes", project, id);
 		expect(rolledBack?.routeVersion).toBe(v1);
-		expect(rolledBack?.source).toContain("return 'one';");
+		expect(rolledBack?.source).toContain("('one')");
 
 		const log = (await call(as, "GET", `/routes/${id}/deployments`)).body.deployments;
 		expect(log.map((d: any) => [d.versionNumber, d.action, d.status])).toEqual([
@@ -573,7 +573,7 @@ describe("workflows", () => {
 		await compile("workflows", id);
 		const live = await prodArtifact("workflows", project, id);
 		expect(live?.workflowVersion).toBe(v1);
-		expect(live?.source).toContain("return 'one';");
+		expect(live?.source).toContain("('one')");
 		expect((await call(as, "GET", `/workflows/${id}`)).body).toMatchObject({
 			prodVersionId: v1,
 			prodVersionNumber: 1,

@@ -76,7 +76,7 @@ describe("custom block versions", () => {
 		await stack.setScript(as, "custom-blocks", block.id, "return 'one';");
 		await stack.compileBlock(block.id);
 		expect(await stack.blockArtifact(project, block.id, "production")).toBeNull();
-		expect((await stack.blockArtifact(project, block.id, "development"))?.source).toContain("return 'one';");
+		expect((await stack.blockArtifact(project, block.id, "development"))?.source).toContain("('one')");
 
 		const v1 = await stack.release(as, "custom-blocks", block.id, "first");
 		await stack.setScript(as, "custom-blocks", block.id, "return 'two';");
@@ -84,21 +84,21 @@ describe("custom block versions", () => {
 		// the working copy moves again before anything is promoted
 		await stack.setScript(as, "custom-blocks", block.id, "return 'three';");
 		await stack.compileBlock(block.id);
-		expect((await stack.blockArtifact(project, block.id, "production"))?.source).toContain("return 'one';");
-		expect((await stack.blockArtifact(project, block.id, "development"))?.source).toContain("return 'three';");
+		expect((await stack.blockArtifact(project, block.id, "production"))?.source).toContain("('one')");
+		expect((await stack.blockArtifact(project, block.id, "development"))?.source).toContain("('three')");
 
 		stack.signals.length = 0;
 		const promoted = await stack.deploy(as, "custom-blocks", block.id, v2, "second");
 		expect(promoted.body).toMatchObject({ status: "live", action: "promote", kind: "custom_block", versionNumber: 2 });
 		expect(stack.signals).toContainEqual({ chan: "chan:on-custom-block-change", id: block.id });
 		await stack.compileBlock(block.id);
-		expect((await stack.blockArtifact(project, block.id, "production"))?.source).toContain("return 'two';");
-		expect((await stack.blockArtifact(project, block.id, "development"))?.source).toContain("return 'three';");
+		expect((await stack.blockArtifact(project, block.id, "production"))?.source).toContain("('two')");
+		expect((await stack.blockArtifact(project, block.id, "development"))?.source).toContain("('three')");
 
 		const back = await stack.deploy(as, "custom-blocks", block.id, v1, "it broke");
 		expect(back.body).toMatchObject({ status: "live", action: "rollback", versionNumber: 1 });
 		await stack.compileBlock(block.id);
-		expect((await stack.blockArtifact(project, block.id, "production"))?.source).toContain("return 'one';");
+		expect((await stack.blockArtifact(project, block.id, "production"))?.source).toContain("('one')");
 
 		const log = (await stack.call(as, "GET", `/custom-blocks/${block.id}/deployments`)).body.deployments;
 		expect(log.map((d: any) => [d.versionNumber, d.action, d.status])).toEqual([
@@ -134,7 +134,7 @@ describe("custom block versions", () => {
 		await stack.deploy(as, "custom-blocks", block.id, v2);
 		await stack.compileBlock(block.id);
 		const live = await stack.blockArtifact(project, block.id, "production");
-		expect(live?.source).toContain("return 'v2';");
+		expect(live?.source).toContain("('v2')");
 		for (const id of routes) {
 			await stack.compileRoute(id);
 			expect((await stack.routeArtifact(project, id, "production"))?.source).toContain(block.name);
@@ -142,7 +142,7 @@ describe("custom block versions", () => {
 
 		await stack.deploy(as, "custom-blocks", block.id, v1, "rollback");
 		await stack.compileBlock(block.id);
-		expect((await stack.blockArtifact(project, block.id, "production"))?.source).toContain("return 'v1';");
+		expect((await stack.blockArtifact(project, block.id, "production"))?.source).toContain("('v1')");
 	});
 
 	it("keeps the name live: a version never carries it", async () => {
