@@ -333,12 +333,12 @@ export function ApiPlayground({
 					onHeaderRowsChange={setHeaderRows}
 					onRequestBodyChange={handleRequestBodyChange}
 					onContentTypeChange={setContentType}
+					schemasTab={schemasTab}
 				/>
 				<ResponsePanel
 					response={response}
 					onSelectBlock={onSelectBlock}
 					renderActions={renderResponseActions}
-					schemasTab={schemasTab}
 				/>
 			</div>
 		</Card>

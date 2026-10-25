@@ -39,7 +39,7 @@ export function SaveSchemaButton({
 	return (
 		<>
 			{/* a disabled button shows no tooltip of its own, so the reason rides on the wrapper */}
-			<span className="ml-auto" title={result.ok ? undefined : result.reason}>
+			<span title={result.ok ? undefined : result.reason}>
 				<Button
 					size="sm"
 					variant="secondary"

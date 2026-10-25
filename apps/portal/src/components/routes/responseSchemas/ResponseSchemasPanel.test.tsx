@@ -57,31 +57,43 @@ function setup(role: "viewer" | "creator", codes: number[]) {
 	return { put, remove, view };
 }
 
-test("lists the saved status codes and shows the picked one", async () => {
-	const { view } = setup("creator", [200, 404]);
-	const list = await until(() => view.getByLabelText("Status codes"));
-	expect(within(list).getAllByRole("button", { name: /^(200|404)$/ })).toHaveLength(2);
-	await act(async () => fireEvent.click(within(list).getByRole("button", { name: "404" })));
-	await until(() => view.getByRole("button", { name: "Save" }));
-	// nothing edited yet: nothing to save
-	expect((view.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(true);
+const open = async (view: ReturnType<typeof render>, code: number) => {
+	const trigger = await until(() => view.getByRole("button", { name: String(code) }));
+	await act(async () => fireEvent.click(trigger));
+};
+
+test("stacks one accordion per saved status code, lowest first, closed until opened", async () => {
+	const { view } = setup("creator", [500, 200, 404]);
+	await until(() => view.getByRole("button", { name: "200" }));
+	const order = view.getAllByRole("button", { name: /^(200|404|500)$/ }).map((b) => b.textContent);
+	expect(order).toEqual(["200", "404", "500"]);
+	expect(view.queryByRole("button", { name: "Save" })).toBeNull();
+
+	await open(view, 404);
+	// the stored schema, in the editor: nothing edited yet, so nothing to save
+	const save = await until(() => view.getByRole("button", { name: "Save" }));
+	expect((save as HTMLButtonElement).disabled).toBe(true);
 });
 
 test("a viewer can read but gets no add, save or delete controls", async () => {
 	const { view } = setup("viewer", [200]);
-	const list = await until(() => view.getByLabelText("Status codes"));
-	await act(async () => fireEvent.click(within(list).getByRole("button", { name: "200" })));
+	await open(view, 200);
+	// the panel has opened: the read-only editor is in the page
+	await until(() =>
+		expect(document.body.querySelector("[data-slot=accordion-panel]")).toBeTruthy(),
+	);
 	expect(view.queryByRole("button", { name: "Save" })).toBeNull();
 	expect(view.queryByRole("button", { name: "Add" })).toBeNull();
 	expect(view.queryByLabelText(/delete the 200 schema/i)).toBeNull();
 });
 
-test("a new status code opens an empty object schema that saves as typed", async () => {
+test("a new status code gets an accordion with an empty object schema that saves as typed", async () => {
 	const { put, view } = setup("creator", []);
 	const input = await until(() => view.getByPlaceholderText("200"));
 	await act(async () => fireEvent.change(input, { target: { value: "418" } }));
 	await act(async () => fireEvent.blur(input));
 	await act(async () => fireEvent.click(view.getByRole("button", { name: "Add" })));
+	await open(view, 418);
 	await act(async () =>
 		fireEvent.click(await until(() => view.getByRole("button", { name: "Save" }))),
 	);
@@ -94,6 +106,7 @@ test("a new status code opens an empty object schema that saves as typed", async
 
 test("delete asks first, then removes that status code", async () => {
 	const { remove, view } = setup("creator", [200, 500]);
+	await open(view, 500);
 	const del = await until(() => view.getByLabelText("Delete the 500 schema"));
 	await act(async () => fireEvent.click(del));
 	expect(remove).not.toHaveBeenCalled();

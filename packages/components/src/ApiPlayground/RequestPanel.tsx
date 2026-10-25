@@ -28,6 +28,8 @@ type RequestPanelProps = {
 	onHeaderRowsChange: (rows: ApiKeyValue[]) => void;
 	onRequestBodyChange: (body: ApiRequestBody) => void;
 	onContentTypeChange: (contentType: string) => void;
+	/** Adds a "Schema" tab; the host renders what is in it. */
+	schemasTab?: ReactNode;
 };
 
 export function RequestPanel({
@@ -48,6 +50,7 @@ export function RequestPanel({
 	onHeaderRowsChange,
 	onRequestBodyChange,
 	onContentTypeChange,
+	schemasTab,
 }: RequestPanelProps) {
 	const hasBody = methodTakesBody(route.method);
 	const pathTypes = useMemo(
@@ -139,8 +142,19 @@ export function RequestPanel({
 							)}
 							<Tabs.Indicator />
 						</Tabs.Tab>
+						{schemasTab && (
+							<Tabs.Tab id="schema">
+								<span>Schema</span>
+								<Tabs.Indicator />
+							</Tabs.Tab>
+						)}
 					</Tabs.List>
 				</Tabs.ListContainer>
+				{schemasTab && (
+					<Tabs.Panel id="schema" className="min-h-0 flex-1 overflow-y-auto p-3">
+						{schemasTab}
+					</Tabs.Panel>
+				)}
 				<Tabs.Panel id="params" className="min-h-0 flex-1 overflow-hidden p-3">
 					<div className="space-y-3">
 						<RequestCard

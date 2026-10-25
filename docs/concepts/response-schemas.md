@@ -14,7 +14,7 @@ Schemas use the same format as the schema editor you already know from request b
 ## Save a schema from a response
 
 1. Open the route's **API Playground** and send a request.
-2. When the response comes back, click **Save as schema** next to the status.
+2. When the response comes back, click **Save as schema** in the bottom-right corner of the response body.
 
 Fluxify reads the response body and works out the shape for you:
 
@@ -43,11 +43,11 @@ If the status code already has a schema, Fluxify asks before replacing it. Repla
 
 ## See and edit your schemas
 
-The response area has a **Schemas** tab.
+The request side of the playground has a **Schema** tab next to Params, Headers and Body. A saved schema appears there right away, as one collapsible section per status code (`200`, `400`, `500` and so on).
 
-- Pick a status code to read or edit its schema with the schema editor, then click **Save**. Nothing is saved while you type.
+- Open a status code to see the exact schema that was saved, and edit it with the schema editor. Click **Save** to keep your changes. Nothing is saved while you type.
 - Use **New status code** to write a schema by hand, without sending a request first.
-- Use the delete button next to a status code to remove its schema.
+- Use the delete button inside a status code to remove its schema.
 
 People with the viewer role can read schemas but not change them.
 

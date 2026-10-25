@@ -145,8 +145,8 @@ export type ApiPlaygroundProps = {
 	 * and `route.path` are where it starts.
 	 */
 	editableRequest?: boolean;
-	/** Extra controls beside the response's status, for the host to act on a response. */
+	/** Controls in the bottom-right corner of the response body, for the host to act on a response. */
 	renderResponseActions?: (response: ApiPlaygroundResponse) => ReactNode;
-	/** Adds a "Schemas" tab to the response panel, holding whatever the host renders. */
+	/** Adds a "Schema" tab to the request panel, holding whatever the host renders. */
 	schemasTab?: ReactNode;
 };

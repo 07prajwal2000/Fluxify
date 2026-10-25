@@ -10,12 +10,10 @@ export function ResponsePanel({
 	response,
 	onSelectBlock,
 	renderActions,
-	schemasTab,
 }: {
 	response?: ApiPlaygroundResponse;
 	onSelectBlock?: (blockId: string, message: string) => void;
 	renderActions?: (response: ApiPlaygroundResponse) => ReactNode;
-	schemasTab?: ReactNode;
 }) {
 	const headers = useMemo(() => responseHeaders(response?.headers), [response?.headers]);
 	const mimeType =
@@ -38,7 +36,6 @@ export function ResponsePanel({
 					render={(containerProps) => (
 						<div {...containerProps}>
 							<ResponseMetadata bytes={bytes} response={response} />
-							{response && renderActions?.(response)}
 							{containerProps.children}
 						</div>
 					)}
@@ -61,12 +58,6 @@ export function ResponsePanel({
 							)}
 							<Tabs.Indicator />
 						</Tabs.Tab>
-						{schemasTab && (
-							<Tabs.Tab id="schemas">
-								Schemas
-								<Tabs.Indicator />
-							</Tabs.Tab>
-						)}
 					</Tabs.List>
 				</Tabs.ListContainer>
 				<Tabs.Panel id="body" className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -102,6 +93,9 @@ export function ResponsePanel({
 							>
 								<TbCopy size={14} />
 							</Button>
+							{renderActions && (
+								<div className="absolute bottom-3 right-3 z-10">{renderActions(response)}</div>
+							)}
 						</div>
 					) : (
 						<EmptyResponse />
@@ -128,11 +122,6 @@ export function ResponsePanel({
 						<EmptyResponse />
 					)}
 				</Tabs.Panel>
-				{schemasTab && (
-					<Tabs.Panel id="schemas" className="min-h-0 flex-1 overflow-y-auto">
-						{schemasTab}
-					</Tabs.Panel>
-				)}
 			</Tabs>
 		</section>
 	);
