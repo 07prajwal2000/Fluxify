@@ -103,3 +103,15 @@ test("a summary saved before the numbers were kept, a trim and a failure each ha
 		r.unmount();
 	}
 });
+
+const LONG_WORD = `https://example.com/${"a".repeat(240)}`;
+
+test("a long unbreakable word may break, in a user message and an assistant reply", () => {
+	const user = show({ seq: 1, role: "user", parts: [{ type: "text", text: LONG_WORD }] });
+	expect(user.getByText(LONG_WORD).className).toContain("[overflow-wrap:anywhere]");
+	user.unmount();
+	const reply = show({ seq: 2, role: "assistant", parts: [{ type: "text", text: LONG_WORD }] });
+	expect(reply.getByText(LONG_WORD).closest("div")?.className).toContain(
+		"[overflow-wrap:anywhere]",
+	);
+});
