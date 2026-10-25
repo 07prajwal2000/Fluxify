@@ -1,5 +1,4 @@
 import {
-	createObservabilityLogger,
 	type DbConnectionManager,
 	DbFactory,
 	KvFactory,
@@ -19,7 +18,6 @@ import {
 } from "@fluxify/blocks/schema";
 import {
 	type AbstractLogger,
-	ConsoleLoggerProvider,
 	HttpClient,
 	type HttpRoute,
 	type HttpRouteParser,
@@ -45,6 +43,7 @@ import {
 	runWithRouteObserver,
 } from "./dispatchSupport";
 import { runBlocks } from "./executor";
+import { observabilityLoggerFor } from "./observabilityLogger";
 import { isFormBody, RequestBodyError } from "./requestBody";
 import { requestTraceInput } from "./traceInput";
 import { type RouteTraceFactory, startRouteTrace, traceCompleter } from "./traceLifecycle";
@@ -409,31 +408,6 @@ function parseResult(executionResult: BlockOutput) {
 	};
 }
 
-/**
- * The logger for one integration id, or the server console when the id is empty,
- * unknown, or owned by another project. Shared by the JS `logger` api and the
- * cloud logs block so both resolve a destination the same way.
- *
- * The config is spread, never mutated: the cache entry is shared by every
- * in-flight request, so writing route ids into it cross-labels concurrent logs.
- * A provider is still built per call — that lifecycle is #204, not this.
- */
-function observabilityLoggerFor(
-	connectionId: string,
-	projectId: string,
-	routeId: string,
-): AbstractLogger {
-	const config = observabilityIntegrationsCache[connectionId];
-	if (!ownsIntegration(config, projectId)) {
-		return new ConsoleLoggerProvider(routeId);
-	}
-	return createObservabilityLogger(config["variant"], {
-		...config,
-		projectId,
-		routeId,
-	})!;
-}
-
 function createContext(
 	routeInfo: { id: string; projectId: string },
 	requestData: { path: string; body: any },
@@ -549,9 +523,8 @@ function setupContextVars(
 	overrides?: RequestOverrides,
 	trigger: TriggerContext = DEFAULT_TRIGGER,
 ): BlockContext["vars"] {
-	const headers = new Map(
-		Object.entries(requestData.headers).map(([key, value]) => [key.toLowerCase(), value]),
-	);
+	// built on the first getHeader: most routes never read a header
+	let headers: Map<string, string> | undefined;
 	const projectSettings = projectSettingsCache[projectId];
 	// new key first, legacy second — the same order telemetry/destinations.ts
 	// reads them in. Projects configured through the current UI only have the new one.
@@ -568,7 +541,8 @@ function setupContextVars(
 		}
 	}
 
-	const logger = observabilityLoggerFor(connectionId, projectId, routeId);
+	// created on the first use: most routes never log
+	let logger: AbstractLogger | undefined;
 
 	return {
 		ValidationError: ValidationError,
@@ -591,7 +565,14 @@ function setupContextVars(
 				}
 			},
 		},
-		logger,
+		get logger() {
+			logger ??= observabilityLoggerFor(connectionId, projectId, routeId);
+			return logger;
+		},
+		// a graph may still assign its own, as it could while this was a plain value
+		set logger(value) {
+			logger = value;
+		},
 		getCookie(key) {
 			return ctx ? getCookie(ctx, key) || "" : "";
 		},
@@ -615,6 +596,9 @@ function setupContextVars(
 			}
 		},
 		getHeader(key) {
+			headers ??= new Map(
+				Object.entries(requestData.headers).map(([name, value]) => [name.toLowerCase(), value]),
+			);
 			return headers.get(key.toLowerCase()) || "";
 		},
 		getQueryParam(key) {

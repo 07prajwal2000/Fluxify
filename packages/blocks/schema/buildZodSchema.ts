@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { z } from "zod";
+import { pureExpression } from "../pureExpression";
 import { scopeFor } from "../scope";
 
 export type ParserContext = {
@@ -8,7 +9,7 @@ export type ParserContext = {
 	coerce?: boolean;
 };
 
-type CompiledValidator = (input: any, scope: any) => Promise<unknown>;
+type CompiledValidator = (input: any, scope: any) => unknown;
 
 /**
  * The source is part of the persisted route definition, never request input.
@@ -18,6 +19,9 @@ type CompiledValidator = (input: any, scope: any) => Promise<unknown>;
 function compileValidator(code: string): CompiledValidator {
 	const name = `validator_${crypto.randomUUID().replaceAll("-", "")}`;
 	try {
+		// a lone pure expression needs neither the scope nor a promise (#944)
+		const pure = pureExpression(code, { input: "input" });
+		if (pure) return new Function(`return function ${name}(input) { return ${pure}; }`)();
 		return new Function(
 			`return async function ${name}(input, $scope) { with ($scope) {\n${code}\n} }`,
 		)() as CompiledValidator;

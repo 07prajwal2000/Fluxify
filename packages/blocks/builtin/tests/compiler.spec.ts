@@ -149,7 +149,7 @@ it("emits a shared tail once and reuses its block function", async () => {
 		const { run, source } = compileGraph(blocks, edges);
 		expect(source.startsWith("/* fluxify-compiled-route-factory */")).toBe(true);
 		expect(occurrences(source, "// jsrunner shared")).toBe(1);
-		expect(occurrences(source, "async function $block_")).toBe(4);
+		expect(occurrences(source, "function $block_")).toBe(4);
 		expect((await run(createContext(), 3)).output.body).toBe(6);
 		expect((await run(createContext(), -2)).output.body).toBe(-4);
 	});
@@ -174,7 +174,7 @@ it("emits a shared tail once and reuses its block function", async () => {
 		const shortSource = compileGraph(four.blocks, four.edges).source;
 		const longSource = compileGraph(eight.blocks, eight.edges).source;
 
-		expect(occurrences(longSource, "async function $block_")).toBe(10);
+		expect(occurrences(longSource, "function $block_")).toBe(10);
 		expect(longSource.length).toBeLessThan(shortSource.length * 3);
 	});
 

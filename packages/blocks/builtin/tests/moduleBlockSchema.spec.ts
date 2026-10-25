@@ -71,7 +71,7 @@ describe("module block schema params", () => {
 		const { exec, seen, source } = run({ shape: userSchema, note: "x" }, { schemaParams: ["shape"] });
 		expect(source).toContain("lib.compileSchema(");
 		// hoisted above the block functions, not inside a request
-		expect(source.indexOf("lib.compileSchema(")).toBeLessThan(source.indexOf("async function $block_0"));
+		expect(source.indexOf("lib.compileSchema(")).toBeLessThan(source.indexOf("function $block_0"));
 		await exec();
 		const { zod, schema } = seen().shape;
 		expect(schema).toEqual(userSchema);

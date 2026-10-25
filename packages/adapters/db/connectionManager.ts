@@ -114,6 +114,19 @@ export class DbConnectionManager {
  * never retained or logged. A plugin variant names its own with `poolKey`.
  */
 export function connectionFingerprint(config: Connection) {
+	// asked on every request that borrows a connection; a config object is replaced, not edited,
+	// when the integration changes
+	let fingerprint = fingerprints.get(config);
+	if (fingerprint === undefined) {
+		fingerprint = computeFingerprint(config);
+		fingerprints.set(config, fingerprint);
+	}
+	return fingerprint;
+}
+
+const fingerprints = new WeakMap<object, string>();
+
+function computeFingerprint(config: Connection) {
 	const own = poolKeyFingerprint(
 		integrationRegistry
 			.variants("database", configOwner(config))
