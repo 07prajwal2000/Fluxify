@@ -262,3 +262,33 @@ describe("versioning", () => {
 		expect(codes(await listSchemas(as, id))).toEqual([200]);
 	});
 });
+
+describe("OpenAPI spec source", () => {
+	const specSchemas = async (project: string, env: "development" | "production", routeId: string) => {
+		const { getActiveRoutes } = await import("../../../api/v1/routes/openapi/repository");
+		const found = (await getActiveRoutes(project, env)).find((r) => r.id === routeId);
+		return found?.responseSchemas.map((r) => r.statusCode);
+	};
+
+	it("development lists the working copy; production lists only the promoted version's", async () => {
+		const { as, project } = await setup();
+		const id = await createRoute(as);
+		await put(as, id, 200, { sample: SAMPLE });
+		const v1 = (await commit(as, id, "v1")).body;
+		await sql`UPDATE routes SET active = true, prod_version_id = ${v1.id} WHERE id = ${id}`;
+
+		// edited after the promote: development moves, production stays on what was committed
+		await put(as, id, 404, { sample: { error: "x" } });
+		expect(await specSchemas(project, "development", id)).toEqual([200, 404]);
+		expect(await specSchemas(project, "production", id)).toEqual([200]);
+	});
+
+	it("a version from before response schemas existed documents none in production", async () => {
+		const { as, project } = await setup();
+		const id = await createRoute(as);
+		const v1 = (await commit(as, id, "old")).body;
+		await sql`UPDATE canvas_versions SET snapshot = snapshot #- '{settings,responseSchemas}' WHERE id = ${v1.id}`;
+		await sql`UPDATE routes SET active = true, prod_version_id = ${v1.id} WHERE id = ${id}`;
+		expect(await specSchemas(project, "production", id)).toEqual([]);
+	});
+});

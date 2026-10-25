@@ -51,6 +51,10 @@ The request side of the playground has a **Schema** tab next to Params, Headers 
 
 People with the viewer role can read schemas but not change them.
 
+## In the OpenAPI spec
+
+Saved schemas show up as the `responses` of the route in your project's OpenAPI spec, one entry per status code with its schema. The development spec lists your current schemas. The production spec lists the ones saved in the version that is live, so a schema you have not promoted yet does not appear there. A route with no `200` schema keeps a plain "Successful response" entry.
+
 ## Versions
 
 Response schemas are saved with the route's versions, like its path and request schemas:

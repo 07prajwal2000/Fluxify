@@ -25,6 +25,13 @@ const present = (row: { statusCode: number; schema: unknown; updatedAt: Date }) 
 	updatedAt: row.updatedAt.toISOString(),
 });
 
+/** The development spec is cached for an hour and lists these, so an edit drops it. */
+async function refreshSpec(projectId: string | null) {
+	if (!projectId) return;
+	const { invalidateOpenApiCache } = await import("../../api/v1/routes/openapi/service");
+	await invalidateOpenApiCache(projectId, "development");
+}
+
 export async function listForRoute(routeId: string, acl: AuthACL[]) {
 	const route = await findRoute(routeId);
 	if (!route) throw new NotFoundError("Route not found");
@@ -50,7 +57,7 @@ export async function putForRoute(
 		throw new BadRequestError("`schema` is not a valid schema");
 	}
 	const schema = ("success" in parsed ? parsed.data : parsed) as Record<string, unknown>;
-	return await db.transaction(async (tx) => {
+	const { route, saved } = await db.transaction(async (tx) => {
 		const route = await lockRoute(routeId, tx);
 		if (!route) throw new NotFoundError("Route not found");
 		if (!canAccessProject(acl, route.projectId ?? "", "creator")) throw new ForbiddenError();
@@ -63,12 +70,14 @@ export async function putForRoute(
 			action: "update",
 			changedFields: [`responseSchema.${statusCode}`],
 		});
-		return present(saved);
+		return { route, saved: present(saved) };
 	});
+	await refreshSpec(route.projectId);
+	return saved;
 }
 
 export async function deleteForRoute(routeId: string, statusCode: number, acl: AuthACL[]) {
-	await db.transaction(async (tx) => {
+	const projectId = await db.transaction(async (tx) => {
 		const route = await lockRoute(routeId, tx);
 		if (!route) throw new NotFoundError("Route not found");
 		if (!canAccessProject(acl, route.projectId ?? "", "creator")) throw new ForbiddenError();
@@ -83,5 +92,7 @@ export async function deleteForRoute(routeId: string, statusCode: number, acl: A
 			action: "update",
 			changedFields: [`responseSchema.${statusCode}`],
 		});
+		return route.projectId;
 	});
+	await refreshSpec(projectId);
 }

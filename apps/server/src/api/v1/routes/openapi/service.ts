@@ -1,3 +1,4 @@
+import { STATUS_CODES } from "node:http";
 import { logger } from "@fluxify/common";
 import type z from "zod";
 import {
@@ -12,7 +13,7 @@ import { acceptedContentTypes } from "../../../../lib/routeConfig";
 import { baseDomain, configuredBaseDomain } from "../../../../loaders/instanceSettingsLoader";
 import { projectSettingsCache } from "../../../../loaders/projectSettingsLoader";
 import type { OpenApiEnv, requestParamSchema } from "./dto";
-import { getActiveRoutes, getProject } from "./repository";
+import { getActiveRoutes, getProject, type ResponseSchemas } from "./repository";
 
 export async function invalidateOpenApiCache(projectId?: string, env?: OpenApiEnv) {
 	try {
@@ -101,6 +102,24 @@ function schemaDefToOpenApi(def: any): any {
 	}
 
 	return result;
+}
+
+/**
+ * One response per saved status code, each with its schema. A route with no
+ * schema for 200 keeps the bare placeholder, so the spec always has a success
+ * response.
+ */
+function buildResponses(saved: ResponseSchemas = []) {
+	const responses: Record<string, unknown> = {};
+	for (const { statusCode, schema } of [...saved].sort((a, b) => a.statusCode - b.statusCode)) {
+		responses[String(statusCode)] = {
+			description: STATUS_CODES[statusCode] ?? `Response ${statusCode}`,
+			content: { "application/json": { schema: schemaDefToOpenApi(schema) } },
+		};
+	}
+	return "200" in responses
+		? responses
+		: { "200": { description: "Successful response" }, ...responses };
 }
 
 function buildParameter(
@@ -192,9 +211,7 @@ export async function generateOpenApiSpec(
 			summary: route.name || "Untitled Route",
 			operationId: route.id,
 			parameters: [],
-			responses: {
-				"200": { description: "Successful response" },
-			},
+			responses: buildResponses(route.responseSchemas),
 		};
 
 		buildParameter(route.querySchema, "query", operation);

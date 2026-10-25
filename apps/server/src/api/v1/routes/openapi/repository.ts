@@ -5,6 +5,7 @@ import {
 	canvasVersionsEntity,
 	httpRouteConfigEntity,
 	projectsEntity,
+	routeResponseSchemasEntity,
 	routesEntity,
 } from "../../../../db/schema";
 import type { OpenApiEnv } from "./dto";
@@ -16,6 +17,25 @@ export async function getProject(projectId: string) {
 		.where(eq(projectsEntity.id, projectId))
 		.limit(1);
 	return res[0];
+}
+
+export type ResponseSchemas = { statusCode: number; schema: unknown }[];
+
+/** The working copies' schemas for every route of a project, by route id: what development serves. */
+async function devResponseSchemas(projectId: string) {
+	const rows = await db
+		.select({
+			routeId: routeResponseSchemasEntity.routeId,
+			statusCode: routeResponseSchemasEntity.statusCode,
+			schema: routeResponseSchemasEntity.schema,
+		})
+		.from(routeResponseSchemasEntity)
+		.innerJoin(routesEntity, eq(routesEntity.id, routeResponseSchemasEntity.routeId))
+		.where(eq(routesEntity.projectId, projectId));
+	const byRoute = new Map<string, ResponseSchemas>();
+	for (const { routeId, ...rest } of rows)
+		byRoute.set(routeId, [...(byRoute.get(routeId) ?? []), rest]);
+	return byRoute;
 }
 
 export async function getActiveRoutes(projectId: string, env: OpenApiEnv = "production") {
@@ -30,6 +50,7 @@ export async function getActiveRoutes(projectId: string, env: OpenApiEnv = "prod
 			.leftJoin(canvasVersionsEntity, eq(canvasVersionsEntity.id, routesEntity.prodVersionId))
 			.leftJoin(httpRouteConfigEntity, eq(httpRouteConfigEntity.routeId, routesEntity.id))
 			.where(and(eq(routesEntity.projectId, projectId), eq(routesEntity.devActive, true)));
+		const responseSchemas = await devResponseSchemas(projectId);
 		return rows.map(({ route, routeConfig, snapshot }) => {
 			const settings = (snapshot as CanvasSnapshot | null)?.settings;
 			return {
@@ -41,6 +62,7 @@ export async function getActiveRoutes(projectId: string, env: OpenApiEnv = "prod
 				paramsSchema: route.paramsSchema ?? settings?.paramsSchema,
 				timeoutSeconds: route.timeoutSeconds ?? settings?.timeoutSeconds,
 				routeConfig,
+				responseSchemas: responseSchemas.get(route.id) ?? [],
 			};
 		});
 	}
@@ -76,6 +98,8 @@ export async function getActiveRoutes(projectId: string, env: OpenApiEnv = "prod
 					}
 				: {}),
 			routeConfig,
+			// production documents what its promoted version saved, never the working copy
+			responseSchemas: (settings?.responseSchemas ?? []) as ResponseSchemas,
 		};
 	});
 }
