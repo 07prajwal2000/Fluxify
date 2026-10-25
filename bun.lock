@@ -226,6 +226,7 @@
         "@nats-io/transport-node": "3.4.0",
         "@platformatic/kafka": "^2.11.0",
         "amqplib": "^2.2.0",
+        "bson": "7.2.0",
         "ioredis": "^5.11.1",
         "kysely": "^0.28.11",
         "memcached": "^2.2.2",

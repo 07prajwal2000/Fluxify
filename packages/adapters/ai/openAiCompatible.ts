@@ -1,4 +1,3 @@
-import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { BaseAiIntegration, openAiModels } from "./baseAiIntegration";
 
 export class OpenAICompatibleIntegration extends BaseAiIntegration {
@@ -6,7 +5,9 @@ export class OpenAICompatibleIntegration extends BaseAiIntegration {
 	static override provider = {
 		name: "OpenAI Compatible",
 		create: (c, fetch) =>
-			createOpenAICompatible({
+			(
+				require("@ai-sdk/openai-compatible") as typeof import("@ai-sdk/openai-compatible")
+			).createOpenAICompatible({
 				name: "openai-compatible",
 				baseURL: c.baseUrl!,
 				apiKey: c.apiKey,

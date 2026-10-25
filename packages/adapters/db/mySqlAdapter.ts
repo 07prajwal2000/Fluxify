@@ -1,12 +1,8 @@
-import { type Compilable, CompiledQuery, Kysely, MysqlDialect, sql } from "kysely";
-import { createPool, type Pool } from "mysql2";
-import type { PoolConnection } from "mysql2/promise";
+// not from "." — the barrel loads every driver (#944)
 import {
 	bulkChunkSize,
 	type Connection,
 	changedRows,
-	conflictKeys,
-	conflictUpdateColumns,
 	type DatabaseAdapter,
 	type DBConditionType,
 	DbAdapterMode,
@@ -15,18 +11,23 @@ import {
 	type IntrospectedTable,
 	type IsolationLevel,
 	isolationClause,
-	type OnConflict,
-	sqlCounterSet,
-	upsertRows,
 	type WriteResult,
-} from ".";
+} from "@fluxify/sdk/integrations";
+import { type Compilable, CompiledQuery, Kysely, MysqlDialect, sql } from "kysely";
+import type { Pool } from "mysql2";
+import type { PoolConnection } from "mysql2/promise";
 import { applyJoins, applySqlConditions } from "./conditions";
 import { cachedPrimaryKey } from "./connection";
+import { sqlCounterSet } from "./counter";
 import { cursorSorts, type DbCursor, type DbPage, sqlPage } from "./cursor";
 import { applyColumns, buildQualifiers, type QueryOptions } from "./jsonPath";
 import { mysqlPlaceholders } from "./placeholders";
 import { activeSorts, applySqlSort, type DbSort, singleRow, withTiebreaker } from "./sort";
 import { type CachedRead, cachedRead } from "./sqlCache";
+import { conflictKeys, conflictUpdateColumns, type OnConflict, upsertRows } from "./upsert";
+
+/** mysql2 is required on first use, so a project without MySQL never loads it (#944) */
+export const mysqlDriver = () => require("mysql2") as typeof import("mysql2");
 
 // A generic schema to satisfy Kysely's strict typing without using 'any'
 type FluxifyDatabase = Record<string, Record<string, any>>;
@@ -67,7 +68,7 @@ export class MySqlAdapter implements DatabaseAdapter {
 	) {}
 
 	public static createPool(connection: Connection): Pool {
-		return createPool(buildMysqlUrl(connection));
+		return mysqlDriver().createPool(buildMysqlUrl(connection));
 	}
 
 	public static createKysely(pool: Pool): Kysely<FluxifyDatabase> {
@@ -87,7 +88,7 @@ export class MySqlAdapter implements DatabaseAdapter {
 	): Promise<{ success: boolean; error?: any }> {
 		let tempPool: Pool | null = null;
 		try {
-			tempPool = createPool(buildMysqlUrl(connection));
+			tempPool = mysqlDriver().createPool(buildMysqlUrl(connection));
 			const [rows] = await tempPool.promise().query("SELECT 1 AS test");
 
 			// Strictly type the rows output

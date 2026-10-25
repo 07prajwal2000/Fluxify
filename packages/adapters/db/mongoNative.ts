@@ -53,6 +53,3 @@ export function sessionBoundDb(db: Db, session: () => ClientSession | undefined)
 		});
 	});
 }
-
-/** native code builds ids with it */
-export { ObjectId } from "mongodb";
