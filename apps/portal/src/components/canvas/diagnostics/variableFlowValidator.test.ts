@@ -120,4 +120,14 @@ describe("validateVariableFlow", () => {
 
 		expect(run(blocks, [e("in", "s")])).toEqual([]);
 	});
+
+	it("counts a name a script assigns as a writer, and ignores one it declares", () => {
+		const writer = script("w", "shared = 1; let local = 2; local = 3");
+		const reader = script("r", "return shared + local");
+		const blocks = [b("in", "entrypoint"), writer, reader];
+
+		// `local` belongs to the writer's script, so it is not a variable at all
+		expect(run(blocks, [e("in", "w"), e("w", "r")])).toEqual([]);
+		expect(run(blocks, [e("in", "r"), e("r", "w")])).toEqual([["r", "warning"]]);
+	});
 });

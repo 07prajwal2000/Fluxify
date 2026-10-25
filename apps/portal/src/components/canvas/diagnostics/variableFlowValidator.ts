@@ -1,6 +1,6 @@
-import { CODE_FIELDS } from "@fluxify/blocks/literalExpressions";
 import { BLOCK_TYPES } from "../blocks/blockTypes";
 import { canvasVariables } from "../panel/SaveOutputField";
+import { codeIn, withoutTextOrComments } from "../panel/scriptGlobals";
 import type { CanvasGraph } from "../types";
 import type { BlockDiagnostic } from "./types";
 
@@ -8,23 +8,6 @@ export const VARIABLE_FLOW_SOURCE = "variable-flow";
 
 type Data = Record<string, unknown>;
 type Writers = Map<string, { ids: Set<string>; sources: Set<string> }>;
-
-/** every string in a block's data that is JavaScript: its code field and each `js:` value */
-function* codeIn(type: string, data: Data): Generator<string> {
-	const codeField = CODE_FIELDS[type];
-	const walk = function* (value: unknown, field: string): Generator<string> {
-		if (typeof value === "string") {
-			if (field === codeField || value.startsWith("js:")) yield value;
-		} else if (value && typeof value === "object") {
-			for (const item of Object.values(value)) yield* walk(item, field);
-		}
-	};
-	for (const [field, value] of Object.entries(data)) yield* walk(value, field);
-}
-
-/** Comments and string literals hold names that are not reads. */
-const withoutTextOrComments = (code: string) =>
-	code.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*|'(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*"/g, " ");
 
 const escapeRegex = (name: string) => name.replace(/[$]/g, "\\$&");
 

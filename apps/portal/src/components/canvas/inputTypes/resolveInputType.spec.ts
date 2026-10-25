@@ -360,4 +360,15 @@ describe("resolveInputType", () => {
 		expect(await resolver.outputType("d")).toBe("number");
 		expect(await resolver.setVarType("s", 0)).toBe("number");
 	});
+
+	it("leaves a variable any when a script writes it too", async () => {
+		const nodes = [
+			block("s", "setvar", { key: "total", value: 1 }),
+			runner("w", "total = 'x'"),
+			block("g", "getvar", { key: "total" }),
+			runner("c", "C"),
+		];
+
+		expect(await resolveInputType("c", nodes, [edge("g", "c")], ctx())).toBe("any");
+	});
 });

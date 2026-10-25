@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { BLOCK_TYPES } from "../blocks/blockTypes";
 import { createResolver, SAVES_ON_SUCCESS } from "./resolveInputType";
 import { DEBOUNCE_MS, graphSignature, useInputTypeContext } from "./useInputTypeContext";
 
@@ -36,8 +37,13 @@ export function useTypedCanvasVariables(
 			const resolver = createResolver(nodes, edges, ctx);
 			const typeOf = async (variable: Origin): Promise<string | undefined> => {
 				if (!variable.id) return undefined;
-				if (!variable.output) return resolver.setVarType(variable.id, variable.row ?? 0);
 				const block = nodes.find((node) => node.id === variable.id);
+				if (!variable.output) {
+					// a name a script assigns has no row: nothing says what it holds
+					return block?.type === BLOCK_TYPES.setvar && variable.row !== undefined
+						? resolver.setVarType(variable.id, variable.row)
+						: undefined;
+				}
 				return resolver.outputType(
 					variable.id,
 					SAVES_ON_SUCCESS.has(block?.type ?? "") ? "success" : "source",

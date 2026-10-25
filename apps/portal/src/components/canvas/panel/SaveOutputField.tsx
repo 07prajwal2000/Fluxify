@@ -17,6 +17,7 @@ import { BLOCK_TYPES } from "../blocks/blockTypes";
 import { useCanvasChanges } from "../changes/ChangesContext";
 import { useTypedCanvasVariables } from "../inputTypes/useTypedCanvasVariables";
 import type { BlockData, BlockNode } from "../types";
+import { blockAssignedGlobals } from "./scriptGlobals";
 
 type SaveAsVariable = { enabled: boolean; name: string };
 
@@ -68,8 +69,9 @@ function readSetting(data: BlockData | undefined): SaveAsVariable {
 }
 
 /**
- * Variables written on the canvas — Set Var keys (globals) plus saved block
- * outputs (under `outputs`) — each with the label of the block writing it.
+ * Variables written on the canvas — Set Var keys and names a script assigns
+ * (globals), plus saved block outputs (under `outputs`) — each with the label
+ * of the block writing it. A script's own `let` / `const` names are not here.
  */
 export function canvasVariables(
 	blocks: { id?: string; type?: string; data?: unknown }[],
@@ -78,24 +80,31 @@ export function canvasVariables(
 		.flatMap((b) => {
 			const data = b.data as BlockData | undefined;
 			const source = blockLabels(b.type ?? "", data).name;
+			const origin = b.id ? { id: b.id } : {};
+			const scripts = blockAssignedGlobals(b.type ?? "", data ?? {}).map((name) => ({
+				name,
+				source,
+				...origin,
+			}));
 			if (b.type === BLOCK_TYPES.setvar) {
 				// Multiple mode sets one variable per row
 				const rows = data?.mode === "multiple" && Array.isArray(data.items) ? data.items : [data];
-				return rows.map((row, index) => ({
-					name: String(row?.key ?? "").trim(),
-					source,
-					// which block and row wrote it, so its type can be looked up
-					...(b.id ? { id: b.id, row: index } : {}),
-				}));
+				return [
+					...rows.map((row, index) => ({
+						name: String(row?.key ?? "").trim(),
+						source,
+						// which block and row wrote it, so its type can be looked up
+						...(b.id ? { id: b.id, row: index } : {}),
+					})),
+					...scripts,
+				];
 			}
 			const setting = readSetting(data);
 			const saved = setting.enabled && savesOutput(b.type, data ?? {});
-			return {
-				name: saved ? setting.name.trim() : "",
-				source,
-				output: true as const,
-				...(b.id ? { id: b.id } : {}),
-			};
+			return [
+				{ name: saved ? setting.name.trim() : "", source, output: true as const, ...origin },
+				...scripts,
+			];
 		})
 		.filter((variable) => variable.name);
 }

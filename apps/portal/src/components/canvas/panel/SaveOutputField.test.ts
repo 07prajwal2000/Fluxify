@@ -63,3 +63,14 @@ test("a block without a custom name is labelled by its default block name", () =
 	expect(variable.source).toBe(blockLabels(BLOCK_TYPES.httprequest).name);
 	expect(variable.source).not.toBe("");
 });
+
+test("names a script assigns are canvas variables; its own let and const are not", () => {
+	const variables = canvasVariables([
+		{
+			type: BLOCK_TYPES.jsrunner,
+			data: { blockName: "Calc", value: "let local = 1; local = 2; shared = local; const c = 3;" },
+		},
+	]);
+
+	expect(variables).toEqual([{ name: "shared", source: "Calc" }]);
+});

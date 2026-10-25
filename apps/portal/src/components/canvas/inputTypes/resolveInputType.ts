@@ -1,5 +1,6 @@
 import { BLOCK_TYPES } from "../blocks/blockTypes";
 import { readDbBinding } from "../panel/blocks/db/conditions";
+import { blockAssignedGlobals } from "../panel/scriptGlobals";
 import {
 	CHAIN_FAILURE,
 	fieldMapOutput,
@@ -72,6 +73,10 @@ export function createResolver(nodes: GraphNode[], edges: GraphEdge[], ctx: Inpu
 	const rowTypes = new Map<string, Promise<string>>();
 	const variables = new Map<string, Promise<string>>();
 	const resolving = new Set<string>();
+	// names a script assigns: whatever it stores is not known
+	const scriptWrites = new Set(
+		nodes.flatMap((node) => blockAssignedGlobals(node.type ?? "", (node.data ?? {}) as Data)),
+	);
 
 	const inputOf = async (id: string, path: string[]): Promise<string> =>
 		union(
@@ -125,7 +130,7 @@ export function createResolver(nodes: GraphNode[], edges: GraphEdge[], ctx: Inpu
 		let type = variables.get(name);
 		if (!type) {
 			// a variable that is read while it is being worked out is a cycle
-			if (resolving.has(name)) return Promise.resolve("any");
+			if (resolving.has(name) || scriptWrites.has(name)) return Promise.resolve("any");
 			resolving.add(name);
 			const writes = nodes.flatMap((node) =>
 				node.type === BLOCK_TYPES.setvar
