@@ -64,23 +64,49 @@ export function buildVariableConditionalSnippet(varName: string): CodeSnippet {
 
 /** A canvas variable, optionally with the name of the block that writes it. */
 /** `output` marks a saved block output, read as `outputs.<name>` rather than a global. */
-export type CanvasVariable = string | { name: string; source?: string; output?: boolean };
+/** `type` is the TypeScript type the variable holds, when it is known. */
+export type CanvasVariable =
+	| string
+	| { name: string; source?: string; output?: boolean; type?: string };
 
 /** Trims, drops blanks and `exclude`, and merges duplicates, keeping every block that writes a name. */
 export function collectVariables(variables: CanvasVariable[] | undefined, exclude?: string) {
-	const byKey = new Map<string, { name: string; sources: Set<string>; output: boolean }>();
+	const byKey = new Map<
+		string,
+		{ name: string; sources: Set<string>; output: boolean; types: Set<string>; untyped: boolean }
+	>();
 	for (const variable of variables ?? []) {
 		const name = (typeof variable === "string" ? variable : variable?.name)?.trim();
 		const output = typeof variable !== "string" && variable.output === true;
 		// `exclude` is the Set Var key being edited, a global
 		if (!name || (!output && name === exclude)) continue;
 		const key = `${output ? "outputs." : ""}${name}`;
-		const entry = byKey.get(key) ?? { name, sources: new Set<string>(), output };
+		const entry = byKey.get(key) ?? {
+			name,
+			sources: new Set<string>(),
+			output,
+			types: new Set<string>(),
+			untyped: false,
+		};
+		const type = typeof variable === "string" ? undefined : variable.type?.trim();
+		if (type) entry.types.add(type);
+		else entry.untyped = true;
 		const source = typeof variable === "string" ? undefined : variable.source?.trim();
 		if (source) entry.sources.add(source);
 		byKey.set(key, entry);
 	}
-	return Array.from(byKey.values(), (v) => ({ ...v, sources: [...v.sources] }));
+	return Array.from(byKey.values(), ({ types, untyped, ...v }) => {
+		// every writer of a name stores something: it holds any of those. One that is
+		// not typed, or a type that is `any`, leaves the name `any`.
+		const all = [...types];
+		const type =
+			untyped || all.length === 0 || all.includes("any")
+				? undefined
+				: all.length === 1
+					? all[0]
+					: all.map((t) => `(${t})`).join(" | ");
+		return { ...v, sources: [...v.sources], ...(type ? { type } : {}) };
+	});
 }
 
 export function describeVariable(

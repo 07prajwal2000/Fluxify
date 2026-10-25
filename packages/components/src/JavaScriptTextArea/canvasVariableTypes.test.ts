@@ -42,6 +42,22 @@ describe("buildCanvasVariableTypeLib", () => {
 		);
 	});
 
+	it("types a variable when every block that writes it is typed", () => {
+		const lib = buildCanvasVariableTypeLib([
+			{ name: "count", type: "number" },
+			{ name: "both", type: "number" },
+			{ name: "both", type: "string" },
+			{ name: "half", type: "number" },
+			{ name: "half" },
+			{ name: "users", output: true, type: "({ id: number; })[]" },
+		]);
+
+		expect(lib).toContain("declare var count: number;");
+		expect(lib).toContain("declare var both: (number) | (string);");
+		expect(lib).toContain("declare var half: any;");
+		expect(lib).toContain("users: ({ id: number; })[];");
+	});
+
 	it("is empty when there are no variables", () => {
 		expect(buildCanvasVariableTypeLib([])).toBe("");
 	});

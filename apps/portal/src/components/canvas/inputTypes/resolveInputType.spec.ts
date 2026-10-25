@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type { DbMeta } from "./dbOutputType";
-import { type InferOutput, resolveInputType } from "./resolveInputType";
+import { createResolver, type InferOutput, resolveInputType } from "./resolveInputType";
 
 const runner = (id: string, value: string) => ({ id, type: "jsrunner", data: { value } });
 // the canvas names a handle `<blockId>-<kind>`
@@ -220,10 +220,9 @@ describe("resolveInputType", () => {
 		expect(await after(block("h", "arrayops"))).toBe("any[]");
 	});
 
-	it("types a KV Raw script and a JS Transformer, but not a field-map Transformer", async () => {
+	it("types a KV Raw script and a JS Transformer", async () => {
 		expect(await after(block("k", "kv_raw", { js: "K" }))).toBe("K<any>");
 		expect(await after(block("t", "transformer", { useJs: true, js: "T" }))).toBe("T<any>");
-		expect(await after(block("t", "transformer", { useJs: false, js: "T" }))).toBe("any");
 	});
 
 	it("types a retry like a transaction", async () => {
@@ -254,6 +253,111 @@ describe("resolveInputType", () => {
 		const a = [runner("a", "A")];
 
 		expect(await after(block("o", "orchestrator"), "orchestrate", a)).toBe("A<any>");
-		expect(await after(block("o", "orchestrator"), "source", a)).toBe("any");
+	});
+
+	it("types a field-map Transformer from the keys it maps", async () => {
+		const t = block("t", "transformer", { fieldMap: { id: "userId", "e-mail": "email" } });
+
+		expect(await after(t)).toBe('{ "userId": any; "email": any; }');
+		expect(await after(t, "source", [runner("a", "A")])).toBe(
+			'{ "userId": (A<any>)["id"]; "email": (A<any>)["e-mail"]; }',
+		);
+		expect(await after(block("t", "transformer", { fieldMap: {} }))).toBe("{}");
+	});
+
+	it("types KV Operations as untyped, passing writes through", async () => {
+		const a = [runner("a", "A")];
+
+		expect(await after(block("k", "kv_operations", { operation: "get" }), "source", a)).toBe("any");
+		expect(await after(block("k", "kv_operations", { operation: "set" }), "source", a)).toBe("A<any>");
+		expect(
+			await after(block("k", "kv_operations", { operation: "get", keepResult: true }), "source", a),
+		).toBe("{ input: A<any>; result: any }");
+		expect(
+			await after(block("k", "kv_operations", { operation: "delete", keepResult: true })),
+		).toBe("{ input: any; result: boolean }");
+	});
+
+	it("types Get Request Body from getRequestBody()", async () => {
+		expect(await after(block("b", "httpgetrequestbody"))).toBe("ReturnType<typeof getRequestBody>");
+	});
+
+	it("types Send Message with every broker's fields, optional", async () => {
+		const send = block("q", "queue_send");
+		const fields = ["topic?: string", "seq?: number", "queueUrl?: string", "sent?:", "error?: string"];
+
+		for (const kind of ["success", "failure"]) {
+			const type = await after(send, kind);
+			for (const field of fields) expect(type).toContain(field);
+		}
+		expect(await after(block("q", "queue_send", { mode: "raw", js: "Q" }), "success")).toBe("Q<any>");
+	});
+
+	it("types Set Var from its value and hands that on", async () => {
+		const set = (value: unknown) => after(block("s", "setvar", { key: "k", value }));
+
+		expect(await set("hello")).toBe("string");
+		expect(await set(3)).toBe("number");
+		expect(await set(true)).toBe("boolean");
+		expect(await set({ a: 1 })).toBe("any");
+		expect(await set("js:return input.id")).toBe("return input.id<any>");
+		expect(
+			await after(
+				block("s", "setvar", { mode: "multiple", items: [{ key: "a", value: 1 }, { key: "b", value: "x" }] }),
+			),
+		).toBe("[number, string]");
+	});
+
+	it("types Get Var as whatever sets the variable, even from another branch", async () => {
+		const nodes = [
+			block("s1", "setvar", { key: "total", value: 1 }),
+			block("s2", "setvar", { key: "total", value: "x" }),
+			block("s3", "setvar", { key: "name", value: "n" }),
+			block("g", "getvar", { key: "total" }),
+			runner("c", "C"),
+		];
+		const resolve = (g: ReturnType<typeof block>) =>
+			resolveInputType("c", nodes.map((n) => (n.id === "g" ? g : n)), [edge("g", "c")], ctx());
+
+		expect(await resolve(block("g", "getvar", { key: "total" }))).toBe("(number) | (string)");
+		expect(await resolve(block("g", "getvar", { key: "name" }))).toBe("string");
+		expect(await resolve(block("g", "getvar", { key: "never" }))).toBe("any");
+		expect(
+			await resolve(block("g", "getvar", { mode: "multiple", items: [{ key: "name" }, { key: "total" }] })),
+		).toBe("[string, (number) | (string)]");
+	});
+
+	it("does not hang on a variable that depends on itself", async () => {
+		const nodes = [
+			block("s", "setvar", { key: "loop", value: "js:return x" }),
+			block("g", "getvar", { key: "loop" }),
+			runner("c", "C"),
+		];
+		const edges = [edge("g", "s"), edge("s", "c")];
+
+		expect(typeof (await resolveInputType("c", nodes, edges, ctx()))).toBe("string");
+	});
+
+	it("types an orchestrator's result as a tuple, in its order, settling to strings", async () => {
+		const nodes = [
+			runner("a", "A"),
+			block("o", "orchestrator", { order: ["y", "x"] }),
+			dbBlock("x", "db_count"),
+			runner("y", "Y"),
+			runner("c", "C"),
+		];
+		const wired = [edge("a", "o"), edge("o", "x", "orchestrate"), edge("o", "y", "orchestrate"), edge("o", "c")];
+
+		expect(await resolveInputType("c", nodes, wired, ctx())).toBe("[Y<A<any>>, number]");
+		const settle = nodes.map((n) => (n.id === "o" ? block("o", "orchestrator", { onError: "settle" }) : n));
+		expect(await resolveInputType("c", settle, wired, ctx())).toBe("[(number) | string, (Y<A<any>>) | string]");
+	});
+
+	it("shares a resolver's work: the saved outputs and variables of a canvas", async () => {
+		const nodes = [dbBlock("d", "db_count"), block("s", "setvar", { key: "k", value: 1 })];
+		const resolver = createResolver(nodes, [], ctx());
+
+		expect(await resolver.outputType("d")).toBe("number");
+		expect(await resolver.setVarType("s", 0)).toBe("number");
 	});
 });

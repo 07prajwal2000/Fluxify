@@ -18,15 +18,15 @@ const IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 export function buildCanvasVariableTypeLib(variables?: CanvasVariable[]): string {
 	const globals: string[] = [];
 	const outputs: string[] = [];
-	for (const { name, sources, output } of collectVariables(variables)) {
+	for (const { name, sources, output, type = "any" } of collectVariables(variables)) {
 		if (!IDENTIFIER.test(name)) continue;
 		// a block name holding `*/` must not close the comment early
 		const doc = describeVariable(name, sources, "from execution state", output).replaceAll(
 			"*/",
 			"*\\/",
 		);
-		if (output) outputs.push(`\t/** ${doc} */\n\t${name}: any;\n`);
-		else globals.push(`/** ${doc} */\ndeclare var ${name}: any;\n`);
+		if (output) outputs.push(`\t/** ${doc} */\n\t${name}: ${type};\n`);
+		else globals.push(`/** ${doc} */\ndeclare var ${name}: ${type};\n`);
 	}
 	if (outputs.length) {
 		globals.push(
