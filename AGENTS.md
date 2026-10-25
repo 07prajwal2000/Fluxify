@@ -223,6 +223,15 @@ const get = () => spyOn(orchestrationService, "getProject").mockResolvedValue(st
 **Issue:** a process-spec fixture did `process.send(report); process.exit(0)` and the parent's `ipc` callback never fired; the test saw `undefined`.
 **Fix:** for a fixture that reports and exits, print one marker line to stdout (`console.log(\`REPORT ${JSON.stringify(x)}\`)`) and parse it from the piped stdout (`/REPORT (.*)/`). See `triggers/tests/strayErrorsChild.fixture.ts`. Use IPC only for a long-lived child.
 
+### A Lazy `require` of a Host Package Inside the Host-Packages Plugin Resolves to Itself
+**Issue:** making `ai` lazy in `hostPackages.ts` broke 36 ai-gateway specs with empty `ai` / `@ai-sdk/provider` exports. The bundled worker was fine.
+**Cause:** the `Bun.plugin` intercepts the `ai` specifier. When the code runs unbundled (tests, dev, e2e), a `require("ai")` inside the plugin's callback goes back through the plugin and gets its own half-built virtual module.
+**Rule:** keep host packages eager in `hostPackages.ts` (`ai` costs about 4 MB of heap). To lazy-load any other package, use `require()` inside a function, and check it with `startupDeps.spec.ts`.
+
+### Tests That Grep Compiled Source for `return …;` Break When the Compiler Inlines
+**Issue:** integration specs checked `artifact.source` for `toContain("return 'one';")`. They failed after #944, because pure single-expression code is now emitted inline as `('one')`.
+**Rule:** match the inlined form (`"('one')"`, `"= (1);"`), or better, assert on what the route returns. The canvas and snapshot JSON still hold the raw `return …;` text.
+
 ---
 
 ## Documentation Writing Rules
