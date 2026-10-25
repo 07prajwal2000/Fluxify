@@ -32,10 +32,9 @@ const PRIMITIVES: Partial<Record<DataType, string>> = {
 	int: "number",
 	float: "number",
 	bool: "boolean",
-	// a file arrives as an upload object, a blob as bytes; neither has a shape
-	// worth spelling out here
-	file: "unknown",
-	blob: "unknown",
+	// multipart hands over a real `File`; a raw octet-stream body is a `Blob`
+	file: "File",
+	blob: "Blob",
 	// `js` is a custom validator, so the value it guards can be anything
 	js: "any",
 };

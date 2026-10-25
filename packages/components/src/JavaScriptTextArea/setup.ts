@@ -16,6 +16,22 @@ import { registerTypeLib } from "./typeLibRegistry";
  * Importing this module is the whole setup; it must happen before any `Editor`
  * mounts, which the import in JavaScriptTextArea.tsx guarantees.
  */
+// a function: `monaco.typescript` must not be read outside the browser guard
+const compilerOptions = (): monaco.typescript.CompilerOptions => ({
+	target: monaco.typescript.ScriptTarget.ES2020,
+	lib: ["es2020"],
+	allowNonTsExtensions: true,
+	// NodeJs (not the default Classic) is what makes bare specifiers like
+	// `import("zod")` look under a virtual `node_modules/`, which is where
+	// the registered package types live.
+	moduleResolution: monaco.typescript.ModuleResolutionKind.NodeJs,
+	// packages re-exported as default imports (zod's locales) need this
+	esModuleInterop: true,
+	// declaration emit is how inferScriptOutput reads what a script returns
+	allowJs: true,
+	declaration: true,
+});
+
 if (typeof window !== "undefined") {
 	window.MonacoEnvironment = {
 		getWorker(_workerId, label) {
@@ -29,17 +45,7 @@ if (typeof window !== "undefined") {
 	// its own top-level export. The old `monaco.languages.typescript.*` path —
 	// which every pre-0.56 tutorial and the `Monaco` type still show — is
 	// `undefined` here, so reaching for it throws.
-	monaco.typescript.javascriptDefaults.setCompilerOptions({
-		target: monaco.typescript.ScriptTarget.ES2020,
-		lib: ["es2020"],
-		allowNonTsExtensions: true,
-		// NodeJs (not the default Classic) is what makes bare specifiers like
-		// `import("zod")` look under a virtual `node_modules/`, which is where
-		// the registered package types live.
-		moduleResolution: monaco.typescript.ModuleResolutionKind.NodeJs,
-		// packages re-exported as default imports (zod's locales) need this
-		esModuleInterop: true,
-	});
+	monaco.typescript.javascriptDefaults.setCompilerOptions(compilerOptions());
 	// Runs once at module load: `addExtraLib` accumulates, so a per-editor call
 	// would stack a duplicate copy of the globals on every mount.
 	registerTypeLib("fluxify-globals", FLUXIFY_JS_GLOBALS, "file:///fluxify-globals.d.ts");
@@ -85,13 +91,7 @@ if (typeof window !== "undefined") {
 export async function restartLanguageServer(): Promise<void> {
 	if (typeof window === "undefined") return;
 
-	monaco.typescript.javascriptDefaults.setCompilerOptions({
-		target: monaco.typescript.ScriptTarget.ES2020,
-		lib: ["es2020"],
-		allowNonTsExtensions: true,
-		moduleResolution: monaco.typescript.ModuleResolutionKind.NodeJs,
-		esModuleInterop: true,
-	});
+	monaco.typescript.javascriptDefaults.setCompilerOptions(compilerOptions());
 
 	registerTypeLib("fluxify-globals", FLUXIFY_JS_GLOBALS, "file:///fluxify-globals.d.ts");
 }

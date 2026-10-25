@@ -35,6 +35,7 @@ import {
 import { DEFAULT_EDGE_TYPES, FLOW_EDGE_TYPE } from "./edges";
 import { CanvasHistoryProvider, useCanvasHistory } from "./history";
 import { uuidv7 } from "./ids";
+import { useOpenBlockInputType } from "./inputTypes/useOpenBlockInputType";
 import { KeyboardShortcutsProvider } from "./keyboard";
 import { CanvasFormatProvider } from "./layout";
 import { CanvasPlaygroundProvider, useCanvasPlayground } from "./PlaygroundContext";
@@ -248,6 +249,7 @@ function CanvasInner({
 		() => nodes.find((node) => node.id === panel.openBlockId) ?? null,
 		[nodes, panel.openBlockId],
 	);
+	useOpenBlockInputType(openBlock?.id ?? null, nodes, edges);
 
 	const onNodeDoubleClick = useCallback(
 		(event: React.MouseEvent, node: BlockNode) => {

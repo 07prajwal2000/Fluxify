@@ -10,12 +10,14 @@ import {
 	useCanvasVariableTypes,
 	useRegisterSnippets,
 } from "@fluxify/components";
-import { useNodes, useReactFlow } from "@xyflow/react";
+import { useEdges, useNodes, useReactFlow } from "@xyflow/react";
 import { useEffect, useMemo, useState } from "react";
 import { blockLabels } from "../blocks/blockLabels";
 import { BLOCK_TYPES } from "../blocks/blockTypes";
 import { useCanvasChanges } from "../changes/ChangesContext";
+import { useTypedCanvasVariables } from "../inputTypes/useTypedCanvasVariables";
 import type { BlockData, BlockNode } from "../types";
+import { blockAssignedGlobals } from "./scriptGlobals";
 
 type SaveAsVariable = { enabled: boolean; name: string };
 
@@ -67,24 +69,42 @@ function readSetting(data: BlockData | undefined): SaveAsVariable {
 }
 
 /**
- * Variables written on the canvas — Set Var keys (globals) plus saved block
- * outputs (under `outputs`) — each with the label of the block writing it.
+ * Variables written on the canvas — Set Var keys and names a script assigns
+ * (globals), plus saved block outputs (under `outputs`) — each with the label
+ * of the block writing it. A script's own `let` / `const` names are not here.
  */
 export function canvasVariables(
-	blocks: { type?: string; data?: unknown }[],
-): { name: string; source: string; output?: true }[] {
+	blocks: { id?: string; type?: string; data?: unknown }[],
+): { name: string; source: string; output?: true; id?: string; row?: number }[] {
 	return blocks
 		.flatMap((b) => {
 			const data = b.data as BlockData | undefined;
 			const source = blockLabels(b.type ?? "", data).name;
+			const origin = b.id ? { id: b.id } : {};
+			const scripts = blockAssignedGlobals(b.type ?? "", data ?? {}).map((name) => ({
+				name,
+				source,
+				...origin,
+			}));
 			if (b.type === BLOCK_TYPES.setvar) {
 				// Multiple mode sets one variable per row
 				const rows = data?.mode === "multiple" && Array.isArray(data.items) ? data.items : [data];
-				return rows.map((row) => ({ name: String(row?.key ?? "").trim(), source }));
+				return [
+					...rows.map((row, index) => ({
+						name: String(row?.key ?? "").trim(),
+						source,
+						// which block and row wrote it, so its type can be looked up
+						...(b.id ? { id: b.id, row: index } : {}),
+					})),
+					...scripts,
+				];
 			}
 			const setting = readSetting(data);
 			const saved = setting.enabled && savesOutput(b.type, data ?? {});
-			return { name: saved ? setting.name.trim() : "", source, output: true as const };
+			return [
+				{ name: saved ? setting.name.trim() : "", source, output: true as const, ...origin },
+				...scripts,
+			];
 		})
 		.filter((variable) => variable.name);
 }
@@ -94,7 +114,9 @@ export function canvasVariables(
  * block or its variable updates the snippet without a save.
  */
 export function CanvasVariableSnippets() {
-	const variables = canvasVariables(useNodes());
+	const nodes = useNodes();
+	const variables = canvasVariables(nodes);
+	const typed = useTypedCanvasVariables(variables, nodes, useEdges());
 	const key = JSON.stringify(variables);
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	const snippets = useMemo(() => buildCanvasVariableSnippets(variables), [key]);
@@ -102,7 +124,7 @@ export function CanvasVariableSnippets() {
 	// a Set Var key that is a reserved word, declared as a global, would break
 	// every other declaration; saved outputs are members of `outputs`, so fine
 	useCanvasVariableTypes(
-		variables.filter((v) => (v.output ? !variableNameError(v.name) : !RESERVED_WORDS.has(v.name))),
+		typed.filter((v) => (v.output ? !variableNameError(v.name) : !RESERVED_WORDS.has(v.name))),
 	);
 	return null;
 }

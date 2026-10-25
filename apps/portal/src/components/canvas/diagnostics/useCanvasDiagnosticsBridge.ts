@@ -17,6 +17,7 @@ import {
 	transactionTopologyKey,
 	validateTransactions,
 } from "./transactionValidator";
+import { VARIABLE_FLOW_SOURCE, validateVariableFlow } from "./variableFlowValidator";
 
 export type UseCanvasDiagnosticsBridgeOptions = {
 	nodes: BlockNode[];
@@ -103,12 +104,16 @@ export function useCanvasDiagnosticsBridge({
 		const offTransactions = registerValidator(TRANSACTION_SOURCE, () =>
 			validateTransactions(flowToGraph(nodes, edges)),
 		);
+		const offVariables = registerValidator(VARIABLE_FLOW_SOURCE, () =>
+			validateVariableFlow(flowToGraph(nodes, edges)),
+		);
 		return () => {
 			offCycles();
 			offSwitches();
 			offConfigs();
 			offTransactions();
 			offLiterals();
+			offVariables();
 		};
 	}, [nodes, edges, registerValidator]);
 
@@ -119,6 +124,7 @@ export function useCanvasDiagnosticsBridge({
 		setFromSource(SWITCH_SOURCE, validateSwitches(currentGraph));
 		setFromSource(BLOCK_CONFIG_SOURCE, validateBlockConfigs(currentGraph));
 		setFromSource(LITERAL_EXPRESSION_SOURCE, validateLiteralExpressions(currentGraph));
+		setFromSource(VARIABLE_FLOW_SOURCE, validateVariableFlow(currentGraph));
 	}, [nodes, edges, setFromSource]);
 
 	// The transaction walks depend only on wiring, so they skip drags and setting edits
