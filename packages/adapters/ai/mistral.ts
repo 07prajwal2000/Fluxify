@@ -1,4 +1,3 @@
-import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { BaseAiIntegration, openAiModels } from "./baseAiIntegration";
 
 const BASE_URL = "https://api.mistral.ai/v1";
@@ -9,7 +8,9 @@ export class MistralIntegration extends BaseAiIntegration {
 	static override provider = {
 		name: "Mistral",
 		create: (c, fetch) =>
-			createOpenAICompatible({ name: "mistral", baseURL: BASE_URL, apiKey: c.apiKey, fetch }),
+			(
+				require("@ai-sdk/openai-compatible") as typeof import("@ai-sdk/openai-compatible")
+			).createOpenAICompatible({ name: "mistral", baseURL: BASE_URL, apiKey: c.apiKey, fetch }),
 		models: openAiModels(BASE_URL),
 	} satisfies typeof BaseAiIntegration.provider;
 }

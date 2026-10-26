@@ -303,6 +303,27 @@ describe("compiled db blocks", () => {
 		expect(mock.calls[0].args[0]).toBe("select count(*) from users");
 		expect(result.output.body).toBe(3);
 		expect(ctx.vars.dbQuery).toBeUndefined();
+		// never put on vars at all, so vars never has a key deleted (#944)
+		expect(Object.keys(ctx.vars)).not.toContain("dbQuery");
+	});
+
+	it("gives a graph variable named dbQuery back after native code ran (#514)", async () => {
+		const mock = createDbAdapter({ raw: [{ count: 3 }] });
+		const { run } = compileGraph(
+			[
+				block("in", BlockTypes.entrypoint),
+				block("set", BlockTypes.setvar, { key: "dbQuery", value: "js:return 5" }),
+				block("db", BlockTypes.db_native, {
+					connection: "conn-1",
+					js: "const rows = await dbQuery('select 1'); return rows[0].count;",
+				}),
+				block("after", BlockTypes.jsrunner, { value: "const n = dbQuery; return n + input;" }),
+			],
+			[edge("in", "set"), edge("set", "db"), edge("db", "after")],
+		);
+		const ctx = createContext(mock.adapter);
+		expect((await run(ctx, null)).output).toBe(8);
+		expect(ctx.vars.dbQuery).toBe(5);
 	});
 
 	it("commits a transaction and runs its executor chain", async () => {

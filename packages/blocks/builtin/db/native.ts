@@ -1,4 +1,4 @@
-import { MongoAdapter, ObjectId, sessionBoundDb } from "@fluxify/adapters";
+import { MongoAdapter, mongoDriver, sessionBoundDb } from "@fluxify/adapters";
 import z from "zod";
 import { baseBlockDataSchema, type Context } from "../../baseBlock";
 import { BlockTypes } from "../../blockTypes";
@@ -41,7 +41,7 @@ async function nativeGlobals(context: Context, connection: string) {
 	);
 	return {
 		db,
-		ObjectId,
+		ObjectId: mongoDriver().ObjectId,
 		// saved code wrote `const db = await dbQuery()`: no query still hands back db
 		dbQuery: async (query?: unknown) => {
 			if (query !== undefined) throw new Error(MONGO_DB_QUERY);

@@ -15,7 +15,9 @@ export async function runWithRouteObserver<T>(
 	defaultTimeoutSeconds: number,
 	run: () => Promise<T>,
 ): Promise<T> {
-	const finish = observer?.onRouteStart({
+	// monitoring is off unless worker timeouts are: no extra async frame per request
+	if (!observer) return run();
+	const finish = observer.onRouteStart({
 		routeId: route.id,
 		projectId: route.projectId!,
 		timeoutSeconds: route.timeoutSeconds ?? defaultTimeoutSeconds,

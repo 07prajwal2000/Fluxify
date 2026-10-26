@@ -1,5 +1,5 @@
 import type { DbOperator } from "@fluxify/lib";
-import { type ClientSession, type Collection, ObjectId } from "mongodb";
+import type { ClientSession, Collection } from "mongodb";
 import type { DBConditionType } from ".";
 import {
 	activeConditions,
@@ -16,6 +16,7 @@ import {
 	textValue,
 } from "./conditions";
 import { isColumnRef, isLiteralRef, isNumericLike, toMongoField } from "./jsonPath";
+import { bson } from "./values";
 
 /**
  * What a collection's newest documents hold (#511): each field's stored
@@ -42,7 +43,7 @@ export async function sampleShape(
 
 export function mongoTypeOf(value: unknown): string {
 	if (value === null || value === undefined) return "null";
-	if (value instanceof ObjectId) return "objectId";
+	if (value instanceof bson().ObjectId) return "objectId";
 	if (value instanceof Date) return "date";
 	if (Array.isArray(value)) return "array";
 	return typeof value;
@@ -75,9 +76,9 @@ export function idForms(shape: MongoShape, field: string, name: string, value: u
 	const hex = HEX_ID.test(value);
 	if (holdsObjectIds(shape, field)) {
 		if (!hex) throw notAnObjectId(name, value);
-		return [ObjectId.createFromHexString(value)];
+		return [bson().ObjectId.createFromHexString(value)];
 	}
-	return hex ? [value, ObjectId.createFromHexString(value)] : [value];
+	return hex ? [value, bson().ObjectId.createFromHexString(value)] : [value];
 }
 
 /** a document to write, with id strings stored as ObjectIds on fields that hold them */
@@ -86,7 +87,7 @@ export function storedDoc(data: Record<string, unknown>, shape: MongoShape) {
 		Object.entries(data).map(([key, value]) => {
 			if (typeof value !== "string" || !holdsObjectIds(shape, key)) return [key, value];
 			if (!HEX_ID.test(value)) throw notAnObjectId(key, value);
-			return [key, ObjectId.createFromHexString(value)];
+			return [key, bson().ObjectId.createFromHexString(value)];
 		}),
 	);
 }

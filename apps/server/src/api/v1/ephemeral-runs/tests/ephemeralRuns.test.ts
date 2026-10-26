@@ -50,7 +50,7 @@ describe("a successful run", () => {
 			recordExecution: false,
 			tracingEnabled: false,
 		});
-		expect(artifact.source).toContain("return { n: 1 };");
+		expect(artifact.source).toContain("({ n: 1 })");
 		expect(await rowCounts()).toEqual(before);
 	});
 

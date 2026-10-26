@@ -15,6 +15,18 @@ type Entry = { fingerprint: string; client: KvClient };
  * variant names its own with `poolKey`.
  */
 export function kvConnectionFingerprint(config: KvConnectionConfig) {
+	// asked on every KV call; a config object is replaced, not edited, when the integration changes
+	let fingerprint = fingerprints.get(config);
+	if (fingerprint === undefined) {
+		fingerprint = computeKvFingerprint(config);
+		fingerprints.set(config, fingerprint);
+	}
+	return fingerprint;
+}
+
+const fingerprints = new WeakMap<object, string>();
+
+function computeKvFingerprint(config: KvConnectionConfig) {
 	const own = poolKeyFingerprint(
 		integrationRegistry.get("kv", config.variant ?? "", configOwner(config)),
 		config as never,

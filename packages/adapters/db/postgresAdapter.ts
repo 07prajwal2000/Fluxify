@@ -1,9 +1,7 @@
-import { SQL } from "bun";
-import { type Compilable, CompiledQuery, type InsertQueryBuilder, Kysely, sql } from "kysely";
+// not from "." — the barrel loads every driver (#944)
 import {
 	bulkChunkSize,
 	type Connection,
-	conflictUpdateColumns,
 	type DatabaseAdapter,
 	type DBConditionType,
 	DbAdapterMode,
@@ -12,18 +10,19 @@ import {
 	type IntrospectedTable,
 	type IsolationLevel,
 	isolationClause,
-	type OnConflict,
-	sqlCounterSet,
-	upsertRows,
 	type WriteResult,
-} from ".";
+} from "@fluxify/sdk/integrations";
+import { SQL } from "bun";
+import { type Compilable, CompiledQuery, type InsertQueryBuilder, Kysely, sql } from "kysely";
 import { applyJoins, applySqlConditions } from "./conditions";
 import { cachedPrimaryKey } from "./connection";
+import { sqlCounterSet } from "./counter";
 import { cursorSorts, type DbCursor, type DbPage, sqlPage } from "./cursor";
 import { applyColumns, buildQualifiers, type QueryOptions } from "./jsonPath";
 import { BunSqlPostgresDialect, runUnsafe } from "./kyselySqlDialect";
 import { activeSorts, applySqlSort, type DbSort, singleRow, withTiebreaker } from "./sort";
 import { type CachedRead, cachedRead } from "./sqlCache";
+import { conflictUpdateColumns, type OnConflict, upsertRows } from "./upsert";
 
 export type FluxifyDatabase = Record<string, Record<string, any>>;
 

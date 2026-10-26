@@ -1,6 +1,13 @@
 const scopes = new WeakMap<object, any>();
 
 /**
+ * Where a snippet's globals (`dbQuery`, `kv`) live while it runs, read before
+ * vars. Adding and deleting names here keeps them off vars itself: a `delete`
+ * there would leave every later read of vars on the slow path (#944).
+ */
+export const SNIPPET_GLOBALS = Symbol("fluxify.snippetGlobals");
+
+/**
  * What lets inlined user code keep writing bare `abcd` instead of `vars.abcd`:
  * the sandbox handed user code its vars object as the global, so `with (scope)`
  * reproduces that. `has` claims every name so reads resolve here first, falling
@@ -28,14 +35,17 @@ function makeScope(vars: Record<string, any>, skip?: Set<string>) {
 		// letting `with` resolve them off vars would shadow them with a variable
 		// that merely shares the name.
 		has: (target, key: any) => key !== "input" && key !== "params" && !skip?.has(key),
-		get: (target, key: any) =>
-			key === Symbol.unscopables
-				? undefined
-				: Object.hasOwn(target, key)
-					? target[key]
-					: (globalThis as any)[key],
+		get: (target, key: any) => {
+			if (key === Symbol.unscopables) return undefined;
+			const globals = (target as Record<symbol, any>)[SNIPPET_GLOBALS];
+			if (globals !== undefined && Object.hasOwn(globals, key)) return globals[key];
+			return Object.hasOwn(target, key) ? target[key] : (globalThis as any)[key];
+		},
 		set: (target, key: any, value) => {
-			target[key] = value;
+			// a snippet assigning its own global changes it for that run only, as before
+			const globals = (target as Record<symbol, any>)[SNIPPET_GLOBALS];
+			if (globals !== undefined && Object.hasOwn(globals, key)) globals[key] = value;
+			else target[key] = value;
 			return true;
 		},
 	});

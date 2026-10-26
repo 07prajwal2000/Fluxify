@@ -1,4 +1,5 @@
-import { Decimal128, Long, ObjectId } from "mongodb";
+/** bson is required on first use, so a project without MongoDB never loads it (#944) */
+export const bson = () => require("bson") as typeof import("bson");
 
 /**
  * #512: a bigint (int8, COUNT) is a number while it's exact, otherwise its digits as
@@ -18,6 +19,7 @@ export function exactInt(value: unknown): unknown {
  * An ObjectId comes back as its hex string, like `id` (#511).
  */
 export function plainNumbers(value: unknown): unknown {
+	const { Decimal128, Long, ObjectId } = bson();
 	if (value instanceof Long || value instanceof Decimal128) return value.toString();
 	if (value instanceof ObjectId) return value.toHexString();
 	if (Array.isArray(value)) return value.map(plainNumbers);

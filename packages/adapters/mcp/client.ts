@@ -1,15 +1,5 @@
 import { type McpAdapter, resolveMcpHeaders } from "@fluxify/sdk/integrations";
-import {
-	auth,
-	type OAuthClientProvider,
-	UnauthorizedError,
-} from "@modelcontextprotocol/sdk/client/auth.js";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import {
-	StreamableHTTPClientTransport,
-	StreamableHTTPError,
-} from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { OAuthError } from "@modelcontextprotocol/sdk/server/auth/errors.js";
+import type { OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js";
 import { McpNotConnectedError, type McpOAuth, mcpRefreshProvider } from "./oauth";
 
 export { resolveMcpHeaders };
@@ -24,6 +14,18 @@ export type McpConnection = {
 	auth?: "oauth";
 	oauth?: McpOAuth;
 };
+
+/** The MCP SDK, imported on first connect so a worker without MCP never loads it (#944). */
+const loadSdk = async () => {
+	const [{ auth, UnauthorizedError }, { Client }, http, { OAuthError }] = await Promise.all([
+		import("@modelcontextprotocol/sdk/client/auth.js"),
+		import("@modelcontextprotocol/sdk/client/index.js"),
+		import("@modelcontextprotocol/sdk/client/streamableHttp.js"),
+		import("@modelcontextprotocol/sdk/server/auth/errors.js"),
+	]);
+	return { auth, UnauthorizedError, Client, OAuthError, ...http };
+};
+type Sdk = Awaited<ReturnType<typeof loadSdk>>;
 
 /** Refresh this long before the access token runs out, so a call never starts with one about to die. */
 const EXPIRY_MARGIN_MS = 30_000;
@@ -41,22 +43,22 @@ const refreshing = new WeakMap<McpOAuth, Promise<void>>();
  * tokens are read first, since another process may have refreshed already, and only
  * then is it refreshed here. A 401 later still refreshes, for a token revoked early.
  */
-function ensureFresh(oauth: McpOAuth, provider: OAuthClientProvider, url: string) {
+function ensureFresh(sdk: Sdk, oauth: McpOAuth, provider: OAuthClientProvider, url: string) {
 	const running = refreshing.get(oauth);
 	if (running) return running;
 	const work = (async () => {
 		if (!expiring(oauth)) return;
 		await oauth.reload();
-		if (expiring(oauth)) await auth(provider, { serverUrl: url });
+		if (expiring(oauth)) await sdk.auth(provider, { serverUrl: url });
 	})().finally(() => refreshing.delete(oauth));
 	refreshing.set(oauth, work);
 	return work;
 }
 
-const authFailed = (e: unknown) =>
-	e instanceof UnauthorizedError ||
-	e instanceof OAuthError ||
-	(e instanceof StreamableHTTPError && e.code === 401);
+const authFailed = (sdk: Sdk, e: unknown) =>
+	e instanceof sdk.UnauthorizedError ||
+	e instanceof sdk.OAuthError ||
+	(e instanceof sdk.StreamableHTTPError && e.code === 401);
 
 /**
  * Connects over Streamable HTTP. Close it when done.
@@ -70,19 +72,23 @@ export async function openMcpClient({
 	oauth,
 }: McpConnection): Promise<McpAdapter> {
 	if (mode === "oauth" && !oauth) throw new McpNotConnectedError();
+	const sdk = await loadSdk();
 	const authProvider = oauth && mcpRefreshProvider(oauth);
 	const guard = async <T>(work: () => Promise<T>) =>
 		work().catch((e) => {
-			throw authProvider && authFailed(e) ? new McpNotConnectedError() : e;
+			throw authProvider && authFailed(sdk, e) ? new McpNotConnectedError() : e;
 		});
 	const fresh = async () => {
-		if (oauth && authProvider) await ensureFresh(oauth, authProvider, url);
+		if (oauth && authProvider) await ensureFresh(sdk, oauth, authProvider, url);
 	};
-	const client = new Client({ name: "fluxify", version: "1.0.0" });
+	const client = new sdk.Client({ name: "fluxify", version: "1.0.0" });
 	await guard(async () => {
 		await fresh();
 		await client.connect(
-			new StreamableHTTPClientTransport(new URL(url), { requestInit: { headers }, authProvider }),
+			new sdk.StreamableHTTPClientTransport(new URL(url), {
+				requestInit: { headers },
+				authProvider,
+			}),
 		);
 	});
 	return {

@@ -1,4 +1,4 @@
-import { type ClientSession, type Db, MongoClient } from "mongodb";
+// not from "." — the barrel loads every driver (#944)
 import {
 	type Connection,
 	changedRows,
@@ -8,10 +8,10 @@ import {
 	type IDbAdapter,
 	type IntrospectedTable,
 	type IsolationLevel,
-	type OnConflict,
 	type QueryOptions,
 	type WriteResult,
-} from ".";
+} from "@fluxify/sdk/integrations";
+import type { ClientSession, Db, MongoClient } from "mongodb";
 import { mongoCounterUpdate } from "./counter";
 import { type DbCursor, type DbPage, mongoPage } from "./cursor";
 import {
@@ -24,8 +24,11 @@ import {
 } from "./mongoFilter";
 import { activeSorts, type DbSort, mongoSorts, singleRow, sortSpec } from "./sort";
 import { isTransactionUnsupported, standaloneWarning } from "./transactionErrors";
-import { mongoUpsertOps } from "./upsert";
+import { mongoUpsertOps, type OnConflict } from "./upsert";
 import { plainNumbers } from "./values";
+
+/** the driver is required on first use, so a project without MongoDB never loads it (#944) */
+export const mongoDriver = () => require("mongodb") as typeof import("mongodb");
 
 export class MongoAdapter implements DatabaseAdapter {
 	public static variant = "MongoDB";
@@ -45,7 +48,7 @@ export class MongoAdapter implements DatabaseAdapter {
 	): Promise<{ success: boolean; error?: unknown; warning?: string }> {
 		let tempClient: MongoClient | null = null;
 		try {
-			tempClient = new MongoClient(buildMongoUrl(connection), {
+			tempClient = new (mongoDriver().MongoClient)(buildMongoUrl(connection), {
 				serverSelectionTimeoutMS: 2000,
 			});
 			await tempClient.connect();

@@ -275,7 +275,7 @@ describe("a canvas that names a block that is gone", () => {
 		expect(by(route).message).toContain("user_defined.project.gone");
 		expect(by(workflow)).toMatchObject({ level: "error", detail: { status: "failed" } });
 		expect(by(kept)).toMatchObject({ level: "info", detail: { status: "compiled" } });
-		expect((await stack.routeArtifact(project, kept, "development"))?.source).toContain("return 1;");
+		expect((await stack.routeArtifact(project, kept, "development"))?.source).toContain("= (1);");
 	});
 });
 

@@ -3,9 +3,11 @@ import { isFanOutHandle, sortByOrder } from "./blockHandles";
 import { BlockTypes } from "./blockTypes";
 import type { BlockDTOType, EdgeDTOSchemaType, EdgesType } from "./builderTypes";
 import { type BlockMetas, handleSpecsOf } from "./builtin/moduleBlock";
+import { emitImports } from "./emitImports";
 import { emitterFor } from "./emitterFor";
 import { type HoistedImport, hoistImports } from "./imports";
-import { assertInstalled, importTarget, type ProjectDependencies } from "./packageImports";
+import { assertInstalled, type ProjectDependencies } from "./packageImports";
+import { pureExpression } from "./pureExpression";
 import { compilerLib } from "./registry";
 import { scopeFor } from "./scope";
 import { blockSpans } from "./spans";
@@ -226,6 +228,8 @@ export function compileGraph(
 	const reachable = new Set<string>();
 	const visiting = new Set<string>();
 	const emissionOrder: string[] = [];
+	/** blocks a caller runs as a promise (`call`, `parallel`): never emitted as plain functions */
+	const promised = new Set<string>();
 
 	/**
 	 * The error handler is entered by jump, never by an edge: it is compiled from
@@ -324,62 +328,15 @@ export function compileGraph(
 		// `js: const x` is then a syntax error. Validation warns about it.
 		const { code, imports } = hoistImports(rawCode.replace(/^\s*js:/, ""));
 		registerImports(imports);
+		// a lone pure expression runs inline: no function, scope proxy or promise per call (#944)
+		const pure = imports.length
+			? undefined
+			: pureExpression(code, { input: extras ?? "undefined", params: "$state.params" });
+		if (pure) return pure;
 		// `params` is the custom block's invocation arguments — undefined in a
 		// route graph, so `input` keeps meaning exactly one thing everywhere: the
 		// previous block's output.
 		return `(await (async function (input, params) { with ($scope) {\n${code}\n} })(${extras ?? "undefined"}, $state.params))`;
-	}
-
-	/**
-	 * Imports resolve once per compiled artifact — at instantiation, i.e. on
-	 * compile and on hot reload — into bindings the block functions close over.
-	 * The loads start the moment the factory runs, so they are normally settled
-	 * before the first request; after that `$importsReady` is a plain boolean and
-	 * a request pays nothing at all, not even a microtask.
-	 *
-	 * `import(...)` is emitted directly rather than through a `lib` helper: an
-	 * artifact outlives the runtime that compiled it, and a worker mid-rollout
-	 * would hand this source an older `lib` with no such helper on it.
-	 */
-	function emitImports() {
-		// side-effect-only imports bind nothing but still have to be loaded
-		if (!importsBySpec.size) return { declarations: "", ready: "", scopeSkip: "" };
-		const names = [...importOwners.keys()];
-		const loads = [...importsBySpec].map(([spec, bound], index) => {
-			const namespace = `$mod_${index}`;
-			const lines = [`const ${namespace} = await import(${importTarget(spec, dependencies)});`];
-			const destructured: string[] = [];
-			for (const [local, imported] of bound) {
-				if (imported === null) lines.push(`${local} = ${namespace};`);
-				// default interop: a CJS module has no `default`, it is the export
-				else if (imported === "default")
-					lines.push(`${local} = ${namespace}.default ?? ${namespace};`);
-				else destructured.push(local === imported ? local : `${imported}: ${local}`);
-			}
-			if (destructured.length) {
-				lines.push(`({ ${destructured.join(", ")} } = ${namespace});`);
-			}
-			return lines.join("\n");
-		});
-		return {
-			declarations: [
-				names.length ? `let ${names.join(", ")};` : "",
-				names.length ? `const $importNames = new Set(${JSON.stringify(names)});` : "",
-				"let $importsReady = false;",
-				`const $imports = (async () => {\n${loads.join(
-					"\n",
-				)}\n})().then(() => { $importsReady = true; });`,
-				// keeps a bad specifier from surfacing as an unhandled rejection; the
-				// await below still rejects, so the failure reaches the request
-				"$imports.catch(() => {});",
-			]
-				.filter(Boolean)
-				.join("\n"),
-			// settled by the time traffic arrives in every normal case, and then this
-			// is a boolean test — no await, no microtask on the hot path
-			ready: "if (!$importsReady) await $imports;",
-			scopeSkip: names.length ? ", $importNames" : "",
-		};
 	}
 
 	function emitBlock(id: string): string {
@@ -404,8 +361,9 @@ export function compileGraph(
 				handleSpecs[block.type]?.out.length === 2;
 			const branch =
 				branching && (handle === "success" || handle === "failure") ? handle : undefined;
+			// a tail call: the callee rejects on its own, and its block is the one that tags the error
 			const continuation = to
-				? `return await ${blockFunctionName(to)}($state, $in, $end);`
+				? `return ${blockFunctionName(to)}($state, $in, $end);`
 				: "return $end($in);";
 			// Row Exists saves the row on success and clears it on failure, so a
 			// loop's later miss never leaves an earlier iteration's row behind.
@@ -453,18 +411,22 @@ if (${result} !== undefined) return ${result};`;
 					return target && target.type !== BlockTypes.errorHandler ? [{ handle, to: target }] : [];
 				});
 			},
-			call: (to, initExpr, end) => `${blockFunctionName(to)}($state, ${initExpr}, ${end})`,
+			call: (to, initExpr, end) => {
+				promised.add(to);
+				return `${blockFunctionName(to)}($state, ${initExpr}, ${end})`;
+			},
 			parallel(handle, order, settle) {
-				const runs = fanOutTargets(id, handle, order).map(
-					(to) => `${blockFunctionName(to)}($state, $in, $endBranch)`,
-				);
+				const runs = fanOutTargets(id, handle, order).map((to) => {
+					promised.add(to);
+					return `${blockFunctionName(to)}($state, $in, $endBranch)`;
+				});
 				// reported before handing off, like body(): a branch's throw is its own
 				return `(${spans.handOff && `${spans.handOff}, `}await $parallel([${runs.join(", ")}], ${settle}))`;
 			},
 			cases(handle, order) {
 				return fanOutTargets(id, handle, order).map((to) => ({
 					to,
-					run: `${spans.record("$in", undefined, undefined, to)}\nreturn await ${blockFunctionName(to)}($state, $in, $end);`,
+					run: `${spans.record("$in", undefined, undefined, to)}\nreturn ${blockFunctionName(to)}($state, $in, $end);`,
 				}));
 			},
 			complete(output) {
@@ -502,14 +464,26 @@ ${spans.wrap(`${emitBeforeHook(block.type, blockId, support, (h) => continueTo(h
 	collectReachable(handlerEntry);
 
 	for (const id of emissionOrder) blockFunctionName(id);
-	const functions = emissionOrder.map(emitBlock).join("\n\n");
+	const emitted = emissionOrder.map((id) => [id, emitBlock(id)] as const);
+	// a block left with nothing to wait on is a plain function: no promise or microtask per hop.
+	// A stray `await` in a string only keeps one async, never the reverse.
+	const functions = emitted
+		.map(([id, code]) =>
+			promised.has(id) || /\bawait\b/.test(code)
+				? code
+				: code.replace(
+						`async function ${blockFunctionName(id)}(`,
+						`function ${blockFunctionName(id)}(`,
+					),
+		)
+		.join("\n\n");
 	const errorHandlerBody = handlerEntry
 		? [
 				"const $err = $error?.toString();",
 				`return await ${blockFunctionName(handlerEntry)}($state, $err, $endFailure);`,
 			].join("\n")
 		: "return $endFailure($error);";
-	const imports = emitImports();
+	const imports = emitImports(importsBySpec, importOwners, dependencies);
 	const source = [
 		COMPILED_ROUTE_FACTORY,
 		PRELUDE,
@@ -526,7 +500,10 @@ ${spans.wrap(`${emitBeforeHook(block.type, blockId, support, (h) => continueTo(h
 		"const $state = {",
 		"ctx,",
 		"vars,",
-		`scope: lib.scope(vars${imports.scopeSkip}),`,
+		// only user code still run in `with` reads it; a fully inlined graph skips the proxy
+		functions.includes("with ($scope)")
+			? `scope: lib.scope(vars${imports.scopeSkip}),`
+			: "scope: undefined,",
 		"trace: ctx.trace,",
 		...(hooks ? ["hooks: ctx.testHooks,"] : []),
 		// a custom block is called with { params, input }: its configuration and

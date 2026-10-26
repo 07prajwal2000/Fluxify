@@ -17,6 +17,7 @@ type Provider = {
 /** how one provider connects, and how it lists its models (the cheapest real call) */
 export type AiProviderSpec = {
 	name: string;
+	/** `require`s its SDK here, not at the top, so a project without this provider never loads it (#944) */
 	create(config: AiConfig, fetch?: Fetch): Provider;
 	models: {
 		url(config: AiConfig): string;

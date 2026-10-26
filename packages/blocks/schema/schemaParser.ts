@@ -62,6 +62,16 @@ export function compileRequestSchema(
 		};
 	}
 
+	// only a JS rule is async and reads the request's vars; without one the sync parse
+	// skips zod's async machinery and the async-local run on every request (#944)
+	if (!hasJsRule(schemaJson)) {
+		return {
+			async validate(requestData: any) {
+				return formatResult(executableSchema.safeParse(requestData));
+			},
+		};
+	}
+
 	return {
 		async validate(requestData: any, context: ParserContext): Promise<ParseResult> {
 			// A cached schema is shared by concurrent requests. The JS refinement reads
@@ -71,6 +81,13 @@ export function compileRequestSchema(
 			);
 		},
 	};
+}
+
+/** a `js` node anywhere in the definition (properties, items, chains); a false hit only costs the async path */
+function hasJsRule(def: unknown): boolean {
+	if (!def || typeof def !== "object") return false;
+	if ((def as { dataType?: unknown }).dataType === "js") return true;
+	return Object.values(def).some(hasJsRule);
 }
 
 export const parseRequestSchema = async (

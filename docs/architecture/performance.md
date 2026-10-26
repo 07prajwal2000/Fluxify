@@ -1,6 +1,6 @@
 ---
 title: Performance
-description: Load test results for a URL shortener built in Fluxify without code, compared with the same app hand-written in Bun and in Node.js.
+description: Load test results for a URL shortener built in Fluxify without code, before and after the first round of performance work, compared with the same app hand-written in Bun and in Node.js.
 ---
 
 # Performance
@@ -10,10 +10,10 @@ with the same app written by hand. The app is a URL shortener with three
 endpoints, hit by hundreds of simulated users at once.
 
 ::: info About these numbers
-Fluxify is in alpha. These results are what you get today, out of the box: the
-routes were built by dragging and dropping blocks, with no code and no tuning.
-Performance work is planned, and this page is the baseline to measure it
-against. This is one test on one developer machine, with the load generator
+Fluxify is in alpha. The routes were built by dragging and dropping blocks,
+with no code and no tuning. The first round of performance work has landed:
+the **Fluxify** column is the current release, and **Fluxify (first test)** is
+the original baseline. This is one test on one developer machine, with the load generator
 running next to the app, so your results will differ. A route that waits on a
 slow external service will be dominated by that wait.
 :::
@@ -36,8 +36,8 @@ The same three endpoints were built three ways, all behaving identically:
 
 Each one ran as **2 copies, each limited to 1 CPU and 1 GiB of memory**, behind
 the same proxy, with the same PostgreSQL database (1 CPU) and the same
-Redis-compatible cache in front for reads. The database held about 680,000
-short URLs. The cache started empty for every run.
+Redis-compatible cache in front for reads. The database held 680,000 short URLs in the first test and about 730,000 to
+920,000 in the later runs, as each run added new ones. The cache started empty for every run.
 
 | | |
 | :--- | :--- |
@@ -51,16 +51,23 @@ new short URLs.
 
 ## Results
 
-| | Fluxify | Bun | Node.js |
-| :--- | :--- | :--- | :--- |
-| Requests in 1 minute | 285,315 | **573,984** | 294,934 |
-| Throughput | 4,755 per second | **9,566 per second** | 4,915 per second |
-| Failed requests | 0 | 0 | 0 |
-| Median response time | 81 ms | 41 ms | **18 ms** |
-| 95th percentile | 171 ms | **83 ms** | 448 ms |
-| CPU used per request | 0.42 ms | **0.21 ms** | 0.40 ms |
+| | Fluxify | Fluxify (first test) | Bun | Node.js |
+| :--- | :--- | :--- | :--- | :--- |
+| Throughput | **6,500 to 7,300 per second** | 4,755 per second | **9,566 per second** | 4,915 per second |
+| Failed requests | 0 | 0 | 0 | 0 |
+| Median response time | 56 to 61 ms | 81 ms | 41 ms | **18 ms** |
+| 95th percentile | 109 to 123 ms | 171 ms | **83 ms** | 448 ms |
+| CPU used per request | not measured | 0.42 ms | **0.21 ms** | 0.40 ms |
+| Worker memory, idle | about 161 MiB | about 270 MiB | | |
+| Worker memory, under load | about 207 MiB | | | |
 
-### Response time by request type (median / 95th percentile)
+The current Fluxify numbers are the range over three runs of the same test
+(6,464, 6,715 and 7,273 requests per second). Runs on one machine differ by
+up to about 12%, so read them as a range, not a single figure.
+
+### Response time by request type, first test (median / 95th percentile)
+
+Only the first test was broken down by request type.
 
 | | Fluxify | Bun | Node.js |
 | :--- | :--- | :--- | :--- |
@@ -73,15 +80,17 @@ new short URLs.
 
 - **No errors under load.** Every redirect, lookup, "not found" and create
   returned the right answer, for all three.
-- **Fluxify, with no code written, handles about the same traffic as a
-  hand-written Node.js server.** About 4,800 requests per second against 4,900,
-  using about the same CPU per request.
-- **A hand-written Bun server handles about twice as much** on the same
-  hardware. Closing that gap is what the planned performance work is aimed at.
+- **Fluxify, with no code written, now handles more traffic than a
+  hand-written Node.js server.** About 6,500 to 7,300 requests per second
+  against 4,900, up from about 4,800 in the first test.
+- **A hand-written Bun server still handles more**: about 9,600 requests per
+  second, so Fluxify is now at roughly 70 to 75% of it, up from about 50%.
 - **Fluxify's response times are steady.** The slowest 5% of requests were
-  under 210 ms for every request type. The Node.js version was quicker for
-  most requests but its slowest ones took about 500 ms whenever they reached
+  under 125 ms, down from about 170 ms. The Node.js version was quicker for
+  most requests, but its slowest ones took about 500 ms whenever they reached
   the database.
+- **Each worker uses less memory.** An idle worker went from about 270 MiB to
+  about 161 MiB, and stays near 207 MiB under full load.
 - **Requests that reach the database are the slow ones** for all three. Links
   served from the cache are faster everywhere.
 - **The app copies' CPU was the limit** in all three runs, so the comparison is

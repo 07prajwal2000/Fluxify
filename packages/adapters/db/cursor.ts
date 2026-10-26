@@ -1,27 +1,23 @@
 import type { DbCursor, DbPage } from "@fluxify/sdk/integrations";
 import { type RawBuilder, type SelectQueryBuilder, sql } from "kysely";
-import {
-	BSON,
-	type Collection,
-	type Document,
-	type Filter,
-	type FindOptions,
-	type WithId,
-} from "mongodb";
+import type { Collection, Document, Filter, FindOptions, WithId } from "mongodb";
 import { applyColumns, type JsonSqlDialect, resolveColumnRef } from "./jsonPath";
 import { applySqlSort, type DbSort, sortSpec, withTiebreaker } from "./sort";
+import { bson } from "./values";
 
 export type { DbCursor, DbPage };
 
 /** opaque to the graph; EJSON brings Dates and ObjectIds back as themselves, not as text */
 function encodeCursor(values: unknown[]): string {
-	return Buffer.from(BSON.EJSON.stringify(values, { relaxed: true })).toString("base64url");
+	return Buffer.from(bson().EJSON.stringify(values, { relaxed: true })).toString("base64url");
 }
 
 export function decodeCursor(after: string, sortCount: number): unknown[] {
 	let values: unknown;
 	try {
-		values = BSON.EJSON.parse(Buffer.from(after, "base64url").toString("utf8"), { relaxed: true });
+		values = bson().EJSON.parse(Buffer.from(after, "base64url").toString("utf8"), {
+			relaxed: true,
+		});
 	} catch {}
 	if (!Array.isArray(values) || values.length !== sortCount) {
 		throw new Error(

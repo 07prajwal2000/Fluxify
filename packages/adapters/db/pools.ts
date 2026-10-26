@@ -1,6 +1,4 @@
 import { SQL } from "bun";
-import { MongoClient } from "mongodb";
-import { createPool } from "mysql2";
 import {
 	type Connection,
 	DbType,
@@ -9,8 +7,8 @@ import {
 	MAX_MAX_CONNECTIONS,
 } from "./connection";
 import type { ManagedDbConnection } from "./connectionManager";
-import { buildMongoUrl } from "./mongoDbAdapter";
-import { MYSQL_POOL_OPTIONS, MySqlAdapter } from "./mySqlAdapter";
+import { buildMongoUrl, mongoDriver } from "./mongoDbAdapter";
+import { MYSQL_POOL_OPTIONS, MySqlAdapter, mysqlDriver } from "./mySqlAdapter";
 import { PostgresAdapter } from "./postgresAdapter";
 
 /** The pooled clients of the built-in database variants, one per integration per worker. */
@@ -53,7 +51,7 @@ export function connectPostgres(config: Connection): ManagedDbConnection {
 
 export function connectMysql(config: Connection): ManagedDbConnection {
 	const { timeoutMs, max } = limits(config);
-	const pool = createPool({
+	const pool = mysqlDriver().createPool({
 		host: config.host,
 		port: Number(config.port),
 		user: config.username,
@@ -79,7 +77,7 @@ export function connectMysql(config: Connection): ManagedDbConnection {
 
 export function connectMongo(config: Connection): ManagedDbConnection {
 	const { timeoutMs, max } = limits(config);
-	const client = new MongoClient(buildMongoUrl(config), {
+	const client = new (mongoDriver().MongoClient)(buildMongoUrl(config), {
 		timeoutMS: timeoutMs,
 		maxPoolSize: max,
 	});
