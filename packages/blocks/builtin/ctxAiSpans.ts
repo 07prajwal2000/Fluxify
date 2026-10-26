@@ -54,6 +54,38 @@ const middleware = (span: Span, name: string): LanguageModelMiddleware => ({
 	},
 });
 
+/** the run's signal joined to whatever the caller passed (#1000) */
+const joined = (own: AbortSignal | undefined, signal: AbortSignal) =>
+	own ? AbortSignal.any([own, signal]) : signal;
+
+/** the block's view of a pooled AI adapter: every model call is cancelled with the run (#1000) */
+export function abortableAi(adapter: AiAdapter, signal: AbortSignal): AiAdapter {
+	return {
+		languageModel(modelId) {
+			return wrapLanguageModel({
+				model: adapter.languageModel(modelId),
+				middleware: {
+					specificationVersion: "v4",
+					transformParams: async ({ params }) => ({
+						...params,
+						abortSignal: joined(params.abortSignal, signal),
+					}),
+				},
+			});
+		},
+		...(adapter.embeddingModel && {
+			embeddingModel(modelId) {
+				const model = adapter.embeddingModel!(modelId);
+				// a view, not a copy: the provider's model keeps its own prototype
+				return Object.assign(Object.create(model), {
+					doEmbed: (options: Parameters<typeof model.doEmbed>[0]) =>
+						model.doEmbed({ ...options, abortSignal: joined(options.abortSignal, signal) }),
+				});
+			},
+		}),
+	};
+}
+
 /** the block's view of a pooled AI adapter: same models, each call traced under the block */
 export function tracedAi(adapter: AiAdapter, span: Span): AiAdapter {
 	return {

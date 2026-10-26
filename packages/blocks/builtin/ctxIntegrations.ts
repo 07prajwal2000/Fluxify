@@ -1,9 +1,9 @@
-import { configOwner, integrationRegistry } from "@fluxify/adapters";
+import { abortable, configOwner, integrationRegistry } from "@fluxify/adapters";
 import { DEFAULT_IDLE_TIMEOUT_MS, LeasedResources } from "@fluxify/lib";
 import type { AiAdapter } from "@fluxify/sdk/integrations";
 import { type IntegrationSource, leasePool } from "@fluxify/sdk/runtime";
 import type { Context } from "../baseBlock";
-import { tracedAi } from "./ctxAiSpans";
+import { abortableAi, tracedAi } from "./ctxAiSpans";
 
 /**
  * Clients of integrations no built-in factory owns (a plugin's own group, ai,
@@ -52,10 +52,11 @@ export function withCtxIntegrations(
 				destroy: (client) =>
 					def.close ? def.close(client as never) : (client as any)?.disconnect?.(),
 			});
-			// the pooled adapter is shared; the tracing is this block's
-			return (
-				group === "ai" && ctx.span ? tracedAi(client as AiAdapter, ctx.span) : client
-			) as never;
+			// the pooled adapter is shared; the tracing and cancelling are this block's (#1000)
+			if (group !== "ai") return abortable(client as object, ctx.signal) as never;
+			let ai = client as AiAdapter;
+			if (ctx.signal) ai = abortableAi(ai, ctx.signal);
+			return (ctx.span ? tracedAi(ai, ctx.span) : ai) as never;
 		},
 	};
 	return { ctx: { ...ctx, integrations }, release };

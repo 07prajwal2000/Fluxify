@@ -177,6 +177,13 @@ export interface BlockContext {
 	queueFactory?: { getProducer(connection: string): Promise<QueueProducer> };
 	httpClient?: HttpClient;
 	/**
+	 * Aborts when the run is cancelled (the caller disconnected). Database and
+	 * key-value adapters from this context already stop; hand it to your own
+	 * slow work: `fetch(url, { signal: ctx.signal })`. Absent when nothing can
+	 * cancel the run.
+	 */
+	signal?: AbortSignal;
+	/**
 	 * Times `fn` as a child span of this block in the run's trace; outcome and
 	 * error come from whether it threw (the error is rethrown). Spans opened
 	 * inside `fn` nest under it.

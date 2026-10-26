@@ -26,6 +26,7 @@ import {
 	whereConditionSchema,
 } from "@fluxify/sdk/integrations";
 import { SQL } from "bun";
+import { abortable } from "../abortable";
 import { configOwner, databaseVariantFor } from "../integrations";
 import { type DbConnectionLease, DbConnectionManager } from "./connectionManager";
 import { describeMongo, describeSql, type SchemaDetails, type SqlRun } from "./describe";
@@ -61,6 +62,9 @@ export {
 	whereConditionSchema,
 };
 
+/** an aborted run still has to give its reserved connection back */
+const AFTER_ABORT: ReadonlySet<PropertyKey> = new Set(["rollbackTransaction", "setMode"]);
+
 export class DbFactory {
 	private readonly connectionMap: Record<string, IDbAdapter> = {};
 	private readonly connectionLeases: Record<string, DbConnectionLease> = {};
@@ -69,6 +73,8 @@ export class DbFactory {
 	constructor(
 		private readonly dbConfig: Record<string, Connection>,
 		private readonly connectionManager: DbConnectionManager = DbFactory.defaultConnectionManager,
+		/** the request's: its adapters refuse work once it aborts (#1000) */
+		private readonly signal?: AbortSignal,
 	) {}
 
 	public getDbAdapter(connection: string): IDbAdapter {
@@ -83,7 +89,11 @@ export class DbFactory {
 		const lease = this.connectionManager.borrow(connection, cfg);
 		this.connectionLeases[connection] = lease;
 		try {
-			this.connectionMap[connection] = variant.create(cfg, { pool: lease.connection });
+			this.connectionMap[connection] = abortable(
+				variant.create(cfg, { pool: lease.connection }),
+				this.signal,
+				AFTER_ABORT,
+			);
 		} catch (error) {
 			lease.release();
 			delete this.connectionLeases[connection];

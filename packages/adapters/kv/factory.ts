@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { KvConnectionConfig } from "@fluxify/sdk/integrations";
+import { abortable } from "../abortable";
 import { configOwner, integrationRegistry, poolKeyFingerprint } from "../integrations";
 import type { BaseKVIntegration } from "./base";
 
@@ -63,7 +64,11 @@ function computeKvFingerprint(config: KvConnectionConfig) {
 export class KvFactory {
 	private static readonly clients = new Map<string, Entry>();
 
-	constructor(private readonly kvConfig: Record<string, KvConnectionConfig>) {}
+	constructor(
+		private readonly kvConfig: Record<string, KvConnectionConfig>,
+		/** the request's: the client refuses work once it aborts (#1000) */
+		private readonly signal?: AbortSignal,
+	) {}
 
 	public getKvAdapter(connection: string): BaseKVIntegration {
 		const config = this.kvConfig[connection];
@@ -73,14 +78,15 @@ export class KvFactory {
 
 		const fingerprint = kvConnectionFingerprint(config);
 		const existing = KvFactory.clients.get(connection);
-		if (existing && existing.fingerprint === fingerprint) return existing.client;
+		if (existing && existing.fingerprint === fingerprint)
+			return abortable(existing.client, this.signal);
 		// changed credentials: the old socket has to be closed, not just dropped,
 		// or it stays open with nothing left able to reach it
 		if (existing) void KvFactory.evict(connection);
 
 		const client = KvFactory.create(config);
 		KvFactory.clients.set(connection, { fingerprint, client });
-		return client;
+		return abortable(client, this.signal);
 	}
 
 	private static create(config: KvConnectionConfig): KvClient {

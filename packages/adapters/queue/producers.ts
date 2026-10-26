@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { abortable } from "../abortable";
 import { configOwner, integrationRegistry } from "../integrations";
 import type { QueueConnector, QueueProducer } from "./base";
 import { loadQueueConnector } from "./manager";
@@ -33,6 +34,8 @@ export class QueueProducerFactory {
 		/** whether the caller may use an integration; the caches hold every project's */
 		private readonly owns: (config: Record<string, any>) => boolean = () => true,
 		private readonly load: (type: string) => Promise<QueueConnector> = loadQueueConnector,
+		/** the request's: the producer refuses work once it aborts (#1000) */
+		private readonly signal?: AbortSignal,
 	) {}
 
 	/** The integration's config, or undefined when it is no message queue the caller owns. */
@@ -50,7 +53,7 @@ export class QueueProducerFactory {
 
 		const fingerprint = fingerprintOf(config);
 		const existing = QueueProducerFactory.producers.get(connection);
-		if (existing?.fingerprint === fingerprint) return existing.producer;
+		if (existing?.fingerprint === fingerprint) return this.bound(existing.producer);
 		if (existing) void QueueProducerFactory.evict(connection);
 
 		const producer = create();
@@ -60,7 +63,11 @@ export class QueueProducerFactory {
 			if (QueueProducerFactory.producers.get(connection)?.producer === producer)
 				QueueProducerFactory.producers.delete(connection);
 		});
-		return producer;
+		return this.bound(producer);
+	}
+
+	private bound(producer: Promise<QueueProducer>) {
+		return this.signal ? producer.then((p) => abortable(p, this.signal)) : producer;
 	}
 
 	/**

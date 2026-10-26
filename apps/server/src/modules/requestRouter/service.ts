@@ -11,32 +11,19 @@ import type {
 	ContextVarsType,
 	TriggerContext,
 } from "@fluxify/blocks";
-import {
-	type CompiledRequestSchema,
-	parseRequestSchema,
-	ValidationError,
-} from "@fluxify/blocks/schema";
-import {
-	type AbstractLogger,
-	HttpClient,
-	type HttpRoute,
-	type HttpRouteParser,
-} from "@fluxify/lib";
+import { type CompiledRequestSchema, parseRequestSchema } from "@fluxify/blocks/schema";
+import { HttpClient, type HttpRoute, type HttpRouteParser } from "@fluxify/lib";
 import type { Context } from "hono";
-import { getCookie, setCookie } from "hono/cookie";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
-import jwt from "jsonwebtoken";
 import type { BodyMode } from "../../lib/routeConfig";
-import { getAppConfig } from "../../loaders/appconfigLoader";
 import {
 	dbIntegrationsCache,
 	findIntegrationConfig,
 	kvIntegrationsCache,
-	observabilityIntegrationsCache,
 	ownsIntegration,
 	queueIntegrationsCache,
 } from "../../loaders/integrationsLoader";
-import { projectSettingsCache } from "../../loaders/projectSettingsLoader";
+import { DEFAULT_TRIGGER, setupContextVars } from "./contextVars";
 import {
 	type RouteExecutionObserver,
 	readRouteBody,
@@ -81,13 +68,6 @@ const httpClient = new HttpClient();
 export function setDbConnectionManager(manager?: DbConnectionManager) {
 	dbConnectionManager = manager;
 }
-
-/** Default origin for in-process callers (test-suite runner) that predate the envelope. */
-const DEFAULT_TRIGGER: TriggerContext = {
-	kind: "route",
-	source: "http",
-	reply: "sync",
-};
 
 /**
  * Transport-agnostic entry point of the worker. Matches the route from the
@@ -212,14 +192,19 @@ export async function executeRouteInternal(
 	const denied = assertOverridesOwned(routeInfo.projectId, overrides);
 	if (denied) return denied;
 
+	// the client going away cancels the run (#1000)
+	const signal = ctx?.req.raw?.signal;
+	// no signal, nothing to bind: keep the shared client
+	const http = signal ? new HttpClient(signal) : httpClient;
 	const vars = setupContextVars(
 		ctx,
 		requestData,
 		routeInfo.id,
-		httpClient,
+		http,
 		routeInfo.projectId,
 		overrides,
 		trigger,
+		signal,
 	);
 
 	if (
@@ -283,16 +268,17 @@ export async function executeRouteInternal(
 		requestData.params = result.data as typeof requestData.params;
 	}
 
-	const dbFactory = createDbFactory(routeInfo.projectId, overrides?.integrations);
+	const dbFactory = createDbFactory(routeInfo.projectId, overrides?.integrations, signal);
 	const context = createContext(
 		routeInfo,
 		requestData,
 		vars,
 		dbFactory,
-		httpClient,
+		http,
 		trigger,
 		routeInfo.timeoutSeconds ?? DEFAULT_ROUTE_TIMEOUT_SECONDS,
 		routeInfo.trace,
+		signal,
 	);
 	// only when spans are compiled in; untraced routes pay nothing (#628)
 	if (routeInfo.trace) {
@@ -351,6 +337,8 @@ export function createJobContext(job: {
 	/** What the job carried. It is the body a graph reads, there being no request. */
 	payload?: unknown;
 	trace?: BlockTrace;
+	/** cancels the job's run (#1000) */
+	signal?: AbortSignal;
 }): BlockContext {
 	const trigger: TriggerContext = {
 		kind: "job",
@@ -367,24 +355,27 @@ export function createJobContext(job: {
 		body: job.payload,
 		params: {},
 	};
+	const http = job.signal ? new HttpClient(job.signal) : httpClient;
 	const vars = setupContextVars(
 		undefined,
 		requestData,
 		job.target,
-		httpClient,
+		http,
 		job.projectId,
 		undefined,
 		trigger,
+		job.signal,
 	);
 	return createContext(
 		{ id: job.target, projectId: job.projectId },
 		requestData,
 		vars,
-		new DbFactory(dbIntegrationsCache, dbConnectionManager),
-		httpClient,
+		new DbFactory(dbIntegrationsCache, dbConnectionManager, job.signal),
+		http,
 		trigger,
 		job.timeoutSeconds ?? DEFAULT_JOB_TIMEOUT_SECONDS,
 		job.trace,
+		job.signal,
 	);
 }
 
@@ -420,6 +411,7 @@ function createContext(
 	trigger: TriggerContext,
 	timeoutSeconds: number,
 	trace?: BlockTrace,
+	signal?: AbortSignal,
 ): BlockContext {
 	return {
 		apiId: routeInfo.id,
@@ -431,15 +423,20 @@ function createContext(
 		// Built here rather than threaded through every caller: unlike DbFactory
 		// there is no per-request state to own — the clients are process-wide and
 		// there are no leases to release — so an instance is just the cache lookup.
-		kvFactory: new KvFactory(kvIntegrationsCache),
+		kvFactory: new KvFactory(kvIntegrationsCache, signal),
 		// producers are process-wide like the KV clients; the instance only scopes
 		// lookups to this project's integrations
-		queueFactory: new QueueProducerFactory(queueIntegrationsCache, kvIntegrationsCache, (config) =>
-			ownsIntegration(config, routeInfo.projectId),
+		queueFactory: new QueueProducerFactory(
+			queueIntegrationsCache,
+			kvIntegrationsCache,
+			(config) => ownsIntegration(config, routeInfo.projectId),
+			undefined,
+			signal,
 		),
 		httpClient,
 		trigger,
 		trace,
+		signal,
 		// The cloud logs block picks its own integration per block, so it resolves
 		// through here rather than through the project's logs destination. Only the
 		// legacy interpreted path used to supply this, which left the block throwing
@@ -494,9 +491,10 @@ export function assertOverridesOwned(
 function createDbFactory(
 	projectId: string,
 	integrationOverrides?: Array<{ existingId: string; newId: string }>,
+	signal?: AbortSignal,
 ) {
 	if (!integrationOverrides || integrationOverrides.length === 0) {
-		return new DbFactory(dbIntegrationsCache, dbConnectionManager);
+		return new DbFactory(dbIntegrationsCache, dbConnectionManager, signal);
 	}
 
 	const customDbCache = { ...dbIntegrationsCache };
@@ -507,122 +505,5 @@ function createDbFactory(
 		if (!target || !ownsIntegration(target, projectId)) continue;
 		customDbCache[override.existingId] = target;
 	}
-	return new DbFactory(customDbCache, dbConnectionManager);
-}
-
-function setupContextVars(
-	ctx: Context | undefined,
-	requestData: {
-		method: string;
-		path: string;
-		headers: Record<string, string>;
-		query: Record<string, string | string[]>;
-		body: any;
-		params: Record<string, string>;
-	},
-	routeId: string,
-	httpClient: HttpClient,
-	projectId: string,
-	overrides?: RequestOverrides,
-	trigger: TriggerContext = DEFAULT_TRIGGER,
-): BlockContext["vars"] {
-	// built on the first getHeader: most routes never read a header
-	let headers: Map<string, string> | undefined;
-	const projectSettings = projectSettingsCache[projectId];
-	// new key first, legacy second — the same order telemetry/destinations.ts
-	// reads them in. Projects configured through the current UI only have the new one.
-	let connectionId =
-		projectSettings?.["settings.telemetry.logsConnectionId"] ||
-		projectSettings?.["settings.ai.loggerConnectionId"] ||
-		"";
-
-	// Apply integration override for logger if present
-	if (connectionId && overrides?.integrations) {
-		const override = overrides.integrations.find((o) => o.existingId === connectionId);
-		if (override && ownsIntegration(observabilityIntegrationsCache[override.newId], projectId)) {
-			connectionId = override.newId;
-		}
-	}
-
-	// created on the first use: most routes never log
-	let logger: AbstractLogger | undefined;
-
-	return {
-		ValidationError: ValidationError,
-		// origin of this execution (route/job/cron, http/nats/bullmq, sync/async)
-		// so JS-runtime blocks can branch: `trigger.kind === "cron"`
-		trigger,
-		jwt: {
-			decode(token, options) {
-				return jwt.decode(token, options) as Record<string, string>;
-			},
-			sign(payload, secretKey, options) {
-				return jwt.sign(payload, secretKey, options);
-			},
-			verify(token, secretKey, options) {
-				try {
-					const payload = jwt.verify(token, secretKey, options) as Record<string, string>;
-					return { payload, success: true };
-				} catch (error) {
-					return { payload: null, success: false };
-				}
-			},
-		},
-		get logger() {
-			logger ??= observabilityLoggerFor(connectionId, projectId, routeId);
-			return logger;
-		},
-		// a graph may still assign its own, as it could while this was a plain value
-		set logger(value) {
-			logger = value;
-		},
-		getCookie(key) {
-			return ctx ? getCookie(ctx, key) || "" : "";
-		},
-		getConfig(key) {
-			if (overrides?.appConfigs) {
-				const override = overrides.appConfigs.find((c) => c.key === key);
-				if (override) return override.value;
-			}
-			return getAppConfig(projectId, key);
-		},
-		setCookie(name, options) {
-			if (ctx) {
-				setCookie(ctx, name, options?.value.toString() || "", {
-					domain: options?.domain,
-					path: options?.path,
-					expires: new Date(options?.expiry),
-					httpOnly: options?.httpOnly,
-					secure: options?.secure,
-					sameSite: options?.samesite || "Strict",
-				});
-			}
-		},
-		getHeader(key) {
-			headers ??= new Map(
-				Object.entries(requestData.headers).map(([name, value]) => [name.toLowerCase(), value]),
-			);
-			return headers.get(key.toLowerCase()) || "";
-		},
-		getQueryParam(key) {
-			return requestData.query[key] as string | undefined;
-		},
-		getRequestBody() {
-			return requestData.body;
-		},
-		// there is no reply yet; runWithMiddlewares swaps these in for the after chain
-		getResponseBody: () => null,
-		getResponseStatus: () => null,
-		getRouteParam(key) {
-			return requestData.params[key] || "";
-		},
-		httpRequestMethod: requestData.method,
-		httpRequestRoute: requestData.path,
-		setHeader(key, value) {
-			if (ctx) {
-				ctx.header(key, value);
-			}
-		},
-		httpClient,
-	};
+	return new DbFactory(customDbCache, dbConnectionManager, signal);
 }
