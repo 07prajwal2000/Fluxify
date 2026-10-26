@@ -558,8 +558,18 @@ startup()
  * TTL, or every rolling replace would stall for a lease.
  */
 async function shutdown(sig: string, code = 0) {
-	if (shuttingDown) return;
+	// a second Ctrl+C means now
+	if (shuttingDown) process.exit(code || 130);
 	shuttingDown = true;
+	// The consumers' stop() waits on every in-flight handler, and a long or stuck
+	// one would hold the process up forever. Past the drain budget, just go.
+	setTimeout(
+		() => {
+			logger.warn("shutdown exceeded the drain deadline — exiting", "WORKER");
+			process.exit(code || 1);
+		},
+		drainGraceMs + asyncExecutor.drainTimeoutMs + 5_000,
+	);
 	markDraining();
 	logger.info(`received ${sig} — draining`);
 	await Bun.sleep(drainGraceMs);

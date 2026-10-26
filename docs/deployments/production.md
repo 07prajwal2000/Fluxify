@@ -593,6 +593,27 @@ compose services (plus `fluxify-dev-worker`, the
 [development worker](#dev-workers)), and
 `curl http://localhost:8080/_/admin/api/public-settings` returns `200`.
 
+### Stopping the stack {#stop}
+
+`docker compose down` stops only the compose services. The `fluxify-worker-…`
+containers keep running: the orchestrator starts them on its own, so compose
+does not know about them, and they are left up on purpose so that restarting
+the orchestrator never takes your API down. They also come back when Docker
+restarts.
+
+To stop everything, remove the workers as well:
+
+```bash
+docker compose -f docker/production/docker-compose.yml down
+docker rm -f $(docker ps -aq --filter label=fluxify.managed-by=orchestrator)
+```
+
+::: tip
+Each worker finishes the requests it is answering before it exits, so this is a
+clean stop, not a crash. **Check:** `docker ps` no longer lists any
+`fluxify-worker-…` container.
+:::
+
 ---
 
 ## Step 3 — Create your projects

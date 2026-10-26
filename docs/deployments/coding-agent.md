@@ -267,6 +267,11 @@ them in the `fluxify-env` Secret.
 - [ ] A project with its own workers has a subdomain, the base domain is set in
   **Instance settings → Hosting**, and DNS for that subdomain points at the
   server.
+- [ ] Docker teardown: `docker compose down` leaves the `fluxify-worker-…`
+  containers running, because the orchestrator started them, not compose. Also
+  run `docker rm -f $(docker ps -aq --filter label=fluxify.managed-by=orchestrator)`,
+  and check that `docker ps` lists no worker. See
+  [Stopping the stack](./production#stop).
 - [ ] Docker: the orchestrator mounts the Docker socket, which makes it root on
   the host. Run it on a server that holds nothing more sensitive than Fluxify.
 

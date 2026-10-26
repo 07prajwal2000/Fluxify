@@ -3,7 +3,7 @@
 	"version": "1.0.0",
 	"type": "module",
 	"scripts": {
-		"dev": "bun --parallel 'bun run dev:server' 'bun run dev:worker' 'bun run dev:worker:development' 'bun run dev:portal' 'bun run dev:ai' 'bun run dev:docs'",
+		"dev": "concurrently -n server,worker,worker-dev,portal,ai,docs 'bun run dev:server' 'bun run dev:worker' 'bun run dev:worker:development' 'bun run dev:portal' 'bun run dev:ai' 'bun run dev:docs'",
 		"dev:server": "bun run --env-file=.env --watch ./apps/server/deployments/standalone.ts",
 		"dev:worker": "bun run --env-file=.env --watch ./apps/server/deployments/compiledWorker.ts",
 		"dev:worker:development": "FLUXIFY_ENV=development WORKER_PORT=5602 WORKER_HEALTH_PORT=5603 bun run --env-file=.env --watch ./apps/server/deployments/compiledWorker.ts",
@@ -74,6 +74,7 @@
 		"@types/bun": "^1.4.0",
 		"@types/dockerode": "^4.0.1",
 		"@typescript/native-preview": "^7.0.0-dev.20260219.1",
+		"concurrently": "^10.0.6",
 		"dockerode": "^4.0.9",
 		"fta-cli": "^3.0.0",
 		"mermaid": "^11.16.0",
