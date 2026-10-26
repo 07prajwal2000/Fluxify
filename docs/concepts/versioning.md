@@ -79,7 +79,7 @@ Production serves one version of each route and workflow: the one you **promoted
 
 - Editing the working copy, committing and checking out never change what production serves. Development runs your edits as you save them; production keeps running the promoted version.
 - A route or workflow with no promoted version serves nothing in production, even when its **Production** switch is on. Callers get `404` until you promote one.
-- In the **Routes** list, a route that production serves has a green method pill that starts with a rocket and a **P**, and a legend under the table says so. A route that is switched off, or has no promoted version, keeps the plain pill.
+- In the **Routes** list, a route that production serves has a green **Prod** chip with a rocket next to its **Active** switch, and a legend under the table says so. A route that is switched off, or has no promoted version, has no chip.
 - The switches, the name, recording and tracing are live settings. They apply to production straight away, whichever version is promoted.
 - Triggers start the promoted version of their workflow on production.
 - Custom blocks and middlewares have versions too. Production runs the version of each that was promoted, never its latest edit. See [Custom blocks and middlewares](#custom-blocks-and-middlewares).

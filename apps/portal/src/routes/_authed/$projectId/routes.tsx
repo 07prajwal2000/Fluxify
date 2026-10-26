@@ -1,5 +1,6 @@
 import {
 	Button,
+	Chip,
 	CloseButton,
 	CustomSelect,
 	DeleteIconButton,
@@ -29,7 +30,7 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
 import { RouteApiPlayground } from "@/components/RouteApiPlayground";
 import { RecordingIndicator, RecordingLegend } from "@/components/recordings/RecordingControls";
-import { MethodPill, ProductionLegend } from "@/components/routes/MethodPill";
+import { ProductionBadge, ProductionLegend } from "@/components/routes/ProductionBadge";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { PAGE_SIZES, usePageSize } from "@/lib/pageSize";
 import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
@@ -192,33 +193,39 @@ function RoutesPage() {
 									<Table.Row id={route.id} className="cursor-pointer">
 										<Table.Cell>
 											{/* recording shows as dots in the method chip; the legend under the table names them (#941) */}
-											<MethodPill method={route.method} inProduction={route.inProduction}>
-												<RecordingIndicator
-													compact
-													dev={route.devRecordExecution}
-													prod={route.recordExecution}
-												/>
-											</MethodPill>
+											<Chip>
+												<span className="flex items-center gap-1.5">
+													<RecordingIndicator
+														compact
+														dev={route.devRecordExecution}
+														prod={route.recordExecution}
+													/>
+													{route.method}
+												</span>
+											</Chip>
 										</Table.Cell>
 										<Table.Cell>
 											<span className="font-mono text-sm">{route.path}</span>
 										</Table.Cell>
 										<Table.Cell>{route.name}</Table.Cell>
 										<Table.Cell>
-											<Switch
-												isSelected={Boolean(route.active)}
-												onChange={(active) =>
-													toggle.mutate(
-														{ id: route.id, active },
-														{
-															onSuccess: () =>
-																toast.success(active ? "Route enabled" : "Route disabled"),
-															onError: (e) => showErrorNotification(e as Error),
-														},
-													)
-												}
-												label={route.active ? "Active" : "Inactive"}
-											/>
+											<div className="flex items-center gap-2">
+												<Switch
+													isSelected={Boolean(route.active)}
+													onChange={(active) =>
+														toggle.mutate(
+															{ id: route.id, active },
+															{
+																onSuccess: () =>
+																	toast.success(active ? "Route enabled" : "Route disabled"),
+																onError: (e) => showErrorNotification(e as Error),
+															},
+														)
+													}
+													label={route.active ? "Active" : "Inactive"}
+												/>
+												{route.inProduction && <ProductionBadge />}
+											</div>
 										</Table.Cell>
 										<Table.Cell>
 											<div className="flex items-center justify-end gap-1">
