@@ -36,6 +36,8 @@ export default async function handleRequest(
 			id: value.id!,
 			active: value.active!,
 			devActive: value.devActive,
+			// production needs both switches: `active` and a promoted version (#739)
+			inProduction: Boolean(value.active && value.prodVersionId),
 			name: value.name!,
 			method: value.method!,
 			path: value.path!,
