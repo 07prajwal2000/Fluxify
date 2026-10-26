@@ -19,6 +19,7 @@ Every script runs inside an `async` function: `await` works anywhere, and `retur
 | `setHeader`, `setCookie` | Yes | No effect | Caller's | |
 | `getResponseBody()`, `getResponseStatus()` | `null` | `null` | `null` | After middlewares |
 | `params` | No | No | Yes | Custom blocks |
+| `abortSignal` | Sync replies | `undefined` | Caller's | |
 | `dbQuery` | No | No | No | DB Native block (PostgreSQL, MySQL) |
 | `db`, `ObjectId` | No | No | No | DB Native block (MongoDB) |
 | `kv` | No | No | No | KV Raw Connection block |
@@ -247,6 +248,28 @@ The promise rejects on a non-2xx answer or a network error. Pass a full URL.
 | `put<T>` | `url: string`, `data?: any`, `headers?: HttpHeaders` | `Promise<AxiosResponse<T>>` |
 | `delete<T>` | `url: string`, `headers?: HttpHeaders` | `Promise<AxiosResponse<T>>` |
 | `patch<T>` | `url: string`, `data?: any`, `headers?: HttpHeaders` | `Promise<AxiosResponse<T>>` |
+
+## Cancellation
+
+```typescript
+const abortSignal: AbortSignal | undefined;
+```
+
+`abortSignal` aborts when the caller disconnects before the route answers. Once it fires, there is no one left to receive the answer, so the run stops using resources:
+
+- Database, key-value, message queue, `httpClient` and AI calls stop by themselves and throw.
+- Anything else you start yourself keeps going unless you pass it the signal.
+
+```javascript
+const res = await fetch("https://api.example.com/report", { signal: abortSignal });
+return res.json();
+```
+
+It is `undefined` when nothing can cancel the run: on a route with an async reply and in a workflow.
+
+::: info
+Code that never waits (a long loop with no `await`) cannot be interrupted. It runs until it ends or the route's timeout stops it.
+:::
 
 ## Logging
 

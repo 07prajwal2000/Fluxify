@@ -44,6 +44,18 @@ export const API_DOCS: ApiDocItem[] = [
 
 	// HTTP client
 	{
+		id: "api-abort-signal",
+		name: "abortSignal",
+		kind: "property",
+		signature: "abortSignal: AbortSignal | undefined",
+		description:
+			"Aborts when the caller disconnects. Database, key-value, queue, httpClient and AI calls already stop on their own; pass it to anything else slow. Undefined on async routes and workflows.",
+		category: "http",
+		example:
+			'const res = await fetch("https://api.example.com/report", { signal: abortSignal });\nreturn res.json();',
+		returns: "AbortSignal | undefined",
+	},
+	{
 		id: "api-http-get",
 		name: "httpClient.get",
 		kind: "function",

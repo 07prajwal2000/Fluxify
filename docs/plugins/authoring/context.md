@@ -24,6 +24,7 @@ async run({ params, ctx }) {
 | `ctx.vars.httpClient` (also `ctx.httpClient`) | An HTTP client: `get`, `post`, `put`, `patch` and `delete`. Each resolves to `{ data, status, headers }` |
 | `ctx.span(name, fn)` | Times `fn` as a step of the block in the route's trace ([below](#ctx-span)) |
 | `ctx.pool(kind, key, options)` | A client kept between requests ([below](#ctx-pool)) |
+| `ctx.signal` | Optional. Aborts when the caller disconnects ([below](#ctx-signal)) |
 
 ## Permissions
 
@@ -136,6 +137,18 @@ A plugin that is switched off hides its variants from the integrations page and 
 | `getConfig(key)` | An app config value (needs `appconfig: true`) |
 
 Variables that earlier blocks stored on `vars` are there too. Prefer params and `input` for the data a block needs, and leave `vars` for request details.
+
+## ctx.signal
+
+`ctx.signal` is an `AbortSignal` that aborts when the caller disconnects before the route answers. It is `undefined` when nothing can cancel the run (an async reply, a workflow), so always treat it as optional.
+
+Databases, key-value stores, queues, AI models and the HTTP client you get from `ctx` already stop when it aborts. Pass it on to your own slow work:
+
+```ts
+const res = await fetch(url, { signal: ctx.signal });
+```
+
+The same signal is available as `ctx.vars.abortSignal`.
 
 ## ctx.span
 

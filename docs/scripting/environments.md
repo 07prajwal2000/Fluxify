@@ -45,6 +45,7 @@ Available in every block and `js:` field of a route, workflow and custom block. 
 | `getResponseBody()`, `getResponseStatus()` | The reply, in an [after middleware](../concepts/middlewares.md). `null` anywhere else |
 | `getConfig(key)` | A value from [App Config](../concepts/app-config.md) |
 | `httpClient` | Call other services |
+| `abortSignal` | Fires when the caller disconnects; `undefined` where nothing can cancel the run ([details](./javascript-api.md#cancellation)) |
 | `logger` | `logInfo`, `logWarn`, `logError` |
 | `jwt` | `sign`, `verify`, `decode` |
 | `ValidationError` | An error class for request validators |
