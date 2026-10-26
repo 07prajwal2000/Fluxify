@@ -1,4 +1,4 @@
-import { cn } from "@fluxify/components";
+import { cn, Tooltip } from "@fluxify/components";
 import { TbRocket } from "react-icons/tb";
 
 const BASE = "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium";
@@ -10,10 +10,15 @@ const LIVE = "border-success/40 bg-success/10 text-success";
  */
 export function ProductionBadge() {
 	return (
-		<span className={cn(BASE, LIVE)} title="In production: active, with a promoted version">
-			<TbRocket size={13} aria-hidden />
-			Prod
-		</span>
+		<Tooltip delay={200}>
+			<Tooltip.Trigger render={(props) => <span {...props} className={cn(BASE, LIVE)} />}>
+				<TbRocket size={13} aria-hidden />
+				Prod
+			</Tooltip.Trigger>
+			<Tooltip.Content className="whitespace-nowrap">
+				In production: active, with a promoted version
+			</Tooltip.Content>
+		</Tooltip>
 	);
 }
 
