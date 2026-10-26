@@ -1,6 +1,5 @@
-import { Button } from "@fluxify/components";
-import { TbBolt } from "react-icons/tb";
 import { showTestResult } from "@/components/integrations/showTestResult";
+import { TestConnectionButton, useTestAbort } from "@/components/integrations/TestConnectionButton";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { integrationsQuery } from "@/query/integrationsQuery";
 import { useCanEditProject } from "@/store/auth";
@@ -15,40 +14,46 @@ export function IntegrationTestButtons({
 	const canEdit = useCanEditProject(projectId);
 	const test = integrationsQuery.testExistingConnection.mutation(projectId);
 	const testProd = integrationsQuery.testProductionConnection.mutation(projectId);
+	const testAbort = useTestAbort();
+	const prodAbort = useTestAbort();
 
 	return (
 		<div className="flex items-center gap-2">
-			<Button
-				variant="outline"
-				size="sm"
-				isPending={test.isPending && test.variables === integrationId}
+			<TestConnectionButton
+				isPending={test.isPending && test.variables?.id === integrationId}
 				onPress={() =>
-					test.mutate(integrationId, {
-						onSuccess: showTestResult,
-						onError: (e) => showErrorNotification(e as Error),
-					})
-				}
-				className="whitespace-nowrap"
-			>
-				<TbBolt size={14} className="text-accent" />
-				<span>Test connection</span>
-			</Button>
-			{canEdit && (
-				<Button
-					variant="outline"
-					size="sm"
-					isPending={testProd.isPending && testProd.variables === integrationId}
-					onPress={() =>
-						testProd.mutate(integrationId, {
+					test.mutate(
+						{ id: integrationId, signal: testAbort.next() },
+						{
 							onSuccess: showTestResult,
 							onError: (e) => showErrorNotification(e as Error),
-						})
+						},
+					)
+				}
+				onCancel={() => {
+					testAbort.abort();
+					test.reset();
+				}}
+			/>
+			{canEdit && (
+				<TestConnectionButton
+					isPending={testProd.isPending && testProd.variables?.id === integrationId}
+					onPress={() =>
+						testProd.mutate(
+							{ id: integrationId, signal: prodAbort.next() },
+							{
+								onSuccess: showTestResult,
+								onError: (e) => showErrorNotification(e as Error),
+							},
+						)
 					}
-					className="whitespace-nowrap"
+					onCancel={() => {
+						prodAbort.abort();
+						testProd.reset();
+					}}
 				>
-					<TbBolt size={14} className="text-accent" />
-					<span>Test production credentials</span>
-				</Button>
+					Test production credentials
+				</TestConnectionButton>
 			)}
 		</div>
 	);

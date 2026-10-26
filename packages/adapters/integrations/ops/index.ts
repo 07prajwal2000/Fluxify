@@ -20,6 +20,7 @@ export {
 	type IntegrationOp,
 	type IntegrationOpCall,
 	IntegrationOpError,
+	OP_CANCELLED,
 	runIntegrationHook,
 } from "./run";
 export { expandCfg } from "./services";

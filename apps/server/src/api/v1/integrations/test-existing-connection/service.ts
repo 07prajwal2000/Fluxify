@@ -13,6 +13,8 @@ export default async function handleRequest(
 	signal: OtlpSignal = "logs",
 	/** development unless the caller is the portal's "Test production credentials" */
 	env: FluxifyEnv = ADMIN_CONNECTION_ENV,
+	/** the caller hung up or pressed Cancel */
+	abort?: AbortSignal,
 ): Promise<z.infer<typeof responseSchema>> {
 	const integration = await getIntegrationById(params.projectId, params.id);
 	if (!integration) {
@@ -28,6 +30,7 @@ export default async function handleRequest(
 		env,
 		integration.group === "mcp" ? mcpOAuthFor(integration, env) : undefined,
 		integration.id,
+		abort,
 	);
 	// a failed probe is an answer with its reason, as for an unsaved config (#690)
 	return result;

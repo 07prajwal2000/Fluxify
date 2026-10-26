@@ -2,7 +2,7 @@ import { Button, Checkbox, toast } from "@fluxify/components";
 import { getDefaultVariantValue } from "@fluxify/server/src/api/v1/integrations/helpers";
 import { useBlocker } from "@tanstack/react-router";
 import { useRef, useState } from "react";
-import { TbArrowLeft, TbBolt } from "react-icons/tb";
+import { TbArrowLeft } from "react-icons/tb";
 import { parseApiError, showErrorNotification } from "@/lib/errorNotifier";
 import { integrationsQuery, useIntegrationCatalog } from "@/query/integrationsQuery";
 import { useIsProjectAdmin } from "@/store/auth";
@@ -17,6 +17,7 @@ import {
 } from "./IntegrationOnboardingSteps";
 import { IntegrationVariantIcon } from "./IntegrationVariantIcon";
 import { showTestResult } from "./showTestResult";
+import { TestConnectionButton, useTestAbort } from "./TestConnectionButton";
 
 /**
  * `group` and `variant` come from the URL, so refresh and back/forward keep
@@ -38,6 +39,7 @@ export function IntegrationOnboardingForm({
 }) {
 	const create = integrationsQuery.create.mutation(projectId);
 	const test = integrationsQuery.testConnection.mutation(projectId);
+	const testAbort = useTestAbort();
 	const catalog = useIntegrationCatalog(projectId);
 	const { loaded, groups, variantsOf, labelOf } = catalog;
 	const variants = variantsOf(rawGroup);
@@ -115,7 +117,12 @@ export function IntegrationOnboardingForm({
 
 		setTestError(null);
 		test.mutate(
-			{ group, variant, config: parsed.data as Record<string, unknown> },
+			{
+				group,
+				variant,
+				config: parsed.data as Record<string, unknown>,
+				signal: testAbort.next(),
+			},
 			{
 				onSuccess: (res) => {
 					showTestResult(res);
@@ -300,16 +307,14 @@ export function IntegrationOnboardingForm({
 				)}
 				{step === 3 && (
 					<div className="flex items-center gap-2">
-						<Button
-							variant="outline"
-							size="sm"
+						<TestConnectionButton
 							isPending={test.isPending}
 							onPress={testIntegration}
-							className="whitespace-nowrap"
-						>
-							<TbBolt size={14} className="text-accent" />
-							<span>Test connection</span>
-						</Button>
+							onCancel={() => {
+								testAbort.abort();
+								test.reset();
+							}}
+						/>
 						<Button
 							variant="primary"
 							size="sm"

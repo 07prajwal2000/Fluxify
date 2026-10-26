@@ -1,6 +1,10 @@
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import type { IntegrationOp, IntegrationOpCall } from "@fluxify/adapters/integrations";
+import {
+	type IntegrationOp,
+	type IntegrationOpCall,
+	OP_CANCELLED,
+} from "@fluxify/adapters/integrations";
 import { executionRuntimeEnvironment } from "../requestRouter/executionEnvironment";
 import type { PluginIntegrationRef } from "../requestRouter/pluginIntegrations";
 import { spawnCommand } from "../testRunner/spawn";
@@ -38,10 +42,12 @@ export const OP_PROCESS_ENTRY = fileURLToPath(
  * process (I6), the way a test suite runs: it gets the execution environment,
  * never MASTER_ENCRYPTION_KEY or NATS, and is killed once it answers or runs
  * out of time. A fresh one per op, so no plugin state outlives the op.
+ * `signal` firing kills it at once: the op rejects with "Cancelled".
  */
 export function runOpInChild(
 	request: Omit<IsolatedOpRequest, "type">,
 	entry = OP_PROCESS_ENTRY,
+	signal?: AbortSignal,
 ): Promise<unknown> {
 	const { promise, resolve, reject } = Promise.withResolvers<unknown>();
 	let settled = false;
@@ -49,9 +55,11 @@ export function runOpInChild(
 		if (settled) return;
 		settled = true;
 		clearTimeout(watchdog);
+		signal?.removeEventListener("abort", cancel);
 		child.kill();
 		fn();
 	};
+	const cancel = () => settle(() => reject(new Error(OP_CANCELLED)));
 	const watchdog = setTimeout(
 		() =>
 			settle(() =>
@@ -87,5 +95,8 @@ export function runOpInChild(
 			);
 		},
 	});
+	// after the spawn: `settle` kills the child, which must exist by then
+	if (signal?.aborted) cancel();
+	else signal?.addEventListener("abort", cancel, { once: true });
 	return promise;
 }

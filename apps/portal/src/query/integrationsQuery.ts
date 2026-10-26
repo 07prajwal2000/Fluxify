@@ -90,22 +90,35 @@ export const integrationsQuery = {
 	testConnection: {
 		mutation(projectId: string) {
 			return useMutation({
-				mutationFn: (params: { group: string; variant: string; config: unknown }) =>
-					integrationService.testConnection(projectId, params.group, params.variant, params.config),
+				mutationFn: (params: {
+					group: string;
+					variant: string;
+					config: unknown;
+					signal?: AbortSignal;
+				}) =>
+					integrationService.testConnection(
+						projectId,
+						params.group,
+						params.variant,
+						params.config,
+						params.signal,
+					),
 			});
 		},
 	},
 	testExistingConnection: {
 		mutation(projectId: string) {
 			return useMutation({
-				mutationFn: (id: string) => integrationService.testExistingConnection(projectId, id),
+				mutationFn: ({ id, signal }: { id: string; signal?: AbortSignal }) =>
+					integrationService.testExistingConnection(projectId, id, undefined, signal),
 			});
 		},
 	},
 	testProductionConnection: {
 		mutation(projectId: string) {
 			return useMutation({
-				mutationFn: (id: string) => integrationService.testProductionConnection(projectId, id),
+				mutationFn: ({ id, signal }: { id: string; signal?: AbortSignal }) =>
+					integrationService.testProductionConnection(projectId, id, undefined, signal),
 			});
 		},
 	},

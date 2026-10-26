@@ -65,7 +65,7 @@ test("creators see Test production credentials and clicking it calls the prod en
 		await new Promise((r) => setTimeout(r, 10));
 	});
 
-	expect(prodSpy).toHaveBeenCalledWith("proj-1", "integ-123");
+	expect(prodSpy).toHaveBeenCalledWith("proj-1", "integ-123", undefined, expect.any(AbortSignal));
 	expect(existingSpy).not.toHaveBeenCalled();
 });
 
@@ -80,6 +80,52 @@ test("clicking Test connection calls the dev endpoint", async () => {
 		await new Promise((r) => setTimeout(r, 10));
 	});
 
-	expect(existingSpy).toHaveBeenCalledWith("proj-1", "integ-123");
+	expect(existingSpy).toHaveBeenCalledWith(
+		"proj-1",
+		"integ-123",
+		undefined,
+		expect.any(AbortSignal),
+	);
 	expect(prodSpy).not.toHaveBeenCalled();
+});
+
+test("a running test offers Cancel; pressing it aborts the request and returns to idle", async () => {
+	const notifier = await import("@/lib/errorNotifier");
+	const notify = spyOn(notifier, "showErrorNotification").mockImplementation(() => {});
+	let signal: AbortSignal | undefined;
+	// a hanging host: settles only when the request is aborted, as axios does
+	existingSpy.mockImplementation(((_p: string, _id: string, _s: unknown, abort: AbortSignal) => {
+		signal = abort;
+		return new Promise((_, reject) =>
+			abort.addEventListener("abort", () => reject(new Error("canceled"))),
+		);
+	}) as never);
+	const view = renderWithRole("creator");
+	expect(view.queryByText("Cancel")).toBeNull();
+
+	await act(async () => {
+		fireEvent.click(view.getByText("Test connection"));
+		await new Promise((r) => setTimeout(r, 10));
+	});
+	expect(view.getByText("Cancel")).toBeTruthy();
+	expect(signal?.aborted).toBe(false);
+
+	await act(async () => {
+		fireEvent.click(view.getByText("Cancel"));
+		await new Promise((r) => setTimeout(r, 10));
+	});
+	expect(signal?.aborted).toBe(true);
+	expect(view.queryByText("Cancel")).toBeNull();
+	// the abort is the user's own doing, so it raises no error
+	expect(notify).not.toHaveBeenCalled();
+	notify.mockRestore();
+});
+
+test("a finished test shows no Cancel", async () => {
+	const view = renderWithRole("creator");
+	await act(async () => {
+		fireEvent.click(view.getByText("Test connection"));
+		await new Promise((r) => setTimeout(r, 10));
+	});
+	expect(view.queryByText("Cancel")).toBeNull();
 });

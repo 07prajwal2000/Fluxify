@@ -7,7 +7,7 @@ import {
 	integrationRegistry,
 	runIntegrationHook,
 } from "@fluxify/adapters/integrations";
-import { RpcError, type RpcResponder, rpcRespond } from "@fluxify/common/nats";
+import { RpcError, type RpcResponder, rpcRespond, subscribe } from "@fluxify/common/nats";
 import { SET_ONE } from "../../api/v1/integrations/adminEnv";
 import { natsConnection, natsName } from "../../db/nats";
 import { EncryptionService } from "../../lib/encryption";
@@ -20,8 +20,12 @@ import {
 	INTEGRATION_OPS_QUEUE,
 	type IntegrationOpPayload,
 	type IntegrationOpRequest,
+	integrationOpCancelSubject,
 	integrationOpSubject,
 } from "./types";
+
+/** how long a cancel waits for its op before the entry is dropped */
+const CANCEL_KEEP_MS = 60_000;
 
 /**
  * The worker half of an integration op (I3): one project's Test connection,
@@ -49,6 +53,22 @@ export function serveIntegrationOps(
 		runIsolated?: typeof runOpInChild;
 	} = {},
 ): RpcResponder {
+	// a cancel can beat its op (the responder takes requests one at a time), so either side may create the entry
+	const running = new Map<string, AbortController>();
+	const controllerFor = (opId: string) => {
+		const controller = running.get(opId) ?? new AbortController();
+		running.set(opId, controller);
+		return controller;
+	};
+	const canceller = subscribe(
+		natsConnection(),
+		natsName(integrationOpCancelSubject(projectId), env),
+		(opId) => {
+			controllerFor(opId).abort();
+			// an op that never reaches this worker would leave the entry behind
+			setTimeout(() => running.delete(opId), CANCEL_KEEP_MS).unref();
+		},
+	);
 	const responders = INTEGRATION_OPS.map((op) =>
 		rpcRespond<IntegrationOpRequest, unknown>(
 			natsConnection(),
@@ -75,14 +95,16 @@ export function serveIntegrationOps(
 				if (!config) {
 					throw new RpcError("NOT_FOUND", `This ${env} worker has no config for the project yet`);
 				}
+				const signal = call.opId ? controllerFor(call.opId).signal : undefined;
 				try {
-					if (ref) return await runPluginOp(op, call, ref, config, runIsolated);
+					if (ref) return await runPluginOp(op, call, ref, config, runIsolated, signal);
 					return await runIntegrationHook(
 						registry,
 						op,
 						{ ...call, projectId },
 						(keys) => appConfigFromArtifact(config, keys),
 						call.timeoutMs,
+						signal,
 					);
 				} catch (error) {
 					// the message only: a stack stays on this worker
@@ -90,12 +112,17 @@ export function serveIntegrationOps(
 						"VALIDATION_FAILED",
 						error instanceof Error ? error.message : String(error),
 					);
+				} finally {
+					if (call.opId) running.delete(call.opId);
 				}
 			},
 			{ queue: INTEGRATION_OPS_QUEUE },
 		),
 	);
-	return { stop: async () => void (await Promise.all(responders.map((r) => r.stop()))) };
+	return {
+		stop: async () =>
+			void (await Promise.all([canceller.stop(), ...responders.map((r) => r.stop())])),
+	};
 }
 
 /** a plugin variant's op in its own child, with only the values its config references */
@@ -105,10 +132,15 @@ function runPluginOp(
 	ref: PluginIntegrationRef,
 	config: ProjectConfigPayload,
 	runIsolated: typeof runOpInChild,
+	signal?: AbortSignal,
 ) {
 	const appConfig = appConfigFromArtifact(config, appConfigKeys(call.config));
-	const { timeoutMs, integrationId: _, projectId: __, ...rest } = call;
-	return runIsolated({ ref, op, call: rest, appConfig: [...appConfig], timeoutMs });
+	const { timeoutMs, integrationId: _, projectId: __, opId: ___, ...rest } = call;
+	return runIsolated(
+		{ ref, op, call: rest, appConfig: [...appConfig], timeoutMs },
+		undefined,
+		signal,
+	);
 }
 
 /**

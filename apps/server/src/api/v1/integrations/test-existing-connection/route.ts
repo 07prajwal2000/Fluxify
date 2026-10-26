@@ -51,7 +51,7 @@ export default function (app: HonoServer) {
 		async (c) => {
 			const params = c.req.valid("param");
 			const { signal } = c.req.valid("query");
-			return c.json(await handleRequest(params, signal, "production"));
+			return c.json(await handleRequest(params, signal, "production", c.req.raw.signal));
 		},
 	);
 	app.get(
@@ -63,7 +63,7 @@ export default function (app: HonoServer) {
 		async (c) => {
 			const params = c.req.valid("param");
 			const { signal } = c.req.valid("query");
-			const result = await handleRequest(params, signal);
+			const result = await handleRequest(params, signal, undefined, c.req.raw.signal);
 			return c.json(result);
 		},
 	);

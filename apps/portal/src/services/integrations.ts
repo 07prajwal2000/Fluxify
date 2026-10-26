@@ -70,9 +70,12 @@ export const integrationService = {
 		id: string,
 		/** observability only — probes that signal's OTLP endpoint */
 		signal?: "logs" | "traces" | "metrics",
+		/** aborting stops the probe on the server too */
+		abort?: AbortSignal,
 	): Promise<z.infer<typeof testExistingConnectionResponseSchema>> {
 		const res = await httpClient.get(
 			`${getBaseUrl(projectId)}/test-existing-connection/${id}${signal ? `?signal=${signal}` : ""}`,
+			{ signal: abort },
 		);
 		return res.data;
 	},
@@ -81,9 +84,12 @@ export const integrationService = {
 		id: string,
 		/** observability only — probes that signal's OTLP endpoint */
 		signal?: "logs" | "traces" | "metrics",
+		/** aborting stops the probe on the server too */
+		abort?: AbortSignal,
 	): Promise<z.infer<typeof testExistingConnectionResponseSchema>> {
 		const res = await httpClient.get(
 			`${getBaseUrl(projectId)}/test-production-connection/${id}${signal ? `?signal=${signal}` : ""}`,
+			{ signal: abort },
 		);
 		return res.data;
 	},
@@ -92,12 +98,14 @@ export const integrationService = {
 		group: string,
 		variant: string,
 		config: unknown,
+		/** aborting stops the probe on the server too */
+		abort?: AbortSignal,
 	): Promise<z.infer<typeof testConnectionResponseSchema>> {
-		const res = await httpClient.post(`${getBaseUrl(projectId)}/test-connection`, {
-			group,
-			variant,
-			config,
-		});
+		const res = await httpClient.post(
+			`${getBaseUrl(projectId)}/test-connection`,
+			{ group, variant, config },
+			{ signal: abort },
+		);
 		return res.data;
 	},
 	async getMetadata(

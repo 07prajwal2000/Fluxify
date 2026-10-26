@@ -3,9 +3,10 @@ import {
 	type IntegrationOpCall,
 	IntegrationOpError,
 	integrationRegistry,
+	OP_CANCELLED,
 	runIntegrationHook,
 } from "@fluxify/adapters/integrations";
-import { RpcError, rpcRequest } from "@fluxify/common/nats";
+import { publish, RpcError, rpcRequest } from "@fluxify/common/nats";
 import { natsConnection, natsName } from "../../db/nats";
 import { EncryptionService } from "../../lib/encryption";
 import { type FluxifyEnv, INTEGRATION_WORKER_TIMEOUT_MS } from "../../lib/env";
@@ -13,6 +14,7 @@ import { decodeAppConfig } from "./appConfig";
 import {
 	type IntegrationOpPayload,
 	type IntegrationOpRequest,
+	integrationOpCancelSubject,
 	integrationOpSubject,
 } from "./types";
 
@@ -47,15 +49,16 @@ export function integrationOpMode(
 /**
  * Test connection, metadata (`describe`) and inspect, for every variant. The
  * result is the hook's; a failure throws with a message meant for the caller.
+ * `signal` firing ends the op with "Cancelled" and stops the work wherever it runs.
  */
 export async function runIntegrationOp(
 	op: IntegrationOp,
 	target: IntegrationOpTarget,
-	options: { timeoutMs?: number; mode?: IntegrationOpMode } = {},
+	options: { timeoutMs?: number; mode?: IntegrationOpMode; signal?: AbortSignal } = {},
 ): Promise<unknown> {
 	const timeoutMs = options.timeoutMs ?? INTEGRATION_OP_TIMEOUT_MS;
 	if (integrationOpMode(target.group, target.variant, options.mode) === "worker") {
-		return runOnWorker(op, target, timeoutMs);
+		return runOnWorker(op, target, timeoutMs, options.signal);
 	}
 	return runIntegrationHook(
 		integrationRegistry,
@@ -63,11 +66,20 @@ export async function runIntegrationOp(
 		target,
 		(keys) => decodeAppConfig(keys, target.projectId, target.env),
 		timeoutMs,
+		options.signal,
 	);
 }
 
-async function runOnWorker(op: IntegrationOp, target: IntegrationOpTarget, timeoutMs: number) {
+async function runOnWorker(
+	op: IntegrationOp,
+	target: IntegrationOpTarget,
+	timeoutMs: number,
+	signal?: AbortSignal,
+) {
+	if (signal?.aborted) throw new IntegrationOpError(OP_CANCELLED);
+	const opId = crypto.randomUUID();
 	const payload: IntegrationOpPayload = {
+		opId,
 		projectId: target.projectId,
 		integrationId: target.integrationId,
 		group: target.group,
@@ -79,13 +91,23 @@ async function runOnWorker(op: IntegrationOp, target: IntegrationOpTarget, timeo
 		timeoutMs,
 	};
 	const env = target.env;
+	const request = rpcRequest<IntegrationOpRequest, unknown>(
+		natsConnection(),
+		natsName(integrationOpSubject(op, target.projectId), env),
+		{ sealed: EncryptionService.encrypt(JSON.stringify(payload)) },
+		{ meta: undefined, timeoutMs: INTEGRATION_WORKER_TIMEOUT_MS },
+	);
+	let onAbort: (() => void) | undefined;
+	// a request cannot be recalled, so stop waiting and tell the worker to stop the work
+	const cancelled = new Promise<never>((_, reject) => {
+		onAbort = () => {
+			publish(natsConnection(), natsName(integrationOpCancelSubject(target.projectId), env), opId);
+			reject(new IntegrationOpError(OP_CANCELLED));
+		};
+		signal?.addEventListener("abort", onAbort, { once: true });
+	});
 	try {
-		return await rpcRequest<IntegrationOpRequest, unknown>(
-			natsConnection(),
-			natsName(integrationOpSubject(op, target.projectId), env),
-			{ sealed: EncryptionService.encrypt(JSON.stringify(payload)) },
-			{ meta: undefined, timeoutMs: INTEGRATION_WORKER_TIMEOUT_MS },
-		);
+		return await Promise.race([request, cancelled]);
 	} catch (error) {
 		if (!(error instanceof RpcError)) throw error;
 		if (error.code === "NO_RESPONDERS") {
@@ -100,5 +122,7 @@ async function runOnWorker(op: IntegrationOp, target: IntegrationOpTarget, timeo
 		}
 		// the worker's own message: what failed, never a stack
 		throw new IntegrationOpError(error.message);
+	} finally {
+		if (onAbort) signal?.removeEventListener("abort", onAbort);
 	}
 }

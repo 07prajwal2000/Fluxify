@@ -38,12 +38,14 @@ export async function testIntegrationConnection(
 	oauth?: McpOAuth,
 	/** a saved integration's id */
 	integrationId?: string,
+	/** the caller hung up or pressed Cancel: the probe is stopped and answers "Cancelled" */
+	abort?: AbortSignal,
 ): Promise<Result> {
 	try {
 		return (await runIntegrationOp(
 			"test",
 			{ projectId, env, integrationId, group, variant, config, options: { signal, oauth } },
-			{ timeoutMs },
+			{ timeoutMs, signal: abort },
 		)) as Result;
 	} catch (error) {
 		return {
@@ -62,6 +64,7 @@ export async function testIntegrationConnection(
 export default async function handleRequest(
 	projectId: string,
 	body: z.infer<typeof requestBodySchema>,
+	abort?: AbortSignal,
 ): Promise<Result> {
 	// built-ins only: a plugin variant's schema is on its worker, not in this registry
 	const def = integrationRegistry.isBuiltIn(body.group, body.variant)
@@ -75,7 +78,18 @@ export default async function handleRequest(
 				.join("; ")}`,
 		);
 	}
-	const result = await testIntegrationConnection(projectId, body.group, body.variant, body.config);
+	const result = await testIntegrationConnection(
+		projectId,
+		body.group,
+		body.variant,
+		body.config,
+		undefined,
+		undefined,
+		undefined,
+		undefined,
+		undefined,
+		abort,
+	);
 	await audit.record({
 		projectId,
 		resourceType: "integration",
