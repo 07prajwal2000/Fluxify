@@ -3,6 +3,8 @@ import { abortable } from "./abortable";
 
 class Adapter {
 	private rows = [1];
+	/** a callable field, like a Bun `SQL` client */
+	conn = Object.assign(() => "called", { release: () => "released" });
 	pending = Promise.withResolvers<number[]>();
 	get() {
 		return this.pending.promise;
@@ -11,7 +13,7 @@ class Adapter {
 		return this.rows.length;
 	}
 	async rollbackTransaction() {
-		return "rolled back";
+		return this.conn.release();
 	}
 }
 
@@ -38,7 +40,9 @@ describe("abortable", () => {
 		ctrl.abort(new Error("client gone"));
 		await expect(pending).rejects.toThrow("client gone");
 		expect(() => wrapped.get()).toThrow("client gone");
-		expect(await wrapped.rollbackTransaction()).toBe("rolled back");
+		// kept cleanup still reaches its callable fields (#1002's e2e hang)
+		expect(await wrapped.rollbackTransaction()).toBe("released");
+		expect(wrapped.conn).toBe(adapter.conn);
 		adapter.pending.reject(new Error("late")); // settles quietly, no unhandled rejection
 	});
 });

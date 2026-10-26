@@ -17,7 +17,11 @@ export function abortable<T extends object>(
 	return new Proxy(target, {
 		get(t, key) {
 			const value = Reflect.get(t, key);
-			if (typeof value !== "function" || keep.has(key)) return value;
+			// a field is data even when callable (a Bun `SQL` client is a function);
+			// wrapping it would hide its own members from the adapter's methods
+			if (typeof value !== "function" || Object.hasOwn(t, key)) return value;
+			// bound, so its body reads the adapter's own fields, not this proxy
+			if (keep.has(key)) return value.bind(t);
 			return (...args: unknown[]) => {
 				signal.throwIfAborted();
 				const out = value.apply(t, args);
