@@ -1,16 +1,21 @@
-import { describe, expect, it, mock } from "bun:test";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { z } from "zod";
 
 process.env.MASTER_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString("base64");
 
 const handlers = new Map<string, (payload: { sealed: string }) => Promise<unknown>>();
 const subscribed: Array<{ subject: string; queue?: string }> = [];
+const cancels = new Map<string, (opId: string) => void>();
 const nats = { ...(await import("@fluxify/common/nats")) };
 mock.module("@fluxify/common/nats", () => ({
 	...nats,
 	rpcRespond: (_nc: unknown, subject: string, h: any, options: { queue?: string }) => {
 		handlers.set(subject, h);
 		subscribed.push({ subject, queue: options.queue });
+		return { stop: async () => {} };
+	},
+	subscribe: (_nc: unknown, subject: string, h: (opId: string) => void) => {
+		cancels.set(subject, h);
 		return { stop: async () => {} };
 	},
 }));
@@ -161,5 +166,73 @@ describe("serveIntegrationOps: a plugin variant's hook runs in its own child (I6
 			callP2("test", { group: "kv", variant: "Redis", config: { source: "credentials" } }),
 		).rejects.toThrow();
 		expect(isolated).toEqual([]);
+	});
+});
+
+describe("serveIntegrationOps: cancel", () => {
+	registry.register({
+		group: "acme/slow",
+		variant: "Hang",
+		label: "Hang",
+		configSchema: z.object({}),
+		test: (_config: any, ctx: any) => {
+			signals.push(ctx.signal);
+			return new Promise(() => {});
+		},
+	} as any);
+	const signals: AbortSignal[] = [];
+	// an earlier test leaves the project without a config
+	beforeEach(() => {
+		projectConfig = { appConfig: {} };
+	});
+	const slow = (opId: string) => call("test", { group: "acme/slow", variant: "Hang", config: {}, opId });
+	const cancel = (opId: string) => cancels.get("fluxify.dev.integrations.cancel.p1")!(opId);
+
+	it("a cancel for the op in flight stops it and the hook sees its signal fire", async () => {
+		const running = slow("op-1");
+		await new Promise((r) => setTimeout(r, 10));
+		cancel("op-1");
+		const error = await running.catch((e) => e);
+		expect(error.message).toBe("Cancelled");
+		expect(signals.at(-1)?.aborted).toBe(true);
+	});
+
+	it("a cancel that beats its op (queued behind another) still stops it", async () => {
+		cancel("op-2");
+		await expect(slow("op-2")).rejects.toThrow("Cancelled");
+	});
+
+	it("a cancel for another op leaves this one running", async () => {
+		const running = slow("op-3").then(() => "done", () => "stopped");
+		await new Promise((r) => setTimeout(r, 10));
+		cancel("someone-else");
+		expect(await Promise.race([running, new Promise((r) => setTimeout(() => r("still running"), 50))])).toBe(
+			"still running",
+		);
+		cancel("op-3");
+		expect(await running).toBe("stopped");
+	});
+
+	it("hands a plugin's child the same signal, so the child is killed", async () => {
+		let given: AbortSignal | undefined;
+		serveIntegrationOps("p3", "development", () => ({ appConfig: {} }) as any, {
+			registry,
+			pluginRefs: () => [
+				{ projectId: "p3", plugin: "x", version: "1", group: "acme/crm", variant: "Deal", entry: "/x.js" },
+			],
+			runIsolated: ((_request: unknown, _entry: unknown, signal: AbortSignal) => {
+				given = signal;
+				return new Promise(() => {});
+			}) as never,
+		});
+		const running = handlers.get("fluxify.dev.integrations.test.p3")!({
+			sealed: EncryptionService.encrypt(
+				JSON.stringify({ projectId: "p3", group: "acme/crm", variant: "Deal", config: {}, timeoutMs: 1_000, opId: "op-4" }),
+			),
+		});
+		running.catch(() => {});
+		await new Promise((r) => setTimeout(r, 10));
+		cancels.get("fluxify.dev.integrations.cancel.p3")!("op-4");
+		expect(given?.aborted).toBe(true);
 	});
 });

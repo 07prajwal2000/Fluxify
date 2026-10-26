@@ -176,6 +176,8 @@ inspect: (adapter, { tables }) => describeSchema(adapter, tables),
 
 ::: info These hooks run on a worker
 Test connection, metadata and inspect run on a worker of the integration's **own environment**: a development config goes to a development worker, a production config to a production worker. The admin never runs your plugin code. If no worker of that environment is running, the person testing sees `No development worker is running for this project.` A hook has ten seconds of its own, and the admin waits fifteen seconds by default; a worker that misses that reports `No response from a development worker in 15s`.
+
+The person testing can press **Cancel**. The test ends at once with `Cancelled`, and the process running your hook is stopped, so a hook that is waiting on a slow host needs no code of its own to support it.
 :::
 
 ## close

@@ -3,9 +3,11 @@ import { afterEach, describe, expect, it, mock, spyOn } from "bun:test";
 process.env.MASTER_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString("base64");
 
 const nats = { ...(await import("@fluxify/common/nats")) };
+const published: Array<{ subject: string; data: string }> = [];
 let respond: (subject: string, payload: { sealed: string }, timeoutMs?: number) => Promise<unknown>;
 mock.module("@fluxify/common/nats", () => ({
 	...nats,
+	publish: (_nc: unknown, subject: string, data: string) => published.push({ subject, data }),
 	rpcRequest: (_nc: unknown, subject: string, payload: { sealed: string }, options: { timeoutMs?: number }) =>
 		respond(subject, payload, options.timeoutMs),
 }));
@@ -65,6 +67,7 @@ describe("runIntegrationOp, on a worker", () => {
 		expect(sent!.subject).toBe("fluxify.dev.integrations.inspect.p1");
 		const payload = JSON.parse(EncryptionService.decrypt(sent!.sealed));
 		expect(payload).toEqual({
+			opId: expect.any(String),
 			projectId: "p1",
 			integrationId: "i1",
 			group: "kv",
@@ -118,5 +121,55 @@ describe("runIntegrationOp, on a worker", () => {
 		const error = await runIntegrationOp("test", target, { mode: "worker" }).catch((e) => e);
 		expect(error.message).toBe("ECONNREFUSED");
 		expect(error.name).toBe("IntegrationOpError");
+	});
+});
+
+describe("runIntegrationOp, cancelled", () => {
+	const hang = () => new Promise<never>(() => {});
+
+	it("a local hook is told via ctx.signal and the op ends at once", async () => {
+		let seen: AbortSignal | undefined;
+		spyOn(integrationRegistry.require("kv", "Redis"), "test").mockImplementation(((_c: unknown, ctx: any) => {
+			seen = ctx.signal;
+			return hang();
+		}) as never);
+		const controller = new AbortController();
+		const op = runIntegrationOp("test", target, { signal: controller.signal });
+		setTimeout(() => controller.abort(), 20);
+		await expect(op).rejects.toThrow("Cancelled");
+		expect(seen?.aborted).toBe(true);
+	});
+
+	it("a worker op stops waiting and publishes its id on the project's cancel subject", async () => {
+		let opId: string | undefined;
+		respond = (_subject, { sealed }) => {
+			opId = JSON.parse(EncryptionService.decrypt(sealed)).opId;
+			return hang();
+		};
+		published.length = 0;
+		const controller = new AbortController();
+		const op = runIntegrationOp("test", target, { mode: "worker", signal: controller.signal });
+		setTimeout(() => controller.abort(), 20);
+		await expect(op).rejects.toThrow("Cancelled");
+		expect(opId).toBeTruthy();
+		expect(published).toEqual([{ subject: "fluxify.dev.integrations.cancel.p1", data: opId! }]);
+	});
+
+	it("an already cancelled op never reaches the bus", async () => {
+		respond = async () => {
+			throw new Error("must not be called");
+		};
+		published.length = 0;
+		await expect(runIntegrationOp("test", target, { mode: "worker", signal: AbortSignal.abort() })).rejects.toThrow("Cancelled");
+		expect(published).toEqual([]);
+	});
+
+	it("an op that finishes first leaves no cancel behind", async () => {
+		respond = async () => ({ success: true });
+		published.length = 0;
+		const controller = new AbortController();
+		await runIntegrationOp("test", target, { mode: "worker", signal: controller.signal });
+		controller.abort();
+		expect(published).toEqual([]);
 	});
 });

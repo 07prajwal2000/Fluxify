@@ -114,6 +114,8 @@ export type IntegrationOpContext = {
 	appConfig: Map<string, string>;
 	/** what the caller asked for: observability's `signal`, a saved mcp integration's `oauth` */
 	options: Record<string, unknown>;
+	/** fires when the caller cancels the op (Test connection's Cancel); stop the work and release the connection */
+	signal?: AbortSignal;
 };
 
 /** A Test connection's answer. A failure says why in `error`. */

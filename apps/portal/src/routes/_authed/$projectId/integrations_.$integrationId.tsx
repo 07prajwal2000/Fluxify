@@ -12,7 +12,7 @@ import {
 } from "@fluxify/server/src/api/v1/integrations/helpers";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { TbArrowLeft, TbBolt, TbCloudCog } from "react-icons/tb";
+import { TbArrowLeft, TbCloudCog } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { setPath } from "@/components/integrations/ConnectorFields";
 import {
@@ -21,6 +21,7 @@ import {
 } from "@/components/integrations/EnvironmentIntegrationFields";
 import { IntegrationVariantIcon } from "@/components/integrations/IntegrationVariantIcon";
 import { showTestResult } from "@/components/integrations/showTestResult";
+import { TestConnectionButton, useTestAbort } from "@/components/integrations/TestConnectionButton";
 import { parseApiError, showErrorNotification } from "@/lib/errorNotifier";
 import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
 import { integrationsQuery, useIntegrationCatalog } from "@/query/integrationsQuery";
@@ -47,6 +48,8 @@ function IntegrationDetailsPage() {
 	const test = integrationsQuery.testConnection.mutation(projectId);
 	const testProd = integrationsQuery.testProductionConnection.mutation(projectId);
 	const testSaved = integrationsQuery.testExistingConnection.mutation(projectId);
+	const testAbort = useTestAbort();
+	const prodAbort = useTestAbort();
 	const remove = integrationsQuery.remove.mutation(projectId);
 	const catalog = useIntegrationCatalog(projectId);
 
@@ -154,17 +157,20 @@ function IntegrationDetailsPage() {
 		if (!parsed) return;
 		// the sign in is stored with the saved integration, so an OAuth server is tested from there
 		if (group === "mcp" && toTest?.auth === "oauth") {
-			testSaved.mutate(integrationId, {
-				onSuccess: (res) => {
-					showTestResult(res);
-					if (res?.tools) setTestedTools(res.tools);
+			testSaved.mutate(
+				{ id: integrationId, signal: testAbort.next() },
+				{
+					onSuccess: (res) => {
+						showTestResult(res);
+						if (res?.tools) setTestedTools(res.tools);
+					},
+					onError: (e) => showErrorNotification(e as Error),
 				},
-				onError: (e) => showErrorNotification(e as Error),
-			});
+			);
 			return;
 		}
 		test.mutate(
-			{ group, variant, config: parsed },
+			{ group, variant, config: parsed, signal: testAbort.next() },
 			{
 				onSuccess: (res) => {
 					showTestResult(res);
@@ -176,13 +182,16 @@ function IntegrationDetailsPage() {
 	}
 
 	function testProduction() {
-		testProd.mutate(integrationId, {
-			onSuccess: (res) => {
-				showTestResult(res);
-				if (res?.tools) setTestedTools(res.tools);
+		testProd.mutate(
+			{ id: integrationId, signal: prodAbort.next() },
+			{
+				onSuccess: (res) => {
+					showTestResult(res);
+					if (res?.tools) setTestedTools(res.tools);
+				},
+				onError: (e) => showErrorNotification(e as Error),
 			},
-			onError: (e) => showErrorNotification(e as Error),
-		});
+		);
 	}
 
 	const canWrite = group === "mcp" ? isAdmin : canEdit;
@@ -264,27 +273,26 @@ function IntegrationDetailsPage() {
 				<div className="flex flex-col items-end gap-1">
 					{/* a test's result is a toast (stacked, #690), so it is not repeated here */}
 					<div className="flex items-center gap-2">
-						<Button
-							variant="outline"
-							size="sm"
-							isPending={test.isPending}
+						<TestConnectionButton
+							isPending={test.isPending || testSaved.isPending}
 							onPress={testConnection}
-							className="whitespace-nowrap"
-						>
-							<TbBolt size={14} className="text-accent" />
-							<span>Test connection</span>
-						</Button>
+							onCancel={() => {
+								testAbort.abort();
+								test.reset();
+								testSaved.reset();
+							}}
+						/>
 						{canEdit && (
-							<Button
-								variant="outline"
-								size="sm"
+							<TestConnectionButton
 								isPending={testProd.isPending}
 								onPress={testProduction}
-								className="whitespace-nowrap"
+								onCancel={() => {
+									prodAbort.abort();
+									testProd.reset();
+								}}
 							>
-								<TbBolt size={14} className="text-accent" />
-								<span>Test production credentials</span>
-							</Button>
+								Test production credentials
+							</TestConnectionButton>
 						)}
 						{canWrite && (
 							<Button variant="primary" size="sm" isPending={update.isPending} onPress={save}>

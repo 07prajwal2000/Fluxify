@@ -78,6 +78,41 @@ describe("runOpInChild", () => {
 		).rejects.toThrow("Connection timed out after 0.3 seconds");
 	}, 30_000);
 
+	it("cancelling kills a hanging hook at once, well before its timeout", async () => {
+		const controller = new AbortController();
+		const started = Date.now();
+		const op = runOpInChild(
+			{
+				ref,
+				op: "test",
+				call: { group: "acme/crm", variant: "Hub", config: { token: "cfg:TOKEN", mode: "hang" } },
+				appConfig: [["TOKEN", "s"]],
+				timeoutMs: 20_000,
+			},
+			undefined,
+			controller.signal,
+		);
+		setTimeout(() => controller.abort(), 1_000);
+		await expect(op).rejects.toThrow("Cancelled");
+		expect(Date.now() - started).toBeLessThan(10_000);
+	}, 30_000);
+
+	it("an already cancelled op rejects without running", async () => {
+		await expect(
+			runOpInChild(
+				{
+					ref,
+					op: "test",
+					call: { group: "acme/crm", variant: "Hub", config: { token: "cfg:TOKEN" } },
+					appConfig: [["TOKEN", "s"]],
+					timeoutMs: 5_000,
+				},
+				undefined,
+				AbortSignal.abort(),
+			),
+		).rejects.toThrow("Cancelled");
+	}, 30_000);
+
 	it("a module that is missing fails with the plugin's name, not a stack", async () => {
 		await expect(
 			runOpInChild({

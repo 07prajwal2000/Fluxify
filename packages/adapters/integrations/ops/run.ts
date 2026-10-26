@@ -23,6 +23,9 @@ export class IntegrationOpError extends Error {
 	override name = "IntegrationOpError";
 }
 
+/** what an aborted op rejects with */
+export const OP_CANCELLED = "Cancelled";
+
 const LABEL: Record<IntegrationOp, string> = {
 	test: "Test connection",
 	describe: "Metadata",
@@ -44,7 +47,10 @@ export async function runIntegrationHook(
 	/** the values of these app config keys, in the environment the op runs for */
 	loadAppConfig: (keys: string[]) => Promise<Map<string, string>> | Map<string, string>,
 	timeoutMs: number,
+	/** the caller gave up: the op ends at once with "Cancelled" and the hook is told via `ctx.signal` */
+	signal?: AbortSignal,
 ): Promise<unknown> {
+	if (signal?.aborted) throw new IntegrationOpError(OP_CANCELLED);
 	const def = registry.require(call.group, call.variant, call.projectId);
 	const hook = def[op] as ((...args: unknown[]) => Promise<unknown>) | undefined;
 	if (!hook) {
@@ -68,12 +74,19 @@ export async function runIntegrationHook(
 	const ctx: IntegrationOpContext = {
 		appConfig: await loadAppConfig(appConfigKeys(call.config)),
 		options: call.options ?? {},
+		signal,
 	};
-	return withTimeout(op, hook.call(def, ...args, ctx), timeoutMs);
+	return withTimeout(op, hook.call(def, ...args, ctx), timeoutMs, signal);
 }
 
-async function withTimeout<T>(op: IntegrationOp, work: Promise<T>, timeoutMs: number) {
+async function withTimeout<T>(
+	op: IntegrationOp,
+	work: Promise<T>,
+	timeoutMs: number,
+	signal?: AbortSignal,
+) {
 	let timer: ReturnType<typeof setTimeout> | undefined;
+	let onAbort: (() => void) | undefined;
 	const seconds = timeoutMs / 1000;
 	const timeout = new Promise<never>((_, reject) => {
 		timer = setTimeout(
@@ -88,9 +101,16 @@ async function withTimeout<T>(op: IntegrationOp, work: Promise<T>, timeoutMs: nu
 			timeoutMs,
 		);
 	});
+	const cancelled = new Promise<never>((_, reject) => {
+		onAbort = () => reject(new IntegrationOpError(OP_CANCELLED));
+		// the signal can fire while the app config loads, before this listener exists
+		if (signal?.aborted) onAbort();
+		else signal?.addEventListener("abort", onAbort, { once: true });
+	});
 	try {
-		return await Promise.race([work, timeout]);
+		return await Promise.race([work, timeout, cancelled]);
 	} finally {
 		clearTimeout(timer);
+		if (onAbort) signal?.removeEventListener("abort", onAbort);
 	}
 }

@@ -64,7 +64,7 @@ and asks you to set one.
 In the portal's integration form (both create and edit):
 - **Same as production**: A checkbox toggle. When enabled, the development form is hidden and replaced by a warning: *Dev runs, dev triggers and AI agents will read and write production — same database, same queues, same consumer groups. Use separate dev instances instead.*
 - **Missing development value hint**: When "Same as production" is unchecked and development credentials are blank, an inline hint indicates: *Dev workers will fail until you set a development value or turn on Same as production.*
-- **Test connection**: Available on both the integrations list and details page to test the development credentials.
+- **Test connection**: Available on both the integrations list and details page to test the development credentials. A test that is taking too long (a host that does not answer) shows a **Cancel** button next to it. Cancel stops the test right away and puts the page back to normal, and no result is shown.
 - **Test production credentials**: Displayed to project creators and admins alongside the dev test button.
 
 ## Categories

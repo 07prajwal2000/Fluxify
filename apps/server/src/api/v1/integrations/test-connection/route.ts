@@ -33,7 +33,7 @@ export default function (app: HonoServer) {
 		async (c) => {
 			const { projectId } = c.req.valid("param");
 			const body = c.req.valid("json");
-			const result = await handleRequest(projectId, body);
+			const result = await handleRequest(projectId, body, c.req.raw.signal);
 			// pass or fail, the probe ran: 200 with its result (#690); bad input is 400 above
 			return c.json(result);
 		},
