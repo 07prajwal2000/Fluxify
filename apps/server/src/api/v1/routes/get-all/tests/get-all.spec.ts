@@ -56,6 +56,7 @@ describe("handleRequest", () => {
           path: "/route1",
           method: HttpMethod.GET,
           active: true,
+          inProduction: false,
           recordExecution: false,
           devRecordExecution: false,
           projectId: "proj1",
@@ -69,6 +70,7 @@ describe("handleRequest", () => {
           path: "/route2",
           method: HttpMethod.POST,
           active: true,
+          inProduction: false,
           recordExecution: false,
           devRecordExecution: false,
           projectId: "proj1",
@@ -700,5 +702,22 @@ describe("sorting (#723)", () => {
     expect(list).toHaveBeenLastCalledWith(0, 10, expect.any(Object), { by: "name", order: "asc" });
     expect(requestQuerySchema.safeParse({ sortBy: "path" }).success).toBe(false);
     expect(requestQuerySchema.safeParse({ sortOrder: "sideways" }).success).toBe(false);
+  });
+  it("a route is in production only when it is active and has a promoted version", async () => {
+    const row = (id: string, active: boolean, prodVersionId: string | null) => ({
+      id, name: id, path: `/${id}`, method: "GET", active, prodVersionId,
+      projectId: "proj1", createdAt: new Date(0), updatedAt: new Date(0),
+    });
+    list.mockResolvedValue({
+      result: [row("live", true, "v1"), row("off", false, "v1"), row("unpromoted", true, null), row("neither", false, null)],
+      totalCount: 4,
+    });
+    const { data } = await handleRequest(requestQuerySchema.parse({}), acl);
+    expect(data.map((r) => [r.id, r.inProduction])).toEqual([
+      ["live", true],
+      ["off", false],
+      ["unpromoted", false],
+      ["neither", false],
+    ]);
   });
 });

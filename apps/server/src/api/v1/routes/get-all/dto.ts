@@ -50,6 +50,9 @@ export const responseSchema = z.object({
 			path: z.string().nullable(),
 			active: z.boolean().nullable(),
 			devActive: z.boolean(),
+			inProduction: z
+				.boolean()
+				.describe("true when production serves the route: it is active and has a promoted version"),
 			method: z.string().nullable(),
 			recordExecution: z.boolean().default(false),
 			devRecordExecution: z.boolean().default(false),
