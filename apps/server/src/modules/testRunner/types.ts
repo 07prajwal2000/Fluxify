@@ -72,6 +72,8 @@ export type RouteTarget = {
 		paramsSchema?: unknown;
 		/** run around the route exactly as a live worker runs them (#534) */
 		middlewares?: RouteMiddlewares;
+		/** the saved response schemas a `schema` assertion judges the body by */
+		responseSchemas?: { statusCode: number; schema: unknown }[];
 	};
 	request: SuiteRequest;
 	workflow?: undefined;

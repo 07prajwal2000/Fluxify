@@ -21,6 +21,8 @@ Open the **Assertions** tab, press **Add assertion**, and pick a **target**:
 | Duration (ms) | How long the route took, in milliseconds | — |
 | Custom JS | Anything you like, written in JavaScript | See [below](#custom-js-checks) |
 
+Instead of writing a body check by hand, you can tick **Response body matches the route's saved schema**. See [Check the body against a saved schema](#check-the-body-against-a-saved-schema).
+
 Then pick an **operator** and, if it needs one, an **expected value**:
 
 | Operator | Passes when the value… | Works with |
@@ -51,6 +53,20 @@ So `equals` on a whole object is easy to get wrong: key order and spaces must ma
 **contains** looks for the expected text inside the value. For an object or a list it looks inside its JSON, so `contains` `"admin"` passes for `{ "tags": ["admin"] }`.
 
 **is true** also passes for the text `"true"`; **is false** for the text `"false"`.
+
+### Check the body against a saved schema
+
+If the route has a [response schema](/concepts/response-schemas), tick **Response body matches the route's saved schema** at the top of the **Assertions** tab. You do not have to write the body check again.
+
+| Situation | Result |
+| --- | --- |
+| The body fits the schema saved for the status the route answered | The check passes |
+| A field is missing, or has the wrong type | The check fails and names each field (up to five) |
+| The route answered a status that has no saved schema | The check fails and says so. Save a schema for that status first |
+
+- The check **follows the route**. It reads the saved schema each time the suite runs, so editing the schema in the playground changes what the suite checks. A [production run](./index) uses the schema saved in the promoted version.
+- The status code is the one the route actually answered, so a `404` is judged by the `404` schema.
+- Untick the box to remove the check. It does not appear in the assertion list below the checkbox.
 
 ### Reading a failed check
 

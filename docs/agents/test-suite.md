@@ -181,8 +181,10 @@ Each assertion is `{ target, operator, expectedValue, propertyPath }`. All must 
 | `header` | route | One response header. `propertyPath` is the header name, not case-sensitive. | same as `body` |
 | `successful` | workflow | Whether the run succeeded | `true`, `false` |
 | `output` | workflow | The run's output | same as `body` |
+| `schema` | route | The body against the route's saved response schema for the status it answered | none |
 | `customJs` | both | Your own checks | none |
 
+- `schema` takes no `operator`, `expectedValue` or `propertyPath`. It follows the route: it reads the schema when the suite runs, so editing the schema changes the check. It fails when that status has no saved schema (save one with the playground's **Save as schema**). See [Response Schemas](/concepts/response-schemas).
 - `expectedValue` is always a **string**: `"200"`, not `200`. It is not needed for `true`, `false`, `exists` and `not_exists`.
 - `propertyPath` is only for `body`, `output` and `header`. It is a path such as `user.tags[0]`. Empty means the whole body.
 - `eq` compares `status` and `time` as numbers. For everything else it compares as text. An object or list becomes compact JSON with no spaces, so prefer a `propertyPath` that points at one value.

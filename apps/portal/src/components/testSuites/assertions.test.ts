@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import {
+	hasSchemaAssertion,
 	methodTakesBody,
 	normalizeAssertion,
 	pathParamsOf,
+	toggleSchemaAssertion,
 	validateAssertion,
 } from "./assertions";
 
@@ -82,4 +84,22 @@ test("pathParamsOf reads the route's own segments", () => {
 test("methodTakesBody follows the HTTP methods that carry one", () => {
 	expect(methodTakesBody("POST")).toBe(true);
 	expect(methodTakesBody("get")).toBe(false);
+});
+
+describe("saved-schema assertion", () => {
+	test("needs no operator or value and is valid on its own", () => {
+		expect(validateAssertion({ target: "schema" })).toBeNull();
+		expect(normalizeAssertion({ target: "schema", operator: "eq", expectedValue: "x" })).toEqual({
+			target: "schema",
+		});
+	});
+
+	test("the checkbox adds it once and removes it, leaving other assertions alone", () => {
+		const status = { target: "status", operator: "eq", expectedValue: "200" } as const;
+		const on = toggleSchemaAssertion([status], true);
+		expect(on).toEqual([status, { target: "schema" }]);
+		expect(toggleSchemaAssertion(on, true)).toBe(on);
+		expect(hasSchemaAssertion(on)).toBe(true);
+		expect(toggleSchemaAssertion(on, false)).toEqual([status]);
+	});
 });
