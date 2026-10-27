@@ -1,3 +1,4 @@
+import { cachedZod } from "@fluxify/blocks/schema";
 import { JsVM } from "@fluxify/lib";
 import type { InferSelectModel } from "drizzle-orm";
 import { z } from "zod";
@@ -78,9 +79,17 @@ export type AssertionContext = {
 			body: unknown;
 			headers: Record<string, string>;
 			request: SuiteRequest;
+			/** the route's saved response schemas, for a `schema` assertion */
+			responseSchemas?: { statusCode: number; schema: unknown }[];
 			workflow?: undefined;
 	  }
-	| { workflow: WorkflowOutcome; status?: undefined; body?: undefined; headers?: undefined }
+	| {
+			workflow: WorkflowOutcome;
+			status?: undefined;
+			body?: undefined;
+			headers?: undefined;
+			responseSchemas?: undefined;
+	  }
 );
 
 /** an empty path is the whole body; `a.b[0].c` walks into it */
@@ -170,6 +179,37 @@ function compare(a: AssertionType, actualValue: unknown) {
 }
 
 /**
+ * The `schema` assertion: the body must satisfy the route's saved schema for the
+ * status it answered. It follows the route (no snapshot), and a status with no
+ * saved schema fails, so a response the route never described is not waved through.
+ */
+function checkSchema(ctx: AssertionContext): AssertionResult {
+	// the route's status can arrive as text ("200"), so compare as numbers
+	const saved = ctx.responseSchemas?.find((s) => s.statusCode === Number(ctx.status));
+	if (!saved) {
+		return {
+			success: false,
+			message: `No saved response schema for status ${ctx.status}. Save one in the playground first`,
+		};
+	}
+	const zod = cachedZod(saved.schema);
+	if (!zod) {
+		return { success: false, message: `The saved ${ctx.status} response schema is invalid` };
+	}
+	const parsed = zod.safeParse(ctx.body);
+	if (parsed.success) return { success: true, message: `Body matches the ${ctx.status} schema ✓` };
+	const shown = parsed.error.issues.slice(0, 5).map((i) => {
+		const at = i.path.length ? `${i.path.join(".")}: ` : "";
+		return `${at}${i.message}`;
+	});
+	const more = parsed.error.issues.length - shown.length;
+	return {
+		success: false,
+		message: `Body does not match the ${ctx.status} schema: ${shown.join("; ")}${more > 0 ? ` (and ${more} more)` : ""}`,
+	};
+}
+
+/**
  * Every assertion's verdict for one response.
  *
  * Evaluated in the suite's child, after the route: custom JS assertions are
@@ -185,6 +225,7 @@ export async function evaluateAssertions(assertions: AssertionType[], ctx: Asser
 		assertions.map(async (a): Promise<AssertionResult[]> => {
 			try {
 				if (a.target === "customJs") return await runCustomJs(a.customJs ?? "", ctx);
+				if (a.target === "schema") return [checkSchema(ctx)];
 				const { value: actualValue, desc: targetDesc, look } = actualFor(a, ctx);
 				const passed = compare(a, actualValue);
 

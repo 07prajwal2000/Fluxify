@@ -462,6 +462,7 @@ export function TestSuitesWorkbench({
 								{tab === "Assertions" && (
 									<AssertionsEditor
 										kind={target.type}
+										routeId={target.type === "route" ? target.id : undefined}
 										assertions={draft.assertions}
 										onChange={(assertions) => patch({ assertions })}
 									/>

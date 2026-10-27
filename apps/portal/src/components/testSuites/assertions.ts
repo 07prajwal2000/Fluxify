@@ -11,6 +11,7 @@ export const ASSERTION_TARGETS = [
 	"time",
 	"header",
 	"customJs",
+	"schema",
 	"output",
 	"successful",
 ] as const;
@@ -45,7 +46,7 @@ export type Assertion = {
 	customJs?: string | null;
 };
 
-/** `customJs` has none: its t.expect checks are the assertion. */
+/** `customJs` and `schema` have none: the check is the assertion. */
 const OPERATORS_BY_TARGET: Record<AssertionTarget, AssertionOperator[]> = {
 	status: ["eq", "neq", "lt", "gt"],
 	time: ["eq", "neq", "lt", "gt"],
@@ -54,6 +55,7 @@ const OPERATORS_BY_TARGET: Record<AssertionTarget, AssertionOperator[]> = {
 	output: ["eq", "neq", "contains", "true", "false", "exists", "not_exists"],
 	successful: ["true", "false"],
 	customJs: [],
+	schema: [],
 };
 
 /** Operators that assert on their own — an expected value would mean nothing. */
@@ -77,6 +79,7 @@ export const TARGET_LABELS: Record<AssertionTarget, string> = {
 	time: "Duration (ms)",
 	header: "Header",
 	customJs: "Custom JS",
+	schema: "Matches saved schema",
 	output: "Output",
 	successful: "Run succeeded",
 };
@@ -94,7 +97,7 @@ export function needsExpectedValue(
 	target: AssertionTarget,
 	operator?: AssertionOperator | null,
 ): boolean {
-	if (target === "customJs") return false;
+	if (target === "customJs" || target === "schema") return false;
 	return !operator || !VALUELESS_OPERATORS.includes(operator);
 }
 
@@ -111,6 +114,7 @@ export function validateAssertions(assertions: Assertion[]): Map<number, string>
 export function validateAssertion(assertion: Assertion): string | null {
 	const { target, operator, expectedValue, propertyPath, customJs } = assertion;
 
+	if (target === "schema") return null;
 	if (target === "customJs") {
 		return customJs?.trim() ? null : "Write at least one t.expect(...) check";
 	}
@@ -140,6 +144,7 @@ export function validateAssertion(assertion: Assertion): string | null {
  * target in the UI cannot smuggle a stale property path into the payload.
  */
 export function normalizeAssertion(assertion: Assertion): Assertion {
+	if (assertion.target === "schema") return { target: "schema" };
 	if (assertion.target === "customJs") {
 		return { target: "customJs", customJs: assertion.customJs ?? "" };
 	}
@@ -155,6 +160,17 @@ export function normalizeAssertion(assertion: Assertion): Assertion {
 			: null,
 	};
 }
+
+/** The checkbox of the assertions tab: the body must fit the route's saved schema for its status. */
+export const hasSchemaAssertion = (assertions: Assertion[]) =>
+	assertions.some((a) => a.target === "schema");
+
+export const toggleSchemaAssertion = (assertions: Assertion[], on: boolean): Assertion[] =>
+	on
+		? hasSchemaAssertion(assertions)
+			? assertions
+			: [...assertions, { target: "schema" }]
+		: assertions.filter((a) => a.target !== "schema");
 
 /** `/users/:id/posts/:postId` -> `["id", "postId"]` */
 export function pathParamsOf(routePath: string | undefined): string[] {

@@ -204,3 +204,90 @@ t.expect(t.zod.number().safeParse("x").success).toBe(false);`,
 		expect(verdict.result[0]!.message).toContain("boom");
 	});
 });
+
+describe("schema assertion (#959)", () => {
+	const schemaOf = (...keys: [string, "str" | "int"][]) => ({
+		dataType: "object",
+		properties: keys.map(([key, dataType]) => ({ key, dataType, required: true })),
+	});
+	const saved = (statusCode: number, schema: unknown) => ({ statusCode, schema });
+	const assertion = [{ target: "schema" }] as AssertionType[];
+
+	it("is accepted with no operator or expected value", () => {
+		expect(assertionSchema.safeParse({ target: "schema" }).success).toBe(true);
+		expect(assertionSchema.safeParse({ target: "schema", propertyPath: "a" }).success).toBe(false);
+	});
+
+	it("passes a body that fits the schema saved for the status it answered", async () => {
+		const verdict = await run(
+			assertion,
+			context({
+				body: { id: 1, name: "ada" },
+				responseSchemas: [saved(200, schemaOf(["id", "int"], ["name", "str"]))],
+			}),
+		);
+		expect(verdict.success).toBe(true);
+		expect(verdict.result[0]!.message).toContain("matches the 200 schema");
+	});
+
+	it("finds the schema when the route reports its status as text", async () => {
+		const verdict = await run(
+			assertion,
+			context({
+				status: "200" as unknown as number,
+				body: { id: 1 },
+				responseSchemas: [saved(200, schemaOf(["id", "int"]))],
+			}),
+		);
+		expect(verdict.success).toBe(true);
+	});
+
+	it("fails with the field and the reason when the body drifts", async () => {
+		const verdict = await run(
+			assertion,
+			context({
+				body: { id: "one" },
+				responseSchemas: [saved(200, schemaOf(["id", "int"], ["name", "str"]))],
+			}),
+		);
+		expect(verdict.success).toBe(false);
+		const message = verdict.result[0]!.message;
+		expect(message).toContain("does not match the 200 schema");
+		expect(message).toContain("id:");
+		expect(message).toContain("name:");
+	});
+
+	it("judges by the status that was answered, not another status's schema", async () => {
+		const verdict = await run(
+			assertion,
+			context({
+				status: 404,
+				body: { message: "gone" },
+				responseSchemas: [saved(200, schemaOf(["id", "int"]))],
+			}),
+		);
+		expect(verdict.success).toBe(false);
+		expect(verdict.result[0]!.message).toContain("No saved response schema for status 404");
+	});
+
+	it("fails when the route has no schemas at all", async () => {
+		const verdict = await run(assertion, context());
+		expect(verdict.success).toBe(false);
+		expect(verdict.result[0]!.message).toContain("No saved response schema for status 200");
+	});
+
+	it("fails on a saved schema that is not a valid definition", async () => {
+		const verdict = await run(assertion, context({ responseSchemas: [saved(200, { nope: true })] }));
+		expect(verdict.success).toBe(false);
+		expect(verdict.result[0]!.message).toContain("invalid");
+	});
+
+	it("runs beside other assertions, each reported on its own", async () => {
+		const verdict = await run(
+			[{ target: "status", operator: "eq", expectedValue: "200" }, ...assertion] as AssertionType[],
+			context({ body: { id: "x" }, responseSchemas: [saved(200, schemaOf(["id", "int"]))] }),
+		);
+		expect(verdict.result.map((r) => r.success)).toEqual([true, false]);
+		expect(verdict.success).toBe(false);
+	});
+});

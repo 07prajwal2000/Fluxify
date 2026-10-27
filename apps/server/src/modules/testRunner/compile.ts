@@ -17,6 +17,7 @@ import {
 import { ensureCustomBlocksRegistered, loadGraph, snapshotGraph } from "../compiler/service";
 import { compileDependencies } from "../packages/service";
 import { compileWithPlugins, loadPluginSets, type PluginSet } from "../plugins/compile";
+import { listResponseSchemas } from "../responseSchemas/repository";
 import { readSnapshot } from "../versions/repository";
 import type { SuiteTarget } from "./target";
 
@@ -90,7 +91,14 @@ export async function compileSuiteRoute(routeId: string) {
 		...new Set([...(pluginBlocks ?? []), ...customBlocks.flatMap((c) => c.pluginBlocks ?? [])]),
 	];
 	return {
-		route: { ...route, middlewares: await loadRouteMiddlewares(routeId) },
+		route: {
+			...route,
+			middlewares: await loadRouteMiddlewares(routeId),
+			responseSchemas: (await listResponseSchemas(routeId)).map(({ statusCode, schema }) => ({
+				statusCode,
+				schema,
+			})),
+		},
 		workflow: undefined,
 		source,
 		dependencies,
@@ -207,6 +215,7 @@ async function compileSuiteCandidate(target: SuiteTarget, candidate: SuiteCandid
 				bodySchema: settings.bodySchema,
 				querySchema: settings.querySchema,
 				paramsSchema: settings.paramsSchema,
+				responseSchemas: settings.responseSchemas ?? [],
 				timeoutSeconds: settings.timeoutSeconds,
 				middlewares: await resolveMiddlewareIds(settings.middlewares, {
 					production: true,

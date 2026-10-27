@@ -1,5 +1,6 @@
 import {
 	Button,
+	Checkbox,
 	cn,
 	DeleteIconButton,
 	JavaScriptTextArea,
@@ -9,17 +10,20 @@ import {
 	usePackageTypes,
 } from "@fluxify/components";
 import { TbPlus } from "react-icons/tb";
+import { responseSchemasQuery } from "@/query/responseSchemasQuery";
 import {
 	type Assertion,
 	type AssertionOperator,
 	type AssertionTarget,
 	allowsPropertyPath,
+	hasSchemaAssertion,
 	needsExpectedValue,
 	normalizeAssertion,
 	OPERATOR_LABELS,
 	operatorsFor,
 	TARGET_LABELS,
 	TARGETS_BY_KIND,
+	toggleSchemaAssertion,
 	validateAssertions,
 } from "./assertions";
 import { EXPECT_TYPES, T_SHARED, ZOD_VERSION } from "./expectTypes";
@@ -214,13 +218,48 @@ function AssertionRow({
 	);
 }
 
+/**
+ * "Body matches the route's saved response schema" (#959). It follows the route:
+ * the schema is read when the suite runs, so editing the schema in the playground
+ * changes what the suite checks. The status code is the one the route answers.
+ */
+function SchemaCheckbox({
+	routeId,
+	assertions,
+	onChange,
+}: {
+	routeId: string;
+	assertions: Assertion[];
+	onChange: (next: Assertion[]) => void;
+}) {
+	const saved = responseSchemasQuery.list.useQuery(routeId).data;
+	const codes = saved?.map((item) => item.statusCode) ?? [];
+	return (
+		<div className="rounded-lg border border-border bg-background-secondary p-3">
+			<Checkbox
+				isSelected={hasSchemaAssertion(assertions)}
+				onChange={(on: boolean) => onChange(toggleSchemaAssertion(assertions, on))}
+				label="Response body matches the route's saved schema"
+				description={
+					saved && codes.length === 0
+						? "No schema saved yet. Save one from a response in the playground; until then this check fails."
+						: `Checked against the schema saved for the status the route answers${codes.length ? ` (saved: ${codes.join(", ")})` : ""}. A status with no saved schema fails.`
+				}
+			/>
+		</div>
+	);
+}
+
 export function AssertionsEditor({
 	kind,
+	routeId,
 	assertions,
 	onChange,
 }: {
 	/** what the suite tests; picks the targets on offer */
 	kind: Kind;
+	/** the tested route; set for a route suite, it shows the saved-schema checkbox */
+	routeId?: string;
 	assertions: Assertion[];
 	onChange: (next: Assertion[]) => void;
 }) {
@@ -244,22 +283,29 @@ export function AssertionsEditor({
 				</Button>
 			</div>
 
+			{kind === "route" && routeId && (
+				<SchemaCheckbox routeId={routeId} assertions={assertions} onChange={onChange} />
+			)}
+
 			{assertions.length === 0 ? (
 				<div className="rounded-lg border border-dashed border-border p-6 text-center text-xs text-muted">
 					No assertions yet. A suite without one only checks that the {kind} runs.
 				</div>
 			) : (
-				assertions.map((assertion, index) => (
-					<AssertionRow
-						// eslint-disable-next-line react/no-array-index-key -- assertions are an ordered list with no id
-						key={index}
-						kind={kind}
-						assertion={assertion}
-						error={errors.get(index)}
-						onChange={(next) => replace(index, next)}
-						onRemove={() => onChange(assertions.filter((_, i) => i !== index))}
-					/>
-				))
+				assertions.map((assertion, index) =>
+					// the checkbox owns the schema assertion; the index still counts it
+					assertion.target === "schema" ? null : (
+						<AssertionRow
+							// eslint-disable-next-line react/no-array-index-key -- assertions are an ordered list with no id
+							key={index}
+							kind={kind}
+							assertion={assertion}
+							error={errors.get(index)}
+							onChange={(next) => replace(index, next)}
+							onRemove={() => onChange(assertions.filter((_, i) => i !== index))}
+						/>
+					),
+				)
 			)}
 		</div>
 	);

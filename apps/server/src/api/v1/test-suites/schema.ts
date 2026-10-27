@@ -11,6 +11,8 @@ export const assertionSchema = z
 			"time",
 			"header",
 			"customJs",
+			// the body matches the route's saved response schema for the status it answered
+			"schema",
 			// workflow suites (#487): the run's `{ successful, output, error }`
 			"output",
 			"successful",
@@ -48,7 +50,7 @@ export const assertionSchema = z
 			successful: ["true", "false"],
 		};
 
-		if (val.target !== "customJs") {
+		if (val.target !== "customJs" && val.target !== "schema") {
 			if (!val.operator) {
 				ctx.addIssue({
 					code: z.ZodIssueCode.custom,

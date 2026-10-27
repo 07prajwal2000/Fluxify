@@ -277,6 +277,7 @@ async function runRoute(boot: TestBootstrap & RouteTarget, setup: unknown): Prom
 			headers,
 			durationMs,
 			request: boot.request,
+			responseSchemas: boot.route.responseSchemas,
 			setup,
 		});
 		return {
