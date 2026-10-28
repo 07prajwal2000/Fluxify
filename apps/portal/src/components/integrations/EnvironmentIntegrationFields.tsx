@@ -104,7 +104,7 @@ export function EnvironmentIntegrationFields({
 		</div>
 	);
 	const devHint = devEmpty && (
-		<p className="text-xs text-warning">
+		<p className="text-xs text-danger">
 			Dev workers will fail until you set a development value or turn on Same as production.
 		</p>
 	);

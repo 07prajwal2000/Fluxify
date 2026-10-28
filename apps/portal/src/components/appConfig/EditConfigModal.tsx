@@ -231,7 +231,7 @@ export function EditConfigModal({
 											) : (
 												<div className="flex flex-col gap-2 pt-1">
 													{devEmpty && (
-														<p className="text-xs text-warning">
+														<p className="text-xs text-danger">
 															Dev workers will fail until you set a development value or turn on
 															Same as production.
 														</p>
