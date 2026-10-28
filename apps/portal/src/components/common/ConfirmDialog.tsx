@@ -11,6 +11,7 @@ type ConfirmDialogProps = {
 	danger?: boolean;
 	variant?: "primary" | "secondary" | "danger" | "danger-soft" | "ghost" | "outline";
 	pending?: boolean;
+	confirmDisabled?: boolean;
 	onConfirm: () => void;
 };
 
@@ -24,6 +25,7 @@ export function ConfirmDialog({
 	danger,
 	variant,
 	pending,
+	confirmDisabled,
 	onConfirm,
 }: ConfirmDialogProps) {
 	const confirmVariant = variant ?? (danger ? "danger-soft" : "primary");
@@ -42,7 +44,12 @@ export function ConfirmDialog({
 							<Button variant="ghost" onPress={() => onOpenChange(false)}>
 								{cancelText}
 							</Button>
-							<Button variant={confirmVariant} isPending={pending} onPress={onConfirm}>
+							<Button
+								variant={confirmVariant}
+								isPending={pending}
+								isDisabled={confirmDisabled}
+								onPress={onConfirm}
+							>
 								{confirmText}
 							</Button>
 						</Modal.Footer>

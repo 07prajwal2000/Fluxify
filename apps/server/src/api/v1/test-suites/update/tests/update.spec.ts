@@ -55,4 +55,22 @@ describe("Test Suites Endpoints - UPDATE", () => {
     expect(setArg).toHaveProperty("name", "Updated Name");
     expect(setArg).not.toHaveProperty("description");
   });
+
+  it("PUT: enabled is saved, and left alone when omitted (#668)", async () => {
+    const put = (payload: object) =>
+      app.request(
+        new Request("http://localhost/test-suites/suite-123", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }),
+      );
+
+    expect((await put({ enabled: false })).status).toBe(200);
+    expect((mockDb.set.mock.calls.at(-1) as any)[0]).toHaveProperty("enabled", false);
+
+    mockDb.set.mockClear();
+    await put({ name: "Renamed" });
+    expect((mockDb.set.mock.calls[0] as any)[0]).not.toHaveProperty("enabled");
+  });
 });

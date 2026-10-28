@@ -1,6 +1,6 @@
-import { Button, cn, Dropdown, Label, Spinner, toast } from "@fluxify/components";
+import { Button, cn, Spinner, toast } from "@fluxify/components";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { TbCopy, TbDotsVertical, TbPlayerPlay, TbPlus, TbSearch, TbTrash } from "react-icons/tb";
+import { TbListCheck, TbPlayerPlay, TbPlus } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EnvPicker, type RunEnv } from "@/components/common/EnvPicker";
 import { RouteWorkbenchHeader } from "@/components/routes/RouteWorkbenchTabs";
@@ -20,8 +20,10 @@ import { InputEditor } from "./InputEditor";
 import { selectionAfterDelete } from "./nextSelection";
 import { OverridesEditor } from "./OverridesEditor";
 import { RequestEditor } from "./RequestEditor";
+import { RunBulkDialog } from "./RunBulkDialog";
 import { RunResults } from "./RunResults";
 import { SetupEditor } from "./SetupEditor";
+import { SuiteList } from "./SuiteList";
 import { type SuiteDraft, toDraft } from "./types";
 
 /** a route suite sends a request; a workflow suite feeds an input (#487) */
@@ -31,118 +33,6 @@ const EDITOR_TABS = {
 } as const;
 
 type EditorTab = (typeof EDITOR_TABS)[SuiteTarget["type"]][number];
-
-function SuiteList({
-	kind,
-	suites,
-	isLoading,
-	selectedId,
-	onSelect,
-	onCreate,
-	onClone,
-	onDelete,
-	isCreating,
-}: {
-	kind: SuiteTarget["type"];
-	suites: { id: string; name: string }[];
-	isLoading: boolean;
-	selectedId: string | null;
-	onSelect: (id: string) => void;
-	onCreate: () => void;
-	onClone: (suite: { id: string; name: string }) => void;
-	onDelete: (suite: { id: string; name: string }) => void;
-	isCreating: boolean;
-}) {
-	const [filter, setFilter] = useState("");
-	const shown = suites.filter((suite) => suite.name.toLowerCase().includes(filter.toLowerCase()));
-
-	return (
-		<aside className="flex w-72 shrink-0 flex-col border-r border-border">
-			<div className="flex items-center gap-2 border-b border-border px-3 py-2">
-				<div className="flex flex-1 items-center gap-2 rounded-md border border-border bg-background-secondary px-2 py-1.5">
-					<TbSearch size={15} className="text-muted" />
-					<input
-						className="min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none placeholder:text-muted"
-						placeholder="Filter suites"
-						value={filter}
-						onChange={(e) => setFilter(e.target.value)}
-					/>
-				</div>
-				<Button
-					variant="ghost"
-					size="sm"
-					aria-label="New suite"
-					isPending={isCreating}
-					onPress={onCreate}
-				>
-					<TbPlus size={16} />
-				</Button>
-			</div>
-
-			<div className="min-h-0 flex-1 overflow-y-auto p-2">
-				{isLoading ? (
-					<div className="flex justify-center p-6">
-						<Spinner size="sm" />
-					</div>
-				) : shown.length === 0 ? (
-					<p className="p-6 text-center text-xs text-muted">
-						{suites.length === 0 ? `No suites for this ${kind} yet.` : "Nothing matches."}
-					</p>
-				) : (
-					shown.map((suite) => (
-						<div
-							key={suite.id}
-							role="button"
-							tabIndex={0}
-							onClick={() => onSelect(suite.id)}
-							onKeyDown={(e) => e.key === "Enter" && onSelect(suite.id)}
-							className={cn(
-								"group flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-xs transition-colors",
-								suite.id === selectedId
-									? "bg-accent/10 text-accent"
-									: "text-muted hover:bg-surface-secondary hover:text-foreground",
-							)}
-						>
-							<span className="min-w-0 flex-1 truncate">{suite.name || "Untitled suite"}</span>
-							<Dropdown>
-								<Dropdown.Trigger>
-									<Button
-										isIconOnly
-										size="sm"
-										variant="ghost"
-										aria-label={`${suite.name} options`}
-										className="opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
-									>
-										<TbDotsVertical size={16} />
-									</Button>
-								</Dropdown.Trigger>
-								<Dropdown.Popover>
-									<Dropdown.Menu
-										onAction={(key) => (key === "clone" ? onClone(suite) : onDelete(suite))}
-									>
-										<Dropdown.Item id="clone" textValue="Clone">
-											<TbCopy size={16} />
-											<Label>Clone</Label>
-										</Dropdown.Item>
-										<Dropdown.Item
-											id="delete"
-											variant="danger"
-											textValue="Delete"
-											className="text-danger hover:bg-danger/10 focus:bg-danger/10 focus:text-danger"
-										>
-											<TbTrash size={16} className="text-danger" />
-											<Label className="text-danger">Delete</Label>
-										</Dropdown.Item>
-									</Dropdown.Menu>
-								</Dropdown.Popover>
-							</Dropdown>
-						</div>
-					))
-				)}
-			</div>
-		</aside>
-	);
-}
 
 /**
  * Create, edit and run the suites of one route or workflow. `headerLeft` is the
@@ -190,6 +80,7 @@ export function TestSuitesWorkbench({
 	const route = routesQuery.byId.useQuery(target.type === "route" ? target.id : "");
 	const { prodVersionNumber } = useVersionTarget(target.type, target.id);
 	const [env, setEnv] = useState<RunEnv>("development");
+	const [bulkOpen, setBulkOpen] = useState(false);
 	const suites = testSuitesQuery.getAll.useQuery(target);
 	const detail = testSuitesQuery.getById.useQuery(target, selectedId);
 	const create = testSuitesQuery.create.mutation(target);
@@ -226,6 +117,7 @@ export function TestSuitesWorkbench({
 			(suites.data ?? []).map((suite) => ({
 				id: suite.id ?? "",
 				name: suite.name ?? "",
+				enabled: suite.enabled ?? true,
 			})),
 		[suites.data],
 	);
@@ -255,7 +147,7 @@ export function TestSuitesWorkbench({
 			setDirty(false);
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- reseed per suite, not per refetch
-	}, [selectedId, detail.data?.id]);
+	}, [detail.data?.id, detail.data]);
 
 	const assertionErrors = validateAssertions(draft.assertions);
 	const hookErrorCount = hookErrors(draft.hooks).size;
@@ -288,6 +180,7 @@ export function TestSuitesWorkbench({
 				setupTimeoutMs: draft.setupTimeoutMs,
 				teardownTimeoutMs: draft.teardownTimeoutMs,
 				runAlone: draft.runAlone,
+				enabled: draft.enabled,
 				...(target.type === "workflow" && { input: draft.input }),
 			});
 			setDirty(false);
@@ -318,6 +211,11 @@ export function TestSuitesWorkbench({
 		} catch (error) {
 			showErrorNotification(error as Error);
 		}
+	}
+
+	async function onRunBulk(ids: string[]) {
+		await onRun(ids);
+		setBulkOpen(false);
 	}
 
 	async function onConfirmDelete() {
@@ -354,11 +252,18 @@ export function TestSuitesWorkbench({
 					/>
 					<Button
 						variant="outline"
-						isDisabled={list.length === 0 || isRunning}
+						isDisabled={!list.some((s) => s.enabled) || isRunning}
 						isPending={isRunning}
 						onPress={() => void onRun()}
 					>
 						<TbPlayerPlay size={16} /> {isRunning ? "Running…" : "Run all"}
+					</Button>
+					<Button
+						variant="outline"
+						isDisabled={list.length === 0 || isRunning}
+						onPress={() => setBulkOpen(true)}
+					>
+						<TbListCheck size={16} /> Run bulk actions
 					</Button>
 					<Button variant="primary" isPending={create.isPending} onPress={() => void onCreate()}>
 						<TbPlus size={16} /> New suite
@@ -496,6 +401,14 @@ export function TestSuitesWorkbench({
 					onShownRunChange={setShownRunId}
 				/>
 			</div>
+
+			<RunBulkDialog
+				open={bulkOpen}
+				suites={list}
+				pending={isRunning}
+				onClose={() => setBulkOpen(false)}
+				onRun={(ids) => void onRunBulk(ids)}
+			/>
 
 			<CloneSuiteDialog
 				projectId={projectId}

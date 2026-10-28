@@ -113,12 +113,21 @@ export async function startTestRun(
 	}
 
 	const ofTarget = eq(targetColumn(testSuitesEntity, target.type), target.id);
-	const suites = await db
+	const named = !!suiteIds?.length;
+	const found = await db
 		.select()
 		.from(testSuitesEntity)
-		.where(suiteIds?.length ? and(ofTarget, inArray(testSuitesEntity.id, suiteIds)) : ofTarget);
+		.where(named ? and(ofTarget, inArray(testSuitesEntity.id, suiteIds)) : ofTarget);
+	// naming suites runs them as asked; "all" leaves disabled ones out (#668)
+	const suites = named ? found : found.filter((s) => s.enabled);
+	const skipped = found.length - suites.length;
 	if (suites.length === 0) {
-		throw new TestRunError(404, `No test suites found for this ${target.type}`);
+		throw new TestRunError(
+			404,
+			skipped > 0
+				? `All ${skipped} test suites of this ${target.type} are disabled`
+				: `No test suites found for this ${target.type}`,
+		);
 	}
 
 	for (const suite of suites) {
@@ -139,7 +148,14 @@ export async function startTestRun(
 
 	const [run] = await db
 		.insert(testRunsEntity)
-		.values({ projectId, ...targetKeys(target), totalSuites: suites.length, env, deploymentId })
+		.values({
+			projectId,
+			...targetKeys(target),
+			totalSuites: suites.length,
+			env,
+			deploymentId,
+			result: summaryOf(skipped),
+		})
 		.returning({ id: testRunsEntity.id });
 
 	const suiteRuns = await db
@@ -172,9 +188,18 @@ export async function startTestRun(
 				...deps,
 			},
 			candidate,
+			skipped,
 		),
 	};
 }
+
+const summaryOf = (skipped: number): TestRunSummary => ({
+	total: 0,
+	passed: 0,
+	failed: 0,
+	skipped,
+	suites: {},
+});
 
 /**
  * The background half: compile once, then run every suite through the pool,
@@ -190,6 +215,7 @@ async function executeRun(
 	work: Array<{ suite: Suite; suiteRunId: string }>,
 	deps: RunnerDeps,
 	candidate?: SuiteCandidate,
+	skipped = 0,
 ): Promise<void> {
 	try {
 		// ONE compile for the whole fleet: it reads the live blocks/edges tables,
@@ -234,6 +260,7 @@ async function executeRun(
 			total: statuses.length,
 			passed,
 			failed: statuses.length - passed,
+			skipped,
 			suites: Object.fromEntries(statuses),
 		};
 

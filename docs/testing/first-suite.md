@@ -68,7 +68,20 @@ Press **Save**, then **Run suite**. The result appears on the right within a few
 - A green tick means the suite **passed**: every check held.
 - A red cross means it **failed** or hit an **error**. Click the row to see which check failed and what the route actually answered.
 
-Press **Run all** at the top to run every suite of the route at once.
+Press **Run all** at the top to run every **enabled** suite of the route at once. The result says how many disabled suites were skipped, for example "Ran 5, skipped 2 disabled".
+
+## Keep a suite out of Run all
+
+A suite that deletes data or changes database rows should not run every time. Untick **Enabled** in the suite's settings and press **Save**. The suite gets a **disabled** tag in the list.
+
+| Action | Runs a disabled suite? |
+| :--- | :--- |
+| **Run all** | No, it is skipped |
+| **Run suite** on that suite | Yes |
+| **Run bulk actions** | Only if you tick it. You are asked to confirm first |
+| Promote checks | No, it is skipped |
+
+**Run bulk actions**, next to **Run all**, lists every suite with a checkbox. Tick the ones you want and press **Run**. Enabled suites start ticked and disabled suites start unticked.
 
 ::: warning A worker must be running
 Suites run on the development worker, with your development values. If none is running, the run stops with "No development worker is running". Start a worker with `FLUXIFY_ENV=development`, then run again. See [Reading results](./results#common-problems).
