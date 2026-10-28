@@ -77,8 +77,8 @@ export function CustomBlocksView({
 	const openCanvas = onOpenBlock;
 
 	return (
-		<div className="flex flex-col gap-5">
-			<div className="flex flex-wrap items-center justify-between gap-3">
+		<div className="flex h-[calc(100vh-3rem)] flex-col gap-5 overflow-hidden">
+			<div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
 				<div>
 					<h1 className="text-xl font-semibold tracking-tight">Custom Blocks</h1>
 					<p className="text-sm text-muted">
@@ -133,91 +133,93 @@ export function CustomBlocksView({
 				</div>
 			</div>
 
-			{isLoading ? (
-				<div className="flex justify-center py-16">
-					<Spinner />
-				</div>
-			) : isError ? (
-				<p className="py-16 text-center text-muted">Couldn't load custom blocks.</p>
-			) : !data || data.length === 0 ? (
-				<EmptyState
-					icon={<TbBoxMultiple size={28} />}
-					title="No custom blocks yet"
-					description="A custom block wraps a piece of flow you want to reuse across routes."
-				/>
-			) : blocks.length === 0 ? (
-				<EmptyState
-					icon={<TbSearch size={28} />}
-					title="No block matches these filters"
-					description="Try a different search or usage."
-				/>
-			) : (
-				<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-					{blocks.map((block) => (
-						<div
-							key={block.id}
-							role="button"
-							tabIndex={0}
-							onClick={() => openCanvas(block.id)}
-							onKeyDown={(e) => {
-								if (e.key === "Enter" || e.key === " ") {
-									e.preventDefault();
-									openCanvas(block.id);
-								}
-							}}
-							className="group relative flex cursor-pointer flex-col gap-3 rounded-lg border border-border bg-surface p-4 transition-colors hover:border-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-						>
-							{/* the block exactly as it renders on a canvas */}
-							<div className="pointer-events-none flex justify-center rounded-md bg-background-secondary px-3 py-5">
-								<BaseBlock
-									blockId={block.id}
-									blockType="custom"
-									name={block.label}
-									description={block.description ?? undefined}
-									icon={
-										<CustomBlockIcon
-											icon={(block.icon as IconValue["icon"]) ?? undefined}
-											iconUrl={block.iconUrl ?? undefined}
-										/>
+			<div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto">
+				{isLoading ? (
+					<div className="flex justify-center py-16">
+						<Spinner />
+					</div>
+				) : isError ? (
+					<p className="py-16 text-center text-muted">Couldn't load custom blocks.</p>
+				) : !data || data.length === 0 ? (
+					<EmptyState
+						icon={<TbBoxMultiple size={28} />}
+						title="No custom blocks yet"
+						description="A custom block wraps a piece of flow you want to reuse across routes."
+					/>
+				) : blocks.length === 0 ? (
+					<EmptyState
+						icon={<TbSearch size={28} />}
+						title="No block matches these filters"
+						description="Try a different search or usage."
+					/>
+				) : (
+					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+						{blocks.map((block) => (
+							<div
+								key={block.id}
+								role="button"
+								tabIndex={0}
+								onClick={() => openCanvas(block.id)}
+								onKeyDown={(e) => {
+									if (e.key === "Enter" || e.key === " ") {
+										e.preventDefault();
+										openCanvas(block.id);
 									}
-									showToolbar={false}
-								/>
-							</div>
-
-							<div className="flex items-start gap-2">
-								<div className="min-w-0 flex-1">
-									<p className="truncate font-mono text-xs text-muted">{block.name}</p>
-									<p className="mt-0.5 text-xs text-muted">
-										{Array.isArray(block.inputParams) ? block.inputParams.length : 0} input
-										{(Array.isArray(block.inputParams) ? block.inputParams.length : 0) === 1
-											? ""
-											: "s"}
-										{block.sourceType && block.sourceType !== "user-defined"
-											? ` · ${block.sourceType}`
-											: ""}
-									</p>
+								}}
+								className="group relative flex cursor-pointer flex-col gap-3 rounded-lg border border-border bg-surface p-4 transition-colors hover:border-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+							>
+								{/* the block exactly as it renders on a canvas */}
+								<div className="pointer-events-none flex justify-center rounded-md bg-background-secondary px-3 py-5">
+									<BaseBlock
+										blockId={block.id}
+										blockType="custom"
+										name={block.label}
+										description={block.description ?? undefined}
+										icon={
+											<CustomBlockIcon
+												icon={(block.icon as IconValue["icon"]) ?? undefined}
+												iconUrl={block.iconUrl ?? undefined}
+											/>
+										}
+										showToolbar={false}
+									/>
 								</div>
-								{block.sourceType !== "plugin" && (
-									<div
-										className="opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100"
-										onClick={(e) => e.stopPropagation()}
-										onKeyDown={(e) => e.stopPropagation()}
-									>
-										<DeleteIconButton
-											aria-label={`Delete ${block.label}`}
-											onPress={() => setPendingDelete(block)}
-										/>
-									</div>
-								)}
-							</div>
-						</div>
-					))}
-				</div>
-			)}
 
-			{pluginsShown && (
-				<PluginBlocksSection projectId={projectId} search={search} hidden={Boolean(usage)} />
-			)}
+								<div className="flex items-start gap-2">
+									<div className="min-w-0 flex-1">
+										<p className="truncate font-mono text-xs text-muted">{block.name}</p>
+										<p className="mt-0.5 text-xs text-muted">
+											{Array.isArray(block.inputParams) ? block.inputParams.length : 0} input
+											{(Array.isArray(block.inputParams) ? block.inputParams.length : 0) === 1
+												? ""
+												: "s"}
+											{block.sourceType && block.sourceType !== "user-defined"
+												? ` · ${block.sourceType}`
+												: ""}
+										</p>
+									</div>
+									{block.sourceType !== "plugin" && (
+										<div
+											className="opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100"
+											onClick={(e) => e.stopPropagation()}
+											onKeyDown={(e) => e.stopPropagation()}
+										>
+											<DeleteIconButton
+												aria-label={`Delete ${block.label}`}
+												onPress={() => setPendingDelete(block)}
+											/>
+										</div>
+									)}
+								</div>
+							</div>
+						))}
+					</div>
+				)}
+
+				{pluginsShown && (
+					<PluginBlocksSection projectId={projectId} search={search} hidden={Boolean(usage)} />
+				)}
+			</div>
 
 			<ConfirmDialog
 				open={!!pendingDelete}

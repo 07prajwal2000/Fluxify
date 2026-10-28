@@ -105,15 +105,26 @@ test("plugin blocks show by default when a plugin ships some, grouped and read-o
 	const section = document.querySelector('[aria-label="Plugin blocks"]')!;
 	expect(section.textContent).toContain("acme/slack/messages");
 	expect(section.textContent).toContain("acme/slack/channels");
-	expect(section.textContent).toContain("Deprecated");
 	expect(section.textContent).toContain("Approved");
 	expect(section.textContent).not.toContain("acme/mail");
-	// a link to the plugin, nothing to open, edit or delete
+	// the first type is open, the others collapsed
+	expect(section.textContent).toContain("acme/slack/channels/list");
+	expect(section.textContent).not.toContain("acme/slack/messages/post");
+	expect(section.textContent).not.toContain("Deprecated");
+	const toggle = [...section.querySelectorAll("button")].find((b) =>
+		b.textContent?.includes("acme/slack/messages"),
+	)!;
+	expect(toggle.getAttribute("aria-expanded")).toBe("false");
+	await act(async () => void fireEvent.click(toggle));
+	await until(() => expect(section.textContent).toContain("acme/slack/messages/post"));
+	expect(section.textContent).toContain("Deprecated");
+	// opening one closes the other
+	expect(section.textContent).not.toContain("acme/slack/channels/list");
+	// a link to the plugin per type, nothing to open, edit or delete
 	expect([...section.querySelectorAll("a")].map((a) => a.textContent)).toEqual([
 		"Open plugin",
 		"Open plugin",
 	]);
-	expect(section.querySelectorAll("button, [role=button]").length).toBe(0);
 
 	// unticking still hides them
 	await act(async () => void fireEvent.click(box));
@@ -161,5 +172,46 @@ test("a plugin block shows its icon, and the default when it has none", async ()
 		return el;
 	});
 	expect([...section.querySelectorAll("img")].map((i) => i.getAttribute("src"))).toEqual([icon]);
-	expect(section.querySelectorAll("svg").length).toBe(1);
+	// only the block without an icon draws the default one (the chevron and footer have their own svgs)
+	const row = (text: string) =>
+		[...section.querySelectorAll("[role=row]")].find((r) => r.textContent?.includes(text))!;
+	expect(row("acme/slack/messages/post").querySelectorAll("svg").length).toBe(0);
+	expect(row("acme/slack/messages/list").querySelectorAll("svg").length).toBe(1);
+});
+
+test("types are paginated, 5 a page", async () => {
+	list.mockResolvedValue([
+		withBlocks(["a", "b", "c", "d", "e", "f"].map((f) => block(`acme/slack/${f}/post`))),
+	]);
+	render(
+		<QueryClientProvider
+			client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+		>
+			<Harness />
+		</QueryClientProvider>,
+	);
+	const section = await until(() => {
+		const el = document.querySelector('[aria-label="Plugin blocks"]')!;
+		expect(el.textContent).toContain("Page 1 of 2");
+		return el;
+	});
+	expect(section.textContent).toContain("acme/slack/e");
+	expect(section.textContent).not.toContain("acme/slack/f");
+	const next = [...section.querySelectorAll("button")].find((b) => b.textContent === "Next")!;
+	await act(async () => void fireEvent.click(next));
+	await until(() => expect(section.textContent).toContain("Page 2 of 2"));
+	expect(section.textContent).toContain("acme/slack/f");
+	expect(section.textContent).not.toContain("acme/slack/e");
+});
+
+test("the type with the most blocks comes first, ties by name", () => {
+	const groups = pluginBlockGroups([
+		withBlocks([
+			block("acme/slack/a/one"),
+			block("acme/slack/c/one"),
+			block("acme/slack/c/two"),
+			block("acme/slack/b/one"),
+		]),
+	]);
+	expect(groups.map((g) => g.key)).toEqual(["acme/slack/c", "acme/slack/a", "acme/slack/b"]);
 });
