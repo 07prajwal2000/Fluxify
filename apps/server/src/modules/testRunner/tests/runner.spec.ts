@@ -79,6 +79,7 @@ function suite(id: string, overrides: Record<string, unknown> = {}) {
 		id,
 		name: `suite ${id}`,
 		routeId: ROUTE,
+		enabled: true,
 		headers: {},
 		params: {},
 		queryParams: {},
@@ -329,6 +330,45 @@ describe("startTestRun", () => {
 		).rejects.toMatchObject({ status: 403 });
 
 		state.routes = [{ id: ROUTE, projectId: PROJECT }];
+	});
+
+	it("leaves disabled suites out of a run that names none, and counts them (#668)", async () => {
+		state.suites = [suite("s1"), suite("off", { enabled: false }), suite("s2")];
+		const d = deps(async () => ok(200));
+
+		const { done } = await startTestRun(
+			{ projectId: PROJECT, target: { type: "route", id: ROUTE } },
+			d,
+		);
+		await done;
+
+		expect(d.spawn).toHaveBeenCalledTimes(2);
+		const parent = state.updates.filter((u) => u.table === "run");
+		expect(parent.at(-1)!.values.result).toMatchObject({
+			total: 2,
+			skipped: 1,
+			suites: { s1: "passed", s2: "passed" },
+		});
+	});
+
+	it("runs a disabled suite when it is named (#668)", async () => {
+		state.suites = [suite("off", { enabled: false })];
+		const d = deps(async () => ok(200));
+
+		const { done } = await startTestRun(
+			{ projectId: PROJECT, target: { type: "route", id: ROUTE }, suiteIds: ["off"] },
+			d,
+		);
+		await done;
+
+		expect(d.spawn).toHaveBeenCalledTimes(1);
+	});
+
+	it("404s with a clear message when every suite is disabled (#668)", async () => {
+		state.suites = [suite("off", { enabled: false })];
+		await expect(
+			startTestRun({ projectId: PROJECT, target: { type: "route", id: ROUTE } }, deps(async () => ok(200))),
+		).rejects.toMatchObject({ status: 404, message: expect.stringContaining("disabled") });
 	});
 
 	it("404s a route that has no suites", async () => {

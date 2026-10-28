@@ -223,6 +223,7 @@ function RunHistory({
 						)}
 						<span className="flex-1 text-xs text-foreground">
 							{run.passedCount}/{run.totalSuites} passed
+							{run.skippedCount > 0 && `, skipped ${run.skippedCount} disabled`}
 						</span>
 						<span className="text-xs text-muted">{formatDuration(run.durationMs)}</span>
 					</div>
@@ -311,6 +312,7 @@ export function RunResults({
 	const data = run.data;
 	const summary = data?.result as { error?: string } | null | undefined;
 	const suiteRuns = (data?.suiteRuns ?? []).filter((s) => !suiteId || s.testSuiteId === suiteId);
+	const skipped = (data?.result as { skipped?: number } | null)?.skipped ?? 0;
 	const passed = suiteRuns.filter((s) => s.status === "passed").length;
 	const failed = suiteRuns.filter((s) => ["failed", "timeout", "error"].includes(s.status)).length;
 
@@ -338,6 +340,7 @@ export function RunResults({
 					{view === "latest" && data && (
 						<span className="ml-auto text-xs text-muted">
 							{passed} passed · {failed} failed
+							{skipped > 0 && ` · ${skipped} disabled skipped`}
 						</span>
 					)}
 					{view === "history" && (

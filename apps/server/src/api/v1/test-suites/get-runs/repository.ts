@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray } from "drizzle-orm";
+import { and, count, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../../../../db";
 import { testRunsEntity, testSuiteRunsEntity } from "../../../../db/schema";
 import { type SuiteTarget, targetColumn } from "../../../../modules/testRunner/target";
@@ -37,6 +37,7 @@ export async function getTestRuns(
 			totalSuites: testRunsEntity.totalSuites,
 			env: testRunsEntity.env,
 			deploymentId: testRunsEntity.deploymentId,
+			skippedCount: sql<number>`coalesce((${testRunsEntity.result}->>'skipped')::int, 0)`,
 			passedCount: testRunsEntity.passedCount,
 			failedCount: testRunsEntity.failedCount,
 			durationMs: testRunsEntity.durationMs,

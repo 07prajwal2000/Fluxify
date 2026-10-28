@@ -1,0 +1,1 @@
+ALTER TABLE "test_suites" ADD COLUMN "enabled" boolean DEFAULT true NOT NULL;

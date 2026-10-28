@@ -138,6 +138,13 @@ export function SetupEditor({
 			/>
 
 			<Checkbox
+				isSelected={draft.enabled}
+				onChange={(enabled) => onChange({ enabled })}
+				label="Enabled"
+				description="Turn this off to keep the suite out of Run all and promote checks, for example when it deletes data. You can still run it by itself or from Run bulk actions."
+			/>
+
+			<Checkbox
 				isSelected={draft.runAlone}
 				onChange={(runAlone) => onChange({ runAlone })}
 				label="Run alone"
