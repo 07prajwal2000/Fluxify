@@ -90,12 +90,15 @@ export function EnvironmentIntegrationFields({
 		/>
 	);
 	const syncWarning = (
-		<div role="alert" className="rounded-xl border border-danger/30 bg-danger/10 p-4 text-danger">
+		<div
+			role="alert"
+			className="rounded-xl border border-warning/30 bg-warning/10 p-4 text-warning"
+		>
 			<div className="flex items-start gap-3">
-				<TbAlertTriangle size={20} className="shrink-0 mt-0.5 text-danger" />
+				<TbAlertTriangle size={20} className="shrink-0 mt-0.5 text-warning" />
 				<div className="text-sm">
-					<p className="font-semibold text-danger">Same as production</p>
-					<p className="mt-1 text-xs text-danger/90">
+					<p className="font-semibold text-warning">Same as production</p>
+					<p className="mt-1 text-xs text-warning/90">
 						Dev runs, dev triggers and AI agents will read and write production — same database,
 						same queues, same consumer groups. Use separate dev instances instead.
 					</p>
@@ -104,7 +107,7 @@ export function EnvironmentIntegrationFields({
 		</div>
 	);
 	const devHint = devEmpty && (
-		<p className="text-xs text-danger">
+		<p className="text-xs text-warning">
 			Dev workers will fail until you set a development value or turn on Same as production.
 		</p>
 	);
@@ -147,7 +150,7 @@ export function EnvironmentIntegrationFields({
 								<span className="flex items-center gap-2">
 									Development
 									{syncDev && (
-										<Chip size="sm" color="danger" title="Uses the production settings">
+										<Chip size="sm" color="warning" title="Uses the production settings">
 											Same as prod
 										</Chip>
 									)}
