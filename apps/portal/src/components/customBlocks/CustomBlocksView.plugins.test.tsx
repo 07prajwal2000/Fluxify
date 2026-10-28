@@ -201,3 +201,15 @@ test("types are paginated, 5 a page", async () => {
 	expect(section.textContent).toContain("acme/slack/f");
 	expect(section.textContent).not.toContain("acme/slack/e");
 });
+
+test("the type with the most blocks comes first, ties by name", () => {
+	const groups = pluginBlockGroups([
+		withBlocks([
+			block("acme/slack/a/one"),
+			block("acme/slack/c/one"),
+			block("acme/slack/c/two"),
+			block("acme/slack/b/one"),
+		]),
+	]);
+	expect(groups.map((g) => g.key)).toEqual(["acme/slack/c", "acme/slack/a", "acme/slack/b"]);
+});
