@@ -29,26 +29,22 @@ export function PluginBlocksSection({
 	const { data, isLoading } = pluginsQuery.list.useQuery(projectId);
 	const [page, setPage] = useState(1);
 	const [perPage, setPerPage] = usePageSize("pluginBlocks");
-	// null until the user toggles a row: then only the first type is open
-	const [open, setOpen] = useState<Set<string> | null>(null);
+	// one type open at a time; undefined until the user picks: then the first one is open
+	const [open, setOpen] = useState<string | null>();
 	if (hidden) return null;
 	if (isLoading) return <Spinner size="sm" />;
 
 	const groups = pluginBlockGroups(data ?? [], search);
 	const totalPages = Math.max(1, Math.ceil(groups.length / perPage));
 	const current = Math.min(page, totalPages);
-	const expanded = open ?? new Set(groups.slice(0, 1).map((g) => g.key));
-	const toggle = (key: string) => {
-		const next = new Set(expanded);
-		if (!next.delete(key)) next.add(key);
-		setOpen(next);
-	};
+	const expanded = open === undefined ? groups[0]?.key : open;
+	const toggle = (key: string) => setOpen(expanded === key ? null : key);
 
 	const rows: Row[] = groups
 		.slice((current - 1) * perPage, current * perPage)
 		.flatMap((group) => [
 			{ id: `g:${group.key}`, group },
-			...(expanded.has(group.key)
+			...(expanded === group.key
 				? group.blocks.map((block) => ({ id: `b:${block.name}`, group, block }))
 				: []),
 		]);
@@ -60,88 +56,91 @@ export function PluginBlocksSection({
 				<p className="text-sm text-muted">No plugin block is loaded in this project.</p>
 			) : (
 				<>
-					<Table>
-						<Table.Content aria-label="Plugin blocks">
-							<Table.Header>
-								<Table.Column id="type" isRowHeader>
-									Type
-								</Table.Column>
-								<Table.Column id="status">Status</Table.Column>
-								<Table.Column id="blocks">Blocks</Table.Column>
-								<Table.Column id="actions" aria-label="Actions">
-									{""}
-								</Table.Column>
-							</Table.Header>
-							<Table.Body items={rows}>
-								{({ id, group, block }: Row) =>
-									block ? (
-										<Table.Row id={id}>
-											<Table.Cell>
-												<div className="flex items-center gap-3 pl-8">
-													<PluginBlockIcon block={block} />
-													<div className="flex min-w-0 flex-col">
-														<span className="truncate text-sm font-medium text-foreground">
-															{block.label}
-														</span>
-														<span className="truncate font-mono text-xs text-muted">
-															{block.name}
-														</span>
+					{/* fixed height: the rows scroll inside it, the header stays */}
+					<div className="h-96 overflow-y-auto">
+						<Table>
+							<Table.Content aria-label="Plugin blocks">
+								<Table.Header className="sticky top-0 z-10">
+									<Table.Column id="type" isRowHeader>
+										Type
+									</Table.Column>
+									<Table.Column id="status">Status</Table.Column>
+									<Table.Column id="blocks">Blocks</Table.Column>
+									<Table.Column id="actions" aria-label="Actions">
+										{""}
+									</Table.Column>
+								</Table.Header>
+								<Table.Body items={rows}>
+									{({ id, group, block }: Row) =>
+										block ? (
+											<Table.Row id={id}>
+												<Table.Cell>
+													<div className="flex items-center gap-3 pl-8">
+														<PluginBlockIcon block={block} />
+														<div className="flex min-w-0 flex-col">
+															<span className="truncate text-sm font-medium text-foreground">
+																{block.label}
+															</span>
+															<span className="truncate font-mono text-xs text-muted">
+																{block.name}
+															</span>
+														</div>
 													</div>
-												</div>
-											</Table.Cell>
-											<Table.Cell>
-												<div className="flex items-center gap-2 text-xs text-muted">
-													{block.shape} shape
-													{block.deprecated && <Badge tone="warning">Deprecated</Badge>}
-												</div>
-											</Table.Cell>
-											<Table.Cell>{""}</Table.Cell>
-											<Table.Cell>{""}</Table.Cell>
-										</Table.Row>
-									) : (
-										<Table.Row id={id}>
-											<Table.Cell>
-												<Button
-													variant="ghost"
-													size="sm"
-													aria-expanded={expanded.has(group.key)}
-													onPress={() => toggle(group.key)}
-												>
-													{expanded.has(group.key) ? (
-														<TbChevronDown size={14} />
-													) : (
-														<TbChevronRight size={14} />
-													)}
-													<code className="font-mono text-xs">{group.key}</code>
-												</Button>
-											</Table.Cell>
-											<Table.Cell>
-												<div className="flex items-center gap-2">
-													<ApprovalBadge plugin={group.plugin} />
-													<StatusBadge plugin={group.plugin} />
-												</div>
-											</Table.Cell>
-											<Table.Cell>
-												<span className="text-sm text-muted">{group.blocks.length}</span>
-											</Table.Cell>
-											<Table.Cell>
-												<div className="flex justify-end">
-													<Link
-														to="/$projectId/settings"
-														params={{ projectId }}
-														search={{ tab: "plugins", plugin: group.plugin.name }}
-														className="text-xs font-medium text-accent hover:underline"
+												</Table.Cell>
+												<Table.Cell>
+													<div className="flex items-center gap-2 text-xs text-muted">
+														{block.shape} shape
+														{block.deprecated && <Badge tone="warning">Deprecated</Badge>}
+													</div>
+												</Table.Cell>
+												<Table.Cell>{""}</Table.Cell>
+												<Table.Cell>{""}</Table.Cell>
+											</Table.Row>
+										) : (
+											<Table.Row id={id}>
+												<Table.Cell>
+													<Button
+														variant="ghost"
+														size="sm"
+														aria-expanded={expanded === group.key}
+														onPress={() => toggle(group.key)}
 													>
-														Open plugin
-													</Link>
-												</div>
-											</Table.Cell>
-										</Table.Row>
-									)
-								}
-							</Table.Body>
-						</Table.Content>
-					</Table>
+														{expanded === group.key ? (
+															<TbChevronDown size={14} />
+														) : (
+															<TbChevronRight size={14} />
+														)}
+														<code className="font-mono text-xs">{group.key}</code>
+													</Button>
+												</Table.Cell>
+												<Table.Cell>
+													<div className="flex items-center gap-2">
+														<ApprovalBadge plugin={group.plugin} />
+														<StatusBadge plugin={group.plugin} />
+													</div>
+												</Table.Cell>
+												<Table.Cell>
+													<span className="text-sm text-muted">{group.blocks.length}</span>
+												</Table.Cell>
+												<Table.Cell>
+													<div className="flex justify-end">
+														<Link
+															to="/$projectId/settings"
+															params={{ projectId }}
+															search={{ tab: "plugins", plugin: group.plugin.name }}
+															className="text-xs font-medium text-accent hover:underline"
+														>
+															Open plugin
+														</Link>
+													</div>
+												</Table.Cell>
+											</Table.Row>
+										)
+									}
+								</Table.Body>
+							</Table.Content>
+						</Table>
+					</div>
 
 					<div className="flex items-center gap-3 text-sm text-muted">
 						<span className="ml-auto">Rows per page:</span>

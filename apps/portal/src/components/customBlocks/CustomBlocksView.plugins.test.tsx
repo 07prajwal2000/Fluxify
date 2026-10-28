@@ -118,6 +118,8 @@ test("plugin blocks show by default when a plugin ships some, grouped and read-o
 	await act(async () => void fireEvent.click(toggle));
 	await until(() => expect(section.textContent).toContain("acme/slack/messages/post"));
 	expect(section.textContent).toContain("Deprecated");
+	// opening one closes the other
+	expect(section.textContent).not.toContain("acme/slack/channels/list");
 	// a link to the plugin per type, nothing to open, edit or delete
 	expect([...section.querySelectorAll("a")].map((a) => a.textContent)).toEqual([
 		"Open plugin",
