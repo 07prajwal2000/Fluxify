@@ -147,7 +147,7 @@ export function EnvironmentIntegrationFields({
 								<span className="flex items-center gap-2">
 									Development
 									{syncDev && (
-										<Chip size="sm" title="Uses the production settings">
+										<Chip size="sm" color="danger" title="Uses the production settings">
 											Same as prod
 										</Chip>
 									)}
