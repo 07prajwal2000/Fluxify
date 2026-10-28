@@ -139,7 +139,7 @@ export function AppConfigTable({
 							</Table.Cell>
 							<Table.Cell>
 								{row.syncDev ? (
-									<Chip size="sm" color="danger">
+									<Chip size="sm" color="warning">
 										Same as prod
 									</Chip>
 								) : row.hasDevValue ? (

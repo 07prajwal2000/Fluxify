@@ -214,13 +214,13 @@ export function EditConfigModal({
 											{syncDev ? (
 												<div
 													role="alert"
-													className="rounded-xl border border-danger/30 bg-danger/10 p-4 text-danger"
+													className="rounded-xl border border-warning/30 bg-warning/10 p-4 text-warning"
 												>
 													<div className="flex items-start gap-3">
-														<TbAlertTriangle size={20} className="shrink-0 mt-0.5 text-danger" />
+														<TbAlertTriangle size={20} className="shrink-0 mt-0.5 text-warning" />
 														<div className="text-sm">
-															<p className="font-semibold text-danger">Same as production</p>
-															<p className="mt-1 text-xs text-danger/90">
+															<p className="font-semibold text-warning">Same as production</p>
+															<p className="mt-1 text-xs text-warning/90">
 																Dev runs, dev triggers and AI agents will read and write production
 																— same database, same queues, same consumer groups. Use separate dev
 																instances instead.
