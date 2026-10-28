@@ -2,8 +2,8 @@ import {
 	Button,
 	Chip,
 	CloseButton,
-	CustomSelect,
 	DeleteIconButton,
+	Dropdown,
 	Input,
 	Label,
 	ListBox,
@@ -18,6 +18,7 @@ import {
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
+	TbCheck,
 	TbChevronDown,
 	TbEdit,
 	TbPlayerPlay,
@@ -104,6 +105,62 @@ function RoutesPage() {
 
 	const totalPages = data?.pagination?.totalPages ?? 1;
 
+	// one button for the whole sort: pick the field and the direction from its menu
+	const sortMenu = (
+		<Dropdown>
+			<Dropdown.Trigger>
+				<Button
+					isIconOnly
+					size="sm"
+					variant="outline"
+					aria-label={`Sort routes, ${sortOrder === "desc" ? "descending" : "ascending"}`}
+				>
+					{sortOrder === "desc" ? <TbSortDescending size={16} /> : <TbSortAscending size={16} />}
+				</Button>
+			</Dropdown.Trigger>
+			<Dropdown.Popover placement="bottom end" className="min-w-40">
+				<Dropdown.Menu aria-label="Sort routes">
+					<Dropdown.Section>
+						{SORT_OPTIONS.map((o) => (
+							<Dropdown.Item
+								key={o.value}
+								id={o.value}
+								textValue={o.label}
+								onAction={() => {
+									setSortBy(o.value);
+									setPage(1);
+								}}
+							>
+								<span className="flex w-4 justify-center">
+									{sortBy === o.value && <TbCheck size={14} />}
+								</span>
+								<Label>{o.label}</Label>
+							</Dropdown.Item>
+						))}
+					</Dropdown.Section>
+					<Dropdown.Section className="mt-0.5 border-t border-border pt-0.5">
+						{(["asc", "desc"] as const).map((o) => (
+							<Dropdown.Item
+								key={o}
+								id={o}
+								textValue={o === "asc" ? "Ascending" : "Descending"}
+								onAction={() => {
+									setSortOrder(o);
+									setPage(1);
+								}}
+							>
+								<span className="flex w-4 justify-center">
+									{sortOrder === o && <TbCheck size={14} />}
+								</span>
+								<Label>{o === "asc" ? "Ascending" : "Descending"}</Label>
+							</Dropdown.Item>
+						))}
+					</Dropdown.Section>
+				</Dropdown.Menu>
+			</Dropdown.Popover>
+		</Dropdown>
+	);
+
 	const openCanvas = (routeId: string) =>
 		navigate({ to: "/$projectId/canvas/$routeId", params: { projectId, routeId } });
 	const openNew = () => navigate({ to: "/$projectId/routes/new", params: { projectId } });
@@ -122,28 +179,6 @@ function RoutesPage() {
 						<Label className="sr-only">Search routes</Label>
 						<Input placeholder="Search routes" />
 					</TextField>
-					<div className="w-36">
-						<CustomSelect
-							aria-label="Sort routes by"
-							options={SORT_OPTIONS}
-							value={sortBy}
-							onChange={(next) => {
-								setSortBy(next as SortBy);
-								setPage(1);
-							}}
-						/>
-					</div>
-					<Button
-						isIconOnly
-						variant="outline"
-						aria-label={sortOrder === "desc" ? "Sorted descending" : "Sorted ascending"}
-						onPress={() => {
-							setSortOrder((o) => (o === "desc" ? "asc" : "desc"));
-							setPage(1);
-						}}
-					>
-						{sortOrder === "desc" ? <TbSortDescending size={16} /> : <TbSortAscending size={16} />}
-					</Button>
 					<Button variant="primary" onPress={openNew}>
 						<TbPlus size={16} /> New route
 					</Button>
@@ -184,8 +219,8 @@ function RoutesPage() {
 								</Table.Column>
 								<Table.Column id="name">Name</Table.Column>
 								<Table.Column id="status">Status</Table.Column>
-								<Table.Column id="actions" aria-label="Actions">
-									{""}
+								<Table.Column id="actions" aria-label="Sort and actions">
+									<div className="flex justify-end">{sortMenu}</div>
 								</Table.Column>
 							</Table.Header>
 							<Table.Body items={rows}>
