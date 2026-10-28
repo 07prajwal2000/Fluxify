@@ -13,7 +13,7 @@ const groupOf = (type: string) => type.split("/").slice(0, -1).join("/");
 
 /**
  * The blocks of the plugins that load, grouped by plugin and folder
- * (`scope/name/folder`). A plugin waiting for its first approval, or rejected,
+ * (`scope/name/folder`), the group with the most blocks first. A plugin waiting for its first approval, or rejected,
  * loads nothing, so it has no blocks here.
  */
 export function pluginBlockGroups(plugins: Plugin[], search = ""): PluginBlockGroup[] {
@@ -32,5 +32,8 @@ export function pluginBlockGroups(plugins: Plugin[], search = ""): PluginBlockGr
 			groups.set(key, group);
 		}
 	}
-	return [...groups.values()].sort((a, b) => a.key.localeCompare(b.key));
+	// most blocks first, then by name
+	return [...groups.values()].sort(
+		(a, b) => b.blocks.length - a.blocks.length || a.key.localeCompare(b.key),
+	);
 }
