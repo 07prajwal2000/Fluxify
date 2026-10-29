@@ -68,11 +68,14 @@ export class KvFactory {
 		private readonly kvConfig: Record<string, KvConnectionConfig>,
 		/** the request's: the client refuses work once it aborts (#1000) */
 		private readonly signal?: AbortSignal,
+		/** whether the caller may use an integration; the cache holds every project's */
+		private readonly owns: (config: KvConnectionConfig) => boolean = () => true,
 	) {}
 
 	public getKvAdapter(connection: string): BaseKVIntegration {
 		const config = this.kvConfig[connection];
-		if (!config) {
+		// a foreign project's id reads as missing, so it does not confirm the id exists
+		if (!config || !this.owns(config)) {
 			throw new Error("config is null while creating kv adapter");
 		}
 
