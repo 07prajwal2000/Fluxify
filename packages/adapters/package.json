@@ -20,6 +20,7 @@
 		"./queue/sqs": "./queue/sqs.ts",
 		"./queue/redis": "./queue/redisStreams.ts",
 		"./queue/rabbitmq": "./queue/rabbitmq.ts",
+		"./sse": "./sse/index.ts",
 		"./containerTestHelpers": "./containerTestHelpers.ts"
 	},
 	"scripts": {
