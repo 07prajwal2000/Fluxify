@@ -52,7 +52,7 @@ If anything was left out, a list shows what, before you open the route.
 
 | Problem | What you see |
 | :--- | :--- |
-| The name or path is already used by another route | A dialog shows the clash and lets you change the name and path, then imports again. Nothing is created until it succeeds |
+| The name or path is already used by another route in the same project | A dialog shows the clash and lets you change the name and path, then imports again. Nothing is created until it succeeds |
 | The file is not a route export | "That isn't a Fluxify route export." |
 | The file came from a newer version of Fluxify | You are asked to update Fluxify first |
 

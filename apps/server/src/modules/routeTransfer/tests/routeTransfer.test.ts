@@ -215,6 +215,22 @@ describe("route export and import", () => {
 		expect(after[0].n).toBe(before[0].n);
 	});
 
+	it("imports into another project even when its path is taken in the first one", async () => {
+		const source = await setup();
+		const target = await setup();
+		const bundle = await exportRoute(source.as, await createRoute(source.as, "/employees/active"));
+
+		// same name and path as the original, in a different project: no clash
+		const res = await call(target.as, "POST", "/routes/import", {
+			projectId: target.project,
+			bundle,
+		});
+		expect(res.status).toBe(200);
+		const [row] = await sql`SELECT project_id, path FROM routes WHERE id = ${res.body.id}`;
+		expect(row.project_id).toBe(target.project);
+		expect(row.path).toBe("/employees/active");
+	});
+
 	it("refuses a newer bundle version and a foreign file", async () => {
 		const { as } = await setup();
 		const bundle = await exportRoute(as, await createRoute(as));

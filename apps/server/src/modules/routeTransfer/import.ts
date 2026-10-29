@@ -106,7 +106,7 @@ export async function importRouteBundle(userId: string, projectId: string, raw: 
 	const newId = (id: string) => blockIds.get(id) ?? id;
 
 	const routeId = await db.transaction(async (tx) => {
-		const { id } = await createRoute(userId, created.data, tx, undefined, false);
+		const { id } = await createRoute(userId, created.data, tx, undefined, false, true);
 
 		const blocks = bundle.canvas.blocks.map((b) => ({ ...b, id: newId(b.id) }));
 		// edge ids are remapped too: the ids of the source route are still taken

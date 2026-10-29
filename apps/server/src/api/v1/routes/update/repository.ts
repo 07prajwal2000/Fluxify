@@ -71,6 +71,8 @@ export async function findRouteConflict(
 	route: { projectId: string; name: string; path: string; method: HttpMethod | string },
 	excludeId?: string,
 	tx?: DbTransactionType,
+	/** an import into another project only clashes with that project's own routes */
+	sameProjectOnly = false,
 ): Promise<RouteConflict | undefined> {
 	const result = await (tx ?? db)
 		.select({
@@ -89,6 +91,7 @@ export async function findRouteConflict(
 					and(
 						eq(routesEntity.method, route.method),
 						sql`${pathShape(routesEntity.path)} = ${pathShape(sql`${route.path}`)}`,
+						sameProjectOnly ? eq(routesEntity.projectId, route.projectId) : undefined,
 					),
 				),
 			),
