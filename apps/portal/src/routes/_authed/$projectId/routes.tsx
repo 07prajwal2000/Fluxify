@@ -22,7 +22,7 @@ import {
 	TbCheck,
 	TbChevronDown,
 	TbEdit,
-	TbFileDownload,
+	TbPackageExport,
 	TbPlayerPlay,
 	TbPlus,
 	TbRoute,
@@ -288,7 +288,7 @@ function RoutesPage() {
 														aria-label={`Export ${route.name || route.path}`}
 														onPress={() => setPendingExport(route)}
 													>
-														<TbFileDownload size={16} />
+														<TbPackageExport size={16} />
 													</Button>
 													<Tooltip.Content>Export route</Tooltip.Content>
 												</Tooltip>
