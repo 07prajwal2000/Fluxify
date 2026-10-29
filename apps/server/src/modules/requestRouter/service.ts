@@ -370,7 +370,7 @@ export function createJobContext(job: {
 		{ id: job.target, projectId: job.projectId },
 		requestData,
 		vars,
-		new DbFactory(dbIntegrationsCache, dbConnectionManager, job.signal),
+		createDbFactory(job.projectId, undefined, job.signal),
 		http,
 		trigger,
 		job.timeoutSeconds ?? DEFAULT_JOB_TIMEOUT_SECONDS,
@@ -423,7 +423,9 @@ function createContext(
 		// Built here rather than threaded through every caller: unlike DbFactory
 		// there is no per-request state to own — the clients are process-wide and
 		// there are no leases to release — so an instance is just the cache lookup.
-		kvFactory: new KvFactory(kvIntegrationsCache, signal),
+		kvFactory: new KvFactory(kvIntegrationsCache, signal, (config) =>
+			ownsIntegration(config, routeInfo.projectId),
+		),
 		// producers are process-wide like the KV clients; the instance only scopes
 		// lookups to this project's integrations
 		queueFactory: new QueueProducerFactory(
@@ -493,8 +495,9 @@ function createDbFactory(
 	integrationOverrides?: Array<{ existingId: string; newId: string }>,
 	signal?: AbortSignal,
 ) {
+	const owns = (config: Record<string, any>) => ownsIntegration(config, projectId);
 	if (!integrationOverrides || integrationOverrides.length === 0) {
-		return new DbFactory(dbIntegrationsCache, dbConnectionManager, signal);
+		return new DbFactory(dbIntegrationsCache, dbConnectionManager, signal, owns);
 	}
 
 	const customDbCache = { ...dbIntegrationsCache };
@@ -505,5 +508,5 @@ function createDbFactory(
 		if (!target || !ownsIntegration(target, projectId)) continue;
 		customDbCache[override.existingId] = target;
 	}
-	return new DbFactory(customDbCache, dbConnectionManager, signal);
+	return new DbFactory(customDbCache, dbConnectionManager, signal, owns);
 }

@@ -75,11 +75,14 @@ export class DbFactory {
 		private readonly connectionManager: DbConnectionManager = DbFactory.defaultConnectionManager,
 		/** the request's: its adapters refuse work once it aborts (#1000) */
 		private readonly signal?: AbortSignal,
+		/** whether the caller may use an integration; the cache holds every project's */
+		private readonly owns: (config: Connection) => boolean = () => true,
 	) {}
 
 	public getDbAdapter(connection: string): IDbAdapter {
 		const cfg = this.dbConfig[connection];
-		if (!cfg) {
+		// a foreign project's id reads as missing, so it does not confirm the id exists
+		if (!cfg || !this.owns(cfg)) {
 			throw new Error("config is null while creating db adapter");
 		}
 		if (connection in this.connectionMap) return this.connectionMap[connection];
