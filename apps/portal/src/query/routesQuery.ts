@@ -4,6 +4,7 @@ import type { Observability } from "@/components/settings/observability";
 import {
 	type CanvasSavePayload,
 	type ListRoutesQuery,
+	type RouteBundle,
 	routesService,
 	type UpdateRouteBody,
 } from "@/services/routes";
@@ -46,6 +47,16 @@ export const routesQuery = {
 			return useMutation({
 				mutationFn: (body: z.infer<typeof routesService.createRequestSchema>) =>
 					routesService.create(body),
+				onSuccess: () => qc.invalidateQueries({ queryKey: LIST_KEY }),
+			});
+		},
+	},
+	import: {
+		mutation() {
+			const qc = useQueryClient();
+			return useMutation({
+				mutationFn: (data: { projectId: string; bundle: RouteBundle }) =>
+					routesService.import(data.projectId, data.bundle),
 				onSuccess: () => qc.invalidateQueries({ queryKey: LIST_KEY }),
 			});
 		},

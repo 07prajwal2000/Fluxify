@@ -19,6 +19,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
 	TbChevronDown,
+	TbDownload,
 	TbEdit,
 	TbPlayerPlay,
 	TbPlus,
@@ -30,6 +31,8 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
 import { RouteApiPlayground } from "@/components/RouteApiPlayground";
 import { RecordingIndicator, RecordingLegend } from "@/components/recordings/RecordingControls";
+import { ExportRouteModal } from "@/components/routes/ExportRouteModal";
+import { ImportRouteButton } from "@/components/routes/ImportRouteButton";
 import { ProductionBadge, ProductionLegend } from "@/components/routes/ProductionBadge";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { PAGE_SIZES, usePageSize } from "@/lib/pageSize";
@@ -97,6 +100,7 @@ function RoutesPage() {
 	const remove = routesQuery.remove.mutation();
 	const [pendingDelete, setPendingDelete] = useState<RouteRow | null>(null);
 	const [pendingPlayground, setPendingPlayground] = useState<RouteRow | null>(null);
+	const [pendingExport, setPendingExport] = useState<RouteRow | null>(null);
 
 	const rows = (data?.data ?? []) as RouteRow[];
 	const recordsDev = rows.some((r) => r.devRecordExecution);
@@ -144,6 +148,7 @@ function RoutesPage() {
 					>
 						{sortOrder === "desc" ? <TbSortDescending size={16} /> : <TbSortAscending size={16} />}
 					</Button>
+					<ImportRouteButton projectId={projectId} />
 					<Button variant="primary" onPress={openNew}>
 						<TbPlus size={16} /> New route
 					</Button>
@@ -238,6 +243,14 @@ function RoutesPage() {
 													<TbEdit size={16} />
 												</Button>
 												<Button
+													isIconOnly
+													variant="ghost"
+													aria-label={`Export ${route.name || route.path}`}
+													onPress={() => setPendingExport(route)}
+												>
+													<TbDownload size={16} />
+												</Button>
+												<Button
 													variant="outline"
 													isDisabled={!route.active}
 													onPress={() => setPendingPlayground(route)}
@@ -306,6 +319,8 @@ function RoutesPage() {
 					</>
 				)}
 			</div>
+
+			<ExportRouteModal route={pendingExport} onClose={() => setPendingExport(null)} />
 
 			{pendingPlayground && (
 				<Modal
