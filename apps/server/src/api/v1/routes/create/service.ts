@@ -33,13 +33,15 @@ export default async function handleRequest(
 	 *  (e.g. a template or AI-generated graph with its own entrypoint/error
 	 *  handler) — seeding defaults too would collide with it. */
 	seedDefaultBlocks = true,
+	/** import: another project's routes never clash on a path */
+	sameProjectOnly = false,
 ): Promise<z.infer<typeof responseSchema>> {
 	const result = await (outer ?? db).transaction(async (tx) => {
 		const projectExist = await checkProjectExist(data.projectId, tx);
 		if (!projectExist) {
 			throw new NotFoundError(`project with id ${data.projectId} does not exist`);
 		}
-		const clash = await findRouteConflict(data, undefined, tx);
+		const clash = await findRouteConflict(data, undefined, tx, sameProjectOnly);
 		if (clash) throw routeConflictError(clash, data);
 		const id = presetId ?? generateID();
 		const { acceptedContentTypes, bodyMode = DEFAULT_BODY_MODE, ...route } = data;

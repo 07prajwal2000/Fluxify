@@ -120,6 +120,7 @@ export default withMermaid(
 						{ text: "Evaluators", link: "/concepts/evaluators" },
 						{ text: "Middlewares", link: "/concepts/middlewares" },
 						{ text: "Response Schemas", link: "/concepts/response-schemas" },
+						{ text: "Route Export and Import", link: "/concepts/route-export-import" },
 						{ text: "Sandbox", link: "/concepts/sandbox" },
 						{ text: "Workflows", link: "/concepts/workflows" },
 						{ text: "Triggers", link: "/concepts/triggers" },

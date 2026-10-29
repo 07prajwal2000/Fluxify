@@ -13,6 +13,7 @@ import {
 	Switch,
 	Table,
 	TextField,
+	Tooltip,
 	toast,
 } from "@fluxify/components";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
@@ -21,6 +22,7 @@ import {
 	TbCheck,
 	TbChevronDown,
 	TbEdit,
+	TbPackageExport,
 	TbPlayerPlay,
 	TbPlus,
 	TbRoute,
@@ -31,6 +33,8 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
 import { RouteApiPlayground } from "@/components/RouteApiPlayground";
 import { RecordingIndicator, RecordingLegend } from "@/components/recordings/RecordingControls";
+import { ExportRouteModal } from "@/components/routes/ExportRouteModal";
+import { ImportRouteButton } from "@/components/routes/ImportRouteButton";
 import { ProductionBadge, ProductionLegend } from "@/components/routes/ProductionBadge";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { PAGE_SIZES, usePageSize } from "@/lib/pageSize";
@@ -98,6 +102,7 @@ function RoutesPage() {
 	const remove = routesQuery.remove.mutation();
 	const [pendingDelete, setPendingDelete] = useState<RouteRow | null>(null);
 	const [pendingPlayground, setPendingPlayground] = useState<RouteRow | null>(null);
+	const [pendingExport, setPendingExport] = useState<RouteRow | null>(null);
 
 	const rows = (data?.data ?? []) as RouteRow[];
 	const recordsDev = rows.some((r) => r.devRecordExecution);
@@ -179,6 +184,7 @@ function RoutesPage() {
 						<Label className="sr-only">Search routes</Label>
 						<Input placeholder="Search routes" />
 					</TextField>
+					<ImportRouteButton projectId={projectId} />
 					<Button variant="primary" onPress={openNew}>
 						<TbPlus size={16} /> New route
 					</Button>
@@ -264,14 +270,28 @@ function RoutesPage() {
 										</Table.Cell>
 										<Table.Cell>
 											<div className="flex items-center justify-end gap-1">
-												<Button
-													isIconOnly
-													variant="ghost"
-													aria-label={`Edit ${route.name || route.path}`}
-													onPress={() => openCanvas(route.id)}
-												>
-													<TbEdit size={16} />
-												</Button>
+												<Tooltip>
+													<Button
+														isIconOnly
+														variant="ghost"
+														aria-label={`Edit ${route.name || route.path}`}
+														onPress={() => openCanvas(route.id)}
+													>
+														<TbEdit size={16} />
+													</Button>
+													<Tooltip.Content>Edit route</Tooltip.Content>
+												</Tooltip>
+												<Tooltip>
+													<Button
+														isIconOnly
+														variant="ghost"
+														aria-label={`Export ${route.name || route.path}`}
+														onPress={() => setPendingExport(route)}
+													>
+														<TbPackageExport size={16} />
+													</Button>
+													<Tooltip.Content>Export route</Tooltip.Content>
+												</Tooltip>
 												<Button
 													variant="outline"
 													isDisabled={!route.active}
@@ -279,10 +299,13 @@ function RoutesPage() {
 												>
 													<TbPlayerPlay size={16} /> Playground
 												</Button>
-												<DeleteIconButton
-													aria-label="Delete route"
-													onPress={() => setPendingDelete(route)}
-												/>
+												<Tooltip>
+													<DeleteIconButton
+														aria-label="Delete route"
+														onPress={() => setPendingDelete(route)}
+													/>
+													<Tooltip.Content>Delete route</Tooltip.Content>
+												</Tooltip>
 											</div>
 										</Table.Cell>
 									</Table.Row>
@@ -341,6 +364,8 @@ function RoutesPage() {
 					</>
 				)}
 			</div>
+
+			<ExportRouteModal route={pendingExport} onClose={() => setPendingExport(null)} />
 
 			{pendingPlayground && (
 				<Modal

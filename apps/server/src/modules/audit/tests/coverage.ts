@@ -19,6 +19,8 @@ export const AUDITED: Record<string, string> = {
 	"auth-change-user-password": "api/auth/change-user-password/service.ts",
 	// routes
 	"create-route": `${V}/routes/create/service.ts`,
+	// an import creates the route through the create service, which records it
+	"import-route": `${V}/routes/create/service.ts`,
 	"update-route": `${V}/routes/update/service.ts`,
 	"delete-route": `${V}/routes/delete/service.ts`,
 	"partial-update-route": `${V}/routes/update-partial/service.ts`,
@@ -139,6 +141,7 @@ export const SKIPPED: Record<string, string> = {
 	"run-sandbox": RUNS,
 	"call-sandbox": RUNS,
 	"run-ephemeral-blocks": `${RUNS} (a scratch sandbox that is rolled back)`,
+	"check-route-import": "asks whether a route would clash and changes nothing",
 	"validate-test-suite": "checks a suite against its last run and changes nothing",
 	"preview-llms-txt": "fetches a page to list its links and changes nothing",
 	"inspect-integration": "reads an integration (tables, a key) and changes nothing",
