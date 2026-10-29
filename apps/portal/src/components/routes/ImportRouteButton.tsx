@@ -65,19 +65,19 @@ export function ImportRouteButton({ projectId }: { projectId: string }) {
 			<Modal isOpen={pending !== null} onOpenChange={(isOpen) => !isOpen && setPending(null)}>
 				<Modal.Backdrop>
 					<Modal.Container placement="center" size="lg">
-						<Modal.Dialog className="w-full !max-w-5xl max-h-[90vh]">
+						<Modal.Dialog className="w-full !max-w-6xl max-h-[90vh]">
 							<Modal.Header className="flex flex-row items-center justify-between">
 								<Modal.Heading>Import this route?</Modal.Heading>
 								<CloseButton />
 							</Modal.Header>
-							<Modal.Body className="grid min-h-0 gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+							<Modal.Body className="grid min-h-0 gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
 								<div className="flex flex-col gap-3">
 									<p className="text-sm text-muted">
 										This creates a new route in this project
 										{pending?.bundle.suites
 											? ` with its ${pending.bundle.suites.length} test suite(s)`
 											: ""}
-										. The blocks inside it are on the right.
+										. The blocks inside it are on the right: click one to see its settings.
 									</p>
 									<TextField value={pending?.name ?? ""} onChange={(name) => edit({ name })}>
 										<Label>Name</Label>

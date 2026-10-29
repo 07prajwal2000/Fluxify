@@ -30,7 +30,7 @@ For tests that override app config, only the setting names go into the file. The
 ## Importing a route
 
 1. On the **Routes** page, click **Import** and choose a `.fluxroute` file.
-2. A confirmation opens. It shows the route's blocks on a read-only canvas, so you can see what is inside before anything is created, and the name and path the new route will take. You can change both.
+2. A confirmation opens. It shows the route's blocks on a read-only canvas, beside the form. Click a block to read its settings; nothing there can be edited. That way you can see what is inside before anything is created, and the name and path the new route will take. You can change both.
 3. Click **Import**. Fluxify creates the route and its tests, then opens the route.
 
 Nothing is created until you confirm.

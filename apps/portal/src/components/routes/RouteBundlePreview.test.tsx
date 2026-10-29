@@ -31,7 +31,7 @@ mock.module("@tanstack/react-router", () => ({
 	Link: ({ to, children }: { to: string; children: ReactNode }) => <a href={to}>{children}</a>,
 }));
 
-const { act, cleanup, render, waitFor } = await import("@testing-library/react");
+const { act, cleanup, fireEvent, render, waitFor } = await import("@testing-library/react");
 const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query");
 const { RouteBundlePreview } = await import("./RouteBundlePreview");
 
@@ -77,4 +77,29 @@ test("draws every block of the route on a read-only canvas", async () => {
 			.map((el) => el.getAttribute("data-block-key"))
 			.sort(),
 	).toEqual(["entry", "reply"]);
+});
+
+test("opens a block's settings, and they cannot be edited", async () => {
+	await import("@/components/ai/preview/CanvasDiffGraph");
+	let view: ReturnType<typeof render> | undefined;
+	await act(async () => {
+		view = render(
+			<QueryClientProvider client={new QueryClient()}>
+				<RouteBundlePreview bundle={bundle} />
+			</QueryClientProvider>,
+		);
+	});
+	const root = () => view?.container.ownerDocument.body as HTMLElement;
+	await waitFor(() => expect(root().querySelector('[data-block-key="reply"]')).toBeTruthy(), {
+		timeout: 15_000,
+	});
+
+	await act(async () => {
+		fireEvent.click(root().querySelector('[data-block-key="reply"]') as HTMLElement);
+	});
+
+	// the panel is there (a block name field at least), and nothing in it takes input
+	const fields = [...root().querySelectorAll<HTMLInputElement>("input, textarea, select")];
+	expect(fields.some((f) => f.getAttribute("aria-label") === "Block name")).toBe(true);
+	for (const field of fields) expect(field.disabled || field.readOnly).toBe(true);
 });
