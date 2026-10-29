@@ -44,8 +44,6 @@ export const routeBundleSchema = z.object({
 	kind: z.literal(ROUTE_BUNDLE_KIND),
 	version: z.number().int().min(1),
 	exportedAt: z.string(),
-	/** the project the route was exported from; absent in files that predate it */
-	sourceProjectId: z.string().nullish(),
 	route: z.object({
 		name: z.string().min(2).max(255),
 		path: z.string().min(1),

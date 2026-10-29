@@ -4,13 +4,20 @@ import { useState } from "react";
 import { TbFileImport } from "react-icons/tb";
 import { parseApiError, showErrorNotification } from "@/lib/errorNotifier";
 import { routesQuery } from "@/query/routesQuery";
-import type { RouteBundle } from "@/services/routes";
+import { type RouteBundle, routesService } from "@/services/routes";
 import { RouteBundlePreview } from "./RouteBundlePreview";
 import { pickRouteFile, readRouteFile } from "./routeFile";
-import { importDefaults } from "./routeImport";
+import { conflictNotice, importDefaults } from "./routeImport";
 
 /** A picked file waiting for the user to confirm, with the name and path it will take. */
-type Pending = { bundle: RouteBundle; name: string; path: string; error?: string };
+type Pending = {
+	bundle: RouteBundle;
+	name: string;
+	path: string;
+	/** what already exists here, as found when the file was picked */
+	notice?: string;
+	error?: string;
+};
 
 /** Picks an exported route file, shows what is in it, and creates the route once confirmed. */
 export function ImportRouteButton({ projectId }: { projectId: string }) {
@@ -28,7 +35,14 @@ export function ImportRouteButton({ projectId }: { projectId: string }) {
 		if (!file) return;
 		try {
 			const bundle = await readRouteFile(file);
-			setPending({ bundle, ...importDefaults(bundle, projectId) });
+			// asked before the dialog opens, so a clash is already dealt with when it does
+			const { name, path, method } = bundle.route;
+			const conflicts = await routesService.checkImport(projectId, { name, path, method });
+			setPending({
+				bundle,
+				...importDefaults(bundle.route, conflicts),
+				notice: conflictNotice(bundle.route, conflicts),
+			});
 		} catch (error) {
 			showErrorNotification(error);
 		}
@@ -55,7 +69,7 @@ export function ImportRouteButton({ projectId }: { projectId: string }) {
 	};
 
 	const edit = (patch: Partial<Pick<Pending, "name" | "path">>) =>
-		setPending((p) => (p ? { ...p, ...patch, error: undefined } : p));
+		setPending((p) => (p ? { ...p, ...patch, notice: undefined, error: undefined } : p));
 
 	return (
 		<>
@@ -87,6 +101,7 @@ export function ImportRouteButton({ projectId }: { projectId: string }) {
 										<Label>Path</Label>
 										<Input className="font-mono" />
 									</TextField>
+									{pending?.notice && <p className="text-sm text-warning">{pending.notice}</p>}
 									{pending?.error && <p className="text-sm text-danger">{pending.error}</p>}
 								</div>
 								{pending && <RouteBundlePreview bundle={pending.bundle} />}

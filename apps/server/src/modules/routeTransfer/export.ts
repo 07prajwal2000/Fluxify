@@ -61,7 +61,6 @@ export async function buildRouteBundle(
 		kind: ROUTE_BUNDLE_KIND,
 		version: ROUTE_BUNDLE_VERSION,
 		exportedAt: new Date().toISOString(),
-		sourceProjectId: route.projectId,
 		route: {
 			name: route.name!,
 			path: route.path!,

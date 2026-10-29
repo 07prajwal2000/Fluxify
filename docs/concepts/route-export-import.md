@@ -35,10 +35,9 @@ For tests that override app config, only the setting names go into the file. The
 
 Nothing is created until you confirm.
 
-| Importing into | Name and path in the confirmation |
-| :--- | :--- |
-| The project the route was exported from | Start with `-copy` added, for example `Get users-copy` and `/users-copy`, so the copy sits next to the original |
-| A different project | Stay as they were in the file |
+The confirmation checks the project before it opens. If the route's name or path is already taken in this project, that field starts with `-copy` added, for example `Get users-copy` or `/users/active-copy`, and a warning under the fields says what already exists. Import it as a copy, or rename it as you like. A name or path that is free stays as it was in the file.
+
+Only routes in the project you are importing into count. The same path in another project is not a clash.
 
 The imported route is **off in production**. It answers in development straight away. To serve it in production, turn it on and promote a version, like any new route.
 
@@ -60,7 +59,7 @@ If anything was left out, a list shows what, before you open the route.
 
 | Problem | What you see |
 | :--- | :--- |
-| The name or path is already used by another route in the same project | The confirmation stays open and shows the clash, so you can change the name or path and try again. Nothing is created until it succeeds |
+| The name or path is taken, even after `-copy` | The confirmation stays open and shows the clash, so you can change the name or path and try again. Nothing is created until it succeeds |
 | The file is not a route export | "That isn't a Fluxify route export." |
 | The file came from a newer version of Fluxify | You are asked to update Fluxify first |
 

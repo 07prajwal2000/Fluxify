@@ -10,6 +10,7 @@ import type { responseSchema as exportResponseSchema } from "@fluxify/server/src
 import type { responseSchema as getAllResponseSchema } from "@fluxify/server/src/api/v1/routes/get-all/dto";
 import type { responseSchema as getByIdResponseSchema } from "@fluxify/server/src/api/v1/routes/get-by-id/dto";
 import type { responseSchema as importResponseSchema } from "@fluxify/server/src/api/v1/routes/import/dto";
+import type { responseSchema as importCheckResponseSchema } from "@fluxify/server/src/api/v1/routes/import-check/dto";
 // type-only: this dto value-imports the HttpMethod enum, which drags drizzle
 // (and Node's `vm`) into the browser bundle. Only its shape is needed here.
 import type { requestBodySchema as updateRequestSchema } from "@fluxify/server/src/api/v1/routes/update/dto";
@@ -23,6 +24,7 @@ export type RouteCallResult = z.infer<typeof callResultSchema>;
 
 /** the file a route exports to; also what an import takes */
 export type RouteBundle = z.infer<typeof exportResponseSchema>;
+export type RouteImportConflicts = z.infer<typeof importCheckResponseSchema>;
 export type RouteImportResult = z.infer<typeof importResponseSchema>;
 
 export type RouteDetail = z.infer<typeof getByIdResponseSchema>;
@@ -86,6 +88,14 @@ export const routesService = {
 	/** Creates a route (canvas and tests included) from a bundle; `warnings` lists what was left out. */
 	async import(projectId: string, bundle: RouteBundle): Promise<RouteImportResult> {
 		const result = await httpClient.post(`${baseUrl}/import`, { projectId, bundle });
+		return result.data;
+	},
+	/** What a route about to be imported would clash with in the project; changes nothing. */
+	async checkImport(
+		projectId: string,
+		route: { name: string; path: string; method: RouteBundle["route"]["method"] },
+	): Promise<RouteImportConflicts> {
+		const result = await httpClient.post(`${baseUrl}/import/check`, { projectId, ...route });
 		return result.data;
 	},
 	async getById(routeId: string): Promise<z.infer<typeof getByIdResponseSchema>> {

@@ -155,7 +155,6 @@ describe("route export and import", () => {
 
 		const bundle = await exportRoute(as, source);
 		expect(bundle.kind).toBe("fluxify.route");
-		expect(bundle.sourceProjectId).toBe(as.project);
 		expect(bundle.canvas.blocks.map((b: { type: string }) => b.type).sort()).toEqual(
 			["entrypoint", "error_handler", "response"].sort(),
 		);
@@ -204,6 +203,30 @@ describe("route export and import", () => {
 		const res = await call(as, "POST", "/routes/import", { projectId: as.project, bundle });
 		expect(res.status).toBe(200);
 		expect(res.body.warnings[0]).toContain('"missing-mw"');
+	});
+
+	it("says what an import would clash with before it is imported", async () => {
+		const { as } = await setup();
+		const source = await createRoute(as);
+		const { route } = await exportRoute(as, source);
+		const check = (body: object) =>
+			call(as, "POST", "/routes/import/check", { projectId: as.project, ...route, ...body });
+
+		expect((await check({})).body).toEqual({ nameTaken: true, pathTaken: true });
+		expect((await check({ name: "fresh" })).body).toEqual({ nameTaken: false, pathTaken: true });
+		expect((await check({ path: "/fresh" })).body).toEqual({ nameTaken: true, pathTaken: false });
+		expect((await check({ name: "fresh", method: "POST" })).body).toEqual({
+			nameTaken: false,
+			pathTaken: false,
+		});
+
+		// another project has none of it
+		const other = await setup();
+		const away = await call(other.as, "POST", "/routes/import/check", {
+			projectId: other.project,
+			...route,
+		});
+		expect(away.body).toEqual({ nameTaken: false, pathTaken: false });
 	});
 
 	it("refuses a clashing route with a 409 and creates nothing", async () => {

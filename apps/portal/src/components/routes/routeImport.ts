@@ -1,5 +1,5 @@
 import type { CanvasDiff } from "@/components/ai/preview/canvasDiff";
-import type { RouteBundle } from "@/services/routes";
+import type { RouteBundle, RouteImportConflicts } from "@/services/routes";
 
 /** `Get users` → `Get users-copy` */
 export const copyName = (name: string) => `${name}-copy`;
@@ -16,15 +16,28 @@ export function copyPath(path: string): string {
 }
 
 /**
- * What the confirmation starts with. Into the project it came from, the route
- * would collide with its original, so the copy gets a "-copy" name and path;
- * into another project it keeps both. Either way the user can change them.
+ * What the confirmation starts with. What is already taken in the project gets
+ * a "-copy" (the name, the path, or both); what is free stays as exported. The
+ * user can change either.
  */
-export function importDefaults(bundle: RouteBundle, projectId: string) {
-	const { name, path } = bundle.route;
-	return bundle.sourceProjectId === projectId
-		? { name: copyName(name), path: copyPath(path) }
-		: { name, path };
+export function importDefaults(route: RouteBundle["route"], conflicts: RouteImportConflicts) {
+	return {
+		name: conflicts.nameTaken ? copyName(route.name) : route.name,
+		path: conflicts.pathTaken ? copyPath(route.path) : route.path,
+	};
+}
+
+/** The warning under the fields: what already exists, and that it was renamed as a copy. */
+export function conflictNotice(
+	route: RouteBundle["route"],
+	{ nameTaken, pathTaken }: RouteImportConflicts,
+): string | undefined {
+	const taken = [
+		nameTaken && `a route named "${route.name}"`,
+		pathTaken && `${route.method} ${route.path}`,
+	].filter(Boolean);
+	if (taken.length === 0) return undefined;
+	return `${taken.join(" and ")} already exist${taken.length === 1 ? "s" : ""} in this project. It will be imported as a copy, or rename it as you like.`;
 }
 
 /** The bundle's canvas as the read-only canvas draws it: every block as it is. */

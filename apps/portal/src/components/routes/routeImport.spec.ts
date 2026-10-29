@@ -1,10 +1,9 @@
 import { describe, expect, it } from "bun:test";
 import type { RouteBundle } from "@/services/routes";
-import { copyPath, importDefaults, previewCanvas } from "./routeImport";
+import { conflictNotice, copyPath, importDefaults, previewCanvas } from "./routeImport";
 
 const bundle = (route = { name: "Get users", path: "/users" }) =>
 	({
-		sourceProjectId: "p1",
 		route,
 		canvas: {
 			blocks: [
@@ -15,18 +14,43 @@ const bundle = (route = { name: "Get users", path: "/users" }) =>
 		},
 	}) as unknown as RouteBundle;
 
+const route = { name: "Get users", path: "/users", method: "GET" } as RouteBundle["route"];
+const free = { nameTaken: false, pathTaken: false };
+
 describe("importDefaults", () => {
-	it("adds -copy to the name and path inside the project it came from", () => {
-		expect(importDefaults(bundle(), "p1")).toEqual({ name: "Get users-copy", path: "/users-copy" });
+	it("keeps the name and path when nothing is taken", () => {
+		expect(importDefaults(route, free)).toEqual({ name: "Get users", path: "/users" });
 	});
 
-	it("keeps the name and path in another project", () => {
-		expect(importDefaults(bundle(), "p2")).toEqual({ name: "Get users", path: "/users" });
+	it("adds -copy to what is taken, and only to that", () => {
+		expect(importDefaults(route, { nameTaken: true, pathTaken: true })).toEqual({
+			name: "Get users-copy",
+			path: "/users-copy",
+		});
+		expect(importDefaults(route, { nameTaken: false, pathTaken: true })).toEqual({
+			name: "Get users",
+			path: "/users-copy",
+		});
+		expect(importDefaults(route, { nameTaken: true, pathTaken: false })).toEqual({
+			name: "Get users-copy",
+			path: "/users",
+		});
+	});
+});
+
+describe("conflictNotice", () => {
+	it("says nothing when nothing is taken", () => {
+		expect(conflictNotice(route, free)).toBeUndefined();
 	});
 
-	it("keeps them when the file does not say where it came from", () => {
-		const old = { ...bundle(), sourceProjectId: undefined } as RouteBundle;
-		expect(importDefaults(old, "p1")).toEqual({ name: "Get users", path: "/users" });
+	it("names what already exists and offers a copy or a rename", () => {
+		const both = conflictNotice(route, { nameTaken: true, pathTaken: true });
+		expect(both).toContain('a route named "Get users" and GET /users already exist');
+		expect(both).toContain("imported as a copy");
+		expect(both).toContain("rename it");
+		expect(conflictNotice(route, { nameTaken: false, pathTaken: true })).toContain(
+			"GET /users already exists in this project",
+		);
 	});
 });
 

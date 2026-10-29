@@ -10,7 +10,6 @@ const router = await import("@tanstack/react-router");
 mock.module("@tanstack/react-router", () => ({ ...router, useNavigate: () => navigate }));
 
 // no real file picker in a test process; the rest of the module stays real
-let sourceProjectId = "other";
 // copies: Bun patches a mocked module in place, so the namespace itself would turn into the stub
 const actual = { ...(await import("./routeFile")) };
 mock.module("./routeFile", () => ({
@@ -18,8 +17,7 @@ mock.module("./routeFile", () => ({
 	pickRouteFile: async () => new File(["{}"], "r.fluxroute"),
 	readRouteFile: async () => ({
 		kind: "fluxify.route",
-		sourceProjectId,
-		route: { name: "Get Active Employees", path: "/employees/active" },
+		route: { name: "Get Active Employees", path: "/employees/active", method: "GET" },
 		canvas: { blocks: [], edges: [] },
 	}),
 }));
@@ -44,8 +42,9 @@ afterAll(() => {
 });
 beforeEach(() => {
 	mock.restore();
+	// nothing is taken unless a test says so
+	spyOn(routesService, "checkImport").mockResolvedValue({ nameTaken: false, pathTaken: false });
 	navigate.mockClear();
-	sourceProjectId = "other";
 });
 
 // RTL stays bound to the first file's document in a shared test process, so the
@@ -92,31 +91,52 @@ test("asks before importing, and shows what is in the route", async () => {
 	expect(navigate).not.toHaveBeenCalled();
 });
 
-test("keeps the name and path when importing into another project", async () => {
+test("keeps the name and path, with no warning, when nothing is taken", async () => {
 	const importSpy = spyOn(routesService, "import").mockResolvedValue({ id: "new1", warnings: [] });
 	renderButton();
 
 	await pickFile();
 	await waitFor(() => expect(field("Name").value).toBe("Get Active Employees"));
 	expect(field("Path").value).toBe("/employees/active");
+	expect(screen().queryByText(/already exist/)).toBeNull();
 	await confirm();
 
 	await waitFor(() => expect(navigate).toHaveBeenCalledWith(toCanvas));
-	expect(imported(importSpy)).toEqual({ name: "Get Active Employees", path: "/employees/active" });
+	expect(imported(importSpy)).toMatchObject({
+		name: "Get Active Employees",
+		path: "/employees/active",
+	});
 });
 
-test("adds -copy by default when importing into the project it came from", async () => {
-	sourceProjectId = "p1";
+test("adds -copy to what is taken and warns about it when the dialog opens", async () => {
+	spyOn(routesService, "checkImport").mockResolvedValue({ nameTaken: true, pathTaken: true });
 	const importSpy = spyOn(routesService, "import").mockResolvedValue({ id: "new1", warnings: [] });
 	renderButton();
 
 	await pickFile();
 	await waitFor(() => expect(field("Name").value).toBe("Get Active Employees-copy"));
 	expect(field("Path").value).toBe("/employees/active-copy");
+	expect(screen().getByText(/already exist in this project.*imported as a copy/)).toBeTruthy();
 	await confirm();
 
 	await waitFor(() => expect(navigate).toHaveBeenCalledWith(toCanvas));
-	expect(imported(importSpy).name).toBe("Get Active Employees-copy");
+	expect(imported(importSpy)).toMatchObject({
+		name: "Get Active Employees-copy",
+		path: "/employees/active-copy",
+	});
+});
+
+test("renames only the path when only the path is taken, and the warning goes once edited", async () => {
+	spyOn(routesService, "checkImport").mockResolvedValue({ nameTaken: false, pathTaken: true });
+	renderButton();
+
+	await pickFile();
+	await waitFor(() => expect(field("Path").value).toBe("/employees/active-copy"));
+	expect(field("Name").value).toBe("Get Active Employees");
+	expect(screen().getByText(/GET \/employees\/active already exists/)).toBeTruthy();
+
+	fireEvent.change(field("Path"), { target: { value: "/staff" } });
+	expect(screen().queryByText(/already exists/)).toBeNull();
 });
 
 test("creates nothing when the user cancels", async () => {

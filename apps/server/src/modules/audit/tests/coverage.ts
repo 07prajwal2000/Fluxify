@@ -141,6 +141,7 @@ export const SKIPPED: Record<string, string> = {
 	"run-sandbox": RUNS,
 	"call-sandbox": RUNS,
 	"run-ephemeral-blocks": `${RUNS} (a scratch sandbox that is rolled back)`,
+	"check-route-import": "asks whether a route would clash and changes nothing",
 	"validate-test-suite": "checks a suite against its last run and changes nothing",
 	"preview-llms-txt": "fetches a page to list its links and changes nothing",
 	"inspect-integration": "reads an integration (tables, a key) and changes nothing",
