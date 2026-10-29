@@ -65,29 +65,31 @@ export function ImportRouteButton({ projectId }: { projectId: string }) {
 			<Modal isOpen={pending !== null} onOpenChange={(isOpen) => !isOpen && setPending(null)}>
 				<Modal.Backdrop>
 					<Modal.Container placement="center" size="lg">
-						<Modal.Dialog>
+						<Modal.Dialog className="w-full !max-w-5xl max-h-[90vh]">
 							<Modal.Header className="flex flex-row items-center justify-between">
 								<Modal.Heading>Import this route?</Modal.Heading>
 								<CloseButton />
 							</Modal.Header>
-							<Modal.Body className="flex flex-col gap-3">
-								<p className="text-sm text-muted">
-									This creates a new route in this project
-									{pending?.bundle.suites
-										? ` with its ${pending.bundle.suites.length} test suite(s)`
-										: ""}
-									. Here is what is inside it:
-								</p>
+							<Modal.Body className="grid min-h-0 gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+								<div className="flex flex-col gap-3">
+									<p className="text-sm text-muted">
+										This creates a new route in this project
+										{pending?.bundle.suites
+											? ` with its ${pending.bundle.suites.length} test suite(s)`
+											: ""}
+										. The blocks inside it are on the right.
+									</p>
+									<TextField value={pending?.name ?? ""} onChange={(name) => edit({ name })}>
+										<Label>Name</Label>
+										<Input />
+									</TextField>
+									<TextField value={pending?.path ?? ""} onChange={(path) => edit({ path })}>
+										<Label>Path</Label>
+										<Input className="font-mono" />
+									</TextField>
+									{pending?.error && <p className="text-sm text-danger">{pending.error}</p>}
+								</div>
 								{pending && <RouteBundlePreview bundle={pending.bundle} />}
-								<TextField value={pending?.name ?? ""} onChange={(name) => edit({ name })}>
-									<Label>Name</Label>
-									<Input />
-								</TextField>
-								<TextField value={pending?.path ?? ""} onChange={(path) => edit({ path })}>
-									<Label>Path</Label>
-									<Input className="font-mono" />
-								</TextField>
-								{pending?.error && <p className="text-sm text-danger">{pending.error}</p>}
 							</Modal.Body>
 							<Modal.Footer>
 								<Button variant="ghost" onPress={() => setPending(null)}>

@@ -100,6 +100,7 @@ function DiffGraph({
 	onSelect,
 	panel = false,
 	compact = false,
+	heightClass,
 }: {
 	diff: CanvasDiff;
 	selected?: string;
@@ -108,6 +109,8 @@ function DiffGraph({
 	panel?: boolean;
 	/** A compact read has no block data: the graph draws, the settings panel cannot. */
 	compact?: boolean;
+	/** Overrides the canvas's height (default: `h-96` with the panel, `h-64` without). */
+	heightClass?: string;
 }) {
 	const { specs } = usePluginBlocks();
 	const graph = useMemo(() => toGraph(diff, specs), [diff, specs]);
@@ -121,7 +124,7 @@ function DiffGraph({
 	return (
 		<StatusContext.Provider value={statuses}>
 			<div
-				className={`${panel ? "h-96" : "h-64"} relative overflow-hidden rounded-lg border border-border`}
+				className={`${heightClass ?? (panel ? "h-96" : "h-64")} relative overflow-hidden rounded-lg border border-border`}
 			>
 				{compact && (
 					<span className="absolute right-2 top-2 z-10">
