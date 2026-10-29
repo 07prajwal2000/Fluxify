@@ -1,5 +1,6 @@
 import {
 	Button,
+	Tooltip,
 	toast,
 	useInputDataTypes,
 	useRouteParamSnippets,
@@ -8,7 +9,7 @@ import {
 } from "@fluxify/components";
 import { createFileRoute, isRedirect, redirect, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { TbFileExport } from "react-icons/tb";
+import { TbFileDownload } from "react-icons/tb";
 import z from "zod";
 import { CanvasWorkbench } from "@/components/canvas";
 import { CanvasStatusBadges } from "@/components/canvas/CanvasStatusBadges";
@@ -141,14 +142,17 @@ function RouteCanvasPage() {
 								})
 							}
 						/>
-						<Button
-							isIconOnly
-							variant="outline"
-							aria-label="Export route"
-							onPress={() => setExportOpen(true)}
-						>
-							<TbFileExport size={16} />
-						</Button>
+						<Tooltip>
+							<Button
+								isIconOnly
+								variant="outline"
+								aria-label="Export route"
+								onPress={() => setExportOpen(true)}
+							>
+								<TbFileDownload size={16} />
+							</Button>
+							<Tooltip.Content>Export route</Tooltip.Content>
+						</Tooltip>
 						<SettingsSplitButton
 							projectId={projectId}
 							source={{

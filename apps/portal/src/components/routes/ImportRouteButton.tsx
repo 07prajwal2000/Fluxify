@@ -1,7 +1,7 @@
 import { Button, CloseButton, Input, Label, Modal, TextField, toast } from "@fluxify/components";
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { TbFileImport } from "react-icons/tb";
+import { TbFileUpload } from "react-icons/tb";
 import { parseApiError, showErrorNotification } from "@/lib/errorNotifier";
 import { routesQuery } from "@/query/routesQuery";
 import { type RouteBundle, routesService } from "@/services/routes";
@@ -74,7 +74,7 @@ export function ImportRouteButton({ projectId }: { projectId: string }) {
 	return (
 		<>
 			<Button variant="outline" onPress={pick}>
-				<TbFileImport size={16} /> Import
+				<TbFileUpload size={16} /> Import
 			</Button>
 			<Modal isOpen={pending !== null} onOpenChange={(isOpen) => !isOpen && setPending(null)}>
 				<Modal.Backdrop>

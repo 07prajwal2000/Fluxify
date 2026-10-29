@@ -13,6 +13,7 @@ import {
 	Switch,
 	Table,
 	TextField,
+	Tooltip,
 	toast,
 } from "@fluxify/components";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
@@ -21,7 +22,7 @@ import {
 	TbCheck,
 	TbChevronDown,
 	TbEdit,
-	TbFileExport,
+	TbFileDownload,
 	TbPlayerPlay,
 	TbPlus,
 	TbRoute,
@@ -269,22 +270,28 @@ function RoutesPage() {
 										</Table.Cell>
 										<Table.Cell>
 											<div className="flex items-center justify-end gap-1">
-												<Button
-													isIconOnly
-													variant="ghost"
-													aria-label={`Edit ${route.name || route.path}`}
-													onPress={() => openCanvas(route.id)}
-												>
-													<TbEdit size={16} />
-												</Button>
-												<Button
-													isIconOnly
-													variant="ghost"
-													aria-label={`Export ${route.name || route.path}`}
-													onPress={() => setPendingExport(route)}
-												>
-													<TbFileExport size={16} />
-												</Button>
+												<Tooltip>
+													<Button
+														isIconOnly
+														variant="ghost"
+														aria-label={`Edit ${route.name || route.path}`}
+														onPress={() => openCanvas(route.id)}
+													>
+														<TbEdit size={16} />
+													</Button>
+													<Tooltip.Content>Edit route</Tooltip.Content>
+												</Tooltip>
+												<Tooltip>
+													<Button
+														isIconOnly
+														variant="ghost"
+														aria-label={`Export ${route.name || route.path}`}
+														onPress={() => setPendingExport(route)}
+													>
+														<TbFileDownload size={16} />
+													</Button>
+													<Tooltip.Content>Export route</Tooltip.Content>
+												</Tooltip>
 												<Button
 													variant="outline"
 													isDisabled={!route.active}
@@ -292,10 +299,13 @@ function RoutesPage() {
 												>
 													<TbPlayerPlay size={16} /> Playground
 												</Button>
-												<DeleteIconButton
-													aria-label="Delete route"
-													onPress={() => setPendingDelete(route)}
-												/>
+												<Tooltip>
+													<DeleteIconButton
+														aria-label="Delete route"
+														onPress={() => setPendingDelete(route)}
+													/>
+													<Tooltip.Content>Delete route</Tooltip.Content>
+												</Tooltip>
 											</div>
 										</Table.Cell>
 									</Table.Row>
