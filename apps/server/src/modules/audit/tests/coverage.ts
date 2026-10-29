@@ -19,6 +19,8 @@ export const AUDITED: Record<string, string> = {
 	"auth-change-user-password": "api/auth/change-user-password/service.ts",
 	// routes
 	"create-route": `${V}/routes/create/service.ts`,
+	// an import creates the route through the create service, which records it
+	"import-route": `${V}/routes/create/service.ts`,
 	"update-route": `${V}/routes/update/service.ts`,
 	"delete-route": `${V}/routes/delete/service.ts`,
 	"partial-update-route": `${V}/routes/update-partial/service.ts`,
