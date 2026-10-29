@@ -19,8 +19,8 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
 	TbChevronDown,
-	TbDownload,
 	TbEdit,
+	TbFileExport,
 	TbPlayerPlay,
 	TbPlus,
 	TbRoute,
@@ -248,7 +248,7 @@ function RoutesPage() {
 													aria-label={`Export ${route.name || route.path}`}
 													onPress={() => setPendingExport(route)}
 												>
-													<TbDownload size={16} />
+													<TbFileExport size={16} />
 												</Button>
 												<Button
 													variant="outline"

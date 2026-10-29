@@ -14,10 +14,14 @@ const actual = await import("./routeFile");
 mock.module("./routeFile", () => ({
 	...actual,
 	pickRouteFile: async () => new File(["{}"], "r.fluxroute"),
-	readRouteFile: async () => ({ kind: "fluxify.route" }),
+	readRouteFile: async () => ({
+		kind: "fluxify.route",
+		route: { name: "Get Active Employees", path: "/employees/active" },
+	}),
 }));
 
 const { act, cleanup, fireEvent, render, waitFor, within } = await import("@testing-library/react");
+const { AxiosError } = await import("axios");
 const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query");
 const { ImportRouteButton } = await import("./ImportRouteButton");
 const { routesService } = await import("@/services/routes");
@@ -82,4 +86,32 @@ test("stays put when the server refuses the file", async () => {
 
 	await waitFor(() => expect(routesService.import).toHaveBeenCalled());
 	expect(navigate).not.toHaveBeenCalled();
+});
+
+test("asks for a new name and path when the route already exists, then imports it", async () => {
+	const clash = new AxiosError("Conflict", "ERR_BAD_REQUEST", undefined, undefined, {
+		status: 409,
+		data: { message: 'A route named "Get Active Employees" already exists in this project.' },
+	} as never);
+	const importSpy = spyOn(routesService, "import")
+		.mockRejectedValueOnce(clash)
+		.mockResolvedValueOnce({ id: "new1", warnings: [] });
+	renderButton();
+
+	await act(async () => {
+		fireEvent.click(screen().getByText("Import"));
+	});
+	await waitFor(() => expect(screen().getByText(/already exists in this project/)).toBeTruthy());
+	expect(navigate).not.toHaveBeenCalled();
+
+	fireEvent.change(screen().getByLabelText("Name"), { target: { value: "Get Staff" } });
+	fireEvent.change(screen().getByLabelText("Path"), { target: { value: "/staff" } });
+	// the dialog's own Import button comes after the page's
+	await act(async () => {
+		fireEvent.click(screen().getAllByText("Import").at(-1) as HTMLElement);
+	});
+
+	await waitFor(() => expect(navigate).toHaveBeenCalledWith(toCanvas));
+	const retried = importSpy.mock.calls[1]?.[1] as { route: { name: string; path: string } };
+	expect(retried.route).toEqual({ name: "Get Staff", path: "/staff" });
 });

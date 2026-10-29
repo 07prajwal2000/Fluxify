@@ -8,7 +8,7 @@ import {
 } from "@fluxify/components";
 import { createFileRoute, isRedirect, redirect, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { TbDownload } from "react-icons/tb";
+import { TbFileExport } from "react-icons/tb";
 import z from "zod";
 import { CanvasWorkbench } from "@/components/canvas";
 import { CanvasStatusBadges } from "@/components/canvas/CanvasStatusBadges";
@@ -147,7 +147,7 @@ function RouteCanvasPage() {
 							aria-label="Export route"
 							onPress={() => setExportOpen(true)}
 						>
-							<TbDownload size={16} />
+							<TbFileExport size={16} />
 						</Button>
 						<SettingsSplitButton
 							projectId={projectId}
