@@ -48,11 +48,11 @@ Middlewares, custom blocks and integrations belong to a project, not to a route.
 
 If anything was left out, a list shows what, before you open the route.
 
-## When an import is refused
+## When an import can't go through
 
 | Problem | What you see |
 | :--- | :--- |
-| The name or path is already used by another route | The import stops with a message naming the clash. Nothing is created. Change the name or path in your project, or edit them in the file, and import again |
+| The name or path is already used by another route | A dialog shows the clash and lets you change the name and path, then imports again. Nothing is created until it succeeds |
 | The file is not a route export | "That isn't a Fluxify route export." |
 | The file came from a newer version of Fluxify | You are asked to update Fluxify first |
 
