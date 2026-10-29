@@ -1,4 +1,5 @@
 import {
+	Button,
 	toast,
 	useInputDataTypes,
 	useRouteParamSnippets,
@@ -7,11 +8,13 @@ import {
 } from "@fluxify/components";
 import { createFileRoute, isRedirect, redirect, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { TbDownload } from "react-icons/tb";
 import z from "zod";
 import { CanvasWorkbench } from "@/components/canvas";
 import { CanvasStatusBadges } from "@/components/canvas/CanvasStatusBadges";
 import { RouteApiPlayground } from "@/components/RouteApiPlayground";
 import { RecordingIndicator } from "@/components/recordings/RecordingControls";
+import { ExportRouteModal } from "@/components/routes/ExportRouteModal";
 import { RouteSettingsModal } from "@/components/routes/RouteSettingsModal";
 import { RouteSwitcher } from "@/components/routes/RouteSwitcher";
 import { RouteWorkbenchTabs } from "@/components/routes/RouteWorkbenchTabs";
@@ -65,6 +68,7 @@ function RouteCanvasPage() {
 	const save = routesQuery.saveCanvas.mutation(routeId);
 	const canEdit = useCanEditProject(projectId);
 	const [settingsOpen, setSettingsOpen] = useState(false);
+	const [exportOpen, setExportOpen] = useState(false);
 
 	// the same gap workflows had: `getRequestBody()` was `any` on a route whose
 	// body schema already says what it holds
@@ -137,6 +141,14 @@ function RouteCanvasPage() {
 								})
 							}
 						/>
+						<Button
+							isIconOnly
+							variant="outline"
+							aria-label="Export route"
+							onPress={() => setExportOpen(true)}
+						>
+							<TbDownload size={16} />
+						</Button>
 						<SettingsSplitButton
 							projectId={projectId}
 							source={{
@@ -164,6 +176,10 @@ function RouteCanvasPage() {
 					readOnly={!canEdit}
 				/>
 			)}
+			<ExportRouteModal
+				route={exportOpen ? { id: routeId, name: route?.name } : null}
+				onClose={() => setExportOpen(false)}
+			/>
 			{spotlight.dialogs}
 		</>
 	);
