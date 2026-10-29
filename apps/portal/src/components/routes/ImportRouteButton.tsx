@@ -5,93 +5,95 @@ import { TbFileImport } from "react-icons/tb";
 import { parseApiError, showErrorNotification } from "@/lib/errorNotifier";
 import { routesQuery } from "@/query/routesQuery";
 import type { RouteBundle } from "@/services/routes";
+import { RouteBundlePreview } from "./RouteBundlePreview";
 import { pickRouteFile, readRouteFile } from "./routeFile";
+import { importDefaults } from "./routeImport";
 
-/** A route that already exists here: the file waits while the user renames it. */
-type Conflict = { bundle: RouteBundle; message: string; name: string; path: string };
+/** A picked file waiting for the user to confirm, with the name and path it will take. */
+type Pending = { bundle: RouteBundle; name: string; path: string; error?: string };
 
-/** Picks an exported route file and creates the route (and its tests) from it. */
+/** Picks an exported route file, shows what is in it, and creates the route once confirmed. */
 export function ImportRouteButton({ projectId }: { projectId: string }) {
 	const navigate = useNavigate();
 	const importRoute = routesQuery.import.mutation();
+	const [pending, setPending] = useState<Pending | null>(null);
 	// set when the import left something out: the user reads it before opening the route
 	const [result, setResult] = useState<{ id: string; warnings: string[] } | null>(null);
-	const [conflict, setConflict] = useState<Conflict | null>(null);
 
 	const open = (routeId: string) =>
 		navigate({ to: "/$projectId/canvas/$routeId", params: { projectId, routeId } });
 
-	/** Imports `bundle`; a name or path clash opens the rename dialog instead of failing. */
-	const submit = async (bundle: RouteBundle) => {
-		try {
-			const done = await importRoute.mutateAsync({ projectId, bundle });
-			setConflict(null);
-			if (done.warnings.length > 0) return setResult(done);
-			toast.success("Route imported");
-			open(done.id);
-		} catch (error) {
-			const { status, message } = parseApiError(error);
-			if (status !== 409) return showErrorNotification(error);
-			const { name, path } = bundle.route;
-			setConflict({ bundle, message, name, path });
-		}
-	};
-
-	const run = async () => {
+	const pick = async () => {
 		const file = await pickRouteFile();
 		if (!file) return;
 		try {
-			await submit(await readRouteFile(file));
+			const bundle = await readRouteFile(file);
+			setPending({ bundle, ...importDefaults(bundle, projectId) });
 		} catch (error) {
 			showErrorNotification(error);
 		}
 	};
 
-	const edit = (patch: Partial<Pick<Conflict, "name" | "path">>) =>
-		setConflict((c) => (c ? { ...c, ...patch } : c));
+	const confirm = async () => {
+		if (!pending) return;
+		const { bundle, name, path } = pending;
+		try {
+			const done = await importRoute.mutateAsync({
+				projectId,
+				bundle: { ...bundle, route: { ...bundle.route, name, path } },
+			});
+			setPending(null);
+			if (done.warnings.length > 0) return setResult(done);
+			toast.success("Route imported");
+			open(done.id);
+		} catch (error) {
+			const { status, message } = parseApiError(error);
+			// a name or path already taken stays in the dialog, where both can be changed
+			if (status === 409) return setPending({ ...pending, error: message });
+			showErrorNotification(error);
+		}
+	};
+
+	const edit = (patch: Partial<Pick<Pending, "name" | "path">>) =>
+		setPending((p) => (p ? { ...p, ...patch, error: undefined } : p));
 
 	return (
 		<>
-			<Button variant="outline" isPending={importRoute.isPending} onPress={run}>
+			<Button variant="outline" onPress={pick}>
 				<TbFileImport size={16} /> Import
 			</Button>
-			<Modal isOpen={conflict !== null} onOpenChange={(isOpen) => !isOpen && setConflict(null)}>
+			<Modal isOpen={pending !== null} onOpenChange={(isOpen) => !isOpen && setPending(null)}>
 				<Modal.Backdrop>
-					<Modal.Container placement="center" size="md">
+					<Modal.Container placement="center" size="lg">
 						<Modal.Dialog>
 							<Modal.Header className="flex flex-row items-center justify-between">
-								<Modal.Heading>This route already exists</Modal.Heading>
+								<Modal.Heading>Import this route?</Modal.Heading>
 								<CloseButton />
 							</Modal.Header>
 							<Modal.Body className="flex flex-col gap-3">
-								<p className="text-sm text-muted">{conflict?.message}</p>
 								<p className="text-sm text-muted">
-									Change the name or path to import it as a new route.
+									This creates a new route in this project
+									{pending?.bundle.suites
+										? ` with its ${pending.bundle.suites.length} test suite(s)`
+										: ""}
+									. Here is what is inside it:
 								</p>
-								<TextField value={conflict?.name ?? ""} onChange={(name) => edit({ name })}>
+								{pending && <RouteBundlePreview bundle={pending.bundle} />}
+								<TextField value={pending?.name ?? ""} onChange={(name) => edit({ name })}>
 									<Label>Name</Label>
 									<Input />
 								</TextField>
-								<TextField value={conflict?.path ?? ""} onChange={(path) => edit({ path })}>
+								<TextField value={pending?.path ?? ""} onChange={(path) => edit({ path })}>
 									<Label>Path</Label>
 									<Input className="font-mono" />
 								</TextField>
+								{pending?.error && <p className="text-sm text-danger">{pending.error}</p>}
 							</Modal.Body>
 							<Modal.Footer>
-								<Button variant="ghost" onPress={() => setConflict(null)}>
+								<Button variant="ghost" onPress={() => setPending(null)}>
 									Cancel
 								</Button>
-								<Button
-									variant="primary"
-									isPending={importRoute.isPending}
-									onPress={() =>
-										conflict &&
-										submit({
-											...conflict.bundle,
-											route: { ...conflict.bundle.route, name: conflict.name, path: conflict.path },
-										})
-									}
-								>
+								<Button variant="primary" isPending={importRoute.isPending} onPress={confirm}>
 									Import
 								</Button>
 							</Modal.Footer>

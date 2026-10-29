@@ -155,6 +155,7 @@ describe("route export and import", () => {
 
 		const bundle = await exportRoute(as, source);
 		expect(bundle.kind).toBe("fluxify.route");
+		expect(bundle.sourceProjectId).toBe(as.project);
 		expect(bundle.canvas.blocks.map((b: { type: string }) => b.type).sort()).toEqual(
 			["entrypoint", "error_handler", "response"].sort(),
 		);

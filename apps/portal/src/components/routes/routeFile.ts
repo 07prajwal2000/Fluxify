@@ -38,11 +38,20 @@ export function pickRouteFile(): Promise<File | null> {
 	});
 }
 
-/** Reads a picked file. The server checks the contents; this only refuses what is not JSON. */
+/** Reads a picked file. The server checks the contents in full; this only refuses what the confirmation could not show. */
 export async function readRouteFile(file: File): Promise<RouteBundle> {
+	let bundle: RouteBundle | undefined;
 	try {
-		return JSON.parse(await file.text());
-	} catch {
+		bundle = JSON.parse(await file.text());
+	} catch {}
+	if (
+		bundle?.kind !== "fluxify.route" ||
+		typeof bundle.route?.name !== "string" ||
+		typeof bundle.route?.path !== "string" ||
+		!Array.isArray(bundle.canvas?.blocks) ||
+		!Array.isArray(bundle.canvas?.edges)
+	) {
 		throw new Error("That file isn't a Fluxify route export.");
 	}
+	return bundle;
 }

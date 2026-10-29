@@ -30,7 +30,15 @@ For tests that override app config, only the setting names go into the file. The
 ## Importing a route
 
 1. On the **Routes** page, click **Import** and choose a `.fluxroute` file.
-2. Fluxify creates the route and its tests, then opens the route.
+2. A confirmation opens. It shows the route's blocks on a read-only canvas, so you can see what is inside before anything is created, and the name and path the new route will take. You can change both.
+3. Click **Import**. Fluxify creates the route and its tests, then opens the route.
+
+Nothing is created until you confirm.
+
+| Importing into | Name and path in the confirmation |
+| :--- | :--- |
+| The project the route was exported from | Start with `-copy` added, for example `Get users-copy` and `/users-copy`, so the copy sits next to the original |
+| A different project | Stay as they were in the file |
 
 The imported route is **off in production**. It answers in development straight away. To serve it in production, turn it on and promote a version, like any new route.
 
@@ -52,7 +60,7 @@ If anything was left out, a list shows what, before you open the route.
 
 | Problem | What you see |
 | :--- | :--- |
-| The name or path is already used by another route in the same project | A dialog shows the clash and lets you change the name and path, then imports again. Nothing is created until it succeeds |
+| The name or path is already used by another route in the same project | The confirmation stays open and shows the clash, so you can change the name or path and try again. Nothing is created until it succeeds |
 | The file is not a route export | "That isn't a Fluxify route export." |
 | The file came from a newer version of Fluxify | You are asked to update Fluxify first |
 
