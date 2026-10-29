@@ -19,6 +19,8 @@ export const runSummarySchema = z.object({
 	env: z.enum(["development", "production"]),
 	/** set when a promote's tests gate started this run */
 	deploymentId: z.string().nullable(),
+	/** disabled suites a "Run all" left out (#668) */
+	skippedCount: z.number(),
 	passedCount: z.number(),
 	failedCount: z.number(),
 	durationMs: z.number().nullable(),

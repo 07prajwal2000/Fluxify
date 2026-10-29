@@ -1008,6 +1008,8 @@ export const testSuitesEntity = pgTable(
 		teardownTimeoutMs: integer("teardown_timeout_ms").default(30_000).notNull(),
 		/** run by itself, after the parallel suites of a run, for a clean slate */
 		runAlone: boolean("run_alone").default(false).notNull(),
+		/** off keeps the suite out of "Run all" and the promote tests gate (#668) */
+		enabled: boolean("enabled").default(true).notNull(),
 
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		updatedAt: timestamp("updated_at")
@@ -1105,6 +1107,8 @@ export type TestRunSummary = {
 	total: number;
 	passed: number;
 	failed: number;
+	/** disabled suites left out of a run that did not name its suites (#668) */
+	skipped?: number;
 	/** suite id -> terminal status */
 	suites: Record<string, TestRunStatus>;
 	error?: string;

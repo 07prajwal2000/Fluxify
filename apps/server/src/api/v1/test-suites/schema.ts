@@ -171,4 +171,5 @@ export const testSuiteCoreSchema = z.object({
 	setupTimeoutMs: z.number().int().min(1_000).max(600_000).optional(),
 	teardownTimeoutMs: z.number().int().min(1_000).max(600_000).optional(),
 	runAlone: z.boolean().optional(),
+	enabled: z.boolean().optional(),
 });

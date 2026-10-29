@@ -30,6 +30,7 @@ export type SuiteDraft = {
 	setupTimeoutMs: number;
 	teardownTimeoutMs: number;
 	runAlone: boolean;
+	enabled: boolean;
 	/** workflow suites (#487): where the input comes from */
 	input: SuiteInput;
 };
@@ -52,6 +53,7 @@ export function toDraft(suite: TestSuiteDetail | undefined): SuiteDraft {
 		setupTimeoutMs: suite?.setupTimeoutMs ?? 30_000,
 		teardownTimeoutMs: suite?.teardownTimeoutMs ?? 30_000,
 		runAlone: suite?.runAlone ?? false,
+		enabled: suite?.enabled ?? true,
 		input: suite?.input ?? DEFAULT_INPUT,
 	};
 }

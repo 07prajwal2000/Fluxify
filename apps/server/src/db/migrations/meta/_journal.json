@@ -211,6 +211,13 @@
 			"when": 1792946654856,
 			"tag": "0029_route_response_schemas",
 			"breakpoints": true
+		},
+		{
+			"idx": 30,
+			"version": "7",
+			"when": 1793200217008,
+			"tag": "0030_test_suite_enabled",
+			"breakpoints": true
 		}
 	]
 }

@@ -111,6 +111,12 @@ describe("test suite tools", () => {
 		expect(calls).toEqual([{ method: "PUT", path: "/v1/test-suites/s1", body: { runAlone: true } }]);
 	});
 
+	it("save_test_suite can disable a suite (#668)", async () => {
+		const { api, calls } = fakeApi();
+		await run("save_test_suite", { testSuiteId: "s1", enabled: false }, api);
+		expect(calls).toEqual([{ method: "PUT", path: "/v1/test-suites/s1", body: { enabled: false } }]);
+	});
+
 	it("save_test_suite says what a create needs, and removes a half-made suite", async () => {
 		const { api, calls } = fakeApi(true);
 		expect(run("save_test_suite", { name: "x" }, api)).rejects.toThrow("pass targetType, targetId and name");
