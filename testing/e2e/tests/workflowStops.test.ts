@@ -47,7 +47,7 @@ beforeAll(async () => {
 }, 600_000);
 
 afterAll(async () => {
-	await closeNats().catch(() => {});
+	await closeNats("e2e-stops").catch(() => {});
 	await stopStreaming();
 });
 
