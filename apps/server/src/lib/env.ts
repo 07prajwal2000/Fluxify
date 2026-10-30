@@ -67,6 +67,16 @@ export const serverEnvSchema = baseEnvSchema.extend({
 			"Hard cap on incoming request body size in kilobytes (default 8192 / 8 MB). Fluxify is an API server, not an upload gateway — raise it deliberately",
 		),
 
+	SSE_LIVENESS_TIMEOUT: z
+		.string()
+		.optional()
+		.refine((val) => !val || (Number.isInteger(Number(val)) && Number(val) > 0), {
+			message: "SSE_LIVENESS_TIMEOUT must be a positive integer",
+		})
+		.describe(
+			"Seconds an SSE stream may go without a real message before it is closed with an error event (default 60). Heartbeats do not count",
+		),
+
 	MAX_TRIGGERS_PER_GROUP: z
 		.string()
 		.optional()
@@ -511,6 +521,9 @@ export const AUDIT_LOG_MAX_AGE_DAYS = Number(getEnv("AUDIT_LOG_MAX_AGE_DAYS")) |
 /** how long the admin waits for a worker's answer to an integration op (I3) */
 export const INTEGRATION_WORKER_TIMEOUT_MS =
 	Number(getEnv("INTEGRATION_WORKER_TIMEOUT_MS")) || 15_000;
+
+/** an SSE stream with no real message for this long gets an `error` event and is closed (#1022) */
+export const SSE_LIVENESS_TIMEOUT_MS = (Number(getEnv("SSE_LIVENESS_TIMEOUT")) || 60) * 1000;
 
 /** furthest ahead a Trigger Workflow block may schedule a run; a bad value fails boot */
 export const SCHEDULE_MAX_HORIZON_MS = parseDurationMs(
