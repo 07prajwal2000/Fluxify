@@ -26,6 +26,8 @@ export const responseSchema = z.object({
 	devRecordExecution: z.boolean(),
 	acceptedContentTypes: z.array(z.string()),
 	bodyMode: z.enum(BODY_MODES),
+	/** the integration `sse.connect` streams through; null when unset */
+	sseBrokerId: z.string().nullable(),
 	/** the number of the version the working copy came from; null before the first (#738) */
 	headVersionNumber: z.number().int().nullable(),
 	/** the version production serves; null until one is promoted (#739) */

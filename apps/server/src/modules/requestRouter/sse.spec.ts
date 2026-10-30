@@ -11,7 +11,7 @@ import {
 	streamOrResult,
 } from "./sse";
 
-type Run = (request: Request) => Promise<{ error?: unknown; data?: unknown }>;
+type Run = (request: Request) => Promise<{ error?: unknown; data?: unknown; held?: boolean }>;
 
 let server: ReturnType<typeof Bun.serve>;
 
@@ -77,6 +77,40 @@ describe("SSE stream", () => {
 		expect(await (await fetch(url)).text()).toBe(
 			': open\n\ndata: first\n\nevent: error\ndata: {"message":"boom"}\n\n',
 		);
+	});
+
+	test("a held result (#1024) sends its body as an event and leaves the stream open", async () => {
+		let stream: SseStream | undefined;
+		const url = serve(async (request) => {
+			stream = openStream("s-held", request);
+			return { held: true, data: { first: true } };
+		});
+		const reading = fetch(url).then((response) => response.text());
+		await sleep(50);
+		expect(stream!.held).toBe(true);
+		expect(stream!.closed).toBe(false);
+		stream!.write({ data: "later" });
+		stream!.close();
+		expect(await reading).toBe(': open\n\ndata: {"first":true}\n\ndata: later\n\n');
+	});
+
+	test("a held result with no body sends no event", async () => {
+		let stream: SseStream | undefined;
+		const url = serve(async (request) => {
+			stream = openStream("s-held-empty", request);
+			return { held: true, data: null };
+		});
+		const reading = fetch(url).then((response) => response.text());
+		await sleep(50);
+		stream!.close();
+		expect(await reading).toBe(": open\n\n");
+	});
+
+	test("held without a stream is a plain JSON reply", async () => {
+		const url = serve(async () => ({ held: true, data: { ok: 1 } }));
+		const response = await fetch(url);
+		expect(response.headers.get("content-type")).toContain("application/json");
+		expect(await response.json()).toEqual({ ok: 1 });
 	});
 
 	test("liveness expiry sends an error event, then closes", async () => {

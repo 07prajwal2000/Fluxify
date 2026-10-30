@@ -250,4 +250,27 @@ declare const httpClient: HttpClient;
  * (async routes, workflows).
  */
 declare const abortSignal: AbortSignal | undefined;
+
+/**
+ * Server-sent events through the route's SSE broker (a NATS or Redis integration
+ * picked in route settings). A handle is "<integrationId>:<id>"; pass it to a
+ * workflow or block so it can send to the client from any node.
+ */
+declare const sse: {
+	/**
+	 * Routes only: this request's reply becomes an event stream for \`id\`, taking it
+	 * over from any older connection, and returns the handle "<integrationId>:<id>".
+	 * Check auth before calling it: anyone who can call the route can take the id over.
+	 * Throws when the route has no SSE broker.
+	 */
+	connect(id: string): string;
+	/** this request's handle after connect, otherwise undefined */
+	readonly connectionId: string | undefined;
+	/** sends one event, from anywhere; strings go as-is, anything else as JSON */
+	send(handle: string, data: unknown, options?: { event?: string; eventId?: string }): Promise<void>;
+	/** ends the stream, from anywhere; safe to call twice */
+	close(handle: string): Promise<void>;
+	/** aborts when the client left or the stream closed or was taken over; pass it to AI calls */
+	signal(handle: string): AbortSignal;
+};
 `;

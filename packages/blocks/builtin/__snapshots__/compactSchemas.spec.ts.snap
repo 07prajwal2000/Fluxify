@@ -79,6 +79,7 @@ response {
 	httpCode: string | number;  // a known HTTP status code like "200", or "js:" + a function body returning one at run time, e.g. "js: return input.created ? 201 : 200;"
 	transformEnabled?: boolean;
 	transformScript?: string;
+	holdConnection?: boolean;  // only after sse.connect in this request: send the body as the first SSE event and keep the stream open once the run ends, for later sse.send calls. Ignored when the request did not connect
 }
 
 setvar {

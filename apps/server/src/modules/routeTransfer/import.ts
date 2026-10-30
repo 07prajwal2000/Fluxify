@@ -8,6 +8,7 @@ import { db } from "../../db";
 import { CHAN_ON_ROUTE_CHANGE, publishMessage } from "../../db/redis";
 import { customBlocksListEntity, integrationsEntity, middlewaresEntity } from "../../db/schema";
 import { BadRequestError } from "../../errors/badRequestError";
+import { SSE_BROKER_VARIANTS } from "../../lib/routeConfig";
 import { saveCanvas } from "../canvas/service";
 import { upsertResponseSchema } from "../responseSchemas/repository";
 import { replaceSuiteHooks } from "../testRunner/hooks";
@@ -59,6 +60,22 @@ async function idsByName(
 	return new Map(rows.map((r) => [r.name ?? "", r.id]));
 }
 
+/** the project's NATS or Redis integration with that name, if any */
+async function sseBrokerByName(projectId: string, name: string | undefined) {
+	if (!name) return undefined;
+	const [row] = await db
+		.select({ id: integrationsEntity.id })
+		.from(integrationsEntity)
+		.where(
+			and(
+				eq(integrationsEntity.projectId, projectId),
+				eq(integrationsEntity.name, name),
+				inArray(integrationsEntity.variant, SSE_BROKER_VARIANTS),
+			),
+		);
+	return row?.id;
+}
+
 /**
  * Creates the route, its canvas, response schemas, middlewares and tests from a
  * bundle, in one transaction. Middlewares, custom blocks and integrations are
@@ -70,7 +87,18 @@ export async function importRouteBundle(userId: string, projectId: string, raw: 
 	const bundle = parseBundle(raw);
 	const warnings: string[] = [];
 
-	const created = requestBodySchema.safeParse({ ...bundle.route, projectId, active: false });
+	const sseBrokerId = await sseBrokerByName(projectId, bundle.route.sseBroker);
+	if (bundle.route.sseBroker && !sseBrokerId) {
+		warnings.push(
+			`SSE broker "${bundle.route.sseBroker}" isn't a NATS or Redis integration in this project, so the route has none.`,
+		);
+	}
+	const created = requestBodySchema.safeParse({
+		...bundle.route,
+		projectId,
+		active: false,
+		sseBrokerId,
+	});
 	if (!created.success) {
 		throw new BadRequestError(`This route export is invalid: ${created.error.issues[0]!.message}`);
 	}

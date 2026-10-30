@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { observabilityFields, warningField } from "../../../../lib/observability";
-import { BODY_MODES, CONTENT_TYPES } from "../../../../lib/routeConfig";
+import { BODY_MODES, CONTENT_TYPES, sseBrokerField } from "../../../../lib/routeConfig";
 import { ROUTE_REGEX } from "../constants";
 
 export const requestBodySchema = z.object({
@@ -18,6 +18,7 @@ export const requestBodySchema = z.object({
 	...observabilityFields,
 	acceptedContentTypes: z.array(z.enum(CONTENT_TYPES)).min(1).optional(),
 	bodyMode: z.enum(BODY_MODES).optional(),
+	sseBrokerId: sseBrokerField,
 });
 
 export const requestRouteSchema = z.object({

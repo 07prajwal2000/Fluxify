@@ -70,6 +70,7 @@ describe("MCP role matrix", () => {
 			devRecordExecution: true,
 			acceptedContentTypes: expect.any(Array),
 			bodyMode: "buffer",
+			sseBrokerId: null,
 			bodySchema: null,
 			querySchema: null,
 			paramsSchema: null,

@@ -9,7 +9,7 @@ import { ServerError } from "../../../../errors/serverError";
 import { canAccessProject } from "../../../../lib/acl";
 import { streamBodyConfigError } from "../../../../lib/routeConfig";
 import { audit, changedFields } from "../../../../modules/audit";
-import { patchRouteConfig, readRouteConfig } from "../routeConfigRepository";
+import { patchRouteConfig, patchSseBroker, readRouteConfig } from "../routeConfigRepository";
 import { routeConflictError } from "../routeConflict";
 import { normalizeParamsSchema } from "../schema-validator";
 import type { requestBodySchema, responseSchema } from "./dto";
@@ -31,7 +31,8 @@ export default async function handleRequest(
 		const wanted = { ...data, projectId: existingRoute.projectId ?? "" };
 		const clash = await findRouteConflict(wanted, id, tx);
 		if (clash) throw routeConflictError(clash, wanted);
-		const { acceptedContentTypes, bodyMode, ...route } = data;
+		const { acceptedContentTypes, bodyMode, sseBrokerId, ...route } = data;
+		await patchSseBroker(id, existingRoute.projectId, sseBrokerId, tx);
 		let nextMode = bodyMode;
 		// Only a patch that can change the body handling needs the stored config.
 		// Most edits (a name, a schema) have no business reading another table.

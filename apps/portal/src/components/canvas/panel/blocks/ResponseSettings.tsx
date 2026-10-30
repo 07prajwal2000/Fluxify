@@ -38,6 +38,13 @@ export function responseSettings(block: BlockNode) {
 				label="Transform response"
 				hint="Run a script on the body before it is sent."
 			/>
+			<BlockCheckboxField
+				blockId={block.id}
+				data={block.data}
+				name="holdConnection"
+				label="Hold connection"
+				hint="Only applies after sse.connect in this request: the body is sent as the first event and the stream stays open after the run ends, for later sse.send calls."
+			/>
 		</BlockSettings.TabHead>,
 	];
 

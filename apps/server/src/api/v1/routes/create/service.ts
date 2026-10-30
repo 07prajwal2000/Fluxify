@@ -11,7 +11,7 @@ import {
 	streamBodyConfigError,
 } from "../../../../lib/routeConfig";
 import { audit, bodyFields } from "../../../../modules/audit";
-import { patchRouteConfig } from "../routeConfigRepository";
+import { patchRouteConfig, patchSseBroker } from "../routeConfigRepository";
 import { routeConflictError } from "../routeConflict";
 import { findRouteConflict } from "../update/repository";
 import type { requestBodySchema, responseSchema } from "./dto";
@@ -44,7 +44,7 @@ export default async function handleRequest(
 		const clash = await findRouteConflict(data, undefined, tx, sameProjectOnly);
 		if (clash) throw routeConflictError(clash, data);
 		const id = presetId ?? generateID();
-		const { acceptedContentTypes, bodyMode = DEFAULT_BODY_MODE, ...route } = data;
+		const { acceptedContentTypes, bodyMode = DEFAULT_BODY_MODE, sseBrokerId, ...route } = data;
 		const accepted = acceptedContentTypes ?? DEFAULT_CONTENT_TYPES;
 		const configError = streamBodyConfigError(accepted, bodyMode);
 		if (configError) throw new BadRequestError(configError);
@@ -58,6 +58,7 @@ export default async function handleRequest(
 			{ acceptedContentTypes: accepted, bodyMode },
 			tx,
 		);
+		await patchSseBroker(newRouteId, data.projectId, sseBrokerId, tx);
 		await audit.record({
 			projectId: data.projectId,
 			resourceType: "route",

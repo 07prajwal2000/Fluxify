@@ -117,12 +117,12 @@ export async function runWithMiddlewares(
 	ctx.vars.getResponseBody = () => body;
 	ctx.vars.getResponseStatus = () => httpCode;
 	const after = await runChain(ctx, middlewares.after, { httpCode, body }, "after");
-	return (
-		after.result ?? {
-			successful: true,
-			continueIfFail: true,
-			responded: true,
-			output: { httpCode: 200, body: after.value ?? null },
-		}
-	);
+	const result = after.result ?? {
+		successful: true,
+		continueIfFail: true,
+		responded: true,
+		output: { httpCode: 200, body: after.value ?? null },
+	};
+	// a held route Response stays held through the after chain
+	return reply.held && !result.held ? { ...result, held: true } : result;
 }

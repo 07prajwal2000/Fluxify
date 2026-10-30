@@ -51,6 +51,8 @@ Middlewares, custom blocks and integrations belong to a project, not to a route.
 | A middleware named `auth` | None with that name | It is left out, and you are told |
 | A test's setup block or integration override | A matching name exists | It is kept |
 | A test's setup block or integration override | No match | It is dropped, and you are told |
+| The route's SSE broker | A NATS or Redis integration with that name exists | It is used |
+| The route's SSE broker | None with that name | The route has no broker, and you are told |
 | App config override values | | Not imported. Set them again on the test |
 
 If anything was left out, a list shows what, before you open the route.

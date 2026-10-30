@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { HttpMethod } from "../../../../db/schema";
-import { BODY_MODES, CONTENT_TYPES } from "../../../../lib/routeConfig";
+import { BODY_MODES, CONTENT_TYPES, sseBrokerField } from "../../../../lib/routeConfig";
 import { ROUTE_REGEX } from "../constants";
 import { routeSchemaValidationRefinement } from "../schema-validator";
 
@@ -19,6 +19,7 @@ export const requestBodySchema = z
 		// Lives in `route_config`, not on the route row — patched separately below.
 		acceptedContentTypes: z.array(z.enum(CONTENT_TYPES)).min(1).optional(),
 		bodyMode: z.enum(BODY_MODES).optional(),
+		sseBrokerId: sseBrokerField,
 	})
 	.superRefine(routeSchemaValidationRefinement);
 

@@ -66,9 +66,9 @@ export function openStream(id: string, request: Request): SseStream {
  * Runs the route; answers with the stream as soon as the run opens one, so
  * events reach the client while the run is still going. The run's end then
  * closes the stream, with an `error` event first when it failed, unless a held
- * Response block keeps it open.
+ * Response block keeps it open (its body is then written as an event).
  */
-export async function streamOrResult<T extends { error?: unknown }>(
+export async function streamOrResult<T extends { error?: unknown; held?: boolean; data?: unknown }>(
 	request: Request,
 	server: { timeout(request: Request, seconds: number): void } | undefined,
 	run: () => Promise<T>,
@@ -83,11 +83,18 @@ export async function streamOrResult<T extends { error?: unknown }>(
 	const { stream, body, fail } = opened;
 	finished.then(({ result }) => {
 		if (result.error !== undefined) fail(result.error);
+		else if (result.held) hold(stream, result.data);
 		else if (!stream.held) stream.close();
 	}, fail);
 	// Bun's idle timeout would cut a quiet stream; liveness and heartbeat take over
 	server?.timeout(request, 0);
 	return { stream, body };
+}
+
+/** a held Response block (#1024): its body is an event, and the run's end leaves the stream open */
+function hold(stream: SseStream, body: unknown) {
+	stream.held = true;
+	if (body !== null && body !== undefined) stream.write({ data: body });
 }
 
 export function sseResponse(body: ReadableStream, headers: Headers) {

@@ -12,6 +12,7 @@ const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query
 const { toast } = await import("@fluxify/components");
 const { RouteSettingsModal } = await import("./RouteSettingsModal");
 const { routesService } = await import("@/services/routes");
+const { integrationService } = await import("@/services/integrations");
 const { PROD_ENABLED_HINT, PROD_RECORDING_HINT } = await import(
 	"@/components/settings/ObservabilityTabs"
 );
@@ -45,6 +46,8 @@ const ROUTE = {
 function renderSettings() {
 	// the query may refetch on mount, so the service answers with the same route
 	spyOn(routesService, "getById").mockResolvedValue(ROUTE as never);
+	// the SSE broker field lists integrations; this project has none
+	spyOn(integrationService, "getAll").mockResolvedValue([] as never);
 	const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity } } });
 	client.setQueryData(["routes", "r1", "by-id"], ROUTE);
 	client.setQueryData(["project-settings-keys", "p1"], {});
