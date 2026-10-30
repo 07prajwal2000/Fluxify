@@ -301,3 +301,16 @@ describe("exportRun", () => {
 		expect(root.attributes["http.route"]).toBeUndefined();
 	});
 });
+
+describe("a cancelled run", () => {
+	it("exports with an unset status, never an error", () => {
+		const { provider, spans } = collector();
+
+		exportRun(provider, run({ outcome: "cancelled", spans: [span(0, "entry", 0, 5)] }));
+
+		const root = spans().find((s) => s.name === "POST /orders")!;
+		expect(root.status.code).toBe(SpanStatusCode.UNSET);
+		expect(root.attributes["fluxify.cancelled"]).toBe(true);
+		expect(byName(spans(), "entry").status.code).toBe(SpanStatusCode.OK);
+	});
+});

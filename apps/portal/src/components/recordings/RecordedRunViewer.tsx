@@ -9,7 +9,7 @@ import { customBlocksQuery } from "@/query/customBlocksQuery";
 import { recordingsQuery } from "@/query/recordingsQuery";
 import type { RecordedSpan, RecordingTarget } from "@/services/recordings";
 import { OverlayCanvas } from "./OverlayCanvas";
-import { IncompleteChip, OutcomeIcon } from "./RecordedRunList";
+import { CancelledChip, IncompleteChip, OutcomeIcon } from "./RecordedRunList";
 import { RecordingTime } from "./RecordingTime";
 import { type Replay, replayOf } from "./replay";
 import { type SpanActions, SpanDetail } from "./SpanDetail";
@@ -123,6 +123,7 @@ export function RecordedRunViewer({
 							<FromTestLink projectId={projectId} target={target} metadata={root.metadata} />
 						)}
 						<OutcomeIcon outcome={root.outcome} />
+						<CancelledChip outcome={root.outcome} />
 						{target.type === "route" && root.statusCode != null && (
 							<span className="font-mono text-foreground">Status {root.statusCode}</span>
 						)}

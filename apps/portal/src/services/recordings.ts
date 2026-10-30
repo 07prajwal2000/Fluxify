@@ -9,6 +9,8 @@ import type { SuiteTarget } from "./testSuites";
 /** What was recorded: a route or a workflow, as test runs do, or a sandbox. */
 export type RecordingTarget = SuiteTarget | { type: "sandbox"; id: string };
 export type RecordedRunList = z.infer<typeof getRunsResponseSchema>;
+/** `cancelled`: a workflow run the user stopped (#1035) */
+export type RunOutcome = "success" | "failure" | "cancelled";
 export type RecordedRunSummary = RecordedRunList["data"][number];
 export type RecordedRun = z.infer<typeof getRunResponseSchema>;
 export type RecordedSpan = RecordedRun["spans"][number];
@@ -40,7 +42,7 @@ export const recordingsService = {
 		query: {
 			page?: number;
 			perPage?: number;
-			outcome?: "success" | "failure";
+			outcome?: RunOutcome;
 			env?: "development" | "production";
 			search?: string;
 		} & TestTraceFilter = {},

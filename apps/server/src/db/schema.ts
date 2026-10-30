@@ -1798,8 +1798,11 @@ export const systemLogsEntity = pgTable(
  * 9. EXECUTION RECORDINGS (#254)
  * ============================================================================ */
 
-/** how a recorded run or block ended; also a condition block's chosen branch */
-export const traceOutcomeEnum = pgEnum("trace_outcome", ["success", "failure"]);
+/**
+ * How a recorded run or block ended; also a condition block's chosen branch.
+ * `cancelled` is a run's only: a workflow run the user stopped (#1035).
+ */
+export const traceOutcomeEnum = pgEnum("trace_outcome", ["success", "failure", "cancelled"]);
 
 /**
  * One recorded run of a route or workflow with `recordExecution` on. Written by

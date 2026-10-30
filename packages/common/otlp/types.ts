@@ -97,7 +97,8 @@ export type TraceRunPayload = {
 	perfOrigin: number;
 	/** `performance.now()` at run end */
 	endedAt: number;
-	outcome: "success" | "failure";
+	/** `cancelled`: the user stopped a workflow run (#1035); its spans are kept */
+	outcome: "success" | "failure" | "cancelled";
 	statusCode?: number;
 	/** the run hit the per-run byte cap */
 	truncated?: boolean;

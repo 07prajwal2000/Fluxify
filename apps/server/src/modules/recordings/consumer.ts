@@ -34,6 +34,7 @@ const MAX_DELIVER = 5;
 const RETENTION_BATCH = 100;
 
 const outcome = z.enum(["success", "failure"]);
+const runOutcome = z.enum(["success", "failure", "cancelled"]);
 const time = z.number().finite();
 const id = z.string().min(1).max(50);
 
@@ -89,7 +90,7 @@ const runSchema = z
 		startedAtWallMs: time,
 		perfOrigin: time,
 		endedAt: time,
-		outcome,
+		outcome: runOutcome,
 		statusCode: z.number().int().optional(),
 		truncated: z.boolean().optional(),
 		droppedSpans: z.number().int().nonnegative().optional(),

@@ -8,7 +8,7 @@ import {
 	TextField,
 } from "@fluxify/components";
 import { useEffect, useState } from "react";
-import { TbCheck, TbPlayerRecord, TbSearch, TbX } from "react-icons/tb";
+import { TbCheck, TbPlayerRecord, TbPlayerStop, TbSearch, TbX } from "react-icons/tb";
 import { EmptyState } from "@/components/common/EmptyState";
 import { formatDuration } from "@/components/testSuites/CaseResults";
 import { showErrorNotification } from "@/lib/errorNotifier";
@@ -17,7 +17,7 @@ import { recordingsQuery, useRecordingSwitch } from "@/query/recordingsQuery";
 import { routesQuery } from "@/query/routesQuery";
 import { sandboxesQuery } from "@/query/sandboxesQuery";
 import { workflowsQuery } from "@/query/workflowsQuery";
-import type { RecordedRunSummary, RecordingTarget } from "@/services/recordings";
+import type { RecordedRunSummary, RecordingTarget, RunOutcome } from "@/services/recordings";
 import { useRetentionNote } from "./RecordingControls";
 import { RecordingTime } from "./RecordingTime";
 import { isIncomplete } from "./spans";
@@ -30,13 +30,35 @@ const ENV_OPTIONS = [
 ];
 const PAGE_SIZE_OPTIONS = PAGE_SIZES.map((n) => ({ value: String(n), label: `${n} / page` }));
 
-export function OutcomeIcon({ outcome }: { outcome: "success" | "failure" }) {
+export function OutcomeIcon({ outcome }: { outcome: RunOutcome }) {
+	if (outcome === "cancelled")
+		return <TbPlayerStop size={15} className="shrink-0 text-muted" aria-label="Cancelled" />;
 	return outcome === "success" ? (
 		<TbCheck size={15} className="shrink-0 text-success" aria-label="Succeeded" />
 	) : (
 		<TbX size={15} className="shrink-0 text-danger" aria-label="Failed" />
 	);
 }
+
+/** A stopped run is neither a pass nor a failure; its spans up to the stop are kept. */
+export function CancelledChip({ outcome }: { outcome: RunOutcome }) {
+	if (outcome !== "cancelled") return null;
+	return (
+		<Chip
+			size="sm"
+			title="Stopped by a Stop a run request. The blocks that ran before it are kept."
+		>
+			Cancelled
+		</Chip>
+	);
+}
+
+const OUTCOME_FILTERS = [
+	["all", "All", "bg-accent/10 text-accent"],
+	["success", "Passed", "bg-success/10 text-success"],
+	["failure", "Failed", "bg-danger/10 text-danger"],
+	["cancelled", "Cancelled", "bg-surface-secondary text-foreground"],
+] as const;
 
 export function IncompleteChip({ run }: { run: Parameters<typeof isIncomplete>[0] }) {
 	if (!isIncomplete(run)) return null;
@@ -74,7 +96,7 @@ export function RecordedRunList({
 	onClearVersionFilter?: () => void;
 }) {
 	const [page, setPage] = useState(1);
-	const [outcomeFilter, setOutcomeFilter] = useState<"all" | "success" | "failure">("all");
+	const [outcomeFilter, setOutcomeFilter] = useState<"all" | RunOutcome>("all");
 	const [sourceFilter, setSourceFilter] = useState<"all" | "test" | "live">("all");
 	const [envFilter, setEnvFilter] = useState<EnvFilter>("all");
 	const [focusedIndex, setFocusedIndex] = useState(-1);
@@ -267,54 +289,26 @@ export function RecordedRunList({
 							</div>
 						)}
 						<div className="flex items-center gap-1 rounded-lg border border-border bg-background p-0.5">
-							<button
-								type="button"
-								onClick={() => {
-									setOutcomeFilter("all");
-									setPage(1);
-									setFocusedIndex(-1);
-								}}
-								className={cn(
-									"rounded-md px-2 py-0.5 text-xs font-medium transition-colors",
-									outcomeFilter === "all"
-										? "bg-accent/10 text-accent"
-										: "text-muted hover:text-foreground",
-								)}
-							>
-								All
-							</button>
-							<button
-								type="button"
-								onClick={() => {
-									setOutcomeFilter("success");
-									setPage(1);
-									setFocusedIndex(-1);
-								}}
-								className={cn(
-									"rounded-md px-2 py-0.5 text-xs font-medium transition-colors",
-									outcomeFilter === "success"
-										? "bg-success/10 text-success"
-										: "text-muted hover:text-foreground",
-								)}
-							>
-								Passed
-							</button>
-							<button
-								type="button"
-								onClick={() => {
-									setOutcomeFilter("failure");
-									setPage(1);
-									setFocusedIndex(-1);
-								}}
-								className={cn(
-									"rounded-md px-2 py-0.5 text-xs font-medium transition-colors",
-									outcomeFilter === "failure"
-										? "bg-danger/10 text-danger"
-										: "text-muted hover:text-foreground",
-								)}
-							>
-								Failed
-							</button>
+							{OUTCOME_FILTERS.filter(
+								([value]) => value !== "cancelled" || target.type === "workflow",
+							).map(([value, label, active]) => (
+								<button
+									key={value}
+									type="button"
+									aria-pressed={outcomeFilter === value}
+									onClick={() => {
+										setOutcomeFilter(value);
+										setPage(1);
+										setFocusedIndex(-1);
+									}}
+									className={cn(
+										"rounded-md px-2 py-0.5 text-xs font-medium transition-colors",
+										outcomeFilter === value ? active : "text-muted hover:text-foreground",
+									)}
+								>
+									{label}
+								</button>
+							))}
 						</div>
 					</div>
 				</div>
@@ -361,6 +355,7 @@ export function RecordedRunList({
 										Async
 									</Chip>
 								)}
+								<CancelledChip outcome={run.outcome} />
 								<IncompleteChip run={run} />
 								<span className="text-xs text-muted">{run.spanCount} blocks</span>
 								<span className="shrink-0 text-right text-xs text-muted">
