@@ -38,6 +38,8 @@ export const routeConfigSchema = z.object({
 		.min(1)
 		.default(() => [...DEFAULT_CONTENT_TYPES]),
 	bodyMode: z.enum(BODY_MODES).default(DEFAULT_BODY_MODE),
+	/** the NATS or Redis integration `sse.connect` streams through (#1023); unset refuses `connect` */
+	sseBrokerId: z.string().min(1).optional().catch(undefined),
 });
 
 export type RouteConfig = z.infer<typeof routeConfigSchema>;
@@ -80,4 +82,8 @@ export function acceptedContentTypes(stored: unknown): ContentType[] {
 
 export function bodyModeOf(stored: unknown): BodyMode {
 	return parseRouteConfig(stored).bodyMode;
+}
+
+export function sseBrokerOf(stored: unknown): string | undefined {
+	return parseRouteConfig(stored).sseBrokerId;
 }

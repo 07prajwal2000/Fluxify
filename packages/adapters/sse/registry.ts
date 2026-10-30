@@ -25,12 +25,15 @@ export class SseBrokerRegistry {
 	private readonly brokers = new Map<string, Entry>();
 
 	constructor(
-		/** the integration's config, or undefined when it is gone or not the caller's */
-		private readonly resolve: (integrationId: string) => BrokerSource | undefined,
+		/** the integration's config, or undefined when it is gone or not `projectId`'s (#1019) */
+		private readonly resolve: (
+			integrationId: string,
+			projectId: string,
+		) => BrokerSource | undefined,
 	) {}
 
 	brokerFor(projectId: string, integrationId: string): SseBroker {
-		const source = this.resolve(integrationId);
+		const source = this.resolve(integrationId, projectId);
 		if (!source) throw new Error("No SSE broker integration is selected, or it was deleted");
 		const key = `${projectId}\0${integrationId}`;
 		const fingerprint = createHash("sha256").update(JSON.stringify(source)).digest("hex");

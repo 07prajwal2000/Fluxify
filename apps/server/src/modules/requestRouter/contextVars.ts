@@ -8,6 +8,7 @@ import { getAppConfig } from "../../loaders/appconfigLoader";
 import { observabilityIntegrationsCache, ownsIntegration } from "../../loaders/integrationsLoader";
 import { projectSettingsCache } from "../../loaders/projectSettingsLoader";
 import { observabilityLoggerFor } from "./observabilityLogger";
+import { createSseApi } from "./sseRuntime";
 import type { RequestOverrides } from "./types";
 
 /** Default origin for in-process callers (test-suite runner) that predate the envelope. */
@@ -34,6 +35,8 @@ export function setupContextVars(
 	overrides?: RequestOverrides,
 	trigger: TriggerContext = DEFAULT_TRIGGER,
 	signal?: AbortSignal,
+	/** the route's SSE broker setting; absent outside a route */
+	sseBrokerId?: string,
 ): BlockContext["vars"] {
 	// built on the first getHeader: most routes never read a header
 	let headers: Map<string, string> | undefined;
@@ -63,6 +66,7 @@ export function setupContextVars(
 		trigger,
 		// a global in JS blocks; always set, so vars keeps one shape (#944)
 		abortSignal: signal,
+		sse: createSseApi({ projectId, request: ctx?.req.raw, brokerId: sseBrokerId }),
 		jwt: {
 			decode(token, options) {
 				return jwt.decode(token, options) as Record<string, string>;

@@ -111,6 +111,7 @@ export async function dispatch(
 					paramsSchema: path.paramsSchema,
 					timeoutSeconds: path.timeoutSeconds,
 					bodyMode: path.bodyMode,
+					sseBrokerId: path.sseBrokerId,
 					validators: resolveValidators?.(path.id),
 					trace,
 				},
@@ -169,6 +170,8 @@ export async function executeRouteInternal(
 		timeoutSeconds?: number;
 		/** a stream body has no shape to validate; the schema is ignored */
 		bodyMode?: BodyMode;
+		/** the integration `sse.connect` streams through */
+		sseBrokerId?: string;
 		trace?: BlockTrace;
 		validators?: {
 			body?: CompiledRequestSchema;
@@ -205,6 +208,7 @@ export async function executeRouteInternal(
 		overrides,
 		trigger,
 		signal,
+		routeInfo.sseBrokerId,
 	);
 
 	if (

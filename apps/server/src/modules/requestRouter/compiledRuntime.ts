@@ -514,6 +514,7 @@ function routeDefinition(artifact: RouteArtifact): HttpRoute {
 		timeoutSeconds: artifact.timeoutSeconds,
 		acceptedContentTypes: artifact.acceptedContentTypes,
 		bodyMode: artifact.bodyMode,
+		sseBrokerId: artifact.sseBrokerId,
 		tracingEnabled: artifact.tracingEnabled,
 		recordExecution: artifact.recordExecution,
 		routeVersion: artifact.routeVersion,
