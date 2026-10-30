@@ -21,6 +21,7 @@ import {
 	triggerEntrySchema,
 } from "@fluxify/sdk/triggers";
 import { z } from "zod";
+import { inferOutputs } from "./inferOutput";
 import { lintDocs } from "./lint/docs";
 import { findUnawaited } from "./lint/unawaited";
 import { pack } from "./pack";
@@ -156,6 +157,10 @@ export async function build(root: string): Promise<BuildResult> {
 	// with this plugin's real version, before anything is written
 	const idProblem = blockIdProblem(plugin.name, plugin.version, Object.keys(entries));
 	if (idProblem) fail(idProblem);
+	// the type of what each block outputs, read from its `run`, for the handles the author left out
+	const inferred = await inferOutputs(root, blocks, entries);
+	for (const [type, fields] of Object.entries(inferred.outputs))
+		Object.assign(entries[type], fields);
 	const shipped = [entries, i.entries, t.entries].flatMap((e) => Object.entries(e));
 	for (const [type, entry] of shipped as [string, { icon?: string }][])
 		if (entry.icon) entry.icon = shipIcon(plugin, type, entry.icon);
@@ -188,7 +193,7 @@ export async function build(root: string): Promise<BuildResult> {
 `,
 	);
 
-	const warnings = await lint(blocks, entries, integrated, triggered);
+	const warnings = [...inferred.warnings, ...(await lint(blocks, entries, integrated, triggered))];
 	const tarball = await pack(plugin, manifest.data!);
 	return { plugin, manifest: manifest.data!, tarball, warnings };
 }
