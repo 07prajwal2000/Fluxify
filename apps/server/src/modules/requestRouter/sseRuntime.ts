@@ -1,5 +1,6 @@
 import { type BrokerSource, type SseBroker, SseBrokerRegistry } from "@fluxify/adapters/sse";
 import type { ContextVarsType } from "@fluxify/blocks";
+import { logger } from "@fluxify/common";
 import { BAD_HANDLE, parseHandle, sseData } from "@fluxify/sdk/runtime";
 import {
 	kvIntegrationsCache,
@@ -64,12 +65,29 @@ const owners = new Map<string, Owner>();
  */
 const signals = new Map<string, AbortController>();
 
+/** what `send` returns: whether a client is on the stream, as far as this process has heard */
+type Presence = {
+	broker: SseBroker;
+	connected: boolean;
+	subscribed: Promise<() => Promise<void>>;
+	idle?: ReturnType<typeof setTimeout>;
+};
+/**
+ * ponytail: a sender only hears of a client leaving while it watches. Its first
+ * send, or one after this long without any, assumes the client is there. A
+ * presence query per send would cost a round trip per token.
+ */
+const PRESENCE_IDLE_MS = 10 * 60_000;
+const presences = new Map<string, Presence>();
+
 const publish = (broker: SseBroker, subject: string, envelope: SseEnvelope) =>
 	broker.publish(subject, JSON.stringify(envelope));
 
 /** Closes every broker connection. For shutdown and tests. */
 export async function closeSseBrokers() {
 	for (const owner of owners.values()) owner.stream.close();
+	for (const presence of presences.values()) clearTimeout(presence.idle);
+	presences.clear();
 	await registry.closeAll();
 }
 
@@ -106,13 +124,22 @@ export function createSseApi(options: {
 		async send(handle, data, options) {
 			const { event, eventId } = options ?? {};
 			const { broker, subject } = target(handle);
-			await owners.get(subject)?.ready;
-			await publish(broker, subject, {
+			const envelope: SseEnvelope = {
 				t: "data",
 				d: sseData(data),
 				event: event === undefined ? undefined : String(event),
 				eventId: eventId === undefined ? undefined : String(eventId),
-			});
+			};
+			await owners.get(subject)?.ready;
+			try {
+				const presence = await present(broker, subject);
+				// published even when it reads false: a client may have just come back
+				await publish(broker, subject, envelope);
+				return presence.connected;
+			} catch (error) {
+				logger.warn(`[sse] send failed: ${(error as Error)?.message ?? error}`, "SSE.send");
+				return false;
+			}
 		},
 		async close(handle) {
 			const { broker, subject } = target(handle);
@@ -173,6 +200,37 @@ function hold(broker: SseBroker, subject: string, stream: SseStream) {
 		stream.write({ event: "error", data: { message: String(error?.message ?? error) } });
 		stream.close();
 	});
+}
+
+/** Follows one stream for its senders: a client leaving reads false until a reconnect's takeover. */
+async function present(broker: SseBroker, subject: string) {
+	let presence = presences.get(subject);
+	if (presence?.broker !== broker) {
+		const fresh: Presence = {
+			broker,
+			connected: true,
+			subscribed: broker.subscribe(subject, (message) => {
+				const t = parseEnvelope(message)?.t;
+				if (t === "closed" || t === "close") fresh.connected = false;
+				else if (t === "takeover") fresh.connected = true;
+			}),
+		};
+		presence = fresh;
+		presences.set(subject, fresh);
+		// a failed subscribe is retried by the next send, not cached
+		fresh.subscribed.catch(() => {
+			if (presences.get(subject) === fresh) presences.delete(subject);
+		});
+	}
+	const current = presence;
+	await current.subscribed;
+	clearTimeout(current.idle);
+	current.idle = setTimeout(() => {
+		if (presences.get(subject) === current) presences.delete(subject);
+		void current.subscribed.then((undo) => undo()).catch(() => undefined);
+	}, PRESENCE_IDLE_MS);
+	current.idle.unref?.();
+	return current;
 }
 
 function watch(broker: SseBroker, subject: string, after?: Promise<void>) {

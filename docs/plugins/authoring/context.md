@@ -157,7 +157,7 @@ The same signal is available as `ctx.vars.abortSignal`.
 
 | Call | What it does |
 | :--- | :--- |
-| `await ctx.sse.send(handle, data, { event, eventId })` | Sends one event. Text goes as it is, anything else as JSON. `event` and `eventId` are optional |
+| `await ctx.sse.send(handle, data, { event, eventId })` | Sends one event. Text goes as it is, anything else as JSON. `event` and `eventId` are optional. Returns `false`, without throwing, when no client is connected or the broker failed |
 | `await ctx.sse.close(handle)` | Ends the stream. Safe to call twice |
 | `ctx.sse.signal(handle)` | An `AbortSignal` that aborts when the client leaves, or the stream is closed or taken over |
 
