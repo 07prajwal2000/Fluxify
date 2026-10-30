@@ -23,6 +23,7 @@ const STOP = "stop";
 const RETRY_DELAY_MS = 2_000;
 
 let container: Docker.Container;
+const ports: number[] = [];
 let events: string[] = [];
 const holds = new Map<string, () => void>();
 const server = Bun.serve({
@@ -112,9 +113,11 @@ const artifacts = [
 ];
 
 function supervisorFor() {
+	const port = 20_000 + Math.floor(Math.random() * 12_000);
+	ports.push(port);
 	const supervisor = createExecutionSupervisor({
 		projectId: PROJECT,
-		port: 20_000 + Math.floor(Math.random() * 12_000),
+		port,
 		entry: new URL("../../requestRouter/executionProcess.ts", import.meta.url),
 		databaseIdleTimeoutMs: 5_000,
 		asyncExecutor: { maxInFlight: 1, maxQueueDepth: 1, drainTimeoutMs: 2_000 },
@@ -128,6 +131,19 @@ function supervisorFor() {
 	});
 	supervisor.start();
 	return supervisor;
+}
+
+/** A child binds its port only after registering its job handlers: until then a job is refused. */
+async function childrenReady() {
+	for (const port of ports)
+		await until(
+			() =>
+				fetch(`http://127.0.0.1:${port}`).then(
+					() => true,
+					() => false,
+				),
+			`the child on ${port}`,
+		);
 }
 
 /** holds the runs, and consumes and watches as a worker does */
@@ -165,6 +181,7 @@ beforeAll(async () => {
 	}
 	worker = supervisorFor();
 	other = supervisorFor();
+	await childrenReady();
 	triggers = new TriggerWorker({ projectId: PROJECT, run: worker.runJob, retryDelayMs: RETRY_DELAY_MS });
 	await triggers.start();
 }, 120_000);
