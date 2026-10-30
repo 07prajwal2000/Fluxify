@@ -13,6 +13,7 @@ type Entry = {
 	invoke: InvokeMode[];
 	permissions: { integrations?: string[]; appconfig?: boolean };
 	tabs?: string[];
+	output?: string | Partial<Record<string, string>>;
 };
 export type Issue = (message: string, path: (string | number)[]) => void;
 
@@ -109,6 +110,17 @@ export function checkEntry(entry: Entry, ctx: z.RefinementCtx) {
 			`a block with success/failure outputs can only be invoked sync, not ${detached.join(", ")}`,
 			["invoke"],
 		);
+	// a type per handle, and only for a handle the block has
+	const { output } = entry;
+	if (typeof output === "string" && handles.out.length === 0)
+		issue("output is set but the block has no output handle", ["output"]);
+	else if (output && typeof output === "object")
+		for (const key of Object.keys(output))
+			if (!(handles.out as string[]).includes(key))
+				issue(`output names '${key}', which is not an output handle of this block`, [
+					"output",
+					key,
+				]);
 	// only a sync call has a run to hand `executeHandle` to
 	if (handles.body.length && !invoke.includes("sync"))
 		issue("a block with body handles must allow sync invoke: only a sync call can run them", [

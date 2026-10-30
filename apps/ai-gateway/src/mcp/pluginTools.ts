@@ -50,7 +50,7 @@ function contract(plugin: Plugin, type: string, block: any) {
 	return `${type} (${block.label}, plugin ${plugin.name}@${plugin.version}; runs in: ${runs(plugin)})
 Params (block data keys):
 ${params(block).join("\n") || "- none"}
-Handles (connect from): ${handles.join(", ") || "none, it ends the flow"}
+Handles (connect from): ${handles.join(", ") || "none, it ends the flow"}${block.output ? `\nOutput type: ${typeof block.output === "string" ? block.output : JSON.stringify(block.output)}` : ""}
 Invoke: ${block.invoke.join(", ")}${block.deprecated ? `\nDeprecated: ${block.deprecated}` : ""}${docs}`;
 }
 

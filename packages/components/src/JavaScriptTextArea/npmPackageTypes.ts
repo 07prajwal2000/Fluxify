@@ -152,6 +152,15 @@ export function useNpmPackageTypes(
 }
 
 /**
+ * Loads one package's types once per name, for code that is not a component
+ * (a block's declared output type names packages: `import("pkg").Type`). Never
+ * rejects: a package with no types stays untyped.
+ */
+export function loadPackageTypes(name: string, version: string): Promise<void> {
+	return loadDependency(name, version) ?? Promise.resolve();
+}
+
+/**
  * Types for one package the editor itself hands to user code (e.g. zod as
  * `t.zod` in test suites), loaded once and without touching the project's
  * import list.

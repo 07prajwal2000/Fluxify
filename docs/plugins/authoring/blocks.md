@@ -37,6 +37,8 @@ export default block({
 | [`params`](#params) | No | None | The settings the user fills in |
 | [`tabs`](#tabs) | No | By first use | The order of the settings tabs |
 | [`handles`](#handles) | No | In `target`, out `source` | Inputs, outputs and nested chains |
+| [`output`](#output) | No | `any` | The type of what the block outputs, so the next block's editor completes `input` |
+| [`outputPackages`](#outputpackages) | No | None | The npm packages `output` takes types from |
 | [`run`](#run) | Yes | | The code |
 | [Deprecation](#deprecation) | No | | A message that the block is going away |
 
@@ -153,6 +155,39 @@ Inputs, outputs and nested chains. See [handles](./handles).
 ```ts
 handles: { out: [handle.out("success"), handle.out("failure")] },
 ```
+
+### output
+
+The TypeScript type of what the block outputs. The next block's code editors use it to complete `input` while the user types. Without it, `input` is `any`, as it is for any plugin block today.
+
+A single string types the block's first output: `success` when the block has success and failure outputs, `source` otherwise. The other output stays `any`. An object types each output by its name:
+
+```ts
+// one output
+output: "{ id: string; ok: boolean }",
+
+// success and failure
+handles: { out: [handle.out("success"), handle.out("failure")] },
+output: { success: "{ id: string }", failure: "string" },
+```
+
+The type is only a hint for the editor. Fluxify does not check that `run` returns it, so keep the two in step.
+
+| Rule | Limit |
+| :--- | :--- |
+| Length of each type | 2048 characters |
+| Names in an object | Only outputs the block has: `source`, `success` or `failure` |
+
+### outputPackages
+
+The npm packages your `output` takes types from, as the package name and an exact version. The editor loads their types, so a type like `import("zod").ZodType` completes even if the project did not install the package.
+
+```ts
+output: 'import("zod").ZodType',
+outputPackages: { zod: "4.1.5" },
+```
+
+You can list up to 5 packages. Each version must be exact, like `1.2.3` or `1.2.3-beta.1`; a range such as `^1.2.3` or `latest` is refused.
 
 ### run
 

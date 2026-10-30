@@ -60,6 +60,7 @@ describe("get_plugin_blocks", () => {
 							shape: { type: "fieldMap" },
 							note: { type: "hint", text: "Read this" },
 						},
+						output: { success: "{ id: string }" },
 						docs: "## When to use it",
 					},
 				},
@@ -83,6 +84,7 @@ describe("get_plugin_blocks", () => {
 		expect(text).not.toContain("note");
 		expect(text).toContain("- conn: integration (a kv integration id)");
 		expect(text).toContain("Handles (connect from): success, failure");
+		expect(text).toContain('Output type: {"success":"{ id: string }"}');
 		expect(text).toContain("## When to use it");
 		expect(text).toContain("acme/gone/x: no plugin of this project has it");
 	});

@@ -4,7 +4,12 @@ export { FLUXIFY_JS_GLOBALS } from "./globals";
 export { buildInputDataTypeLib, useInputDataTypes } from "./inputDataTypes";
 export type { JavaScriptTextAreaProps } from "./JavaScriptTextArea";
 export { JavaScriptTextArea } from "./lazy";
-export { type InstalledPackage, useNpmPackageTypes, usePackageTypes } from "./npmPackageTypes";
+export {
+	type InstalledPackage,
+	loadPackageTypes,
+	useNpmPackageTypes,
+	usePackageTypes,
+} from "./npmPackageTypes";
 export {
 	buildParamsTypeLib,
 	type CustomBlockParamDef,

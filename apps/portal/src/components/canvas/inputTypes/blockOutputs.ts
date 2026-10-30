@@ -1,5 +1,6 @@
 import { BLOCK_TYPES } from "../blocks/blockTypes";
 import { readDbBinding } from "../panel/blocks/db/conditions";
+import { isPluginType } from "../plugins/pluginBlocks";
 import { DB_TABLE_BLOCKS } from "./dbOutputType";
 
 type Data = Record<string, unknown>;
@@ -138,6 +139,8 @@ export function typeDependencies(node: { id: string; type?: string; data?: unkno
 		const { columns, joins, paging, onConflict } = data;
 		return [node.id, type, connectionId, tableName, columns, joins, paging, onConflict];
 	}
+	// a plugin block's output comes from its manifest, which the resolver's context carries
+	if (isPluginType(type)) return [node.id, type];
 	if (BUILT_FROM_DATA.has(type)) return [node.id, type, data];
 	if (scriptOf(type, data) !== undefined) return [node.id, type, scriptOf(type, data)];
 	if (fixedOutput(type, data) !== null) return [node.id, type, data.mode];
