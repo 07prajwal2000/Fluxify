@@ -72,6 +72,19 @@ export type BlockDefinition<P extends Params, H extends Handles> = {
 	tabs?: readonly string[];
 	/** default: in `target`, out `source`, no body handles */
 	handles?: H;
+	/**
+	 * The TypeScript type of what the block outputs, so the next block's editors
+	 * complete `input`. A type expression (`"{ id: string }"`) types the first
+	 * output (`success` for success/failure blocks, else `source`); an object
+	 * types each output by name (`{ success: "...", failure: "string" }`). At
+	 * most 2048 characters each; an output left out is `any`.
+	 */
+	output?: string | { [K in OutName<H>]?: string };
+	/**
+	 * The npm packages `output` imports types from (`import("zod").ZodType`),
+	 * name to exact version, at most 5. The editor loads their types.
+	 */
+	outputPackages?: Record<string, string>;
 	/** set by `deprecated(...)` */
 	deprecated?: string;
 	run(args: RunArgs<P, H>): RunResult<OutName<H>> | void | Promise<RunResult<OutName<H>> | void>;
@@ -120,6 +133,8 @@ export function toManifestEntry(def: BlockDefinition<Params, Handles>): Manifest
 		permissions: def.permissions ?? {},
 		...placeParams(def),
 		handles: toHandleSpec(def.handles),
+		output: def.output,
+		outputPackages: def.outputPackages,
 		deprecated: def.deprecated ?? null,
 	};
 	// drops `undefined`s, so the entry is exactly what `fluxify.json` will hold

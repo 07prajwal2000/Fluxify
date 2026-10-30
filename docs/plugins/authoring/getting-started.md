@@ -58,7 +58,7 @@ bun test
 bun run build
 ```
 
-`bun run build` is `fluxify-cli blocks build`. It bundles every block, writes `fluxify.json`, and packs everything into `acme-slack-0.1.0.tgz` (the plugin name with `/` as `-`, then the version from `package.json`). It prints a warning for each thing worth fixing and stops on each thing that would make Fluxify refuse the plugin:
+`bun run build` is `fluxify-cli blocks build`. It bundles every block, works out the type each block outputs from its `run` (so the next block's editor can complete `input`), writes `fluxify.json`, and packs everything into `acme-slack-0.1.0.tgz` (the plugin name with `/` as `-`, then the version from `package.json`). It prints a warning for each thing worth fixing and stops on each thing that would make Fluxify refuse the plugin:
 
 | Stops the build | Warns |
 | :--- | :--- |
@@ -66,7 +66,7 @@ bun run build
 | No blocks in `src/blocks` | A block's `docs` uses markdown the portal's Docs tab cannot show |
 | A block's name is not the plugin name plus its path | A param is in a tab that `tabs` does not list |
 | A block definition Fluxify would refuse (a reserved param name, a `visibleWhen` that names no param, and so on) | `executeHandle(...)` is not awaited |
-| `@fluxify/sdk` or `zod` in `dependencies` | |
+| `@fluxify/sdk` or `zod` in `dependencies` | An output type is too long to keep, so the editor uses `any` for it |
 | Runtime `dependencies` without a usable `bun.lock` | |
 | An icon that is missing, outside the plugin, not an image, or too large | |
 

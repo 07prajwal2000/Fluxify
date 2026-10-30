@@ -37,6 +37,8 @@ export default block({
 | [`params`](#params) | No | None | The settings the user fills in |
 | [`tabs`](#tabs) | No | By first use | The order of the settings tabs |
 | [`handles`](#handles) | No | In `target`, out `source` | Inputs, outputs and nested chains |
+| [`output`](#output) | No | Worked out from `run` | The type of what the block outputs, so the next block's editor completes `input` |
+| [`outputPackages`](#outputpackages) | No | Filled in by the build | The npm packages `output` takes types from |
 | [`run`](#run) | Yes | | The code |
 | [Deprecation](#deprecation) | No | | A message that the block is going away |
 
@@ -153,6 +155,67 @@ Inputs, outputs and nested chains. See [handles](./handles).
 ```ts
 handles: { out: [handle.out("success"), handle.out("failure")] },
 ```
+
+### output
+
+The TypeScript type of what the block outputs. The next block's code editors use it to complete `input` while the user types.
+
+You do not have to write it. `bun run build` reads what your `run` returns and writes the type into `fluxify.json` for you:
+
+```ts
+// the build works out: { id: string; ok: boolean }
+async run() {
+	return { output: { id: "a1", ok: true } };
+},
+```
+
+With success and failure outputs, each output gets the type of the `output` returned with that `handle`. A return with no `handle` counts for the first output.
+
+```ts
+handles: { out: [handle.out("success"), handle.out("failure")] },
+// the build works out: success is { id: string }, failure is string
+run() {
+	if (ok) return { output: { id: "a1" }, handle: "success" };
+	return { output: "boom", handle: "failure" };
+},
+```
+
+An output is left as `any` when the build cannot tell its type: `run` returns a value of an unknown type, or returns no `output`. That is safe, it just means no completion.
+
+To write a type yourself, set `output`. A single string types the block's first output: `success` when the block has success and failure outputs, `source` otherwise. An object types each output by its name. What you write wins over what the build works out, and the build only fills in the outputs you left out:
+
+```ts
+// one output
+output: "{ id: string; ok: boolean }",
+
+// success and failure: failure is still worked out from run
+handles: { out: [handle.out("success"), handle.out("failure")] },
+output: { success: "{ id: string }" },
+```
+
+The type is only a hint for the editor. Fluxify does not check that `run` returns it, so keep the two in step if you write it by hand.
+
+| Rule | Limit |
+| :--- | :--- |
+| Length of each type | 2048 characters. The build leaves a longer one out and prints a warning |
+| Names in an object | Only outputs the block has: `source`, `success` or `failure` |
+
+::: tip Keep outputs small
+Types from your own interfaces are written out in full, a few levels deep, and deeper parts become `any`. A very large output type is better trimmed in `run` or written by hand.
+:::
+
+### outputPackages
+
+The npm packages your `output` takes types from, as the package name and an exact version. The editor loads their types, so a type like `import("zod").ZodType` completes even if the project did not install the package.
+
+When `run` returns a type that an installed package exports, such as `LanguageModelUsage` from `ai`, the build refers to the package (`import("ai").LanguageModelUsage`) and adds the package with the version installed in your plugin. You can also write it yourself:
+
+```ts
+output: 'import("zod").ZodType',
+outputPackages: { zod: "4.1.5" },
+```
+
+If you list a package the build would also add, your version is used. You can list up to 5 packages; the build keeps the first 5 and prints a warning for the rest. Each version must be exact, like `1.2.3` or `1.2.3-beta.1`; a range such as `^1.2.3` or `latest` is refused.
 
 ### run
 

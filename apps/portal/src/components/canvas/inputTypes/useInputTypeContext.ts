@@ -1,9 +1,11 @@
-import { inferScriptOutput } from "@fluxify/components";
+import { inferScriptOutput, loadPackageTypes } from "@fluxify/components";
 import { useQueryClient } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { integrationMetadataOptions } from "@/query/findResourceQuery";
+import { usePluginBlocks } from "../plugins/PluginBlocksContext";
 import { typeDependencies } from "./blockOutputs";
+import { makePluginOutput } from "./pluginOutputType";
 import type { InferOutput, InputTypeContext } from "./resolveInputType";
 
 type GraphNode = { id: string; type?: string; data?: unknown };
@@ -30,9 +32,11 @@ const cachedInfer: InferOutput = (source, inputType) => {
 export function useInputTypeContext(): InputTypeContext {
 	const queryClient = useQueryClient();
 	const projectId = (useParams({ strict: false }) as { projectId?: string }).projectId ?? "";
+	const { byType } = usePluginBlocks();
 	return useMemo(
 		() => ({
 			infer: cachedInfer,
+			pluginOutput: makePluginOutput(byType, loadPackageTypes),
 			loadDbMeta: async (connectionId: string) => {
 				const data = await queryClient.ensureQueryData(
 					integrationMetadataOptions(projectId, connectionId),
@@ -40,7 +44,7 @@ export function useInputTypeContext(): InputTypeContext {
 				return data ? { variant: data.variant, tables: data.metadata.tables } : null;
 			},
 		}),
-		[queryClient, projectId],
+		[queryClient, projectId, byType],
 	);
 }
 

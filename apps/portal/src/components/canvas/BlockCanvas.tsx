@@ -522,8 +522,8 @@ export function BlockCanvas(props: BlockCanvasProps) {
 	const hasProvider = useHasDiagnosticsProvider();
 	const content = (
 		<ReactFlowProvider>
-			<CanvasVariableSnippets />
 			<PluginBlocksProvider>
+				<CanvasVariableSnippets />
 				<CanvasPlaygroundProvider>
 					<KeyboardShortcutsProvider>
 						<CanvasInner {...props} />

@@ -161,6 +161,39 @@ const permissionsSchema = z.strictObject({
 	appconfig: z.boolean().optional(),
 });
 
+/** a TypeScript type expression is at most this long */
+export const OUTPUT_TYPE_MAX = 2048;
+/** a block may name at most this many packages its output type imports from */
+export const OUTPUT_PACKAGES_MAX = 5;
+/** an npm package name, scoped or not */
+export const NPM_PACKAGE_NAME = /^(?:@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/;
+/** an exact version: `1.2.3`, optionally with a prerelease (`1.2.3-beta.1`) */
+export const EXACT_VERSION = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
+
+const outputType = z.string().max(OUTPUT_TYPE_MAX);
+
+/** a block's output type: one expression for its first output, or one per output handle */
+const outputSchema = z.union([
+	outputType,
+	z.partialRecord(z.enum(["source", "success", "failure"]), outputType),
+]);
+
+/** the packages an output type imports from: name -> exact version */
+const outputPackagesSchema = z
+	.record(z.string(), z.string().regex(EXACT_VERSION, "must be an exact version, like 1.2.3"))
+	.superRefine((packages, ctx) => {
+		const names = Object.keys(packages);
+		if (names.length > OUTPUT_PACKAGES_MAX)
+			ctx.addIssue({ code: "custom", message: `at most ${OUTPUT_PACKAGES_MAX} packages` });
+		for (const name of names)
+			if (name.length > 214 || !NPM_PACKAGE_NAME.test(name))
+				ctx.addIssue({
+					code: "custom",
+					message: `'${name}' must be an npm package name, like zod or @scope/name`,
+					path: [name],
+				});
+	});
+
 /** scope/name(/folder)*: lowercase segments, at least scope, plugin and block */
 export const BLOCK_NAME = /^[a-z0-9][a-z0-9_-]*(\/[a-z0-9][a-z0-9_-]*){2,}$/;
 
@@ -191,6 +224,10 @@ export const manifestEntrySchema = z
 		/** the settings tabs in order (see `paramTabs`) */
 		tabs: tabsSchema,
 		handles: handleSpecSchema,
+		/** the TypeScript type of what the block outputs, for the next block's `input` */
+		output: outputSchema.optional(),
+		/** the npm packages `output` imports types from, name -> exact version */
+		outputPackages: outputPackagesSchema.optional(),
 		deprecated: z.string().min(1).nullable(),
 	})
 	.superRefine(checkEntry);

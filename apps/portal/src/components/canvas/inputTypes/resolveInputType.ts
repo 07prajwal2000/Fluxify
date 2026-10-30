@@ -1,6 +1,7 @@
 import { BLOCK_TYPES } from "../blocks/blockTypes";
 import { readDbBinding } from "../panel/blocks/db/conditions";
 import { blockAssignedGlobals } from "../panel/scriptGlobals";
+import { isPluginType } from "../plugins/pluginBlocks";
 import {
 	CHAIN_FAILURE,
 	fieldMapOutput,
@@ -27,6 +28,8 @@ export type InputTypeContext = {
 	infer: InferOutput;
 	/** the tables and columns of a database connection, or null when unreadable */
 	loadDbMeta: (connectionId: string) => Promise<DbMeta | null>;
+	/** the type a plugin block declares for one of its handles, or null when it declares none */
+	pluginOutput?: (type: string, kind: string) => string | null;
 };
 
 /** Blocks further back than this are not followed: `any` beats a slow editor. */
@@ -63,9 +66,10 @@ export const SAVES_ON_SUCCESS: ReadonlySet<string> = new Set([
  * Works out the type a block hands on, and so the type of `input` after it.
  * One resolver shares its work, so ask it for everything the canvas needs.
  *
- * `input` is the union of what the blocks wired into a block hand over. Custom
- * and plugin blocks, and anything it cannot place or a cycle, are `any`, which
- * is what the editor showed before.
+ * `input` is the union of what the blocks wired into a block hand over. A
+ * plugin block hands over the type its manifest declares. Custom blocks, and
+ * anything it cannot place or a cycle, are `any`, which is what the editor
+ * showed before.
  */
 export function createResolver(nodes: GraphNode[], edges: GraphEdge[], ctx: InputTypeContext) {
 	const byId = new Map(nodes.map((node) => [node.id, node]));
@@ -214,6 +218,8 @@ export function createResolver(nodes: GraphNode[], edges: GraphEdge[], ctx: Inpu
 			const meta = connectionId ? await ctx.loadDbMeta(connectionId) : null;
 			return dbBlockOutput(type, data, meta, tableName);
 		}
+		// a plugin block says what it hands on; body handles and silence are `any`
+		if (isPluginType(type)) return ctx.pluginOutput?.(type, kind) ?? "any";
 		if (kind !== "source") return "any";
 		if (fixed !== null) return fixed;
 		const script = scriptOf(type, data);

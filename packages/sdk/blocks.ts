@@ -28,6 +28,7 @@ export {
 export {
 	BLOCK_NAME,
 	blockEntryPath,
+	EXACT_VERSION,
 	type FluxifyManifest,
 	fluxifyManifestSchema,
 	type IntegrationEntry,
@@ -35,6 +36,9 @@ export {
 	integrationEntrySchema,
 	type ManifestEntry,
 	manifestEntrySchema,
+	NPM_PACKAGE_NAME,
+	OUTPUT_PACKAGES_MAX,
+	OUTPUT_TYPE_MAX,
 	PLUGIN_NAME,
 	paramSchema,
 	SDK_RANGE,
