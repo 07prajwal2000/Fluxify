@@ -1,5 +1,6 @@
 import z from "zod";
 import { baseBlockDataSchema, type Context } from "../baseBlock";
+import { BlockTypes } from "../blockTypes";
 import { type EmitNode, emitJsObject } from "../compiler";
 import {
 	assertTriggerPayloadSize,
@@ -9,6 +10,7 @@ import {
 	type JobRequest,
 	type RetryPolicy,
 	resolveRunAt,
+	STOP_RUN_JOB,
 	TRIGGER_WORKFLOW_JOB,
 } from "../jobs";
 
@@ -41,22 +43,60 @@ export const triggerWorkflowSchema = z
 		maxAttempts: z.coerce.number().int().min(1).max(5).optional(),
 		/** Wait before the first retry; doubles after each failed attempt. */
 		retryDelayMs: z.coerce.number().int().min(0).max(300_000).optional(),
-		/** `now` queues at once, `later` holds the run until `runAt`, `cancel` drops a held one. */
-		mode: z.enum(["now", "later", "cancel"]).default("now"),
+		/**
+		 * `now` queues at once, `later` holds the run until `runAt`, `cancel` drops a
+		 * held one, `stop` stops the runs fired earlier with `runKey`.
+		 */
+		mode: z.enum(["now", "later", "cancel", "stop"]).default("now"),
 		/** ISO time or a delay like `24h`; `js:` allowed. Checked when the block runs. */
 		runAt: z.string().default(""),
 		/** The id a `later` block returned; `js:` allowed. */
 		scheduleId: z.string().default(""),
+		/** Run ID: names a `now` run so a `stop` block can stop it; `js:` allowed. */
+		runKey: z.string().default(""),
 	})
 	.extend(baseBlockDataSchema.shape);
+
+export const triggerWorkflowAiDescription = {
+	name: BlockTypes.triggerWorkflow,
+	description:
+		"Starts a workflow in the background and carries on without waiting for it. mode 'now' queues it at once, 'later' holds it until runAt, 'cancel' drops a held run by scheduleId. Set runKey (Run ID, for example a conversation id) on a 'now' run to be able to stop it; mode 'stop' with the same runKey stops every run fired earlier with that id, wherever it is running, queued or waiting to retry. A later run with the same id runs normally, and stopping an id with no run does nothing. A stop takes effect at the run's next I/O call: work already done stays done, and workflows it fired keep running.",
+	jsonSchema: JSON.stringify(z.toJSONSchema(triggerWorkflowSchema)),
+	output:
+		"Its input, unchanged. In 'later' mode, `{ id, runAt }` instead: keep the id to cancel the run.",
+	example: {
+		workflowId: "0198c1f0-7a2b-7c3d-8e4f-5a6b7c8d9e0f",
+		mode: "now",
+		useInput: true,
+		runKey: "js: return input.conversationId;",
+	},
+};
 
 export function fireWorkflow(
 	context: Context,
 	workflowId: string,
 	data: unknown,
 	retry?: RetryPolicy,
+	runKey?: unknown,
 ) {
-	queueRun(context, workflowId, data, retry);
+	const key = readRunKey(runKey);
+	queueRun(context, workflowId, data, retry, key ? { runKey: key } : undefined);
+}
+
+/** Stops the runs fired earlier with this Run ID. An id with no run does nothing. */
+export function stopRun(context: Context, runKey?: unknown) {
+	const target = readRunKey(runKey);
+	if (!target) throw new Error("Stop a run needs a Run ID");
+	enqueueJob({ kind: STOP_RUN_JOB, projectId: context.projectId, target });
+}
+
+/** Blank means no Run ID. An object would make every run share `[object Object]`. */
+function readRunKey(value: unknown) {
+	if (value === undefined || value === null) return undefined;
+	if (typeof value !== "string" && typeof value !== "number" && typeof value !== "bigint")
+		throw new Error(`Run ID must be text or a number, got ${typeof value}`);
+	const key = String(value);
+	return key.trim() ? key : undefined;
 }
 
 /**
@@ -92,7 +132,7 @@ function queueRun(
 	workflowId: string,
 	data: unknown,
 	retry?: RetryPolicy,
-	schedule?: Pick<JobRequest, "id" | "runAt">,
+	extra?: Pick<JobRequest, "id" | "runAt" | "runKey">,
 ) {
 	// The block saves without a workflow so a canvas can be a work in progress;
 	// running without one is the point at which that stops being acceptable.
@@ -105,15 +145,16 @@ function queueRun(
 		payload: data,
 		origin: { route: context.route, apiId: context.apiId },
 		retry,
-		...schedule,
+		...extra,
 	});
 }
 
 export function emitTriggerWorkflow(node: EmitNode) {
-	const { workflowId, useInput, data, maxAttempts, retryDelayMs, mode, runAt, scheduleId } = (node
-		.block.data ?? {}) as Record<string, unknown>;
+	const { workflowId, useInput, data, maxAttempts, retryDelayMs, mode, runAt, scheduleId, runKey } =
+		(node.block.data ?? {}) as Record<string, unknown>;
 	if (mode === "cancel")
 		return `lib.cancelSchedule(ctx, ${node.value(scheduleId ?? "")});\n${node.next()}`;
+	if (mode === "stop") return `lib.stopRun(ctx, ${node.value(runKey ?? "")});\n${node.next()}`;
 
 	const retry = JSON.stringify({
 		maxAttempts: numberOrUndefined(maxAttempts),
@@ -128,7 +169,8 @@ export function emitTriggerWorkflow(node: EmitNode) {
 	// A later run outputs its handle, so the next block can keep the id to cancel it.
 	if (mode === "later")
 		return `${node.in} = lib.scheduleWorkflow(ctx, ${id}, ${value}, ${node.value(runAt ?? "")}, ${retry});\n${node.next()}`;
-	return `lib.fireWorkflow(ctx, ${id}, ${value}, ${retry});\n${node.next()}`;
+	const key = runKey ? `, ${node.value(runKey)}` : "";
+	return `lib.fireWorkflow(ctx, ${id}, ${value}, ${retry}${key});\n${node.next()}`;
 }
 
 function numberOrUndefined(value: unknown) {

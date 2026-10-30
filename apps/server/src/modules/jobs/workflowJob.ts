@@ -6,6 +6,7 @@ import { type TraceSinks, wantsSpans } from "../requestRouter/traceLifecycle";
 import type { WorkflowTrace } from "../telemetry/routeRecorder";
 import { isTriggerBatch } from "../triggers/types";
 import { registerJobHandler } from "./registry";
+import { trackRun } from "./runStops";
 import { WORKFLOW_JOB } from "./subjects";
 import type { JobEnvelope } from "./types";
 
@@ -48,9 +49,40 @@ export function registerWorkflowJobHandler(factory?: WorkflowTraceFactory) {
 /**
  * One workflow run, shared by queued jobs and external queue batches. Resolves
  * on success, throws on failure, and resolves without running when this
- * process holds no such workflow.
+ * process holds no such workflow or a stop already reached this run. A stopped
+ * run always resolves, so the queue never retries it.
  */
 export async function runWorkflowJob(job: JobEnvelope, extras?: QueueRunExtras) {
+	const run = trackRun(job);
+	try {
+		if (run?.signal.aborted) {
+			logger.info(`[jobs] run ${job.runKey} was stopped before it started`, "JOBS.workflow");
+			return;
+		}
+		await executeWorkflow(job, extras, run?.signal);
+	} finally {
+		run?.end();
+	}
+}
+
+/**
+ * Where a stopped run's outcome is recorded. Its spans are kept.
+ * #1035: this becomes `trace?.complete("cancelled")`.
+ */
+function completeStopped(job: JobEnvelope, trace: WorkflowTrace | undefined) {
+	try {
+		trace?.complete("failure");
+	} catch {
+		// Telemetry must never affect job outcome.
+	}
+	logger.info(`[jobs] run ${job.runKey} stopped`, "JOBS.workflow");
+}
+
+async function executeWorkflow(
+	job: JobEnvelope,
+	extras: QueueRunExtras | undefined,
+	signal: AbortSignal | undefined,
+) {
 	const workflow = compiledWorkflow(job.target);
 	// Not an error worth retrying on this worker: either the workflow was
 	// deactivated while the job was queued, or this worker serves a different
@@ -93,12 +125,14 @@ export async function runWorkflowJob(job: JobEnvelope, extras?: QueueRunExtras) 
 		},
 		payload: input,
 		trace,
+		signal,
 	});
 	// only when spans are compiled in (#628): what the start block was handed, and by what
 	if (trace)
 		context.traceInput = { input, trigger: triggerDetails(job, triggerId, source, context) };
 	try {
 		const result = await workflow.run(context, input);
+		if (signal?.aborted) return completeStopped(job, trace);
 		// The graph's error handler settles a failed run into a normal result, so
 		// an unsuccessful outcome has to be turned back into a throw for the
 		// queue to see it.
@@ -117,6 +151,8 @@ export async function runWorkflowJob(job: JobEnvelope, extras?: QueueRunExtras) 
 			"JOBS.workflow",
 		);
 	} catch (error) {
+		// also a failure that merely coincided with the stop: it must not be retried
+		if (signal?.aborted) return completeStopped(job, trace);
 		try {
 			trace?.complete("failure");
 		} catch {

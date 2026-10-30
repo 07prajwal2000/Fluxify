@@ -46,15 +46,21 @@ export interface KvBucket<T> {
 	 * to someone else, because a blind write does not care what it overwrites.
 	 */
 	update(key: string, value: T, revision: number): Promise<number | null>;
-	delete(key: string): Promise<void>;
+	/**
+	 * Deletes the key. With `revision`, only while the key is still at it: a key
+	 * someone has since written to is left alone, which is a normal outcome.
+	 */
+	delete(key: string, revision?: number): Promise<void>;
 	keys(filter?: string | string[]): Promise<string[]>;
 	/**
 	 * Calls `onChange` with the current value of every matching key, then with
-	 * every subsequent change. A delete arrives as a null value.
+	 * every subsequent change. A delete arrives as a null value. `entry` carries
+	 * the broker's revision and creation time; a key found gone on a reconnect
+	 * has none.
 	 */
 	watch(
 		filter: string | string[],
-		onChange: (key: string, value: T | null) => void | Promise<void>,
+		onChange: (key: string, value: T | null, entry?: KvEntry) => void | Promise<void>,
 		options?: KvWatchOptions,
 	): Promise<KvWatcher>;
 	/** The underlying store, for anything this wrapper does not cover. */
@@ -114,8 +120,12 @@ export async function openKvBucket<T = unknown>(
 			}
 		},
 
-		async delete(key) {
-			await store.delete(key);
+		async delete(key, revision) {
+			try {
+				await store.delete(key, revision === undefined ? undefined : { previousSeq: revision });
+			} catch (error) {
+				if (revision === undefined || !isWrongLastSequence(error)) throw error;
+			}
 		},
 
 		async keys(filter: string | string[] = ">") {

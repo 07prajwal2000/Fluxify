@@ -7,6 +7,7 @@ import {
 	setJobEnqueuer,
 	setScheduleHorizon,
 	setTriggerPayloadLimit,
+	STOP_RUN_JOB,
 	TRIGGER_WORKFLOW_JOB,
 	type JobRequest,
 } from "./jobs";
@@ -15,6 +16,7 @@ import {
 	emitTriggerWorkflow,
 	fireWorkflow,
 	scheduleWorkflow,
+	stopRun,
 	triggerWorkflowSchema,
 } from "./builtin/triggerWorkflow";
 import type { Context } from "./baseBlock";
@@ -175,6 +177,46 @@ describe("cancelSchedule", () => {
 	});
 });
 
+describe("the Run ID", () => {
+	function capture() {
+		const queued: JobRequest[] = [];
+		setJobEnqueuer((job) => queued.push(job));
+		return queued;
+	}
+
+	it("travels with a run now, as text", () => {
+		const queued = capture();
+		fireWorkflow(context, "wf-1", {}, undefined, "conv-1");
+		fireWorkflow(context, "wf-1", {}, undefined, 42);
+		expect(queued.map((job) => job.runKey)).toEqual(["conv-1", "42"]);
+	});
+
+	it("leaves a run with no Run ID without the field", () => {
+		const queued = capture();
+		for (const blank of [undefined, null, "", "  "])
+			fireWorkflow(context, "wf-1", {}, undefined, blank);
+		expect(queued.every((job) => !("runKey" in job))).toBe(true);
+	});
+
+	it("refuses an object, which would make every run share one id", () => {
+		capture();
+		expect(() => fireWorkflow(context, "wf-1", {}, undefined, { id: 1 })).toThrow(/Run ID must be/);
+	});
+
+	it("stop queues the Run ID as its target", () => {
+		const queued = capture();
+		stopRun(context, "conv-1");
+		expect(queued).toEqual([{ kind: STOP_RUN_JOB, projectId: "p1", target: "conv-1" }]);
+	});
+
+	it("stop needs a Run ID", () => {
+		const queued = capture();
+		for (const blank of [undefined, null, "", " "])
+			expect(() => stopRun(context, blank)).toThrow(/needs a Run ID/);
+		expect(queued).toEqual([]);
+	});
+});
+
 describe("emitTriggerWorkflow", () => {
 	const node = (data: Record<string, unknown>) =>
 		({
@@ -194,6 +236,19 @@ describe("emitTriggerWorkflow", () => {
 	it("cancels without touching the flowing value", () => {
 		expect(emitTriggerWorkflow(node({ mode: "cancel", scheduleId: "x" }))).toStartWith(
 			`lib.cancelSchedule(ctx, "x");`,
+		);
+	});
+
+	it("passes the Run ID only when one is set", () => {
+		expect(emitTriggerWorkflow(node({ workflowId: "wf-1", useInput: true }))).not.toContain("conv");
+		expect(
+			emitTriggerWorkflow(node({ workflowId: "wf-1", useInput: true, runKey: "conv" })),
+		).toContain(`, "conv");`);
+	});
+
+	it("stops without touching the flowing value", () => {
+		expect(emitTriggerWorkflow(node({ mode: "stop", runKey: "conv" }))).toStartWith(
+			`lib.stopRun(ctx, "conv");`,
 		);
 	});
 

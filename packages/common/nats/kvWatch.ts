@@ -75,7 +75,7 @@ export async function startWatch<T>(
 	store: KV,
 	bucket: string,
 	filter: string | string[],
-	onChange: (key: string, value: T | null) => void | Promise<void>,
+	onChange: (key: string, value: T | null, entry?: KvEntry) => void | Promise<void>,
 	decode: (entry: KvEntry | null) => T | null,
 	{
 		includeExisting = true,
@@ -119,7 +119,7 @@ export async function startWatch<T>(
 		created.set(entry.key, stamp);
 		if (entry.operation === "PUT") live.add(entry.key);
 		else live.delete(entry.key);
-		await onChange(entry.key, decode(entry));
+		await onChange(entry.key, decode(entry), entry);
 	}
 
 	async function pump(iterator: AsyncIterable<KvEntry>, gen: number) {

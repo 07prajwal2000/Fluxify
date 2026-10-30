@@ -49,6 +49,7 @@ import {
 	emitTriggerWorkflow,
 	fireWorkflow,
 	scheduleWorkflow,
+	stopRun,
 } from "./builtin/triggerWorkflow";
 // type-only: the compiler imports this module for its tables, so a value
 // import back the other way would close the cycle
@@ -137,4 +138,5 @@ export const compilerLib = {
 	fireWorkflow,
 	scheduleWorkflow,
 	cancelSchedule,
+	stopRun,
 };

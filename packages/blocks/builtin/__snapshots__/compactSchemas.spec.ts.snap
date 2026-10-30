@@ -379,5 +379,17 @@ cloud_logs {
 	level: "info" | "warn" | "error";  // log level; default "info"
 }
 
-error_handler {} // no configuration"
+error_handler {} // no configuration
+
+trigger_workflow {
+	workflowId: string;  // default ""
+	useInput: boolean;  // default false
+	data?: any;
+	maxAttempts?: number;
+	retryDelayMs?: number;
+	mode: "now" | "later" | "cancel" | "stop";  // default "now"
+	runAt: string;  // default ""
+	scheduleId: string;  // default ""
+	runKey: string;  // default ""
+}"
 `;

@@ -7,6 +7,7 @@ import { projectSettingsCache } from "../../loaders/projectSettingsLoader";
 import { artifactKind } from "../compiler/subjects";
 import { registerCustomBlockJobHandler } from "../jobs/customBlockJob";
 import { runJob } from "../jobs/registry";
+import { applyRunStop, forgetRunStop, setRunStopClearer } from "../jobs/runStops";
 import type { JobEnvelope } from "../jobs/types";
 import { registerWorkflowJobHandler } from "../jobs/workflowJob";
 import { exportTraceRun, resetProviders } from "../telemetry/destinations";
@@ -81,6 +82,8 @@ process.on("message", (message: ExecutionMessage) => {
 		return;
 	}
 	if (message.type === "job") return void executeJob(message.job);
+	if (message.type === "run-stop") return applyRunStop(message.stop);
+	if (message.type === "run-stop-cleared") return forgetRunStop(message.key);
 	if (message.type === "base-domain") return setBaseDomain(message.baseDomain);
 	if (message.type === "plugin-refs") {
 		setPluginRefs(message.refs);
@@ -109,6 +112,9 @@ async function executeJob(job: JobEnvelope) {
 async function bootstrap(nextBoot: ExecutionBootstrap) {
 	if (boot) throw new Error("execution process was bootstrapped twice");
 	boot = nextBoot;
+	// before any job can arrive: a run a stop reached while this child was down must skip
+	for (const stop of boot.runStops ?? []) applyRunStop(stop);
+	setRunStopClearer((key, revision) => send({ type: "clear-run-stop", key, revision }));
 	initializeLogger({
 		serviceName: "fluxify.worker.execution",
 		level: boot.logging.level,

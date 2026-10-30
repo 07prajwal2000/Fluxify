@@ -37,6 +37,8 @@ export type JobRequest = {
 	id?: string;
 	/** ISO time a Trigger Workflow run is held until. Unset runs it now. */
 	runAt?: string;
+	/** The Run ID a Run now block set: what a Stop a run block names. */
+	runKey?: string;
 };
 
 export type JobEnqueuer = (job: JobRequest) => void;
@@ -46,6 +48,9 @@ export const TRIGGER_WORKFLOW_JOB = "trigger-workflow";
 
 /** Drops a run a Trigger Workflow block scheduled for later; `target` is its id. */
 export const CANCEL_SCHEDULE_JOB = "cancel-schedule";
+
+/** Stops the runs fired before it with a Run ID; `target` is that Run ID. */
+export const STOP_RUN_JOB = "stop-run";
 
 const SCHEDULE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

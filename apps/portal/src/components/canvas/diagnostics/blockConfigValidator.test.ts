@@ -11,6 +11,14 @@ const severities = (type: BlockType, data: Record<string, unknown>) =>
 	blockConfigIssues(type, data).map((i) => i.severity);
 
 describe("validateBlockConfigs", () => {
+	it("asks a Stop a run block for a Run ID, and no workflow", () => {
+		const stop = { mode: "stop", workflowId: "" };
+		expect(blockConfigIssues(BLOCK_TYPES.triggerWorkflow, stop).map((i) => i.message)).toEqual([
+			"No Run ID to stop.",
+		]);
+		expect(blockConfigIssues(BLOCK_TYPES.triggerWorkflow, { ...stop, runKey: "conv" })).toEqual([]);
+	});
+
 	it("warns once per unconnected retry handle, only when the retry is in the flow", () => {
 		const retry = { id: "b", type: BLOCK_TYPES.retry, data: defaultBlockData(BLOCK_TYPES.retry), position: { x: 0, y: 0 } };
 		const into = { id: "e", from: "a", to: "b", fromHandle: "a-source", toHandle: "b-target" };

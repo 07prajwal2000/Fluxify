@@ -21,6 +21,17 @@ export function kvIssues(type: string, data: BlockData, report: Report) {
 	}
 }
 
+/** What a Trigger Workflow block is missing before it can run, by mode. */
+export function triggerWorkflowIssues(data: BlockData, report: Report) {
+	if (data.mode === "cancel") {
+		if (isBlank(data.scheduleId)) report("error", "No schedule id to cancel.");
+	} else if (data.mode === "stop") {
+		if (isBlank(data.runKey)) report("error", "No Run ID to stop.");
+	} else if (isBlank(data.workflowId)) {
+		report("error", "No workflow selected.");
+	}
+}
+
 /** What a Send Message block is missing before it can run. */
 export function sendMessageIssues(data: BlockData, report: Report) {
 	if (isBlank(data.connection))

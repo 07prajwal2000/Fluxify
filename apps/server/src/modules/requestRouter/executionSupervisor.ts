@@ -1,13 +1,15 @@
 import { fileURLToPath } from "node:url";
-import { CANCEL_SCHEDULE_JOB, TRIGGER_WORKFLOW_JOB } from "@fluxify/blocks";
+import { CANCEL_SCHEDULE_JOB, STOP_RUN_JOB, TRIGGER_WORKFLOW_JOB } from "@fluxify/blocks";
 import { logger } from "@fluxify/common";
 import { RPC_SUBJECTS, rpcRequest } from "../../db/natsRpc";
 import type { FluxifyEnv } from "../../lib/env";
 import { enqueueJob } from "../jobs/publisher";
+import { type RunStop, StopLedger } from "../jobs/runStops";
 import type { JobEnvelope } from "../jobs/types";
 import { publishRecording } from "../recordings/stream";
 import { cancelScheduledRun, scheduleWorkflowRun } from "../schedules/delayed";
 import { fireInternalTrigger } from "../triggers/publisher";
+import { clearRunStop, putRunStop } from "../triggers/runStopBucket";
 import type { AsyncExecutorLimits } from "./asyncExecutor";
 import type { ArtifactEntry } from "./compiledRuntime";
 import { executionRuntimeEnvironment } from "./executionEnvironment";
@@ -83,6 +85,8 @@ export interface ExecutionSupervisor {
 	start(): void;
 	/** Forwards a message, reporting whether a child was there to take it. */
 	send(message: ExecutionMessage): boolean;
+	/** Takes a change in the stop bucket: remembered for the next child, forwarded to this one. */
+	runStopChanged(key: string, stop: RunStop | null): void;
 	/** Runs a queued job in the child and resolves when it reports back. */
 	runJob(job: JobEnvelope): Promise<void>;
 	/** Re-reads the timeout policy and starts or stops watching for stalls. */
@@ -122,6 +126,9 @@ export function createExecutionSupervisor(
 	let candidate: { child: any; settle: (ready: boolean) => void } | undefined;
 	let replacing: Promise<void> | undefined;
 	let replaceAgain = false;
+	/** the child being replaced: it still holds runs a stop must reach */
+	let draining: any;
+	const runStops = new StopLedger();
 	/**
 	 * `projectId:type` (and an integration's `integrationRefKey`) -> version, as
 	 * last handed to the running child; a removed one stays
@@ -160,6 +167,7 @@ export function createExecutionSupervisor(
 	 */
 	function dispatchQueued(job: JobEnvelope) {
 		if (job.kind === CANCEL_SCHEDULE_JOB) return cancelScheduledRun(job.projectId, job.target);
+		if (job.kind === STOP_RUN_JOB) return putRunStop(job.projectId, job.target);
 		if (job.kind !== TRIGGER_WORKFLOW_JOB) return enqueueJob(job);
 		if (job.runAt) return scheduleWorkflowRun(job);
 		return fireInternalTrigger({
@@ -169,6 +177,7 @@ export function createExecutionSupervisor(
 			data: job.payload,
 			origin: job.origin,
 			retry: job.retry,
+			runKey: job.runKey,
 		});
 	}
 
@@ -192,6 +201,10 @@ export function createExecutionSupervisor(
 						`failed to queue ${event.job.kind}/${event.job.target}: ${String(error)}`,
 						"WORKER.jobs",
 					),
+				);
+			case "clear-run-stop":
+				return void clearRunStop(event.key, event.revision).catch((error) =>
+					logger.error(`failed to clear run stop: ${String(error)}`, "WORKER.jobs"),
 				);
 			case "record-run":
 				// never awaited: a slow broker must not back up the child's events
@@ -247,6 +260,7 @@ export function createExecutionSupervisor(
 			debugKey: options.debugKey,
 			env: options.env ?? "production",
 			artifacts: options.artifacts(),
+			runStops: runStops.list(),
 			pluginRefs,
 			pluginIntegrations,
 			pluginTriggers,
@@ -307,6 +321,7 @@ export function createExecutionSupervisor(
 			return;
 		}
 		const oldVersions = refVersions;
+		draining = old;
 		spawn();
 		const fresh = execution;
 		if (!(await awaitCandidate(fresh))) {
@@ -316,6 +331,7 @@ export function createExecutionSupervisor(
 				"WORKER.execution",
 			);
 			execution = old;
+			draining = undefined;
 			return;
 		}
 		logger.info("replacement execution process ready — draining the old one", "WORKER.execution");
@@ -326,6 +342,7 @@ export function createExecutionSupervisor(
 			Bun.sleep(options.asyncExecutor.drainTimeoutMs + 1_000).then(() => false),
 		]);
 		if (!exited) old.kill(9);
+		draining = undefined;
 	}
 
 	function replace() {
@@ -407,6 +424,20 @@ export function createExecutionSupervisor(
 				`experimental worker timeouts ${enabled ? "enabled" : "disabled"}`,
 				"WORKER.timeout",
 			);
+		},
+
+		runStopChanged(key, stop) {
+			if (stop) runStops.set(stop);
+			else runStops.delete(key);
+			const message: ExecutionMessage = stop
+				? { type: "run-stop", stop }
+				: { type: "run-stop-cleared", key };
+			for (const child of [execution, draining]) {
+				// a child that just died gets the entry at its respawn; a throw here would end the watch
+				try {
+					child?.send(message);
+				} catch {}
+			}
 		},
 
 		child: () => execution,

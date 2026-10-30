@@ -141,7 +141,8 @@ export class TriggerWorker {
 			this.stream,
 			durable,
 			async (batch) => {
-				for (const message of batch) await this.runInternal(projectId, message.data);
+				for (const message of batch)
+					await this.runInternal(projectId, message.data, message.msg.time.getTime());
 			},
 			{
 				maxMessages: 1,
@@ -251,21 +252,26 @@ export class TriggerWorker {
 		return consumer;
 	}
 
-	private runInternal(projectId: string, message: InternalTriggerMessage) {
-		return this.dispatch(projectId, message.workflowId, {
-			triggerId: INTERNAL_SOURCE,
-			source: "internal",
-			events: [
-				{
-					data: message.data,
-					meta: {
-						receivedAt: new Date().toISOString(),
-						source: "internal",
-						...(message.origin ?? {}),
+	private runInternal(projectId: string, message: InternalTriggerMessage, firedAt: number) {
+		return this.dispatch(
+			projectId,
+			message.workflowId,
+			{
+				triggerId: INTERNAL_SOURCE,
+				source: "internal",
+				events: [
+					{
+						data: message.data,
+						meta: {
+							receivedAt: new Date().toISOString(),
+							source: "internal",
+							...(message.origin ?? {}),
+						},
 					},
-				},
-			],
-		});
+				],
+			},
+			message.runKey ? { runKey: message.runKey, firedAt } : undefined,
+		);
 	}
 
 	private runBatch(artifact: TriggerArtifact, events: TriggerEvent[]) {
@@ -283,7 +289,12 @@ export class TriggerWorker {
 	 * deployment's setting: on a catch-all worker the setting is `*`, which is
 	 * not a project any workflow can be looked up in.
 	 */
-	private dispatch(projectId: string, workflowId: string, batch: TriggerBatch) {
+	private dispatch(
+		projectId: string,
+		workflowId: string,
+		batch: TriggerBatch,
+		run?: Pick<JobEnvelope, "runKey" | "firedAt">,
+	) {
 		return this.options.run({
 			id: crypto.randomUUID(),
 			kind: WORKFLOW_JOB,
@@ -292,6 +303,7 @@ export class TriggerWorker {
 			payload: batch,
 			origin: { triggerId: batch.triggerId, source: batch.source },
 			enqueuedAt: new Date().toISOString(),
+			...run,
 		} satisfies JobEnvelope);
 	}
 
