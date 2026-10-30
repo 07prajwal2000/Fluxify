@@ -86,18 +86,20 @@ const passesThrough = (error: unknown) =>
 
 /**
  * `catchErrors` is off when nothing is wired to 'failure': the last error then
- * fails the route as it would without the block.
+ * fails the route as it would without the block. `signal` is a stoppable
+ * graph's: a stopped run does not try again.
  */
 export async function runRetry(
 	body: () => Promise<unknown>,
 	catchErrors: boolean,
 	options: RetryOptions,
+	signal?: AbortSignal,
 ): Promise<RetryOutcome> {
 	for (let attempt = 1; ; attempt++) {
 		try {
 			return { result: await body() };
 		} catch (error) {
-			if (passesThrough(error)) throw error;
+			if (passesThrough(error) || signal?.aborted) throw error;
 			if (attempt <= options.maxRetries) {
 				await sleep(retryWait(attempt, options));
 				continue;
@@ -121,7 +123,7 @@ export function emitRetry(node: EmitNode) {
 	return `const ${input} = ${node.in};
 const ${r} = await lib.retry(async () => {
 ${node.body("executor", input, "$endBranch")}
-}, ${node.has("failure")}, ${options});
+}, ${node.has("failure")}, ${options}${node.stoppable ? ", ctx.signal" : ""});
 if ("failure" in ${r}) {
 ${node.in} = ${r}.failure;
 ${node.next("failure")}

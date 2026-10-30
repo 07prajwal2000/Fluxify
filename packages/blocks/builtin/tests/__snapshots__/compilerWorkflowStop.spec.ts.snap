@@ -1,0 +1,1009 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`what a stop check emits leaves a route's compiled source byte-identical 1`] = `
+"/* fluxify-compiled-route-factory */
+const $truthy = (v) => { const t = typeof v; return t === "bigint" || t === "number" || t === "string" || t === "boolean" ? !!v : (t === "object" && v !== null); };
+const $isEmpty = (v) => v === null || v === undefined || v === "" || (typeof v === "object" && Object.keys(v).length === 0);
+const $blockKey = Symbol.for("fluxify.block");
+const $tagBlock = (e, block) => { if (e !== null && typeof e === "object" && !Object.hasOwn(e, $blockKey)) try { Object.defineProperty(e, $blockKey, { value: block }); } catch {} };
+const $branchEnd = Symbol("branch");
+const $endBranch = (output) => ({ [$branchEnd]: output });
+const $parallel = (runs, settle) => new Promise((resolve, reject) => {
+const out = new Array(runs.length);
+let left = runs.length;
+if (!left) return resolve(out);
+const done = (i, value) => { out[i] = value; if (--left === 0) resolve(out); };
+runs.forEach((run, i) => run.then(
+(r) => (r && $branchEnd in r ? done(i, r[$branchEnd]) : resolve(r)),
+(error) => (settle ? done(i, error?.toString()) : reject(error)),
+));
+});
+
+const $endSuccess = (output) => ({ successful: true, continueIfFail: true, output });
+const $endFailure = (error) => ({ successful: false, continueIfFail: false, error });
+const $endBody = () => undefined;
+// entrypoint in
+function $block_0($state, $input, $end) {
+const { ctx, vars, scope: $scope, trace: $trace } = $state;
+const $t0 = $trace ? performance.now() : 0;
+let $in = $input;
+let $recorded = false;
+try {
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "in", blockType: "entrypoint", position: {"x":0,"y":0}, input: ctx.traceInput ?? $input, output: $in, startedAt: $t0, endedAt: performance.now(), outcome: "success" });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+return $block_1($state, $in, $end);
+} catch ($error) {
+$tagBlock($error, { id: "in", type: "entrypoint" });
+if (!$recorded) {
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "in", blockType: "entrypoint", position: {"x":0,"y":0}, input: ctx.traceInput ?? $input, output: undefined, startedAt: $t0, endedAt: performance.now(), outcome: "failure", error: $error });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+}
+throw $error;
+}
+}
+
+// forloop for
+async function $block_1($state, $input, $end) {
+const { ctx, vars, scope: $scope, trace: $trace } = $state;
+const $t0 = $trace ? performance.now() : 0;
+let $in = $input;
+let $recorded = false;
+try {
+const $end_1 = 2, $step_2 = 1;
+for (let $i_0 = 0; $i_0 < $end_1; $i_0 += $step_2) {
+$recorded = true;
+const $bodyResult_3 = await $block_2($state, $i_0, $endBody);
+if ($bodyResult_3 !== undefined) return $bodyResult_3;
+}
+$in = undefined;
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "for", blockType: "forloop", position: {"x":0,"y":0}, input: $input, output: $in, startedAt: $t0, endedAt: performance.now(), outcome: "success" });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+return $block_3($state, $in, $end);
+} catch ($error) {
+$tagBlock($error, { id: "for", type: "forloop" });
+if (!$recorded) {
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "for", blockType: "forloop", position: {"x":0,"y":0}, input: $input, output: undefined, startedAt: $t0, endedAt: performance.now(), outcome: "failure", error: $error });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+}
+throw $error;
+}
+}
+
+// jsrunner forBody
+async function $block_2($state, $input, $end) {
+const { ctx, vars, scope: $scope, trace: $trace } = $state;
+const $t0 = $trace ? performance.now() : 0;
+let $in = $input;
+let $recorded = false;
+try {
+$in = (await (async function (input, params) { with ($scope) {
+await step("forBody"); return input;
+} })($in, $state.params));
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "forBody", blockType: "jsrunner", position: {"x":0,"y":0}, input: $input, output: $in, startedAt: $t0, endedAt: performance.now(), outcome: "success" });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+return $end($in);
+} catch ($error) {
+$tagBlock($error, { id: "forBody", type: "jsrunner" });
+if (!$recorded) {
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "forBody", blockType: "jsrunner", position: {"x":0,"y":0}, input: $input, output: undefined, startedAt: $t0, endedAt: performance.now(), outcome: "failure", error: $error });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+}
+throw $error;
+}
+}
+
+// foreachloop each
+async function $block_3($state, $input, $end) {
+const { ctx, vars, scope: $scope, trace: $trace } = $state;
+const $t0 = $trace ? performance.now() : 0;
+let $in = $input;
+let $recorded = false;
+try {
+const $arr_4 = [1];
+for (let $i_5 = 0; $i_5 < $arr_4.length; $i_5++) {
+$recorded = true;
+const $bodyResult_6 = await $block_4($state, $arr_4[$i_5], $endBody);
+if ($bodyResult_6 !== undefined) return $bodyResult_6;
+}
+$in = undefined;
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "each", blockType: "foreachloop", position: {"x":0,"y":0}, input: $input, output: $in, startedAt: $t0, endedAt: performance.now(), outcome: "success" });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+return $block_5($state, $in, $end);
+} catch ($error) {
+$tagBlock($error, { id: "each", type: "foreachloop" });
+if (!$recorded) {
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "each", blockType: "foreachloop", position: {"x":0,"y":0}, input: $input, output: undefined, startedAt: $t0, endedAt: performance.now(), outcome: "failure", error: $error });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+}
+throw $error;
+}
+}
+
+// jsrunner eachBody
+async function $block_4($state, $input, $end) {
+const { ctx, vars, scope: $scope, trace: $trace } = $state;
+const $t0 = $trace ? performance.now() : 0;
+let $in = $input;
+let $recorded = false;
+try {
+$in = (await (async function (input, params) { with ($scope) {
+await step("eachBody"); return input;
+} })($in, $state.params));
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "eachBody", blockType: "jsrunner", position: {"x":0,"y":0}, input: $input, output: $in, startedAt: $t0, endedAt: performance.now(), outcome: "success" });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+return $end($in);
+} catch ($error) {
+$tagBlock($error, { id: "eachBody", type: "jsrunner" });
+if (!$recorded) {
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "eachBody", blockType: "jsrunner", position: {"x":0,"y":0}, input: $input, output: undefined, startedAt: $t0, endedAt: performance.now(), outcome: "failure", error: $error });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+}
+throw $error;
+}
+}
+
+// retry retry
+async function $block_5($state, $input, $end) {
+const { ctx, vars, scope: $scope, trace: $trace } = $state;
+const $t0 = $trace ? performance.now() : 0;
+let $in = $input;
+let $recorded = false;
+try {
+const $retryIn_8 = $in;
+const $retry_7 = await lib.retry(async () => {
+$recorded = true;
+const $bodyResult_9 = await $block_6($state, $retryIn_8, $endBranch);
+if ($bodyResult_9 !== undefined) return $bodyResult_9;
+}, false, {"maxRetries":1,"retryType":"fixed","delayMs":1000,"maxDelayMs":30000});
+if ("failure" in $retry_7) {
+$in = $retry_7.failure;
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "retry", blockType: "retry", position: {"x":0,"y":0}, input: $input, output: $in, startedAt: $t0, endedAt: performance.now(), outcome: "success", branch: "failure" });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+return $end($in);
+}
+if ($retry_7.result !== undefined && !($branchEnd in $retry_7.result)) return $retry_7.result;
+$in = $retry_7.result?.[$branchEnd];
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "retry", blockType: "retry", position: {"x":0,"y":0}, input: $input, output: $in, startedAt: $t0, endedAt: performance.now(), outcome: "success", branch: "success" });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+return $block_7($state, $in, $end);
+} catch ($error) {
+$tagBlock($error, { id: "retry", type: "retry" });
+if (!$recorded) {
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "retry", blockType: "retry", position: {"x":0,"y":0}, input: $input, output: undefined, startedAt: $t0, endedAt: performance.now(), outcome: "failure", error: $error });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+}
+throw $error;
+}
+}
+
+// jsrunner retryBody
+async function $block_6($state, $input, $end) {
+const { ctx, vars, scope: $scope, trace: $trace } = $state;
+const $t0 = $trace ? performance.now() : 0;
+let $in = $input;
+let $recorded = false;
+try {
+$in = (await (async function (input, params) { with ($scope) {
+await step("retryBody"); return input;
+} })($in, $state.params));
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "retryBody", blockType: "jsrunner", position: {"x":0,"y":0}, input: $input, output: $in, startedAt: $t0, endedAt: performance.now(), outcome: "success" });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+return $end($in);
+} catch ($error) {
+$tagBlock($error, { id: "retryBody", type: "jsrunner" });
+if (!$recorded) {
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "retryBody", blockType: "jsrunner", position: {"x":0,"y":0}, input: $input, output: undefined, startedAt: $t0, endedAt: performance.now(), outcome: "failure", error: $error });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+}
+throw $error;
+}
+}
+
+// db_transaction tx
+async function $block_7($state, $input, $end) {
+const { ctx, vars, scope: $scope, trace: $trace } = $state;
+const $t0 = $trace ? performance.now() : 0;
+let $in = $input;
+let $recorded = false;
+try {
+const $txIn_11 = $in;
+const $tx_10 = await lib.dbTransaction(ctx, "db", async () => {
+$recorded = true;
+const $bodyResult_12 = await $block_8($state, $txIn_11, $endBranch);
+if ($bodyResult_12 !== undefined) return $bodyResult_12;
+}, false, {"timeoutMs":30000,"retries":0});
+if ("failure" in $tx_10) {
+$in = $tx_10.failure;
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "tx", blockType: "db_transaction", position: {"x":0,"y":0}, input: $input, output: $in, startedAt: $t0, endedAt: performance.now(), outcome: "success", branch: "failure" });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+return $end($in);
+}
+if ($tx_10.result !== undefined && !($branchEnd in $tx_10.result)) return $tx_10.result;
+$in = $tx_10.result?.[$branchEnd];
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "tx", blockType: "db_transaction", position: {"x":0,"y":0}, input: $input, output: $in, startedAt: $t0, endedAt: performance.now(), outcome: "success", branch: "success" });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+return $block_9($state, $in, $end);
+} catch ($error) {
+$tagBlock($error, { id: "tx", type: "db_transaction" });
+if (!$recorded) {
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "tx", blockType: "db_transaction", position: {"x":0,"y":0}, input: $input, output: undefined, startedAt: $t0, endedAt: performance.now(), outcome: "failure", error: $error });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+}
+throw $error;
+}
+}
+
+// jsrunner txBody
+async function $block_8($state, $input, $end) {
+const { ctx, vars, scope: $scope, trace: $trace } = $state;
+const $t0 = $trace ? performance.now() : 0;
+let $in = $input;
+let $recorded = false;
+try {
+$in = (await (async function (input, params) { with ($scope) {
+await step("txBody"); return input;
+} })($in, $state.params));
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "txBody", blockType: "jsrunner", position: {"x":0,"y":0}, input: $input, output: $in, startedAt: $t0, endedAt: performance.now(), outcome: "success" });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+return $end($in);
+} catch ($error) {
+$tagBlock($error, { id: "txBody", type: "jsrunner" });
+if (!$recorded) {
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "txBody", blockType: "jsrunner", position: {"x":0,"y":0}, input: $input, output: undefined, startedAt: $t0, endedAt: performance.now(), outcome: "failure", error: $error });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+}
+throw $error;
+}
+}
+
+// orchestrator fan
+async function $block_9($state, $input, $end) {
+const { ctx, vars, scope: $scope, trace: $trace } = $state;
+const $t0 = $trace ? performance.now() : 0;
+let $in = $input;
+let $recorded = false;
+try {
+const $branches_13 = ($recorded = true, await $parallel([$block_10($state, $in, $endBranch)], false));
+// a branch reached a terminal block: that result ends the route
+if (!Array.isArray($branches_13)) return $branches_13;
+$in = $branches_13;
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "fan", blockType: "orchestrator", position: {"x":0,"y":0}, input: $input, output: $in, startedAt: $t0, endedAt: performance.now(), outcome: "success" });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+return $end($in);
+} catch ($error) {
+$tagBlock($error, { id: "fan", type: "orchestrator" });
+if (!$recorded) {
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "fan", blockType: "orchestrator", position: {"x":0,"y":0}, input: $input, output: undefined, startedAt: $t0, endedAt: performance.now(), outcome: "failure", error: $error });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+}
+throw $error;
+}
+}
+
+// jsrunner branch
+async function $block_10($state, $input, $end) {
+const { ctx, vars, scope: $scope, trace: $trace } = $state;
+const $t0 = $trace ? performance.now() : 0;
+let $in = $input;
+let $recorded = false;
+try {
+$in = (await (async function (input, params) { with ($scope) {
+await step("branch"); return input;
+} })($in, $state.params));
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "branch", blockType: "jsrunner", position: {"x":0,"y":0}, input: $input, output: $in, startedAt: $t0, endedAt: performance.now(), outcome: "success" });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+return $end($in);
+} catch ($error) {
+$tagBlock($error, { id: "branch", type: "jsrunner" });
+if (!$recorded) {
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "branch", blockType: "jsrunner", position: {"x":0,"y":0}, input: $input, output: undefined, startedAt: $t0, endedAt: performance.now(), outcome: "failure", error: $error });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+}
+throw $error;
+}
+}
+
+// jsrunner handled
+async function $block_11($state, $input, $end) {
+const { ctx, vars, scope: $scope, trace: $trace } = $state;
+const $t0 = $trace ? performance.now() : 0;
+let $in = $input;
+let $recorded = false;
+try {
+$in = (await (async function (input, params) { with ($scope) {
+await step("handled"); return input;
+} })($in, $state.params));
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "handled", blockType: "jsrunner", position: {"x":0,"y":0}, input: $input, output: $in, startedAt: $t0, endedAt: performance.now(), outcome: "success" });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+return $end($in);
+} catch ($error) {
+$tagBlock($error, { id: "handled", type: "jsrunner" });
+if (!$recorded) {
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "handled", blockType: "jsrunner", position: {"x":0,"y":0}, input: $input, output: undefined, startedAt: $t0, endedAt: performance.now(), outcome: "failure", error: $error });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+}
+throw $error;
+}
+}
+
+return async function $run(ctx, input) {
+
+const vars = ctx.vars;
+const $state = {
+ctx,
+vars,
+scope: lib.scope(vars),
+trace: ctx.trace,
+params: undefined,
+};
+const $life = ctx.lifetime?.ended === false ? undefined : (ctx.lifetime = { ended: false });
+try {
+return await $block_0($state, input, $endSuccess);
+} catch ($error) {
+const $err = $error?.toString();
+return await $block_11($state, $err, $endFailure);
+} finally {
+if ($life) $life.ended = true;
+}
+}"
+`;
+
+exports[`what a stop check emits leaves a custom block's compiled source byte-identical 1`] = `
+"/* fluxify-compiled-route-factory */
+const $truthy = (v) => { const t = typeof v; return t === "bigint" || t === "number" || t === "string" || t === "boolean" ? !!v : (t === "object" && v !== null); };
+const $isEmpty = (v) => v === null || v === undefined || v === "" || (typeof v === "object" && Object.keys(v).length === 0);
+const $blockKey = Symbol.for("fluxify.block");
+const $tagBlock = (e, block) => { if (e !== null && typeof e === "object" && !Object.hasOwn(e, $blockKey)) try { Object.defineProperty(e, $blockKey, { value: block }); } catch {} };
+const $branchEnd = Symbol("branch");
+const $endBranch = (output) => ({ [$branchEnd]: output });
+const $parallel = (runs, settle) => new Promise((resolve, reject) => {
+const out = new Array(runs.length);
+let left = runs.length;
+if (!left) return resolve(out);
+const done = (i, value) => { out[i] = value; if (--left === 0) resolve(out); };
+runs.forEach((run, i) => run.then(
+(r) => (r && $branchEnd in r ? done(i, r[$branchEnd]) : resolve(r)),
+(error) => (settle ? done(i, error?.toString()) : reject(error)),
+));
+});
+
+const $endSuccess = (output) => ({ successful: true, continueIfFail: true, output });
+const $endFailure = (error) => ({ successful: false, continueIfFail: false, error });
+const $endBody = () => undefined;
+// entrypoint in
+function $block_0($state, $input, $end) {
+const { ctx, vars, scope: $scope, trace: $trace } = $state;
+const $t0 = $trace ? performance.now() : 0;
+let $in = $input;
+let $recorded = false;
+try {
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "in", blockType: "entrypoint", position: {"x":0,"y":0}, input: $input, output: $in, startedAt: $t0, endedAt: performance.now(), outcome: "success" });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+return $block_1($state, $in, $end);
+} catch ($error) {
+$tagBlock($error, { id: "in", type: "entrypoint" });
+if (!$recorded) {
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "in", blockType: "entrypoint", position: {"x":0,"y":0}, input: $input, output: undefined, startedAt: $t0, endedAt: performance.now(), outcome: "failure", error: $error });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+}
+throw $error;
+}
+}
+
+// forloop for
+async function $block_1($state, $input, $end) {
+const { ctx, vars, scope: $scope, trace: $trace } = $state;
+const $t0 = $trace ? performance.now() : 0;
+let $in = $input;
+let $recorded = false;
+try {
+const $end_1 = 2, $step_2 = 1;
+for (let $i_0 = 0; $i_0 < $end_1; $i_0 += $step_2) {
+$recorded = true;
+const $bodyResult_3 = await $block_2($state, $i_0, $endBody);
+if ($bodyResult_3 !== undefined) return $bodyResult_3;
+}
+$in = undefined;
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "for", blockType: "forloop", position: {"x":0,"y":0}, input: $input, output: $in, startedAt: $t0, endedAt: performance.now(), outcome: "success" });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+return $block_3($state, $in, $end);
+} catch ($error) {
+$tagBlock($error, { id: "for", type: "forloop" });
+if (!$recorded) {
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "for", blockType: "forloop", position: {"x":0,"y":0}, input: $input, output: undefined, startedAt: $t0, endedAt: performance.now(), outcome: "failure", error: $error });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+}
+throw $error;
+}
+}
+
+// jsrunner forBody
+async function $block_2($state, $input, $end) {
+const { ctx, vars, scope: $scope, trace: $trace } = $state;
+const $t0 = $trace ? performance.now() : 0;
+let $in = $input;
+let $recorded = false;
+try {
+$in = (await (async function (input, params) { with ($scope) {
+await step("forBody"); return input;
+} })($in, $state.params));
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "forBody", blockType: "jsrunner", position: {"x":0,"y":0}, input: $input, output: $in, startedAt: $t0, endedAt: performance.now(), outcome: "success" });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+return $end($in);
+} catch ($error) {
+$tagBlock($error, { id: "forBody", type: "jsrunner" });
+if (!$recorded) {
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "forBody", blockType: "jsrunner", position: {"x":0,"y":0}, input: $input, output: undefined, startedAt: $t0, endedAt: performance.now(), outcome: "failure", error: $error });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+}
+throw $error;
+}
+}
+
+// foreachloop each
+async function $block_3($state, $input, $end) {
+const { ctx, vars, scope: $scope, trace: $trace } = $state;
+const $t0 = $trace ? performance.now() : 0;
+let $in = $input;
+let $recorded = false;
+try {
+const $arr_4 = [1];
+for (let $i_5 = 0; $i_5 < $arr_4.length; $i_5++) {
+$recorded = true;
+const $bodyResult_6 = await $block_4($state, $arr_4[$i_5], $endBody);
+if ($bodyResult_6 !== undefined) return $bodyResult_6;
+}
+$in = undefined;
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "each", blockType: "foreachloop", position: {"x":0,"y":0}, input: $input, output: $in, startedAt: $t0, endedAt: performance.now(), outcome: "success" });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+return $block_5($state, $in, $end);
+} catch ($error) {
+$tagBlock($error, { id: "each", type: "foreachloop" });
+if (!$recorded) {
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "each", blockType: "foreachloop", position: {"x":0,"y":0}, input: $input, output: undefined, startedAt: $t0, endedAt: performance.now(), outcome: "failure", error: $error });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+}
+throw $error;
+}
+}
+
+// jsrunner eachBody
+async function $block_4($state, $input, $end) {
+const { ctx, vars, scope: $scope, trace: $trace } = $state;
+const $t0 = $trace ? performance.now() : 0;
+let $in = $input;
+let $recorded = false;
+try {
+$in = (await (async function (input, params) { with ($scope) {
+await step("eachBody"); return input;
+} })($in, $state.params));
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "eachBody", blockType: "jsrunner", position: {"x":0,"y":0}, input: $input, output: $in, startedAt: $t0, endedAt: performance.now(), outcome: "success" });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+return $end($in);
+} catch ($error) {
+$tagBlock($error, { id: "eachBody", type: "jsrunner" });
+if (!$recorded) {
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "eachBody", blockType: "jsrunner", position: {"x":0,"y":0}, input: $input, output: undefined, startedAt: $t0, endedAt: performance.now(), outcome: "failure", error: $error });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+}
+throw $error;
+}
+}
+
+// retry retry
+async function $block_5($state, $input, $end) {
+const { ctx, vars, scope: $scope, trace: $trace } = $state;
+const $t0 = $trace ? performance.now() : 0;
+let $in = $input;
+let $recorded = false;
+try {
+const $retryIn_8 = $in;
+const $retry_7 = await lib.retry(async () => {
+$recorded = true;
+const $bodyResult_9 = await $block_6($state, $retryIn_8, $endBranch);
+if ($bodyResult_9 !== undefined) return $bodyResult_9;
+}, false, {"maxRetries":1,"retryType":"fixed","delayMs":1000,"maxDelayMs":30000});
+if ("failure" in $retry_7) {
+$in = $retry_7.failure;
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "retry", blockType: "retry", position: {"x":0,"y":0}, input: $input, output: $in, startedAt: $t0, endedAt: performance.now(), outcome: "success", branch: "failure" });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+return $end($in);
+}
+if ($retry_7.result !== undefined && !($branchEnd in $retry_7.result)) return $retry_7.result;
+$in = $retry_7.result?.[$branchEnd];
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "retry", blockType: "retry", position: {"x":0,"y":0}, input: $input, output: $in, startedAt: $t0, endedAt: performance.now(), outcome: "success", branch: "success" });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+return $block_7($state, $in, $end);
+} catch ($error) {
+$tagBlock($error, { id: "retry", type: "retry" });
+if (!$recorded) {
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "retry", blockType: "retry", position: {"x":0,"y":0}, input: $input, output: undefined, startedAt: $t0, endedAt: performance.now(), outcome: "failure", error: $error });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+}
+throw $error;
+}
+}
+
+// jsrunner retryBody
+async function $block_6($state, $input, $end) {
+const { ctx, vars, scope: $scope, trace: $trace } = $state;
+const $t0 = $trace ? performance.now() : 0;
+let $in = $input;
+let $recorded = false;
+try {
+$in = (await (async function (input, params) { with ($scope) {
+await step("retryBody"); return input;
+} })($in, $state.params));
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "retryBody", blockType: "jsrunner", position: {"x":0,"y":0}, input: $input, output: $in, startedAt: $t0, endedAt: performance.now(), outcome: "success" });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+return $end($in);
+} catch ($error) {
+$tagBlock($error, { id: "retryBody", type: "jsrunner" });
+if (!$recorded) {
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "retryBody", blockType: "jsrunner", position: {"x":0,"y":0}, input: $input, output: undefined, startedAt: $t0, endedAt: performance.now(), outcome: "failure", error: $error });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+}
+throw $error;
+}
+}
+
+// db_transaction tx
+async function $block_7($state, $input, $end) {
+const { ctx, vars, scope: $scope, trace: $trace } = $state;
+const $t0 = $trace ? performance.now() : 0;
+let $in = $input;
+let $recorded = false;
+try {
+const $txIn_11 = $in;
+const $tx_10 = await lib.dbTransaction(ctx, "db", async () => {
+$recorded = true;
+const $bodyResult_12 = await $block_8($state, $txIn_11, $endBranch);
+if ($bodyResult_12 !== undefined) return $bodyResult_12;
+}, false, {"timeoutMs":30000,"retries":0});
+if ("failure" in $tx_10) {
+$in = $tx_10.failure;
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "tx", blockType: "db_transaction", position: {"x":0,"y":0}, input: $input, output: $in, startedAt: $t0, endedAt: performance.now(), outcome: "success", branch: "failure" });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+return $end($in);
+}
+if ($tx_10.result !== undefined && !($branchEnd in $tx_10.result)) return $tx_10.result;
+$in = $tx_10.result?.[$branchEnd];
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "tx", blockType: "db_transaction", position: {"x":0,"y":0}, input: $input, output: $in, startedAt: $t0, endedAt: performance.now(), outcome: "success", branch: "success" });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+return $block_9($state, $in, $end);
+} catch ($error) {
+$tagBlock($error, { id: "tx", type: "db_transaction" });
+if (!$recorded) {
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "tx", blockType: "db_transaction", position: {"x":0,"y":0}, input: $input, output: undefined, startedAt: $t0, endedAt: performance.now(), outcome: "failure", error: $error });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+}
+throw $error;
+}
+}
+
+// jsrunner txBody
+async function $block_8($state, $input, $end) {
+const { ctx, vars, scope: $scope, trace: $trace } = $state;
+const $t0 = $trace ? performance.now() : 0;
+let $in = $input;
+let $recorded = false;
+try {
+$in = (await (async function (input, params) { with ($scope) {
+await step("txBody"); return input;
+} })($in, $state.params));
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "txBody", blockType: "jsrunner", position: {"x":0,"y":0}, input: $input, output: $in, startedAt: $t0, endedAt: performance.now(), outcome: "success" });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+return $end($in);
+} catch ($error) {
+$tagBlock($error, { id: "txBody", type: "jsrunner" });
+if (!$recorded) {
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "txBody", blockType: "jsrunner", position: {"x":0,"y":0}, input: $input, output: undefined, startedAt: $t0, endedAt: performance.now(), outcome: "failure", error: $error });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+}
+throw $error;
+}
+}
+
+// orchestrator fan
+async function $block_9($state, $input, $end) {
+const { ctx, vars, scope: $scope, trace: $trace } = $state;
+const $t0 = $trace ? performance.now() : 0;
+let $in = $input;
+let $recorded = false;
+try {
+const $branches_13 = ($recorded = true, await $parallel([$block_10($state, $in, $endBranch)], false));
+// a branch reached a terminal block: that result ends the route
+if (!Array.isArray($branches_13)) return $branches_13;
+$in = $branches_13;
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "fan", blockType: "orchestrator", position: {"x":0,"y":0}, input: $input, output: $in, startedAt: $t0, endedAt: performance.now(), outcome: "success" });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+return $end($in);
+} catch ($error) {
+$tagBlock($error, { id: "fan", type: "orchestrator" });
+if (!$recorded) {
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "fan", blockType: "orchestrator", position: {"x":0,"y":0}, input: $input, output: undefined, startedAt: $t0, endedAt: performance.now(), outcome: "failure", error: $error });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+}
+throw $error;
+}
+}
+
+// jsrunner branch
+async function $block_10($state, $input, $end) {
+const { ctx, vars, scope: $scope, trace: $trace } = $state;
+const $t0 = $trace ? performance.now() : 0;
+let $in = $input;
+let $recorded = false;
+try {
+$in = (await (async function (input, params) { with ($scope) {
+await step("branch"); return input;
+} })($in, $state.params));
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "branch", blockType: "jsrunner", position: {"x":0,"y":0}, input: $input, output: $in, startedAt: $t0, endedAt: performance.now(), outcome: "success" });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+return $end($in);
+} catch ($error) {
+$tagBlock($error, { id: "branch", type: "jsrunner" });
+if (!$recorded) {
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "branch", blockType: "jsrunner", position: {"x":0,"y":0}, input: $input, output: undefined, startedAt: $t0, endedAt: performance.now(), outcome: "failure", error: $error });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+}
+throw $error;
+}
+}
+
+// jsrunner handled
+async function $block_11($state, $input, $end) {
+const { ctx, vars, scope: $scope, trace: $trace } = $state;
+const $t0 = $trace ? performance.now() : 0;
+let $in = $input;
+let $recorded = false;
+try {
+$in = (await (async function (input, params) { with ($scope) {
+await step("handled"); return input;
+} })($in, $state.params));
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "handled", blockType: "jsrunner", position: {"x":0,"y":0}, input: $input, output: $in, startedAt: $t0, endedAt: performance.now(), outcome: "success" });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+return $end($in);
+} catch ($error) {
+$tagBlock($error, { id: "handled", type: "jsrunner" });
+if (!$recorded) {
+$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan({ blockId: "handled", blockType: "jsrunner", position: {"x":0,"y":0}, input: $input, output: undefined, startedAt: $t0, endedAt: performance.now(), outcome: "failure", error: $error });
+} catch {
+// Telemetry must never change route execution.
+}
+}
+}
+throw $error;
+}
+}
+
+return async function $run(ctx, input) {
+
+const vars = ctx.vars;
+const $state = {
+ctx,
+vars,
+scope: lib.scope(vars),
+trace: ctx.trace,
+params: input?.params ?? {},
+};
+const $life = ctx.lifetime?.ended === false ? undefined : (ctx.lifetime = { ended: false });
+try {
+return await $block_0($state, input?.input, $endSuccess);
+} catch ($error) {
+const $err = $error?.toString();
+return await $block_11($state, $err, $endFailure);
+} finally {
+if ($life) $life.ended = true;
+}
+}"
+`;
