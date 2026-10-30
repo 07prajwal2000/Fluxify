@@ -23,6 +23,8 @@ export type RouteArtifact = {
 	acceptedContentTypes: string[];
 	/** octet-stream handling: buffered into a Blob, or exposed as a ReadableStream */
 	bodyMode: "buffer" | "stream";
+	/** the integration `sse.connect` streams through (#1023); a live setting, not versioned */
+	sseBrokerId?: string;
 	/** spans exported to the project's OTEL destination; nothing is stored by us */
 	tracingEnabled: boolean;
 	/** debug recording, persisted for the portal trace viewer; expensive */
