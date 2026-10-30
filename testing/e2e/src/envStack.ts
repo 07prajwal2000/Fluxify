@@ -171,7 +171,11 @@ const children: Array<ReturnType<typeof Bun.spawn>> = [];
 // where workers install plugins: the default, /deps, is not writable on a CI runner
 const depsDir = mkdtempSync(join(tmpdir(), "fx-e2e-deps-"));
 
-async function worker(env: "production" | "development", port = freePort()) {
+async function worker(
+	env: "production" | "development",
+	port = freePort(),
+	mode: "both" | "route" | "workflow" = "both",
+) {
 	const healthPort = freePort();
 	const child = Bun.spawn(
 		["bun", join(import.meta.dir, "../../../apps/server/deployments/compiledWorker.ts")],
@@ -181,7 +185,7 @@ async function worker(env: "production" | "development", port = freePort()) {
 				FLUXIFY_ENV: env,
 				FLUXIFY_DEPS_DIR: depsDir,
 				WORKER_PROJECT_ID: "*",
-				WORKER_MODE: "both",
+				WORKER_MODE: mode,
 				WORKER_PORT: String(port),
 				WORKER_HEALTH_PORT: String(healthPort),
 			},
@@ -205,7 +209,11 @@ async function worker(env: "production" | "development", port = freePort()) {
 }
 
 const production = await worker("production");
-pools.a = await worker("development");
+// `E2E_SPLIT_WORKERS=1`: development serves routes on one node and runs workflows
+// on another, so whatever crosses between them has to cross for real
+const split = process.env.E2E_SPLIT_WORKERS === "1";
+pools.a = await worker("development", undefined, split ? "route" : "both");
+if (split) await worker("development", undefined, "workflow");
 // a second development worker is the other project's pool (#742); it is only
 // started when asked, so the default stack keeps one dev node for devWorkerOnline
 if (twoPools) pools.b = await worker("development");

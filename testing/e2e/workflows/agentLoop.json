@@ -1,0 +1,164 @@
+{
+	"name": "agentLoop",
+	"description": "An agent: loops, sending a token and reporting each turn. Reports `after` past the loop and `rescued` from its error handler, and a stop must reach neither.",
+	"blocks": [
+		{
+			"id": "entry",
+			"type": "entrypoint",
+			"position": {
+				"x": 0,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Start"
+			}
+		},
+		{
+			"id": "start",
+			"type": "jsrunner",
+			"position": {
+				"x": 240,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Start",
+				"value": "await fetch(getConfig(\"E2E_SINK_URL\") + \"/ev?k=\" + encodeURIComponent(input.k) + \"&e=start\");\nreturn Array.from({ length: 500 }, (_, i) => ({ i, k: input.k, handle: input.handle }));"
+			}
+		},
+		{
+			"id": "each",
+			"type": "foreachloop",
+			"position": {
+				"x": 480,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Each turn",
+				"values": [],
+				"useParam": true
+			}
+		},
+		{
+			"id": "turn",
+			"type": "jsrunner",
+			"position": {
+				"x": 720,
+				"y": 120
+			},
+			"data": {
+				"blockName": "One turn",
+				"value": "await fetch(getConfig(\"E2E_SINK_URL\") + \"/ev?k=\" + encodeURIComponent(input.k) + \"&e=tick\");\nawait sse.send(input.handle, \"tick \" + input.i);\nawait new Promise((r) => setTimeout(r, 50));"
+			}
+		},
+		{
+			"id": "after",
+			"type": "jsrunner",
+			"position": {
+				"x": 720,
+				"y": 0
+			},
+			"data": {
+				"blockName": "After the loop",
+				"value": "await fetch(getConfig(\"E2E_SINK_URL\") + \"/ev?k=all&e=after\");"
+			}
+		},
+		{
+			"id": "done",
+			"type": "response",
+			"position": {
+				"x": 960,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Done",
+				"httpCode": "200"
+			}
+		},
+		{
+			"id": "handler",
+			"type": "error_handler",
+			"position": {
+				"x": 0,
+				"y": 240
+			},
+			"data": {
+				"blockName": "On failure"
+			}
+		},
+		{
+			"id": "rescue",
+			"type": "jsrunner",
+			"position": {
+				"x": 240,
+				"y": 240
+			},
+			"data": {
+				"blockName": "Report",
+				"value": "await fetch(getConfig(\"E2E_SINK_URL\") + \"/ev?k=all&e=rescued\");"
+			}
+		},
+		{
+			"id": "rescued",
+			"type": "response",
+			"position": {
+				"x": 480,
+				"y": 240
+			},
+			"data": {
+				"blockName": "Done",
+				"httpCode": "200"
+			}
+		}
+	],
+	"edges": [
+		{
+			"id": "e-entry-start",
+			"from": "entry",
+			"to": "start",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-start-each",
+			"from": "start",
+			"to": "each",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-each-turn",
+			"from": "each",
+			"to": "turn",
+			"fromHandle": "executor",
+			"toHandle": "executor"
+		},
+		{
+			"id": "e-each-after",
+			"from": "each",
+			"to": "after",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-after-done",
+			"from": "after",
+			"to": "done",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-handler-rescue",
+			"from": "handler",
+			"to": "rescue",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-rescue-rescued",
+			"from": "rescue",
+			"to": "rescued",
+			"fromHandle": "source",
+			"toHandle": "source"
+		}
+	]
+}

@@ -175,3 +175,14 @@ than confusingly inside whichever suite loads it.
 Assert on `executed` as well as `body`. A response alone cannot distinguish a
 working graph from one whose real work was skipped by a branch that silently
 evaluated to the wrong side — that exact failure has shipped before.
+
+## Streaming and stopping
+
+`tests/sseStream.test.ts` and `tests/workflowStops.test.ts` run real graphs through the
+real HTTP path on the env stack, started with `splitWorkers`: development routes on one
+worker process, workflows on another. A stream's socket and the run feeding it are never
+in the same process, so events and stops really cross a broker. `src/streaming.ts` saves
+the fixtures through the API and fills `{{workflow}}` in a route graph with a workflow id,
+so `graphs/sse/stream.json` serves several producers. The liveness timeout is 3 seconds
+here, and the timeout case sets its 2 seconds in the database, below the API's 30-second
+floor.

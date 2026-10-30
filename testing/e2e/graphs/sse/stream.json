@@ -1,0 +1,86 @@
+{
+	"name": "sse/stream",
+	"description": "Opens a stream, fires {{workflow}} with its handle and a Run ID, and holds the connection. The first event carries the handle.",
+	"route": {
+		"method": "GET",
+		"path": "/sse/stream"
+	},
+	"blocks": [
+		{
+			"id": "entry",
+			"type": "entrypoint",
+			"position": {
+				"x": 0,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Start"
+			}
+		},
+		{
+			"id": "open",
+			"type": "jsrunner",
+			"position": {
+				"x": 240,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Connect",
+				"value": "const k = getQueryParam(\"k\"); return { k, handle: sse.connect(k) };"
+			}
+		},
+		{
+			"id": "fire",
+			"type": "trigger_workflow",
+			"position": {
+				"x": 480,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Fire the producer",
+				"mode": "now",
+				"workflowId": "{{workflow}}",
+				"useInput": true,
+				"runKey": "js: return input.k;",
+				"maxAttempts": 3,
+				"retryDelayMs": 300
+			}
+		},
+		{
+			"id": "reply",
+			"type": "response",
+			"position": {
+				"x": 720,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Hold the stream",
+				"httpCode": "200",
+				"holdConnection": true
+			}
+		}
+	],
+	"edges": [
+		{
+			"id": "e-entry-open",
+			"from": "entry",
+			"to": "open",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-open-fire",
+			"from": "open",
+			"to": "fire",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-fire-reply",
+			"from": "fire",
+			"to": "reply",
+			"fromHandle": "source",
+			"toHandle": "source"
+		}
+	]
+}

@@ -1,0 +1,57 @@
+{
+	"name": "sseWatch",
+	"description": "Watches sse.signal until a takeover fires it, then waits at the sink and sends to the handle again. The short pause lets the watch subscribe before it reports in.",
+	"blocks": [
+		{
+			"id": "entry",
+			"type": "entrypoint",
+			"position": {
+				"x": 0,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Start"
+			}
+		},
+		{
+			"id": "watch",
+			"type": "jsrunner",
+			"position": {
+				"x": 240,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Watch and send",
+				"value": "const signal = sse.signal(input.handle);\nawait new Promise((r) => setTimeout(r, 300));\nawait fetch(getConfig(\"E2E_SINK_URL\") + \"/ev?k=\" + encodeURIComponent(input.k) + \"&e=watching\");\nawait new Promise((r) => { signal.addEventListener(\"abort\", r); setTimeout(r, 2000); });\nif (signal.aborted) { await fetch(getConfig(\"E2E_SINK_URL\") + \"/ev?k=\" + encodeURIComponent(input.k) + \"&e=signal\"); }\nawait fetch(getConfig(\"E2E_SINK_URL\") + \"/hold?k=\" + encodeURIComponent(input.k));\nawait sse.send(input.handle, \"after\");\nawait sse.close(input.handle);"
+			}
+		},
+		{
+			"id": "done",
+			"type": "response",
+			"position": {
+				"x": 480,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Done",
+				"httpCode": "200"
+			}
+		}
+	],
+	"edges": [
+		{
+			"id": "e-entry-watch",
+			"from": "entry",
+			"to": "watch",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-watch-done",
+			"from": "watch",
+			"to": "done",
+			"fromHandle": "source",
+			"toHandle": "source"
+		}
+	]
+}

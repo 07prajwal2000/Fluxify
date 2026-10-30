@@ -1,0 +1,81 @@
+{
+	"name": "sse/stop",
+	"description": "The other half of an agent: stops the run by its Run ID, then closes the stream by its handle.",
+	"route": {
+		"method": "GET",
+		"path": "/sse/stop"
+	},
+	"blocks": [
+		{
+			"id": "entry",
+			"type": "entrypoint",
+			"position": {
+				"x": 0,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Start"
+			}
+		},
+		{
+			"id": "stop",
+			"type": "trigger_workflow",
+			"position": {
+				"x": 240,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Stop the run",
+				"mode": "stop",
+				"runKey": "js: return getQueryParam(\"k\");"
+			}
+		},
+		{
+			"id": "close",
+			"type": "jsrunner",
+			"position": {
+				"x": 480,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Close the stream",
+				"value": "await sse.close(getQueryParam(\"handle\")); return { stopped: true };"
+			}
+		},
+		{
+			"id": "done",
+			"type": "response",
+			"position": {
+				"x": 720,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Done",
+				"httpCode": "200"
+			}
+		}
+	],
+	"edges": [
+		{
+			"id": "e-entry-stop",
+			"from": "entry",
+			"to": "stop",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-stop-close",
+			"from": "stop",
+			"to": "close",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-close-done",
+			"from": "close",
+			"to": "done",
+			"fromHandle": "source",
+			"toHandle": "source"
+		}
+	]
+}
