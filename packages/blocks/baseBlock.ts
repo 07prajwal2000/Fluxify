@@ -300,7 +300,7 @@ export interface ContextVarsType {
 			handle: string,
 			data: unknown,
 			options?: { event?: string; eventId?: string },
-		): Promise<void>;
+		): Promise<boolean>;
 		close(handle: string): Promise<void>;
 		signal(handle: string): AbortSignal;
 	};
@@ -365,7 +365,7 @@ function setCookie(name: string, options: {
 	const sse: { // server-sent events through the route's SSE broker integration
 		connect(id: string): string; // routes only: this reply becomes an event stream for \`id\`, taking it over from any older connection; returns the handle "<integrationId>:<id>". Check auth first: anyone who can call the route can take the id over
 		readonly connectionId: string | undefined; // this request's handle, after connect
-		send(handle: string, data: any, options?: { event?: string; eventId?: string }): Promise<void>; // from anywhere (workflows too): strings as-is, anything else as JSON
+		send(handle: string, data: any, options?: { event?: string; eventId?: string }): Promise<boolean>; // from anywhere (workflows too): strings as-is, anything else as JSON. false when no client is connected or the broker failed; the run carries on
 		close(handle: string): Promise<void>; // ends the stream, from anywhere; safe to call twice
 		signal(handle: string): AbortSignal; // aborts when the client left or the stream closed or was taken over; pass it to AI calls
 	};

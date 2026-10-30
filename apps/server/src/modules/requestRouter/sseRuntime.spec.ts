@@ -226,6 +226,34 @@ describe("connect and the owner", () => {
 		await until(() => signal.aborted);
 	});
 
+	test("send reads false while the client is gone and true again after a reconnect, without throwing", async () => {
+		const id = `conv_${crypto.randomUUID()}`;
+		const handle = `int_1:${id}`;
+		const { url } = serve(async (sse) => {
+			sse.connect(id);
+		});
+		const producer = createSseApi({ projectId: PROJECT });
+		const first = await readUntil(await fetch(url), (t) => t.includes(": open"));
+		await sleep(10);
+		expect(await producer.send(handle, "one")).toBe(true);
+		await first.reader.cancel();
+		await until(() => fake.published.some((p) => p.envelope.t === "closed"));
+		await sleep(1);
+		expect(await producer.send(handle, "lost")).toBe(false);
+		const second = await fetch(url);
+		await sleep(10);
+		expect(await producer.send(handle, "two")).toBe(true);
+		const { text, reader } = await readUntil(second, (t) => t.includes("data: two"));
+		await reader.cancel();
+		expect(text).not.toContain("lost");
+	});
+
+	test("a broker failure reads false", async () => {
+		const handle = `int_1:conv_${crypto.randomUUID()}`;
+		spyOn(fake.broker, "publish").mockRejectedValue(new Error("broker down"));
+		expect(await createSseApi({ projectId: PROJECT }).send(handle, "x")).toBe(false);
+	});
+
 	test("the run ending without a held Response closes the stream", async () => {
 		const { url, end } = serve(async (sse) => {
 			sse.connect("conv_1");

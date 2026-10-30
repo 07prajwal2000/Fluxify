@@ -169,12 +169,16 @@ export type PoolOptions<T> = {
  * `not an SSE connection handle`.
  */
 export interface SseContext {
-	/** strings are sent as-is, anything else as JSON; multi-line data becomes one `data:` line per line */
+	/**
+	 * Strings are sent as-is, anything else as JSON; multi-line data becomes one
+	 * `data:` line per line. Resolves to `false` when no client is connected or
+	 * the broker failed, so a client refreshing never fails the run.
+	 */
 	send(
 		handle: string,
 		data: unknown,
 		options?: { event?: string; eventId?: string },
-	): Promise<void>;
+	): Promise<boolean>;
 	/** ends the stream; safe to call twice */
 	close(handle: string): Promise<void>;
 	/**

@@ -26,7 +26,7 @@ describe("sse global (#1024)", () => {
 		for (const member of [
 			"connect(id: string): string;",
 			"readonly connectionId: string | undefined;",
-			"send(handle: string, data: unknown, options?: { event?: string; eventId?: string }): Promise<void>;",
+			"send(handle: string, data: unknown, options?: { event?: string; eventId?: string }): Promise<boolean>;",
 			"close(handle: string): Promise<void>;",
 			"signal(handle: string): AbortSignal;",
 		])

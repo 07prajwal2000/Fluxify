@@ -42,12 +42,12 @@ describe("ctx.sse in runBlock", () => {
 
 	it("follows the worker's rules: strings as-is, one signal per handle, drops after close", async () => {
 		const sse = fakeSse();
-		await sse.send("int_1:a:b", "line one\nline two");
+		expect(await sse.send("int_1:a:b", "line one\nline two")).toBe(true);
 		expect(sse.sent[0]).toEqual({ handle: "int_1:a:b", data: "line one\nline two" });
 		expect(sse.signal("int_1:a:b")).toBe(sse.signal("int_1:a:b"));
 		await sse.close("int_1:a:b");
 		await sse.close("int_1:a:b");
-		await sse.send("int_1:a:b", "late");
+		expect(await sse.send("int_1:a:b", "late")).toBe(false);
 		expect(sse.sent).toHaveLength(1);
 		expect(sse.closed).toEqual(["int_1:a:b", "int_1:a:b"]);
 		expect(sse.signal("int_1:a:b").aborted).toBe(true);

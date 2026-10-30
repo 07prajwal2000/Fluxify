@@ -146,12 +146,13 @@ export function fakeSse(options: { onSend?: (event: SseEvent) => void } = {}): F
 		closed,
 		disconnect: (handle, reason = new Error("SSE stream closed")) => end(handle, reason),
 		async send(handle, data, { event, eventId } = {}) {
-			if (controller(handle).signal.aborted) return;
+			if (controller(handle).signal.aborted) return false;
 			const record: SseEvent = { handle, data: sseData(data) };
 			if (event !== undefined) record.event = String(event);
 			if (eventId !== undefined) record.eventId = String(eventId);
 			sent.push(record);
 			options.onSend?.(record);
+			return true;
 		},
 		async close(handle) {
 			closed.push(handle);

@@ -139,11 +139,7 @@ describe.each(BROKERS)("SSE runtime across processes on $name", (broker) => {
 		const config = broker.config(result.port);
 		hydrateIntegrations(PROJECT, { [broker.group]: { [brokerId]: { ...config, [OWNER_KEY]: PROJECT } } });
 		// ready once a publish goes through
-		await until(() =>
-			createSseApi({ projectId: PROJECT })
-				.send(`${brokerId}:ping`, "x")
-				.then(() => true, () => false),
-		60_000);
+		await until(() => createSseApi({ projectId: PROJECT }).send(`${brokerId}:ping`, "x"), 60_000);
 		const setup = { projectId: PROJECT, brokerId, group: broker.group, config };
 		nodes = await Promise.all([startNode(setup), startNode(setup)]);
 	}, 180_000);
@@ -190,6 +186,22 @@ describe.each(BROKERS)("SSE runtime across processes on $name", (broker) => {
 		expect(signal.aborted).toBe(false);
 		events.abort();
 		await until(() => signal.aborted);
+	}, 30_000);
+
+	it("send reads false after the client leaves and true after it reconnects on another process", async () => {
+		const id = rand();
+		const handle = `${brokerId}:${id}`;
+		const producer = createSseApi({ projectId: PROJECT });
+		const first = client(`${nodes[0]!.url}/chat?id=${id}`);
+		await until(() => first.text.includes("data: connected"));
+		expect(await producer.send(handle, "one")).toBe(true);
+		first.abort();
+		await until(async () => !(await producer.send(handle, "gone")));
+		const second = client(`${nodes[1]!.url}/chat?id=${id}`);
+		await until(() => second.text.includes("data: connected"));
+		await until(() => producer.send(handle, "back"));
+		await until(() => second.text.includes("data: back"));
+		second.abort();
 	}, 30_000);
 
 	it("a plugin block streams with ctx.sse and stops on signal when the client leaves", async () => {

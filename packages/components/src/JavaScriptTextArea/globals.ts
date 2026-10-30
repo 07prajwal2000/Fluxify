@@ -266,8 +266,8 @@ declare const sse: {
 	connect(id: string): string;
 	/** this request's handle after connect, otherwise undefined */
 	readonly connectionId: string | undefined;
-	/** sends one event, from anywhere; strings go as-is, anything else as JSON */
-	send(handle: string, data: unknown, options?: { event?: string; eventId?: string }): Promise<void>;
+	/** sends one event, from anywhere; strings go as-is, anything else as JSON. Resolves to false when no client is connected or the broker failed; it does not throw for those */
+	send(handle: string, data: unknown, options?: { event?: string; eventId?: string }): Promise<boolean>;
 	/** ends the stream, from anywhere; safe to call twice */
 	close(handle: string): Promise<void>;
 	/** aborts when the client left or the stream closed or was taken over; pass it to AI calls */

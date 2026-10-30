@@ -87,6 +87,15 @@ await sse.send(input.handle, { progress: 40 }, { event: "progress", eventId: "4"
 
 `sse.send`, `sse.close` and `sse.signal` work in routes, workflows and custom blocks, on any server. Plugin blocks use the same calls as [`ctx.sse`](/plugins/authoring/context#ctx-sse).
 
+`sse.send` returns `true`, or `false` when no client is connected or the broker failed. It doesn't throw for either, so a user refreshing the page never fails your run. Keep sending, and the client gets events again once it reconnects:
+
+```js
+const delivered = await sse.send(input.handle, token);
+if (!delivered) unsent.push(token); // optional: keep what the client missed
+```
+
+The answer is a best guess. Fluxify learns that a client left while your code is sending, so the first send, or one after 10 minutes without sending, returns `true` even if nobody is there.
+
 ## 6. Stop when nobody is listening
 
 `sse.signal(handle)` returns an `AbortSignal` that aborts when:
