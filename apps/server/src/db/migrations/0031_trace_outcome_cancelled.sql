@@ -1,0 +1,1 @@
+ALTER TYPE "public"."trace_outcome" ADD VALUE 'cancelled';

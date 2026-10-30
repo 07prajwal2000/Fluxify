@@ -242,4 +242,23 @@ describe("WorkflowTraceRecorder", () => {
 		});
 		expect(runs[0].statusCode).toBeUndefined();
 	});
+
+	it("keeps the spans recorded before a stop and ends as cancelled", () => {
+		const runs: any[] = [];
+		const recorder = new WorkflowTraceRecorder(
+			{ projectId: "project-1", workflowId: "workflow-1", workflowVersion: "v1" },
+			(run) => runs.push(run),
+		);
+		recorder.recordSpan({
+			blockId: "entry",
+			blockType: "entrypoint",
+			startedAt: 10,
+			endedAt: 25,
+			outcome: "success",
+		});
+		recorder.complete("cancelled");
+
+		expect(runs).toHaveLength(1);
+		expect(runs[0]).toMatchObject({ outcome: "cancelled", spans: [{ blockId: "entry" }] });
+	});
 });

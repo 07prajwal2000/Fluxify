@@ -65,13 +65,10 @@ export async function runWorkflowJob(job: JobEnvelope, extras?: QueueRunExtras) 
 	}
 }
 
-/**
- * Where a stopped run's outcome is recorded. Its spans are kept.
- * #1035: this becomes `trace?.complete("cancelled")`.
- */
+/** Where a stopped run's outcome is recorded. Its spans are kept. */
 function completeStopped(job: JobEnvelope, trace: WorkflowTrace | undefined) {
 	try {
-		trace?.complete("failure");
+		trace?.complete("cancelled");
 	} catch {
 		// Telemetry must never affect job outcome.
 	}

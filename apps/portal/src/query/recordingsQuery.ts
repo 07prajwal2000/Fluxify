@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import {
 	type RecordingTarget,
+	type RunOutcome,
 	recordingsService,
 	type TestTraceFilter,
 } from "@/services/recordings";
@@ -43,7 +44,7 @@ export const recordingsQuery = {
 			target: RecordingTarget,
 			page: number,
 			poll: boolean,
-			outcome?: "success" | "failure",
+			outcome?: RunOutcome,
 			filter: TestTraceFilter & { perPage?: number; search?: string } = {},
 			env?: "development" | "production",
 		) {

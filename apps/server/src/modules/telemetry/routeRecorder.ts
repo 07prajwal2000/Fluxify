@@ -32,6 +32,9 @@ export type RecordedWorkflow = {
 
 export type TraceOutcome = "success" | "failure";
 
+/** a run can also be stopped by the user (#1035); a block never is */
+export type RunOutcome = TraceOutcome | "cancelled";
+
 /** what a route answered with; the recorder files it on the entrypoint span */
 export type RouteResponse = { headers: Record<string, string> };
 
@@ -40,7 +43,7 @@ export type RequestTrace = BlockTrace & {
 };
 
 export type WorkflowTrace = BlockTrace & {
-	complete(outcome: TraceOutcome): void;
+	complete(outcome: RunOutcome): void;
 };
 
 type TraceScope = {
@@ -111,7 +114,7 @@ export abstract class BaseTraceRecorder implements BlockTrace {
 
 	protected abstract targetAttributes(): Partial<TraceRunPayload>;
 
-	protected finishRun(outcome: TraceOutcome, statusCode?: number, response?: RouteResponse): void {
+	protected finishRun(outcome: RunOutcome, statusCode?: number, response?: RouteResponse): void {
 		if (this.completed) return;
 		this.completed = true;
 		if (response) this.recordResponse(statusCode, response);
@@ -309,7 +312,7 @@ export class WorkflowTraceRecorder extends BaseTraceRecorder implements Workflow
 		super(onComplete, parent);
 	}
 
-	complete(outcome: TraceOutcome): void {
+	complete(outcome: RunOutcome): void {
 		this.finishRun(outcome);
 	}
 

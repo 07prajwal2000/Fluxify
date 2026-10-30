@@ -218,6 +218,13 @@
 			"when": 1793200217008,
 			"tag": "0030_test_suite_enabled",
 			"breakpoints": true
+		},
+		{
+			"idx": 31,
+			"version": "7",
+			"when": 1793361654702,
+			"tag": "0031_trace_outcome_cancelled",
+			"breakpoints": true
 		}
 	]
 }

@@ -141,6 +141,9 @@ function finish(span: Span, outcome: string, error: string | undefined, at: numb
 		// carries a type and message rather than being dropped entirely.
 		if (error) span.recordException(new Error(error));
 		span.setStatus({ code: SpanStatusCode.ERROR, message: error });
+	} else if (outcome === "cancelled") {
+		// a stop is the user's choice, not a fault: leave the status unset, never ERROR
+		span.setAttribute("fluxify.cancelled", true);
 	} else {
 		span.setStatus({ code: SpanStatusCode.OK });
 	}
