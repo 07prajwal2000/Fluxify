@@ -1,17 +1,19 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { fileURLToPath } from "node:url";
 import { docker, pullImage, startContainerWithRandomPort } from "@fluxify/adapters/containerTestHelpers";
-import { compileGraph } from "@fluxify/blocks";
+import { compileGraph, registerModuleBlock } from "@fluxify/blocks";
 import type Docker from "dockerode";
 import { hydrateIntegrations, OWNER_KEY } from "../../../loaders/integrationsLoader";
 import { createJobContext } from "../service";
 import { closeSseBrokers, createSseApi } from "../sseRuntime";
-import { workflowGraph } from "./sseGraphs";
+import { NO_PERMISSIONS, withGrantedContext } from "../pluginPermissions";
+import { pluginWorkflowGraph, SSE_PLUGIN_BLOCK, workflowGraph } from "./sseGraphs";
 
 /**
  * SSE across processes, over real brokers (#1023). Each route node is its own
  * process (`sseNode.fixture.ts`) holding the client's socket; this process is
- * the other node, running a compiled workflow that sends with the handle.
+ * the other node, running a compiled workflow that sends with the handle, and
+ * a plugin block that streams with `ctx.sse` (#1025).
  */
 
 const FIXTURE = fileURLToPath(new URL("./sseNode.fixture.ts", import.meta.url));
@@ -83,6 +85,34 @@ function client(url: string) {
 		});
 	return state;
 }
+
+/** the plugin path a worker takes, with no permissions: `ctx.sse` needs none (#1025) */
+const MAX_TOKENS = 200;
+const META = { handles: { in: ["target"], out: ["source"], body: [] } } as never;
+let streamed: { sent: number; aborted: boolean } | undefined;
+registerModuleBlock(
+	PROJECT,
+	SSE_PLUGIN_BLOCK,
+	withGrantedContext(
+		async ({ params, ctx }) => {
+			const signal = ctx.sse!.signal(params.handle);
+			let sent = 0;
+			while (!signal.aborted && sent < MAX_TOKENS) {
+				await ctx.sse!.send(params.handle, `t${sent++}`, { event: "token" });
+				await sleep(50);
+			}
+			streamed = { sent, aborted: signal.aborted };
+		},
+		NO_PERMISSIONS,
+		`block ${SSE_PLUGIN_BLOCK}`,
+	),
+	META,
+);
+const pluginWorkflow = compileGraph(pluginWorkflowGraph().blocks, pluginWorkflowGraph().edges, {
+	asWorkflow: true,
+	projectId: PROJECT,
+	blockMeta: { [SSE_PLUGIN_BLOCK]: META },
+});
 
 describe.each(BROKERS)("SSE runtime across processes on $name", (broker) => {
 	const container = `fluxify-sse-runtime-${broker.name}-test`;
@@ -160,5 +190,21 @@ describe.each(BROKERS)("SSE runtime across processes on $name", (broker) => {
 		expect(signal.aborted).toBe(false);
 		events.abort();
 		await until(() => signal.aborted);
+	}, 30_000);
+
+	it("a plugin block streams with ctx.sse and stops on signal when the client leaves", async () => {
+		const id = rand();
+		const events = client(`${nodes[0]!.url}/chat?id=${id}`);
+		await until(() => events.text.includes("data: connected"));
+		streamed = undefined;
+		const run = pluginWorkflow.run(
+			createJobContext({ id: rand(), projectId: PROJECT, target: "wf", payload: {} }),
+			{ handle: `${brokerId}:${id}` },
+		);
+		await until(() => events.text.includes("data: t2"));
+		events.abort();
+		await run;
+		expect(streamed?.aborted).toBe(true);
+		expect(streamed!.sent).toBeLessThan(MAX_TOKENS);
 	}, 30_000);
 });

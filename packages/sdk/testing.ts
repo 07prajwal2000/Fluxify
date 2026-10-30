@@ -3,12 +3,15 @@
 export type { FailedBranch } from "./src/runtime/contract.js";
 export type { SpanRecord } from "./src/runtime/ctx.js";
 export {
+	type FakeSse,
+	fakeSse,
 	type LogEntry,
 	manualTimer,
 	memoryKv,
 	memoryQueue,
 	recordingLogger,
 	type SentMessage,
+	type SseEvent,
 	type TestPool,
 	testPool,
 } from "./src/testing/fakes.js";

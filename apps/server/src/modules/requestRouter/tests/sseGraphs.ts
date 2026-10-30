@@ -55,3 +55,16 @@ export function workflowGraph() {
 		edges: chain(["in", "js"]),
 	};
 }
+
+export const SSE_PLUGIN_BLOCK = "acme/ai/stream";
+
+/** A workflow whose plugin block (`SSE_PLUGIN_BLOCK`) gets the handle as a param (#1025). */
+export function pluginWorkflowGraph() {
+	return {
+		blocks: [
+			block("in", BlockTypes.entrypoint),
+			block("p", SSE_PLUGIN_BLOCK as BlockTypes, { handle: "js:return input.handle" }),
+		],
+		edges: chain(["in", "p"]),
+	};
+}

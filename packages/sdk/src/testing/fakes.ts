@@ -1,10 +1,11 @@
-import type { HttpClient, KvAdapter, Logger, QueueProducer } from "../context.js";
+import type { HttpClient, KvAdapter, Logger, QueueProducer, SseContext } from "../context.js";
 import {
 	DEFAULT_IDLE_TIMEOUT_MS,
 	LeasedResources,
 	type LeasedResourcesOptions,
 	type ResourceTimer,
 } from "../runtime/leasedResources.js";
+import { parseHandle, sseData } from "../runtime/sse.js";
 
 /** what a `ctx` field throws when the test did not provide it */
 export const notStubbed = (what: string): never => {
@@ -110,3 +111,52 @@ export const testPool = (options: LeasedResourcesOptions = {}) =>
 		...options,
 	});
 export type TestPool = ReturnType<typeof testPool>;
+
+export type SseEvent = { handle: string; data: string; event?: string; eventId?: string };
+
+export type FakeSse = SseContext & {
+	/** what the client would receive: data in its wire form, strings as-is, anything else as JSON */
+	sent: SseEvent[];
+	/** every `close(handle)` call, in order */
+	closed: string[];
+	/** plays the client leaving: aborts `signal(handle)` */
+	disconnect(handle: string, reason?: unknown): void;
+};
+
+/**
+ * `ctx.sse` with no broker. `onSend` runs after each recorded event, so a test
+ * can `disconnect` mid-stream. After a close or disconnect, sends to that
+ * handle are dropped, as a worker drops them.
+ */
+export function fakeSse(options: { onSend?: (event: SseEvent) => void } = {}): FakeSse {
+	const sent: SseEvent[] = [];
+	const closed: string[] = [];
+	const signals = new Map<string, AbortController>();
+	const controller = (handle: string) => {
+		parseHandle(handle);
+		if (!signals.has(handle)) signals.set(handle, new AbortController());
+		return signals.get(handle)!;
+	};
+	const end = (handle: string, reason: unknown) => {
+		const c = controller(handle);
+		if (!c.signal.aborted) c.abort(reason);
+	};
+	return {
+		sent,
+		closed,
+		disconnect: (handle, reason = new Error("SSE stream closed")) => end(handle, reason),
+		async send(handle, data, { event, eventId } = {}) {
+			if (controller(handle).signal.aborted) return;
+			const record: SseEvent = { handle, data: sseData(data) };
+			if (event !== undefined) record.event = String(event);
+			if (eventId !== undefined) record.eventId = String(eventId);
+			sent.push(record);
+			options.onSend?.(record);
+		},
+		async close(handle) {
+			closed.push(handle);
+			end(handle, new Error("SSE stream close"));
+		},
+		signal: (handle) => controller(handle).signal,
+	};
+}

@@ -1,6 +1,6 @@
 import type { DbFactory, KvFactory, QueueProducerFactory } from "@fluxify/adapters";
 import type { AbstractLogger, HttpClient } from "@fluxify/lib";
-import type { IntegrationsContext } from "@fluxify/sdk/blocks";
+import type { IntegrationsContext, SseContext } from "@fluxify/sdk/blocks";
 import type { TriggerConnection } from "@fluxify/sdk/runtime";
 import type jwt from "jsonwebtoken";
 import z from "zod";
@@ -222,6 +222,8 @@ export interface Context {
 	span?: <T>(name: string, fn: () => T | Promise<T>) => Promise<T>;
 	/** programmable blocks only (R6): a client kept across requests, closed when idle; see `ctxPool.ts` */
 	pool?: <T>(kind: string, key: unknown, options: CtxPoolOptions<T>) => Promise<T>;
+	/** module blocks only (#1025): `vars.sse` without `connect`, see `ctxSse.ts` */
+	sse?: SseContext;
 	/** plugin blocks only (I4): integrations by id; `grantContext` narrows it to the granted ones, see `ctxIntegrations.ts` */
 	integrations?: IntegrationsContext;
 }
