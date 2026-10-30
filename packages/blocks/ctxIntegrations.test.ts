@@ -193,7 +193,6 @@ async function request(graph: Graph) {
 			vars: {},
 			dbFactory,
 			kvFactory,
-			stopper: { timeoutEnd: 0, duration: 30_000 },
 		} as never;
 		return await graph(ctx, {});
 	} finally {

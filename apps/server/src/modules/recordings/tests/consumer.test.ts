@@ -553,7 +553,6 @@ describe("recordings consumer", () => {
 				apiId: "r-on",
 				vars: {},
 				requestBody: { name: "a" },
-				stopper: { timeoutEnd: 0, duration: 10_000 },
 				trace: recorder,
 			} as unknown as Parameters<typeof runGraph>[0];
 

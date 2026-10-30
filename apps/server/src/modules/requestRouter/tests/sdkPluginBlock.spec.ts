@@ -34,7 +34,6 @@ const ctx = () =>
 		apiId: "api-1",
 		projectId: P,
 		vars: {},
-		stopper: { timeoutEnd: 0, duration: 10_000 },
 	}) as any;
 
 /** entry -> hello -> 200 on success / 400 on failure; its body chain upper-cases */

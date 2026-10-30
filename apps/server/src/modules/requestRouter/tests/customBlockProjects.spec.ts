@@ -84,7 +84,6 @@ const call = (projectId: string) =>
 			apiId: "api-1",
 			vars: {},
 			requestBody: null,
-			stopper: { timeoutEnd: 0, duration: 10_000 },
 		} as any,
 	);
 

@@ -160,7 +160,6 @@ describe("a route calling a plugin block", () => {
 			apiId: "api-1",
 			vars: {},
 			requestBody: null,
-			stopper: { timeoutEnd: 0, duration: 10_000 },
 		} as any);
 
 	it("imports the block before the runtime is ready, then runs its code", async () => {

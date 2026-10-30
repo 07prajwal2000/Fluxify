@@ -63,6 +63,8 @@ export type { RequestOverrides } from "./types";
 import type { RequestOverrides } from "./types";
 
 export const DEFAULT_ROUTE_TIMEOUT_SECONDS = 30;
+/** A workflow whose artifact names no timeout; each attempt gets this long. */
+export const DEFAULT_JOB_TIMEOUT_SECONDS = 300;
 let dbConnectionManager: DbConnectionManager | undefined;
 const httpClient = new HttpClient();
 
@@ -111,7 +113,6 @@ export async function dispatch(
 					bodySchema: path.bodySchema,
 					querySchema: path.querySchema,
 					paramsSchema: path.paramsSchema,
-					timeoutSeconds: path.timeoutSeconds,
 					bodyMode: path.bodyMode,
 					sseBrokerId: path.sseBrokerId,
 					validators: resolveValidators?.(path.id),
@@ -169,7 +170,6 @@ export async function executeRouteInternal(
 		bodySchema?: any;
 		querySchema?: any;
 		paramsSchema?: any;
-		timeoutSeconds?: number;
 		/** a stream body has no shape to validate; the schema is ignored */
 		bodyMode?: BodyMode;
 		/** the integration `sse.connect` streams through */
@@ -282,7 +282,6 @@ export async function executeRouteInternal(
 		dbFactory,
 		http,
 		trigger,
-		routeInfo.timeoutSeconds ?? DEFAULT_ROUTE_TIMEOUT_SECONDS,
 		routeInfo.trace,
 		signal,
 	);
@@ -323,17 +322,11 @@ export async function executeRouteInternal(
  * that there is no HTTP exchange, so cookies and headers are no-ops and the
  * request accessors return empty. Nothing from the enqueuing request survives
  * except the payload it queued.
- *
- * ponytail: fixed timeout. Give it a per-job setting when a job legitimately
- * needs to outlive it.
  */
-export const DEFAULT_JOB_TIMEOUT_SECONDS = 300;
-
 export function createJobContext(job: {
 	id: string;
 	projectId: string;
 	target: string;
-	timeoutSeconds?: number;
 	/**
 	 * Overrides the default trigger. A queued custom block and a workflow run
 	 * differ only in where they came from, so they share this function rather
@@ -379,7 +372,6 @@ export function createJobContext(job: {
 		createDbFactory(job.projectId, undefined, job.signal),
 		http,
 		trigger,
-		job.timeoutSeconds ?? DEFAULT_JOB_TIMEOUT_SECONDS,
 		job.trace,
 		job.signal,
 	);
@@ -418,7 +410,6 @@ function createContext(
 	dbFactory: DbFactory,
 	httpClient: HttpClient,
 	trigger: TriggerContext,
-	timeoutSeconds: number,
 	trace?: BlockTrace,
 	signal?: AbortSignal,
 ): BlockContext {
@@ -457,10 +448,6 @@ function createContext(
 				if (type !== "observability") return undefined;
 				return observabilityLoggerFor(integrationId, routeInfo.projectId, routeInfo.id);
 			},
-		},
-		stopper: {
-			timeoutEnd: 0,
-			duration: timeoutSeconds * 1000,
 		},
 	};
 }

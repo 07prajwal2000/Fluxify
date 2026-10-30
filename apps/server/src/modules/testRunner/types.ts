@@ -28,7 +28,7 @@ export type TestBootstrap = {
 	source: string;
 	customBlocks: Array<{ name: string; source: string }>;
 	config: ProjectConfigPayload;
-	/** the target's timeoutSeconds * 1000, per case — drives the in-band stopper and the watchdog */
+	/** the target's timeoutSeconds * 1000, per case — drives the watchdog */
 	timeoutMs: number;
 	/**
 	 * The version whose graph the suite runs (#782): the promoted version's, or the

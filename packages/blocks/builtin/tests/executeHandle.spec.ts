@@ -33,7 +33,6 @@ const ctx = (extra: object = {}) =>
 		apiId: "api-1",
 		projectId: PROJECT,
 		vars: {},
-		stopper: { timeoutEnd: 0, duration: 10000 },
 		...extra,
 	}) as any;
 const js = (id: string, value: string, data: object = {}) =>

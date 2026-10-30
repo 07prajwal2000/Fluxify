@@ -80,7 +80,6 @@ const context = (input: unknown) =>
 		apiId: "api-1",
 		vars: {},
 		requestBody: input,
-		stopper: { timeoutEnd: 0, duration: 10_000 },
 	}) as any;
 
 initCompiledRuntime([

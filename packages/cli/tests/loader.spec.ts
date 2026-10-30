@@ -100,7 +100,6 @@ describe("a built plugin on a worker", () => {
 			apiId: "api-1",
 			projectId: P,
 			vars: {},
-			stopper: { timeoutEnd: 0, duration: 10_000 },
 		} as never;
 		const { output } = await graph.run(ctx, {});
 		expect(output.body).toBe("Hello, ada!");

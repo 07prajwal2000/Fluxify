@@ -163,7 +163,6 @@ function context() {
 		vars,
 		dbFactory,
 		kvFactory,
-		stopper: { timeoutEnd: 0, duration: 30_000 },
 	} as any;
 }
 

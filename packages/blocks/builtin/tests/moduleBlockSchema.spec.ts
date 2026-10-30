@@ -38,7 +38,6 @@ const ctx = () =>
 		apiId: "api-1",
 		projectId: PROJECT,
 		vars: { shape: userSchema },
-		stopper: { timeoutEnd: 0, duration: 10000 },
 	}) as any;
 
 /** entry -> step(data) -> response; what the step's `run` saw is returned */

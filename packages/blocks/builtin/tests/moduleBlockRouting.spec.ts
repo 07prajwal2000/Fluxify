@@ -34,7 +34,6 @@ const ctx = () =>
 		apiId: "api-1",
 		projectId: PROJECT,
 		vars: {},
-		stopper: { timeoutEnd: 0, duration: 10000 },
 	}) as any;
 
 const spec = (out: HandleSpec["out"]): HandleSpec => ({ in: ["target"], out, body: [] });

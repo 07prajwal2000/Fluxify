@@ -167,7 +167,6 @@ it("runs generateText with a KV tool, and traces each model call under the block
 			projectId: PROJECT,
 			vars: {},
 			kvFactory: { getKvAdapter: () => memoryKv },
-			stopper: { timeoutEnd: 0, duration: 10_000 },
 			trace: recorder,
 		} as never,
 		{},

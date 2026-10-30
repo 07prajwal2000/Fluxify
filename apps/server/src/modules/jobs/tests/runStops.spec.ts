@@ -180,14 +180,14 @@ describe("a run that no stop reached", () => {
 		expect(cleared).toEqual([]);
 	});
 
-	it("gets no signal and no tracking without a Run ID", async () => {
+	it("gets no stop tracking without a Run ID, only the timeout's signal", async () => {
 		const wf = artifact("no-id", OK);
 
 		expect(trackRun(job(wf))).toBeUndefined();
 		await runWorkflowJob(job(wf));
 
 		expect(shared.stopSpec.runs).toBe(1);
-		expect(shared.stopSpec.signal).toBeUndefined();
+		expect(shared.stopSpec.signal?.aborted).toBe(false);
 	});
 });
 

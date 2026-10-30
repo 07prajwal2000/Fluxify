@@ -100,7 +100,7 @@ function run(failure: boolean) {
 		edge("tx", "ok", "success"),
 		...(failure ? [edge("tx", "rejected", "failure")] : []),
 	];
-	const context = { vars: {}, dbFactory, stopper: { timeoutEnd: 0, duration: 30_000 } } as any;
+	const context = { vars: {}, dbFactory } as any;
 	return compileGraph(blocks, edges).run(context, undefined);
 }
 
