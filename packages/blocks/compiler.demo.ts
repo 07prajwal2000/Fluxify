@@ -62,7 +62,6 @@ const ctx = {
 	apiId: "api-1",
 	projectId: "proj-1",
 	vars,
-	stopper: { timeoutEnd: 0, duration: 10_000 },
 } as any;
 
 const requestBody = {

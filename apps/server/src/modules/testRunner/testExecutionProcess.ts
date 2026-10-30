@@ -122,7 +122,7 @@ async function runPhase(
 	extra: { setup?: unknown; outcome?: SuiteOutcome; request?: unknown; response?: unknown } = {},
 ) {
 	// "input": a workflow suite's loader, or its script compiled as a block (#487)
-	const { block, timeoutMs } = phase === "input" ? boot.input!.block! : boot[phase]!;
+	const { block } = phase === "input" ? boot.input!.block! : boot[phase]!;
 	(globalThis as { testsuite?: unknown }).testsuite = {
 		phase,
 		runId: boot.suiteRunId,
@@ -133,7 +133,6 @@ async function runPhase(
 		id: boot.suiteRunId,
 		projectId: boot.projectId,
 		target: block,
-		timeoutSeconds: timeoutMs / 1000,
 	});
 	try {
 		return await invokeCustomBlock(context, block, { params: {} });
@@ -256,9 +255,6 @@ async function runRoute(boot: TestBootstrap & RouteTarget, setup: unknown): Prom
 				bodySchema: boot.route.bodySchema,
 				querySchema: boot.route.querySchema,
 				paramsSchema: boot.route.paramsSchema,
-				// the engine's in-band stall budget, from the same number the
-				// watchdog uses, so neither can silently outlive the other
-				timeoutSeconds: boot.timeoutMs / 1000,
 				trace,
 			},
 			{

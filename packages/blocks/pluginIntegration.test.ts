@@ -164,7 +164,6 @@ const request = (run: ReturnType<typeof graph>) =>
 			projectId: PROJECT,
 			vars: {},
 			kvFactory,
-			stopper: { timeoutEnd: 0, duration: 30_000 },
 		} as never,
 		{},
 	);

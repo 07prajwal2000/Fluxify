@@ -64,7 +64,6 @@ async function recordRun() {
 		apiId: "a",
 		projectId: PROJECT,
 		vars: {},
-		stopper: { timeoutEnd: 0, duration: 10000 },
 		trace: recorder,
 	} as any;
 	const result = await run(ctx, {});

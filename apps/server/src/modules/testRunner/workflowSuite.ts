@@ -89,7 +89,6 @@ async function runCase(
 		id,
 		projectId: boot.projectId,
 		target: boot.workflow.id,
-		timeoutSeconds: boot.timeoutMs / 1000,
 		trigger: { kind: "trigger", source, data: events, meta },
 		payload: input,
 		trace,

@@ -201,10 +201,6 @@ export interface Context {
 	 * alongside `trace`.
 	 */
 	traceInput?: unknown;
-	stopper: {
-		timeoutEnd: number;
-		duration: number;
-	};
 	/**
 	 * The outermost run's lifetime (#850), set by the first compiled graph that
 	 * runs on this context and ended when it returns. A nested graph's context is

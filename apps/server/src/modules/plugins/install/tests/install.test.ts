@@ -164,7 +164,6 @@ async function runRoute(project: string, refs: PluginBlockRef[]) {
 			apiId: "api-1",
 			vars: {},
 			requestBody: null,
-			stopper: { timeoutEnd: 0, duration: 10_000 },
 		} as never,
 	);
 	return run?.output.body;

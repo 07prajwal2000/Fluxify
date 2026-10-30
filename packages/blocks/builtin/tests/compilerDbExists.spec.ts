@@ -33,7 +33,6 @@ function context(getSingle: (...args: any[]) => Promise<any>) {
 		projectId: "proj-1",
 		vars: {} as Record<string, any>,
 		dbFactory: { getDbAdapter: () => adapter },
-		stopper: { timeoutEnd: 0, duration: 10000 },
 	} as any;
 	return { ctx, calls };
 }

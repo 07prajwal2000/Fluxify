@@ -186,7 +186,6 @@ async function request(graph: ReturnType<typeof transaction>) {
 			projectId: PROJECT,
 			vars: {},
 			dbFactory,
-			stopper: { timeoutEnd: 0, duration: 30_000 },
 		} as never;
 		return await graph(ctx, {});
 	} finally {

@@ -256,7 +256,6 @@ async function runKvRoute(
 			requestBody: null,
 			// what `service.ts` gives every request: a factory over the hydrated cache
 			kvFactory: new KvFactory(integrationsLoader.kvIntegrationsCache),
-			stopper: { timeoutEnd: 0, duration: 10_000 },
 		} as never,
 	);
 	if (!run?.output) throw new Error(`the route did not answer: ${String((run as any)?.error)}`);

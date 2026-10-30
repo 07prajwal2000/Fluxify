@@ -37,7 +37,6 @@ export function createContext(adapter: any) {
 		projectId: "proj-1",
 		vars,
 		dbFactory: { getDbAdapter: () => adapter },
-		stopper: { timeoutEnd: 0, duration: 10000 },
 	} as any;
 }
 

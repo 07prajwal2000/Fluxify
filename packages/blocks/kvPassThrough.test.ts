@@ -98,7 +98,6 @@ async function runKv(
 			projectId: "proj-1",
 			vars: {},
 			kvFactory,
-			stopper: { timeoutEnd: 0, duration: 30_000 },
 		} as any,
 		body,
 	);

@@ -115,7 +115,6 @@ conformance("runtime", async (def, opts = {}) => {
 		apiId: "api-1",
 		projectId: PROJECT,
 		vars: { logger: recordingLogger(logs), getConfig: (k: string) => config[k] },
-		stopper: { timeoutEnd: 0, duration: 10000 },
 		kvFactory: { getKvAdapter: () => kv },
 		trace,
 	} as any;

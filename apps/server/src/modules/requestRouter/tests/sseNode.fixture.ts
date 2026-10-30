@@ -27,7 +27,7 @@ const server: ReturnType<typeof Bun.serve> = Bun.serve({
 		const url = new URL(request.url);
 		const outcome = await streamOrResult(request, server, () =>
 			executeRouteInternal(
-				{ id: "route_sse", projectId, projectName: "SSE", timeoutSeconds: 120, sseBrokerId: brokerId },
+				{ id: "route_sse", projectId, projectName: "SSE", sseBrokerId: brokerId },
 				{
 					method: "GET",
 					path: url.pathname,

@@ -1,7 +1,7 @@
 import type { TriggerBatchMeta, TriggerConnection, TriggerEvent } from "@fluxify/blocks";
 import { logger } from "@fluxify/common";
 import { compiledWorkflow } from "../requestRouter/compiledRuntime";
-import { createJobContext } from "../requestRouter/service";
+import { createJobContext, DEFAULT_JOB_TIMEOUT_SECONDS } from "../requestRouter/service";
 import { type TraceSinks, wantsSpans } from "../requestRouter/traceLifecycle";
 import type { WorkflowTrace } from "../telemetry/routeRecorder";
 import { isTriggerBatch } from "../triggers/types";
@@ -50,7 +50,8 @@ export function registerWorkflowJobHandler(factory?: WorkflowTraceFactory) {
  * One workflow run, shared by queued jobs and external queue batches. Resolves
  * on success, throws on failure, and resolves without running when this
  * process holds no such workflow or a stop already reached this run. A stopped
- * run always resolves, so the queue never retries it.
+ * run always resolves, so the queue never retries it. A timed-out run throws,
+ * so the queue does.
  */
 export async function runWorkflowJob(job: JobEnvelope, extras?: QueueRunExtras) {
 	const run = trackRun(job);
@@ -78,7 +79,7 @@ function completeStopped(job: JobEnvelope, trace: WorkflowTrace | undefined) {
 async function executeWorkflow(
 	job: JobEnvelope,
 	extras: QueueRunExtras | undefined,
-	signal: AbortSignal | undefined,
+	stop: AbortSignal | undefined,
 ) {
 	const workflow = compiledWorkflow(job.target);
 	// Not an error worth retrying on this worker: either the workflow was
@@ -107,12 +108,18 @@ async function executeWorkflow(
 		}
 	}
 
+	// per attempt: a retry is a new call here, so it gets the full budget.
+	// ponytail: a timer, so blocks that never yield to the event loop miss it, as they
+	// miss a stop. Have the compiled check read a deadline if such graphs turn up.
+	const timeoutSeconds = workflow.artifact.timeoutSeconds ?? DEFAULT_JOB_TIMEOUT_SECONDS;
+	const timeout = AbortSignal.timeout(timeoutSeconds * 1000);
+	const signal = stop ? AbortSignal.any([stop, timeout]) : timeout;
+
 	const { events, input, meta, source, triggerId } = readInput(job);
 	const context = createJobContext({
 		id: job.id,
 		projectId: job.projectId,
 		target: job.target,
-		timeoutSeconds: workflow.artifact.timeoutSeconds,
 		trigger: {
 			kind: "trigger",
 			source,
@@ -129,7 +136,11 @@ async function executeWorkflow(
 		context.traceInput = { input, trigger: triggerDetails(job, triggerId, source, context) };
 	try {
 		const result = await workflow.run(context, input);
-		if (signal?.aborted) return completeStopped(job, trace);
+		// The stop's own signal, not the joined one's reason: that stays the timeout
+		// when a stop follows it, and `end` then clears the entry, so a retry would
+		// run a stopped run. A run past its timeout that still finished stays a
+		// success: its work is done, and a retry would do it twice.
+		if (stop?.aborted) return completeStopped(job, trace);
 		// The graph's error handler settles a failed run into a normal result, so
 		// an unsuccessful outcome has to be turned back into a throw for the
 		// queue to see it.
@@ -149,11 +160,17 @@ async function executeWorkflow(
 		);
 	} catch (error) {
 		// also a failure that merely coincided with the stop: it must not be retried
-		if (signal?.aborted) return completeStopped(job, trace);
+		if (stop?.aborted) return completeStopped(job, trace);
 		try {
 			trace?.complete("failure");
 		} catch {
 			// Telemetry must never affect job outcome.
+		}
+		if (timeout.aborted) {
+			throw new Error(
+				`workflow ${workflow.artifact.name} timed out after ${timeoutSeconds} seconds`,
+				{ cause: error },
+			);
 		}
 		throw error;
 	} finally {
