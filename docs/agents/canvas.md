@@ -157,6 +157,8 @@ Validation runs by default and returns `issues`: `{ severity, message, block }`,
 
 The body of a response is the output of the block before it. The status is its `httpCode`: a fixed code like `"404"`, or `js:` code that returns one when it depends on the flow. To reshape the body in place, set `transformEnabled: true` and `transformScript` (plain code, it gets the body as `input` and returns what to send). Recipes: [Composed flows](/agents/recipes/composed-flows).
 
+`holdConnection: true` matters only on a route whose code called `sse.connect` in the same request. Then the body goes out as the first server-sent event and the stream stays open after the run ends, so a workflow or block can keep calling `sse.send` with the handle. Without it, the run ending closes the stream. On a request that did not connect it is ignored, and the reply is normal JSON. Recipe: [Stream an AI response](/agents/recipes/stream-ai-response).
+
 A workflow has no caller, so its end block only finishes the run and its `httpCode` is not read.
 
 ## Errors

@@ -72,6 +72,7 @@ Pass `routeId` and only the fields that change. Fields you leave out keep their 
 | `bodySchema` | object or null | Checks the request body. See [Request schemas](#request-schemas). | none |
 | `querySchema` | object or null | Checks the query string. | none |
 | `paramsSchema` | object or null | Checks the path params. Required when the path has `:params`. | none |
+| `sseBrokerId` | string or null | The id of a NATS (`queue`) or Redis (`kv`) integration of this project, from `list_integrations`. Lets the route's code call `sse.connect`. Any other id is refused. `null` clears it. Live, not versioned. See [Streaming responses](/getting-started/streaming). | none |
 | `middlewares` | `{ before?, after? }` | Middleware ids from `list_middlewares`, in run order. See [Attach to a route](/agents/middleware#attach-to-a-route). | none |
 
 ## Path rules

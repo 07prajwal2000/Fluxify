@@ -20,6 +20,8 @@ Every script runs inside an `async` function: `await` works anywhere, and `retur
 | `getResponseBody()`, `getResponseStatus()` | `null` | `null` | `null` | After middlewares |
 | `params` | No | No | Yes | Custom blocks |
 | `abortSignal` | Sync replies | `undefined` | Caller's | |
+| `sse.connect`, `sse.connectionId` | Sync replies | No | Caller's | |
+| `sse.send`, `sse.close`, `sse.signal` | Yes | Yes | Yes | |
 | `dbQuery` | No | No | No | DB Native block (PostgreSQL, MySQL) |
 | `db`, `ObjectId` | No | No | No | DB Native block (MongoDB) |
 | `kv` | No | No | No | KV Raw Connection block |
@@ -270,6 +272,30 @@ It is `undefined` when nothing can cancel the run: on a route with an async repl
 ::: info
 Code that never waits (a long loop with no `await`) cannot be interrupted. It runs until it ends or the route's timeout stops it.
 :::
+
+## Server-sent events
+
+```typescript
+const sse: {
+	connect(id: string): string;
+	readonly connectionId: string | undefined;
+	send(handle: string, data: any, options?: { event?: string; eventId?: string }): Promise<void>;
+	close(handle: string): Promise<void>;
+	signal(handle: string): AbortSignal;
+};
+```
+
+Stream events to the client instead of answering with one JSON body. The route needs an **SSE broker** in its settings.
+
+| Member | What it does |
+| --- | --- |
+| `connect(id)` | Routes only. Turns this reply into an event stream for `id`, taking it over from any older connection, and returns the handle `<integrationId>:<id>`. Check who is calling first |
+| `connectionId` | This request's handle, once `connect` ran |
+| `send(handle, data, options)` | Sends one event. Text goes as it is, anything else as JSON |
+| `close(handle)` | Ends the stream. Safe to call twice |
+| `signal(handle)` | Aborts when the client leaves, or the stream is closed or taken over |
+
+The full guide, with limits and errors: [Streaming responses](../getting-started/streaming.md).
 
 ## Logging
 

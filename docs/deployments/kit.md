@@ -170,6 +170,11 @@ SEED_USER_NAME=Admin User
 > `MASTER_ENCRYPTION_KEY` and `BETTER_AUTH_SECRET`. The kit only generates those
 > for you in bundled mode, where it has somewhere of its own to keep them.
 
+Optional settings sit further down in `env.example`, each with a comment. One
+worth knowing: `SSE_LIVENESS_TIMEOUT` (seconds, default `60`) is how long a
+[streaming response](/getting-started/streaming) may go without an event before
+it is closed. See [Streaming response timeout](./production#sse-liveness).
+
 ### Generate your secret keys
 
 Use this generator to create secure values for `MASTER_ENCRYPTION_KEY` and

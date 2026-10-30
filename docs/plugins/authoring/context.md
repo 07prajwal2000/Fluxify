@@ -25,6 +25,7 @@ async run({ params, ctx }) {
 | `ctx.span(name, fn)` | Times `fn` as a step of the block in the route's trace ([below](#ctx-span)) |
 | `ctx.pool(kind, key, options)` | A client kept between requests ([below](#ctx-pool)) |
 | `ctx.signal` | Optional. Aborts when the caller disconnects ([below](#ctx-signal)) |
+| `ctx.sse` | Sends server-sent events to a route that is streaming ([below](#ctx-sse)) |
 
 ## Permissions
 
@@ -149,6 +150,52 @@ const res = await fetch(url, { signal: ctx.signal });
 ```
 
 The same signal is available as `ctx.vars.abortSignal`.
+
+## ctx.sse
+
+`ctx.sse` lets a block stream to a route that called `sse.connect(id)` ([Streaming responses](/getting-started/streaming)). The route passes the stream's **handle** along, usually into a param of your block. The block never connects by itself.
+
+| Call | What it does |
+| :--- | :--- |
+| `await ctx.sse.send(handle, data, { event, eventId })` | Sends one event. Text goes as it is, anything else as JSON. `event` and `eventId` are optional |
+| `await ctx.sse.close(handle)` | Ends the stream. Safe to call twice |
+| `ctx.sse.signal(handle)` | An `AbortSignal` that aborts when the client leaves, or the stream is closed or taken over |
+
+These are the same calls JS blocks have as `sse`, and they work wherever the block runs: in the route, in a workflow, on another server. A handle that is not one throws `not an SSE connection handle`.
+
+`ctx.sse` needs **no permission**. The handle already names the route's broker, and a block can only reach the stream whose handle it was given.
+
+An AI block that streams its answer and stops when the user leaves:
+
+```ts
+import { streamText } from "ai";
+
+export default block({
+	name: "acme/ai/stream-answer",
+	label: "Stream answer",
+	permissions: { integrations: ["ai"] },
+	params: {
+		llm: param.integration({ kind: "ai", required: true }),
+		handle: param.string({ required: true }),
+		prompt: param.string({ required: true }),
+	},
+	async run({ params, ctx }) {
+		const signal = ctx.sse.signal(params.handle);
+		const ai = await ctx.integrations.get<"ai">(params.llm);
+		try {
+			const result = streamText({ model: ai.languageModel(), prompt: params.prompt, abortSignal: signal });
+			for await (const token of result.textStream) await ctx.sse.send(params.handle, token, { event: "token" });
+			await ctx.sse.send(params.handle, "", { event: "done" });
+		} catch (error) {
+			if (!signal.aborted) throw error;
+		} finally {
+			await ctx.sse.close(params.handle);
+		}
+	},
+});
+```
+
+Pass the signal to the model, not just to your loop: a model that keeps generating for a closed tab still costs tokens. `ctx.signal` is not enough here, because in a workflow it is `undefined`, and it knows nothing about the stream's client. Test it with [`fakeSse`](./testing#faking-ctx).
 
 ## ctx.span
 

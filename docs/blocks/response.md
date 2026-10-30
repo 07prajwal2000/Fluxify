@@ -22,6 +22,7 @@ The **Response** block ends the flow and sends the result back to whoever called
 | **Status code** | Yes | `200` | The status code to return. Pick it from the list (type `404` or `not found` to search), or use JS to work it out while the flow runs. See below. |
 | **Transform response** | No | off | Reshape the body just before it is sent. See below. |
 | **Transform** tab | Only when transform is on | empty | A script that receives the body as `input` and returns what to send. |
+| **Hold connection** | No | off | On a streaming route, send the body as the first event and keep the stream open. See below. |
 
 The body is the output of the block before it, so there is no body field to fill in.
 
@@ -48,6 +49,19 @@ Turn on **Transform response** to change the shape of the body without adding a 
 ```js
 return { data: input, meta: { count: input.length } };
 ```
+
+### Hold connection
+
+Use it on a route that streams with [server-sent events](/getting-started/streaming). It does nothing unless the route called `sse.connect` earlier in the same request; then the route answers with plain JSON as usual.
+
+After `sse.connect`:
+
+| Hold connection | What happens |
+| --- | --- |
+| On | The body is sent as the **first event** (no event when the body is `null`). The flow ends, but the stream stays open, so a workflow or another block can keep sending events with the handle. |
+| Off | The stream closes as soon as the flow ends. Events must be sent before that. |
+
+The status code is not used on a stream. The stream still closes after 60 seconds with no event, or when something calls `sse.close`.
 
 ### In an after middleware
 
@@ -105,6 +119,7 @@ The caller receives status `200` and this body:
 - **No Response block.** If the flow ends without one, the route answers `200` with the last block's output. With no output at all, the body is the text `NO RESULT`. Add a Response block so the answer is always clear.
 - **Transform errors.** If the transform script throws an error, the block fails and the [Error Handler](./error-handler.md) runs.
 - **Bad status code from JS.** If the status code JS returns a code that is not in the list, the block fails with an error naming the value, and the [Error Handler](./error-handler.md) runs.
+- **On a streaming route.** After `sse.connect`, the reply is already an event stream. The Response block ends the stream, or, with **Hold connection**, sends its body as an event and keeps the stream open. See [Streaming responses](/getting-started/streaming).
 - **Files cannot be sent directly.** JSON has no way to represent a file. Read what you need from it and send that.
 
 ### Example: created or updated

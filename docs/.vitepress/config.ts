@@ -187,6 +187,7 @@ export default withMermaid(
 							{ text: "Overview", link: "/getting-started/" },
 							{ text: "Guide", link: "/getting-started/basics" },
 							{ text: "Routing & Validation", link: "/getting-started/routing" },
+							{ text: "Streaming Responses", link: "/getting-started/streaming" },
 							{ text: "Connect an AI Agent", link: "/getting-started/ai-agents" },
 							{ text: "Custom Knowledge Base", link: "/getting-started/knowledge-base" },
 							{ text: "Contributing", link: "/getting-started/contributing" },
