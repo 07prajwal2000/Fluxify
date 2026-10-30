@@ -219,6 +219,11 @@ const get = () => spyOn(orchestrationService, "getProject").mockResolvedValue(st
 3. Run anything that isn't the trigger's own code (the workflow `emit` starts) under `triggerScope.exit(...)`, or its floating errors get blamed on the trigger.
 4. Plugin trigger authors should call `ctx.fail(error)` from their loop's `.catch`; that is the only fully reliable path.
 
+### A Job Sent Right After Spawning the Execution Child Is Refused
+**Issue:** a test that calls `supervisor.runJob` straight after `supervisor.start()` fails with `UnknownJobKindError: No handler registered for job kind "workflow"`, usually only on a slow machine such as CI.
+**Cause:** the child registers its job handlers during `bootstrap`, after loading its artifacts, and a job can arrive first. A real worker hits the same refusal at startup: the job is retried, which uses up one attempt.
+**Fix:** in a test, wait for the child's port before sending the first job. `Bun.serve` runs after the handlers are registered, so a port that answers means jobs are accepted. See `childrenReady` in `triggers/tests/runStops.test.ts`.
+
 ### A Child's IPC Message Sent Right Before `process.exit` Can Be Lost
 **Issue:** a process-spec fixture did `process.send(report); process.exit(0)` and the parent's `ipc` callback never fired; the test saw `undefined`.
 **Fix:** for a fixture that reports and exits, print one marker line to stdout (`console.log(\`REPORT ${JSON.stringify(x)}\`)`) and parse it from the piped stdout (`/REPORT (.*)/`). See `triggers/tests/strayErrorsChild.fixture.ts`. Use IPC only for a long-lived child.
