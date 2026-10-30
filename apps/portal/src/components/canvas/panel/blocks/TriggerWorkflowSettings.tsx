@@ -24,6 +24,7 @@ const MODE_OPTIONS = [
 	{ value: "now", label: "Now" },
 	{ value: "later", label: "Later" },
 	{ value: "cancel", label: "Cancel a scheduled run" },
+	{ value: "stop", label: "Stop a run" },
 ];
 
 function TriggerWorkflowGeneralSettings({ block }: { block: BlockNode }) {
@@ -37,10 +38,21 @@ function TriggerWorkflowGeneralSettings({ block }: { block: BlockNode }) {
 				label="When"
 				placeholder="Now"
 				options={MODE_OPTIONS}
-				hint="Now queues the run straight away. Later holds it until a time you set. Cancel drops a run that a Later block scheduled."
+				hint="Now queues the run straight away. Later holds it until a time you set. Cancel drops a run that a Later block scheduled. Stop ends a run that a Now block started with a Run ID."
 			/>
 
-			{mode === "cancel" ? (
+			{mode === "stop" && (
+				<BlockJsTextField
+					blockId={block.id}
+					data={block.data}
+					name="runKey"
+					label="Run ID"
+					placeholder={"js: return input.conversationId;"}
+					hint="Stops the runs started earlier with this Run ID. A run started later with the same ID runs normally. An ID with no run does nothing."
+				/>
+			)}
+
+			{mode === "cancel" && (
 				<BlockJsTextField
 					blockId={block.id}
 					data={block.data}
@@ -49,7 +61,9 @@ function TriggerWorkflowGeneralSettings({ block }: { block: BlockNode }) {
 					placeholder={"js: return vars.reminderId;"}
 					hint="The id a Later block returned. Cancelling a run that already started, or doesn't exist, does nothing."
 				/>
-			) : (
+			)}
+
+			{mode !== "cancel" && mode !== "stop" && (
 				<>
 					<BlockWorkflowField
 						blockId={block.id}
@@ -67,6 +81,17 @@ function TriggerWorkflowGeneralSettings({ block }: { block: BlockNode }) {
 							label="Run at"
 							placeholder="24h"
 							info={RUN_AT_INFO}
+						/>
+					)}
+
+					{mode === "now" && (
+						<BlockJsTextField
+							blockId={block.id}
+							data={block.data}
+							name="runKey"
+							label="Run ID"
+							placeholder={"js: return input.conversationId;"}
+							hint="Optional. Name this run, for example with a conversation ID, so a Stop a run block can stop it."
 						/>
 					)}
 
@@ -147,8 +172,8 @@ export function triggerWorkflowSettings(block: BlockNode) {
 			<TriggerWorkflowGeneralSettings block={block} />
 		</BlockSettings.TabHead>
 	);
-	// cancelling sends no data and has nothing to retry
-	if (block.data.mode === "cancel") return [general];
+	// cancelling or stopping sends no data and has nothing to retry
+	if (block.data.mode === "cancel" || block.data.mode === "stop") return [general];
 	return [
 		general,
 		<BlockSettings.TabHead key="data" name="Data">

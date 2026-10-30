@@ -67,6 +67,7 @@ import { workerTimeoutsEnabled } from "../src/modules/requestRouter/workerTimeou
 import { startFireConsumer } from "../src/modules/schedules/fire";
 import { serveTestRuns } from "../src/modules/testRunner/workerHost";
 import { TriggerWorker } from "../src/modules/triggers/consumers";
+import { watchRunStops } from "../src/modules/triggers/runStopBucket";
 import { consumedInExecution, runsHere } from "../src/modules/triggers/types";
 import "../src/lib/bigintJson";
 
@@ -469,6 +470,8 @@ const artifactWatch = await watchProjectArtifacts(
 	artifactKindsForMode(node.type),
 );
 await artifactWatch.initialized;
+const stopWatch = await watchRunStops(WORKER_PROJECT_ID, supervisor.runStopChanged);
+await stopWatch.initialized;
 subsystemConnected("Artifact KV");
 // a fresh node installs every project's packages before it serves anything
 await Promise.all([deps.idle(), plugins.idle()]);
@@ -585,6 +588,7 @@ async function shutdown(sig: string, code = 0) {
 		}
 		await node.stop();
 		await artifactWatch.stop();
+		await stopWatch.stop();
 		healthServer.stop(true);
 		await closeNats();
 	} catch (error) {

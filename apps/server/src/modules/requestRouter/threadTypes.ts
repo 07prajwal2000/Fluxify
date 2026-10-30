@@ -1,5 +1,6 @@
 import type { TraceRunPayload } from "@fluxify/common/otlp";
 import type { FluxifyEnv } from "../../lib/env";
+import type { RunStop } from "../jobs/runStops";
 import type { JobEnvelope } from "../jobs/types";
 import type { AsyncExecutorLimits } from "./asyncExecutor";
 import type { ArtifactEntry } from "./compiledRuntime";
@@ -21,6 +22,8 @@ export type ExecutionBootstrap = {
 	trustedOrigins: string[];
 	/** the full artifact set as of spawn, already unsealed */
 	artifacts: ArtifactEntry[];
+	/** current stop entries, so a restarted child still honours them */
+	runStops?: RunStop[];
 	/** where this node's plugin block code is; imported only when an artifact calls a block */
 	pluginRefs?: PluginBlockRef[];
 	/** where this node's plugin integration variants are (I6); all imported before ready */
@@ -62,7 +65,10 @@ export type ExecutionMessage =
 			triggers?: PluginTriggerRef[];
 	  }
 	// the supervisor owns NATS, the child owns user code: jobs cross here
-	| { type: "job"; job: JobEnvelope };
+	| { type: "job"; job: JobEnvelope }
+	// the stop bucket, as the supervisor's watcher sees it
+	| { type: "run-stop"; stop: RunStop }
+	| { type: "run-stop-cleared"; key: string };
 
 /** isolated execution process -> supervisor */
 export type ExecutionEvent =
@@ -71,6 +77,8 @@ export type ExecutionEvent =
 	| { type: "job-finished"; id: string; error?: string }
 	/** user code asked to queue work; only the supervisor can publish it */
 	| { type: "enqueue-job"; job: JobEnvelope }
+	/** a run a stop applied to has ended; only the supervisor can delete the entry */
+	| { type: "clear-run-stop"; key: string; revision: number }
 	/** a finished run with recording on (#254); only the supervisor can publish it */
 	| { type: "record-run"; run: TraceRunPayload }
 	/** a queue trigger's source is gone; only the admin can disable it */

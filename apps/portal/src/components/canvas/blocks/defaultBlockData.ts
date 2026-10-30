@@ -40,7 +40,15 @@ export function defaultBlockData(type: BlockType): Record<string, unknown> {
 	}
 	if (type === BLOCK_TYPES.cloudLogs) return { connection: "", level: "info" };
 	if (type === BLOCK_TYPES.triggerWorkflow) {
-		return { workflowId: "", useInput: false, data: "", mode: "now", runAt: "", scheduleId: "" };
+		return {
+			workflowId: "",
+			useInput: false,
+			data: "",
+			mode: "now",
+			runAt: "",
+			scheduleId: "",
+			runKey: "",
+		};
 	}
 	if (
 		type === BLOCK_TYPES.db_getsingle ||

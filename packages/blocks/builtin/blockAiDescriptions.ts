@@ -37,6 +37,7 @@ import { setVarBlockAiDescription } from "./setVar";
 import { stickyNoteBlockAiDescription } from "./stickyNote";
 import { switchAiDescription } from "./switch";
 import { transformBlockAiDescription } from "./transformer";
+import { triggerWorkflowAiDescription } from "./triggerWorkflow";
 
 /** What an agent is told about a built-in block (get_block_schemas). */
 export type BlockAiDescription = {
@@ -89,4 +90,5 @@ export const blockAiDescriptions: BlockAiDescription[] = [
 	switchAiDescription,
 	cloudLogsAiDescription,
 	errorHandlerAiDescription,
+	triggerWorkflowAiDescription,
 ];

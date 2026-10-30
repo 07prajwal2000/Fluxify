@@ -23,6 +23,13 @@ export type JobEnvelope = {
 	retry?: RetryPolicy;
 	/** Set by a Trigger Workflow block running later; the run is held until then. */
 	runAt?: string;
+	/** Set by a Trigger Workflow block running now: what a stop names. */
+	runKey?: string;
+	/**
+	 * The message's JetStream publish time in ms, set beside `runKey`. The broker's
+	 * clock, and the same on every redelivery, so it compares with a stop's time.
+	 */
+	firedAt?: number;
 };
 
 export type JobHandler = (job: JobEnvelope) => Promise<void>;

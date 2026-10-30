@@ -28,6 +28,8 @@ export type InternalTriggerMessage = {
 	origin?: Record<string, unknown>;
 	/** The block's own retry settings; unset falls back to the worker's. */
 	retry?: RetryPolicy;
+	/** The block's Run ID. Never the message id: that is the broker's dedupe key. */
+	runKey?: string;
 };
 
 /** A plugin trigger's row type: `plugin:` and its manifest name, e.g. `plugin:acme/pg/poller`. */

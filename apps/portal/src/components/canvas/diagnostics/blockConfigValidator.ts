@@ -5,7 +5,7 @@ import { savesOutput } from "../panel/SaveOutputField";
 import type { BlockData, CanvasGraph } from "../types";
 import { dbConditionIssues, dbJoinIssues, dbSortIssues, isBlank } from "./dbConditionIssues";
 import { checkRetrySettings, unwiredRetryHandles } from "./retryValidator";
-import { kvIssues, sendMessageIssues } from "./storeIssues";
+import { kvIssues, sendMessageIssues, triggerWorkflowIssues } from "./storeIssues";
 import { checkTransactionSettings } from "./transactionValidator";
 import type { BlockDiagnostic, DiagnosticSeverity } from "./types";
 
@@ -230,11 +230,7 @@ export function blockConfigIssues(type: string, data: BlockData): BlockConfigIss
 			sendMessageIssues(data, report);
 			break;
 		case BLOCK_TYPES.triggerWorkflow:
-			if (data.mode === "cancel") {
-				if (isBlank(data.scheduleId)) report("error", "No schedule id to cancel.");
-			} else if (isBlank(data.workflowId)) {
-				report("error", "No workflow selected.");
-			}
+			triggerWorkflowIssues(data, report);
 			break;
 		case BLOCK_TYPES.if:
 			if (list(data.conditions).length === 0)
