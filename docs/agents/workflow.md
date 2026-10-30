@@ -85,11 +85,24 @@ Nothing. A response block ends the run like any other last block, with no status
 
 There is nobody to report to, so a failed run is retried a few times with a pause. Make the work safe to run twice. Charging a card or sending an email needs a guard.
 
-A workflow that runs longer than `timeoutSeconds` is stopped.
+A run that goes past `timeoutSeconds` fails, and follows the same retry rules. Each attempt gets the full time. The timeout takes effect only at I/O, the next block or the next loop iteration, so code that never waits runs on. A run that finishes after the timeout without reaching one of those still counts as a success.
+
+## Long-running workflows
+
+For a long agent, raise `timeoutSeconds`. The default is 5 minutes and the most is 1 hour.
+
+- **Streaming.** A route's own timeout does not end a held stream. `SSE_LIVENESS_TIMEOUT` (60 seconds by default) is usually hit first: an agent silent for longer loses its stream, so send a progress event or raise it. See [Streaming responses](/getting-started/streaming#long-running-workflows-and-agents).
+- **Concurrency.** The **Trigger Workflow concurrency** project setting (default 10) limits how many runs started by the block go at once. Further runs wait, and they don't start strictly in order unless it is set to 1.
+
+## Stop a run
+
+A run started by a `trigger_workflow` block with `mode: "now"` can be stopped if it has a Run ID, the `runKey` field. A second block with `mode: "stop"` and the same `runKey` stops it. A stopped run is recorded as `cancelled` and is not retried. Runs from any other trigger cannot be stopped.
+
+Read [what a stop cannot do](/blocks/trigger-workflow#what-a-stop-cannot-do) first: code that never waits keeps running, and child workflows are not stopped.
 
 ## Workflow or route
 
-Use a route when something waits for the answer. Use a workflow for work you start and leave. A workflow can also be started from another canvas with the `trigger_workflow` block. `get_block_schemas` does not list that block, so read its fields in [Trigger Workflow](/blocks/trigger-workflow).
+Use a route when something waits for the answer. Use a workflow for work you start and leave. A workflow can also be started from another canvas with the `trigger_workflow` block. Read its fields with `get_block_schemas`, and how it behaves in [Trigger Workflow](/blocks/trigger-workflow).
 
 ## Common errors
 

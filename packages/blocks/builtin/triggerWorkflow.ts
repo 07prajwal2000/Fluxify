@@ -60,7 +60,7 @@ export const triggerWorkflowSchema = z
 export const triggerWorkflowAiDescription = {
 	name: BlockTypes.triggerWorkflow,
 	description:
-		"Starts a workflow in the background and carries on without waiting for it. mode 'now' queues it at once, 'later' holds it until runAt, 'cancel' drops a held run by scheduleId. Set runKey (Run ID, for example a conversation id) on a 'now' run to be able to stop it; mode 'stop' with the same runKey stops every run fired earlier with that id, wherever it is running, queued or waiting to retry. A later run with the same id runs normally, and stopping an id with no run does nothing. A stop takes effect at the run's next I/O call: work already done stays done, and workflows it fired keep running.",
+		"Starts a workflow in the background and carries on without waiting for it. mode 'now' queues it at once, 'later' holds it until runAt, 'cancel' drops a held run by scheduleId. Set runKey (Run ID, for example a conversation id) on a 'now' run to be able to stop it; mode 'stop' with the same runKey stops every run fired earlier with that id, wherever it is running, queued or waiting to retry. A later run with the same id runs normally, and stopping an id with no run does nothing. A stop takes effect at the run's next I/O call, block or loop iteration: code that never waits runs on, work already done stays done, and workflows it fired keep running.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(triggerWorkflowSchema)),
 	output:
 		"Its input, unchanged. In 'later' mode, `{ id, runAt }` instead: keep the id to cancel the run.",

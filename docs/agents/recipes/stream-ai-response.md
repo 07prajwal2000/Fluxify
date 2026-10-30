@@ -23,7 +23,7 @@ Keep the model's API key in app config, for example `OPENAI_API_KEY` (`save_app_
 
 ## 2. The workflow
 
-Create it with `save_workflow`. Give it enough time for a long answer:
+Create it with `save_workflow`. Give it enough time for a long answer. The default is 300 seconds and the most is 3600. Past it, the run fails and is retried:
 
 ```json
 { "projectId": "<project id>", "name": "Stream answer", "timeoutSeconds": 300 }
@@ -89,7 +89,7 @@ return true;
 
 Why each part is there:
 
-- **`signal` on `fetch`.** When the user leaves, the model request is cancelled, so it stops spending tokens. `abortSignal` is `undefined` in a workflow; `sse.signal(handle)` is the one that knows about the client.
+- **`signal` on `fetch`.** When the user leaves, the model request is cancelled, so it stops spending tokens. `sse.signal(handle)` is the one that knows about the client. It also aborts on a page refresh, so to keep the answer running across a refresh, see [Add a stop button](/agents/recipes/stream-ai-response#_5-add-a-stop-button).
 - **`done` event.** The browser's `EventSource` reconnects by itself when a stream ends. The client closes it when `done` arrives.
 - **`close` in `finally`.** The stream ends on success, on failure and on abort. Without it, the client waits for the 60-second timeout.
 
@@ -182,3 +182,65 @@ If nothing arrives, read the workflow's runs and `get_system_logs`. The common c
 | `SSE needs a broker integration in route settings` | `sseBrokerId` is not set on the route |
 | The stream closes right after `{"started":true}` | The workflow failed. Its run shows the error |
 | `error` event `SSE stream timed out` | Nothing was sent for 60 seconds: the workflow never started (check it is switched on), or the model sent no tokens yet |
+
+## 5. Add a stop button
+
+`sse.close` ends the stream, not the run. To let the user stop the model and keep the answer running across a page refresh, stop the run by its Run ID instead of watching `sse.signal`. That signal also fires on a takeover, and a refresh is a takeover.
+
+On the route, give the Trigger Workflow block a Run ID:
+
+```json
+{ "op": "update_block", "id": "<key of Start answer>", "data": { "runKey": "js: return getQueryParam('conversation');" } }
+```
+
+In the workflow's script, use `abortSignal`, and let its error reach the run so a stop is recorded as **Cancelled** and a timeout as a failure:
+
+```js
+const { handle, question } = input;
+try {
+	const res = await fetch("https://api.openai.com/v1/chat/completions", {
+		method: "POST",
+		signal: abortSignal,
+		// headers, body and the reading loop as in step 2
+	});
+	// ...
+	await sse.send(handle, "", { event: "done" });
+} finally {
+	await sse.close(handle);
+}
+return true;
+```
+
+Add a second route, `POST /chat/stop`, with the same auth check. It stops the run, then closes the stream, because a run that was still queued never reaches its own `finally`. Its canvas:
+
+```json
+{
+  "target": { "kind": "route", "id": "<stop route id>" },
+  "revision": 0,
+  "ops": [
+    { "op": "disconnect", "from": "entrypoint_1", "to": "response_1" },
+    { "op": "add_block", "ref": "stop", "type": "trigger_workflow",
+      "data": { "blockName": "Stop answer", "mode": "stop",
+                "runKey": "js: return getQueryParam('conversation');" },
+      "connect_from": { "from": "entrypoint_1" } },
+    { "op": "add_block", "ref": "close", "type": "jsrunner",
+      "data": { "blockName": "Close stream",
+                "value": "await sse.close('<broker integration id>:' + getQueryParam('conversation')); return { stopped: true };" },
+      "connect_from": { "from": "stop" } },
+    { "op": "connect", "from": "close", "to": "response_1" }
+  ]
+}
+```
+
+A handle is `<integrationId>:<id>`, so this route can build it from the conversation.
+
+With this setup, a closed tab no longer stops the model. The run ends on a stop, or at its timeout. In this recipe a refresh also calls `GET /chat` again, so skip **Start answer** when `q` is empty, or the refresh starts a second run. A stop ends both.
+
+Before relying on it, read [what a stop cannot do](/blocks/trigger-workflow#what-a-stop-cannot-do): code that never waits keeps running, and work already done stays done.
+
+## Long answers
+
+- **Workflow timeout.** Defaults to 5 minutes and goes up to 1 hour. Raise it with `save_workflow` for a long agent. Past it, the run fails and follows the normal retry rules. It takes effect only at I/O, the next block or the next loop iteration, the same limit as a stop.
+- **Route timeout.** It does not end a held stream.
+- **`SSE_LIVENESS_TIMEOUT`** (60 seconds by default) is usually hit first. An agent silent for longer loses its stream, so send a progress event or ask whoever runs the server to raise it.
+- **Trigger Workflow concurrency** (Project settings → General, default 10) limits how many of these runs go at once. Further runs wait, and they don't start strictly in order unless it is set to 1.

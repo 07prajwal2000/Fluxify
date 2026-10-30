@@ -37,7 +37,7 @@ Available as plain names in your code:
 | `getResponseBody()`, `getResponseStatus()` | In an [after middleware](../concepts/middlewares.md#what-each-step-receives), the reply's body and status code. `null` anywhere else. |
 | `getConfig(key)` | Read a value from [App Config](../concepts/app-config.md). |
 | `httpClient` | Call other services. |
-| `abortSignal` | Fires when the caller disconnects. Pass it to `fetch` or other slow work ([details](/scripting/javascript-api#cancellation)). |
+| `abortSignal` | Fires when the caller disconnects, or when a workflow run times out or is stopped. Pass it to `fetch` or other slow work ([details](/scripting/javascript-api#cancellation)). |
 | `logger` | `logInfo`, `logWarn` and `logError`. |
 | `jwt` | Sign, verify and decode tokens. The only library that is built in. |
 

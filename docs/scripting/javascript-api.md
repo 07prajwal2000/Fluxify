@@ -19,7 +19,7 @@ Every script runs inside an `async` function: `await` works anywhere, and `retur
 | `setHeader`, `setCookie` | Yes | No effect | Caller's | |
 | `getResponseBody()`, `getResponseStatus()` | `null` | `null` | `null` | After middlewares |
 | `params` | No | No | Yes | Custom blocks |
-| `abortSignal` | Sync replies | `undefined` | Caller's | |
+| `abortSignal` | Sync replies | Yes | Caller's | |
 | `sse.connect`, `sse.connectionId` | Sync replies | No | Caller's | |
 | `sse.send`, `sse.close`, `sse.signal` | Yes | Yes | Yes | |
 | `dbQuery` | No | No | No | DB Native block (PostgreSQL, MySQL) |
@@ -257,7 +257,7 @@ The promise rejects on a non-2xx answer or a network error. Pass a full URL.
 const abortSignal: AbortSignal | undefined;
 ```
 
-`abortSignal` aborts when the caller disconnects before the route answers. Once it fires, there is no one left to receive the answer, so the run stops using resources:
+On a route, `abortSignal` aborts when the caller disconnects before the route answers. In a workflow, it aborts when the run passes its time limit, or when it is [stopped by its Run ID](/blocks/trigger-workflow#stopping-a-run). Once it fires, the run stops using resources:
 
 - Database, key-value, message queue, `httpClient` and AI calls stop by themselves and throw.
 - Anything else you start yourself keeps going unless you pass it the signal.
@@ -267,10 +267,10 @@ const res = await fetch("https://api.example.com/report", { signal: abortSignal 
 return res.json();
 ```
 
-It is `undefined` when nothing can cancel the run: on a route with an async reply and in a workflow.
+It is `undefined` when nothing can cancel the run: on a route with an async reply and in a test suite run.
 
 ::: info
-Code that never waits (a long loop with no `await`) cannot be interrupted. It runs until it ends or the route's timeout stops it.
+Code that never waits (a long loop with no `await`) cannot be interrupted. It runs until it ends. See [what a stop cannot do](/blocks/trigger-workflow#what-a-stop-cannot-do).
 :::
 
 ## Server-sent events

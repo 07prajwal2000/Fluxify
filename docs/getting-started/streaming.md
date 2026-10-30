@@ -1,6 +1,6 @@
 ---
 title: Streaming responses (SSE)
-description: Send events to a client while your route, a workflow or a plugin block is still working, using server-sent events. Covers the broker setting, connect, send, close, reconnecting, a browser client, limits and errors.
+description: Send events to a client while your route, a workflow or a plugin block is still working, using server-sent events. Covers the broker setting, connect, send, close, stopping the work, long-running agents, reconnecting, a browser client, limits and errors.
 ---
 
 # Streaming responses (SSE)
@@ -126,6 +126,34 @@ await sse.close(input.handle);
 
 The client's connection ends. Calling `close` twice is safe, and it works from any server.
 
+## Let the user stop the work
+
+`sse.close` ends the stream, not the workflow. To give the user a Stop button, use a [Run ID](/blocks/trigger-workflow#stopping-a-run) and a second route:
+
+| Route | Blocks |
+| :--- | :--- |
+| `POST /chat` | Check the caller → `sse.connect(id)` → Trigger Workflow, **Now**, with **Run ID** set to `id` and the handle in its data |
+| `POST /chat/stop` | Check the caller → Trigger Workflow, **Stop a run**, with **Run ID** set to `id` → `sse.close(handle)` |
+
+Inside the workflow, `abortSignal` aborts on the stop. Pass it to `fetch`. AI, database, key-value, queue and `httpClient` calls stop by themselves.
+
+::: warning Don't stop the agent from `sse.signal`
+`sse.signal` also fires on a takeover, and a page refresh is a takeover. A run that ends on it dies every time the user refreshes the tab. Use it only for work that isn't worth keeping once this connection is gone. For work that should survive a refresh, use the stop route.
+:::
+
+A stop has limits. Most importantly, code that never waits keeps running. Read [what a stop cannot do](/blocks/trigger-workflow#what-a-stop-cannot-do).
+
+## Long-running workflows and agents
+
+An agent can run for a long time. Four settings decide how long it gets:
+
+| Setting | Default | What to know |
+| :--- | :--- | :--- |
+| The workflow's **timeout** | 5 minutes, up to 1 hour | Raise it on the workflow for a long agent. Past it, the run fails and follows the normal [retry rules](/blocks/trigger-workflow#retry). Like a stop, it only takes effect at I/O, the next block or the next loop iteration |
+| The route's timeout | 30 seconds | It does not end a held stream, so it doesn't limit the agent |
+| [`SSE_LIVENESS_TIMEOUT`](/deployments/production#sse-liveness) | 60 seconds | Usually the first limit you hit. An agent silent for longer loses its stream, so send a progress event, or raise the setting |
+| **Trigger Workflow concurrency** (Project settings → General) | 10 runs at once | Further runs wait, and runs don't start strictly in order unless it is set to 1 |
+
 ## Reconnecting
 
 To reconnect, the client calls the route again **with the same id**. The new connection takes the id over, and any older connection to it (another tab, a stale socket) is closed. There is nothing else to set up.
@@ -192,6 +220,6 @@ If the flow throws an error after `connect`, the client gets an `error` event wi
 ## Related
 
 - [Response block](/blocks/response#hold-connection): Hold connection.
-- [Trigger Workflow](/blocks/trigger-workflow): hand the handle to a workflow.
+- [Trigger Workflow](/blocks/trigger-workflow): hand the handle to a workflow, and stop a run.
 - [Plugin context](/plugins/authoring/context#ctx-sse): `ctx.sse` in plugin blocks.
 - [Streaming response timeout](/deployments/production#sse-liveness): the server setting.

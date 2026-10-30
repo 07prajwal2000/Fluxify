@@ -49,7 +49,7 @@ export const API_DOCS: ApiDocItem[] = [
 		kind: "property",
 		signature: "abortSignal: AbortSignal | undefined",
 		description:
-			"Aborts when the caller disconnects. Database, key-value, queue, httpClient and AI calls already stop on their own; pass it to anything else slow. Undefined on async routes and workflows.",
+			"Aborts when the caller disconnects, or when a workflow run times out or is stopped. Database, key-value, queue, httpClient and AI calls already stop on their own; pass it to anything else slow. Undefined on async routes and in test suites.",
 		category: "http",
 		example:
 			'const res = await fetch("https://api.example.com/report", { signal: abortSignal });\nreturn res.json();',

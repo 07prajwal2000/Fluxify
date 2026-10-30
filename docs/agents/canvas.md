@@ -53,6 +53,18 @@ A custom block's inputs come from `get_custom_block`. Any block's `data` can als
 
 Block text inputs are literal unless they start with `js:`. See [Dynamic values and `js:` expressions](/agents/expressions).
 
+### Start and stop a workflow
+
+The `trigger_workflow` block has a `mode`: `now`, `later`, `cancel` or `stop`. To be able to stop a run, set `runKey` (Run ID) on the `now` block. Stop it from another canvas:
+
+```json
+{ "op": "add_block", "ref": "stop", "type": "trigger_workflow",
+  "data": { "mode": "stop", "runKey": "js: return input.conversationId;" },
+  "connect_from": { "from": "entrypoint_1" } }
+```
+
+See [Stopping a run](/blocks/trigger-workflow#stopping-a-run) for what a stop can and cannot do.
+
 ## Read a big canvas in parts
 
 `get_canvas` returns the full data of every block. On a big canvas that is a lot to read each time. Ask for less:

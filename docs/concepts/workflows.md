@@ -110,6 +110,33 @@ Long-running does not mean unbounded. Pick a limit that reflects what the work
 should take, so a stuck run is stopped rather than occupying a worker
 indefinitely.
 
+A run that goes past its limit fails, and is retried like any other failure. The
+limit takes effect only at a database, network or similar call, at the next block,
+or at the next loop iteration. Code that never waits runs until it ends.
+
+### Long-running agents
+
+For an AI agent or other long job, raise the workflow's limit. A few other things
+matter when it streams to a client or runs many at once:
+
+- A route's own time limit does not end a held stream.
+- A stream with nothing sent for 60 seconds is closed. An agent that goes silent
+  for longer should send a progress event, or whoever runs Fluxify can raise
+  [the setting](/deployments/production#sse-liveness).
+- The **Trigger Workflow concurrency** project setting (default 10) limits how many
+  runs started by a Trigger Workflow block go at once. Further runs wait, and they
+  do not start strictly in order unless it is set to 1.
+
+See [Streaming responses](/getting-started/streaming#long-running-workflows-and-agents).
+
+## Stopping a run
+
+A run started by a [Trigger Workflow](/blocks/trigger-workflow#stopping-a-run) block
+with a **Run ID** can be stopped from another route or workflow. It is recorded as
+**Cancelled** and is not retried. A stop has
+[limits](/blocks/trigger-workflow#what-a-stop-cannot-do): code that never waits keeps
+running, and work already done stays done.
+
 ## Where workflows run
 
 Workflows execute on your workers, alongside your routes. A worker can be set up

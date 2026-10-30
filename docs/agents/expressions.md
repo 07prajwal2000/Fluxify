@@ -73,7 +73,7 @@ Most text inputs that hold a value accept it:
 | If, Switch | condition sides and case values |
 | For Loop | `start`, `end`, `step` |
 | Send Message | `connection`, `destination`, `key`, header and option values, payload values |
-| Trigger Workflow | `runAt`, `scheduleId`, the values inside `data` |
+| Trigger Workflow | `runAt`, `scheduleId`, `runKey`, the values inside `data` |
 | Custom block | any text parameter |
 
 A value inside an object or a list counts. `{ "headers": { "X-User": "js: return input.id" } }` works.
