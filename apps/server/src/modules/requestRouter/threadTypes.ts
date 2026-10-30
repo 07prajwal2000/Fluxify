@@ -37,6 +37,8 @@ export type ExecutionBootstrap = {
 	maxRequestBodyBytes: number;
 	/** furthest ahead a Trigger Workflow block may schedule a run, in milliseconds */
 	scheduleHorizonMs: number;
+	/** `SSE_LIVENESS_TIMEOUT`: an SSE stream with no real message for this long is closed */
+	sseLivenessTimeoutMs: number;
 	/** the execution process clears its env, so logging config travels with it */
 	logging: {
 		level: any;

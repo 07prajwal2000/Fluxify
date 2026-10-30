@@ -50,6 +50,8 @@ export interface ExecutionSupervisorOptions {
 	asyncExecutor: AsyncExecutorLimits;
 	maxRequestBodyBytes: number;
 	scheduleHorizonMs: number;
+	/** `SSE_LIVENESS_TIMEOUT` in milliseconds; 60 seconds when unset */
+	sseLivenessTimeoutMs?: number;
 	logging: ExecutionBootstrap["logging"];
 	/** The artifacts a freshly spawned child should start with, as this node sees them. */
 	artifacts: () => ArtifactEntry[];
@@ -251,6 +253,7 @@ export function createExecutionSupervisor(
 			workerTimeoutsEnabled: options.timeoutsEnabled(),
 			maxRequestBodyBytes: options.maxRequestBodyBytes,
 			scheduleHorizonMs: options.scheduleHorizonMs,
+			sseLivenessTimeoutMs: options.sseLivenessTimeoutMs ?? 60_000,
 			logging: options.logging,
 		};
 		const child = Bun.spawn([process.execPath, fileURLToPath(options.entry)], {

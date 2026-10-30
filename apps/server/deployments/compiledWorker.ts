@@ -18,6 +18,7 @@ import {
 	OTLP_LOGGER_ENABLED,
 	OTLP_LOGGER_LEVEL,
 	SCHEDULE_MAX_HORIZON_MS,
+	SSE_LIVENESS_TIMEOUT_MS,
 	WORKER_GROUP_IDS,
 	WORKER_MODE,
 	WORKER_PROJECT_ID,
@@ -174,6 +175,7 @@ const supervisor = createExecutionSupervisor({
 	asyncExecutor,
 	maxRequestBodyBytes: MAX_SERVER_REQUEST_BODY_BYTES,
 	scheduleHorizonMs: SCHEDULE_MAX_HORIZON_MS,
+	sseLivenessTimeoutMs: SSE_LIVENESS_TIMEOUT_MS,
 	logging: {
 		level: OTLP_LOGGER_LEVEL,
 		otlpEndpoint: OTLP_ENDPOINT,

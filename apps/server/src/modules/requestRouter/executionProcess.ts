@@ -43,6 +43,7 @@ import {
 	type RouteExecutionObserver,
 	type RouteTraceFactory,
 } from "./service";
+import { configureSse, refuseStreams, sseResponse, streamOrResult } from "./sse";
 import type { ExecutionBootstrap, ExecutionEvent, ExecutionMessage } from "./threadTypes";
 import type { TraceSinks } from "./traceLifecycle";
 import { workerTimeoutsEnabled } from "./workerTimeouts";
@@ -138,6 +139,7 @@ async function bootstrap(nextBoot: ExecutionBootstrap) {
 	// arrive over the artifact watch and change while the process is running.
 	setTriggerPayloadLimit(triggerPayloadLimit);
 	setScheduleHorizon(boot.scheduleHorizonMs);
+	configureSse({ livenessMs: boot.sseLivenessTimeoutMs });
 	setTriggerFaultReporter((fault) => send({ type: "trigger-fault", ...fault }));
 	// This process holds no broker connection: queueing is a message to the
 	// supervisor, which owns NATS.
@@ -247,6 +249,8 @@ async function serveRoute(request: Request): Promise<Response> {
 		}
 		// The route, if any, is buffered before the request outlives its reply.
 		await env.payload.bodyReader?.materialize();
+		// the 202 is the whole answer: nothing is left to stream events to
+		refuseStreams(request);
 		const accepted = asyncExecutor?.submit(async () => {
 			// The HTTP response is already a 202. Do not retain the HTTP context or
 			// attempt late cookie/header writes while the detached route runs.
@@ -259,14 +263,11 @@ async function serveRoute(request: Request): Promise<Response> {
 	}
 
 	try {
-		const response = await dispatch(
-			env,
-			parser,
-			ctx as any,
-			observer,
-			compiledRouteValidators,
-			traceFactory,
+		const outcome = await streamOrResult(request, server, () =>
+			dispatch(env, parser, ctx as any, observer, compiledRouteValidators, traceFactory),
 		);
+		if ("body" in outcome) return sseResponse(outcome.body, ctx.responseHeaders);
+		const response = outcome.result;
 		if (debug && response.error !== undefined) addDebugError(ctx.responseHeaders, response.error);
 		if (debugRun) addDebugTrace(ctx.responseHeaders, debugRun);
 		return json(response.data, response.status, ctx.responseHeaders);

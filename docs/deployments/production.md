@@ -259,6 +259,26 @@ the resulting object key. Only the key ever passes through Fluxify.
 
 ---
 
+## Streaming response timeout {#sse-liveness}
+
+A route can answer with a stream of events (server-sent events) instead of one
+JSON body, and keep the connection open while messages arrive. If no message is
+sent for **60 seconds**, the client gets an `error` event and the stream is
+closed. This stops a forgotten or stuck stream from holding a connection open
+forever.
+
+```env
+# Seconds without a message before a stream is closed. 60 is the default.
+SSE_LIVENESS_TIMEOUT=60
+```
+
+The keep-alive pings Fluxify sends to an idle stream do not count as messages.
+A client that stops reading is also disconnected once about 1 MB of events is
+waiting for it. Set it on the workers, in the same `.env` they read (see
+[Step 1](#env)).
+
+---
+
 ## Scheduled run limit {#schedule-horizon}
 
 A [Trigger Workflow](/blocks/trigger-workflow#running-later) block can hold a
