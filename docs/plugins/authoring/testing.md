@@ -50,6 +50,7 @@ Run the tests with `bun test`.
 | `spans` | Every finished `ctx.span`, with `name`, `parent`, `outcome` (`success` or `failure`), `error` and timing |
 | `logs` | Every line written with `ctx.vars.logger`, as `{ level, value }` |
 | `handleCalls` | Every body handle call: `handle`, `branch`, `input`, and its `result` or `error` |
+| `sse` | The run's `ctx.sse` fake: `sent` and `closed` ([below](#faking-ctx)) |
 | `callAfterEnd(...)`, `end()` | For late calls ([below](#late-calls)) |
 
 Params are defaulted and checked first, so a test of a missing required param looks like this:
@@ -73,6 +74,7 @@ Pass the fakes you need in `ctx`. The ones you leave out are the default noted h
 | `vars` | Merged into `ctx.vars`: request helpers like `getHeader`, or run variables | Empty request helpers |
 | `projectId`, `route`, `apiId` | The matching `ctx` fields | `test-project`, `/test`, `test-api` |
 | `pool` | The pooled clients | A fresh `testPool()` for each run |
+| `sse` | `ctx.sse` | A fresh `fakeSse()`, which records every event |
 
 A fake that is not provided throws on use, so a block that quietly reaches a real service shows up as a failing test instead of a network call. The `not stubbed` message names the field to pass.
 
@@ -85,6 +87,18 @@ The fakes you can build on are exported from `@fluxify/sdk/testing`:
 | `recordingLogger()` | A logger that keeps its lines in `logs` |
 | `testPool()` | The pooled clients. Share one across several `runBlock` calls to see a client reused, and read `getStats()` or call `close()` |
 | `manualTimer()` | A clock you move by hand (`advance(ms)`), for `testPool({ timer })`, to test an idle client closing without waiting |
+| `fakeSse({ onSend })` | `ctx.sse` with no broker. `sent` holds each event as `{ handle, data, event?, eventId? }`, with `data` as the client receives it (text as it is, anything else as JSON). `closed` lists every `close` call. `disconnect(handle)` plays the client leaving and aborts `signal(handle)`. `onSend` runs after each event |
+
+To test that a streaming block stops when the client leaves, disconnect from `onSend`:
+
+```ts
+const sse = fakeSse({ onSend: (e) => e.eventId === "3" && sse.disconnect(e.handle) });
+const r = await runBlock(streamer, { params: { handle: "int_1:conv" }, ctx: { sse } });
+expect(r.sse.sent).toHaveLength(3);
+expect(r.sse.closed).toEqual(["int_1:conv"]);
+```
+
+Like a worker, the fake drops events sent after a close or disconnect, and throws `not an SSE connection handle` for anything that is not `<integrationId>:<id>`.
 
 **Permissions are enforced.** The harness grants exactly what the block declares in `permissions`. A block that reads app config or opens a database without declaring it fails its test the way it would be refused on a worker.
 
