@@ -27,10 +27,11 @@ expires at a set time.
 
 | Field | Required | Default | What it does |
 |---|---|---|---|
-| **When** | No | **Now** | **Now**, **Later**, or **Cancel a scheduled run**. |
-| **Workflow** | Yes, except for **Cancel** | none | The workflow to start. Pick it from the list. It must be active. |
+| **When** | No | **Now** | **Now**, **Later**, **Cancel a scheduled run**, or **Stop a run**. |
+| **Workflow** | Yes, except for **Cancel** and **Stop** | none | The workflow to start. Pick it from the list. It must be active. |
 | **Run at** | For **Later** | none | When the run should start, see [Running later](/blocks/trigger-workflow#running-later). Accepts a `js:` expression. |
 | **Schedule id** | For **Cancel** | none | The id a **Later** block gave back. Accepts a `js:` expression. |
+| **Run ID** | For **Stop**. Optional for **Now** | none | A name for the run, such as a conversation id, so it can be stopped. See [Stopping a run](/blocks/trigger-workflow#stopping-a-run). Accepts a `js:` expression. |
 | **Use incoming value** | No | off | Send the previous block's output instead of the data below. |
 | **Data** | No | empty | What the workflow receives. Accepts a `js:` expression. |
 | **Max attempts**, **Retry delay** (Retry tab) | No | `5`, `10` seconds | How failed runs are retried, see [Retry](/blocks/trigger-workflow#retry). |
@@ -46,6 +47,7 @@ expires at a set time.
 | **Now** | Exactly what this block received. |
 | **Later** | A handle with the run's `id` and `runAt` (see below). |
 | **Cancel a scheduled run** | Exactly what this block received. |
+| **Stop a run** | Exactly what this block received. |
 
 ## Example
 
@@ -67,6 +69,10 @@ The route goes straight on to its [Response](./response.md) while the `send-welc
 
 The workflow starts on a worker some moment later. It gets its own time limit,
 its own retries, and its own logs.
+
+Each project runs up to 10 of these runs at once. Further runs wait, and runs do
+not start strictly in order unless the limit is 1. An admin can set it from 1 to
+100 under **Project settings → General → Trigger Workflow concurrency**.
 
 ## Running later
 
@@ -179,6 +185,38 @@ run**, and put the saved id in **Schedule id** — for example
 - A value that is not a schedule id makes the block fail.
 - Cancel sends no data and needs no workflow, so the Data and Retry tabs are
   hidden.
+
+## Stopping a run
+
+To be able to stop a run, give the block that starts it a **Run ID**: **When** set to **Now**, and an id you can name later, such as `js: return input.conversationId;`. A run with no Run ID cannot be stopped.
+
+To stop it, use a second Trigger Workflow block, usually on another route, with **When** set to **Stop a run** and the same **Run ID**.
+
+- Every run started earlier with that id stops, on any server. The stop run shows as **Cancelled** in the workflow's runs, with the blocks that ran before it.
+- Stopping an id with no run does nothing and is not an error. A blank Run ID makes the block fail.
+- The workflow's error handler does not run, and an open transaction is rolled back.
+- Only runs started by this block in **Now** mode can be stopped. Runs from a schedule, a queue or a plugin trigger, and runs started by hand, cannot.
+
+Inside the workflow, `abortSignal` aborts on a stop. Database, key-value, queue, `httpClient` and AI calls stop by themselves. Pass the signal to anything else slow, such as `fetch`. See [Cancellation](/scripting/javascript-api#cancellation).
+
+### What a stop cannot do
+
+::: warning Limits of a stop
+- **Non-I/O code keeps running after a stop.** A stop is noticed only at I/O calls, at the next block and at the next loop iteration. A JS block in a loop with no `await` runs until it ends.
+- **A custom block's own blocks, loops and error handler have no checks.** Its I/O calls still abort, and the workflow ends at the next block after it.
+- **Work already done stays done.** A sent email stays sent. A query already sent is abandoned, not cancelled on the database server.
+- **Child workflows are not stopped.** A workflow this run started keeps going unless you stop it by its own Run ID.
+- **Runs waiting for a time are not stopped.** Use [Cancel a scheduled run](/blocks/trigger-workflow#cancelling-a-scheduled-run) for those.
+:::
+
+### How long a stop lasts
+
+- A stop reaches a run that is running, queued or waiting for a retry. A failed run that was stopped is not retried.
+- A stop is cleared when the run ends, however it ended: completed, failed or stopped.
+- A stop that matched no run is forgotten after 7 days.
+- A Run ID can be reused. A stop only affects runs started before it, so a later run with the same id runs normally.
+
+Two rare cases can miss a stop. A stop sent within milliseconds of starting the run may arrive first. And if two queued runs share one id, the first to end clears the stop, so the second can still start.
 
 ## Retry
 

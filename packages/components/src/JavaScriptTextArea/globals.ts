@@ -244,10 +244,10 @@ declare class HttpClient {
 declare const httpClient: HttpClient;
 
 /**
- * Aborts when the run is cancelled: the caller disconnected. Database, key-value,
- * queue, httpClient and AI calls stop on their own; hand it to anything else slow,
- * e.g. fetch(url, { signal: abortSignal }). Undefined when nothing can cancel the run
- * (async routes, workflows).
+ * Aborts when the run is cancelled: the caller disconnected, or a workflow run timed
+ * out or was stopped by its Run ID. Database, key-value, queue, httpClient and AI calls
+ * stop on their own; hand it to anything else slow, e.g. fetch(url, { signal: abortSignal }).
+ * Undefined when nothing can cancel the run (async routes, test suites).
  */
 declare const abortSignal: AbortSignal | undefined;
 

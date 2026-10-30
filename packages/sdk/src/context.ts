@@ -204,10 +204,10 @@ export interface BlockContext {
 	queueFactory?: { getProducer(connection: string): Promise<QueueProducer> };
 	httpClient?: HttpClient;
 	/**
-	 * Aborts when the run is cancelled (the caller disconnected). Database and
-	 * key-value adapters from this context already stop; hand it to your own
-	 * slow work: `fetch(url, { signal: ctx.signal })`. Absent when nothing can
-	 * cancel the run.
+	 * Aborts when the run is cancelled (the caller disconnected, or a workflow
+	 * run timed out or was stopped). Database and key-value adapters from this
+	 * context already stop; hand it to your own slow work:
+	 * `fetch(url, { signal: ctx.signal })`. Absent when nothing can cancel the run.
 	 */
 	signal?: AbortSignal;
 	/** streams events to a connected route by its handle; see `SseContext` */

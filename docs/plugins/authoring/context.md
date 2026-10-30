@@ -24,7 +24,7 @@ async run({ params, ctx }) {
 | `ctx.vars.httpClient` (also `ctx.httpClient`) | An HTTP client: `get`, `post`, `put`, `patch` and `delete`. Each resolves to `{ data, status, headers }` |
 | `ctx.span(name, fn)` | Times `fn` as a step of the block in the route's trace ([below](#ctx-span)) |
 | `ctx.pool(kind, key, options)` | A client kept between requests ([below](#ctx-pool)) |
-| `ctx.signal` | Optional. Aborts when the caller disconnects ([below](#ctx-signal)) |
+| `ctx.signal` | Optional. Aborts when the caller disconnects, or when a workflow run times out or is stopped ([below](#ctx-signal)) |
 | `ctx.sse` | Sends server-sent events to a route that is streaming ([below](#ctx-sse)) |
 
 ## Permissions
@@ -141,7 +141,7 @@ Variables that earlier blocks stored on `vars` are there too. Prefer params and 
 
 ## ctx.signal
 
-`ctx.signal` is an `AbortSignal` that aborts when the caller disconnects before the route answers. It is `undefined` when nothing can cancel the run (an async reply, a workflow), so always treat it as optional.
+`ctx.signal` is an `AbortSignal`. On a route, it aborts when the caller disconnects before the route answers. In a workflow, it aborts when the run passes its time limit or is [stopped by its Run ID](/blocks/trigger-workflow#stopping-a-run). It is `undefined` when nothing can cancel the run (an async reply, a test suite run), so always treat it as optional.
 
 Databases, key-value stores, queues, AI models and the HTTP client you get from `ctx` already stop when it aborts. Pass it on to your own slow work:
 
@@ -195,7 +195,7 @@ export default block({
 });
 ```
 
-Pass the signal to the model, not just to your loop: a model that keeps generating for a closed tab still costs tokens. `ctx.signal` is not enough here, because in a workflow it is `undefined`, and it knows nothing about the stream's client. Test it with [`fakeSse`](./testing#faking-ctx).
+Pass the signal to the model, not just to your loop: a model that keeps generating for a closed tab still costs tokens. `ctx.signal` is not enough here, because it knows nothing about the stream's client. To keep the answer running across a page refresh, use `ctx.signal` instead and let the user [stop the run](/getting-started/streaming#let-the-user-stop-the-work): `ctx.sse.signal` also aborts on a takeover. Test it with [`fakeSse`](./testing#faking-ctx).
 
 ## ctx.span
 

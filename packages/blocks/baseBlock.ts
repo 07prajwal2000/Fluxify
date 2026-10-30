@@ -276,7 +276,7 @@ export interface ContextVarsType {
 	/** the reply's status code in an after middleware; null anywhere else */
 	getResponseStatus?: () => number | null;
 	httpClient: HttpClient;
-	/** aborts when the run is cancelled (the caller disconnected); undefined when nothing can cancel it */
+	/** aborts when the run is cancelled (the caller disconnected, or a workflow run timed out or was stopped); undefined when nothing can cancel it */
 	abortSignal?: AbortSignal;
 	/**
 	 * get the value of the app config
@@ -354,7 +354,7 @@ function setCookie(name: string, options: {
 
 // 4. System & Utilities
 	function getConfig(key: string): string | number | boolean | undefined;
-	const abortSignal: AbortSignal | undefined; // aborts when the caller disconnects; DB, KV, queue, httpClient and AI calls already honour it. Pass it to fetch(url, { signal: abortSignal }) or your own slow work
+	const abortSignal: AbortSignal | undefined; // aborts when the caller disconnects, or a workflow run times out or is stopped; DB, KV, queue, httpClient and AI calls already honour it. Pass it to fetch(url, { signal: abortSignal }) or your own slow work
 	function dbQuery(query: string, params?: unknown[]): Promise<any[]>; // Only in the DB Native block on PostgreSQL/MySQL. Returns rows; pass values via params with $1, $2 placeholders (MySQL also takes ?)
 	const db: import("mongodb").Db; // Only in the DB Native block on MongoDB: await db.collection("users").find({}).toArray(). Inside a transaction every collection call joins it
 	const ObjectId: typeof import("mongodb").ObjectId; // Only in the DB Native block on MongoDB: new ObjectId(id)
