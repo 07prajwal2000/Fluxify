@@ -64,6 +64,14 @@ const node = (): Node => ({} as Node);`,
 	pkgkept: blk("pkgkept", "run() { return { output: { usage: {} as LanguageModelUsage } }; }", {
 		extra: 'outputPackages: { ai: "1.0.0" },',
 	}),
+	shapes: blk(
+		"shapes",
+		`run({ params }) {
+		if (params) return { output: { text: "a", steps: 1, usage: {} as LanguageModelUsage, finishReason: "stop" as FinishReason } };
+		return { output: { text: "b", aborted: true } };
+	}`,
+		{ before: 'import type { FinishReason } from "ai";' },
+	),
 	wide: blk("wide", `run() { return { output: { ${wide} } }; }`),
 	nested: blk("nested", "run() { return { output: { list: [1] as number[], pair: [1, 'a'] as [number, string], m: new Map<string, number>(), f: (() => 1) as () => number, maybe: 1 as number | undefined } }; }"),
 };
@@ -129,6 +137,12 @@ describe("inferred output types", () => {
 		expect(entry("pkg").outputPackages).toEqual({ ai: version });
 		// the author's version of a package wins
 		expect(entry("pkgkept").outputPackages).toEqual({ ai: "1.0.0" });
+	});
+
+	it("merges the object shapes of one handle, so each field completes with its type", () => {
+		expect(entry("shapes").output).toBe(
+			'{ text: string; steps?: number; usage?: import("ai").LanguageModelUsage; finishReason?: import("ai").FinishReason; aborted?: boolean }',
+		);
 	});
 
 	it("drops a type over the limit, with a warning", () => {

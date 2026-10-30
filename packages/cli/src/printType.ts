@@ -93,10 +93,61 @@ export function createPrinter(
 	const wrap = (type: ts.Type, text: string) =>
 		type.isUnionOrIntersection() || text === FUNCTION ? `(${text})` : text;
 
+	/** a plain object shape: not a list, a function, an index map or a type a package names */
+	const isShape = (t: ts.Type, depth: number, stack: Set<ts.Type>) =>
+		!!(t.flags & F.Object) &&
+		!stack.has(t) &&
+		!checker.isArrayType(t) &&
+		!checker.isTupleType(t) &&
+		!t.getCallSignatures().length &&
+		!t.getConstructSignatures().length &&
+		!checker.getIndexInfosOfType(t).length &&
+		named(t, depth, stack) === undefined;
+
+	/**
+	 * Several object shapes as one object. JS is not narrowed, so `input.steps`
+	 * on `{ steps } | { aborted }` would be `any`; one object with the fields
+	 * that are not in every shape optional completes each of them with its type.
+	 */
+	function merge(shapes: readonly ts.Type[], depth: number, stack: Set<ts.Type>) {
+		if (depth >= DEPTH_CAP) return "any";
+		const fields = new Map<string, { types: ts.Type[]; seen: number; optional: boolean }>();
+		for (const shape of shapes)
+			for (const prop of checker.getPropertiesOfType(shape)) {
+				if (prop.name.startsWith("__@") || prop.name.startsWith("#")) continue;
+				const field = fields.get(prop.name) ?? { types: [], seen: 0, optional: false };
+				const optional = !!(prop.flags & tsApi.SymbolFlags.Optional);
+				const type = checker.getTypeOfSymbol(prop);
+				field.seen++;
+				field.optional ||= optional;
+				// a union a package names (`FinishReason`) stays whole
+				for (const t of type.isUnion() && !type.aliasSymbol ? type.types : [type])
+					if (!optional || !(t.flags & F.Undefined)) field.types.push(t);
+				fields.set(prop.name, field);
+			}
+		for (const shape of shapes) stack.add(shape);
+		try {
+			const lines = [...fields].flatMap(([name, { types, seen, optional }]) => {
+				if (!types.length) return [];
+				const key = IDENTIFIER.test(name) ? name : JSON.stringify(name);
+				const missing = optional || seen < shapes.length ? "?" : "";
+				return [`${key}${missing}: ${union(types, depth + 1, stack)}`];
+			});
+			return lines.length ? `{ ${lines.join("; ")} }` : "{}";
+		} finally {
+			for (const shape of shapes) stack.delete(shape);
+		}
+	}
+
 	function union(types: readonly ts.Type[], depth: number, stack: Set<ts.Type>) {
 		const parts: string[] = [];
 		const literals = types.filter((t) => t.flags & F.BooleanLiteral).length;
+		const shapes = types.filter((t) => isShape(t, depth, stack));
 		for (const t of types) {
+			if (shapes.length > 1 && shapes.includes(t)) {
+				if (t === shapes[0]) parts.push(merge(shapes, depth, stack));
+				continue;
+			}
 			// the checker holds `boolean` as `true | false`
 			let text = t.flags & F.BooleanLiteral && literals === 2 ? "boolean" : print(t, depth, stack);
 			if (text === FUNCTION) text = `(${text})`;
@@ -200,9 +251,11 @@ export function createPrinter(
 
 	return {
 		/** a type's text, with the packages it imports. `undefined` is dropped from a top-level union: an optional output */
-		print(type: ts.Type) {
+		print(input: ts.Type | readonly ts.Type[]) {
 			packages = {};
-			const types = (type.isUnion() ? type.types : [type]).filter((t) => !(t.flags & F.Undefined));
+			const types = (Array.isArray(input) ? (input as readonly ts.Type[]) : [input as ts.Type])
+				.flatMap((t) => (t.isUnion() ? t.types : [t]))
+				.filter((t) => !(t.flags & F.Undefined));
 			return { text: types.length ? union(types, 0, new Set()) : "", packages };
 		},
 	};

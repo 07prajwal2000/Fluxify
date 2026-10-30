@@ -121,28 +121,28 @@ function printResults(
 	checker: ts.TypeChecker,
 	definition: ts.ObjectLiteralExpression,
 	out: Handle[],
-	print: (type: ts.Type) => Printed,
+	print: (type: ts.Type | readonly ts.Type[]) => Printed,
 ) {
-	const found = new Map<Handle, Printed | null>();
+	const found = new Map<Handle, ts.Type[] | null>();
 	for (const result of resultsOf(api, checker, definition)) {
 		const symbol = checker.getPropertyOfType(result, "output");
 		if (!symbol) continue;
 		const type = checker.getTypeOfSymbolAtLocation(symbol, definition);
 		const unknown = type.flags & (api.TypeFlags.Any | api.TypeFlags.Unknown | api.TypeFlags.Never);
-		const printed = unknown ? undefined : print(type);
-		const useless = !printed || ["", "any", "unknown", "never"].includes(printed.text);
 		for (const handle of handlesOf(api, checker, result, definition, out)) {
 			const known = found.get(handle);
 			// a shape whose output is unknown makes the whole handle unknown
-			if (useless || known === null) found.set(handle, null);
-			else
-				found.set(handle, {
-					text: known ? `${known.text} | ${printed.text}` : printed.text,
-					packages: { ...known?.packages, ...printed.packages },
-				});
+			found.set(handle, unknown || known === null ? null : [...(known ?? []), type]);
 		}
 	}
-	return found;
+	// printed together, so the shapes of one handle merge into one object
+	return new Map(
+		[...found].map(([handle, types]) => {
+			const printed = types && print(types);
+			const useless = !printed || ["", "any", "unknown", "never"].includes(printed.text);
+			return [handle, useless ? null : printed] as const;
+		}),
+	);
 }
 
 /**
