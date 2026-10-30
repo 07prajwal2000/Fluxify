@@ -54,6 +54,8 @@ export const routeBundleSchema = z.object({
 		timeoutSeconds: z.number().int().min(30).default(30),
 		acceptedContentTypes: z.array(z.enum(CONTENT_TYPES)).min(1).optional(),
 		bodyMode: z.enum(BODY_MODES).optional(),
+		/** the SSE broker integration's name: integrations travel by name */
+		sseBroker: z.string().optional(),
 	}),
 	canvas: z.object({ blocks: z.array(canvasBlockSchema), edges: z.array(canvasEdgeSchema) }),
 	responseSchemas: z

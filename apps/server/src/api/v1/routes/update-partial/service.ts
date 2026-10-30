@@ -10,7 +10,7 @@ import { canAccessProject } from "../../../../lib/acl";
 import { prodRecordingWarning } from "../../../../lib/observability";
 import { streamBodyConfigError } from "../../../../lib/routeConfig";
 import { audit, bodyFields } from "../../../../modules/audit";
-import { patchRouteConfig, readRouteConfig } from "../routeConfigRepository";
+import { patchRouteConfig, patchSseBroker, readRouteConfig } from "../routeConfigRepository";
 import { routeConflictError } from "../routeConflict";
 import { normalizeParamsSchema, validateRouteSchemas } from "../schema-validator";
 import { findRouteConflict, getRouteById, updateRoute } from "../update/repository";
@@ -105,6 +105,7 @@ export default async function handleRequest(
 		for (const name of OBSERVABILITY_FIELDS) {
 			if (data[name] !== undefined) patchedRoute[name] = data[name];
 		}
+		await patchSseBroker(id, existingRoute.projectId, data.sseBrokerId, tx);
 		let nextMode = data.bodyMode;
 		// Only a patch that can change the body handling needs the stored config.
 		if (

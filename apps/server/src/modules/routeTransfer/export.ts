@@ -50,9 +50,9 @@ export async function buildRouteBundle(
 		db.transaction((tx) => routeMiddlewareIds(routeId, tx)),
 		readRouteConfig(routeId),
 	]);
-	const middlewareNames = await namesOf(middlewaresEntity, [
-		...middlewareIds.before,
-		...middlewareIds.after,
+	const [middlewareNames, brokerNames] = await Promise.all([
+		namesOf(middlewaresEntity, [...middlewareIds.before, ...middlewareIds.after]),
+		namesOf(integrationsEntity, config.sseBrokerId ? [config.sseBrokerId] : []),
 	]);
 	const names = (ids: string[]) =>
 		ids.map((id) => middlewareNames.get(id)).filter((n): n is string => !!n);
@@ -71,6 +71,7 @@ export async function buildRouteBundle(
 			timeoutSeconds: route.timeoutSeconds,
 			acceptedContentTypes: config.acceptedContentTypes,
 			bodyMode: config.bodyMode,
+			sseBroker: config.sseBrokerId ? brokerNames.get(config.sseBrokerId) : undefined,
 		},
 		canvas: {
 			blocks: blocks.map((b) => ({

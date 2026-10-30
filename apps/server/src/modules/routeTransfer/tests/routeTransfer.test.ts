@@ -205,6 +205,46 @@ describe("route export and import", () => {
 		expect(res.body.warnings[0]).toContain('"missing-mw"');
 	});
 
+	it("carries the SSE broker by name, and drops one the project does not have", async () => {
+		const { as } = await setup();
+		const addIntegration = async (project: string, name: string, variant: string) => {
+			const id = Bun.randomUUIDv7();
+			await sql`INSERT INTO integrations (id, name, "group", variant, config, project_id)
+				VALUES (${id}, ${name}, ${variant === "NATS" ? "queue" : "kv"}, ${variant}, ${"{}"}::text::jsonb, ${project})`;
+			return id;
+		};
+		const name = `broker-${short()}`;
+		const broker = await addIntegration(as.project, name, "Redis");
+		const source = await createRoute(as);
+		const patch = (id: string, sseBrokerId: string | null) =>
+			call(as, "PATCH", `/routes/partial/${id}`, { sseBrokerId });
+		// another project's integration, or a variant that cannot carry SSE, is refused
+		const foreign = await addIntegration(await newProject(), `f-${short()}`, "NATS");
+		expect((await patch(source, foreign)).status).toBe(400);
+		expect((await patch(source, await addIntegration(as.project, `m-${short()}`, "Memcached"))).status).toBe(400);
+		expect((await patch(source, broker)).status).toBe(200);
+		expect((await call(as, "GET", `/routes/${source}`)).body.sseBrokerId).toBe(broker);
+
+		const bundle = await exportRoute(as, source, false);
+		expect(bundle.route.sseBroker).toBe(name);
+
+		const target = { ...as, project: await newProject() };
+		const targetBroker = await addIntegration(target.project, name, "NATS");
+		const imported = await call(target, "POST", "/routes/import", { projectId: target.project, bundle });
+		expect(imported.status).toBe(200);
+		expect((await call(target, "GET", `/routes/${imported.body.id}`)).body.sseBrokerId).toBe(targetBroker);
+
+		const elsewhere = { ...as, project: await newProject() };
+		const dropped = await call(elsewhere, "POST", "/routes/import", { projectId: elsewhere.project, bundle });
+		expect(dropped.status).toBe(200);
+		expect(dropped.body.warnings.join(" ")).toContain(`"${name}"`);
+		expect((await call(elsewhere, "GET", `/routes/${dropped.body.id}`)).body.sseBrokerId).toBeNull();
+
+		// null clears it
+		expect((await patch(source, null)).status).toBe(200);
+		expect((await call(as, "GET", `/routes/${source}`)).body.sseBrokerId).toBeNull();
+	});
+
 	it("says what an import would clash with before it is imported", async () => {
 		const { as } = await setup();
 		const source = await createRoute(as);

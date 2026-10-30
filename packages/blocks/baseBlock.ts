@@ -434,6 +434,8 @@ export interface BlockOutput {
 	continueIfFail: boolean;
 	/** a Response block produced this — a middleware chain stops here (#534) */
 	responded?: boolean;
+	/** a Response block with Hold connection (#1024): an SSE stream stays open after the run */
+	held?: boolean;
 }
 
 export const baseBlockDataSchema = z.object({

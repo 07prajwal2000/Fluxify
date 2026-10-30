@@ -1,7 +1,8 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { type DbTransactionType, db } from "../../../db";
-import { httpRouteConfigEntity } from "../../../db/schema";
-import { parseRouteConfig } from "../../../lib/routeConfig";
+import { httpRouteConfigEntity, integrationsEntity } from "../../../db/schema";
+import { BadRequestError } from "../../../errors/badRequestError";
+import { parseRouteConfig, SSE_BROKER_VARIANTS } from "../../../lib/routeConfig";
 
 /** The stored config, read through the same parser the workers use. */
 export async function readRouteConfig(routeId: string, tx?: DbTransactionType) {
@@ -38,4 +39,35 @@ export async function patchRouteConfig(
 				updatedAt: new Date(),
 			},
 		});
+}
+
+/**
+ * The SSE broker (#1024) is written as given: `null` clears it, `undefined`
+ * leaves it alone. Only the project's own NATS or Redis integration is taken;
+ * the runtime checks the same, this just says so at save time.
+ */
+export async function patchSseBroker(
+	routeId: string,
+	projectId: string | null | undefined,
+	sseBrokerId: string | null | undefined,
+	tx?: DbTransactionType,
+) {
+	if (sseBrokerId === undefined) return;
+	if (sseBrokerId !== null) {
+		const [broker] = await (tx ?? db)
+			.select({ id: integrationsEntity.id })
+			.from(integrationsEntity)
+			.where(
+				and(
+					eq(integrationsEntity.id, sseBrokerId),
+					eq(integrationsEntity.projectId, projectId ?? ""),
+					inArray(integrationsEntity.variant, SSE_BROKER_VARIANTS),
+				),
+			);
+		if (!broker)
+			throw new BadRequestError(
+				"The SSE broker must be a NATS or Redis integration of this project",
+			);
+	}
+	await patchRouteConfig(routeId, projectId, { sseBrokerId }, tx);
 }

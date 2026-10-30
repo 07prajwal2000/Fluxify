@@ -41,6 +41,8 @@ export type HandleRequestType = {
 	status: ContentfulStatusCode;
 	/** why the run failed; never sent to the caller, only to an admin's debug call (#671) */
 	error?: unknown;
+	/** a Response block held an SSE stream open (#1024); `data` is then its body */
+	held?: boolean;
 };
 
 export type RouteValidatorResolver = (routeId: string) =>
@@ -392,17 +394,20 @@ function validateSchema(
 	return compiled ? compiled.validate(value, context) : parseRequestSchema(schema, value, context);
 }
 
-function parseResult(executionResult: BlockOutput) {
+function parseResult(executionResult: BlockOutput): HandleRequestType {
+	const held = executionResult.successful && executionResult.held === true;
 	return {
+		held: held || undefined,
 		error: executionResult.successful ? undefined : executionResult.error,
 		status: executionResult.output?.httpCode || (executionResult.error ? 500 : 200),
-		data:
-			// ?? not ||: a body of 0, false or "" is still the body
-			executionResult.output?.body ?? // has output from previous blocks which passed to response block
-			(executionResult?.output || // has output from previous blocks which didn't pass (or no response block) to response block
-				(!executionResult.successful
-					? { error: executionResult.error?.toString() || "Unknown error" }
-					: "NO RESULT")),
+		data: held
+			? (executionResult.output?.body ?? null)
+			: // ?? not ||: a body of 0, false or "" is still the body
+				(executionResult.output?.body ?? // has output from previous blocks which passed to response block
+				(executionResult?.output || // has output from previous blocks which didn't pass (or no response block) to response block
+					(!executionResult.successful
+						? { error: executionResult.error?.toString() || "Unknown error" }
+						: "NO RESULT"))),
 	};
 }
 

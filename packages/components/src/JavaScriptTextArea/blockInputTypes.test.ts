@@ -16,3 +16,22 @@ describe("buildBlockInputTypeLib", () => {
 		expect(buildBlockInputTypeLib("  ")).toBe("");
 	});
 });
+
+describe("sse global (#1024)", () => {
+	it("is a declare const, so the editor's global scan picks it up", () => {
+		expect(FLUXIFY_JS_GLOBALS).toMatch(/declare const sse: \{/);
+	});
+
+	it("declares the runtime's methods with hover docs on the handle and auth", () => {
+		for (const member of [
+			"connect(id: string): string;",
+			"readonly connectionId: string | undefined;",
+			"send(handle: string, data: unknown, options?: { event?: string; eventId?: string }): Promise<void>;",
+			"close(handle: string): Promise<void>;",
+			"signal(handle: string): AbortSignal;",
+		])
+			expect(FLUXIFY_JS_GLOBALS).toContain(member);
+		expect(FLUXIFY_JS_GLOBALS).toContain('"<integrationId>:<id>"');
+		expect(FLUXIFY_JS_GLOBALS).toContain("Check auth before calling it");
+	});
+});

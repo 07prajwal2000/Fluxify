@@ -32,6 +32,18 @@ export function isStreamContentTypes(accepted: readonly string[]): boolean {
 	return accepted.length === 1 && accepted[0] === "application/octet-stream";
 }
 
+/** integration variants that can carry SSE (#1023): NATS (queue) and Redis (kv) */
+export const SSE_BROKER_VARIANTS = ["NATS", "Redis"];
+
+/** request field: an integration id, or `null` to clear it */
+export const sseBrokerField = z
+	.uuid()
+	.nullable()
+	.optional()
+	.describe(
+		"SSE broker: id of a NATS (queue) or Redis (kv) integration of this project that sse.connect streams through; null clears it. Without one, sse.connect throws",
+	);
+
 export const routeConfigSchema = z.object({
 	acceptedContentTypes: z
 		.array(z.enum(CONTENT_TYPES))

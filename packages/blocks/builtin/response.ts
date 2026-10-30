@@ -23,13 +23,20 @@ export const responseBlockSchema = z
 		/** opt-in: run `transformScript` on the body before it is sent */
 		transformEnabled: z.boolean().optional(),
 		transformScript: z.string().optional(),
+		/** after `sse.connect`: the body is the first event and the stream stays open */
+		holdConnection: z
+			.boolean()
+			.optional()
+			.describe(
+				"only after sse.connect in this request: send the body as the first SSE event and keep the stream open once the run ends, for later sse.send calls. Ignored when the request did not connect",
+			),
 	})
 	.extend(baseBlockDataSchema.shape);
 
 export const responseAiDescription = {
 	name: BlockTypes.response,
 	description:
-		'Terminates the request and returns the result to the client. Sets the status code; the body is whatever the previous block output. The status code is a fixed code, or "js:" code returning one when it depends on the flow (e.g. 201 when created, 200 when updated); an unknown code fails the block. Set transformEnabled + transformScript to reshape the body here (the script gets the body as `input` and its return value is sent), instead of adding a separate JS block.',
+		'Terminates the request and returns the result to the client. Sets the status code; the body is whatever the previous block output. The status code is a fixed code, or "js:" code returning one when it depends on the flow (e.g. 201 when created, 200 when updated); an unknown code fails the block. Set transformEnabled + transformScript to reshape the body here (the script gets the body as `input` and its return value is sent), instead of adding a separate JS block. On a route that called sse.connect, set holdConnection to send the body as the first event and keep the stream open after the run ends (without it, the run ending closes the stream).',
 	jsonSchema: JSON.stringify(z.toJSONSchema(responseBlockSchema)),
 	output:
 		"Nothing: it ends the run and sends its input (or transformScript's return value) as the body. No block runs after it.",
@@ -56,14 +63,14 @@ if (!${known}.includes(${code})) throw new Error(\`Response status code must be 
 
 /** terminal — nothing after a response block runs */
 export function emitResponse(node: EmitNode) {
-	const { httpCode, transformEnabled, transformScript } = responseBlockSchema.parse(
+	const { httpCode, transformEnabled, transformScript, holdConnection } = responseBlockSchema.parse(
 		node.block.data,
 	);
 	const status = statusCode(httpCode, node);
 	const body =
 		transformEnabled && transformScript?.trim() ? node.js(transformScript, node.in) : node.in;
 	return `${status.setup}${node.complete(
-		`{ successful: true, continueIfFail: true, responded: true, output: { httpCode: ${status.code}, body: ${body} ?? null } }`,
+		`{ successful: true, continueIfFail: true, responded: true,${holdConnection ? " held: true," : ""} output: { httpCode: ${status.code}, body: ${body} ?? null } }`,
 	)}`;
 }
 

@@ -239,7 +239,7 @@ export const readTools: McpTool[] = [
 		name: "get_route",
 		title: "Get route",
 		description:
-			"One route's settings, its body, query and params schemas (what call_route must send) and its before/after middlewares in run order. headVersionNumber is the version its working copy came from and uncommitted says it holds changes no version does (list_versions, commit_version). prodVersionNumber is the version production serves, null until one is promoted: a route serves nothing in production without one, even with active on. Its canvas (blocks and edges) is not included.",
+			"One route's settings, its body, query and params schemas (what call_route must send) and its before/after middlewares in run order. headVersionNumber is the version its working copy came from and uncommitted says it holds changes no version does (list_versions, commit_version). prodVersionNumber is the version production serves, null until one is promoted: a route serves nothing in production without one, even with active on. sseBrokerId is the integration sse.connect streams through, null when unset. Its canvas (blocks and edges) is not included.",
 		role: "viewer",
 		input: { routeId: z.string().describe("Route id, from list_routes") },
 		call: async ({ get }, a) => {
@@ -264,6 +264,7 @@ export const readTools: McpTool[] = [
 					"devRecordExecution",
 					"acceptedContentTypes",
 					"bodyMode",
+					"sseBrokerId",
 					"bodySchema",
 					"querySchema",
 					"paramsSchema",

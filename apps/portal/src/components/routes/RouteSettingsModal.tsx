@@ -55,6 +55,7 @@ import {
 	StreamBodyField,
 	sanitizePath,
 } from "./routeForm";
+import { SseBrokerField } from "./SseBrokerField";
 
 /**
  * The same settings the create wizard collects, laid out for editing rather
@@ -144,6 +145,7 @@ function RouteSettingsForm({
 	);
 	const [bodyMode, setBodyMode] = useState<BodyMode>(route.bodyMode);
 	const [timeoutSeconds, setTimeoutSeconds] = useState(route.timeoutSeconds);
+	const [sseBrokerId, setSseBrokerId] = useState(route.sseBrokerId);
 	const [active, setActive] = useState(route.active);
 	const [devActive, setDevActive] = useState(route.devActive);
 	const [observability, setObservability] = useState<Observability>({
@@ -196,6 +198,7 @@ function RouteSettingsForm({
 			active,
 			devActive,
 			timeoutSeconds,
+			sseBrokerId,
 			acceptedContentTypes: hasBody ? (contentTypes as [ContentType, ...ContentType[]]) : undefined,
 			bodyMode: hasBody ? bodyModeFor(contentTypes, bodyMode) : undefined,
 			// null, not undefined: an omitted field is skipped by the update, which
@@ -211,6 +214,7 @@ function RouteSettingsForm({
 			active,
 			devActive,
 			timeoutSeconds,
+			sseBrokerId,
 			hasBody,
 			contentTypes,
 			bodyMode,
@@ -459,6 +463,18 @@ function RouteSettingsForm({
 										</Alert.Content>
 									</Alert>
 								)}
+						</Section>
+
+						<Section
+							title="Streaming"
+							description="Live, like the environment switches: not part of a route version."
+						>
+							<SseBrokerField
+								projectId={route.projectId}
+								value={sseBrokerId}
+								onChange={setSseBrokerId}
+								readOnly={readOnly}
+							/>
 						</Section>
 
 						{workerTimeoutsEnabled && (
