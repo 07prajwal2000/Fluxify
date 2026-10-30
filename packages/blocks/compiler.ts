@@ -60,6 +60,8 @@ export type EmitNode = {
 	value(raw: unknown): string;
 	/** JS expression running user `code` with `extras` as its `input`, inlined into the compiled function */
 	js(code: string, extras?: string): string;
+	/** this graph can be stopped mid-run: `ctx.signal` aborting ends it (workflows, #1034) */
+	stoppable: boolean;
 };
 
 /**
@@ -221,6 +223,8 @@ export function compileGraph(
 	const entry = blocks.find((b) => b.type === BlockTypes.entrypoint);
 	if (!entry) throw new Error("Graph has no entrypoint block");
 	const errorHandler = blocks.find((b) => b.type === BlockTypes.errorHandler);
+	// custom blocks are shared with routes, so only a workflow's own graph has checks
+	const stoppable = asWorkflow && !asCustomBlock;
 
 	let counter = 0;
 	const hoisted: string[] = [];
@@ -444,6 +448,7 @@ return ${result};`;
 				return JSON.stringify(raw);
 			},
 			js,
+			stoppable,
 			hoist(expr) {
 				const name = `$h_${counter++}`;
 				hoisted.push(`const ${name} = ${expr};`);
@@ -453,7 +458,7 @@ return ${result};`;
 
 		return `// ${block.type} ${id}
 async function ${blockFunctionName(id)}($state, $input, $end) {
-${spans.wrap(`${emitBeforeHook(block.type, blockId, support, (h) => continueTo(h, false), handleSpecs[block.type])}${code}`)}
+${stoppable ? "$state.ctx.signal?.throwIfAborted();\n" : ""}${spans.wrap(`${emitBeforeHook(block.type, blockId, support, (h) => continueTo(h, false), handleSpecs[block.type])}${code}`)}
 }`;
 	}
 
@@ -515,6 +520,7 @@ ${spans.wrap(`${emitBeforeHook(block.type, blockId, support, (h) => continueTo(h
 		"try {",
 		`return await ${blockFunctionName(entry.id)}($state, ${asCustomBlock ? "input?.input" : "input"}, $endSuccess);`,
 		"} catch ($error) {",
+		...(stoppable ? ["if (ctx.signal?.aborted) return $endFailure($error);"] : []),
 		errorHandlerBody,
 		"} finally {",
 		"if ($life) $life.ended = true;",
