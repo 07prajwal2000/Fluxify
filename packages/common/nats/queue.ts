@@ -110,6 +110,16 @@ export interface FluxifyQueueConsumer {
 	stop(): Promise<void>;
 }
 
+export interface BatchConsumer extends FluxifyQueueConsumer {
+	/**
+	 * Changes how many batches run at once, with no restart. Raising it lets
+	 * waiting work start now; lowering it leaves running batches alone and takes
+	 * effect as they finish. `stop()` waits for in-flight work, so it is the wrong
+	 * tool for this.
+	 */
+	setConcurrency(concurrency: number): void;
+}
+
 /**
  * Starts consuming a durable pull consumer. The consumer must already exist —
  * call `ensureStreamConsumer` at startup.
@@ -220,6 +230,13 @@ export interface BatchOptions<T> {
 	maxWaitMs?: Millis;
 	/** Batches in flight. Above 1 forfeits ordering. Default 1. */
 	concurrency?: number;
+	/**
+	 * While a batch runs, tell the broker every this many ms that it is alive
+	 * (`msg.working()`), which restarts its ack wait. A handler that outlasts the
+	 * consumer's ack wait is then not redelivered and run twice, while a worker
+	 * that dies stops the beat and its batch is redelivered as before.
+	 */
+	keepAliveMs?: Millis;
 	/** Base redelivery delay when the batch is naked; doubles each attempt. Default 5s. */
 	retryDelayMs?: Millis;
 	/** Deliveries before the batch is terminated. Should match `maxDeliver`. */
@@ -261,7 +278,7 @@ export async function consumeBatches<T>(
 	durable: string,
 	handler: (batch: QueueMessage<T>[]) => Promise<void>,
 	options: BatchOptions<T>,
-): Promise<FluxifyQueueConsumer> {
+): Promise<BatchConsumer> {
 	const maxMessages = Math.max(1, options.maxMessages);
 	// The broker will not accept a shorter poll, and a wait under a second is
 	// not a promise it can keep. A batch that fills early still returns early,
@@ -379,12 +396,25 @@ export async function consumeBatches<T>(
 	}
 
 	async function settle(batch: QueueMessage<T>[]): Promise<void> {
+		const beat = options.keepAliveMs
+			? setInterval(() => {
+					for (const message of batch) {
+						try {
+							message.msg.working();
+						} catch {
+							// a message the broker already settled has nothing left to extend
+						}
+					}
+				}, options.keepAliveMs)
+			: undefined;
 		try {
 			await handler(batch);
 			for (const message of batch) message.msg.ack();
 		} catch (error) {
 			decide(batch, error);
 			options.onError?.(error, batch);
+		} finally {
+			clearInterval(beat);
 		}
 	}
 
@@ -413,6 +443,7 @@ export async function consumeBatches<T>(
 	}
 
 	return {
+		setConcurrency: (next) => slots.resize(Math.max(1, next)),
 		stop: async () => {
 			running = false;
 			await Promise.allSettled([...inFlight]);

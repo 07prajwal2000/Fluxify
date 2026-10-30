@@ -1,6 +1,7 @@
 import type { TriggerEvent } from "@fluxify/blocks";
 import { logger } from "@fluxify/common";
 import {
+	type BatchConsumer,
 	consumeBatches,
 	dropWildcardConsumers,
 	ensureConsumer,
@@ -12,6 +13,7 @@ import type { FluxifyEnv } from "../../lib/env";
 import type { TriggerArtifact } from "../compiler/artifacts";
 import { WORKFLOW_JOB } from "../jobs/subjects";
 import type { JobEnvelope } from "../jobs/types";
+import { DEFAULT_TRIGGER_CONCURRENCY, triggerConcurrency } from "./concurrencyLimit";
 import {
 	ALL_PROJECTS,
 	INTERNAL_SOURCE,
@@ -65,6 +67,12 @@ export type TriggerWorkerOptions = {
 	/** Ack wait when the workflow's timeout is not known yet. */
 	defaultAckWaitMs?: number;
 	/**
+	 * The project's settings, or undefined while this worker has not received its
+	 * config yet. Read when the project's consumer starts; later changes arrive
+	 * through `projectSettingsChanged`.
+	 */
+	projectSettings?: (projectId: string) => Record<string, string> | undefined;
+	/**
 	 * Whose events (#732); this process's environment unless a test says
 	 * otherwise. Consumer names are the same in both: they live in the stream.
 	 */
@@ -76,6 +84,7 @@ const DEFAULTS = {
 	retryDelayMs: 10_000,
 	maxAgeMs: TRIGGERS_STREAM_SPEC.maxAgeMs,
 	defaultAckWaitMs: 5 * 60_000,
+	projectSettings: (): Record<string, string> | undefined => undefined,
 };
 
 type Running = { consumer: FluxifyQueueConsumer; artifact: TriggerArtifact };
@@ -84,7 +93,7 @@ export class TriggerWorker {
 	private readonly options: Required<TriggerWorkerOptions>;
 	private readonly running = new Map<string, Running>();
 	/** Project id → its internal-subject consumer. */
-	private readonly internal = new Map<string, FluxifyQueueConsumer>();
+	private readonly internal = new Map<string, BatchConsumer>();
 	private started = false;
 	private readonly stream: string;
 	/** A subject in this worker's environment. */
@@ -126,13 +135,11 @@ export class TriggerWorker {
 		const nc = natsConnection();
 		const durable = internalConsumerName(projectId);
 		const subject = this.subject(internalSubject(projectId));
-		await ensureConsumer(nc, this.stream, {
-			durable,
-			filterSubjects: [subject],
-			ackWaitMs: this.options.defaultAckWaitMs,
-			maxDeliver: this.options.maxDeliver,
-			maxAckPending: 1,
-		});
+		// Unknown settings leave the broker's limit alone rather than writing the
+		// default over a value another worker already set.
+		const settings = this.options.projectSettings(projectId);
+		const known = settings && triggerConcurrency(settings);
+		await ensureConsumer(nc, this.stream, this.internalSpec(projectId, known));
 
 		// Size 1: the block fires one workflow at a time, and batching events
 		// aimed at different workflows would mean splitting them apart again.
@@ -147,6 +154,10 @@ export class TriggerWorker {
 			{
 				maxMessages: 1,
 				maxBytes: MAX_INTERNAL_BATCH_BYTES,
+				concurrency: known ?? DEFAULT_TRIGGER_CONCURRENCY,
+				// An agent can outlast the ack wait; the beat keeps it from being
+				// redelivered and run twice, and a dead worker's run still is.
+				keepAliveMs: Math.min(KEEP_ALIVE_MS, Math.floor(this.options.defaultAckWaitMs / 3)),
 				maxAttempts: this.options.maxDeliver,
 				retryDelayMs: this.options.retryDelayMs,
 				policy: (batch) => batch[0]?.data.retry,
@@ -154,6 +165,39 @@ export class TriggerWorker {
 		);
 		this.internal.set(projectId, consumer);
 		logger.debug(`[triggers] internal consumer listening on ${subject}`, "TRIGGERS");
+	}
+
+	/**
+	 * Applies a changed Trigger Workflow concurrency to a running project with no
+	 * restart. The broker's limit is updated in place and the local one resized,
+	 * so running work is untouched: a smaller limit only holds back new runs until
+	 * enough of them finish.
+	 */
+	async setInternalConcurrency(projectId: string, concurrency: number) {
+		const consumer = this.internal.get(projectId);
+		if (!consumer) return;
+		consumer.setConcurrency(concurrency);
+		await ensureConsumer(natsConnection(), this.stream, this.internalSpec(projectId, concurrency));
+	}
+
+	/** The project's settings changed: apply what this worker's consumers read from them. */
+	projectSettingsChanged(projectId: string, settings: Record<string, string>) {
+		this.setInternalConcurrency(projectId, triggerConcurrency(settings)).catch((error) =>
+			logger.error(
+				`[triggers] could not apply concurrency for ${projectId}: ${String(error)}`,
+				"TRIGGERS",
+			),
+		);
+	}
+
+	private internalSpec(projectId: string, concurrency: number | undefined) {
+		return {
+			durable: internalConsumerName(projectId),
+			filterSubjects: [this.subject(internalSubject(projectId))],
+			ackWaitMs: this.options.defaultAckWaitMs,
+			maxDeliver: this.options.maxDeliver,
+			...(concurrency === undefined ? {} : { maxAckPending: concurrency }),
+		};
 	}
 
 	/** Stops one project's internal subject — it was deleted, or moved away. */
@@ -329,6 +373,8 @@ export class TriggerWorker {
 	}
 }
 
+/** Beat for a running internal run, well under the ack wait. */
+const KEEP_ALIVE_MS = 30_000;
 /** The internal path carries one event, so its bound is the payload cap plus slack. */
 const MAX_INTERNAL_BATCH_BYTES = 1024 * 1024;
 /** Room for the trip to the execution process, on top of the workflow's budget. */

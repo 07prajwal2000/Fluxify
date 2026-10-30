@@ -165,6 +165,8 @@ function updateTimeoutPolicy(key: string, value: unknown) {
 	}
 	const config = value as UnsealedProjectConfig;
 	timeoutProjects.set(config.projectId, workerTimeoutsEnabled(config.payload.projectSettings));
+	// the same config carries the Trigger Workflow concurrency, applied with no restart
+	triggerWorker.projectSettingsChanged(config.projectId, config.payload.projectSettings);
 }
 
 /** The child that runs user code. It owns its own crash recovery. */
@@ -358,6 +360,8 @@ const triggerWorker = new TriggerWorker({
 	projectId: WORKER_PROJECT_ID,
 	run: supervisor.runJob,
 	workflowTimeoutSeconds,
+	// unknown until the project's config arrives; a later change arrives through updateTimeoutPolicy
+	projectSettings: (projectId) => projectConfig(projectId)?.projectSettings,
 	maxDeliver: Number(getEnv("JOBS_MAX_DELIVER")) || undefined,
 	retryDelayMs: Number(getEnv("JOBS_RETRY_DELAY_MS")) || undefined,
 });
