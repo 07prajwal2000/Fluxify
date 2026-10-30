@@ -1,0 +1,62 @@
+{
+	"name": "sse/connect",
+	"description": "Opens a stream and holds it. Nothing on this route sends to it again.",
+	"route": {
+		"method": "GET",
+		"path": "/sse/connect"
+	},
+	"blocks": [
+		{
+			"id": "entry",
+			"type": "entrypoint",
+			"position": {
+				"x": 0,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Start"
+			}
+		},
+		{
+			"id": "open",
+			"type": "jsrunner",
+			"position": {
+				"x": 240,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Connect",
+				"value": "return { handle: sse.connect(getQueryParam(\"k\")) };"
+			}
+		},
+		{
+			"id": "reply",
+			"type": "response",
+			"position": {
+				"x": 480,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Hold the stream",
+				"httpCode": "200",
+				"holdConnection": true
+			}
+		}
+	],
+	"edges": [
+		{
+			"id": "e-entry-open",
+			"from": "entry",
+			"to": "open",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-open-reply",
+			"from": "open",
+			"to": "reply",
+			"fromHandle": "source",
+			"toHandle": "source"
+		}
+	]
+}

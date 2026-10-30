@@ -33,10 +33,17 @@ export type EnvStack = {
 let proc: Subprocess<"pipe", "pipe", "inherit"> | undefined;
 
 /** Starts the stack in its own process and waits for it to serve. */
-export async function startEnvStack(options: { devPools?: number } = {}): Promise<EnvStack> {
+export async function startEnvStack(
+	options: { devPools?: number; splitWorkers?: boolean; env?: Record<string, string> } = {},
+): Promise<EnvStack> {
 	proc = Bun.spawn(["bun", join(import.meta.dir, "envStack.ts")], {
 		cwd: join(import.meta.dir, ".."),
-		env: { ...process.env, ...(options.devPools === 2 ? { E2E_DEV_POOLS: "2" } : {}) },
+		env: {
+			...process.env,
+			...(options.devPools === 2 ? { E2E_DEV_POOLS: "2" } : {}),
+			...(options.splitWorkers ? { E2E_SPLIT_WORKERS: "1" } : {}),
+			...options.env,
+		},
 		stdin: "pipe",
 		stdout: "pipe",
 		stderr: "inherit",

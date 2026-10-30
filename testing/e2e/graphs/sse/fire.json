@@ -1,0 +1,85 @@
+{
+	"name": "sse/fire",
+	"description": "Fires {{workflow}} with a Run ID and the flags in the query string, and answers right away.",
+	"route": {
+		"method": "GET",
+		"path": "/sse/fire"
+	},
+	"blocks": [
+		{
+			"id": "entry",
+			"type": "entrypoint",
+			"position": {
+				"x": 0,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Start"
+			}
+		},
+		{
+			"id": "args",
+			"type": "jsrunner",
+			"position": {
+				"x": 240,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Read the query",
+				"value": "return { k: getQueryParam(\"k\"), hold: getQueryParam(\"hold\") === \"1\", fail: getQueryParam(\"fail\") === \"1\", wait: getQueryParam(\"wait\") === \"1\" };"
+			}
+		},
+		{
+			"id": "fire",
+			"type": "trigger_workflow",
+			"position": {
+				"x": 480,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Fire",
+				"mode": "now",
+				"workflowId": "{{workflow}}",
+				"useInput": true,
+				"runKey": "js: return input.k;",
+				"maxAttempts": 3,
+				"retryDelayMs": 300
+			}
+		},
+		{
+			"id": "done",
+			"type": "response",
+			"position": {
+				"x": 720,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Done",
+				"httpCode": "200"
+			}
+		}
+	],
+	"edges": [
+		{
+			"id": "e-entry-args",
+			"from": "entry",
+			"to": "args",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-args-fire",
+			"from": "args",
+			"to": "fire",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-fire-done",
+			"from": "fire",
+			"to": "done",
+			"fromHandle": "source",
+			"toHandle": "source"
+		}
+	]
+}

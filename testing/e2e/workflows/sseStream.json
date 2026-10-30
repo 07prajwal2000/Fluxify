@@ -1,0 +1,57 @@
+{
+	"name": "sseStream",
+	"description": "Waits until the client has the first event, sends more by handle, then closes the stream.",
+	"blocks": [
+		{
+			"id": "entry",
+			"type": "entrypoint",
+			"position": {
+				"x": 0,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Start"
+			}
+		},
+		{
+			"id": "send",
+			"type": "jsrunner",
+			"position": {
+				"x": 240,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Stream and close",
+				"value": "await fetch(getConfig(\"E2E_SINK_URL\") + \"/hold?k=\" + encodeURIComponent(input.k));\nawait sse.send(input.handle, \"one\", { event: \"token\", eventId: \"1\" });\nawait sse.send(input.handle, { n: 2 }, { event: \"token\", eventId: \"2\" });\nawait sse.close(input.handle);"
+			}
+		},
+		{
+			"id": "done",
+			"type": "response",
+			"position": {
+				"x": 480,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Done",
+				"httpCode": "200"
+			}
+		}
+	],
+	"edges": [
+		{
+			"id": "e-entry-send",
+			"from": "entry",
+			"to": "send",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-send-done",
+			"from": "send",
+			"to": "done",
+			"fromHandle": "source",
+			"toHandle": "source"
+		}
+	]
+}

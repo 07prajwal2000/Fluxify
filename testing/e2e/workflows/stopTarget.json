@@ -1,0 +1,57 @@
+{
+	"name": "stopTarget",
+	"description": "Reports its start and end, and on request holds at the sink, waits for a stop, or fails.",
+	"blocks": [
+		{
+			"id": "entry",
+			"type": "entrypoint",
+			"position": {
+				"x": 0,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Start"
+			}
+		},
+		{
+			"id": "work",
+			"type": "jsrunner",
+			"position": {
+				"x": 240,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Work",
+				"value": "await fetch(getConfig(\"E2E_SINK_URL\") + \"/ev?k=\" + encodeURIComponent(input.k) + \"&e=start\");\nif (input.hold) await fetch(getConfig(\"E2E_SINK_URL\") + \"/hold?k=\" + encodeURIComponent(input.k));\nif (input.fail) { await fetch(getConfig(\"E2E_SINK_URL\") + \"/ev?k=\" + encodeURIComponent(input.k) + \"&e=fail\"); throw new Error(\"boom\"); }\nif (input.wait) await new Promise((r) => abortSignal.aborted ? r() : abortSignal.addEventListener(\"abort\", r));\nawait fetch(getConfig(\"E2E_SINK_URL\") + \"/ev?k=\" + encodeURIComponent(input.k) + \"&e=end\");"
+			}
+		},
+		{
+			"id": "done",
+			"type": "response",
+			"position": {
+				"x": 480,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Done",
+				"httpCode": "200"
+			}
+		}
+	],
+	"edges": [
+		{
+			"id": "e-entry-work",
+			"from": "entry",
+			"to": "work",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-work-done",
+			"from": "work",
+			"to": "done",
+			"fromHandle": "source",
+			"toHandle": "source"
+		}
+	]
+}

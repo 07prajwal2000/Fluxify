@@ -1,0 +1,62 @@
+{
+	"name": "sse/halt",
+	"description": "Stops a run by its Run ID.",
+	"route": {
+		"method": "GET",
+		"path": "/sse/halt"
+	},
+	"blocks": [
+		{
+			"id": "entry",
+			"type": "entrypoint",
+			"position": {
+				"x": 0,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Start"
+			}
+		},
+		{
+			"id": "stop",
+			"type": "trigger_workflow",
+			"position": {
+				"x": 240,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Stop the run",
+				"mode": "stop",
+				"runKey": "js: return getQueryParam(\"k\");"
+			}
+		},
+		{
+			"id": "done",
+			"type": "response",
+			"position": {
+				"x": 480,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Done",
+				"httpCode": "200"
+			}
+		}
+	],
+	"edges": [
+		{
+			"id": "e-entry-stop",
+			"from": "entry",
+			"to": "stop",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-stop-done",
+			"from": "stop",
+			"to": "done",
+			"fromHandle": "source",
+			"toHandle": "source"
+		}
+	]
+}
