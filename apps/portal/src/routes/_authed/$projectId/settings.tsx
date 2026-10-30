@@ -29,6 +29,7 @@ import {
 	TelemetryDestinations,
 } from "@/components/settings/TelemetryDestinations";
 import { TriggerSettings } from "@/components/settings/TriggerSettings";
+import { WorkflowConcurrencySettings } from "@/components/settings/WorkflowConcurrencySettings";
 import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
 import { projectMembersQuery } from "@/query/projectMembersQuery";
 import { projectSettingsKeysQuery } from "@/query/projectSettingsKeysQuery";
@@ -196,6 +197,7 @@ function ProjectSettingsPage() {
 							<div className="flex flex-col gap-6">
 								<GeneralSettings projectId={projectId} />
 								<TriggerSettings projectId={projectId} />
+								<WorkflowConcurrencySettings projectId={projectId} />
 							</div>
 						)}
 						{activeTab === "telemetry" && (

@@ -182,7 +182,13 @@ beforeAll(async () => {
 	worker = supervisorFor();
 	other = supervisorFor();
 	await childrenReady();
-	triggers = new TriggerWorker({ projectId: PROJECT, run: worker.runJob, retryDelayMs: RETRY_DELAY_MS });
+	// one run at a time: "still queued" needs a run waiting behind another
+	triggers = new TriggerWorker({
+		projectId: PROJECT,
+		run: worker.runJob,
+		retryDelayMs: RETRY_DELAY_MS,
+		projectSettings: () => ({ "settings.workflows.triggerConcurrency": "1" }),
+	});
 	await triggers.start();
 }, 120_000);
 

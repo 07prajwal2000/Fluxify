@@ -43,6 +43,7 @@ function fakeMsg(
 		ack: () => acks.push("ack"),
 		nak: (delay?: number) => acks.push(`nak:${delay}`),
 		term: () => acks.push("term"),
+		working: () => acks.push("working"),
 	} as unknown as JsMsg & { acks: string[] };
 }
 

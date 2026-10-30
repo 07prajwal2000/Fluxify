@@ -58,6 +58,16 @@ export const projectSettingsKeySchemaMap = {
 		dataType: "number",
 	},
 	/**
+	 * Trigger Workflow runs in flight at once for the project. Runs beyond it wait,
+	 * and runs no longer start strictly in the order they were fired unless this
+	 * is 1. Applies to running workers without a restart.
+	 */
+	"settings.workflows.triggerConcurrency": {
+		schema: z.coerce.number().int().min(1).max(100),
+		defaultValue: "10",
+		dataType: "number",
+	},
+	/**
 	 * The project's own host, `<subdomain>.<base domain>` (#340). Empty means
 	 * the project shares the bare domain with every other project that has none,
 	 * where two routes on the same method and path shadow each other. Unique
@@ -146,6 +156,7 @@ export const adminOnlyProjectSettingKeys: ReadonlySet<string> = new Set([
 	"settings.ai.maxSteps",
 	"settings.ai.maxContextTokens",
 	"settings.ai.tokenBudget",
+	"settings.workflows.triggerConcurrency",
 	"auditLogs.enabled",
 ]);
 

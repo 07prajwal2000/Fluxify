@@ -154,6 +154,7 @@
         "@ai-sdk/openai-compatible": "^3.0.0",
         "@fluxify/mcp-math": "workspace:*",
         "@fluxify/sdk": "workspace:*",
+        "@nats-io/jetstream": "3.4.0",
         "@types/bun": "^1.4.0",
         "@types/dockerode": "^4.0.1",
         "@types/flexsearch": "^0.7.42",

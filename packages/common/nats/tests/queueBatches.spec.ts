@@ -198,3 +198,80 @@ describe("consumeBatches", () => {
 		expect(good.acks).toEqual(["ack"]);
 	});
 });
+
+/* ---------------------------------------------------- keep-alive and resizing */
+
+describe("consumeBatches keep-alive", () => {
+	const batchOptions = { maxMessages: 1, maxBytes: 1_000_000, maxWaitMs: 50 };
+
+	it("tells the broker a running batch is alive until it ends, then acks", async () => {
+		const msg = fakeMsg("t.1", { n: 1 });
+		state.setBatches([[msg]]);
+		const consumer = await consumeBatches(
+			nc,
+			"S",
+			"d",
+			() => new Promise((resolve) => setTimeout(resolve, 60)),
+			{ ...batchOptions, keepAliveMs: 20 },
+		);
+		await new Promise((resolve) => setTimeout(resolve, 120));
+		await consumer.stop();
+
+		const beats = msg.acks.filter((a) => a === "working").length;
+		expect(beats).toBeGreaterThanOrEqual(2);
+		expect(msg.acks.at(-1)).toBe("ack");
+		// no beat after the batch settled
+		expect(msg.acks.indexOf("ack")).toBe(beats);
+	});
+
+	it("sends no beat when keep-alive is off", async () => {
+		const msg = fakeMsg("t.1", { n: 1 });
+		state.setBatches([[msg]]);
+		const consumer = await consumeBatches(
+			nc,
+			"S",
+			"d",
+			() => new Promise((resolve) => setTimeout(resolve, 40)),
+			batchOptions,
+		);
+		await new Promise((resolve) => setTimeout(resolve, 80));
+		await consumer.stop();
+
+		expect(msg.acks).toEqual(["ack"]);
+	});
+});
+
+describe("consumeBatches setConcurrency", () => {
+	it("runs more batches at once after the limit is raised, without a restart", async () => {
+		const gates: Array<() => void> = [];
+		let running = 0;
+		let peak = 0;
+		state.setBatches([[fakeMsg("t.1", 1)], [fakeMsg("t.1", 2)], [fakeMsg("t.1", 3)]]);
+		const consumer = await consumeBatches(
+			nc,
+			"S",
+			"d",
+			() => {
+				running++;
+				peak = Math.max(peak, running);
+				return new Promise<void>((resolve) =>
+					gates.push(() => {
+						running--;
+						resolve();
+					}),
+				);
+			},
+			{ maxMessages: 1, maxBytes: 1_000_000, maxWaitMs: 50, concurrency: 1 },
+		);
+		await settled();
+		expect(running).toBe(1);
+
+		consumer.setConcurrency(3);
+		await settled();
+		expect(running).toBe(3);
+		expect(peak).toBe(3);
+
+		for (const open of gates) open();
+		await consumer.stop();
+	});
+});
