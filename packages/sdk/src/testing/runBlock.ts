@@ -27,6 +27,8 @@ import { openVariant } from "../runtime/integration.js";
 import { setRaw } from "../runtime/raw.js";
 import { evaluateParams } from "./evaluate.js";
 import {
+	type FakeSse,
+	fakeSse,
 	type LogEntry,
 	memoryKv,
 	memoryQueue,
@@ -84,6 +86,8 @@ export type TestContext = {
 	integrations?: Record<string, FakeIntegration>;
 	/** the pooled clients; share one `testPool()` across runs to see reuse. Default: fresh per run */
 	pool?: TestPool;
+	/** `ctx.sse`; pass a `fakeSse({ onSend })` to disconnect mid-stream. Default: a fresh `fakeSse()` */
+	sse?: FakeSse;
 };
 
 type Common<H> = {
@@ -121,6 +125,8 @@ export type RunBlockResult<H> = {
 	spans: SpanRecord[];
 	logs: LogEntry[];
 	handleCalls: HandleCall[];
+	/** the run's `ctx.sse`: events sent, handles closed */
+	sse: FakeSse;
 	/** ends the run, then calls `executeHandle`: rejects the way a late call does */
 	callAfterEnd(handle: string, input?: unknown, options?: { branch: string }): Promise<unknown>;
 	/** ends a `keepAlive` run */
@@ -309,10 +315,12 @@ export async function runBlock<P extends Params, H extends Handles>(
 	const leases = leasePool(pooled, [o.ctx?.projectId ?? "test-project", def.name]);
 	// integrations pool apart from the block's own clients, as on a worker
 	const integrationLeases = leasePool(pooled, ["integrations"]);
+	const sse = o.ctx?.sse ?? fakeSse();
 	const ctx: BlockContext = {
 		...fakeContext(loose, o.ctx ?? {}, logs, integrationLeases.pool),
 		span: createSpan((s) => spans.push(s)),
 		pool: leases.pool,
+		sse,
 	};
 	const schemas = new Set(
 		Object.keys(loose.params ?? {}).filter((k) => loose.params![k]!.type === "schema"),
@@ -357,6 +365,7 @@ export async function runBlock<P extends Params, H extends Handles>(
 		spans,
 		logs,
 		handleCalls,
+		sse,
 		end() {
 			life.ended = true;
 		},

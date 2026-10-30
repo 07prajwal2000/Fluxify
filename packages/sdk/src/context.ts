@@ -161,6 +161,29 @@ export type PoolOptions<T> = {
 	idleMs?: number;
 };
 
+/**
+ * Server-sent events to a route that called `sse.connect(id)`. The `handle`
+ * (`<integrationId>:<id>`) is the route's `sse.connectionId`, passed to the
+ * block, usually as a param; it names the route's broker, so these work from
+ * any node, in a route or a workflow. A malformed handle throws
+ * `not an SSE connection handle`.
+ */
+export interface SseContext {
+	/** strings are sent as-is, anything else as JSON; multi-line data becomes one `data:` line per line */
+	send(
+		handle: string,
+		data: unknown,
+		options?: { event?: string; eventId?: string },
+	): Promise<void>;
+	/** ends the stream; safe to call twice */
+	close(handle: string): Promise<void>;
+	/**
+	 * Aborts when the client left, or the stream was closed or taken over. Hand
+	 * it to AI calls (`abortSignal`) so a stream nobody reads stops spending.
+	 */
+	signal(handle: string): AbortSignal;
+}
+
 export interface BlockContext {
 	projectId: string;
 	route: string;
@@ -183,6 +206,8 @@ export interface BlockContext {
 	 * cancel the run.
 	 */
 	signal?: AbortSignal;
+	/** streams events to a connected route by its handle; see `SseContext` */
+	sse: SseContext;
 	/**
 	 * Times `fn` as a child span of this block in the run's trace; outcome and
 	 * error come from whether it threw (the error is rethrown). Spans opened

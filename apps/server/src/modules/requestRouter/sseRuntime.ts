@@ -1,5 +1,6 @@
 import { type BrokerSource, type SseBroker, SseBrokerRegistry } from "@fluxify/adapters/sse";
 import type { ContextVarsType } from "@fluxify/blocks";
+import { BAD_HANDLE, parseHandle, sseData } from "@fluxify/sdk/runtime";
 import {
 	kvIntegrationsCache,
 	ownsIntegration,
@@ -24,14 +25,7 @@ export type SseEnvelope =
 export type SseApi = NonNullable<ContextVarsType["sse"]>;
 
 export const NO_BROKER = "SSE needs a broker integration in route settings";
-export const BAD_HANDLE = "not an SSE connection handle";
-
-/** split on the first `:` only, so an id may hold colons */
-export function parseHandle(handle: unknown) {
-	const at = typeof handle === "string" ? handle.indexOf(":") : -1;
-	if (at < 1 || at === (handle as string).length - 1) throw new Error(BAD_HANDLE);
-	return { integrationId: (handle as string).slice(0, at), id: (handle as string).slice(at + 1) };
-}
+export { BAD_HANDLE, parseHandle };
 
 export const sseSubject = (projectId: string, id: string) => `fluxify.sse.${projectId}.${id}`;
 
@@ -113,10 +107,9 @@ export function createSseApi(options: {
 			const { event, eventId } = options ?? {};
 			const { broker, subject } = target(handle);
 			await owners.get(subject)?.ready;
-			const d = typeof data === "string" ? data : (JSON.stringify(data) ?? "");
 			await publish(broker, subject, {
 				t: "data",
-				d,
+				d: sseData(data),
 				event: event === undefined ? undefined : String(event),
 				eventId: eventId === undefined ? undefined : String(eventId),
 			});

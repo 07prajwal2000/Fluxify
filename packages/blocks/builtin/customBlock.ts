@@ -9,6 +9,7 @@ import { enqueueJob } from "../jobs";
 import { compileSchema } from "../schema/schemaCache";
 import { withCtxPool } from "./ctxPool";
 import { withCtxSpan } from "./ctxSpan";
+import { withCtxSse } from "./ctxSse";
 import type { ExecuteHandle } from "./executeHandle";
 import { emitFieldMap } from "./transformer";
 
@@ -167,7 +168,7 @@ export function registerModuleBlock(
 	if (meta?.handles)
 		meta = { ...meta, handles: handleSpecSchema.parse(meta.handles) as HandleSpec };
 	const wrapped: CompiledCustomBlock = async (ctx, args?: CustomBlockArgs) => {
-		const pooled = withCtxPool(withCtxSpan(ctx), type);
+		const pooled = withCtxPool(withCtxSse(withCtxSpan(ctx)), type);
 		try {
 			const result = await run({
 				params: withSchemas(args?.params ?? {}, meta?.schemaParams),
