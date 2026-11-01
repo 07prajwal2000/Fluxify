@@ -106,9 +106,11 @@ permissions: { integrations: ["database"], appconfig: true },
 
 ### params
 
-The settings the user fills in, typed from the declaration so `params` in `start` has the right types. A trigger takes the same `param.*` builders as a block, with two differences:
+The settings the user fills in, typed from the declaration so `params` in `start` has the right types. A trigger takes the same `param.*` builders as a block, with these differences:
 
 - `param.secret()` is allowed. The user picks an App config key, and only the key is stored, as `cfg:<KEY>`.
+- `param.string()` is a plain text box, and `param.appconfig()` is a text box with a key picker. Neither can hold an expression.
+- A key picked with `param.appconfig()` is stored as `cfg:<KEY>`, and `start` gets just `<KEY>`. A trigger saved earlier with a bare key keeps working, and `ctx.getConfig` takes either form.
 - `js`, `schema`, `conditions` and `fieldMap` are refused. They describe something evaluated per request, and a trigger has no request.
 
 ```ts

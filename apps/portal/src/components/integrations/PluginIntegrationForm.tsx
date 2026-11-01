@@ -18,15 +18,14 @@ import {
 	PluginSchemaField,
 } from "../canvas/panel/blocks/pluginFields";
 import {
-	BlockAppConfigField,
 	BlockCheckboxField,
 	BlockIntegrationField,
-	BlockJsTextField,
 	BlockSelectField,
 } from "../canvas/panel/fields";
 import { integrationParamPicker } from "../canvas/panel/integrationField";
 import type { BlockNode } from "../canvas/types";
 import { AppConfigSelectorModal } from "./AppConfigSelectorModal";
+import { PluginAppConfigField, PluginStringField } from "./PluginStoredFields";
 import { pluginParamTabs } from "./pluginParamTabs";
 
 type ValueParam = Exclude<Param, HintParam>;
@@ -113,6 +112,14 @@ function ParamField({
 			.join(" ") || undefined;
 	const label = (param.label ?? name) + (param.required ? " *" : "");
 	const shared = { blockId: block.id, data: block.data, name, label, hint };
+	// stored forms: the value goes straight to the form, not through the canvas bridge
+	const stored = {
+		name,
+		label,
+		hint,
+		value: block.data[name],
+		onChange: (v: string) => setField(name, v),
+	};
 
 	if (param.type === "secret") {
 		return (
@@ -130,7 +137,7 @@ function ParamField({
 
 	switch (param.type) {
 		case "string":
-			return <BlockJsTextField {...shared} placeholder={param.default} />;
+			return <PluginStringField {...stored} placeholder={param.default} isDisabled={readOnly} />;
 		case "number":
 			return (
 				<PluginNumberField {...shared} min={param.min} max={param.max} integer={param.integer} />
@@ -161,15 +168,7 @@ function ParamField({
 				/>
 			);
 		case "appconfig":
-			return (
-				<BlockAppConfigField
-					blockId={block.id}
-					data={block.data}
-					name={name}
-					label={label}
-					description={hint}
-				/>
-			);
+			return <PluginAppConfigField {...stored} projectId={projectId} isDisabled={readOnly} />;
 		case "conditions":
 			return <PluginConditionsField {...shared} />;
 		case "schema":
