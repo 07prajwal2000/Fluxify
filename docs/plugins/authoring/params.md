@@ -37,7 +37,7 @@ A param with `required: true` or a `default` is always there, so its type has no
 | `js` | A code editor | Whatever the code returned | |
 | `json` | A JSON editor | A JSON value | |
 | `integration` | A picker of the project's integrations of one kind | The integration's id, a `string` | `kind` (required), `variants` |
-| `appconfig` | A picker of the project's app config keys. In a [trigger](./triggers#params) it is a text box with a key picker | The key, a `string` | |
+| `appconfig` | A text box with a picker of the project's app config keys | The key, a `string` | |
 | `conditions` | The same conditions builder the If block uses | `Condition[]` | |
 | `schema` | The schema builder | `{ zod, schema }`, compiled | |
 | `keyValue` | Rows of a key and a value | `Record<string, unknown>` | `keys.placeholder` |
@@ -133,6 +133,8 @@ async run({ params, ctx }) {
 	const url = ctx.vars.getConfig(params.key!);
 },
 ```
+
+A key picked in an `appconfig` field is saved as `cfg:<KEY>`, and your code gets just `<KEY>` in `params`. Blocks saved earlier with a bare key keep working, and `ctx.vars.getConfig` takes either form.
 
 An `integration` param can also name the **variants** it accepts, so a Memcached integration cannot be handed to code that speaks Redis:
 

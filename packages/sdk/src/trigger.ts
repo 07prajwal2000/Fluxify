@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { type CheckVisible, placeParams, prepareParams } from "./block.js";
-import { secretKey } from "./integration.js";
 import { type TriggerEntry, triggerEntrySchema } from "./manifest.js";
 import type { Params } from "./params.js";
 import type { TriggerContext } from "./runtime/trigger.js";
@@ -58,14 +57,6 @@ export function toTriggerEntry(def: AnyTrigger): TriggerEntry {
 	return JSON.parse(JSON.stringify(entry));
 }
 
-/** an `appconfig` param is stored as `cfg:<KEY>` (the picker) or a bare key (older saves); `start` gets the key either way */
-const bareAppConfigKeys = (params: Params, values: Record<string, unknown>) => {
-	const out = { ...values };
-	for (const [name, p] of Object.entries(params))
-		if (p.type === "appconfig" && typeof out[name] === "string") out[name] = secretKey(out[name]);
-	return out;
-};
-
 /**
  * Defines a plugin trigger. Default-export the result from a file under
  * `src/triggers`. Throws on an invalid definition, naming it: params as a
@@ -84,10 +75,6 @@ export function trigger<const P extends Params = {}>(
 	const params = (def.params ?? {}) as Params;
 	return {
 		...def,
-		start: (ctx) =>
-			def.start({
-				...ctx,
-				params: bareAppConfigKeys(params, prepareParams(params, ctx.params)) as never,
-			}),
+		start: (ctx) => def.start({ ...ctx, params: prepareParams(params, ctx.params) as never }),
 	};
 }

@@ -1,7 +1,7 @@
 import { cn, Label } from "@fluxify/components";
 import { useEffect, useState } from "react";
 import { TbSquareKey, TbX } from "react-icons/tb";
-import { AppConfigSelectorModal } from "./AppConfigSelectorModal";
+import { type AppConfigExtraItem, AppConfigSelectorModal } from "./AppConfigSelectorModal";
 
 type Props = {
 	projectId: string;
@@ -11,6 +11,8 @@ type Props = {
 	placeholder?: string;
 	onChange?: (value: string) => void;
 	isDisabled?: boolean;
+	/** a custom block's own inputs, offered as `param:<name>` and stored as written (no `cfg:`) */
+	extraItems?: AppConfigExtraItem[];
 };
 
 // Field that holds either a literal value or an app-config reference (`cfg:<key>`)
@@ -23,6 +25,7 @@ export function AppConfigSelector({
 	placeholder,
 	onChange,
 	isDisabled = false,
+	extraItems,
 }: Props) {
 	const [local, setLocal] = useState(value);
 	const [modalOpen, setModalOpen] = useState(false);
@@ -92,7 +95,8 @@ export function AppConfigSelector({
 				// it: this field is a hybrid — a literal or a reference — so it needs
 				// the `cfg:` marker to tell them apart. Fields with no literal mode
 				// (AppConfigField) store the bare key instead.
-				onSelect={(keyName) => set(`cfg:${keyName}`)}
+				extraItems={extraItems}
+				onSelect={(keyName) => set(keyName.startsWith("param:") ? keyName : `cfg:${keyName}`)}
 				onClear={() => set("")}
 			/>
 		</div>

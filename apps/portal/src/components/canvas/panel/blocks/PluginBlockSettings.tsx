@@ -8,13 +8,13 @@ import { isPluginType } from "../../plugins/pluginBlocks";
 import type { BlockNode } from "../../types";
 import { GENERAL_TAB } from "../BlockSettings";
 import {
-	BlockAppConfigField,
 	BlockCheckboxField,
 	BlockIntegrationField,
 	BlockJsTextField,
 	BlockSelectField,
 } from "../fields";
 import { integrationParamPicker } from "../integrationField";
+import { PluginAppConfigParam } from "./pluginAppConfigField";
 import {
 	PluginArrayField,
 	PluginFieldMapField,
@@ -78,15 +78,7 @@ function ParamField({ block, name, param }: { block: BlockNode; name: string; pa
 				/>
 			);
 		case "appconfig":
-			return (
-				<BlockAppConfigField
-					blockId={block.id}
-					data={block.data}
-					name={name}
-					label={label}
-					description={hint}
-				/>
-			);
+			return <PluginAppConfigParam {...shared} />;
 		case "conditions":
 			return <PluginConditionsField {...shared} />;
 		case "schema":

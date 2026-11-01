@@ -5,6 +5,7 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 GlobalRegistrator.register();
 
 // the real selector pulls app configs over the network; only its label matters here
+const realAppConfigSelector = { ...(await import("../AppConfigSelector")) };
 mock.module("../AppConfigSelector", () => ({
 	AppConfigSelector: ({ label }: { label: string }) => <span>{label}</span>,
 }));
@@ -14,7 +15,11 @@ const { cleanup, fireEvent, render } = await import("@testing-library/react");
 const { CredentialsUrlForm } = await import("./CredentialsUrlForm");
 
 afterEach(cleanup);
-afterAll(() => GlobalRegistrator.unregister());
+afterAll(() => {
+	// mock.module is process-wide: hand the real selector back to the files that run after this one
+	mock.module("../AppConfigSelector", () => realAppConfigSelector);
+	GlobalRegistrator.unregister();
+});
 
 const placeholders = { name: "", host: "", port: "", username: "", password: "", url: "" };
 

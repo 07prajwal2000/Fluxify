@@ -195,6 +195,25 @@ test("one invoke mode shows no dropdown; several show only the allowed ones", ()
 	expect(many.getByText("Execution Mode")).toBeDefined();
 });
 
+test("an appconfig param is a text box with a key picker, and shows both stored forms", () => {
+	const old = setup({ data: { token: "OLD_KEY" } });
+	expect([...old.container.querySelectorAll("input")].some((i) => i.value === "OLD_KEY")).toBe(
+		true,
+	);
+	expect(old.getByLabelText("Use app config value")).toBeDefined();
+	cleanup();
+	expect(setup({ data: { token: "cfg:NEW_KEY" } }).getByText("NEW_KEY")).toBeDefined();
+});
+
+test("an appconfig param typed into saves the text as written", () => {
+	const { container } = setup({ data: { token: "" } });
+	const box = [...container.querySelectorAll("input")].find((i) =>
+		i.closest("div")?.querySelector('[aria-label="Use app config value"]'),
+	) as HTMLInputElement;
+	fireEvent.change(box, { target: { value: "cfg:TOKEN" } });
+	expect(nodes[0]?.data.token).toBe("cfg:TOKEN");
+});
+
 test("read-only disables every input", () => {
 	const { container } = setup({ editable: false, data: { mode: "advanced" } });
 	const inputs = [...container.querySelectorAll("input, textarea")] as HTMLInputElement[];

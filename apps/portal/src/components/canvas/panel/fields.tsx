@@ -255,7 +255,7 @@ export function BlockCheckboxField({
  * so the key is chosen by whoever places the block — and it chains, an authz
  * block can hand its own secret key down to the jwt block it calls.
  */
-function useCustomBlockParamConfigs(
+export function useCustomBlockParamConfigs(
 	projectId: string,
 	customBlockId: string | undefined,
 ): AppConfigExtraItem[] | undefined {
