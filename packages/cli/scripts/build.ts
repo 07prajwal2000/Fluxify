@@ -35,6 +35,7 @@ await Bun.write(
 			type: "module",
 			license: pkg.license,
 			author: pkg.author,
+			homepage: pkg.homepage,
 			repository: pkg.repository,
 			bin: { "fluxify-cli": "./bin.js" },
 			files: ["bin.js"],

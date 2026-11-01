@@ -54,6 +54,7 @@ await Bun.write(
 			type: "module",
 			license: pkg.license,
 			author: pkg.author,
+			homepage: pkg.homepage,
 			repository: pkg.repository,
 			exports: {
 				".": entry("index"),

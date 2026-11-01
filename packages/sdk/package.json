@@ -5,6 +5,7 @@
 	"type": "module",
 	"license": "Apache-2.0",
 	"author": "07prajwal2000",
+	"homepage": "https://docs.fluxify.rest/plugins/authoring/getting-started.html",
 	"publishConfig": {
 		"access": "public"
 	},
