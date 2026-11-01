@@ -43,7 +43,7 @@ async function until<T>(what: string, probe: () => Promise<T | false>, ms = 120_
 	throw new Error(`timed out waiting for ${what}${last ? `: ${String(last)}` : ""}`);
 }
 
-/** the tarball `fluxify-cli blocks build` makes: the file an author uploads */
+/** the tarball `fluxify-cli build` makes: the file an author uploads */
 async function buildExample() {
 	const build = Bun.spawn([process.execPath, "run", "build"], {
 		cwd: EXAMPLE,

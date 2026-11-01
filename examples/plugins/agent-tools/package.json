@@ -15,7 +15,7 @@
 		"fluxify.json"
 	],
 	"scripts": {
-		"build": "fluxify-cli blocks build",
+		"build": "fluxify-cli build",
 		"test": "bun test"
 	},
 	"peerDependencies": {

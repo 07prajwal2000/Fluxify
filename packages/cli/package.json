@@ -1,10 +1,14 @@
 {
 	"name": "@fluxify/cli",
-	"version": "2026.10.2001",
+	"version": "2026.11.103",
 	"description": "Create, build and pack Fluxify plugins.",
 	"type": "module",
 	"license": "Apache-2.0",
 	"author": "07prajwal2000",
+	"homepage": "https://docs.fluxify.rest/plugins/authoring/getting-started.html",
+	"publishConfig": {
+		"access": "public"
+	},
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/Fluxify-rest/Fluxify.git",
@@ -13,13 +17,17 @@
 	"bin": {
 		"fluxify-cli": "./bin.ts"
 	},
-	"//": "Not published yet (X1 #876). Its own workspace so the parser never lands on a worker, which installs @fluxify/sdk for every plugin.",
+	"//": "Published from dist/ (bun run pack), like the SDK. Its own workspace so the parser never lands on a worker, which installs @fluxify/sdk for every plugin.",
 	"scripts": {
+		"build": "bun run scripts/build.ts",
+		"pack": "bun run build && cd dist && bun pm pack",
+		"version": "bun run scripts/version.ts",
 		"test": "bun test --timeout 180000",
 		"typecheck": "tsgo --noEmit"
 	},
 	"dependencies": {
 		"@fluxify/sdk": "workspace:*",
+		"citty": "0.2.2",
 		"oxc-parser": "^0.155.0",
 		"typescript": "^5.9.2",
 		"zod": "^4.0.17"

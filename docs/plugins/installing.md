@@ -69,7 +69,7 @@ Fluxify shows the reason a plugin was refused exactly as written. These are the 
 
 | Message | What it means and what to do |
 | :--- | :--- |
-| `The plugin has no fluxify.json` | The package was not built with the Fluxify CLI. Ask the author to run `blocks build` and share the new `.tgz`. |
+| `The plugin has no fluxify.json` | The package was not built with the Fluxify CLI. Ask the author to run `fluxify-cli build` and share the new `.tgz`. |
 | `<name>@<version> is not a Fluxify plugin: it has no fluxify.json` | The npm package exists but is not a Fluxify plugin. |
 | `bun.lock is missing or empty: run bun install and commit it` | The plugin needs outside packages but its lockfile is empty or absent. The author fixes it and rebuilds. A plugin with no outside packages needs no lockfile. |
 | `bun.lock does not pin ...` | The lockfile is out of date. The author runs `bun install` again and rebuilds. |

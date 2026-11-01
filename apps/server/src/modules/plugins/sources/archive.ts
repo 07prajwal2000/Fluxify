@@ -54,7 +54,7 @@ export async function registerArchive(
 	});
 }
 
-/** a creator uploads a `.tgz` built by `fluxify-cli blocks build` */
+/** a creator uploads a `.tgz` built by `fluxify-cli build` */
 export async function uploadPlugin(projectId: string, tgz: Uint8Array, caller: Caller) {
 	assertCreator(caller, projectId);
 	return registerArchive(projectId, tgz, "upload");

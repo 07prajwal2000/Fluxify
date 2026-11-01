@@ -64,7 +64,7 @@ describe("triggers create", () => {
 	});
 });
 
-describe("blocks build: triggers", () => {
+describe("fluxify-cli build: triggers", () => {
 	it("leaves triggers out of a plugin that has none", async () => {
 		expect((await build(await makePlugin())).manifest.triggers).toBeUndefined();
 	});

@@ -10,7 +10,7 @@ import { validatePlugin } from "./validate";
 /**
  * Plugins on a directory the operator mounts on the admin and on every worker
  * (`FLUXIFY_PLUGINS_DIR`): each subdirectory is one plugin, as `fluxify-cli
- * blocks build` leaves it. Discovery only reads `package.json` and
+ * fluxify-cli build` leaves it. Discovery only reads `package.json` and
  * `fluxify.json`; registering walks the directory and applies the same checks
  * as a tarball. Nothing is imported.
  */

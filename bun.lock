@@ -272,12 +272,13 @@
     },
     "packages/cli": {
       "name": "@fluxify/cli",
-      "version": "2026.10.2001",
+      "version": "2026.11.103",
       "bin": {
         "fluxify-cli": "./bin.ts",
       },
       "dependencies": {
         "@fluxify/sdk": "workspace:*",
+        "citty": "0.2.2",
         "oxc-parser": "^0.155.0",
         "typescript": "^5.9.2",
         "zod": "^4.0.17",
@@ -372,7 +373,7 @@
     },
     "packages/sdk": {
       "name": "@fluxify/sdk",
-      "version": "2026.10.2001",
+      "version": "2026.11.103",
       "devDependencies": {
         "@ai-sdk/provider": "^4.0.0",
         "@aws-sdk/client-sqs": "^3.1130.0",
@@ -1639,6 +1640,8 @@
     "chokidar": ["chokidar@5.0.0", "", { "dependencies": { "readdirp": "^5.0.0" } }, "sha512-TQMmc3w+5AxjpL8iIiwebF73dRDF4fBIieAqGn9RGCWaEVwQ6Fb2cGe31Yns0RRIzii5goJ1Y7xbMwo1TxMplw=="],
 
     "chownr": ["chownr@1.1.4", "", {}, "sha512-jJ0bqzaylmJtVnNgzTeSOs8DPavpbYgEr/b0YL8/2GO3xJEhInFmhKMUnEJQjZumK7KXGFhUy89PrsJWlakBVg=="],
+
+    "citty": ["citty@0.2.2", "", {}, "sha512-+6vJA3L98yv+IdfKGZHBNiGW5KHn22e/JwID0Strsz8h4S/csAu/OuICwxrg44k5MRiZHWIo8XXuJgQTriRP4w=="],
 
     "cjs-module-lexer": ["cjs-module-lexer@1.4.3", "", {}, "sha512-9z8TZaGM1pfswYeXrUpzPrkx8UnWYdhJclsiYMm6x/w5+nN+8Tf/LnAgfLGQCm59qAOxU8WwHEq2vNwF6i4j+Q=="],
 

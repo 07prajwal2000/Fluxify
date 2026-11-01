@@ -18,7 +18,7 @@ const tarNames = async (root: string, tarball: string) =>
 		(n) => n.replace(/^package\//, ""),
 	);
 
-describe("blocks build", () => {
+describe("fluxify-cli build", () => {
 	it("writes dist/, a valid fluxify.json and a tarball with only what ships", async () => {
 		const root = await makePlugin({
 			"src/blocks/messages/post.ts": blockSrc("acme/t/messages/post"),
@@ -104,7 +104,7 @@ describe("blocks build", () => {
 	});
 });
 
-describe("blocks build fails", () => {
+describe("fluxify-cli build fails", () => {
 	it("without an https url in src/index.ts", async () => {
 		const noUrl = await makePlugin({ "src/index.ts": index({ url: undefined }) });
 		expect(await failures(noUrl)).toEqual([expect.stringMatching(/^src\/index\.ts: plugin acme\/t: .*url/)]);
