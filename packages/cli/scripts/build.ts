@@ -11,10 +11,8 @@ mkdirSync(dist, { recursive: true });
 for (const name of readdirSync(dist)) rmSync(join(dist, name), { recursive: true, force: true });
 
 const pkg = await Bun.file(`${root}/package.json`).json();
-// the CLI is released with the SDK it was built against, so it asks for exactly that one
+// the SDK in the repo is the one the CLI was tested against, so the package asks for exactly it
 const sdk = await Bun.file(`${root}/../sdk/package.json`).json();
-if (sdk.version !== pkg.version)
-	throw new Error(`cli is ${pkg.version} but sdk is ${sdk.version}: release them together`);
 
 const built = await Bun.build({
 	entrypoints: [`${root}/bin.ts`],

@@ -1,0 +1,112 @@
+name: Publish npm
+
+# Publishes @fluxify/sdk and @fluxify/cli to npm, each only when its own source
+# changed. Both run on a push to main that touches the package's folder; run by
+# hand (Actions > Publish npm) it publishes both.
+#
+# A package is published when its source changed AND its version is not on npm yet.
+# Bump the version when you want a release: `bun run version` inside the package.
+# Without a bump the job ends with a notice and publishes nothing.
+#
+# No npm token anywhere: npm trusts this exact file through "Trusted Publisher"
+# in each package's settings (Fluxify-rest/Fluxify, publish-npm.yml). Renaming the
+# file breaks that link.
+on:
+  push:
+    branches: [main]
+    paths:
+      - packages/sdk/**
+      - packages/cli/**
+      - .github/workflows/publish-npm.yml
+      - .github/scripts/publish-dist.sh
+  workflow_dispatch:
+
+concurrency:
+  group: publish-npm
+  cancel-in-progress: false
+
+env:
+  BUN_VERSION: "1.4.3"
+
+jobs:
+  changes:
+    if: github.repository_owner == 'Fluxify-rest'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      sdk: ${{ steps.diff.outputs.sdk }}
+      cli: ${{ steps.diff.outputs.cli }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ "$EVENT" = workflow_dispatch ] || [ "${BEFORE//0/}" = "" ]; then
+            echo "sdk=true" >> "$GITHUB_OUTPUT"
+            echo "cli=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          changed=$(git diff --name-only "$BEFORE" "$GITHUB_SHA")
+          for p in sdk cli; do
+            if echo "$changed" | grep -q "^packages/$p/"; then echo "$p=true"; else echo "$p=false"; fi
+          done >> "$GITHUB_OUTPUT"
+
+  sdk:
+    needs: changes
+    if: needs.changes.outputs.sdk == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # the OIDC token npm exchanges for a one-time publish credential
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      # trusted publishing needs npm 11.5.1 or newer
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: npm install -g npm@latest
+      - run: bun install --frozen-lockfile
+      - run: bun run --cwd packages/sdk typecheck
+      - run: bun test --timeout 60000
+        working-directory: packages/sdk
+        env:
+          NODE_ENV: test
+      - run: ./.github/scripts/publish-dist.sh packages/sdk
+
+  cli:
+    # After the SDK: the CLI's published package asks for the SDK version in the repo.
+    # A skipped sdk job (its source did not change) is fine; a failed one is not.
+    needs: [changes, sdk]
+    if: >-
+      github.repository_owner == 'Fluxify-rest'
+      && needs.changes.outputs.cli == 'true'
+      && (needs.sdk.result == 'success' || needs.sdk.result == 'skipped')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: npm install -g npm@latest
+      - run: bun install --frozen-lockfile
+      - run: bun run --cwd packages/cli typecheck
+      - run: bun test --timeout 180000
+        working-directory: packages/cli
+        env:
+          NODE_ENV: test
+      - run: ./.github/scripts/publish-dist.sh packages/cli

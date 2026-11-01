@@ -1,6 +1,6 @@
 {
 	"name": "@fluxify/cli",
-	"version": "2026.11.102",
+	"version": "2026.11.103",
 	"description": "Create, build and pack Fluxify plugins.",
 	"type": "module",
 	"license": "Apache-2.0",
@@ -20,6 +20,7 @@
 	"scripts": {
 		"build": "bun run scripts/build.ts",
 		"pack": "bun run build && cd dist && bun pm pack",
+		"version": "bun run scripts/version.ts",
 		"test": "bun test --timeout 180000",
 		"typecheck": "tsgo --noEmit"
 	},
