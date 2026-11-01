@@ -7,8 +7,13 @@ description: Create, test, build and ship a Fluxify plugin with the CLI, what is
 
 A plugin is one package of blocks, and optionally integrations and triggers. You write each one as a small TypeScript file, test it without a running Fluxify, build it into a `.tgz` archive, and hand that to your team or publish it to npm. This page takes you from nothing to a built plugin. The pages after it cover each part in detail.
 
-::: warning The SDK and CLI are not on npm yet
-`@fluxify/sdk` and `@fluxify/cli` live in the [Fluxify repository](https://github.com/Fluxify-rest/Fluxify) (`packages/sdk` and `packages/cli`) and will be published to npm. Until they are, `bun add` and `bunx` for them fail. Work from a checkout instead: run the CLI as `bun packages/cli/bin.ts`, or start your plugin inside the repository like the [agent-tools example](https://github.com/Fluxify-rest/Fluxify/tree/main/examples/plugins/agent-tools). Everything below is the same once they are published.
+::: info Two names for the CLI
+The package is **`@fluxify/cli`**, and the command it installs is **`fluxify-cli`**.
+
+- **Before you have a plugin** (to run `init`), use the package name: `bunx @fluxify/cli init`.
+- **Inside a plugin**, the CLI is already installed, so use the command name: `bunx fluxify-cli …`.
+
+`bunx fluxify-cli` outside a plugin does not work, because there is no package with that name for `bunx` to download.
 :::
 
 You need [Bun](https://bun.sh). The CLI, the tests and the build all run on it.
@@ -16,16 +21,27 @@ You need [Bun](https://bun.sh). The CLI, the tests and the build all run on it.
 ## 1. Create the plugin
 
 ```sh
-bunx fluxify-cli init acme-slack --name acme/slack --url https://github.com/acme/fluxify-slack
+bunx @fluxify/cli init acme-slack
 cd acme-slack
 ```
 
-| Flag | Meaning |
+With no options, `init` asks for each setting in turn: the name, the URL, the version and a description. Press Enter to take a default. Giving an option answers its question, so you can skip them all:
+
+```sh
+bunx @fluxify/cli init acme-slack -n acme/slack -u https://github.com/acme/fluxify-slack -y
+```
+
+| Option | Meaning |
 | :--- | :--- |
-| `--name <scope/name>` | The plugin's name. Asked for on a terminal when left out |
-| `--url <https url>` | Where its docs or source live. Asked for on a terminal when left out |
-| `--force` | Overwrite files that exist, and take over a `package.json` that is not a plugin's |
+| `-n, --name <scope/name>` | The plugin's name. Required |
+| `-u, --url <https url>` | Where its docs or source live. Required |
+| `-v, --version <x.y.z>` | The plugin's version. Default `0.1.0` |
+| `-d, --description <text>` | What the plugin is for. Default: none |
+| `-y, --yes` | Ask nothing and use the defaults for what you did not give. The name and URL still have to be given |
+| `-f, --force` | Overwrite files that exist, and take over a `package.json` that is not a plugin's |
 | `--no-install` | Skip `bun install`. Run it yourself before you build |
+
+When you give any option, `init` only asks for a name or URL that is missing. Without a terminal (a script or CI), it asks nothing, so pass `-n` and `-u`.
 
 `init` writes an empty plugin and runs `bun install`.
 
