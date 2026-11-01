@@ -1,7 +1,9 @@
 // The files `init` and `blocks create` write. Plain functions: a template
 // engine would be longer than the files it fills in.
 
-/** build output, like dist/: `blocks build` regenerates and validates it every time */
+import type { Answers } from "./initAnswers";
+
+/** build output, like dist/: `fluxify-cli build` regenerates and validates it every time */
 export const GITIGNORE = `node_modules
 dist
 *.tgz
@@ -36,18 +38,18 @@ export type PackageSpecs = {
 /**
  * The npm name is `@scope/name`: valid for any Fluxify plugin name, and the
  * tarball `bun pm pack` makes from it, `scope-name-<version>.tgz`, is the one
- * `blocks build` promises.
+ * `fluxify-cli build` promises.
  */
-export const packageJson = (name: string, url: string, specs: PackageSpecs) =>
+export const packageJson = ({ name, url, version, description }: Answers, specs: PackageSpecs) =>
 	`${JSON.stringify(
 		{
 			name: `@${name}`,
-			version: "0.1.0",
-			description: `Fluxify blocks: ${name}`,
+			version,
+			...(description && { description }),
 			type: "module",
 			fluxify: { name, url },
 			files: ["dist", "icons", "fluxify.json"],
-			scripts: { build: "fluxify-cli blocks build", test: "bun test" },
+			scripts: { build: "fluxify-cli build", test: "bun test" },
 			// the worker provides both; dev copies are for building and `bun test`
 			peerDependencies: { "@fluxify/sdk": specs.sdk, zod: specs.zod },
 			devDependencies: {
@@ -62,28 +64,32 @@ export const packageJson = (name: string, url: string, specs: PackageSpecs) =>
 		2,
 	)}\n`;
 
-/** `src/index.ts`: what the plugin says about itself; `blocks build` writes fluxify.json from it */
-export const pluginIndex = (name: string, url: string) => `import { plugin } from "@fluxify/sdk";
+/** `src/index.ts`: what the plugin says about itself; `fluxify-cli build` writes fluxify.json from it */
+export const pluginIndex = ({
+	name,
+	url,
+	description,
+}: Answers) => `import { plugin } from "@fluxify/sdk";
 
 export default plugin({
 	// permanent: a different name is a different plugin
 	name: "${name}",
 	url: "${url}",
-	// description: "What these blocks are for.",
+	${description ? `description: ${JSON.stringify(description)},` : `// description: "What these blocks are for.",`}
 	// the plugin's folder in the block picker, and the folder of every ${name.split("/")[0]} plugin
 	// icon: "./icons/plugin.svg",
 	// scopeIcon: "./icons/scope.svg",
 });
 `;
 
-export const readme = (name: string, url: string) => `# ${name}
+export const readme = ({ name, url }: Answers) => `# ${name}
 
 Blocks for Fluxify. Source and docs: ${url}
 
 ## The plugin
 
 \`src/index.ts\` default-exports \`plugin({ name, url, description?, icon?, scopeIcon? })\`.
-\`blocks build\` writes \`fluxify.json\` from it and the blocks every time, and keeps the
+\`fluxify-cli build\` writes \`fluxify.json\` from it and the blocks every time, and keeps the
 \`fluxify\` field of \`package.json\` in step with it, so never edit \`fluxify.json\` by hand.
 
 ## Add a block

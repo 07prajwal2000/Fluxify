@@ -34,7 +34,7 @@ export default integration({
 const KV_CLIENT = "({ get: async () => null, set: async () => {}, setex: async () => {}, delete: async () => {} })";
 const ICON = { "icons/hub.svg": "<svg/>" };
 
-describe("blocks build: integrations", () => {
+describe("fluxify-cli build: integrations", () => {
 	it("writes each integration into fluxify.json, its group namespaced, and ships its module", async () => {
 		const root = await makePlugin({
 			...ICON,

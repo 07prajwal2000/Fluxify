@@ -19,7 +19,7 @@ import { compileGraph } from "./compiler";
 
 /**
  * A plugin's KV variant (I5) against a real Valkey: the author's
- * `integration()` is built the way `blocks build` builds it, registered through
+ * `integration()` is built the way `fluxify-cli build` builds it, registered through
  * `toVariantDef` (what I6 will do on a worker) and used by a plugin block
  * through `ctx.integrations.get<"kv">`, so the value really lands in the server
  * and the client is opened once, with the password read through `getConfig`.

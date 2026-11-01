@@ -85,7 +85,7 @@ export async function makePlugin(
 			...pkg,
 		}),
 		"bun.lock": LOCK,
-		"src/index.ts": pluginIndex("acme/t", "https://example.com/acme/t"),
+		"src/index.ts": pluginIndex({ name: "acme/t", url: "https://example.com/acme/t", version: "0.1.0", description: "" }),
 		"src/blocks/hello.ts": blockSrc("acme/t/hello"),
 		...files,
 	};

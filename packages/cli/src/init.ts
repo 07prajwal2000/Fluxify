@@ -1,7 +1,6 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { fluxifyManifestSchema } from "@fluxify/sdk/blocks";
-import type { z } from "zod";
+import { type Ask, initAnswers } from "./initAnswers";
 import { fail } from "./plugin";
 import {
 	GITIGNORE,
@@ -20,12 +19,18 @@ export type InitOptions = {
 	name?: string;
 	/** where the docs and source live: https only */
 	url?: string;
+	/** default 0.1.0 */
+	version?: string;
+	/** default none */
+	description?: string;
+	/** never ask: take the default of what is not given */
+	yes?: boolean;
 	/** overwrite files, and take over a plain package.json */
 	force?: boolean;
 	/** `bun install` afterwards; default true */
 	install?: boolean;
-	/** asks for a missing flag; absent when there is no terminal to ask on */
-	ask?: (question: string) => Promise<string>;
+	/** asks for what is missing; absent when there is no terminal to ask on */
+	ask?: Ask;
 	/** dependency specs; default the SDK this CLI runs against */
 	specs?: Partial<PackageSpecs>;
 };
@@ -37,34 +42,11 @@ async function currentSdk() {
 	return { version: pkg.version as string, zod: pkg.peerDependencies.zod as string };
 }
 
-/** a flag's value, asked for when missing and checked with the SDK's own rule */
-async function flag(
-	value: string | undefined,
-	{ flag, question, schema }: { flag: string; question: string; schema: z.ZodType<string> },
-	ask: InitOptions["ask"],
-) {
-	const given = value ?? (await ask?.(question))?.trim();
-	if (!given) return fail(`${flag} is required: ${question}`);
-	const parsed = schema.safeParse(given);
-	return parsed.success
-		? parsed.data
-		: fail(`${flag} '${given}': ${parsed.error.issues[0].message}`);
-}
-
 /** Starts an empty plugin project: no blocks, `blocks create` adds the first. */
 export async function init(options: InitOptions) {
 	const root = resolve(options.cwd, options.dir ?? ".");
-	const { shape } = fluxifyManifestSchema;
-	const name = await flag(
-		options.name,
-		{ flag: "--name", question: "plugin name (scope/name, e.g. acme/slack)", schema: shape.name },
-		options.ask,
-	);
-	const url = await flag(
-		options.url,
-		{ flag: "--url", question: "docs or source URL (https://...)", schema: shape.url },
-		options.ask,
-	);
+	const answers = await initAnswers(options);
+	const { name } = answers;
 
 	const pkgFile = join(root, "package.json");
 	if (existsSync(pkgFile)) {
@@ -78,7 +60,7 @@ export async function init(options: InitOptions) {
 
 	const sdk = await currentSdk();
 	const files: Record<string, string> = {
-		"package.json": packageJson(name, url, {
+		"package.json": packageJson(answers, {
 			sdk: `>=${sdk.version}`,
 			zod: sdk.zod,
 			cli: `>=${sdk.version}`,
@@ -87,10 +69,10 @@ export async function init(options: InitOptions) {
 			...options.specs,
 		}),
 		"tsconfig.json": TSCONFIG,
-		"src/index.ts": pluginIndex(name, url),
+		"src/index.ts": pluginIndex(answers),
 		"src/blocks/.gitkeep": "",
 		"icons/.gitkeep": "",
-		"README.md": readme(name, url),
+		"README.md": readme(answers),
 		".gitignore": GITIGNORE,
 	};
 	const taken = Object.keys(files).filter((f) => f !== "package.json" && existsSync(join(root, f)));

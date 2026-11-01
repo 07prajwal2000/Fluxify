@@ -58,7 +58,7 @@ bun test
 bun run build
 ```
 
-`bun run build` is `fluxify-cli blocks build`. It bundles every block, works out the type each block outputs from its `run` (so the next block's editor can complete `input`), writes `fluxify.json`, and packs everything into `acme-slack-0.1.0.tgz` (the plugin name with `/` as `-`, then the version from `package.json`). It prints a warning for each thing worth fixing and stops on each thing that would make Fluxify refuse the plugin:
+`bun run build` is `fluxify-cli build`. It bundles every block, works out the type each block outputs from its `run` (so the next block's editor can complete `input`), writes `fluxify.json`, and packs everything into `acme-slack-0.1.0.tgz` (the plugin name with `/` as `-`, then the version from `package.json`). It prints a warning for each thing worth fixing and stops on each thing that would make Fluxify refuse the plugin:
 
 | Stops the build | Warns |
 | :--- | :--- |

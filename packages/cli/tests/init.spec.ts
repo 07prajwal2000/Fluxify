@@ -38,7 +38,7 @@ describe("init", () => {
 			name: "@acme/slack",
 			version: "0.1.0",
 			type: "module",
-			scripts: { build: "fluxify-cli blocks build", test: "bun test" },
+			scripts: { build: "fluxify-cli build", test: "bun test" },
 		});
 		// the same schema the registry reads `fluxify.json` with
 		expect(pkg.fluxify).toEqual({ name: "acme/slack", url: "https://example.com/slack" });
@@ -64,21 +64,6 @@ describe("init", () => {
 		const { root } = await init({ cwd, ...flags });
 		expect(root).toBe(cwd);
 		expect(existsSync(join(cwd, "package.json"))).toBe(true);
-	});
-
-	it("asks for a missing --name and --url when it can", async () => {
-		const asked: string[] = [];
-		const answers = ["acme/asked", "https://example.com/asked"];
-		const { root } = await init({
-			cwd: tmp(),
-			install: false,
-			ask: async (q) => {
-				asked.push(q);
-				return answers.shift() ?? "";
-			},
-		});
-		expect(asked).toHaveLength(2);
-		expect(JSON.parse(await read(root, "package.json")).fluxify.name).toBe("acme/asked");
 	});
 
 	it("names the missing flag when there is no terminal to ask on", async () => {
@@ -213,7 +198,7 @@ describe("blocks create", () => {
 	});
 });
 
-describe("blocks build on an empty plugin", () => {
+describe("fluxify-cli build on an empty plugin", () => {
 	it("fails with how to add a block", async () => {
 		const cwd = tmp();
 		const { root } = await init({ cwd, ...flags });
@@ -222,5 +207,68 @@ describe("blocks build on an empty plugin", () => {
 		expect(await message(() => build(root))).toBe(
 			"no blocks in src/blocks, add one with `fluxify-cli blocks create <name>`",
 		);
+	});
+});
+
+describe("init answers", () => {
+	const pkg = async (root: string) => JSON.parse(await read(root, "package.json"));
+
+	it("with no flag, asks name, url, version and description one by one; Enter takes a default", async () => {
+		const asked: string[] = [];
+		const answers = ["acme/q", "https://example.com/q", "", "Slack things"];
+		const { root } = await init({
+			cwd: tmp(),
+			install: false,
+			ask: async (q) => (asked.push(q), answers.shift() ?? ""),
+		});
+		expect(asked.map((q) => q.split(" (")[0])).toEqual(["Plugin name", "Docs or source URL", "Version", "Description"]);
+		expect(asked[2]).toContain("(0.1.0)");
+		const p = await pkg(root);
+		expect([p.version, p.description]).toEqual(["0.1.0", "Slack things"]);
+		expect(await read(root, "src/index.ts")).toContain('description: "Slack things",');
+	});
+
+	it("a flag answers its question; the rest default without asking, only a missing name or url is asked", async () => {
+		const asked: string[] = [];
+		const { root } = await init({
+			cwd: tmp(),
+			install: false,
+			name: flags.name,
+			ask: async (q) => (asked.push(q), flags.url),
+		});
+		expect(asked).toHaveLength(1);
+		const p = await pkg(root);
+		expect([p.version, p.description]).toEqual(["0.1.0", undefined]);
+		expect(await read(root, "src/index.ts")).toContain('// description: "What these blocks are for."');
+	});
+
+	it("--yes asks nothing: name and url are still required, version and description default", async () => {
+		const ask = async () => {
+			throw new Error("asked");
+		};
+		expect(await message(() => init({ cwd: tmp(), install: false, yes: true, ask }))).toContain("--name");
+		const { root } = await init({ cwd: tmp(), ...flags, yes: true, ask });
+		expect((await pkg(root)).version).toBe("0.1.0");
+	});
+
+	it("takes --version and --description, and refuses a bad version", async () => {
+		const { root } = await init({ cwd: tmp(), ...flags, version: "2.0.1-beta.1", description: "Hi" });
+		const p = await pkg(root);
+		expect([p.version, p.description]).toEqual(["2.0.1-beta.1", "Hi"]);
+		expect(await message(() => init({ cwd: tmp(), ...flags, version: "v1" }))).toContain("--version 'v1'");
+	});
+
+	it("asks again after a wrong answer, and gives up after three", async () => {
+		const answers = ["Bad", "acme/ok", "https://example.com/ok", "", ""];
+		const errors = spyOn(console, "error").mockImplementation(() => {});
+		try {
+			const { name } = await init({ cwd: tmp(), install: false, ask: async () => answers.shift() ?? "" });
+			expect(name).toBe("acme/ok");
+			expect(errors.mock.calls[0][0]).toContain("name");
+			const never = async () => "Bad";
+			expect(await message(() => init({ cwd: tmp(), install: false, ask: never }))).toContain("--name");
+		} finally {
+			errors.mockRestore();
+		}
 	});
 });

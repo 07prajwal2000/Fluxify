@@ -1,4 +1,4 @@
-// The tarball `blocks build` makes, unpacked where a worker puts a plugin, is
+// The tarball `fluxify-cli build` makes, unpacked where a worker puts a plugin, is
 // loaded by the real plugin loader and its block runs in a compiled graph.
 import { afterAll, describe, expect, it } from "bun:test";
 import { mkdirSync, renameSync } from "node:fs";
