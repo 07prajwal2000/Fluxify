@@ -20,6 +20,18 @@ import { useScrollToBottom } from "./useScrollToBottom";
 /** While something waits for an answer, text in the editor is the reason to turn it down (or the change to the plan). */
 const CHANGE_PLACEHOLDER = "Type a follow-up or change the plan…";
 
+/** Mirrors the server's archived-chat retention (AGENT_CONVERSATION_MAX_AGE_DAYS). */
+const ARCHIVE_RETENTION_DAYS = 7;
+
+/** DD-MM-YYYY the archived chat is deleted, or "" when the archive time is unknown. */
+function deletionDate(archivedAt?: string | Date | null) {
+	if (!archivedAt) return "";
+	const d = new Date(archivedAt);
+	if (Number.isNaN(d.getTime())) return "";
+	d.setDate(d.getDate() + ARCHIVE_RETENTION_DAYS);
+	return d.toLocaleDateString("en-GB").replaceAll("/", "-");
+}
+
 export function ConversationPage() {
 	const { projectId, conversationId } = useParams({
 		from: "/_authed/$projectId/ai/$conversationId",
@@ -133,6 +145,8 @@ export function ConversationPage() {
 					{conversation?.archived ? (
 						<div className="w-full rounded-2xl border border-border bg-surface p-4 text-center text-sm text-muted">
 							This conversation is archived and is read-only.
+							{deletionDate(conversation.archivedAt) &&
+								` It will be deleted on ${deletionDate(conversation.archivedAt)}.`}
 						</div>
 					) : (
 						<>
