@@ -1,13 +1,15 @@
 // The npm package, in dist/: ESM bundles (zod and the AI SDK stay peers), declarations,
 // and a package.json whose exports point at them. The workspace keeps using
 // the TS source, so nothing here affects it. Pack or publish from dist/.
-import { rmSync } from "node:fs";
-import { join } from "node:path";
+import { copyFileSync, mkdirSync, readdirSync, rmSync } from "node:fs";
+import { basename, join } from "node:path";
 import { $ } from "bun";
 
 const root = join(import.meta.dir, "..");
 const dist = join(root, "dist");
-rmSync(dist, { recursive: true, force: true });
+// emptied, not removed: Windows refuses to delete a folder a shell is sitting in
+mkdirSync(dist, { recursive: true });
+for (const name of readdirSync(dist)) rmSync(join(dist, name), { recursive: true, force: true });
 
 const built = await Bun.build({
 	entrypoints: [
@@ -71,4 +73,7 @@ await Bun.write(
 		"\t",
 	)}\n`,
 );
+// the npm page shows the README in the package root
+for (const file of ["README.md", "../../LICENSE"])
+	copyFileSync(join(root, file), join(dist, basename(file)));
 console.log(`built ${pkg.name}@${pkg.version} in dist/`);

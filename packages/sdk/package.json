@@ -1,10 +1,13 @@
 {
 	"name": "@fluxify/sdk",
-	"version": "2026.10.2001",
+	"version": "2026.11.102",
 	"description": "Write programmable blocks (plugins) for Fluxify.",
 	"type": "module",
 	"license": "Apache-2.0",
 	"author": "07prajwal2000",
+	"publishConfig": {
+		"access": "public"
+	},
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/Fluxify-rest/Fluxify.git",
