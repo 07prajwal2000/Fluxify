@@ -117,6 +117,26 @@ describe("trigger()", () => {
 		);
 	});
 
+	it("an appconfig param reads the same as `cfg:KEY` (the picker) and as a bare key (older saves)", async () => {
+		const def = trigger({
+			...base,
+			name: "acme/t/a",
+			permissions: { appconfig: true },
+			params: { key: param.appconfig({ required: true }) },
+			start: async (ctx) => {
+				seen.push([ctx.params.key, ctx.getConfig(ctx.params.key)]);
+				return async () => {};
+			},
+		});
+		const seen: unknown[] = [];
+		for (const key of ["cfg:TOKEN", "TOKEN"])
+			await (await runTrigger(def, { params: { key }, appConfig: { TOKEN: "s" } })).stop();
+		expect(seen).toEqual([
+			["TOKEN", "s"],
+			["TOKEN", "s"],
+		]);
+	});
+
 	it("checks number params against their bounds when the trigger starts", async () => {
 		const def = trigger({
 			...base,

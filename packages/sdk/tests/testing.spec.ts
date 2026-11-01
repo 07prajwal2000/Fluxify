@@ -93,6 +93,24 @@ describe("ctx fakes", () => {
 			expect((await runBlock(reach(what), { ctx: { db, http, config: { k: 1 } } })).error).toBeUndefined();
 	});
 
+	it("an appconfig param and getConfig read the same for `cfg:KEY` and a bare key", async () => {
+		const def = block({
+			name: "acme/x/k",
+			label: "K",
+			permissions: { appconfig: true },
+			params: { key: param.appconfig({ required: true }) },
+			async run({ params, ctx }) {
+				return { output: { key: params.key, value: ctx.vars.getConfig(params.key), viaRef: ctx.vars.getConfig("cfg:K") } };
+			},
+		});
+		for (const key of ["cfg:K", "K"])
+			expect((await runBlock(def, { params: { key }, ctx: { config: { K: "v" } } })).output).toEqual({
+				key: "K",
+				value: "v",
+				viaRef: "v",
+			});
+	});
+
 	it("memoryKv stores, expires and deletes; memoryQueue records what was sent", async () => {
 		const kv = memoryKv();
 		await kv.set("a", "1");

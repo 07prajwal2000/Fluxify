@@ -1,6 +1,7 @@
 // The parts of running a programmable block that the engine and the test
 // harness (`@fluxify/sdk/testing`) must agree on, written once.
 import type { BlockContext, IntegrationsContext } from "../context.js";
+import { secretKey } from "../integration.js";
 import { canonicalVariant, integrationKindCovers } from "../integrations/variants.js";
 import { INVOKE_MODES } from "../reserved.js";
 import { rawOf } from "./raw.js";
@@ -157,7 +158,10 @@ export function grantContext<
 		...ctx,
 		vars: {
 			...ctx.vars,
-			getConfig: granted.appconfig ? ctx.vars.getConfig : () => deny("app config"),
+			// a stored `cfg:<KEY>` reads as the key, as a bare key does
+			getConfig: granted.appconfig
+				? (key: string) => ctx.vars.getConfig(secretKey(key))
+				: () => deny("app config"),
 		},
 	};
 	for (const [field, method, kind] of GATED) {

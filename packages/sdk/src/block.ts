@@ -204,7 +204,8 @@ const asString = (value: unknown) =>
 /**
  * Fills defaults and checks params before `run`: the canvas may have left them
  * empty or wrong, and `run`'s types say they are there. An empty `schema` param
- * arrives as null; it is passed as absent, like any other. A `string` param
+ * arrives as null; it is passed as absent, like any other. An `appconfig` param
+ * arrives as its bare key, whether `cfg:<KEY>` or a bare key was stored. A `string` param
  * whose `js:` expression gave something else arrives as its string, and a hint
  * never arrives. Defaults are used as written: a `js:` in one is not evaluated.
  * The engine and the test harness both run this, so a bad param fails the same
@@ -225,6 +226,9 @@ export function prepareParams(params: Params, values: Record<string, unknown> = 
 			continue;
 		}
 		if (p.type === "string") out[name] = asString(value);
+		// the picker stores `cfg:<KEY>`, older saves a bare key: the block gets the key either way
+		if (p.type === "appconfig" && typeof value === "string")
+			out[name] = value.startsWith("cfg:") ? value.slice(4) : value;
 		const wrong = misfit(p, out[name]);
 		if (wrong) throw new Error(`param '${name}' ${wrong}`);
 	}
