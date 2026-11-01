@@ -4,6 +4,7 @@ export type AgentConversation = {
 	status: string;
 	pinned: boolean;
 	archived: boolean;
+	archivedAt?: string | Date | null;
 	createdAt: string | Date;
 	updatedAt: string | Date;
 	userQuery?: string;
