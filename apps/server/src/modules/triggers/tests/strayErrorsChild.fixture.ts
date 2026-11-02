@@ -40,6 +40,7 @@ setPluginTriggerRefs(
 			kind,
 			entry,
 			permissions: { integrations: [], appconfig: false },
+			secretParams: [],
 		};
 	}),
 );

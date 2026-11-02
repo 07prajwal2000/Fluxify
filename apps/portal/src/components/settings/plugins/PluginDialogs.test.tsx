@@ -193,6 +193,33 @@ test("approval dialog shows plugin integrations with secret params and hooks", a
 	expect(document.body.textContent).toContain("inspect");
 });
 
+test("approval lists the fields whose chosen app config key a plugin can read", async () => {
+	const withSecret = plugin({
+		manifest: {
+			...plugin().manifest,
+			triggers: [
+				{
+					name: "acme/slack/poll",
+					label: "Poll Slack",
+					icon: "",
+					permissions: {},
+					retry: false,
+					params: { token: { type: "secret", label: "Token" } },
+					entry: "dist/triggers/poll.js",
+				},
+			],
+		} as never,
+	});
+	wrap(<ApprovalDialog projectId="p1" plugin={withSecret} open onOpenChange={() => {}} />);
+
+	await until(() =>
+		expect(document.body.textContent).toContain(
+			"Read the app config keys chosen in: Poll Slack: Token",
+		),
+	);
+	expect(document.body.textContent).not.toContain("No special permissions.");
+});
+
 test("approval lists the plugin's trigger kinds with their permissions", async () => {
 	const withTriggers = plugin({
 		manifest: {

@@ -1,6 +1,7 @@
 import { afterAll, describe, expect, it } from "bun:test";
 import { build } from "../src/build";
 import { lintDocs } from "../src/lint/docs";
+import { findGetConfig } from "../src/lint/getConfig";
 import { findUnawaited } from "../src/lint/unawaited";
 import { blockSrc, cleanup, makePlugin } from "./helpers";
 
@@ -94,6 +95,67 @@ describe("executeHandle not awaited", () => {
 
 	it("leaves a file with a syntax error to the bundler", () => {
 		expect(findUnawaited("x.ts", "export default {")).toEqual([]);
+	});
+});
+
+describe("getConfig without the permission", () => {
+	const ICON = { "icons/poll.svg": "<svg/>" };
+	const triggerFile = (extra: string, body: string) => `import { param } from "@fluxify/sdk/blocks";
+import { trigger } from "@fluxify/sdk/triggers";
+export default trigger({
+	name: "acme/t/a",
+	label: "A",
+	icon: "./icons/poll.svg",
+	${extra}
+	start: async (ctx) => { ${body} return async () => {}; },
+});
+`;
+	const reading = (extra = "") =>
+		blockSrc("acme/t/hello", { extra, body: 'ctx.vars.getConfig("K"); return { output: 1 };' }).replace(
+			"{ params, executeHandle }",
+			"{ ctx }",
+		);
+
+	it("finds a member call, a string key and a destructure, and nothing else", () => {
+		const lines = (code: string) => findGetConfig("a.ts", `\n${code}`);
+		expect(lines("ctx.vars.getConfig('K');")).toEqual([2]);
+		expect(lines("ctx.getConfig('K');")).toEqual([2]);
+		expect(lines("ctx['getConfig']('K');")).toEqual([2]);
+		expect(lines("const { getConfig } = ctx;")).toEqual([2]);
+		expect(lines("const { getConfig: read } = ctx.vars;")).toEqual([2]);
+		expect(lines("const getConfig = 1; ctx[getConfig]; ctx.other();")).toEqual([]);
+		expect(lines("export default {")).toEqual([]);
+	});
+
+	it("warns about a block without the permission, and still builds", async () => {
+		const root = await makePlugin({ "src/blocks/hello.ts": reading() });
+		const { warnings, tarball } = await build(root);
+		expect(warnings).toEqual([
+			expect.stringMatching(/^src\/blocks\/hello\.ts:\d+: getConfig is used, and it throws at run time/),
+		]);
+		expect(tarball).toBe("acme-t-1.2.3.tgz");
+	});
+
+	it("leaves a block that declares the permission alone", async () => {
+		const root = await makePlugin({
+			"src/blocks/hello.ts": reading("permissions: { appconfig: true },"),
+		});
+		expect((await build(root)).warnings).toEqual([]);
+	});
+
+	it("warns about a trigger with neither the permission nor a secret param", async () => {
+		const root = await makePlugin({ ...ICON, "src/triggers/a.ts": triggerFile("", 'ctx.getConfig("K");') });
+		expect((await build(root)).warnings).toEqual([
+			expect.stringMatching(/^src\/triggers\/a\.ts:\d+: getConfig is used.*param\.secret\(\)/),
+		]);
+	});
+
+	it("leaves a trigger with a secret param alone", async () => {
+		const root = await makePlugin({
+			...ICON,
+			"src/triggers/a.ts": triggerFile("params: { key: param.secret() },", "ctx.getConfig(ctx.params.key);"),
+		});
+		expect((await build(root)).warnings).toEqual([]);
 	});
 });
 

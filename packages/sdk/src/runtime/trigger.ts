@@ -32,8 +32,10 @@ export interface TriggerContext<P extends Params = Params> {
 	integrations: IntegrationsContext;
 	/**
 	 * An app config value: any key with `permissions.appconfig`, else only the
-	 * keys the trigger's own `param.secret()` fields name. Errors name the key,
-	 * never a value.
+	 * keys the trigger's own `param.secret()` fields name. Any other key throws
+	 * `PermissionDeniedError` and reads nothing, and Fluxify turns the trigger off
+	 * at once, even if your code catches the error: only a newly approved version
+	 * can fix it. Errors name the key, never a value.
 	 */
 	getConfig(key: string): string | number | boolean;
 	logger: Logger;
@@ -55,7 +57,33 @@ export interface TriggerContext<P extends Params = Params> {
 	 * the trigger is turned off with this error's message as the reason.
 	 */
 	fail(error: unknown): void;
+	/**
+	 * Tells Fluxify how a round of your loop went: with an error it failed, with
+	 * nothing it worked. Enough failed rounds in a row turn the trigger off, with
+	 * no restarts in between. `poll` calls it for you; a hand-written loop may.
+	 */
+	reportTick(error?: unknown): void;
 }
+
+/**
+ * What `ctx.getConfig` throws for a key the trigger may not read. It never fixes
+ * itself, so the trigger is turned off at the first one.
+ */
+export class PermissionDeniedError extends Error {
+	override name = "PermissionDeniedError";
+}
+
+/** `getConfig` that also reports a denial, so an author's `catch` cannot hide it */
+export const failingOnDenial =
+	<V>(getConfig: (key: string) => V, denied: (error: unknown) => void) =>
+	(key: string) => {
+		try {
+			return getConfig(key);
+		} catch (error) {
+			if (error instanceof PermissionDeniedError) denied(error);
+			throw error;
+		}
+	};
 
 const CONNECTION_METHODS = ["commit", "moveToDLQ", "lag"] as const;
 
@@ -69,6 +97,12 @@ export function checkEmit(name: string, events: unknown, options?: EmitOptions) 
 	if (missing.length)
 		throw new TypeError(`trigger ${name}: emit's connection needs ${missing.join(", ")}()`);
 }
+
+/** the names of the secret params in `params`, sorted, to compare code with its manifest */
+export const secretParamNames = (params: Params = {}) =>
+	Object.keys(params)
+		.filter((name) => params[name]!.type === "secret")
+		.sort();
 
 /** the app config keys a trigger's secret params name (a stored `cfg:<KEY>` or a bare key) */
 export const triggerSecretKeys = (trigger: { params?: Params }, params: Record<string, unknown>) =>
@@ -91,7 +125,7 @@ export function triggerGetConfig(
 	return (stored: string) => {
 		const key = secretKey(stored);
 		if (!trigger.permissions?.appconfig && !own.has(key))
-			throw new Error(
+			throw new PermissionDeniedError(
 				`trigger ${name}: getConfig('${key}') is not allowed; it reads the keys its secret params name, or any key with permissions.appconfig`,
 			);
 		const value = appConfig[key];

@@ -37,7 +37,11 @@ These parts of `ctx` reach the project's data, so a block must declare them in `
 | `integrations: ["kv"]` | `ctx.kvFactory` | `ctx.kvFactory.getKvAdapter(id)`: a key-value store |
 | `integrations: ["queue"]` | `ctx.queueFactory` | `await ctx.queueFactory.getProducer(id)`: a message queue producer |
 | `integrations: ["acme/email"]` | `ctx.integrations.get(id)` | Any kind, built-in or one of your own groups ([below](#using-integrations-from-a-block)) |
-| `appconfig: true` | `ctx.vars.getConfig(key)` | A value from the project's app config |
+| `appconfig: true` | `ctx.vars.getConfig(key)` | A value from the project's app config. Without the permission it throws and reads nothing |
+
+`fluxify-cli build` warns when a block uses `getConfig` without `permissions.appconfig: true`. This check is best effort: it only looks at the block's own file, so it misses a helper that takes `ctx` or a renamed reference. It is there to help you catch a mistake early. What actually enforces the rule is the check at run time.
+
+The approval covers the whole plugin, so a block without the permission can still read app config once another block in the plugin asks for it. Declare it on every block that needs it: `runBlock` in your tests grants each block only what that block declares.
 
 The `id` is what an [`integration` param](./params#integration-and-appconfig) hands to `run`. Declare the kind once, and the param picks which integration of that kind:
 
@@ -135,7 +139,7 @@ A plugin that is switched off hides its variants from the integrations page and 
 | `getHeader(key)`, `setHeader(key, value)` | Read a request header, or set one on the response |
 | `getCookie(key)` | A cookie |
 | `getRequestBody()` | The parsed request body |
-| `getConfig(key)` | An app config value (needs `appconfig: true`) |
+| `getConfig(key)` | An app config value (needs `appconfig: true`, and throws without it) |
 
 Variables that earlier blocks stored on `vars` are there too. Prefer params and `input` for the data a block needs, and leave `vars` for request details.
 

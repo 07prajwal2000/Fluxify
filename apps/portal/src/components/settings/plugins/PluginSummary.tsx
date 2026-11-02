@@ -1,4 +1,4 @@
-import { requestedPermissions } from "@fluxify/server/src/modules/plugins/meta";
+import { chosenConfigFields, requestedPermissions } from "@fluxify/server/src/modules/plugins/meta";
 import type { ReactNode } from "react";
 import { TbCheck, TbExternalLink, TbX } from "react-icons/tb";
 import { IntegrationVariantIcon } from "@/components/integrations/IntegrationVariantIcon";
@@ -38,6 +38,11 @@ export function PluginBlocks({ plugin }: { plugin: Plugin }) {
 
 type TriggerKind = NonNullable<PluginManifest["triggers"]>[number];
 
+const triggerSecrets = (kind: TriggerKind) =>
+	Object.entries(kind.params ?? {})
+		.filter(([, param]) => (param as { type?: string }).type === "secret")
+		.map(([name]) => name);
+
 const triggerPermissions = (kind: TriggerKind) => {
 	const parts = [
 		...(kind.permissions.integrations?.length
@@ -45,13 +50,11 @@ const triggerPermissions = (kind: TriggerKind) => {
 			: []),
 		...(kind.permissions.appconfig ? ["Read app config"] : []),
 	];
-	return parts.length ? parts.join(" · ") : "No special permissions.";
+	if (parts.length) return parts.join(" · ");
+	return triggerSecrets(kind).length
+		? "Reads only the app config keys chosen in its fields."
+		: "No special permissions.";
 };
-
-const triggerSecrets = (kind: TriggerKind) =>
-	Object.entries(kind.params ?? {})
-		.filter(([, param]) => (param as { type?: string }).type === "secret")
-		.map(([name]) => name);
 
 /** The trigger kinds a version ships: label, kind, permissions and whether they retry. */
 export function PluginTriggerKinds({ plugin }: { plugin: Plugin }) {
@@ -182,6 +185,7 @@ const Tick = ({ on, label }: { on: boolean; label: string }) =>
  */
 export function PluginPermissions({ plugin }: { plugin: Plugin }) {
 	const requested = requestedPermissions(manifestOf(plugin));
+	const chosen = requested.appconfig ? [] : chosenConfigFields(manifestOf(plugin));
 	const granted = plugin.live?.permissions ??
 		plugin.permissions ?? {
 			integrations: [],
@@ -195,31 +199,39 @@ export function PluginPermissions({ plugin }: { plugin: Plugin }) {
 		})),
 		{ label: "App config", asked: requested.appconfig, given: granted.appconfig },
 	].filter((r) => r.asked || r.given);
+	const chosenNote = chosen.length > 0 && (
+		<p className="text-xs text-muted">
+			Reads only the app config keys chosen in: {chosen.join(", ")}
+		</p>
+	);
 	if (!rows.length)
-		return <p className="text-sm text-muted">This plugin asks for no permissions.</p>;
+		return chosenNote || <p className="text-sm text-muted">This plugin asks for no permissions.</p>;
 	return (
-		<table className="w-full text-sm" aria-label="Permissions">
-			<thead>
-				<tr className="text-left text-xs text-muted">
-					<th className="py-1 font-medium">Permission</th>
-					<th className="w-24 py-1 font-medium">Requested</th>
-					<th className="w-24 py-1 font-medium">Granted</th>
-				</tr>
-			</thead>
-			<tbody>
-				{rows.map((r) => (
-					<tr key={r.label} className="border-t border-border">
-						<td className="py-1.5 text-foreground">{r.label}</td>
-						<td>
-							<Tick on={r.asked} label="requested" />
-						</td>
-						<td>
-							<Tick on={r.given} label="granted" />
-						</td>
+		<>
+			<table className="w-full text-sm" aria-label="Permissions">
+				<thead>
+					<tr className="text-left text-xs text-muted">
+						<th className="py-1 font-medium">Permission</th>
+						<th className="w-24 py-1 font-medium">Requested</th>
+						<th className="w-24 py-1 font-medium">Granted</th>
 					</tr>
-				))}
-			</tbody>
-		</table>
+				</thead>
+				<tbody>
+					{rows.map((r) => (
+						<tr key={r.label} className="border-t border-border">
+							<td className="py-1.5 text-foreground">{r.label}</td>
+							<td>
+								<Tick on={r.asked} label="requested" />
+							</td>
+							<td>
+								<Tick on={r.given} label="granted" />
+							</td>
+						</tr>
+					))}
+				</tbody>
+			</table>
+			{chosenNote}
+		</>
 	);
 }
 

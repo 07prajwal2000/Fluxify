@@ -333,6 +333,7 @@ describe("plugin triggers: the runtime", () => {
 				kind,
 				entry,
 				permissions: { integrations: [], appconfig: false },
+				secretParams: [],
 			},
 		]);
 		const triggerId = Bun.randomUUIDv7();

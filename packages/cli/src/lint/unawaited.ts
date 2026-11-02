@@ -6,7 +6,11 @@ import { parseSync } from "oxc-parser";
 
 type Node = { type: string; start: number; [key: string]: any };
 
-function walk(node: unknown, ancestors: Node[], visit: (node: Node, ancestors: Node[]) => void) {
+export function walk(
+	node: unknown,
+	ancestors: Node[],
+	visit: (node: Node, ancestors: Node[]) => void,
+) {
 	if (Array.isArray(node)) {
 		for (const n of node) walk(n, ancestors, visit);
 		return;

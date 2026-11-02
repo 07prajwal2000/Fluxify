@@ -1,4 +1,6 @@
 import { resolve } from "node:path";
+import type { Params } from "@fluxify/sdk/blocks";
+import { secretParamNames } from "@fluxify/sdk/runtime";
 import type { PluginPermissions } from "../../db/schema";
 import type { PluginArtifact } from "../compiler/artifacts";
 
@@ -22,6 +24,8 @@ export type PluginTriggerRef = {
 	entry: string;
 	/** what the plugin's approval granted */
 	permissions: PluginPermissions;
+	/** the secret params the approved manifest declares: the module must declare the same */
+	secretParams: string[];
 };
 
 export const pluginTriggerRefs = (artifact: PluginArtifact, root: string): PluginTriggerRef[] =>
@@ -33,6 +37,7 @@ export const pluginTriggerRefs = (artifact: PluginArtifact, root: string): Plugi
 		kind: t.name,
 		entry: resolve(root, t.entry),
 		permissions: artifact.permissions,
+		secretParams: secretParamNames(t.params as Params),
 	}));
 
 /** what decides a ref's slot: one per project and kind */

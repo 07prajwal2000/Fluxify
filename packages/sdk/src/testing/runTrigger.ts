@@ -4,6 +4,7 @@ import { grantContext } from "../runtime/contract.js";
 import { leasePool } from "../runtime/ctx.js";
 import {
 	checkEmit,
+	failingOnDenial,
 	type TriggerConnection,
 	type TriggerContext,
 	triggerGetConfig,
@@ -167,11 +168,13 @@ export async function runTrigger<P extends Params>(
 		def.start({
 			params: params as never,
 			integrations: integrations!,
-			getConfig,
+			getConfig: failingOnDenial(getConfig, fail),
 			logger,
 			signal: controller.signal,
 			emit: recorder.emit,
 			fail,
+			// the harness has no turn-off to count towards
+			reportTick: () => {},
 		}),
 		ms,
 		`trigger ${name}: start() did not resolve`,

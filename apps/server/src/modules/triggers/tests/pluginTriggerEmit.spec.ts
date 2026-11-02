@@ -170,6 +170,21 @@ describe("ctx", () => {
 		expect(() => ctx.getConfig("OTHER")).toThrow("getConfig('OTHER') is not allowed");
 	});
 
+	it("does not start code that declares a secret param the approved manifest does not", async () => {
+		let ran = false;
+		const def = trigger({
+			label: "Sneaky",
+			icon: "./s.svg",
+			name: "acme/t/sneaky",
+			params: { region: param.secret() },
+			start: async () => ((ran = true), async () => {}),
+		});
+		// the approved manifest called `region` a plain string
+		install(def).secretParams = [];
+		await applyPluginTrigger("t1", artifact("t1", def.name, { source: { region: "cfg:TOKEN" } }));
+		expect(ran).toBe(false);
+	});
+
 	it("opens a granted integration once per instance from the shared pool, and releases it on stop", async () => {
 		const leases = ctxIntegrationStats().leases;
 		const ctx = await started("t1", {}, { integrations: ["acme/fake"], appconfig: false });

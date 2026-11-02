@@ -96,9 +96,11 @@ What `ctx` may reach, beyond what every trigger gets. A creator sees it when app
 | Declare | You get | Use |
 | :--- | :--- | :--- |
 | `integrations: ["database"]` | `ctx.integrations` | The project's integrations of that kind, by id ([below](#the-context)) |
-| `appconfig: true` | `ctx.getConfig` | Any App config key. Without it, `getConfig` reads only the keys your `param.secret()` fields name |
+| `appconfig: true` | `ctx.getConfig` | Any App config key. Without it, `getConfig` reads only the keys your `param.secret()` fields name, and throws for any other key |
 
-A `param.integration` needs its kind in `permissions.integrations`, and a `param.appconfig` needs `permissions.appconfig: true`. The build refuses a trigger with the param but no permission.
+A `param.integration` needs its kind in `permissions.integrations`, and a `param.appconfig` needs `permissions.appconfig: true`. The build refuses a trigger with the param but no permission, and Fluxify refuses it again when the plugin is added, even if `fluxify.json` was edited by hand.
+
+Prefer `param.secret()` when the trigger needs one known value. The creator approves reading only the key picked in that field, rather than all of App config. The approval dialog lists the field.
 
 ```ts
 permissions: { integrations: ["database"], appconfig: true },
@@ -210,9 +212,9 @@ async start(ctx) {
 | Run `tick` until `ctx.signal` aborts | Back off on its own — the restart-with-backoff and turn-off after 5 failures are the runtime's |
 | Wait `every` between ticks, unless `tick` returned `"again"` | Commit, acknowledge or dead-letter anything — delivery stays yours |
 | Wait for the tick in progress when it stops, so the runtime's 10-second stop limit still applies | Report an error raised after the trigger stopped |
-| Log a failed tick as a warning and keep going by default | Swallow an error you call fatal through `onError` |
+| Log a failed tick as a warning and keep going by default, counting it towards the turn-off | Swallow an error you call fatal through `onError` |
 
-**Errors.** When `tick` throws, `poll` calls `onError(error)`. Without one it logs a warning and waits `every`, which suits a transient connection error. Return `"fail"` from `onError` — or throw from it — to report the error through `ctx.fail` and end the loop, for something that will never fix itself. Returning `"fail"` reports the tick's error; throwing reports the error you threw.
+**Errors.** When `tick` throws, `poll` calls `onError(error)`. Without one it logs a warning and waits `every`, which suits a transient connection error. **Five failed ticks in a row turn the trigger off**, and a tick that works starts the count again. With `onError` the decision is yours: a tick it lets pass is not counted. Return `"fail"` from `onError` — or throw from it — to report the error through `ctx.fail` and end the loop, for something that will never fix itself. Returning `"fail"` reports the tick's error; throwing reports the error you threw.
 
 ```ts
 onError(error) {
@@ -272,7 +274,7 @@ Use `connection` when the trigger needs the variant's own client, such as a Redi
 
 ### getConfig
 
-`ctx.getConfig(key)` reads an App config value. With `permissions.appconfig` it reads any key; without it, only the keys the trigger's own `param.secret()` fields name. It takes the key or a secret param's stored value, so this works:
+`ctx.getConfig(key)` reads an App config value. With `permissions.appconfig` it reads any key; without it, only the keys the trigger's own `param.secret()` fields name. Any other key throws a `PermissionDeniedError` and reads nothing, and **the trigger is turned off straight away**, even if your code catches the error. A denial never fixes itself: the plugin needs a new version that asks for the permission. It takes the key or a secret param's stored value, so this works:
 
 ```ts
 params: { dsn: param.secret({ label: "Connection URL", required: true }) },
@@ -282,6 +284,8 @@ async start(ctx) {
 ```
 
 An error names the missing key, never a value. A secret param whose key has no value in this environment keeps the trigger from starting, the way a missing value stops a queue trigger.
+
+`fluxify-cli build` warns when a trigger with neither the permission nor a secret param uses `getConfig`. This check is best effort: it only looks at the trigger's own file, so it misses a helper that takes `ctx` or a renamed reference. It is there to help you catch a mistake early. What actually enforces the rule is the check at run time.
 
 ### emit
 
@@ -437,6 +441,8 @@ When the trigger is turned off, the portal shows the reason on the trigger row a
 | `start failed: start() must resolve to its stop function` | `start` returned something else |
 | `ctx.fail: <message> …` | Your loop reported it |
 | `unhandled error: <message> …` | An error traced to this instance |
+| `permission denied: <message>` | `ctx.getConfig` asked for a key the trigger may not read. Turned off at the first one, with no restarts |
+| `tick failed: <message> (failed 5 times in a row)` | `tick` threw five times in a row, with no `onError`. Turned off with no restarts |
 | `stop timed out after 10s …` | The stop function did not return |
 
 **Turning it back on** is the normal enable switch: Fluxify re-checks the plugin and the params, starts a fresh instance and resets the failure count. A start error is often a wrong table name or a missing App config value, so fix the cause first — otherwise the count runs out again.

@@ -82,7 +82,7 @@ describe.each(Object.keys(KINDS) as (keyof typeof KINDS)[])("variants on a %s pa
 	});
 
 	it("refuses variants on a kind that names a variant already", () => {
-		expect(errors(manifest(kind, ["Redis"], "kv/Redis"))[0]).toContain("names a variant already");
+		expect(errors(manifest(kind, ["Redis"], "kv/Redis")).join()).toContain("names a variant already");
 	});
 });
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { fluxifyManifestSchema } from "@fluxify/sdk/blocks";
 import { compileWithPlugins, type PluginSet } from "../compile";
-import { blockMetaOf, isUsableIn, type PluginRow, requestedPermissions, unusableReason } from "../meta";
+import { blockMetaOf, chosenConfigFields, isUsableIn, type PluginRow, requestedPermissions, unusableReason } from "../meta";
 import { entry, graphCalling, manifest } from "./fixtures";
 
 const TYPE = "acme/echo/step";
@@ -77,5 +77,18 @@ describe("compileWithPlugins", () => {
 		expect(() => compileWithPlugins(blocks, edges, {}, set)).toThrow(
 			`Block ${TYPE} cannot run: plugin acme/echo@2026.10.2001 is waiting for a creator to approve it.`,
 		);
+	});
+});
+
+describe("chosenConfigFields", () => {
+	it("lists the secret fields of triggers and integrations, by label, and nothing else", () => {
+		const fields = chosenConfigFields({
+			triggers: [
+				{ label: "Poll", params: { dsn: { type: "secret", label: "Connection URL" }, n: { type: "number" } } },
+			],
+			integrations: [{ label: "SMTP", configSchema: { password: { type: "secret" } } }],
+		} as never);
+		expect(fields).toEqual(["Poll: Connection URL", "SMTP: password"]);
+		expect(chosenConfigFields({ blocks: {} } as never)).toEqual([]);
 	});
 });
