@@ -10,7 +10,12 @@ export {
 export type { IntegrationId } from "./src/params.js";
 export type { PollContext, PollOptions, PollTick } from "./src/runtime/poll.js";
 export { poll, sleep } from "./src/runtime/poll.js";
-export type { EmitOptions, TriggerConnection, TriggerContext } from "./src/runtime/trigger.js";
+export {
+	type EmitOptions,
+	PermissionDeniedError,
+	type TriggerConnection,
+	type TriggerContext,
+} from "./src/runtime/trigger.js";
 export { type AnyTrigger, type TriggerDefinition, toTriggerEntry, trigger } from "./src/trigger.js";
 export {
 	BLOCK_ONLY_FIELDS,

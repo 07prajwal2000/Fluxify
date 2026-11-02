@@ -1,7 +1,8 @@
 import type { TriggerContext } from "./trigger.js";
 
 /** what `poll` reads of a trigger's `ctx` */
-export type PollContext = Pick<TriggerContext, "signal" | "logger" | "fail">;
+export type PollContext = Pick<TriggerContext, "signal" | "logger" | "fail"> &
+	Partial<Pick<TriggerContext, "reportTick">>;
 
 /** one round's answer: `"again"` runs the next tick at once, anything else waits `every` */
 export type PollTick = "again" | void;
@@ -12,7 +13,9 @@ export type PollOptions = {
 	/** one round of work. Return `"again"` when there may be more to read right away */
 	tick(): PollTick | Promise<PollTick>;
 	/**
-	 * What to do when `tick` throws. The default logs a warning and waits `every`.
+	 * What to do when `tick` throws. The default logs a warning, waits `every` and
+	 * counts the failure: 5 failed ticks in a row turn the trigger off. With
+	 * `onError` the decision is yours, and a tick it lets pass is not counted.
 	 * Return `"fail"` (or throw) to stop the trigger with `ctx.fail`: use it for
 	 * errors that never fix themselves. An error raised after the trigger
 	 * stopped is never reported.
@@ -50,7 +53,10 @@ async function afterError(
 	let decision: unknown;
 	try {
 		if (onError) decision = await onError(error);
-		else ctx.logger.logWarn(error);
+		else {
+			ctx.logger.logWarn(error);
+			ctx.reportTick?.(error);
+		}
 	} catch (fatal) {
 		if (!ctx.signal.aborted) ctx.fail(fatal);
 		return true;
@@ -73,6 +79,7 @@ export function poll(ctx: PollContext, options: PollOptions): () => Promise<void
 			let again = false;
 			try {
 				again = (await options.tick()) === "again";
+				ctx.reportTick?.();
 			} catch (error) {
 				// a failure while stopping is part of stopping, not a reason to fail
 				if (signal.aborted || (await afterError(ctx, options.onError, error))) return;

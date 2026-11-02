@@ -23,14 +23,16 @@ import { isPluginTriggerType, pluginTriggerKind } from "./types";
  * this owns is keeping one broken trigger from hurting anything else: a crash
  * (`start` throws, `ctx.fail`, an error traced to it, a hung stop) stops the
  * instance and starts it again after a backoff, and after `maxFailures` in a
- * row the trigger is reported, which turns it off with the reason.
+ * row the trigger is reported, which turns it off with the reason. Two things
+ * turn it off with no restarts: a permission denial, which only a new approved
+ * version can fix, and `maxFailures` failed ticks in a row, which `poll` reports.
  */
 
 const TAG = "TRIGGERS.plugin";
 
 /** how a crashing trigger is restarted and when it is given up on; tests shorten them */
 export const pluginTriggerLimits = {
-	/** consecutive failures before the trigger is turned off */
+	/** consecutive failures, or failed ticks, before the trigger is turned off */
 	maxFailures: 5,
 	/** the first restart's wait, doubling per failure (`backoffMs`, capped at 5 minutes) */
 	retryDelayMs: 1_000,
@@ -51,6 +53,8 @@ type Instance = {
 	untrack?: () => void;
 	startedAt?: number;
 	stopped: boolean;
+	/** failed ticks in a row */
+	tickFailures: number;
 };
 
 type Slot = {
@@ -214,6 +218,7 @@ async function start(slot: Slot) {
 		...ready,
 		controller: new AbortController(),
 		stopped: false,
+		tickFailures: 0,
 	};
 	slot.instance = instance;
 	const crash = (prefix: string) => (error: unknown) =>
@@ -230,6 +235,21 @@ async function start(slot: Slot) {
 		const opened = openContext(artifact, ready.ref, ready.def, {
 			signal: instance.controller.signal,
 			fail: crash("ctx.fail"),
+			denied: (error) => onFailure(slot, instance, `permission denied: ${messageOf(error)}`, true),
+			reportTick(error) {
+				if (error === undefined) {
+					instance.tickFailures = 0;
+					return;
+				}
+				const { maxFailures } = pluginTriggerLimits;
+				if (++instance.tickFailures < maxFailures) return;
+				onFailure(
+					slot,
+					instance,
+					`tick failed: ${messageOf(error)} (failed ${maxFailures} times in a row)`,
+					true,
+				);
+			},
 			stopped: () => instance.stopped,
 		});
 		instance.release = opened.release;
@@ -329,7 +349,7 @@ async function loadTrigger(ref: PluginTriggerRef): Promise<TriggerModule> {
  * any more. Never awaited by the caller: it may be called from inside an
  * operation the queue is still running.
  */
-function onFailure(slot: Slot, instance: Instance, reason: string) {
+function onFailure(slot: Slot, instance: Instance, reason: string, final = false) {
 	if (instance.stopped) return;
 	instance.stopped = true;
 	instance.controller.abort();
@@ -338,8 +358,18 @@ function onFailure(slot: Slot, instance: Instance, reason: string) {
 	logger.warn(`[triggers] ${slot.artifact.triggerId} failed: ${reason}`, TAG);
 	void enqueue(slot, async () => {
 		await close(slot.artifact, instance, "failed");
-		recordFailure(slot, reason, instance.startedAt);
+		if (!final) return recordFailure(slot, reason, instance.startedAt);
+		slot.lastFailure = reason;
+		if (slots.get(slot.artifact.triggerId) === slot) turnOff(slot, reason);
 	});
+}
+
+function turnOff(slot: Slot, reason: string) {
+	const { triggerId, projectId } = slot.artifact;
+	slots.delete(triggerId);
+	logger.error(`[triggers] ${triggerId} turned off: ${reason}`, TAG);
+	// were the report lost, the next start fails the same way and reports again
+	reportTriggerFault({ triggerId, projectId, reason });
 }
 
 /**
@@ -348,7 +378,7 @@ function onFailure(slot: Slot, instance: Instance, reason: string) {
  * failing starts the count again.
  */
 function recordFailure(slot: Slot, reason: string, startedAt?: number) {
-	const { triggerId, projectId } = slot.artifact;
+	const { triggerId } = slot.artifact;
 	// withdrawn meanwhile: nothing to restart or report
 	if (slots.get(triggerId) !== slot) return;
 	if (startedAt !== undefined && Date.now() - startedAt >= pluginTriggerLimits.stableMs)
@@ -356,14 +386,8 @@ function recordFailure(slot: Slot, reason: string, startedAt?: number) {
 	slot.failures++;
 	slot.lastFailure = reason;
 	const { maxFailures, retryDelayMs } = pluginTriggerLimits;
-	if (slot.failures >= maxFailures) {
-		slots.delete(triggerId);
-		const disabled = `${reason} (failed ${slot.failures} times in a row)`;
-		logger.error(`[triggers] ${triggerId} turned off: ${disabled}`, TAG);
-		// were the report lost, the next start fails the same way and reports again
-		reportTriggerFault({ triggerId, projectId, reason: disabled });
-		return;
-	}
+	if (slot.failures >= maxFailures)
+		return turnOff(slot, `${reason} (failed ${slot.failures} times in a row)`);
 	const wait = backoffMs(retryDelayMs, slot.failures);
 	logger.warn(
 		`[triggers] ${triggerId} restarting in ${wait}ms (failure ${slot.failures}/${maxFailures})`,

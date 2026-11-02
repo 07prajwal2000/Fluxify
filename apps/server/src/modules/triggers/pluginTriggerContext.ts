@@ -4,6 +4,7 @@ import { backoffMs } from "@fluxify/common/nats";
 import {
 	checkEmit,
 	type EmitOptions,
+	failingOnDenial,
 	grantContext,
 	type TriggerContext,
 	triggerGetConfig,
@@ -75,6 +76,9 @@ const logLine = (value: unknown) => {
 export type InstanceHooks = {
 	signal: AbortSignal;
 	fail(error: unknown): void;
+	/** `ctx.getConfig` refused a key: never fixes itself */
+	denied(error: unknown): void;
+	reportTick(error?: unknown): void;
 	stopped(): boolean;
 };
 
@@ -130,7 +134,7 @@ export function openContext(
 	const ctx: TriggerContext = {
 		params: params as never,
 		integrations,
-		getConfig,
+		getConfig: failingOnDenial(getConfig, hooks.denied),
 		logger: {
 			logInfo: (value) => logger.info(`${tag} ${logLine(value)}`, TAG),
 			logWarn: (value) => logger.warn(`${tag} ${logLine(value)}`, TAG),
@@ -139,6 +143,7 @@ export function openContext(
 		signal: hooks.signal,
 		emit: (events, options) => emit(artifact, def.name, hooks.stopped, events, options),
 		fail: hooks.fail,
+		reportTick: hooks.reportTick,
 	};
 	return {
 		ctx,

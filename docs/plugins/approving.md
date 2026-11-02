@@ -43,7 +43,7 @@ A block or trigger that tries to use something it was not granted fails with a m
 | The plugin's... | Without **Read app config** | With **Read app config** |
 | :--- | :--- | :--- |
 | **Block** | Reading any value fails with an error, and nothing is read | Reads any key |
-| **Trigger** | Reads only the key a user picked in one of its secret fields. Any other key fails with an error | Reads any key |
+| **Trigger** | Reads only the key a user picked in one of its secret fields. Any other key fails with an error, and the trigger is turned off straight away | Reads any key |
 | **Integration** | Reads only the key a user picked in one of its secret fields. Any other key fails with an error | Same: an integration never reads other keys |
 
 A secret field stores the name of a key that a person in your project picks, not its value. The plugin cannot choose the key itself, which is why a secret field does not need **Read app config**. The dialog still lists these fields under **Approving grants**, because the plugin can read the value of whatever key is picked there.
