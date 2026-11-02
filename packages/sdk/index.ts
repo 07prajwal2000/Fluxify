@@ -6,7 +6,12 @@ export {
 	customBlockId,
 	longestCustomBlockId,
 } from "./src/ids.js";
-export { type PluginMeta, pluginMetaSchema } from "./src/manifest.js";
+export {
+	type PluginDefinition,
+	type PluginMeta,
+	pluginDefinitionSchema,
+	pluginMetaSchema,
+} from "./src/manifest.js";
 export type { VisibleWhenInput } from "./src/params.js";
 export { plugin } from "./src/plugin.js";
 export {

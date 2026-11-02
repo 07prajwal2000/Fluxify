@@ -25,7 +25,7 @@ describe("triggers create", () => {
 	it("scaffolds a trigger that builds into a manifest the SDK accepts, and passes its test", async () => {
 		const root = await makePlugin();
 		const { files } = await createTrigger({ cwd: root, name: "sources/poll" });
-		expect(files).toEqual(["src/triggers/sources/poll.ts", "src/triggers/sources/poll.test.ts", "icons/poll.svg"]);
+		expect(files).toEqual(["src/triggers/sources/poll.ts", "src/triggers/sources/poll.test.ts", "icons/poll.svg", "src/index.ts"]);
 
 		const { manifest } = await build(root);
 		expect(manifest.triggers).toEqual([
@@ -71,7 +71,7 @@ describe("fluxify-cli build: triggers", () => {
 
 	it("fails on a module that does not default-export a trigger, and on a block-only field", async () => {
 		const notOne = await makePlugin({ "src/triggers/a.ts": "export default { name: 'acme/t/a' };" });
-		expect(await failures(notOne)).toEqual(["src/triggers/a.ts: must default-export a trigger(...)"]);
+		expect(await failures(notOne)).toEqual(["src/index.ts: triggers[0] must be a trigger(...)"]);
 		const blocky = await makePlugin({ ...ICON, "src/triggers/a.ts": triggerSrc("a", 'shape: "wide",') });
 		expect(await failures(blocky)).toEqual([expect.stringContaining("shape belong to a block, not a trigger")]);
 	});

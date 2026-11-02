@@ -20,8 +20,10 @@ function terminalAsk() {
 	};
 }
 
-const wrote = (cwd: string, r: { root: string; files: string[] }) =>
+const wrote = (cwd: string, r: { root: string; files: string[]; manual?: string }) => {
 	console.log(`wrote ${r.files.join(", ")} in ${relative(cwd, r.root) || "."}`);
+	if (r.manual) console.warn(r.manual);
+};
 
 const initCommand = command({
 	description:

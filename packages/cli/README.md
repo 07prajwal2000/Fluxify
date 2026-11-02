@@ -22,9 +22,9 @@ The package is `@fluxify/cli` and the command it installs is `fluxify-cli`. Befo
 | :--- | :--- |
 | `fluxify-cli init [dir]` | Start an empty plugin in `dir` (default: here) |
 | `fluxify-cli build` | Build the plugin: `dist/`, `fluxify.json` and `<scope>-<name>-<version>.tgz` |
-| `fluxify-cli blocks create <name>` | Add `src/blocks/<name>.ts` and a test next to it |
-| `fluxify-cli integrations create <name>` | Add `src/integrations/<name>.ts` |
-| `fluxify-cli triggers create <name>` | Add `src/triggers/<name>.ts` |
+| `fluxify-cli blocks create <name>` | Add `src/blocks/<name>.ts` and a test next to it, and list it in `src/index.ts` |
+| `fluxify-cli integrations create <name>` | Add `src/integrations/<name>.ts` and list it in `src/index.ts` |
+| `fluxify-cli triggers create <name>` | Add `src/triggers/<name>.ts` and list it in `src/index.ts` |
 
 `fluxify-cli --help` lists the commands, `fluxify-cli <command> --help` shows one command's options, and `fluxify-cli --version` prints the CLI's version.
 

@@ -4,7 +4,7 @@ import type { PluginMeta } from "@fluxify/sdk";
 import { fluxifyManifestSchema } from "@fluxify/sdk/blocks";
 import { dependencyProblems } from "@fluxify/sdk/runtime";
 import { fail } from "./fail";
-import { INDEX, readMeta, syncPackageJson } from "./meta";
+import { INDEX, type Listed, readMeta, syncPackageJson } from "./meta";
 
 export { CliError, fail } from "./fail";
 
@@ -15,6 +15,8 @@ export type Plugin = {
 	url: string;
 	/** everything `src/index.ts` says: name, url, icons, description */
 	meta: PluginMeta;
+	/** the resources `src/index.ts` lists: the only things that ship */
+	listed: Listed;
 	/** the range of `@fluxify/sdk` the plugin peers on */
 	sdk: string;
 	version: string;
@@ -49,7 +51,7 @@ export async function readPlugin(root: string, { lockfile = true } = {}): Promis
 	const pkg = await readJson(join(root, "package.json")).catch(() =>
 		fail(`${root} has no readable package.json`),
 	);
-	const meta = await readMeta(root);
+	const { meta, listed } = await readMeta(root);
 	await syncPackageJson(root, pkg, meta);
 	const problems: string[] = [];
 	if (typeof pkg.version !== "string" || !pkg.version)
@@ -74,6 +76,7 @@ export async function readPlugin(root: string, { lockfile = true } = {}): Promis
 		name: meta.name,
 		url: meta.url,
 		meta,
+		listed,
 		sdk: sdk.data!,
 		version: pkg.version,
 		external: [

@@ -51,7 +51,7 @@ When you give any option, `init` only asks for a name or URL that is missing. Wi
 bunx fluxify-cli blocks create messages/post
 ```
 
-This writes `src/blocks/messages/post.ts` and a test next to it. The block's type is the plugin name plus its path: `acme/slack/messages/post`. Open the file and replace the example with your block ([the block reference](./blocks)).
+This writes `src/blocks/messages/post.ts` and a test next to it, and adds the block to the `blocks` list in `src/index.ts`. The block's type is the `name` it declares: `acme/slack/messages/post`. Open the file and replace the example with your block ([the block reference](./blocks)).
 
 A plugin can also add an integration ([reference](./integrations)) and a trigger ([reference](./triggers)):
 
@@ -79,10 +79,11 @@ bun run build
 | Stops the build | Warns |
 | :--- | :--- |
 | `src/index.ts` missing or invalid, or an `https://` `url` missing | A block has no `docs` |
-| No blocks in `src/blocks` | A block's `docs` uses markdown the portal's Docs tab cannot show |
-| A block's name is not the plugin name plus its path | A param is in a tab that `tabs` does not list |
+| `src/index.ts` lists nothing to ship | A block's `docs` uses markdown the portal's Docs tab cannot show |
+| A name that does not start with the plugin name, or the same name listed twice | A param is in a tab that `tabs` does not list |
 | A block definition Fluxify would refuse (a reserved param name, a `visibleWhen` that names no param, and so on) | `executeHandle(...)` is not awaited |
 | `@fluxify/sdk` or `zod` in `dependencies` | An output type is too long to keep, so the editor uses `any` for it |
+| A listed item that is in the wrong list, or is not the default import of its own file | A block, trigger or integration file in its folder is not listed in `src/index.ts`, so it was not built |
 | Runtime `dependencies` without a usable `bun.lock` | |
 | An icon that is missing, outside the plugin, not an image, or too large | |
 
@@ -122,6 +123,8 @@ acme-slack/
 
 ```ts
 import { plugin } from "@fluxify/sdk";
+import post from "./blocks/messages/post";
+import check from "./triggers/check";
 
 export default plugin({
 	// permanent: a different name is a different plugin
@@ -131,6 +134,10 @@ export default plugin({
 	// the plugin's folder in the block picker, and the folder of every acme plugin
 	// icon: "./icons/plugin.svg",
 	// scopeIcon: "./icons/scope.svg",
+	// what the plugin ships
+	blocks: [post],
+	triggers: [check],
+	integrations: [],
 });
 ```
 
@@ -140,7 +147,11 @@ export default plugin({
 
 **`bun.lock`** is required only when the plugin has runtime `dependencies`. Workers install those from the lockfile exactly, so commit it. A plugin with no runtime dependencies needs none.
 
-**Every file in `src/blocks`** (except `*.test.ts`, `*.spec.ts` and `*.d.ts`) must default-export a `block(...)`. Put shared code anywhere else in `src`, for example `src/model.ts`, and import it from the blocks.
+**The lists in `src/index.ts`** are what the plugin ships. The build includes what they list and nothing else, so a half-finished file stays out until you add it. A file in `src/blocks`, `src/triggers` or `src/integrations` that defines a resource but is not listed is not built, and the build warns about it. Shared code can live anywhere in `src`, for example `src/model.ts`.
+
+::: warning Upgrading an older plugin
+Older versions of the CLI picked up every file in these folders. A plugin without lists now fails to build. Import each resource in `src/index.ts` and add it to `blocks`, `triggers` or `integrations`. Types stay the same, so routes and workflows that use them keep working.
+:::
 
 ## The peer rule
 
@@ -164,7 +175,7 @@ Every worker runs your blocks on its own copy of both, so a plugin never carries
 
 - **The plugin name is permanent.** Its approval, its blocks in routes and its upgrades all hang on it. A package with a different name is added as a different plugin, not as an upgrade.
 - **Long names have a limit.** A recorded run stores each block's id as `<plugin>@<version>:<project id>:<block type>`, and that field holds **500 characters**. The build counts your plugin name, the version, the block's type and the longest a project id can be (50 characters), and stops with an error that names the block and how far over it is. If you hit it, shorten the plugin name, a folder or the block name.
-- **A block's type is its path.** `src/blocks/messages/post.ts` must be named `acme/slack/messages/post`. A block can sit directly under the plugin (`acme/slack/post`). Renaming or moving a block breaks every route that uses it, so [deprecate](./publishing#deprecate-before-you-remove) it and add a new one instead.
+- **A block's type is its `name`.** It starts with the plugin name and does not depend on where the file is, so moving a file changes nothing. A block can sit directly under the plugin (`acme/slack/post`). Changing a block's `name` breaks every route that uses it, so [deprecate](./publishing#deprecate-before-you-remove) it and add a new one instead.
 - **Folders show in the picker.** The block picker and the Custom Blocks page group blocks by `scope/name` and then by these folders.
 - **`url` is required** and must be `https://`. It is the Docs link on the plugin and on each of its blocks, so point it at your source or your documentation.
 

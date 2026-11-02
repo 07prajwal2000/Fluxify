@@ -89,6 +89,22 @@ export async function makePlugin(
 		"src/blocks/hello.ts": blockSrc("acme/t/hello"),
 		...files,
 	};
+	// list every resource, the way `create` would; a test about the lists rewrites src/index.ts afterwards
+	if (all["src/index.ts"]?.includes("plugin({")) {
+		const lists: Record<string, string[]> = { blocks: [], triggers: [], integrations: [] };
+		const imports: string[] = [];
+		for (const [path, text] of Object.entries(all).sort()) {
+			const m = /^src\/(blocks|triggers|integrations)\/(.*)\.ts$/.exec(path);
+			if (!m || text === null || /\.(test|spec|d)$/.test(m[2])) continue;
+			const id = `r${imports.length}`;
+			imports.push(`import ${id} from "./${m[1]}/${m[2]}";`);
+			lists[m[1]].push(id);
+		}
+		const body = Object.entries(lists).map(([k, v]) => `${k}: [${v.join(", ")}], `).join("");
+		all["src/index.ts"] = `${imports.join("\n")}\n${all["src/index.ts"]
+			.replace(/^\s*(blocks|triggers|integrations): \[\],\n/gm, "")
+			.replace("plugin({", `plugin({ ${body}`)}`;
+	}
 	for (const [path, text] of Object.entries(all)) {
 		if (text === null) continue;
 		mkdirSync(dirname(join(root, path)), { recursive: true });
