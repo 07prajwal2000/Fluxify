@@ -36,6 +36,7 @@ const ref = {
 	variant: "Hub",
 	icon: "data:image/svg+xml;base64,PHN2Zy8+",
 	entry,
+	secretParams: ["token"],
 };
 
 describe("runOpInChild", () => {

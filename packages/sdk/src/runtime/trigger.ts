@@ -32,8 +32,8 @@ export interface TriggerContext<P extends Params = Params> {
 	integrations: IntegrationsContext;
 	/**
 	 * An app config value: any key with `permissions.appconfig`, else only the
-	 * keys the trigger's own `param.secret()` fields name. Errors name the key,
-	 * never a value.
+	 * keys the trigger's own `param.secret()` fields name. Any other key throws
+	 * and reads nothing. Errors name the key, never a value.
 	 */
 	getConfig(key: string): string | number | boolean;
 	logger: Logger;
@@ -69,6 +69,12 @@ export function checkEmit(name: string, events: unknown, options?: EmitOptions) 
 	if (missing.length)
 		throw new TypeError(`trigger ${name}: emit's connection needs ${missing.join(", ")}()`);
 }
+
+/** the names of the secret params in `params`, sorted, to compare code with its manifest */
+export const secretParamNames = (params: Params = {}) =>
+	Object.keys(params)
+		.filter((name) => params[name]!.type === "secret")
+		.sort();
 
 /** the app config keys a trigger's secret params name (a stored `cfg:<KEY>` or a bare key) */
 export const triggerSecretKeys = (trigger: { params?: Params }, params: Record<string, unknown>) =>

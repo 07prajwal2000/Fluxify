@@ -5,6 +5,7 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { secretParamNames } from "@fluxify/sdk/runtime";
 import type { AnyTrigger } from "@fluxify/sdk/triggers";
 import { hydrateAppConfig } from "../../../loaders/appconfigLoader";
 import type { TriggerArtifact, WorkflowArtifact } from "../../compiler/artifacts";
@@ -51,6 +52,7 @@ export function install(
 		kind: def.name,
 		entry: entryFor(def),
 		permissions,
+		secretParams: secretParamNames(def.params),
 	};
 	refs = [...refs.filter((r) => r.kind !== ref.kind), ref];
 	setPluginTriggerRefs(refs);

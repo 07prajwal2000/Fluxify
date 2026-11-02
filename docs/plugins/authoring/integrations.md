@@ -108,7 +108,8 @@ async connect(config, ctx) {
 ```
 
 - `getConfig` reads **only** the keys your own secret fields name. Asking for any other key throws an error that names the key.
-- Reading your own secret keys needs **no** `appconfig` permission. The approval covers the integration, not each key.
+- Reading your own secret keys needs **no** `appconfig` permission. An integration has no permissions of its own, and the approval dialog lists your secret fields so the creator can see them.
+- The secret fields in your code must match the ones in the approved `fluxify.json`. A build always matches. If they differ, the integration does not load.
 - An error from `getConfig` names the missing key, never a value.
 - `test`, `describe` and `inspect` do not get `getConfig`. They receive the stored config and are run with the secret values already available to the connection, so `connect` is the place to read a secret.
 

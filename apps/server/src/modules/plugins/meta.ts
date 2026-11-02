@@ -53,6 +53,23 @@ export function requestedPermissions(manifest: FluxifyManifest): PluginPermissio
 	return { integrations: [...integrations].sort(), appconfig };
 }
 
+/**
+ * The trigger and integration fields that read an App config value with no
+ * `appconfig` permission: a `param.secret()`, whose key the user picks. They
+ * grant nothing beyond those keys, but approving does let the plugin read them,
+ * so the approval screens list them.
+ */
+export function chosenConfigFields(manifest: FluxifyManifest) {
+	const named = (label: string, params: Record<string, { type: string; label?: string }>) =>
+		Object.entries(params)
+			.filter(([, p]) => p.type === "secret")
+			.map(([name, p]) => `${label}: ${p.label ?? name}`);
+	return [
+		...(manifest.triggers ?? []).flatMap((t) => named(t.label, t.params)),
+		...(manifest.integrations ?? []).flatMap((i) => named(i.label, i.configSchema)),
+	];
+}
+
 /** a manifest's integration variants as the approval page shows them (I6) */
 export const integrationKindsOf = (manifest: FluxifyManifest) =>
 	(manifest.integrations ?? []).map((e) => ({

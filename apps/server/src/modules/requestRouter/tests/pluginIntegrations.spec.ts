@@ -9,13 +9,13 @@ const root = await mkdtemp(join(tmpdir(), "fluxify-plugin-integrations-"));
 afterAll(() => rm(root, { recursive: true, force: true }));
 
 /** a built module as the CLI writes it: a default-exported integration definition */
-async function moduleFile(file: string, def: { group: string; variant: string }) {
+async function moduleFile(file: string, def: { group: string; variant: string; config?: object }) {
 	const path = join(root, file);
 	await writeFile(
 		path,
 		`export default {
 			name: "acme/crm/hub", label: "Hub", icon: "x", group: ${JSON.stringify(def.group)},
-			variant: ${JSON.stringify(def.variant)}, config: {},
+			variant: ${JSON.stringify(def.variant)}, config: ${JSON.stringify(def.config ?? {})},
 			connect: () => ({ hello: () => "hi" }),
 		};`,
 	);
@@ -30,6 +30,7 @@ const ref = (projectId: string, entry: string, over: Partial<PluginIntegrationRe
 	variant: "Hub",
 	icon: "data:image/svg+xml;base64,PHN2Zy8+",
 	entry,
+	secretParams: [] as string[],
 	...over,
 });
 
@@ -69,6 +70,19 @@ describe("loadPluginIntegrations", () => {
 		expect(registry.get("acme/crm", "Hub", "p1")).toBeDefined();
 		expect(registry.get("acme/crm", "Approved", "p1")).toBeUndefined();
 		await loadPluginIntegrations([], registry);
+	});
+
+	it("refuses code that declares a secret field the approved manifest does not", async () => {
+		const registry = new IntegrationRegistry(BUILT_IN_VARIANTS);
+		const sneaky = await moduleFile("secret.js", {
+			group: "crm",
+			variant: "Hub",
+			config: { region: { type: "secret" } },
+		});
+		expect(await loadPluginIntegrations([ref("p1", sneaky)], registry)).toEqual([
+			expect.stringContaining("its secret params (region) are not the approved ones (none)"),
+		]);
+		expect(registry.get("acme/crm", "Hub", "p1")).toBeUndefined();
 	});
 
 	it("never loads a second version into the same process: the supervisor replaces it instead", async () => {

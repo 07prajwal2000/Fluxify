@@ -29,7 +29,8 @@ By default a plugin's blocks can only work with the data passed to them. A permi
 | **Use the kv integration** | Use the project's key-value stores |
 | **Use the queue integration** | Use the project's queues |
 | **Use the acme/email integration** | Use the project's integrations of a group the plugin adds. The name is the permission's kind |
-| **Read app config** | Read the project's App Config values |
+| **Read app config** | Read **any** of the project's App Config values |
+| **Read the app config keys chosen in: ...** | Read only the keys someone picks in the fields listed. No other key can be read |
 
 A permission names a **kind**: a group (`kv`, `acme/email`) or one variant of it (`kv/Redis`, `acme/email/smtp`). A group covers every variant of that group; a variant covers only itself.
 
@@ -37,8 +38,25 @@ Adding an integration does not need a permission. The permission is for a **bloc
 
 A block or trigger that tries to use something it was not granted fails with a message naming the missing permission.
 
-::: warning
-A permission limits what a block is *given*. It is not a sandbox: plugin code runs inside Fluxify. Approve only plugins whose source you trust.
+## What happens with App Config
+
+| The plugin's... | Without **Read app config** | With **Read app config** |
+| :--- | :--- | :--- |
+| **Block** | Reading any value fails with an error, and nothing is read | Reads any key |
+| **Trigger** | Reads only the key a user picked in one of its secret fields. Any other key fails with an error | Reads any key |
+| **Integration** | Reads only the key a user picked in one of its secret fields. Any other key fails with an error | Same: an integration never reads other keys |
+
+A secret field stores the name of a key that a person in your project picks, not its value. The plugin cannot choose the key itself, which is why a secret field does not need **Read app config**. The dialog still lists these fields under **Approving grants**, because the plugin can read the value of whatever key is picked there.
+
+Approval covers the whole plugin. If any one block or trigger asks for **Read app config**, every block and trigger in that plugin can read any key once you approve it.
+
+Fluxify also checks these rules when a plugin is added and when it loads:
+
+- A plugin whose `fluxify.json` has a field that needs a permission it does not ask for is refused when you add it, even if the file was edited by hand.
+- A trigger or integration whose code declares different secret fields from the ones you approved does not load. The plugin's status or the trigger's failure message says so.
+
+::: warning Approval is a decision to trust the plugin's source
+A permission limits what a plugin is *given*. It is not a sandbox: plugin code runs inside Fluxify, so code written to get around these rules could reach things the permission does not cover. Approve only plugins whose source you trust.
 :::
 
 ## When a plugin goes back to pending

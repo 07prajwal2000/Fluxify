@@ -23,6 +23,7 @@ import {
 import { z } from "zod";
 import { inferOutputs } from "./inferOutput";
 import { lintDocs } from "./lint/docs";
+import { findGetConfig } from "./lint/getConfig";
 import { findUnawaited } from "./lint/unawaited";
 import { pack } from "./pack";
 import { fail, type Plugin, readPlugin } from "./plugin";
@@ -94,6 +95,14 @@ const strayTabs = (def: { tabs?: string[]; params?: Record<string, { tab?: strin
 				.map(([name]) => name)
 		: [];
 
+/** a direct `getConfig` in a file whose definition cannot read what it asks for */
+async function getConfigWarnings(f: Found, fix: string) {
+	const lines = findGetConfig(f.file, await Bun.file(f.file).text());
+	return lines.map(
+		(line) => `${f.rel}:${line}: getConfig is used, and it throws at run time. ${fix}`,
+	);
+}
+
 /** Warnings: the build still succeeds. */
 async function lint(
 	blocks: Found[],
@@ -117,9 +126,22 @@ async function lint(
 			warnings.push(
 				`${b.rel}:${line}: executeHandle(...) is not awaited. Await it, or its result and errors are lost`,
 			);
+		if (!b.def.permissions?.appconfig)
+			warnings.push(...(await getConfigWarnings(b, "Add permissions: { appconfig: true }")));
 	}
 	for (const i of integrations) stray(i.type, { tabs: i.def.tabs, params: i.def.config });
-	for (const t of triggers) stray(t.type, t.def);
+	for (const t of triggers) {
+		stray(t.type, t.def);
+		// a secret param lets it read the key the user picked, so only a trigger with neither is sure to throw
+		const secrets = Object.values(t.def.params ?? {}).some((p: any) => p.type === "secret");
+		if (!t.def.permissions?.appconfig && !secrets)
+			warnings.push(
+				...(await getConfigWarnings(
+					t,
+					"Add permissions: { appconfig: true }, or a param.secret() for the one key it reads",
+				)),
+			);
+	}
 	return warnings;
 }
 

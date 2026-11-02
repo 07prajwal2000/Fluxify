@@ -2,8 +2,9 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { type IntegrationRegistry, integrationRegistry } from "@fluxify/adapters/integrations";
 import { logger } from "@fluxify/common";
+import type { Params } from "@fluxify/sdk/blocks";
 import type { AnyIntegration } from "@fluxify/sdk/integrations";
-import { toVariantDef } from "@fluxify/sdk/runtime";
+import { secretParamNames, toVariantDef } from "@fluxify/sdk/runtime";
 import type { PluginArtifact } from "../compiler/artifacts";
 import { provideHostPackages } from "./hostPackages";
 
@@ -25,6 +26,8 @@ export type PluginIntegrationRef = {
 	icon: string;
 	/** absolute path to the built module under `pluginDir(...)` */
 	entry: string;
+	/** the secret params the approved manifest declares: the module must declare the same */
+	secretParams: string[];
 };
 
 export const pluginIntegrationRefs = (
@@ -39,6 +42,7 @@ export const pluginIntegrationRefs = (
 		variant: i.variant,
 		icon: i.icon,
 		entry: resolve(root, i.entry),
+		secretParams: secretParamNames(i.configSchema as Params),
 	}));
 
 /** what decides a ref's slot: one per project and kind */
@@ -66,6 +70,12 @@ export async function importIntegration(ref: PluginIntegrationRef) {
 		const def = toVariantDef(mod, { plugin: ref.plugin });
 		if (def.group !== ref.group || def.variant !== ref.variant)
 			throw new Error(`it defines ${def.group}/${def.variant}, not the approved one`);
+		// a secret field reads app config, so the code cannot declare more than was approved
+		const secrets = secretParamNames(mod.config as Params);
+		if (secrets.join() !== ref.secretParams.join())
+			throw new Error(
+				`its secret params (${secrets.join(", ") || "none"}) are not the approved ones (${ref.secretParams.join(", ") || "none"})`,
+			);
 		// what the creator approved, not the module's raw path
 		return { ...def, icon: ref.icon };
 	} catch (error) {

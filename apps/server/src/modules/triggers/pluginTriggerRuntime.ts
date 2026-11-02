@@ -2,6 +2,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { logger, MissingEnvValueError } from "@fluxify/common";
 import { backoffMs } from "@fluxify/common/nats";
+import { secretParamNames } from "@fluxify/sdk/runtime";
 import type { TriggerArtifact } from "../compiler/artifacts";
 import { provideHostPackages } from "../requestRouter/hostPackages";
 import { type PluginTriggerRef, pluginTriggerRef } from "../requestRouter/pluginTriggers";
@@ -313,6 +314,12 @@ async function loadTrigger(ref: PluginTriggerRef): Promise<TriggerModule> {
 		throw new Error(`its module's default export is not a trigger(...)`);
 	if (mod.name !== ref.kind)
 		throw new Error(`its module defines ${mod.name}, not the approved ${ref.kind}`);
+	// a secret param reads app config, so the code cannot declare more than was approved
+	const secrets = secretParamNames(mod.params);
+	if (secrets.join() !== ref.secretParams.join())
+		throw new Error(
+			`its module's secret params (${secrets.join(", ") || "none"}) are not the approved ones (${ref.secretParams.join(", ") || "none"})`,
+		);
 	return mod;
 }
 

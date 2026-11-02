@@ -202,35 +202,34 @@ export const BLOCK_NAME = /^[a-z0-9][a-z0-9_-]*(\/[a-z0-9][a-z0-9_-]*){2,}$/;
  * minus `run`. The CLI writes it, the admin registry validates it, the portal
  * renders from it.
  */
-export const manifestEntrySchema = z
-	.strictObject({
-		name: z
-			.string()
-			.refine((n) => n !== CTX_SPAN_TYPE, `'${CTX_SPAN_TYPE}' is reserved for traced spans`)
-			.regex(BLOCK_NAME, "must be scope/name/.../block: lowercase letters, digits, - and _"),
-		label: z.string().min(1),
-		description: z.string().optional(),
-		/** a path inside the plugin; its size is checked by the CLI */
-		icon: z.string().min(1).optional(),
-		shape: z.enum(["square", "wide"]),
-		/** markdown, shown in the block's Docs tab */
-		docs: z.string().optional(),
-		invoke: z
-			.array(z.enum(INVOKE_MODES))
-			.min(1)
-			.refine((m) => new Set(m).size === m.length, "invoke modes must be unique"),
-		permissions: permissionsSchema,
-		params: z.record(z.string().min(1), paramSchema),
-		/** the settings tabs in order (see `paramTabs`) */
-		tabs: tabsSchema,
-		handles: handleSpecSchema,
-		/** the TypeScript type of what the block outputs, for the next block's `input` */
-		output: outputSchema.optional(),
-		/** the npm packages `output` imports types from, name -> exact version */
-		outputPackages: outputPackagesSchema.optional(),
-		deprecated: z.string().min(1).nullable(),
-	})
-	.superRefine(checkEntry);
+const manifestEntryFields = z.strictObject({
+	name: z
+		.string()
+		.refine((n) => n !== CTX_SPAN_TYPE, `'${CTX_SPAN_TYPE}' is reserved for traced spans`)
+		.regex(BLOCK_NAME, "must be scope/name/.../block: lowercase letters, digits, - and _"),
+	label: z.string().min(1),
+	description: z.string().optional(),
+	/** a path inside the plugin; its size is checked by the CLI */
+	icon: z.string().min(1).optional(),
+	shape: z.enum(["square", "wide"]),
+	/** markdown, shown in the block's Docs tab */
+	docs: z.string().optional(),
+	invoke: z
+		.array(z.enum(INVOKE_MODES))
+		.min(1)
+		.refine((m) => new Set(m).size === m.length, "invoke modes must be unique"),
+	permissions: permissionsSchema,
+	params: z.record(z.string().min(1), paramSchema),
+	/** the settings tabs in order (see `paramTabs`) */
+	tabs: tabsSchema,
+	handles: handleSpecSchema,
+	/** the TypeScript type of what the block outputs, for the next block's `input` */
+	output: outputSchema.optional(),
+	/** the npm packages `output` imports types from, name -> exact version */
+	outputPackages: outputPackagesSchema.optional(),
+	deprecated: z.string().min(1).nullable(),
+});
+export const manifestEntrySchema = manifestEntryFields.superRefine(checkEntry);
 
 export type ManifestEntry = z.infer<typeof manifestEntrySchema>;
 
@@ -240,32 +239,31 @@ export type ManifestEntry = z.infer<typeof manifestEntrySchema>;
  * `configSchema` is the config's params, which the integrations page renders
  * and `paramsConfigSchema` validates.
  */
-export const integrationEntrySchema = z
-	.strictObject({
-		name: z
-			.string()
-			.regex(BLOCK_NAME, "must be scope/name/.../integration: lowercase letters, digits, - and _"),
-		label: z.string().min(1),
-		description: z.string().optional(),
-		/** a path inside the plugin, a data URL once approved */
-		icon: z.string().min(1),
-		docs: z.string().optional(),
-		group: z.string().min(1),
-		variant: z
-			.string()
-			.min(1)
-			.regex(/^[^/]+$/, "must not contain /")
-			.refine((v) => v.trim() === v, "must not start or end with a space"),
-		extras: z.record(z.string(), z.json()).optional(),
-		configSchema: z.record(z.string().min(1), paramSchema),
-		tabs: tabsSchema,
-		/** the params that hold an app config key, in declaration order */
-		secretParams: z.array(z.string()),
-		hasTest: z.boolean(),
-		hasDescribe: z.boolean(),
-		hasInspect: z.boolean(),
-	})
-	.superRefine(checkIntegrationEntry);
+const integrationEntryFields = z.strictObject({
+	name: z
+		.string()
+		.regex(BLOCK_NAME, "must be scope/name/.../integration: lowercase letters, digits, - and _"),
+	label: z.string().min(1),
+	description: z.string().optional(),
+	/** a path inside the plugin, a data URL once approved */
+	icon: z.string().min(1),
+	docs: z.string().optional(),
+	group: z.string().min(1),
+	variant: z
+		.string()
+		.min(1)
+		.regex(/^[^/]+$/, "must not contain /")
+		.refine((v) => v.trim() === v, "must not start or end with a space"),
+	extras: z.record(z.string(), z.json()).optional(),
+	configSchema: z.record(z.string().min(1), paramSchema),
+	tabs: tabsSchema,
+	/** the params that hold an app config key, in declaration order */
+	secretParams: z.array(z.string()),
+	hasTest: z.boolean(),
+	hasDescribe: z.boolean(),
+	hasInspect: z.boolean(),
+});
+export const integrationEntrySchema = integrationEntryFields.superRefine(checkIntegrationEntry);
 
 export type IntegrationEntry = z.infer<typeof integrationEntrySchema>;
 
@@ -276,23 +274,22 @@ export type IntegrationEntry = z.infer<typeof integrationEntrySchema>;
 /** a trigger row stores `plugin:<name>` in a 255-character column */
 export const MAX_TRIGGER_NAME_LENGTH = 255 - "plugin:".length;
 
-export const triggerEntrySchema = z
-	.strictObject({
-		name: z
-			.string()
-			.max(MAX_TRIGGER_NAME_LENGTH)
-			.regex(BLOCK_NAME, "must be scope/name/.../trigger: lowercase letters, digits, - and _"),
-		label: z.string().min(1),
-		description: z.string().optional(),
-		/** a path inside the plugin, a data URL once approved */
-		icon: z.string().min(1),
-		permissions: permissionsSchema,
-		params: z.record(z.string().min(1), paramSchema),
-		tabs: tabsSchema,
-		/** a failed run is retried by the trigger's Attempts setting before `emit` rejects */
-		retry: z.boolean(),
-	})
-	.superRefine(checkTriggerEntry);
+const triggerEntryFields = z.strictObject({
+	name: z
+		.string()
+		.max(MAX_TRIGGER_NAME_LENGTH)
+		.regex(BLOCK_NAME, "must be scope/name/.../trigger: lowercase letters, digits, - and _"),
+	label: z.string().min(1),
+	description: z.string().optional(),
+	/** a path inside the plugin, a data URL once approved */
+	icon: z.string().min(1),
+	permissions: permissionsSchema,
+	params: z.record(z.string().min(1), paramSchema),
+	tabs: tabsSchema,
+	/** a failed run is retried by the trigger's Attempts setting before `emit` rejects */
+	retry: z.boolean(),
+});
+export const triggerEntrySchema = triggerEntryFields.superRefine(checkTriggerEntry);
 
 export type TriggerEntry = z.infer<typeof triggerEntrySchema>;
 
@@ -328,14 +325,21 @@ export type PluginMeta = z.infer<typeof pluginMetaSchema>;
  * CLI, validated by the admin registry, rendered by the portal. A block's
  * `entry` is fixed by its type, so a manifest cannot point outside `dist/blocks`.
  */
+// `entry` is added with `.extend`, never `entrySchema.and(...)`: the strict schema
+// reports `entry` as unknown, which skips its `superRefine`, and the intersection
+// then drops that error, so every per-entry rule would silently stop applying.
+const located = { entry: z.string() };
+
 export const fluxifyManifestSchema = pluginMetaSchema
 	.extend({
 		sdk: z.string().regex(SDK_RANGE, "must be a version range like >=2026.10.2001"),
-		blocks: z.record(z.string(), manifestEntrySchema.and(z.object({ entry: z.string() }))),
+		blocks: z.record(z.string(), manifestEntryFields.extend(located).superRefine(checkEntry)),
 		/** absent on manifests from before integrations */
-		integrations: z.array(integrationEntrySchema.and(z.object({ entry: z.string() }))).optional(),
+		integrations: z
+			.array(integrationEntryFields.extend(located).superRefine(checkIntegrationEntry))
+			.optional(),
 		/** absent on manifests from before triggers */
-		triggers: z.array(triggerEntrySchema.and(z.object({ entry: z.string() }))).optional(),
+		triggers: z.array(triggerEntryFields.extend(located).superRefine(checkTriggerEntry)).optional(),
 	})
 	.superRefine((m, ctx) => {
 		for (const [type, b] of Object.entries(m.blocks)) {

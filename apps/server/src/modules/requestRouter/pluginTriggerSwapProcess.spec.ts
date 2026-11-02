@@ -30,6 +30,7 @@ export default { name: "acme/tick/poll", start: async () => {
 		kind: "acme/tick/poll",
 		entry,
 		permissions: { integrations: [], appconfig: false },
+		secretParams: [],
 	};
 }
 

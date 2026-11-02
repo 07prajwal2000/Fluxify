@@ -33,7 +33,10 @@ export interface BlockVars {
 	setHeader(key: string, value: string): void;
 	getCookie(key: string): string;
 	getRequestBody(): any;
-	/** an app config value; needs `permissions.appconfig` */
+	/**
+	 * An app config value. Needs `permissions.appconfig`: without the permission
+	 * it throws, naming the block and what it lacks, and reads nothing.
+	 */
 	getConfig(key: string): string | number | boolean;
 	[key: string]: any;
 }

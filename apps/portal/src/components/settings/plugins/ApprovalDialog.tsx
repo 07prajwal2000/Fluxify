@@ -1,5 +1,5 @@
 import { Button, CloseButton, Modal, Spinner, toast } from "@fluxify/components";
-import { requestedPermissions } from "@fluxify/server/src/modules/plugins/meta";
+import { chosenConfigFields, requestedPermissions } from "@fluxify/server/src/modules/plugins/meta";
 import { useState } from "react";
 import { TbAlertTriangle } from "react-icons/tb";
 import { parseApiError, showErrorNotification } from "@/lib/errorNotifier";
@@ -10,10 +10,16 @@ import { manifestOf, PluginIntegrations, PluginTriggerKinds } from "./PluginSumm
 import { UpgradeDiff } from "./UpgradeDiff";
 
 function Grants({ plugin }: { plugin: Plugin }) {
-	const { integrations, appconfig } = requestedPermissions(manifestOf(plugin));
+	const manifest = manifestOf(plugin);
+	const { integrations, appconfig } = requestedPermissions(manifest);
+	const chosen = chosenConfigFields(manifest);
 	const grants = [
 		...integrations.map((i) => `Use the ${i} integration`),
+		// reading all of app config already covers the keys these fields choose
 		...(appconfig ? ["Read app config"] : []),
+		...(!appconfig && chosen.length
+			? [`Read the app config keys chosen in: ${chosen.join(", ")}`]
+			: []),
 	];
 	return (
 		<section className="flex flex-col gap-1.5">
