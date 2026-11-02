@@ -30,7 +30,7 @@ docs_index
 mkdocs.yml
 CONTRIBUTING.md
 Readme.md
-LICENSE
+# LICENSE must stay in the context: the sdk and cli builds copy it into dist/
 img
 
 # Docker files (avoid recursive context)
