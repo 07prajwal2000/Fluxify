@@ -171,19 +171,19 @@ describe("fluxify-cli build fails", () => {
 			}),
 		});
 		expect(await failures(root)).toEqual([
-			expect.stringMatching(/src\/blocks\/hello\.ts: .*reserved/),
+			expect.stringMatching(/src\/index\.ts: block acme\/t\/hello: .*reserved/),
 		]);
 	});
 
 	it("when a file default-exports no block", async () => {
 		const root = await makePlugin({ "src/blocks/hello.ts": "export default 1;" });
-		expect(await failures(root)).toEqual(["src/blocks/hello.ts: must default-export a block(...)"]);
+		expect(await failures(root)).toEqual(["src/index.ts: blocks[0] must be a block(...)"]);
 	});
 
-	it("when the name does not match the path", async () => {
-		const root = await makePlugin({ "src/blocks/hello.ts": blockSrc("acme/t/other") });
+	it("when a name is outside the plugin", async () => {
+		const root = await makePlugin({ "src/blocks/hello.ts": blockSrc("acme/other/hello") });
 		expect(await failures(root)).toEqual([
-			expect.stringContaining("name 'acme/t/other' must be 'acme/t/hello'"),
+			expect.stringContaining("name 'acme/other/hello' must be 'acme/t/<name>'"),
 		]);
 	});
 
@@ -197,13 +197,72 @@ describe("fluxify-cli build fails", () => {
 
 	it("without any block", async () => {
 		const root = await makePlugin({ "src/blocks/hello.ts": null });
-		expect(await failures(root)).toEqual([expect.stringContaining("no blocks in src/blocks")]);
+		expect(await failures(root)).toEqual([expect.stringContaining("src/index.ts lists nothing to ship")]);
 	});
 
 	it("when package.json would pack src/ (no files list)", async () => {
 		const root = await makePlugin({}, { files: undefined });
 		expect(await failures(root)).toEqual([expect.stringContaining('set "files"')]);
 		expect(existsSync(join(root, "acme-t-1.2.3.tgz"))).toBe(false);
+	});
+});
+
+describe("the lists in src/index.ts (#1059)", () => {
+	const META = 'name: "acme/t", url: "https://example.com/acme/t"';
+	const listing = (imports: string, fields: string) =>
+		`import { plugin } from "@fluxify/sdk";
+${imports}
+export default plugin({ ${META}, ${fields} });
+`;
+
+	it("ships what is listed, warns about an unlisted resource, and leaves helpers and tests alone", async () => {
+		const root = await makePlugin({
+			"src/blocks/draft.ts": blockSrc("acme/t/draft"),
+			"src/blocks/broken.ts": 'import { block } from "./nope"; export default block({});',
+			"src/blocks/util.ts": "export const one = 1;",
+			"src/blocks/hello.test.ts": 'import { block } from "x"; block();',
+		});
+		await Bun.write(join(root, "src/index.ts"), listing('import hello from "./blocks/hello";', "blocks: [hello]"));
+		const { manifest, warnings } = await build(root);
+		expect(Object.keys(manifest.blocks)).toEqual(["acme/t/hello"]);
+		expect(existsSync(join(root, "dist/blocks/draft.js"))).toBe(false);
+		expect(warnings).toEqual([
+			"src/blocks/broken.ts: not listed in src/index.ts, so it was not built. Add it to blocks to ship it",
+			"src/blocks/draft.ts: not listed in src/index.ts, so it was not built. Add it to blocks to ship it",
+		]);
+	});
+
+	it("takes the type from the name, so moving a file changes nothing, and leaves no entry files behind", async () => {
+		const root = await makePlugin({ "src/blocks/hello.ts": null, "src/elsewhere/deep/x.ts": blockSrc("acme/t/messages/post") });
+		await Bun.write(join(root, "src/index.ts"), listing('import post from "./elsewhere/deep/x";', "blocks: [post]"));
+		const { manifest, warnings } = await build(root);
+		expect(warnings).toEqual([]);
+		expect(manifest.blocks["acme/t/messages/post"].entry).toBe("dist/blocks/messages/post.js");
+		expect(existsSync(join(root, "dist/blocks/messages/post.js"))).toBe(true);
+		expect(existsSync(join(root, ".fluxify-entries"))).toBe(false);
+		expect(manifest).not.toHaveProperty("triggers");
+	});
+
+	it("fails, naming the fix, without lists, even with files in the folders", async () => {
+		const root = await makePlugin();
+		await Bun.write(join(root, "src/index.ts"), index());
+		expect(await failures(root)).toEqual([
+			expect.stringMatching(/lists nothing to ship.*add it to blocks.*Not listed: src\/blocks\/hello\.ts/),
+		]);
+	});
+
+	it("fails on a name listed twice, a wrong list and a resource not imported from its own file", async () => {
+		const twice = await makePlugin();
+		await Bun.write(join(twice, "src/index.ts"), listing('import a from "./blocks/hello";', "blocks: [a, a]"));
+		expect(await failures(twice)).toEqual([expect.stringContaining("both declare the type 'acme/t/hello'")]);
+
+		const wrong = await makePlugin();
+		await Bun.write(join(wrong, "src/index.ts"), listing('import a from "./blocks/hello";', "triggers: [a as never]"));
+		expect(await failures(wrong)).toEqual(["src/index.ts: triggers[0] must be a trigger(...)"]);
+
+		const barrel = await makePlugin({ "src/all.ts": 'export { default as a } from "./blocks/hello";' });
+		await Bun.write(join(barrel, "src/index.ts"), listing('import { a } from "./all";', "blocks: [a]"));
+		expect(await failures(barrel)).toEqual([expect.stringContaining("must be the default import of its own file")]);
 	});
 });
 

@@ -1,15 +1,18 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { type PluginMeta, pluginMetaSchema } from "@fluxify/sdk";
+import { type PluginMeta, pluginDefinitionSchema } from "@fluxify/sdk";
 import { z } from "zod";
 import { fail } from "./fail";
 
 /** where a plugin describes itself */
 export const INDEX = "src/index.ts";
 
-/** `plugin({...})`, the default export of `src/index.ts`: the source of `fluxify.json`'s top */
-export async function readMeta(root: string): Promise<PluginMeta> {
+/** what `src/index.ts` lists, per folder of `src` */
+export type Listed = Record<"blocks" | "integrations" | "triggers", unknown[]>;
+
+/** `plugin({...})`, the default export of `src/index.ts`: the source of `fluxify.json`'s top and of what ships */
+export async function readMeta(root: string): Promise<{ meta: PluginMeta; listed: Listed }> {
 	const file = join(root, INDEX);
 	if (!existsSync(file))
 		return fail(
@@ -17,16 +20,19 @@ export async function readMeta(root: string): Promise<PluginMeta> {
 		);
 	let def: unknown;
 	try {
+		// Bun caches a module by its path whatever the query, and `create` edits this file mid-process
+		delete require.cache[file];
 		def = (await import(`${pathToFileURL(file).href}?t=${Date.now()}`)).default;
 	} catch (error) {
 		return fail(`${INDEX}: ${(error as Error).message.replaceAll("\n", " ")}`);
 	}
-	const parsed = pluginMetaSchema.safeParse(def);
+	const parsed = pluginDefinitionSchema.safeParse(def);
 	if (!parsed.success)
 		return fail(
 			`${INDEX} must default-export plugin({ name, url }): ${z.prettifyError(parsed.error).replaceAll("\n", " ")}`,
 		);
-	return parsed.data;
+	const { blocks = [], integrations = [], triggers = [], ...meta } = parsed.data;
+	return { meta, listed: { blocks, integrations, triggers } };
 }
 
 /**

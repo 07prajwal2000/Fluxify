@@ -103,7 +103,7 @@ describe("fluxify-cli build: integrations", () => {
 
 	it("fails on a module that does not default-export an integration", async () => {
 		const root = await makePlugin({ "src/integrations/a.ts": "export default { name: 'acme/t/a' };" });
-		expect(await failures(root)).toEqual(["src/integrations/a.ts: must default-export an integration(...)"]);
+		expect(await failures(root)).toEqual(["src/index.ts: integrations[0] must be an integration(...)"]);
 	});
 });
 
@@ -121,13 +121,8 @@ describe("integrations create", () => {
 
 		const { manifest } = await build(root);
 		expect(manifest.integrations!.map((i) => i.group)).toEqual([
-			"ai",
-			"baas",
-			"database",
-			"kv",
-			"mcp",
-			"observability",
-			"queue",
+			// the order they are listed in src/index.ts
+			...BUILT_IN_INTEGRATION_GROUPS,
 			"acme/ledger",
 		]);
 		const run = Bun.spawnSync(["bun", "test", "src/integrations"], { cwd: root, env: { ...process.env, NODE_ENV: "test" } });

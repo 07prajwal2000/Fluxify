@@ -55,12 +55,12 @@ A trigger cannot receive an HTTP request. Routes already own the project's URLs.
 
 ### name
 
-The trigger's kind: the plugin name plus the path of the file under `src/triggers`. It must be lowercase and match the path exactly, as a block's type must. The build stops if they differ.
+The trigger's kind. It must be lowercase and start with the plugin name, as a block's type must. List the trigger in `triggers` in `src/index.ts`, or it is not built.
 
 A project's trigger stores its kind as `plugin:<name>`, in a column that holds 255 characters, so a name may be at most **248 characters**. The build refuses a longer one.
 
 ```ts
-name: "acme/shop/orders/new", // src/triggers/orders/new.ts in acme/shop
+name: "acme/shop/orders/new", // in the plugin acme/shop
 ```
 
 Renaming or moving a trigger breaks every trigger the project created from it; add a new kind and remove the old one later instead.
@@ -469,7 +469,7 @@ An instance that stayed up for **60 seconds** starts the count again, so a trigg
 bunx fluxify-cli triggers create orders/new
 ```
 
-This writes `src/triggers/orders/new.ts`, a test and a placeholder icon. The template uses `poll`: it honours `ctx.signal`, waits between ticks, emits a batch and logs a failed run. The trigger's kind is the plugin name plus the path: `acme/shop/orders/new`.
+This writes `src/triggers/orders/new.ts`, a test and a placeholder icon, and adds the trigger to the `triggers` list in `src/index.ts`. The template uses `poll`: it honours `ctx.signal`, waits between ticks, emits a batch and logs a failed run. The trigger's kind is the `name` it declares: `acme/shop/orders/new`.
 
 | Flag | Meaning |
 | :--- | :--- |

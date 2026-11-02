@@ -79,6 +79,10 @@ export default plugin({
 	// the plugin's folder in the block picker, and the folder of every ${name.split("/")[0]} plugin
 	// icon: "./icons/plugin.svg",
 	// scopeIcon: "./icons/scope.svg",
+	// what the plugin ships: the build includes these and nothing else
+	blocks: [],
+	triggers: [],
+	integrations: [],
 });
 `;
 
@@ -88,7 +92,7 @@ Blocks for Fluxify. Source and docs: ${url}
 
 ## The plugin
 
-\`src/index.ts\` default-exports \`plugin({ name, url, description?, icon?, scopeIcon? })\`.
+\`src/index.ts\` default-exports \`plugin({ name, url, description?, icon?, scopeIcon?, blocks?, triggers?, integrations? })\`.
 \`fluxify-cli build\` writes \`fluxify.json\` from it and the blocks every time, and keeps the
 \`fluxify\` field of \`package.json\` in step with it, so never edit \`fluxify.json\` by hand.
 
@@ -98,9 +102,10 @@ Blocks for Fluxify. Source and docs: ${url}
 bunx fluxify-cli blocks create <name>
 \`\`\`
 
-This writes \`src/blocks/<name>.ts\` and a test next to it, \`<name>.test.ts\`. A block is a file there that default-exports
-\`block({...})\`, and its type is \`${name}/<path>\`: \`src/blocks/messages/post.ts\` is
-\`${name}/messages/post\`.
+This writes \`src/blocks/<name>.ts\` and a test next to it, \`<name>.test.ts\`, and adds the block to the
+\`blocks\` list in \`src/index.ts\`. That list is what ships: a file that is not listed is not built, and the
+build warns about it. A block's type is the \`name\` it declares (\`${name}/<name>\`), so moving its file
+does not change it.
 
 ## Test
 

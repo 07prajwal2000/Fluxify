@@ -349,4 +349,4 @@ These are real differences. Cover them with a route in a development environment
 | **Traces.** `spans` lists your `ctx.span` calls and their parents. It is not the trace the portal draws | Look at a real run's trace |
 | **Pooled clients.** The harness uses real `ctx.pool` rules with its own pool, so a client is not shared with anything else | Share one `testPool()` if a test needs to see reuse |
 
-Add the build to your routine as well. `bun run build` catches what a unit test does not: a block named differently from its path, an icon that is too large, and a docs section the Docs tab cannot show.
+Add the build to your routine as well. `bun run build` catches what a unit test does not: a resource you forgot to list in `src/index.ts`, an icon that is too large, and a docs section the Docs tab cannot show.

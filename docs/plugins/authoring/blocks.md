@@ -5,7 +5,7 @@ description: Every field of block() for plugin authors, with a small example of 
 
 # Blocks
 
-A block is a file in `src/blocks` that default-exports `block({...})`:
+A block is a file that default-exports `block({...})`, usually in `src/blocks`, and is listed in `blocks` in `src/index.ts`:
 
 ```ts
 import { block, param } from "@fluxify/sdk/blocks";
@@ -44,12 +44,12 @@ export default block({
 
 ### name
 
-The block's type. It must be the plugin name plus the path of the file under `src/blocks`, in lowercase. The build stops if they differ. See [names](./getting-started#names).
+The block's type. It must be lowercase and start with the plugin name. Where the file sits does not matter. See [names](./getting-started#names).
 
 The type is also part of the id a recorded run stores for the block, `<plugin>@<version>:<project id>:<block type>`, which holds **500 characters**. The build budgets the longest project id (50) and stops, naming the block and how far over it is, when the id could not fit. Shorten the plugin name or a folder if that happens.
 
 ```ts
-name: "acme/slack/messages/post", // src/blocks/messages/post.ts in acme/slack
+name: "acme/slack/messages/post", // in the plugin acme/slack
 ```
 
 ### label

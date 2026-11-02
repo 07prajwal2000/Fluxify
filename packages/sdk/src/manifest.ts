@@ -320,6 +320,24 @@ export const pluginMetaSchema = z.strictObject({
 });
 export type PluginMeta = z.infer<typeof pluginMetaSchema>;
 
+/** `plugin({...})`: the metadata, plus the lists of what the plugin ships (`fluxify-cli build` reads them) */
+export const pluginDefinitionSchema = pluginMetaSchema.extend({
+	blocks: z.array(z.unknown()).optional(),
+	integrations: z.array(z.unknown()).optional(),
+	triggers: z.array(z.unknown()).optional(),
+});
+type Listed<Method extends string> = { name: string } & {
+	[K in Method]: (...args: any[]) => unknown;
+};
+export type PluginDefinition = PluginMeta & {
+	/** each `block(...)` the plugin ships, imported from its file */
+	blocks?: readonly Listed<"run">[];
+	/** each `integration(...)` the plugin ships, imported from its file */
+	integrations?: readonly Listed<"connect">[];
+	/** each `trigger(...)` the plugin ships, imported from its file */
+	triggers?: readonly Listed<"start">[];
+};
+
 /**
  * `fluxify.json`, the manifest at the root of a plugin package: written by the
  * CLI, validated by the admin registry, rendered by the portal. A block's

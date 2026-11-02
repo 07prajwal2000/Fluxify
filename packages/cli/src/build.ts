@@ -30,12 +30,13 @@ import { fail, type Plugin, readPlugin } from "./plugin";
 import {
 	BLOCKS,
 	bundle,
-	discover,
 	type Found,
 	INTEGRATIONS,
+	listedSources,
 	load,
 	posix,
 	TRIGGERS,
+	unlistedFiles,
 } from "./sources";
 
 export type BuildResult = {
@@ -160,9 +161,14 @@ function entriesOf<E>(found: Found[], toEntry: (def: any) => unknown, schema: z.
 /** Builds the plugin at `root`: dist/, fluxify.json and the tarball. Throws a CliError on a failure. */
 export async function build(root: string): Promise<BuildResult> {
 	const plugin = await readPlugin(root);
-	const sources = [BLOCKS, INTEGRATIONS, TRIGGERS].flatMap((kind) => discover(plugin, kind));
+	const sources = await listedSources(plugin);
+	const unlisted = await unlistedFiles(plugin, sources);
 	if (!sources.length)
-		fail("no blocks in src/blocks, add one with `fluxify-cli blocks create <name>`");
+		fail(
+			`src/index.ts lists nothing to ship. Import each resource and add it to blocks, triggers or integrations in plugin({...}), or add one with \`fluxify-cli blocks create <name>\`${
+				unlisted.length ? `. Not listed: ${unlisted.map((u) => u.rel).join(", ")}` : ""
+			}`,
+		);
 	await bundle(plugin, sources);
 	const found = await load(plugin, sources);
 	const blocks = found.filter((f) => f.kind === BLOCKS);
@@ -196,7 +202,7 @@ export async function build(root: string): Promise<BuildResult> {
 		...e,
 	}));
 
-	// generated every build from src/index.ts and what src/ declares: a hand edit does not survive it
+	// generated every build from src/index.ts and what it lists: a hand edit does not survive it
 	const manifest = fluxifyManifestSchema.safeParse({
 		...meta,
 		icon: meta.icon && shipIcon(plugin, meta.name, meta.icon),
@@ -215,7 +221,14 @@ export async function build(root: string): Promise<BuildResult> {
 `,
 	);
 
-	const warnings = [...inferred.warnings, ...(await lint(blocks, entries, integrated, triggered))];
+	const warnings = [
+		...inferred.warnings,
+		...(await lint(blocks, entries, integrated, triggered)),
+		...unlisted.map(
+			(u) =>
+				`${u.rel}: not listed in src/index.ts, so it was not built. Add it to ${u.kind.dir} to ship it`,
+		),
+	];
 	const tarball = await pack(plugin, manifest.data!);
 	return { plugin, manifest: manifest.data!, tarball, warnings };
 }

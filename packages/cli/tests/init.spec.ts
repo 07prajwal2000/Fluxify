@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { fluxifyManifestSchema } from "@fluxify/sdk/blocks";
 import { build } from "../src/build";
 import { main } from "../src/cli";
-import { create } from "../src/create";
+import { addToIndex, create } from "../src/create";
 import { init } from "../src/init";
 import { cleanup, linkModules, makePlugin, tmp } from "./helpers";
 
@@ -175,7 +175,7 @@ describe("blocks create", () => {
 	it("adds a block under src/blocks, folders included, from any subfolder", async () => {
 		const root = await makePlugin({ "bun.lock": null });
 		const { files } = await create({ cwd: join(root, "src"), name: "messages/post" });
-		expect(files).toEqual(["src/blocks/messages/post.ts", "src/blocks/messages/post.test.ts"]);
+		expect(files).toEqual(["src/blocks/messages/post.ts", "src/blocks/messages/post.test.ts", "src/index.ts"]);
 		expect(await read(root, "src/blocks/messages/post.test.ts")).toContain('import block from "./post"');
 		expect(await read(root, "src/blocks/messages/post.ts")).toContain(
 			'name: "acme/t/messages/post"',
@@ -205,7 +205,7 @@ describe("fluxify-cli build on an empty plugin", () => {
 		await Bun.write(join(root, "bun.lock"), (await import("./helpers")).LOCK);
 		linkModules(root);
 		expect(await message(() => build(root))).toBe(
-			"no blocks in src/blocks, add one with `fluxify-cli blocks create <name>`",
+			"src/index.ts lists nothing to ship. Import each resource and add it to blocks, triggers or integrations in plugin({...}), or add one with `fluxify-cli blocks create <name>`",
 		);
 	});
 });
@@ -270,5 +270,28 @@ describe("init answers", () => {
 		} finally {
 			errors.mockRestore();
 		}
+	});
+});
+
+describe("addToIndex", () => {
+	const add = (text: string, list = "blocks") => addToIndex(text, list, "newBlock", "./blocks/new");
+
+	it("imports it and adds it to an empty, one-line or multi-line list", () => {
+		expect(add('import { plugin } from "@fluxify/sdk";\nexport default plugin({\n\tblocks: [],\n});\n')).toBe(
+			'import { plugin } from "@fluxify/sdk";\nimport newBlock from "./blocks/new";\nexport default plugin({\n\tblocks: [newBlock],\n});\n',
+		);
+		expect(add("plugin({ blocks: [a, b] })")).toBe('import newBlock from "./blocks/new";\nplugin({ blocks: [a, b, newBlock] })');
+		expect(add("plugin({\n\tblocks: [\n\t\ta,\n\t],\n})")).toContain("blocks: [\n\t\ta,\n\t\tnewBlock,\n\t],");
+	});
+
+	it("adds a list that is missing, and goes after a multi-line import", () => {
+		const text = add('import {\n\tplugin,\n} from "@fluxify/sdk";\nexport default plugin({ name: "a" });\n');
+		expect(text).toBe(
+			'import {\n\tplugin,\n} from "@fluxify/sdk";\nimport newBlock from "./blocks/new";\nexport default plugin({\n\tblocks: [newBlock], name: "a" });\n',
+		);
+	});
+
+	it("leaves a file with no plugin({ to edit", () => {
+		expect(add("export default def;")).toBeUndefined();
 	});
 });

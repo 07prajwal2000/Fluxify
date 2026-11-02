@@ -1,6 +1,6 @@
 {
 	"name": "@fluxify/cli",
-	"version": "2026.11.201",
+	"version": "2026.11.202",
 	"description": "Create, build and pack Fluxify plugins.",
 	"type": "module",
 	"license": "Apache-2.0",

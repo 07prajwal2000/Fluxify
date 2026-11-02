@@ -7,7 +7,7 @@ description: Add a connection your blocks can use, as a variant of a built-in gr
 
 An integration is a connection to a service: a database, a cache, a message queue, a mail server. A plugin can add one, so the project can configure that connection once and then leave the credentials off every canvas.
 
-A plugin's integration is written in `src/integrations` as a file that default-exports `integration({...})`:
+A plugin's integration is a file that default-exports `integration({...})`, usually in `src/integrations`, and is listed in `integrations` in `src/index.ts`:
 
 ```ts
 import { param } from "@fluxify/sdk/blocks";
@@ -29,7 +29,7 @@ export default integration({
 });
 ```
 
-Its `name` is the plugin name plus its path under `src/integrations`, like a block's type. `integration()` checks the definition when the file loads and throws an error that names the integration, so a mistake appears in `bun test` and in the build.
+Its `name` starts with the plugin name, like a block's type. `integration()` checks the definition when the file loads and throws an error that names the integration, so a mistake appears in `bun test` and in the build.
 
 ## Two kinds of integration
 
@@ -52,7 +52,7 @@ A plugin can use the built-in groups and its own groups. Using another plugin's 
 
 | Field | Required | What it is |
 | :--- | :---: | :--- |
-| `name` | Yes | The integration's type: the plugin name plus its path, `scope/name/folder/integration` |
+| `name` | Yes | The integration's type, starting with the plugin name: `scope/name/folder/integration` |
 | `label` | Yes | The name shown on the integrations page |
 | `description` | No | One line under the label |
 | `icon` | Yes | An image inside the plugin. The build copies it into `icons/` |
@@ -390,7 +390,7 @@ An `mcp` variant returns an `McpAdapter` with `listTools()`, `callTool(name, arg
 bunx fluxify-cli integrations create mail --group email
 ```
 
-This writes `src/integrations/mail.ts`, a test and a placeholder icon. The integration's type is the plugin name plus the path: `acme/slack/mail`.
+This writes `src/integrations/mail.ts`, a test and a placeholder icon, and adds the integration to the `integrations` list in `src/index.ts`. The integration's type is the `name` it declares: `acme/slack/mail`.
 
 | Flag | Meaning |
 | :--- | :--- |
