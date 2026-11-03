@@ -228,7 +228,11 @@ export const geminiVariantConfigSchema = z.object({
 
 export const openAiCompatibleVariantConfigSchema = z.object({
 	baseUrl: z.string().refine((v) => (v.startsWith("cfg:") ? true : z.url().safeParse(v).success)),
-	apiKey: z.string().refine((v) => (v.startsWith("cfg:") ? true : v.length > 1)),
+	// the one deliberate difference from the old rule (#1068): a local Ollama needs no key
+	apiKey: z
+		.string()
+		.refine((v) => v === "" || (v.startsWith("cfg:") ? true : v.length > 1))
+		.default(""),
 	model: z.string().min(1),
 });
 

@@ -37,7 +37,7 @@ export type AiProviderSpec = {
 /** `Authorization: Bearer`, `{ data: [{ id }] }`: OpenAI, Mistral and most compatible servers */
 export const openAiModels = (defaultBaseUrl: string): AiProviderSpec["models"] => ({
 	url: (c) => `${(c.baseUrl || defaultBaseUrl).replace(/\/+$/, "")}/models`,
-	headers: (c) => (c.apiKey ? { authorization: `Bearer ${c.apiKey}` } : {}),
+	headers: (c): Record<string, string> => (c.apiKey ? { authorization: `Bearer ${c.apiKey}` } : {}),
 	ids: (body) => body.data.map((m: { id: string }) => m.id),
 });
 
