@@ -18,6 +18,8 @@
 	align-items: center;
 	gap: 10px;
 	width: 168px;
+	/* Same height as the 64px compact squares, so wide and square blocks line up. */
+	min-height: 64px;
 	padding: 8px 10px;
 	border: 1px solid var(--fx-block-border);
 	border-radius: var(--radius, 6px);
@@ -177,10 +179,16 @@ html[data-theme="dark"] .fx-block,
 	flex: 0 0 auto;
 	align-items: center;
 	justify-content: center;
+	width: 32px;
+	height: 32px;
+	font-size: 24px;
+	line-height: 1;
+}
+
+/* Icons carry a fixed svg size, so resize the svg itself. */
+.fx-block__icon svg {
 	width: 24px;
 	height: 24px;
-	font-size: 18px;
-	line-height: 1;
 }
 
 /* min-width:0 lets the description ellipsis instead of stretching the card. */
@@ -221,6 +229,7 @@ html[data-theme="dark"] .fx-block,
 	box-sizing: border-box;
 	width: 100%;
 	height: 100%;
+	min-height: 0;
 	padding: 6px 8px;
 	border-color: color-mix(in oklab, var(--fx-note-tint) 55%, var(--fx-block-bg));
 	background: color-mix(in oklab, var(--fx-note-tint) 12%, var(--fx-block-bg));
@@ -598,30 +607,46 @@ html[data-theme="dark"] .fx-block,
 }
 
 /* Output that can take another edge: a `+` inside the socket, shown when the
-   block is hovered or selected. The socket keeps its layout size and scales up
-   instead (scale never moves its siblings), so hovering never shifts the rail. */
+   block is hovered or selected. Only the dot inside grows, never the socket:
+   React Flow measures a socket's position from its transformed box but its size
+   from the untransformed one, so a socket scaled while it is measured (a block
+   just added is selected) would put every edge half a socket off. */
 .fx-handle--add.react-flow__handle {
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	cursor: pointer;
-	transition:
-		scale 160ms ease,
-		box-shadow 160ms ease;
+	transition: box-shadow 160ms ease;
+}
+
+/* Same colour and shape as the socket, drawn over it. */
+.fx-handle__dot {
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	background: inherit;
+	pointer-events: none;
+	transition: scale 160ms ease;
 }
 
 .fx-handle__plus {
+	position: relative;
 	width: 6px;
 	height: 6px;
 	opacity: 0;
 	pointer-events: none;
 	color: var(--fx-block-bg, #111113);
-	transition: opacity 160ms ease;
+	transition:
+		opacity 160ms ease,
+		scale 160ms ease;
 }
 
-.react-flow__node:hover .fx-handle--add.react-flow__handle,
-.react-flow__node.selected .fx-handle--add.react-flow__handle,
-.fx-handle--add.react-flow__handle:focus-visible {
+.react-flow__node:hover .fx-handle--add .fx-handle__dot,
+.react-flow__node.selected .fx-handle--add .fx-handle__dot,
+.fx-handle--add:focus-visible .fx-handle__dot,
+.react-flow__node:hover .fx-handle--add .fx-handle__plus,
+.react-flow__node.selected .fx-handle--add .fx-handle__plus,
+.fx-handle--add:focus-visible .fx-handle__plus {
 	scale: 2;
 }
 
@@ -652,17 +677,6 @@ html[data-theme="dark"] .fx-block,
 	border-radius: 16px;
 }
 
-.fx-block--compact .fx-block__icon {
-	width: 32px;
-	height: 32px;
-}
-
-/* Icons carry a fixed svg size, so resize the svg itself. */
-.fx-block--compact .fx-block__icon svg {
-	width: 24px;
-	height: 24px;
-}
-
 .fx-block--compact .fx-block__text {
 	position: absolute;
 	top: 100%;
@@ -690,7 +704,7 @@ html[data-theme="dark"] .fx-block,
 
 /* Success/failure sockets: the block's own label (true, exists, committed…) sits just outside. */
 :is(.fx-block--compact, .fx-block--container)
-:is(.fx-handle--success, .fx-handle--failure).react-flow__handle::after {
+:is(.fx-handle--success, .fx-handle--failure).fx-handle--right.react-flow__handle::after {
 	content: attr(data-label);
 	position: absolute;
 	left: 16px;
@@ -699,13 +713,4 @@ html[data-theme="dark"] .fx-block,
 	line-height: 1;
 	white-space: nowrap;
 	pointer-events: none;
-}
-
-/* The label is a child of the socket, so undo its hover scale to keep the text size. */
-:is(.react-flow__node:hover, .react-flow__node.selected)
-	:is(.fx-block--compact, .fx-block--container)
-	:is(.fx-handle--success, .fx-handle--failure).react-flow__handle::after {
-	left: 10px;
-	scale: 0.5;
-	transform-origin: left center;
 }

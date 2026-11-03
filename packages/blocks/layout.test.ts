@@ -324,3 +324,40 @@ test("changedIds still anchors on the blocks that stayed when a bottom lane is a
 	expect(pos.a).toBeUndefined();
 	expect(pos.below!.y).toBeGreaterThan(200);
 });
+
+test("a body child stays in its parent's column, just indented, instead of a column of its own", () => {
+	const nodes = [bare("e", BlockTypes.entrypoint), bare("loop", BlockTypes.forloop), bare("var", BlockTypes.getvar)];
+	const p = layoutGraph(nodes, [edge("e", "loop"), edge("loop", "var", "executor")]);
+	// a full column would put it at loop.x + 160 + 64
+	expect(p.var!.x).toBeGreaterThan(p.loop!.x);
+	expect(p.var!.x).toBeLessThan(p.loop!.x + 160);
+});
+
+test("a chain hung on body handles stacks tightly, each block indented, and the flow carries on after it", () => {
+	const nodes = [
+		node("a", "acme/agent/run"),
+		node("tool", "acme/agent/run"),
+		node("loop", BlockTypes.jsrunner),
+		node("next", BlockTypes.jsrunner),
+	];
+	const p = layoutGraph(nodes, [edge("a", "tool", "tools"), edge("tool", "loop", "tools"), edge("loop", "next")], {
+		handleSpecs: { "acme/agent/run": agent },
+	});
+	// nested bottom lanes sit one gap apart, not a doubled slot apart
+	expect(p.tool!.y).toBe(p.a!.y + 40 + 24);
+	expect(p.tool!.x).toBeGreaterThan(p.a!.x);
+	expect(p.loop!.x).toBeGreaterThan(p.tool!.x);
+	// the main flow resumes right of the whole stack, on the last block's row
+	expect(p.next!.x).toBeGreaterThan(p.loop!.x + 160);
+});
+
+test("an output a plugin moved to the bottom starts a chain below the block, like a body handle", () => {
+	const spec: HandleSpec = { in: ["target"], out: ["success", "failure"], body: [], position: { failure: "bottom" } };
+	const nodes = [node("a", "acme/branch"), node("ok", BlockTypes.jsrunner), node("ko", BlockTypes.jsrunner)];
+	const p = layoutGraph(nodes, [edge("a", "ok", "success"), edge("a", "ko", "failure")], {
+		handleSpecs: { "acme/branch": spec },
+	});
+	expect(p.ok!.y).toBe(p.a!.y);
+	expect(p.ko!.y).toBeGreaterThanOrEqual(p.a!.y + 40);
+	expect(p.ko!.x).toBeLessThan(p.ok!.x);
+});

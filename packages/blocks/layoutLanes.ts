@@ -5,7 +5,6 @@ import {
 	type HandleSide,
 	type HandleSpec,
 	type HandleSpecs,
-	handleCorner,
 	isBodyHandle,
 	sideOf,
 } from "./blockHandles";
@@ -29,9 +28,19 @@ export function handleSide(handleId: string, spec?: HandleSpec): HandleSide {
 }
 
 /** an edge's handle name: ids persist as `<blockId>-<name>`, agent-built ones may say just `<name>` */
-const handleOf = (edge: LayoutEdge) => {
+export const handleOf = (edge: LayoutEdge) => {
 	const handle = edge.fromHandle ?? "source";
 	return handle.startsWith(`${edge.from}-`) ? handle.slice(edge.from.length + 1) : handle;
+};
+
+/** Does this edge leave a body handle (top/bottom side), i.e. start a nested chain? */
+export const isBodyEdge = (
+	edge: LayoutEdge,
+	typeOf: (id: string) => string | undefined,
+	specs: HandleSpecs,
+) => {
+	const side = sideOf(handleOf(edge), specs[typeOf(edge.from) ?? ""]);
+	return side === "top" || side === "bottom";
 };
 
 /** Roots sort entrypoint flow first, error handler flow last, anything else between. */
@@ -121,6 +130,7 @@ export function layoutBand(
 	heightOf: (n: LayoutNode) => number,
 	gap: number,
 	specs: HandleSpecs = {},
+	indents: Map<string, number> = new Map(),
 ): { tops: Map<string, number>; height: number } {
 	const byId = new Map(band.map((n) => [n.id, n]));
 	const out = new Map<string, LayoutEdge[]>();
@@ -151,8 +161,11 @@ export function layoutBand(
 					compareKeys(branchKey(a, parent, spec), branchKey(b, parent, spec)) ||
 					byPosition(byId.get(a.to)!, byId.get(b.to)!),
 			);
-		const isBody = (e: LayoutEdge) => isBodyHandle(handleOf(e), spec);
-		const isBottom = (e: LayoutEdge) => !!handleCorner(handleOf(e), spec)?.startsWith("bottom");
+		// Whatever leaves by a top or bottom handle (a body handle, or any handle a plugin
+		// moved there) starts a chain above or below the block; the rest is its own flow.
+		const sideOfEdge = (e: LayoutEdge) => sideOf(handleOf(e), spec);
+		const isBottom = (e: LayoutEdge) => sideOfEdge(e) === "bottom";
+		const isBody = (e: LayoutEdge) => isBottom(e) || sideOfEdge(e) === "top";
 		const result = {
 			body: branches.filter((e) => isBody(e) && !isBottom(e)).map((e) => byId.get(e.to)!),
 			bottom: branches.filter((e) => isBody(e) && isBottom(e)).map((e) => byId.get(e.to)!),
@@ -161,31 +174,42 @@ export function layoutBand(
 		lanes.set(id, result);
 		return result;
 	};
+	const span = (slot: { up: number; down: number }) => slot.up + slot.down;
 	const stackOf = (sizes: number[]) =>
 		sizes.reduce((sum, h) => sum + h, 0) + gap * Math.max(0, sizes.length - 1);
 
-	// A lane is as tall as the block or the lanes it fans out into, whichever is more.
-	const slots = new Map<string, number>();
-	const slotOf = (n: LayoutNode, path: Set<string>): number => {
+	// A lane reaches `up` above its block's centre and `down` below it. Kept apart
+	// (not mirrored) so a chain that only grows downward does not also reserve
+	// that room above, which pushed stacked children far from their parent.
+	type Slot = { up: number; down: number };
+	const slots = new Map<string, Slot>();
+	const slotOf = (n: LayoutNode, path: Set<string>): Slot => {
 		const known = slots.get(n.id);
-		if (known !== undefined) return known;
-		if (path.has(n.id)) return heightOf(n);
+		if (known) return known;
+		if (path.has(n.id)) return { up: heightOf(n) / 2, down: heightOf(n) / 2 };
 		path.add(n.id);
 		const { body, bottom, main } = lanesOf(n.id);
-		const bodySize = stackOf(body.map((k) => slotOf(k, path)));
-		const bottomSize = stackOf(bottom.map((k) => slotOf(k, path)));
-		const mainSize = stackOf(main.map((k) => slotOf(k, path)));
+		const bodySize = stackOf(body.map((k) => span(slotOf(k, path))));
+		const bottomSize = stackOf(bottom.map((k) => span(slotOf(k, path))));
+		const mainSize = stackOf(main.map((k) => span(slotOf(k, path))));
 		path.delete(n.id);
-		// Slots are centred on the block, so reserve the larger side on both.
-		const up = Math.max(heightOf(n), mainSize) / 2 + (bodySize ? gap + bodySize : 0);
-		const down = Math.max(heightOf(n), mainSize) / 2 + (bottomSize ? gap + bottomSize : 0);
-		slots.set(n.id, 2 * Math.max(up, down));
-		return slots.get(n.id)!;
+		const half = Math.max(heightOf(n), mainSize) / 2;
+		const slot = {
+			up: half + (bodySize ? gap + bodySize : 0),
+			down: half + (bottomSize ? gap + bottomSize : 0),
+		};
+		slots.set(n.id, slot);
+		return slot;
 	};
 
 	const centre = new Map<string, number>();
 	const ordered = [...band].sort(
-		(a, b) => (layers.get(a.id) ?? 0) - (layers.get(b.id) ?? 0) || byPosition(a, b),
+		// A body child shares its parent's column, so nesting depth (its indent)
+		// keeps the parent ahead of it.
+		(a, b) =>
+			(layers.get(a.id) ?? 0) - (layers.get(b.id) ?? 0) ||
+			(indents.get(a.id) ?? 0) - (indents.get(b.id) ?? 0) ||
+			byPosition(a, b),
 	);
 	for (const node of ordered) {
 		if (!centre.has(node.id)) {
@@ -196,17 +220,17 @@ export function layoutBand(
 		const place = (kids: LayoutNode[], from: number) => {
 			let top = from;
 			for (const kid of kids) {
-				const size = slotOf(kid, new Set());
-				centre.set(kid.id, top + size / 2);
-				top += size + gap;
+				const slot = slotOf(kid, new Set());
+				centre.set(kid.id, top + slot.up);
+				top += span(slot) + gap;
 			}
 		};
 		const main = lanes.main.filter((k) => !centre.has(k.id));
 		const body = lanes.body.filter((k) => !centre.has(k.id));
-		const mainSize = stackOf(main.map((k) => slotOf(k, new Set())));
+		const mainSize = stackOf(main.map((k) => span(slotOf(k, new Set()))));
 		const mid = centre.get(node.id)!;
 		place(main, mid - mainSize / 2);
-		const bodySize = stackOf(body.map((k) => slotOf(k, new Set())));
+		const bodySize = stackOf(body.map((k) => span(slotOf(k, new Set()))));
 		place(body, mid - Math.max(mainSize, heightOf(node)) / 2 - gap - bodySize);
 		const bottom = lanes.bottom.filter((k) => !centre.has(k.id));
 		place(bottom, mid + Math.max(mainSize, heightOf(node)) / 2 + gap);

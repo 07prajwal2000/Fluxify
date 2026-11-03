@@ -1,4 +1,4 @@
-import type { BodyCorner, HandleSpec } from "@fluxify/sdk";
+import type { BodyCorner, HandlePosition, HandleSpec } from "@fluxify/sdk";
 import { BlockTypes } from "./blockTypes";
 
 /**
@@ -28,7 +28,12 @@ export const BLOCK_OUTPUT_HANDLES: Record<string, readonly string[]> = {
 };
 
 // the plain-data handle shapes live in the SDK, the one package plugins see
-export { type BodyCorner, type HandleSpec, handleSpecSchema } from "@fluxify/sdk";
+export {
+	type BodyCorner,
+	type HandlePosition,
+	type HandleSpec,
+	handleSpecSchema,
+} from "@fluxify/sdk";
 
 /** Specs by block type, for callers that resolve many blocks; a type not in it is builtin. */
 export type HandleSpecs = Readonly<Record<string, HandleSpec | undefined>>;
@@ -49,15 +54,27 @@ export const isFanOutHandle = (handle: string, spec?: HandleSpec) =>
 		? !!spec.body.find((b) => b.name === handle)?.allowMultiple
 		: FAN_OUT_HANDLES.includes(handle);
 
-/** A spec'd body handle's corner; builtin handles have none. */
-export const handleCorner = (handle: string, spec?: HandleSpec): BodyCorner | undefined =>
-	spec?.body.find((b) => b.name === handle)?.corner;
+/** Where a plugin handle was told to sit (a body handle's `corner`, or an in/out `position`); none = its default side. */
+export const positionOf = (handle: string, spec?: HandleSpec): HandlePosition | undefined =>
+	spec?.body.find((b) => b.name === handle)?.corner ?? spec?.position?.[handle];
+
+/** The corner a spec'd handle is stacked on, if its position is a corner. */
+export const handleCorner = (handle: string, spec?: HandleSpec): BodyCorner | undefined => {
+	const position = positionOf(handle, spec);
+	return position?.includes("-") ? (position as BodyCorner) : undefined;
+};
 
 /** Which side a handle (bare name) sits on; unknown names fall to the right. */
 export function sideOf(handle: string, spec?: HandleSpec): HandleSide {
 	if (!spec) return HANDLE_SIDE[handle as HandleKind] ?? "right";
-	const corner = handleCorner(handle, spec);
-	if (corner) return corner.startsWith("top") ? "top" : "bottom";
+	const position = positionOf(handle, spec);
+	if (position) {
+		return position.includes("-")
+			? position.startsWith("top")
+				? "top"
+				: "bottom"
+			: (position as HandleSide);
+	}
 	return spec.in.includes(handle) ? "left" : "right";
 }
 

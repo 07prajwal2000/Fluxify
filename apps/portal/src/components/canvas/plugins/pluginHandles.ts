@@ -5,9 +5,9 @@ type Props = Omit<BlockHandleProps, "blockId">;
 
 /**
  * The sockets a plugin block's spec declares, as props for `<BlockHandle>`.
- * Inputs sit left; outputs (`[]`, `[source]` or `[success, failure]`) are the
- * builtin kinds on the right, so they land where a builtin's do; body handles
- * borrow the executor's look and sit on their corner. A body handle takes one
+ * Inputs sit left and outputs (`[]`, `[source]` or `[success, failure]`) right,
+ * where a builtin's do, unless the spec moves them; body handles borrow the
+ * executor's look and sit where their `corner` says. A body handle takes one
  * edge unless it is `allowMultiple`, the same rule a builtin body handle has.
  */
 export function pluginHandleProps(spec: HandleSpec): Props[] {
@@ -17,13 +17,19 @@ export function pluginHandleProps(spec: HandleSpec): Props[] {
 			kind: "target" as const,
 			name,
 			label: name === "target" ? undefined : name,
+			position: spec.position?.[name],
 			deprecated: deprecated(name),
 		})),
-		...spec.out.map((name) => ({ kind: name, name, deprecated: deprecated(name) })),
+		...spec.out.map((name) => ({
+			kind: name,
+			name,
+			position: spec.position?.[name],
+			deprecated: deprecated(name),
+		})),
 		...spec.body.map(({ name, corner }) => ({
 			kind: "executor" as const,
 			name,
-			corner,
+			position: corner,
 			label: name,
 			maxConnections: isFanOutHandle(name, spec) ? null : 1,
 			deprecated: deprecated(name),

@@ -29,7 +29,7 @@ A plugin block looks like a built-in block:
 | Compact | A small square card |
 | Wide | A larger card, like the HTTP Request block |
 
-It can have an input on the left, one or more outputs on the right (for example **success** and **failure**), and **body connection points** on its corners. A body connection point lets you attach a branch of blocks that the plugin runs when it needs to, such as the steps inside a loop. When a body connection point accepts only one branch, it is full after one connection.
+By default it has an input on the left and one or more outputs on the right (for example **success** and **failure**), plus **body connection points** on its corners. The plugin author can move any of them to another side or corner, so a block may take its input from the top or leave by the bottom. A body connection point lets you attach a branch of blocks that the plugin runs when it needs to, such as the steps inside a loop. When a body connection point accepts only one branch, it is full after one connection.
 
 ## Settings
 

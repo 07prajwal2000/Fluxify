@@ -4,6 +4,23 @@ import { z } from "zod";
 export type BodyCorner = "top-left" | "top-right" | "bottom-left" | "bottom-right";
 
 /**
+ * Where a handle sits on its block. A side spreads its handles evenly along that
+ * edge; a corner stacks them from the corner, each with its name shown.
+ */
+export type HandlePosition = "left" | "right" | "top" | "bottom" | BodyCorner;
+
+const HANDLE_POSITIONS = [
+	"left",
+	"right",
+	"top",
+	"bottom",
+	"top-left",
+	"top-right",
+	"bottom-left",
+	"bottom-right",
+] as const;
+
+/**
  * A block type's handles as plain data (a plugin manifest, the engine's block
  * metadata). Every consumer — compiler, layout, save validation, AI gateway,
  * portal — resolves a block's handles from this, so none needs the block's code.
@@ -11,7 +28,12 @@ export type BodyCorner = "top-left" | "top-right" | "bottom-left" | "bottom-righ
 export type HandleSpec = {
 	in: string[];
 	out: [] | ["source"] | ["success", "failure"];
-	body: { name: string; corner: BodyCorner; allowMultiple?: boolean }[];
+	body: { name: string; corner: HandlePosition; allowMultiple?: boolean }[];
+	/**
+	 * handle name -> where it sits, for the `in` / `out` handles moved off their
+	 * default side (inputs left, outputs right). Body handles carry their own in `corner`.
+	 */
+	position?: Record<string, HandlePosition>;
 	/** handle name -> deprecation message, for the ones `deprecated(...)` marked */
 	deprecated?: Record<string, string>;
 };
@@ -31,12 +53,13 @@ export const handleSpecSchema = z
 			.array(
 				z.object({
 					name: handleName,
-					corner: z.enum(["top-left", "top-right", "bottom-left", "bottom-right"]),
+					corner: z.enum(HANDLE_POSITIONS),
 					allowMultiple: z.boolean().optional(),
 				}),
 			)
 			.default([]),
 		deprecated: z.record(z.string(), z.string().min(1)).optional(),
+		position: z.record(z.string(), z.enum(HANDLE_POSITIONS)).optional(),
 	})
 	.superRefine((spec, ctx) => {
 		const names = [...spec.in, ...spec.out, ...spec.body.map((b) => b.name)];
@@ -46,16 +69,29 @@ export const handleSpecSchema = z
 		const unknown = Object.keys(spec.deprecated ?? {}).filter((n) => !names.includes(n));
 		if (unknown.length)
 			ctx.addIssue({ code: "custom", message: `deprecated handles not declared: ${unknown}` });
+		const moved = Object.keys(spec.position ?? {}).filter(
+			(n) => ![...spec.in, ...spec.out].includes(n),
+		);
+		if (moved.length)
+			ctx.addIssue({
+				code: "custom",
+				message: `position set for handles that are not an input or output: ${moved}`,
+			});
 	});
 
-export type InHandle<N extends string = string> = { kind: "in"; name: N; deprecated?: string };
+export type InHandle<N extends string = string> = {
+	kind: "in";
+	name: N;
+	position?: HandlePosition;
+	deprecated?: string;
+};
 export type OutHandle<
 	N extends "source" | "success" | "failure" = "source" | "success" | "failure",
-> = { kind: "out"; name: N; deprecated?: string };
+> = { kind: "out"; name: N; position?: HandlePosition; deprecated?: string };
 export type BodyHandle<N extends string = string, M extends boolean = boolean> = {
 	kind: "body";
 	name: N;
-	corner: BodyCorner;
+	corner: HandlePosition;
 	allowMultiple: M;
 	deprecated?: string;
 };
@@ -74,10 +110,20 @@ export type Handles = {
 };
 
 export const handle = {
-	in: <const N extends string>(name: N): InHandle<N> => ({ kind: "in", name }),
-	out: <const N extends "source" | "success" | "failure">(name: N): OutHandle<N> => ({
+	/** An input; `position` moves it off the left edge. */
+	in: <const N extends string>(name: N, options?: { position?: HandlePosition }): InHandle<N> => ({
+		kind: "in",
+		name,
+		...(options?.position && { position: options.position }),
+	}),
+	/** An output; `position` moves it off the right edge. */
+	out: <const N extends "source" | "success" | "failure">(
+		name: N,
+		options?: { position?: HandlePosition },
+	): OutHandle<N> => ({
 		kind: "out",
 		name,
+		...(options?.position && { position: options.position }),
 	}),
 	/**
 	 * A handle that starts a nested chain the block runs with `executeHandle`.
@@ -85,7 +131,7 @@ export const handle = {
 	 */
 	body: <const N extends string, const M extends boolean = false>(
 		name: N,
-		corner: BodyCorner,
+		corner: HandlePosition,
 		options?: { allowMultiple?: M },
 	): BodyHandle<N, M> => ({
 		kind: "body",
@@ -103,6 +149,9 @@ export function toHandleSpec(handles: Handles | undefined): HandleSpec {
 	const deprecated = Object.fromEntries(
 		[...ins, ...outs, ...body].flatMap((h) => (h.deprecated ? [[h.name, h.deprecated]] : [])),
 	);
+	const position = Object.fromEntries(
+		[...ins, ...outs].flatMap((h) => (h.position ? [[h.name, h.position]] : [])),
+	);
 	return {
 		in: ins.map((h) => h.name),
 		out: outs.map((h) => h.name) as HandleSpec["out"],
@@ -112,5 +161,6 @@ export function toHandleSpec(handles: Handles | undefined): HandleSpec {
 			...(allowMultiple ? { allowMultiple } : {}),
 		})),
 		...(Object.keys(deprecated).length ? { deprecated } : {}),
+		...(Object.keys(position).length ? { position } : {}),
 	};
 }

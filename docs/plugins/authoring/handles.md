@@ -1,6 +1,6 @@
 ---
 title: Handles
-description: The inputs, outputs and nested-chain handles of a plugin block, how executeHandle runs a chain (one branch, several in parallel, late calls), and which invoke modes can combine with which handles.
+description: The inputs, outputs and nested-chain handles of a plugin block, where each one sits on the block, how executeHandle runs a chain (one branch, several in parallel, late calls), and which invoke modes can combine with which handles.
 ---
 
 # Handles
@@ -26,7 +26,7 @@ Leave `handles` out and the block gets one input, `target`, and one output, `sou
 
 ## Inputs
 
-`in` lists the input handles by name. The default is `[handle.in("target")]`, the usual single input on the left.
+`in` lists the input handles by name. The default is `[handle.in("target")]`, the usual single input on the left. Move one with [`position`](#position).
 
 ## Outputs
 
@@ -38,11 +38,40 @@ Leave `handles` out and the block gets one input, `target`, and one output, `sou
 | `[handle.out("source")]` | **One way on** (the default) | Connect one next block |
 | `[handle.out("success"), handle.out("failure")]` | **Branch** | Connect one block for each outcome |
 
-`run` picks the handle with `{ handle: "failure" }`, and the default is the first. A throw takes `failure` when the block has it ([errors](./blocks#errors)). A terminal block has no handle to return.
+Outputs sit on the right unless you give them a [`position`](#position). `run` picks the handle with `{ handle: "failure" }`, and the default is the first. A throw takes `failure` when the block has it ([errors](./blocks#errors)). A terminal block has no handle to return.
+
+## Position
+
+Every handle can sit anywhere on the block, so you can lay the block out to suit what it does. Inputs and outputs have a default side (inputs left, outputs right); pass `position` as the second argument to move one:
+
+```ts
+handles: {
+	in: [handle.in("target", { position: "top" })],
+	out: [
+		handle.out("success", { position: "right" }),
+		handle.out("failure", { position: "bottom" }),
+	],
+},
+```
+
+| Position | Where it sits |
+| :--- | :--- |
+| `left`, `right`, `top`, `bottom` | On that edge. Several handles on one edge are spaced evenly along it |
+| `top-left`, `top-right`, `bottom-left`, `bottom-right` | On that corner of the top or bottom edge. Several handles on one corner stack, each showing its name |
+
+A handle only changes place, never meaning: an input is still an input, `success` is still the success outcome, and the [shapes `out` may take](#outputs) are unchanged. Edges attach on the side the handle sits on, so the user sees the connection leave or enter from there.
+
+::: tip
+**Format** keeps blocks readable: a block hanging off a handle on the top or bottom edge is stacked above or below its parent, and the flow carries on to the right. Handles on the left or right behave like the usual next-block flow.
+:::
+
+::: info
+Positions need SDK version `2026.11.203` or newer. Set the manifest's `sdk` range to `>=2026.11.203` when you use them.
+:::
 
 ## Body handles
 
-A body handle starts a **nested chain**: blocks the user draws below or above your block that your code runs when it chooses. Loops and retries are built this way. You name it, place it on a corner, and run it with `executeHandle`:
+A body handle starts a **nested chain**: blocks the user draws below or above your block that your code runs when it chooses. Loops and retries are built this way. You name it, place it, and run it with `executeHandle`. Its second argument is a [position](#position), usually a corner:
 
 ```ts
 body: [
@@ -51,10 +80,11 @@ body: [
 ],
 ```
 
-| Corner | Where it sits |
+| Position | Where it sits |
 | :--- | :--- |
 | `top-left`, `bottom-left` | Above or below the block's icon, on the left |
 | `top-right`, `bottom-right` | The same, on the right |
+| `left`, `right`, `top`, `bottom` | Spread along that whole edge, like any other handle |
 
 Several handles on one corner stack. Names are plain identifiers (letters, digits and `_`, not starting with a digit) and must be unique across the block's inputs, outputs and body handles.
 
