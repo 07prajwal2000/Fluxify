@@ -19,19 +19,26 @@ times are covered there.
 
 ## Where a trigger runs
 
-A trigger runs in **every environment where its workflow is live**, and nowhere
-else. Every workflow has one **Enabled** switch per environment — **Development**
-and **Production** — and a trigger follows those switches:
+A trigger has its own switch for each environment, **On in production** and
+**On in development**, just like its workflow. It runs in an environment only
+when **both** the trigger and its workflow are switched on there:
 
-| The workflow is… | The trigger runs… |
-| :--- | :--- |
-| On in development, off in production | On the development worker, with your development values. |
-| On in both | On both workers, each with its own values. Production also needs a [promoted version](/concepts/versioning#what-production-serves) — with the switch on and nothing promoted, the workflow is not actually live there. |
-| Off everywhere | Nowhere. |
+| The trigger is… | The workflow is… | The trigger runs… |
+| :--- | :--- | :--- |
+| On in development | On in development | On the development worker, with your development values. |
+| On in production | On in production, with a [promoted version](/concepts/versioning#what-production-serves) | On the production worker, with your production values. |
+| On in both | On in both, with a promoted version | On both workers, each with its own values. |
+| On in one environment | Off in that environment | Nowhere in that environment. |
+| Off in both | Anything | Nowhere. |
 
-Turn the workflow's switch for an environment off and the trigger stops there;
-turn it back on and it starts again. The same is true of the trigger's own
-switch — off stops it in both environments. Nothing has to be restarted.
+Turn either switch off for an environment and the trigger stops there. Turn it
+back on and it starts again. The other environment is not affected, and nothing
+has to be restarted.
+
+The **Triggers** page shows a **Prod** chip and a **Dev** chip for each trigger.
+A chip is green when the trigger is switched on in that environment. A trigger
+that runs one of your sandboxes shows only **Dev**, because a sandbox runs on
+development only.
 
 ::: info One trigger, not two
 A trigger is a single thing, the same in both environments. It is not copied or
@@ -548,7 +555,7 @@ say what fires it, and choose the workflow it starts.
 
 A workflow's own **Settings → Triggers** tab shows what currently starts it. You
 can attach a trigger that is not yet attached to anything, detach one, or turn
-one on and off from there. A trigger that already starts another workflow has
+it on and off for each environment from there. A trigger that already starts another workflow has
 to be detached from that workflow first. **New trigger** opens the create form
 in a new tab so an unsaved canvas is not lost.
 
@@ -557,3 +564,6 @@ starts nothing until you attach one.
 
 Turning a trigger off stops it collecting events. Events already waiting stay
 where they are; nothing is lost, and nothing is read until you turn it back on.
+
+When Fluxify turns a trigger off itself, for example because its integration was
+deleted, it turns it off in both environments and shows the reason.

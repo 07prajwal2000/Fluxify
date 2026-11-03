@@ -7,7 +7,7 @@ description: Step by step tool calls that create a background workflow and a cro
 
 Goal: a workflow that runs every day at 02:30 UTC. Fields and rules are in the [Workflow reference](/agents/workflow) and the [Trigger reference](/agents/trigger).
 
-Three things must all be on before anything runs: the trigger is active, it has a workflow, and the workflow is on in the environment (`devActive` for development, on by default; `active` for production, off by default). Create them in this order so the schedule never starts a half-built workflow.
+Three things must all be on before anything runs: the trigger is on in the environment (`devActive` for development, `active` for production), it has a workflow, and the workflow is on in the environment (`devActive` for development, on by default; `active` for production, off by default). Create them in this order so the schedule never starts a half-built workflow.
 
 ## 1. Create the workflow
 
@@ -101,7 +101,7 @@ Call `list_triggers`:
 { "projectId": "<project id>", "workflowId": "<workflow id>" }
 ```
 
-Expect `active: true`, the workflow listed, and `disabledReason: null`.
+Expect `active: true`, `devActive: true`, the workflow listed, and `disabledReason: null`.
 
 ## 6. Watch the first run
 
@@ -150,7 +150,7 @@ A test suite runs the workflow directly, with an input you choose. The schedule 
 - A schedule is one run each time, never a batch. Set `payload` on the trigger to hand every run the same input. Otherwise the run has none.
 - A run that fails is retried a few times. Make the work safe to run twice.
 - After downtime, missed runs are dropped, except `@at`.
-- To pause the schedule use `save_trigger` with `active: false`. Turning it on again resumes from the next scheduled time.
+- To pause the schedule everywhere use `save_trigger` with `active: false` and `devActive: false`. Pass only one of them to pause it in one environment. Turning it on again resumes from the next scheduled time.
 - `delete_trigger` removes the schedule. The workflow stays.
 - Two workflows on the same clock need two triggers.
 
