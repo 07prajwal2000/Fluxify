@@ -72,6 +72,9 @@ afterAll(async () => {
 
 beforeEach(resetSink);
 
+// the trigger's own switches (#1072): on in both, so only the workflow's decide
+const TRIGGER_ON = { active: true, devActive: true };
+
 const trigger = (id: string) => ({
 	id,
 	projectId: WORKFLOW_PROJECT_ID,
@@ -99,7 +102,7 @@ describe("a schedule trigger and its workflow's switches", () => {
 			await syncSchedule(
 				trigger(TRIGGER),
 				{ active: false, devActive: true, prodVersionId: null },
-				true,
+				TRIGGER_ON,
 			);
 			expect(await scheduledIn("development", TRIGGER)).toBe(true);
 			expect(await scheduledIn("production", TRIGGER)).toBe(false);
@@ -111,7 +114,7 @@ describe("a schedule trigger and its workflow's switches", () => {
 			await syncSchedule(
 				trigger(TRIGGER),
 				{ active: false, devActive: false, prodVersionId: null },
-				true,
+				TRIGGER_ON,
 			);
 			expect(await scheduledIn("development", TRIGGER)).toBe(false);
 
@@ -132,7 +135,7 @@ describe("a schedule trigger and its workflow's switches", () => {
 			await syncSchedule(
 				trigger(TRIGGER_PROD),
 				{ active: true, devActive: false, prodVersionId: null },
-				true,
+				TRIGGER_ON,
 			);
 			expect(await scheduledIn("production", TRIGGER_PROD)).toBe(false);
 			expect(await scheduledIn("development", TRIGGER_PROD)).toBe(false);
@@ -143,7 +146,7 @@ describe("a schedule trigger and its workflow's switches", () => {
 			await syncSchedule(
 				trigger(TRIGGER_PROD),
 				{ active: true, devActive: false, prodVersionId: "v1" },
-				true,
+				TRIGGER_ON,
 			);
 			expect(await scheduledIn("production", TRIGGER_PROD)).toBe(true);
 			await waitForRuns("/collected", 1);
