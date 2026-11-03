@@ -109,6 +109,48 @@ export function base64ToBlob(text: string): Blob | null {
 	}
 }
 
+/** A placeholder value for one field: its default, else the type's zero value. */
+function sampleValue(property: Omit<ApiSchemaProperty, "key">): unknown {
+	if (property.default !== undefined) return property.default;
+	switch (property.dataType) {
+		case "str":
+			return "";
+		case "int":
+		case "float":
+			return 0;
+		case "bool":
+			return false;
+		case "arr":
+			return property.items ? [sampleValue(property.items)] : [];
+		case "enum": {
+			const values = property.rules?.find((rule) => rule.type === "values")?.value;
+			return Array.isArray(values) && values.length > 0 ? values[0] : "";
+		}
+		case "object":
+			return Object.fromEntries(
+				(property.properties ?? []).map((child) => [child.key, sampleValue(child)]),
+			);
+		default:
+			return null;
+	}
+}
+
+/**
+ * A JSON body shaped like the route's body schema (#1064), so the playground
+ * opens on the fields to fill in. Undefined when the schema declares nothing.
+ */
+export function sampleJsonBody(schema?: ApiSchema | null): string | undefined {
+	if (!schema) return undefined;
+	const { dataType } = schema;
+	if (dataType && dataType !== "object") {
+		if (dataType === "blob" || dataType === "file") return undefined;
+		return JSON.stringify(sampleValue({ dataType, rules: schema.rules }), null, 2);
+	}
+	const properties = schemaProperties(schema);
+	if (properties.length === 0) return undefined;
+	return JSON.stringify(sampleValue({ dataType: "object", properties }), null, 2);
+}
+
 export const emptyRequestBody = (raw = ""): ApiRequestBody => ({
 	raw,
 	form: {},

@@ -15,6 +15,8 @@ export type ApiSchemaProperty = {
 	properties?: ApiSchemaProperty[];
 	items?: ApiSchemaProperty;
 	rules?: ApiSchemaRule[];
+	/** Used when an optional field is missing from the request. */
+	default?: unknown;
 };
 
 /** Supports Fluxify validation schemas and standard JSON Schema property maps. */

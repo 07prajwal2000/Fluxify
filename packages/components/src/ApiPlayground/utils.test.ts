@@ -4,6 +4,7 @@ import {
 	formatResponseBody,
 	resolvePathRows,
 	resolveQueryRows,
+	sampleJsonBody,
 	serializeFormBody,
 	serializeRequestBody,
 } from "./utils";
@@ -113,5 +114,40 @@ describe("serializeRequestBody", () => {
 
 	it("sends raw text for JSON", () => {
 		expect(serializeRequestBody(emptyRequestBody('{"a":1}'), "application/json")).toBe('{"a":1}');
+	});
+});
+
+describe("sampleJsonBody", () => {
+	it("fills every declared field with its default or a zero value", () => {
+		const body = sampleJsonBody({
+			dataType: "object",
+			properties: [
+				{ key: "name", dataType: "str" },
+				{ key: "age", dataType: "int" },
+				{ key: "active", dataType: "bool", default: true },
+				{ key: "role", dataType: "enum", rules: [{ type: "values", value: ["admin", "user"] }] },
+				{ key: "tags", dataType: "arr", items: { key: "", dataType: "str" } },
+				{ key: "address", dataType: "object", properties: [{ key: "city", dataType: "str" }] },
+			],
+		});
+		expect(JSON.parse(body ?? "")).toEqual({
+			name: "",
+			age: 0,
+			active: true,
+			role: "admin",
+			tags: [""],
+			address: { city: "" },
+		});
+	});
+
+	it("returns undefined when the schema declares nothing to send", () => {
+		expect(sampleJsonBody(undefined)).toBeUndefined();
+		expect(sampleJsonBody({ dataType: "object", properties: [] })).toBeUndefined();
+		expect(sampleJsonBody({ dataType: "blob" })).toBeUndefined();
+	});
+
+	it("reads JSON Schema property maps", () => {
+		const body = sampleJsonBody({ properties: { id: { type: "int" } } });
+		expect(JSON.parse(body ?? "")).toEqual({ id: 0 });
 	});
 });
