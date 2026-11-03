@@ -40,6 +40,32 @@ describe("plugin block params: number bounds", () => {
 	});
 });
 
+describe("plugin block params: the rest of the rules", () => {
+	it("a save refuses a missing required param and an unknown integration, and takes a js: value", async () => {
+		const s = await setup();
+		await (await service()).registerPluginVersion(
+			s.project,
+			version(s.name, "sha-1", [
+				entry(`${s.name}/step`, {
+					permissions: { integrations: ["kv"] },
+					params: {
+						need: { type: "string", required: true },
+						store: { type: "integration", kind: "kv" },
+					},
+				}),
+			]),
+		);
+
+		const refused = await routeCalling(s, "success", { store: Bun.randomUUIDv7() });
+		expect(refused.saved.status).toBe(400);
+		expect(refused.saved.body.errors).toEqual([
+			{ field: expect.any(String), message: "Step: need: is required" },
+			{ field: expect.any(String), message: expect.stringContaining("Step: store: no integration ") },
+		]);
+		expect((await routeCalling(s, "success", { need: "js: input.x" })).saved.status).toBe(200);
+	});
+});
+
 describe("plugin block params: variants", () => {
 	it("a save refuses another variant, naming the block and the variants", async () => {
 		const s = await setup();

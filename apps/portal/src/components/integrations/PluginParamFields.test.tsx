@@ -84,3 +84,30 @@ test("read-only disables both fields", () => {
 		(ui.getByRole("button", { name: "Use app config value" }) as HTMLButtonElement).disabled,
 	).toBe(true);
 });
+
+test("what the server would refuse is said under the field, and the server's own refusal replaces it", () => {
+	const required = { host: { type: "string" as const, label: "Host", required: true } };
+	const view = render(
+		<PluginParamFields
+			projectId="p1"
+			variant="demo/uptime/check"
+			params={required}
+			names={["host"]}
+			config={{ host: "" }}
+			setField={mock()}
+		/>,
+	);
+	expect(within(document.body).getByRole("alert").textContent).toBe("Host is required");
+	view.rerender(
+		<PluginParamFields
+			projectId="p1"
+			variant="demo/uptime/check"
+			params={required}
+			names={["host"]}
+			config={{ host: "" }}
+			setField={mock()}
+			errors={{ host: "host is down" }}
+		/>,
+	);
+	expect(within(document.body).getByRole("alert").textContent).toBe("host is down");
+});

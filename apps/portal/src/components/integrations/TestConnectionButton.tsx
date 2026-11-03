@@ -24,8 +24,10 @@ export function TestConnectionButton({
 	onPress,
 	onCancel,
 	children = "Test connection",
+	isDisabled,
 }: {
 	isPending: boolean;
+	isDisabled?: boolean;
 	onPress: () => void;
 	onCancel: () => void;
 	children?: ReactNode;
@@ -36,6 +38,7 @@ export function TestConnectionButton({
 				variant="outline"
 				size="sm"
 				isPending={isPending}
+				isDisabled={isDisabled}
 				onPress={onPress}
 				className="whitespace-nowrap"
 			>

@@ -41,7 +41,7 @@ const params = (block: any) =>
 		.filter(([, p]) => p.type !== "hint")
 		.map(
 			([name, p]) =>
-				`- ${name}: ${p.type}${p.required ? " (required)" : ""}${p.options ? ` one of ${p.options.join(", ")}` : ""}${p.kind ? ` (a ${p.kind} integration id)` : ""}${SHAPE[p.type] ? ` (${SHAPE[p.type]})` : ""}${bounds(p) ? ` (${bounds(p)} items)` : ""}${p.default !== undefined ? `, default ${JSON.stringify(p.default)}` : ""}${p.description ? `. ${p.description}` : ""}`,
+				`- ${name}: ${p.type}${p.required ? " (required)" : ""}${p.options ? ` one of ${p.options.join(", ")}` : ""}${p.kind ? ` (a ${p.kind} integration id)` : ""}${SHAPE[p.type] ? ` (${SHAPE[p.type]})` : ""}${bounds(p) ? ` (${bounds(p)} items)` : ""}${p.minLength !== undefined ? ` (at least ${p.minLength} characters)` : ""}${p.pattern ? ` (must match /${p.pattern}/)` : ""}${p.default !== undefined ? `, default ${JSON.stringify(p.default)}` : ""}${p.description ? `. ${p.description}` : ""}`,
 		);
 
 function contract(plugin: Plugin, type: string, block: any) {

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { TbKey } from "react-icons/tb";
 import { CanvasChangesProvider, DISABLED_CHANGES } from "../canvas/changes/ChangesContext";
 import {
+	ParamProblem,
 	PluginArrayField,
 	PluginFieldMapField,
 	PluginHint,
@@ -17,6 +18,7 @@ import {
 	PluginNumberField,
 	PluginSchemaField,
 } from "../canvas/panel/blocks/pluginFields";
+import { pluginParamProblems } from "../canvas/panel/blocks/pluginParamProblems";
 import {
 	BlockCheckboxField,
 	BlockIntegrationField,
@@ -182,6 +184,7 @@ function ParamField({
 	}
 }
 
+/** a param's field with what is wrong with its value under it, or a hint's callout */
 function Item({
 	block,
 	name,
@@ -189,6 +192,7 @@ function Item({
 	projectId,
 	setField,
 	readOnly,
+	problem,
 }: {
 	block: BlockNode;
 	name: string;
@@ -196,18 +200,21 @@ function Item({
 	projectId: string;
 	setField: (name: string, value: unknown) => void;
 	readOnly?: boolean;
+	problem?: string;
 }) {
-	return param.type === "hint" ? (
-		<PluginHint hint={param} />
-	) : (
-		<ParamField
-			block={block}
-			name={name}
-			param={param as any}
-			projectId={projectId}
-			setField={setField}
-			readOnly={readOnly}
-		/>
+	if (param.type === "hint") return <PluginHint hint={param} />;
+	return (
+		<div className="flex w-full flex-col gap-1">
+			<ParamField
+				block={block}
+				name={name}
+				param={param as any}
+				projectId={projectId}
+				setField={setField}
+				readOnly={readOnly}
+			/>
+			{problem && <ParamProblem message={problem} />}
+		</div>
 	);
 }
 
@@ -309,6 +316,7 @@ export function PluginIntegrationFormInner({
 	const selected = tabs.find((t) => t.name === picked)?.name ?? tabs[0]!.name;
 	if (picked !== undefined && picked !== selected) setPicked(undefined);
 
+	const problems = pluginParamProblems(params, config);
 	const panel = (items: string[]) => (
 		<div className="flex w-full flex-col gap-4">
 			{items.map((itemName) => (
@@ -320,6 +328,7 @@ export function PluginIntegrationFormInner({
 					projectId={projectId}
 					setField={setField}
 					readOnly={readOnly}
+					problem={problems[itemName]}
 				/>
 			))}
 		</div>
@@ -368,7 +377,7 @@ export type PluginParamFieldsProps = {
 	config: Record<string, unknown>;
 	setField: (name: string, value: unknown) => void;
 	readOnly?: boolean;
-	/** the server's refusal, by param name, shown under its field */
+	/** the server's refusal, by param name, shown under its field instead of the editor's own */
 	errors?: Record<string, string>;
 };
 
@@ -396,6 +405,7 @@ export function PluginParamFields({
 		() => [{ id: nodeId, type: variant, position: { x: 0, y: 0 }, data: config }],
 		[variant],
 	);
+	const problems = pluginParamProblems(params, config);
 
 	return (
 		<CanvasChangesProvider value={{ ...DISABLED_CHANGES, enabled: !readOnly }}>
@@ -406,21 +416,16 @@ export function PluginParamFields({
 						const param = params[itemName];
 						if (!param) return null;
 						return (
-							<div key={itemName} className="flex w-full flex-col gap-1">
-								<Item
-									block={block}
-									name={itemName}
-									param={param}
-									projectId={projectId}
-									setField={setField}
-									readOnly={readOnly}
-								/>
-								{errors?.[itemName] && (
-									<p role="alert" className="text-xs text-danger">
-										{errors[itemName]}
-									</p>
-								)}
-							</div>
+							<Item
+								key={itemName}
+								block={block}
+								name={itemName}
+								param={param}
+								projectId={projectId}
+								setField={setField}
+								readOnly={readOnly}
+								problem={errors?.[itemName] ?? problems[itemName]}
+							/>
 						);
 					})}
 				</div>

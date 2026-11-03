@@ -16,6 +16,7 @@ import {
 import { integrationParamPicker } from "../integrationField";
 import { PluginAppConfigParam } from "./pluginAppConfigField";
 import {
+	ParamProblem,
 	PluginArrayField,
 	PluginFieldMapField,
 	PluginHint,
@@ -28,6 +29,7 @@ import {
 	PluginNumberField,
 	PluginSchemaField,
 } from "./pluginFields";
+import { pluginParamProblems } from "./pluginParamProblems";
 
 type ValueParam = Exclude<Param, HintParam>;
 
@@ -92,12 +94,17 @@ function ParamField({ block, name, param }: { block: BlockNode; name: string; pa
 	}
 }
 
-/** a param's field, or a hint's callout */
+/** a param's field with what is wrong with its value, or a hint's callout */
 export function Item({ block, name, param }: { block: BlockNode; name: string; param: Param }) {
-	return param.type === "hint" ? (
-		<PluginHint hint={param} />
-	) : (
-		<ParamField block={block} name={name} param={param} />
+	const def = usePluginBlocks().byType[block.type ?? ""];
+	if (param.type === "hint") return <PluginHint hint={param} />;
+	const problem =
+		def && pluginParamProblems(def.entry.params as Record<string, Param>, block.data)[name];
+	return (
+		<div className="flex w-full flex-col gap-1">
+			<ParamField block={block} name={name} param={param} />
+			{problem && <ParamProblem message={problem} />}
+		</div>
 	);
 }
 

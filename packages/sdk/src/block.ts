@@ -2,9 +2,19 @@ import { z } from "zod";
 import type { BlockContext } from "./context.js";
 import { type BodyHandle, type Handles, type OutHandle, toHandleSpec } from "./handles.js";
 import { type ManifestEntry, manifestEntrySchema } from "./manifest.js";
-import { type CheckWhen, numberParamProblem, type Params, type ParamValues } from "./params.js";
+import {
+	type CheckWhen,
+	type HintParam,
+	isJsExpression,
+	numberParamProblem,
+	type Param,
+	type Params,
+	type ParamValues,
+	stringParamProblem,
+} from "./params.js";
 import { INVOKE_MODES, type InvokeMode } from "./reserved.js";
 import { GENERAL_TAB, paramTabs } from "./tabs.js";
+import { isVisible } from "./visible.js";
 
 export type BodyOf<H> = H extends { body: readonly (infer B)[] } ? B : never;
 export type MultiName<B> =
@@ -143,7 +153,6 @@ export function toManifestEntry(def: BlockDefinition<Params, Handles>): Manifest
 
 /** the `typeof` a present value of these param types must have */
 const TYPEOF: Partial<Record<string, string>> = {
-	string: "string",
 	number: "number",
 	boolean: "boolean",
 	integration: "string",
@@ -177,8 +186,12 @@ function collectionMisfit(p: Params[string], value: unknown) {
 		return `takes at most ${p.max} items, got ${value.length}`;
 }
 
-/** why a present value does not fit its param, or undefined when it does */
-function misfit(p: Params[string], value: unknown) {
+/**
+ * Why a present value does not fit its param, or undefined when it does.
+ * `stored` is a value as the editor saves it, not as `run` gets it: a `schema`
+ * is then its definition, not yet compiled.
+ */
+function misfit(p: Params[string], value: unknown, stored: boolean) {
 	if (p.type === "select" && !p.options.includes(value as string))
 		return `must be one of ${p.options.join(", ")}, got ${JSON.stringify(value)}`;
 	const type = TYPEOF[p.type];
@@ -188,9 +201,22 @@ function misfit(p: Params[string], value: unknown) {
 		if (problem) return problem;
 	}
 	if (p.type === "conditions" && !Array.isArray(value)) return "must be an array of conditions";
-	if (p.type === "schema" && !(typeof value === "object" && value !== null && "zod" in value))
+	if (p.type === "schema" && stored && !isObject(value)) return "must be a schema definition";
+	if (p.type === "schema" && !stored && !(isObject(value) && "zod" in value))
 		return "must be a compiled schema { zod, schema } (in a test, pass both)";
 	return collectionMisfit(p, value);
+}
+
+/**
+ * A param's problem with this value (defaults applied), or undefined. A `string`
+ * param takes any value, `run` gets it as text: that text is held to its
+ * `minLength` and `pattern`, unless it is blank (`required` is for that).
+ */
+function paramProblem(p: Exclude<Param, HintParam>, value: unknown, stored: boolean) {
+	if (value === undefined || value === null) return p.required ? "is required" : undefined;
+	if (p.type !== "string") return misfit(p, value, stored);
+	const text = asString(value);
+	return text.trim() ? stringParamProblem(p, text) : undefined;
 }
 
 /** what a `string` param's `js:` expression produced, as the string `run` is promised */
@@ -221,18 +247,60 @@ export function prepareParams(params: Params, values: Record<string, unknown> = 
 		if (p.type === "schema" && out[name] === null) delete out[name];
 		if (out[name] === undefined && "default" in p) out[name] = p.default;
 		const value = out[name];
-		if (value === undefined || value === null) {
-			if (p.required) throw new Error(`param '${name}' is required`);
-			continue;
-		}
+		const wrong = paramProblem(p, value, false);
+		if (wrong) throw new Error(`param '${name}' ${wrong}`);
+		if (value === undefined || value === null) continue;
 		if (p.type === "string") out[name] = asString(value);
 		// the picker stores `cfg:<KEY>`, older saves a bare key: the block gets the key either way
 		if (p.type === "appconfig" && typeof value === "string")
 			out[name] = value.startsWith("cfg:") ? value.slice(4) : value;
-		const wrong = misfit(p, out[name]);
-		if (wrong) throw new Error(`param '${name}' ${wrong}`);
 	}
 	return out;
+}
+
+/** nothing typed: a blank string, no items, no rows */
+const isBlank = (v: unknown) =>
+	v === undefined ||
+	v === null ||
+	(typeof v === "string" && !v.trim()) ||
+	(Array.isArray(v) && !v.length) ||
+	(isObject(v) && !Object.keys(v).length);
+
+/**
+ * The params that count for `values` as the editor saves them: not a hint, not
+ * hidden by `visibleWhen` (a hidden param keeps its stale value, unchecked).
+ * `values` has the defaults filled in, as `prepareParams` does.
+ */
+export function activeParams(params: Params, values: Record<string, unknown> = {}) {
+	const filled = { ...values };
+	for (const [name, p] of Object.entries(params))
+		if (p.type !== "hint" && filled[name] === undefined && "default" in p) filled[name] = p.default;
+	const names = Object.keys(params).filter((name) => {
+		const p = params[name]!;
+		return p.type !== "hint" && (!p.visibleWhen || isVisible(p.visibleWhen, filled));
+	});
+	return { values: filled, names };
+}
+
+/**
+ * What is wrong with `values` as the editor saves them, by param name (the
+ * first problem of each): the rules `prepareParams` runs `run` by, applied
+ * before the run. A `js:` value only exists when the block runs, so it is
+ * skipped, as is a hidden param (`activeParams`). A blank value fails
+ * `required`, as the settings forms count it. Pure, so the editor and the
+ * server give the same answer.
+ */
+export function paramProblems(params: Params, stored: Record<string, unknown> = {}) {
+	const { values, names } = activeParams(params, stored);
+	const problems: Record<string, string> = {};
+	for (const name of names) {
+		const p = params[name] as Exclude<Param, HintParam>;
+		const value = values[name];
+		if (isJsExpression(value)) continue;
+		const problem = p.required && isBlank(value) ? "is required" : paramProblem(p, value, true);
+		if (problem) problems[name] = problem;
+	}
+	return problems;
 }
 
 /**

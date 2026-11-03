@@ -1,5 +1,6 @@
 import { GENERAL_TAB } from "@fluxify/sdk";
 import type { Param } from "@fluxify/sdk/blocks";
+import { pluginParamProblems } from "@/components/canvas/panel/blocks/pluginParamProblems";
 import { type PluginParamTab, pluginParamTabs } from "@/components/integrations/pluginParamTabs";
 import { PluginTriggerIcon } from "@/components/settings/plugins/pluginBlockIcon";
 import type { TriggerSourceOption } from "@/components/triggers/triggerForm";
@@ -42,12 +43,6 @@ export function pluginTriggerSteps(
 	}));
 }
 
-/** The value a param counts as for `required`: its own, else its default (the runtime fills those). */
-function effectiveValue(param: Param, values: Record<string, unknown>, name: string) {
-	if (values[name] !== undefined && values[name] !== null) return values[name];
-	return "default" in param ? param.default : undefined;
-}
-
 const filled = (value: unknown) => {
 	if (value === undefined || value === null) return false;
 	if (typeof value === "string") return value.trim().length > 0;
@@ -56,17 +51,18 @@ const filled = (value: unknown) => {
 	return true;
 };
 
-/** The required params of one step with nothing in them; the step's Next stays disabled. */
-export function missingRequired(
+/**
+ * The params of one step the server would refuse (a required one with nothing
+ * in it, a wrong type, a bad bound, ...), by the rules the SDK holds; the
+ * step's Next stays disabled while there are any.
+ */
+export function stepProblems(
 	params: Record<string, Param>,
 	names: string[],
 	values: Record<string, unknown>,
 ): string[] {
-	return names.filter((name) => {
-		const param = params[name];
-		if (!param || param.type === "hint" || !param.required) return false;
-		return !filled(effectiveValue(param, values, name));
-	});
+	const problems = pluginParamProblems(params, values);
+	return names.filter((name) => name in problems);
 }
 
 /**

@@ -7,7 +7,7 @@ import { ValidationError } from "../../../errors/validationError";
 import type { FluxifyEnv } from "../../../lib/env";
 import type { PluginTriggerArtifact } from "../../../modules/compiler/artifacts";
 import { isUsableIn, liveOf } from "../../../modules/plugins/meta";
-import { integrationParamProblem, projectIntegration } from "../../../modules/plugins/paramCheck";
+import { integrationValueProblem } from "../../../modules/plugins/paramCheck";
 import { listPluginRows } from "../../../modules/plugins/repository";
 import { findTriggerKind } from "../../../modules/plugins/triggerKinds";
 import { isPluginTriggerType, pluginTriggerKind } from "../../../modules/triggers/types";
@@ -76,11 +76,8 @@ async function paramErrors(
 		}
 		const value = source[name];
 		if (param.type !== "integration" || typeof value !== "string") continue;
-		const found = await projectIntegration(value, projectId, tx);
 		const owner = { label: `trigger ${entry.name}`, granted: entry.permissions.integrations ?? [] };
-		const message = found
-			? integrationParamProblem(owner, param, found)
-			: `no integration ${value} in this project`;
+		const message = await integrationValueProblem(owner, param, value, projectId, tx);
 		if (message) errors.push({ field, message });
 	}
 	return errors;

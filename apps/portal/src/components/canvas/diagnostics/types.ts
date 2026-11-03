@@ -7,6 +7,7 @@ const SOURCE_LABELS: Record<string, string> = {
 	"transaction-wiring":
 		"Transaction check: rollbacks stay inside, success/failure paths stay outside",
 	"block-config": "Settings check: wired blocks must be filled in",
+	"plugin-params": "Plugin settings check: a block's settings must be ones the server accepts",
 	"literal-expression": "Text check: a value is plain text unless it starts with js:",
 	"variable-flow": "Variable check: a variable must be set before a block reads it",
 	"runtime-error": "Test run: the block failed when the route ran",

@@ -30,7 +30,7 @@ A param with `required: true` or a `default` is always there, so its type has no
 
 | Type | The user sees | `run` receives | Extra options |
 | :--- | :--- | :--- | :--- |
-| `string` | A one-line text box that accepts `js:` expressions | `string` | |
+| `string` | A one-line text box that accepts `js:` expressions | `string` | `minLength`, `pattern` |
 | `number` | A number box | `number` | `min`, `max`, `integer` |
 | `boolean` | A checkbox | `boolean` | |
 | `select` | A dropdown | One of the `options`, typed as that union | `options` (required) |
@@ -70,6 +70,22 @@ The user can type a JavaScript expression instead of a plain value by starting i
 
 A `string` param always arrives as a string: if the expression returns an object it arrives as JSON text, and any other type is converted with `String()`. Use `js` or `json` when you want the value as it is.
 
+## When a value is checked
+
+Fluxify checks a param's value twice: when the user saves the block, and again when the block runs.
+
+- **On save**, the editor shows what is wrong under the field and will not save the canvas until it is fixed. The server runs the same check, so a canvas sent through the API is refused too. It covers `required`, the value's type, a `select` value that is not one of the options, `min`, `max` and `integer` on numbers, `min` and `max` on arrays, `minLength` and `pattern` on text, and empty or repeated keys in a `keyValue`. A `required` param left blank (empty text, an empty list, no rows) counts as missing. An `integration` param must name an integration of the project that fits its `kind` and `variants`.
+- **When the block runs**, `run` is only called once every param passes the same rules. A `js:` value is checked here, on its result.
+
+A few values are not checked on save:
+
+- **`js:` values.** They are expressions that only have a result when the block runs, so a number field holding `js:input.count` is not checked against `min` or `max` until then, and a text field holding `js:input.name` is not checked against `minLength` or `pattern`. An array or key-value list still counts every item, whether or not an item is a `js:` expression.
+- **Params hidden by `visibleWhen`.** A hidden param keeps whatever it held, and is not checked on save.
+
+::: warning
+When the block runs, a `required` param without a default is still required even if `visibleWhen` hides it. Give a param that is only sometimes shown a `default`, or leave it optional.
+:::
+
 ## Examples
 
 ### string, number, boolean, select
@@ -85,9 +101,25 @@ params: {
 
 `select` options must be unique, and `default` must be one of them. `params.mode` is typed `"simple" | "advanced"`.
 
+### string length and pattern
+
+`minLength` is the fewest characters a text value may have. `pattern` is a regular expression, written as a string (not `/.../`), that the value must match. It matches anywhere in the value unless you anchor it with `^` and `$`.
+
+```ts
+params: {
+	slug: param.string({ label: "Slug", minLength: 3, pattern: "^[a-z0-9-]+$" }),
+},
+```
+
+- An empty text box is not checked, so the rules only apply once the user has typed something. Use `required` to insist on a value.
+- A number typed into the box is checked as the text it reads as, so `"12345"` matches `^[0-9]+$`.
+- A pattern that is not a valid regular expression, or a `default` that breaks the rules, fails the build.
+- The same check runs before `run`: `param 'slug' must be at least 3 characters, got 2` or `param 'slug' must match ^[a-z0-9-]+$`.
+- Keep the pattern simple. It runs on whatever the user types, so a pattern that backtracks heavily can make saving slow.
+
 ### number bounds
 
-`min` and `max` are inclusive limits on a `number` param, and `integer: true` accepts whole numbers only. The settings panel sets the input's limits from them and refuses a value outside them, so a typo is caught while the user saves rather than when the block runs.
+`min` and `max` are inclusive limits on a `number` param, and `integer: true` accepts whole numbers only. The settings panel sets the input's limits from them and flags a value outside them under the field, so a typo is caught when the user saves rather than when the block runs.
 
 ```ts
 params: {

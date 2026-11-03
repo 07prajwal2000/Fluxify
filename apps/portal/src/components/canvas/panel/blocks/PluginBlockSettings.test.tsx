@@ -148,17 +148,37 @@ test("a string and a number save under the param name, the number as a number", 
 	expect(nodes[0]?.data.retries).toBe(3);
 });
 
-test("a number param carries its bounds, and refuses a value outside them", () => {
-	const { getByLabelText } = setup();
+test("a number param carries its bounds, and says so under the field for a value outside them", () => {
+	const { getByLabelText, queryByText, getByText } = setup();
 	const retries = getByLabelText("Retries") as HTMLInputElement;
 	expect([retries.type, retries.min, retries.max, retries.step]).toEqual(["number", "1", "5", "1"]);
 	fireEvent.change(retries, { target: { value: "9" } });
 	fireEvent.blur(retries);
-	expect(nodes[0]?.data.retries).toBeUndefined();
-	expect(retries.value).toBe("");
+	expect(nodes[0]?.data.retries).toBe(9);
+	expect(getByText("Retries must be at most 5, got 9")).toBeDefined();
 	fireEvent.change(retries, { target: { value: "4" } });
 	fireEvent.blur(retries);
 	expect(nodes[0]?.data.retries).toBe(4);
+	expect(queryByText(/Retries must be/)).toBeNull();
+});
+
+test("a required param with nothing in it says so under its field, until it is filled", () => {
+	const { getByLabelText, getByText, queryByText } = setup();
+	expect(getByText("Channel is required")).toBeDefined();
+	const channel = getByLabelText("Channel *") as HTMLInputElement;
+	fireEvent.change(channel, { target: { value: "#ops" } });
+	fireEvent.blur(channel);
+	expect(queryByText("Channel is required")).toBeNull();
+});
+
+test("a js: value and a param visibleWhen hides are not checked", () => {
+	const { queryByText } = setup({
+		data: { channel: "js: input.channel", retries: "js: 99", tuning: "", mode: "simple" },
+		over: {
+			params: { ...params, tuning: { ...params.tuning, required: true } },
+		},
+	});
+	expect(queryByText(/is required|must be/)).toBeNull();
 });
 
 test("a boolean saves as a boolean", () => {
@@ -239,4 +259,20 @@ test("the docs tab renders the manifest docs and the plugin link; no docs is jus
 	const bare = at();
 	expect(bare.getByText("Plugin homepage")).toBeDefined();
 	expect(bare.queryByText("No docs found.")).toBeNull();
+});
+
+test("a string param holds to its minLength and pattern, and says so under the field", () => {
+	const { getByLabelText, getByText, queryByText } = setup({
+		over: {
+			params: { slug: { type: "string", label: "Slug", minLength: 3, pattern: "^[a-z]+$" } },
+		},
+	});
+	const slug = getByLabelText("Slug") as HTMLInputElement;
+	expect(queryByText(/Slug must/)).toBeNull();
+	fireEvent.change(slug, { target: { value: "ab" } });
+	expect(getByText("Slug must be at least 3 characters, got 2")).toBeDefined();
+	fireEvent.change(slug, { target: { value: "ABC" } });
+	expect(getByText("Slug must match ^[a-z]+$")).toBeDefined();
+	fireEvent.change(slug, { target: { value: "abc" } });
+	expect(queryByText(/Slug must/)).toBeNull();
 });

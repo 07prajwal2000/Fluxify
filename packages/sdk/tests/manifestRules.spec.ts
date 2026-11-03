@@ -93,3 +93,24 @@ describe("fluxifyManifestSchema applies each entry's rules", () => {
 		]);
 	});
 });
+
+describe("string param rules in a manifest", () => {
+	const parse = (p: object) =>
+		fluxifyManifestSchema.safeParse({ ...base, blocks: block({ params: { s: { type: "string", ...p } } }) });
+
+	it("takes minLength and pattern, on blocks, triggers and integrations alike", () => {
+		expect(parse({ minLength: 2, pattern: "^a" }).success).toBe(true);
+		const s = { type: "string", minLength: 2, pattern: "^a" };
+		expect(problems({ triggers: [trigger({ params: { s } })] })).toEqual([]);
+		expect(problems({ integrations: [integration({ configSchema: { s } })] })).toEqual([]);
+	});
+
+	it("refuses a bad minLength or a pattern that does not compile", () => {
+		expect(parse({ minLength: -1 }).success).toBe(false);
+		expect(parse({ minLength: 1.5 }).success).toBe(false);
+		expect(parse({ pattern: "" }).success).toBe(false);
+		const bad = parse({ pattern: "(" });
+		expect(bad.success).toBe(false);
+		expect(JSON.stringify(bad.error?.issues)).toContain("not a regular expression");
+	});
+});

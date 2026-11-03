@@ -20,6 +20,7 @@ import {
 	isConfigEmpty,
 } from "@/components/integrations/EnvironmentIntegrationFields";
 import { IntegrationVariantIcon } from "@/components/integrations/IntegrationVariantIcon";
+import { pluginConfigInvalid } from "@/components/integrations/pluginConfigProblems";
 import { showTestResult } from "@/components/integrations/showTestResult";
 import { TestConnectionButton, useTestAbort } from "@/components/integrations/TestConnectionButton";
 import { parseApiError, showErrorNotification } from "@/lib/errorNotifier";
@@ -195,6 +196,12 @@ function IntegrationDetailsPage() {
 	}
 
 	const canWrite = group === "mcp" ? isAdmin : canEdit;
+	const invalid = pluginConfigInvalid(
+		catalog.variantMeta(group, variant),
+		config,
+		devConfig,
+		syncDev,
+	);
 
 	return (
 		<div className="mx-auto flex h-full w-full max-w-4xl flex-col gap-5">
@@ -274,6 +281,7 @@ function IntegrationDetailsPage() {
 					{/* a test's result is a toast (stacked, #690), so it is not repeated here */}
 					<div className="flex items-center gap-2">
 						<TestConnectionButton
+							isDisabled={invalid}
 							isPending={test.isPending || testSaved.isPending}
 							onPress={testConnection}
 							onCancel={() => {
@@ -295,7 +303,13 @@ function IntegrationDetailsPage() {
 							</TestConnectionButton>
 						)}
 						{canWrite && (
-							<Button variant="primary" size="sm" isPending={update.isPending} onPress={save}>
+							<Button
+								variant="primary"
+								size="sm"
+								isPending={update.isPending}
+								isDisabled={invalid}
+								onPress={save}
+							>
 								Save changes
 							</Button>
 						)}

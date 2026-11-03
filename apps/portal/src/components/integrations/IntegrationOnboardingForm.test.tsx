@@ -211,3 +211,48 @@ test("IntegrationOnboardingForm renders Name field for plugin variant and sends 
 		);
 	});
 });
+
+test("IntegrationOnboardingForm keeps Connect disabled while a required param is empty, and says why", async () => {
+	const variants = [
+		{
+			group: "demo/email",
+			label: "Email",
+			builtIn: false,
+			variants: [
+				{
+					variant: "smtp",
+					label: "SMTP",
+					builtIn: false,
+					plugin: { id: "pl-1", name: "demo/toolkit", namespace: "demo" },
+					params: { host: { type: "string", label: "Host", required: true } },
+				},
+			],
+		},
+	] as unknown as Awaited<ReturnType<typeof integrationService.getVariants>>;
+	spyOn(integrationService, "getVariants").mockResolvedValue(variants);
+	const qc = new QueryClient({
+		defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+	});
+	qc.setQueryData(["integration-variants", "p1"], variants);
+
+	wrap(
+		<IntegrationOnboardingForm
+			projectId="p1"
+			group="demo/email"
+			variant="smtp"
+			onSelect={() => {}}
+			onSaved={() => {}}
+		/>,
+		qc,
+	);
+
+	const connect = await waitFor(() =>
+		within(document.body).getByRole("button", { name: /Connect smtp/i }),
+	);
+	expect((connect as HTMLButtonElement).disabled).toBe(true);
+	expect(within(document.body).getByText("Host is required")).toBeTruthy();
+	const host = within(document.body).getAllByLabelText(/Host/)[0]!;
+	await act(async () => void fireEvent.change(host, { target: { value: "smtp.example.com" } }));
+	await waitFor(() => expect((connect as HTMLButtonElement).disabled).toBe(false));
+	expect(within(document.body).queryByText("Host is required")).toBeNull();
+});

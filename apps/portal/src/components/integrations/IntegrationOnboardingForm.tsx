@@ -16,6 +16,7 @@ import {
 	StepNav,
 } from "./IntegrationOnboardingSteps";
 import { IntegrationVariantIcon } from "./IntegrationVariantIcon";
+import { pluginConfigInvalid } from "./pluginConfigProblems";
 import { showTestResult } from "./showTestResult";
 import { TestConnectionButton, useTestAbort } from "./TestConnectionButton";
 
@@ -195,6 +196,12 @@ export function IntegrationOnboardingForm({
 	}
 
 	const groupName = group ? labelOf(group) : "";
+	const invalid = pluginConfigInvalid(
+		catalog.variantMeta(group, variant),
+		config,
+		devConfig,
+		syncDev,
+	);
 	// until the list arrives every group reads as unknown, which would flash step 1
 	if (!loaded) return null;
 
@@ -308,6 +315,7 @@ export function IntegrationOnboardingForm({
 				{step === 3 && (
 					<div className="flex items-center gap-2">
 						<TestConnectionButton
+							isDisabled={invalid}
 							isPending={test.isPending}
 							onPress={testIntegration}
 							onCancel={() => {
@@ -319,7 +327,7 @@ export function IntegrationOnboardingForm({
 							variant="primary"
 							size="sm"
 							isPending={create.isPending}
-							isDisabled={group === "mcp" && !isAdmin}
+							isDisabled={(group === "mcp" && !isAdmin) || invalid}
 							onPress={saveIntegration}
 						>
 							Connect {variant}

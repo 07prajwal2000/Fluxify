@@ -8,7 +8,6 @@ import {
 	TextField,
 	type ValidationSchema,
 } from "@fluxify/components";
-import { numberParamProblem } from "@fluxify/sdk/blocks";
 import { useReactFlow } from "@xyflow/react";
 import { useEffect, useState } from "react";
 import { useCanvasChanges } from "../../changes/ChangesContext";
@@ -35,11 +34,8 @@ export function PluginNumberField({ blockId, data, name, label, hint, min, max, 
 	useEffect(() => setText(stored), [stored]);
 	const commit = () => {
 		const next = text.trim() === "" ? undefined : Number(text);
-		if (
-			next !== undefined &&
-			(!Number.isFinite(next) || numberParamProblem({ min, max, integer }, next))
-		)
-			return setText(stored);
+		// out of bounds is kept: the field says so and the save is refused, not silently reverted
+		if (next !== undefined && !Number.isFinite(next)) return setText(stored);
 		if (String(next ?? "") !== stored) updateNodeData(blockId, { [name]: next });
 	};
 	return (

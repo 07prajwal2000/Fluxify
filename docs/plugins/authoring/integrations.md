@@ -79,7 +79,7 @@ The variant's name and group become its **kind**, written `group/variant` (`kv/R
 
 | Type | What the user sees |
 | :--- | :--- |
-| `string` | A one-line text box |
+| `string` | A one-line text box. Takes `minLength` and `pattern` ([Params](./params#string-length-and-pattern)) |
 | `number` | A number box |
 | `boolean` | A checkbox |
 | `select` | A dropdown, with `options` |

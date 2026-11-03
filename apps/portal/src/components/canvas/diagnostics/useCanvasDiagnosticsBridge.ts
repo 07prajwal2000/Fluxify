@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import { flowToGraph } from "../adapters";
 import { DIAGNOSTICS_TAB } from "../panel/BlockSettings";
 import type { CanvasPanel } from "../panel/useBlockPanel";
+import { usePluginBlocks } from "../plugins/PluginBlocksContext";
 import type { BlockEdge, BlockNode } from "../types";
 import { BLOCK_CONFIG_SOURCE, validateBlockConfigs } from "./blockConfigValidator";
 import { CYCLE_DETECTION_SOURCE, validateCycles } from "./cycleValidator";
@@ -11,6 +12,7 @@ import {
 	LITERAL_EXPRESSION_SOURCE,
 	validateLiteralExpressions,
 } from "./literalExpressionValidator";
+import { PLUGIN_PARAMS_SOURCE, validatePluginParams } from "./pluginParamValidator";
 import { SWITCH_SOURCE, validateSwitches } from "./switchValidator";
 import {
 	TRANSACTION_SOURCE,
@@ -34,6 +36,7 @@ export function useCanvasDiagnosticsBridge({
 }: UseCanvasDiagnosticsBridgeOptions) {
 	const diagnostics = useBlockDiagnostics();
 	const { setCenter } = useReactFlow();
+	const { byType } = usePluginBlocks();
 
 	const {
 		isPanelOpen: isDiagnosticsOpen,
@@ -101,6 +104,9 @@ export function useCanvasDiagnosticsBridge({
 		const offLiterals = registerValidator(LITERAL_EXPRESSION_SOURCE, () =>
 			validateLiteralExpressions(flowToGraph(nodes, edges)),
 		);
+		const offPluginParams = registerValidator(PLUGIN_PARAMS_SOURCE, () =>
+			validatePluginParams(flowToGraph(nodes, edges), byType),
+		);
 		const offTransactions = registerValidator(TRANSACTION_SOURCE, () =>
 			validateTransactions(flowToGraph(nodes, edges)),
 		);
@@ -114,8 +120,9 @@ export function useCanvasDiagnosticsBridge({
 			offTransactions();
 			offLiterals();
 			offVariables();
+			offPluginParams();
 		};
-	}, [nodes, edges, registerValidator]);
+	}, [nodes, edges, byType, registerValidator]);
 
 	// Automatically run them on graph edits
 	useEffect(() => {
@@ -125,7 +132,8 @@ export function useCanvasDiagnosticsBridge({
 		setFromSource(BLOCK_CONFIG_SOURCE, validateBlockConfigs(currentGraph));
 		setFromSource(LITERAL_EXPRESSION_SOURCE, validateLiteralExpressions(currentGraph));
 		setFromSource(VARIABLE_FLOW_SOURCE, validateVariableFlow(currentGraph));
-	}, [nodes, edges, setFromSource]);
+		setFromSource(PLUGIN_PARAMS_SOURCE, validatePluginParams(currentGraph, byType));
+	}, [nodes, edges, byType, setFromSource]);
 
 	// The transaction walks depend only on wiring, so they skip drags and setting edits
 	const transactions = useMemo(() => {

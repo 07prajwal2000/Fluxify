@@ -1,10 +1,12 @@
 // `@fluxify/sdk/blocks`: write a programmable block.
 export * from "./index.js";
 export {
+	activeParams,
 	type BlockDefinition,
 	block,
 	deprecated,
 	type ExecuteHandle,
+	paramProblems,
 	type RunArgs,
 	type RunResult,
 	toManifestEntry,
@@ -53,6 +55,7 @@ export {
 	hint,
 	type IntegrationId,
 	type IntegrationParam,
+	isJsExpression,
 	type JsonValue,
 	type KeyValueParam,
 	numberParamProblem,
@@ -64,6 +67,8 @@ export {
 	type Placement,
 	param,
 	type SecretParam,
+	type StringParam,
+	stringParamProblem,
 	type VisibleWhen,
 } from "./src/params.js";
 export { RESERVED_PARAM_NAMES } from "./src/validate.js";

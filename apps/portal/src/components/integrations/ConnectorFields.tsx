@@ -10,6 +10,7 @@ import { ObservabilityForm } from "./connectors/ObservabilityForm";
 import { SendTimeoutField } from "./connectors/SendTimeoutField";
 import { SqsForm } from "./connectors/SqsForm";
 import { PluginIntegrationForm } from "./PluginIntegrationForm";
+import { pluginParamsOf } from "./pluginParamTabs";
 
 const CRED_PLACEHOLDERS: Record<
 	string,
@@ -130,12 +131,13 @@ export function ConnectorFields({
 	const catalog = useIntegrationCatalog(formProps.projectId ?? "");
 	const meta = catalog.variantMeta(group, variant);
 
-	if (meta?.plugin || (meta?.params && Object.keys(meta.params).length > 0)) {
+	const pluginParams = pluginParamsOf(meta);
+	if (pluginParams) {
 		return (
 			<PluginIntegrationForm
 				projectId={formProps.projectId}
 				variant={variant}
-				params={(meta?.params ?? {}) as Record<string, Param>}
+				params={pluginParams}
 				tabs={meta?.tabs}
 				config={formProps.config}
 				setField={formProps.setField}

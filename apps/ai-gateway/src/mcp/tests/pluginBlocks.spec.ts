@@ -58,6 +58,7 @@ describe("get_plugin_blocks", () => {
 							headers: { type: "keyValue" },
 							to: { type: "array", min: 1, max: 3 },
 							shape: { type: "fieldMap" },
+							slug: { type: "string", minLength: 3, pattern: "^[a-z-]+$" },
 							note: { type: "hint", text: "Read this" },
 						},
 						output: { success: "{ id: string }" },
@@ -81,6 +82,7 @@ describe("get_plugin_blocks", () => {
 		expect(text).toContain("- headers: keyValue (an object; each value a literal or 'js:...'");
 		expect(text).toContain("- to: array (an array; each item a literal or 'js:...') (at least 1, at most 3 items)");
 		expect(text).toContain("- shape: fieldMap ({ sourceKey: destinationKey }");
+		expect(text).toContain("(at least 3 characters) (must match /^[a-z-]+$/)");
 		expect(text).not.toContain("note");
 		expect(text).toContain("- conn: integration (a kv integration id)");
 		expect(text).toContain("Handles (connect from): success, failure");

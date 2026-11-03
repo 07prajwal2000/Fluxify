@@ -339,7 +339,7 @@ export async function saveCanvas(
 	projectIds: string[] = [],
 	outer?: DbTransactionType,
 	mergeAiDuplicates = false,
-	{ expectedRevision, dryRun = false }: SaveOptions = {},
+	{ expectedRevision, dryRun = false, foreignIntegrations = false }: SaveOptions = {},
 ): Promise<SaveResult> {
 	if (!(await parentExists(parent, projectIds, outer))) {
 		// visible to nobody vs. outside the caller's projects: 404 vs. 403, as
@@ -367,7 +367,7 @@ export async function saveCanvas(
 			tx,
 			await specsFor(data.changes.blocks.map((b) => b.type)),
 		);
-		await assertPluginBlockParams(parent, data.changes.blocks, tx);
+		await assertPluginBlockParams(parent, data.changes.blocks, tx, foreignIntegrations);
 		await assertNoCustomBlockRecursion(parent, data, deleteBlockIds, tx);
 		await assertEdgeTargetsExist(parent, data, deleteBlockIds, tx);
 		await assertCanvasHasNoCycles(parent, data, deleteBlockIds, deleteEdgeIds, tx);
@@ -451,7 +451,12 @@ export async function saveCanvas(
 	return result;
 }
 
-export type SaveOptions = { expectedRevision?: number; dryRun?: boolean };
+export type SaveOptions = {
+	expectedRevision?: number;
+	dryRun?: boolean;
+	/** the blocks come from another project (an import): an integration id naming nothing here is kept, not refused */
+	foreignIntegrations?: boolean;
+};
 export type SaveResult = {
 	canvasRevision: number;
 	issues: CanvasIssue[];
