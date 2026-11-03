@@ -1,6 +1,12 @@
 import { isVisible, paramTabs } from "@fluxify/sdk";
 import type { Param } from "@fluxify/sdk/blocks";
 
+/** the params a connector draws as a plugin form (a plugin's, or a variant that declares its own), or undefined */
+export const pluginParamsOf = (meta?: { plugin?: unknown; params?: unknown }) =>
+	meta?.plugin || (meta?.params && Object.keys(meta.params).length > 0)
+		? ((meta.params ?? {}) as Record<string, Param>)
+		: undefined;
+
 export type PluginParamTab = { name: string; items: string[] };
 
 /**

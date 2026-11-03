@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { handleSpecSchema } from "./handles.js";
 import type { Condition, VisibleWhenInput } from "./params.js";
-import { numberParamProblem } from "./params.js";
+import { numberParamProblem, stringParamProblem } from "./params.js";
 import { CTX_SPAN_TYPE, ICON_URL_MAX, INVOKE_MODES } from "./reserved.js";
 import { checkEntry, RESERVED_PARAM_NAMES } from "./validate.js";
 import {
@@ -55,7 +55,28 @@ const condition: z.ZodType<Condition> = z.lazy(() =>
 
 /** One param of a manifest entry. */
 export const paramSchema = z.discriminatedUnion("type", [
-	typed("string", z.string()),
+	z
+		.strictObject({
+			type: z.literal("string"),
+			...common,
+			default: z.string().optional(),
+			minLength: z.int().nonnegative().optional(),
+			pattern: z.string().min(1).optional(),
+		})
+		.superRefine((p, ctx) => {
+			try {
+				if (p.pattern !== undefined) new RegExp(p.pattern);
+			} catch (error) {
+				return ctx.addIssue({
+					code: "custom",
+					message: `string pattern is not a regular expression: ${(error as Error).message}`,
+					path: ["pattern"],
+				});
+			}
+			const problem = p.default === undefined ? undefined : stringParamProblem(p, p.default);
+			if (problem)
+				ctx.addIssue({ code: "custom", message: `string default ${problem}`, path: ["default"] });
+		}),
 	z
 		.strictObject({
 			type: z.literal("number"),

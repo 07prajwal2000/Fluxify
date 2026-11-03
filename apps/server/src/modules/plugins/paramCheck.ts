@@ -52,3 +52,21 @@ export function integrationParamProblem(
 	if (!owner.granted.some((k) => integrationKindCovers(k, group, variant)))
 		return `${owner.label} was not granted ${group}/${variant} integrations`;
 }
+
+/**
+ * `integrationParamProblem` for the id a param holds: an id naming nothing in
+ * the project is refused too (not a uuid of this project, or deleted), unless
+ * `unknownOk`: an import carries the ids of the project it came from.
+ */
+export async function integrationValueProblem(
+	owner: ParamOwner,
+	param: IntegrationParam,
+	id: string,
+	projectId: string,
+	tx?: DbTransactionType,
+	unknownOk = false,
+) {
+	const found = await projectIntegration(id, projectId, tx);
+	if (found) return integrationParamProblem(owner, param, found);
+	return unknownOk ? undefined : `no integration ${id} in this project`;
+}

@@ -58,7 +58,13 @@ export type Condition =
  */
 export type CompiledSchema = { zod: ZodType; schema: unknown };
 
-export type StringParam = Common<string> & { type: "string" };
+export type StringParam = Common<string> & {
+	type: "string";
+	/** the fewest characters a filled-in value may have; an empty value is not checked (use `required`) */
+	minLength?: number;
+	/** a regular expression, as text (a manifest is JSON), the value must match anywhere in it; anchor with `^` and `$` */
+	pattern?: string;
+};
 export type NumberParam = Common<number> & {
 	type: "number";
 	/** the smallest value accepted; the panel refuses less, and so does the runtime */
@@ -169,6 +175,32 @@ export function numberParamProblem(
 		return `must be at least ${param.min}, got ${value}`;
 	if (param.max !== undefined && value > param.max)
 		return `must be at most ${param.max}, got ${value}`;
+}
+
+/**
+ * Whether a stored value is a `js:` expression: code the compiler evaluates
+ * each time the block runs, so nothing can check it before then. Anywhere a
+ * param takes a value (or an item of one), a string starting `js:` is this.
+ */
+export const isJsExpression = (value: unknown): value is string =>
+	typeof value === "string" && value.startsWith("js:");
+
+/**
+ * Why `value` does not fit a string param's `minLength` and `pattern`, or
+ * undefined when it does. Written once for the same reason as `numberParamProblem`.
+ * A pattern that is not a regular expression checks nothing: the manifest
+ * refuses one, so it can only come from somewhere older.
+ */
+export function stringParamProblem(
+	param: Pick<StringParam, "minLength" | "pattern">,
+	value: string,
+): string | undefined {
+	if (param.minLength !== undefined && value.length < param.minLength)
+		return `must be at least ${param.minLength} characters, got ${value.length}`;
+	if (param.pattern === undefined) return;
+	try {
+		if (!new RegExp(param.pattern).test(value)) return `must match ${param.pattern}`;
+	} catch {}
 }
 
 type Options<T extends ParamType> = Omit<Extract<Param, { type: T }>, "type">;

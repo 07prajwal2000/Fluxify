@@ -2,7 +2,7 @@ import type { Param } from "@fluxify/sdk/blocks";
 import type { WizardStep } from "@/components/common/FormWizard";
 import { PluginParamFields } from "@/components/integrations/PluginIntegrationForm";
 import type { PluginParamTab } from "@/components/integrations/pluginParamTabs";
-import { missingRequired, paramReviewValue } from "@/components/triggers/pluginTrigger";
+import { paramReviewValue, stepProblems } from "@/components/triggers/pluginTrigger";
 import type { ReviewSection } from "@/components/triggers/TriggerReview";
 import type { PluginTriggerKind } from "@/services/triggers";
 
@@ -62,7 +62,7 @@ export function pluginStepViews({
 		label: step.name,
 		title: step.name === "Settings" ? "Set the trigger up" : step.name,
 		description: `The ${kind.label} trigger's ${step.name.toLowerCase()} settings.`,
-		isValid: missingRequired(params, step.items, values).length === 0,
+		isValid: stepProblems(params, step.items, values).length === 0,
 		content: (
 			<PluginTriggerStepFields
 				projectId={projectId}

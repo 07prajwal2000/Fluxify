@@ -227,7 +227,7 @@ test("array holds min and max; fieldMap renders the field map editor", () => {
 	add();
 	expect(view.queryByRole("alert")).toBeNull();
 	add();
-	expect(view.getByRole("alert").textContent).toBe("Takes at most 1.");
+	expect(view.getByRole("alert").textContent).toBe("To takes at most 1 items, got 2");
 	expect(view.getByRole("button", { name: /Add New Field Map/ })).toBeDefined();
 });
 

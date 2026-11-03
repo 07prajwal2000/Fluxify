@@ -7,7 +7,6 @@ import {
 } from "@fluxify/components";
 import type { ArrayParam, HintParam, KeyValueParam } from "@fluxify/sdk/blocks";
 import { useReactFlow } from "@xyflow/react";
-import { useState } from "react";
 import { MarkdownViewer } from "@/components/ai/MarkdownViewer";
 import { useCanvasChanges } from "../../changes/ChangesContext";
 import { HeadersEditor } from "./HttpRequestSettings";
@@ -106,18 +105,6 @@ export function PluginArrayField({
 	const { enabled: editable } = useCanvasChanges();
 	const stored = data[name] ?? param.default;
 	const values = Array.isArray(stored) ? stored.map(asText) : [];
-	const [problem, setProblem] = useState<string>();
-	const save = (next: string[]) => {
-		const wrong =
-			param.min !== undefined && next.length < param.min
-				? `Needs at least ${param.min}.`
-				: param.max !== undefined && next.length > param.max
-					? `Takes at most ${param.max}.`
-					: undefined;
-		setProblem(wrong);
-		// still saved: the list is half-edited, and the runtime refuses it until it is fixed
-		updateNodeData(blockId, { [name]: next });
-	};
 	return (
 		<div className="flex flex-col gap-1.5">
 			<ArrayEditor
@@ -128,13 +115,9 @@ export function PluginArrayField({
 				isDisabled={!editable}
 				readOnly={!editable}
 				values={values}
-				onChange={save}
+				// saved half-edited: the problem shows under the field, and the save is refused until it is fixed
+				onChange={(next) => updateNodeData(blockId, { [name]: next })}
 			/>
-			{problem && (
-				<p role="alert" className="text-xs text-danger">
-					{problem}
-				</p>
-			)}
 		</div>
 	);
 }
@@ -151,6 +134,15 @@ export function PluginFieldMapField({ blockId, data, name, label, hint }: Props)
 			description={hint ?? "Map source fields to destination object keys"}
 			onKeyValueChange={(next) => updateNodeData(blockId, { [name]: next })}
 		/>
+	);
+}
+
+/** why a param's value is refused, under its field */
+export function ParamProblem({ message }: { message: string }) {
+	return (
+		<p role="alert" className="text-xs text-danger">
+			{message}
+		</p>
 	);
 }
 

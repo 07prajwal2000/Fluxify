@@ -204,6 +204,24 @@ test("a required param keeps Next disabled until it is filled", async () => {
 	await until(() => expect(button("Next")?.disabled).toBe(false));
 });
 
+test("a value the server would refuse keeps Next disabled, and says why under the field", async () => {
+	kinds = [
+		kind({ params: { every: { type: "number", label: "Every", max: 5 } }, tabs: undefined }),
+	];
+	const view = createWizard();
+	await reachSettings(view);
+	await until(() => expect(view.getByText(/^Step 3 of/)).toBeTruthy());
+	const every = view.container.querySelector("input")!;
+	fireEvent.change(every, { target: { value: "9" } });
+	fireEvent.blur(every);
+	await until(() => expect(view.getByText("Every must be at most 5, got 9")).toBeTruthy());
+	expect(button("Next")?.disabled).toBe(true);
+	fireEvent.change(every, { target: { value: "3" } });
+	fireEvent.blur(every);
+	await until(() => expect(button("Next")?.disabled).toBe(false));
+	expect(view.queryByText(/must be at most/)).toBeNull();
+});
+
 test("creating a plugin trigger sends its type and source", async () => {
 	const view = createWizard();
 	await reachSettings(view);

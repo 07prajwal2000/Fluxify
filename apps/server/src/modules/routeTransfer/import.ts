@@ -157,6 +157,8 @@ export async function importRouteBundle(userId: string, projectId: string, raw: 
 			},
 			[projectId],
 			tx,
+			false,
+			{ foreignIntegrations: true },
 		);
 
 		for (const { statusCode, schema } of bundle.responseSchemas) {
