@@ -11,6 +11,7 @@ export class OpenAICompatibleIntegration extends BaseAiIntegration {
 				name: "openai-compatible",
 				baseURL: c.baseUrl!,
 				apiKey: c.apiKey,
+				headers: c.headers,
 				fetch,
 			}),
 		models: openAiModels(""),

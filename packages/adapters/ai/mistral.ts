@@ -10,7 +10,13 @@ export class MistralIntegration extends BaseAiIntegration {
 		create: (c, fetch) =>
 			(
 				require("@ai-sdk/openai-compatible") as typeof import("@ai-sdk/openai-compatible")
-			).createOpenAICompatible({ name: "mistral", baseURL: BASE_URL, apiKey: c.apiKey, fetch }),
+			).createOpenAICompatible({
+				name: "mistral",
+				baseURL: BASE_URL,
+				apiKey: c.apiKey,
+				headers: c.headers,
+				fetch,
+			}),
 		models: openAiModels(BASE_URL),
 	} satisfies typeof BaseAiIntegration.provider;
 }

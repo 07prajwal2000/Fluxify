@@ -7,6 +7,7 @@ export class AnthropicIntegration extends BaseAiIntegration {
 		create: (c, fetch) =>
 			(require("@ai-sdk/anthropic") as typeof import("@ai-sdk/anthropic")).createAnthropic({
 				apiKey: c.apiKey,
+				headers: c.headers,
 				fetch,
 			}),
 		models: {

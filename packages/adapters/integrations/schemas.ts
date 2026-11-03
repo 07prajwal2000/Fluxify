@@ -165,30 +165,47 @@ export const memcachedVariantConfigSchema = z
 	);
 
 // AI
+/**
+ * Extra headers sent with every request to the provider, for gateways and proxies
+ * (org or routing headers, custom auth). Values accept `cfg:` references. Names
+ * must be valid HTTP tokens and values one line, so a header cannot be split.
+ */
+export const aiHeadersSchema = z
+	.record(
+		z.string().regex(/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/, "Invalid header name"),
+		z.string().refine((v) => !/[\r\n]/.test(v), "Header value must be a single line"),
+	)
+	.optional();
+
 export const openAIVariantConfigSchema = z.object({
 	apiKey: z.string().refine((v) => (v.startsWith("cfg:") ? true : v.length > 1)),
 	model: z.string().min(1),
+	headers: aiHeadersSchema,
 });
 
 export const anthropicVariantConfigSchema = z.object({
 	apiKey: z.string().refine((v) => (v.startsWith("cfg:") ? true : v.length > 1)),
 	model: z.string().min(1),
+	headers: aiHeadersSchema,
 });
 
 export const mistralVariantConfigSchema = z.object({
 	apiKey: z.string().refine((v) => (v.startsWith("cfg:") ? true : v.length > 1)),
 	model: z.string().min(1),
+	headers: aiHeadersSchema,
 });
 
 export const geminiVariantConfigSchema = z.object({
 	apiKey: z.string().refine((v) => (v.startsWith("cfg:") ? true : v.length > 1)),
 	model: z.string().min(1),
+	headers: aiHeadersSchema,
 });
 
 export const openAiCompatibleVariantConfigSchema = z.object({
 	baseUrl: z.string().refine((v) => (v.startsWith("cfg:") ? true : z.url().safeParse(v).success)),
 	apiKey: z.string().refine((v) => (v.startsWith("cfg:") ? true : v.length > 1)),
 	model: z.string().min(1),
+	headers: aiHeadersSchema,
 });
 
 // Observability

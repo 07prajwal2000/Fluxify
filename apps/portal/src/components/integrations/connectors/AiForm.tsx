@@ -1,5 +1,6 @@
 import { Input } from "@fluxify/components";
 import { AppConfigSelector } from "../AppConfigSelector";
+import { HeadersEditor } from "../HeadersEditor";
 import type { ConnectorFormProps } from "./types";
 
 // OpenAI / Anthropic / Gemini / Mistral / OpenAI-Compatible (showBaseUrl).
@@ -55,6 +56,12 @@ export function AiForm({
 					placeholder="e.g. gpt-4o, claude-3-5-sonnet, gemini-1.5-pro"
 				/>
 			</div>
+			<HeadersEditor
+				projectId={projectId}
+				value={config.headers as Record<string, string> | undefined}
+				onChange={(headers) => setField("headers", headers)}
+				description="Sent with every request to the provider, e.g. for a gateway or proxy"
+			/>
 		</div>
 	);
 }

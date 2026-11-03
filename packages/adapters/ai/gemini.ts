@@ -7,6 +7,7 @@ export class GeminiIntegration extends BaseAiIntegration {
 		create: (c, fetch) =>
 			(require("@ai-sdk/google") as typeof import("@ai-sdk/google")).createGoogle({
 				apiKey: c.apiKey,
+				headers: c.headers,
 				fetch,
 			}),
 		models: {

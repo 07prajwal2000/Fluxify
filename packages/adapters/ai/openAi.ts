@@ -7,6 +7,7 @@ export class OpenAIIntegration extends BaseAiIntegration {
 		create: (c, fetch) =>
 			(require("@ai-sdk/openai") as typeof import("@ai-sdk/openai")).createOpenAI({
 				apiKey: c.apiKey,
+				headers: c.headers,
 				fetch,
 			}),
 		models: openAiModels("https://api.openai.com/v1"),

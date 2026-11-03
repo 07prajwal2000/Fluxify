@@ -114,3 +114,19 @@ test("as tabs, without Same as prod the Development tab opens with its own value
 	fireEvent.click(dev);
 	expect(view.getByDisplayValue("localhost")).toBeTruthy();
 });
+
+test("as tabs, the name sits above the tabs and stays when Development opens", () => {
+	const view = renderFields({ tabs: true, devConfig: { host: "localhost" } });
+	const name = view.getByLabelText(/Integration Name/);
+	expect((name as HTMLInputElement).value).toBe("main-db");
+	expect(name.closest('[role="tabpanel"]')).toBeNull();
+	expect(view.getByRole("tablist").contains(name)).toBe(false);
+	fireEvent.click(tab(view, /Development/));
+	// one name field for both environments, not one per tab
+	expect(view.getAllByLabelText(/Integration Name/)).toHaveLength(1);
+});
+
+test("without tabs, the name is also a single field above the sections", () => {
+	const view = renderFields({ devConfig: { host: "localhost" } });
+	expect(view.getAllByLabelText(/Integration Name/)).toHaveLength(1);
+});
