@@ -4,7 +4,6 @@ import {
 	Input,
 	Label,
 	Spinner,
-	Switch,
 	Table,
 	TextField,
 	toast,
@@ -14,6 +13,7 @@ import { useState } from "react";
 import { TbEdit, TbPlus, TbRoute } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
+import { EnvStatusChips } from "@/components/common/EnvStatusChips";
 import { RecordingIndicator } from "@/components/recordings/RecordingControls";
 import { WorkflowRunButton, WorkflowRunModal } from "@/components/workflows/WorkflowRunModal";
 import { showErrorNotification } from "@/lib/errorNotifier";
@@ -47,7 +47,6 @@ function WorkflowsPage() {
 		perPage: 10,
 		search: search.trim() || undefined,
 	});
-	const toggle = workflowsQuery.toggleActive.mutation();
 	const remove = workflowsQuery.remove.mutation();
 
 	const rows = data?.data ?? [];
@@ -141,19 +140,9 @@ function WorkflowsPage() {
 										<span className="line-clamp-1 text-muted">{workflow.description}</span>
 									</Table.Cell>
 									<Table.Cell>
-										<Switch
-											isSelected={Boolean(workflow.active)}
-											onChange={(active) =>
-												toggle.mutate(
-													{ id: workflow.id, active },
-													{
-														onSuccess: () =>
-															toast.success(active ? "Workflow enabled" : "Workflow disabled"),
-														onError: (e) => showErrorNotification(e as Error),
-													},
-												)
-											}
-											label={workflow.active ? "Active" : "Inactive"}
+										<EnvStatusChips
+											prod={Boolean(workflow.active)}
+											dev={Boolean(workflow.devActive)}
 										/>
 									</Table.Cell>
 									<Table.Cell>

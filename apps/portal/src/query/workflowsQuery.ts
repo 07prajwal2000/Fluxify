@@ -61,19 +61,6 @@ export const workflowsQuery = {
 			});
 		},
 	},
-	toggleActive: {
-		mutation() {
-			const qc = useQueryClient();
-			return useMutation({
-				mutationFn: (data: { id: string; active: boolean }) =>
-					workflowsService.update(data.id, { active: data.active }),
-				onSuccess: (_result, data) => {
-					qc.invalidateQueries({ queryKey: LIST_KEY });
-					qc.invalidateQueries({ queryKey: byIdKey(data.id) });
-				},
-			});
-		},
-	},
 	remove: {
 		mutation() {
 			const qc = useQueryClient();

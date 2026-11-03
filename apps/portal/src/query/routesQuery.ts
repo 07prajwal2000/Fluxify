@@ -82,16 +82,6 @@ export const routesQuery = {
 			});
 		},
 	},
-	toggleActive: {
-		mutation() {
-			const qc = useQueryClient();
-			return useMutation({
-				mutationFn: (data: { id: string; active: boolean }) =>
-					routesService.updatePartial(data.id, { active: data.active }),
-				onSuccess: () => qc.invalidateQueries({ queryKey: LIST_KEY }),
-			});
-		},
-	},
 	remove: {
 		mutation() {
 			const qc = useQueryClient();

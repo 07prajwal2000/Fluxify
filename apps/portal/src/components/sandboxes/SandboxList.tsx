@@ -89,7 +89,8 @@ export function SandboxList({
 				/>
 			) : (
 				<Table>
-					<Table.Content aria-label="Sandboxes">
+					{/* the whole row opens the canvas, as the routes and workflows tables do (#1064) */}
+					<Table.Content aria-label="Sandboxes" onRowAction={(key) => onOpen(String(key))}>
 						<Table.Header>
 							<Table.Column id="name" isRowHeader>
 								Name
@@ -101,7 +102,7 @@ export function SandboxList({
 						</Table.Header>
 						<Table.Body items={rows}>
 							{(sandbox) => (
-								<Table.Row id={sandbox.id}>
+								<Table.Row id={sandbox.id} className="cursor-pointer">
 									<Table.Cell>{sandbox.name}</Table.Cell>
 									<Table.Cell>
 										<span className="text-muted">

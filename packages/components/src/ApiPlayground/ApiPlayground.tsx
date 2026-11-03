@@ -20,6 +20,7 @@ import {
 	pathParameterNames,
 	resolvePathRows,
 	resolveQueryRows,
+	sampleJsonBody,
 	serializeRequestBody,
 } from "./utils";
 import { type PlaygroundValidationErrors, validatePlaygroundRequest } from "./validation";
@@ -75,7 +76,9 @@ export function ApiPlayground({
 		];
 	});
 	const [requestBody, setRequestBody] = useState<ApiRequestBody>(
-		() => initialState?.requestBody ?? emptyRequestBody(initialBody ?? "{} "),
+		() =>
+			initialState?.requestBody ??
+			emptyRequestBody(initialBody ?? sampleJsonBody(route.bodySchema) ?? "{} "),
 	);
 	const [response, setResponse] = useState<ApiPlaygroundResponse | undefined>(
 		initialState?.response,

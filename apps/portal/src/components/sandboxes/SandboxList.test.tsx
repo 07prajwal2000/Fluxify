@@ -238,3 +238,19 @@ test("a create refused at the cap shows the server's message", async () => {
 		),
 	);
 });
+
+test("clicking a sandbox's row opens its canvas (#1064)", async () => {
+	spyOn(sandboxesService, "list").mockResolvedValue(mine);
+	const onOpen = renderList();
+	const name = await until(() => {
+		const cell = [...body().querySelectorAll('[role="rowheader"]')].find(
+			(c) => c.textContent === "Orders scratch",
+		);
+		if (!cell) throw new Error("no row yet");
+		return cell;
+	});
+	fireEvent.pointerDown(name, { pointerType: "mouse", button: 0 });
+	fireEvent.pointerUp(name, { pointerType: "mouse", button: 0 });
+	fireEvent.click(name);
+	expect(onOpen).toHaveBeenCalledWith("s1");
+});

@@ -245,23 +245,15 @@ export function IntegrationOnboardingForm({
 									Configure {variant}
 								</h2>
 							</div>
-							<div className="flex items-center gap-3">
-								<Checkbox
-									isSelected={syncDev}
-									onChange={setSyncDev}
-									isDisabled={group === "mcp" && !isAdmin}
-									label="Same as prod"
-								/>
-								<div className="flex items-center gap-2 rounded-lg border border-border bg-surface-secondary px-3 py-1.5 text-xs text-foreground">
-									<span className="flex size-4 items-center justify-center text-accent">
-										<IntegrationVariantIcon
-											variant={variant}
-											group={group}
-											icon={catalog.iconOf(variant, group)}
-										/>
-									</span>
-									<span className="font-medium text-foreground">{variant}</span>
-								</div>
+							<div className="flex items-center gap-2 rounded-lg border border-border bg-surface-secondary px-3 py-1.5 text-xs text-foreground">
+								<span className="flex size-4 items-center justify-center text-accent">
+									<IntegrationVariantIcon
+										variant={variant}
+										group={group}
+										icon={catalog.iconOf(variant, group)}
+									/>
+								</span>
+								<span className="font-medium text-foreground">{variant}</span>
 							</div>
 						</div>
 						<p className="mt-0.5 text-xs text-muted">
@@ -314,6 +306,14 @@ export function IntegrationOnboardingForm({
 				)}
 				{step === 3 && (
 					<div className="flex items-center gap-2">
+						{/* beside the test (#1064): it decides which credentials the test uses */}
+						<Checkbox
+							className="mr-1"
+							isSelected={syncDev}
+							onChange={setSyncDev}
+							isDisabled={group === "mcp" && !isAdmin}
+							label="Same as prod"
+						/>
 						<TestConnectionButton
 							isDisabled={invalid}
 							isPending={test.isPending}
