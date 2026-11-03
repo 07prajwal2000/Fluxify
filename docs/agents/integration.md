@@ -132,6 +132,17 @@ An AI provider:
 
 A header name must be plain letters, digits or `-_.`, and a value must be one line.
 
+`OpenAI Compatible` also takes `extraBody` (optional): a JSON object merged into every request body, for vendor options such as thinking. String values at any depth can be `cfg:KEY` references. It cannot contain `model`, `messages`, `tools`, `tool_choice`, `functions`, `function_call`, `stream`, `stream_options` or `response_format` (a 400 names them), and a field the request already sets is never replaced.
+
+```json
+{
+  "baseUrl": "https://llm.internal/v1",
+  "apiKey": "cfg:LLM_KEY",
+  "model": "qwen3",
+  "extraBody": { "chat_template_kwargs": { "enable_thinking": true } }
+}
+```
+
 ## Production and development configs
 
 An integration has two configs under one id: `config` for production and `devConfig` for development. Same fields, same variant. The development worker uses `devConfig`, or `config` when `syncDev` is `true`.
@@ -203,7 +214,7 @@ Variants with one form:
 | Variant | Fields |
 | --- | --- |
 | `OpenAI`, `Anthropic`, `Gemini`, `Mistral` | `apiKey`, `model`, `headers?` |
-| `OpenAI Compatible` | `baseUrl`, `apiKey`, `model`, `headers?` |
+| `OpenAI Compatible` | `baseUrl`, `apiKey?` (none means empty, no `Authorization` header), `model`, `headers?`, `extraBody?` |
 | `Kafka` | `brokers` (comma-separated `host:port`), `clientId?`, `ssl?` (default `false`), `saslMechanism?` (`none`, `PLAIN`, `SCRAM-SHA-256`, `SCRAM-SHA-512`, default `none`), `username?`, `password?`, `dlqTopic?`, `sendTimeoutMs?` |
 | `NATS` | `servers` (comma-separated `nats://host:port`), `tls?`, `token?`, `user?`, `pass?`, `creds?`, `nkeySeed?`, `dlqSubject?`, `monitoringEndpoint?`, `account?`, `sendTimeoutMs?` |
 | `SQS` | `region`, `accessKeyId?`, `secretAccessKey?`, `sessionToken?`, `endpoint?`, `sendTimeoutMs?`. Blank keys fall back to the server's AWS credentials. |

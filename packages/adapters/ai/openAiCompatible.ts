@@ -1,4 +1,5 @@
 import { BaseAiIntegration, openAiModels } from "./baseAiIntegration";
+import { withExtraBody } from "./extraBody";
 
 export class OpenAICompatibleIntegration extends BaseAiIntegration {
 	static override variant = "OpenAI Compatible";
@@ -12,6 +13,7 @@ export class OpenAICompatibleIntegration extends BaseAiIntegration {
 				baseURL: c.baseUrl!,
 				apiKey: c.apiKey,
 				headers: c.headers,
+				transformRequestBody: withExtraBody(c.extraBody),
 				fetch,
 			}),
 		models: openAiModels(""),

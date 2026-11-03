@@ -100,6 +100,7 @@ export function getDefaultVariantValue(variant: Variants) {
 			model: "",
 			baseUrl: "",
 			headers: {},
+			extraBody: {},
 		} as z.infer<typeof openAiCompatibleVariantConfigSchema>;
 	}
 	if (variant === "Redis" || variant === "Memcached") {

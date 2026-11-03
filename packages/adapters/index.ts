@@ -1,6 +1,7 @@
 export * from "./abortable";
 export * from "./ai/anthropic";
 export * from "./ai/baseAiIntegration";
+export * from "./ai/extraBody";
 export * from "./ai/gemini";
 export * from "./ai/mistral";
 export * from "./ai/openAi";
