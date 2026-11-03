@@ -10,7 +10,6 @@ import {
 	Modal,
 	Select,
 	Spinner,
-	Switch,
 	Table,
 	TextField,
 	Tooltip,
@@ -31,11 +30,11 @@ import {
 } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
+import { EnvStatusChips } from "@/components/common/EnvStatusChips";
 import { RouteApiPlayground } from "@/components/RouteApiPlayground";
 import { RecordingIndicator, RecordingLegend } from "@/components/recordings/RecordingControls";
 import { ExportRouteModal } from "@/components/routes/ExportRouteModal";
 import { ImportRouteButton } from "@/components/routes/ImportRouteButton";
-import { ProductionBadge, ProductionLegend } from "@/components/routes/ProductionBadge";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { PAGE_SIZES, usePageSize } from "@/lib/pageSize";
 import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
@@ -63,6 +62,7 @@ export type RouteRow = {
 	method?: string | null;
 	path?: string | null;
 	active?: boolean | null;
+	devActive?: boolean | null;
 	/** production serves it: active, with a promoted version */
 	inProduction?: boolean | null;
 	recordExecution?: boolean | null;
@@ -98,7 +98,6 @@ function RoutesPage() {
 		sortBy,
 		sortOrder,
 	});
-	const toggle = routesQuery.toggleActive.mutation();
 	const remove = routesQuery.remove.mutation();
 	const [pendingDelete, setPendingDelete] = useState<RouteRow | null>(null);
 	const [pendingPlayground, setPendingPlayground] = useState<RouteRow | null>(null);
@@ -250,23 +249,12 @@ function RoutesPage() {
 										</Table.Cell>
 										<Table.Cell>{route.name}</Table.Cell>
 										<Table.Cell>
-											<div className="flex items-center gap-2">
-												<Switch
-													isSelected={Boolean(route.active)}
-													onChange={(active) =>
-														toggle.mutate(
-															{ id: route.id, active },
-															{
-																onSuccess: () =>
-																	toast.success(active ? "Route enabled" : "Route disabled"),
-																onError: (e) => showErrorNotification(e as Error),
-															},
-														)
-													}
-													label={route.active ? "Active" : "Inactive"}
-												/>
-												{route.inProduction && <ProductionBadge />}
-											</div>
+											{/* production lights up only with a promoted version to serve (#739) */}
+											<EnvStatusChips
+												prod={Boolean(route.active)}
+												dev={Boolean(route.devActive)}
+												promoted={Boolean(route.inProduction)}
+											/>
 										</Table.Cell>
 										<Table.Cell>
 											<div className="flex items-center justify-end gap-1">
@@ -317,7 +305,6 @@ function RoutesPage() {
 			)}
 
 			<div className="flex shrink-0 items-center gap-3 text-sm text-muted">
-				{rows.some((r) => r.inProduction) && <ProductionLegend />}
 				<RecordingLegend dev={recordsDev} prod={recordsProd} />
 				<span className="ml-auto">Rows per page:</span>
 				<Select
