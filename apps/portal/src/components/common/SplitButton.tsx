@@ -1,4 +1,4 @@
-import { Button, ButtonGroup, Dropdown, Label } from "@fluxify/components";
+import { Button, ButtonGroup, cn, Dropdown, Label } from "@fluxify/components";
 import type { ReactNode } from "react";
 import { TbChevronDown } from "react-icons/tb";
 
@@ -9,6 +9,12 @@ export type SplitButtonItem = {
 	onAction: () => void;
 	/** blocks this item alone; the rest of the menu stays reachable */
 	isDisabled?: boolean;
+	/** replaces the icon and label as the row's content; `label` still names it */
+	children?: ReactNode;
+	/** on the row; it is a `group`, so its content can react to hover and focus */
+	className?: string;
+	/** false keeps the menu open after this item is chosen; true by default */
+	closeOnAction?: boolean;
 };
 
 /**
@@ -62,9 +68,15 @@ export function SplitButton({
 								id={item.id}
 								textValue={item.label}
 								isDisabled={item.isDisabled}
+								shouldCloseOnSelect={item.closeOnAction}
+								className={cn("group", item.className)}
 							>
-								{item.icon}
-								<Label>{item.label}</Label>
+								{item.children ?? (
+									<>
+										{item.icon}
+										<Label>{item.label}</Label>
+									</>
+								)}
 							</Dropdown.Item>
 						))}
 					</Dropdown.Menu>
