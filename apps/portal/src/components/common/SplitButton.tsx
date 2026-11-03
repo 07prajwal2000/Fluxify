@@ -1,4 +1,4 @@
-import { Button, ButtonGroup, Dropdown, Label } from "@fluxify/components";
+import { Button, ButtonGroup, cn, Dropdown, Label } from "@fluxify/components";
 import type { ReactNode } from "react";
 import { TbChevronDown } from "react-icons/tb";
 
@@ -9,6 +9,12 @@ export type SplitButtonItem = {
 	onAction: () => void;
 	/** blocks this item alone; the rest of the menu stays reachable */
 	isDisabled?: boolean;
+	/** replaces the icon and label as the row's content; `label` still names it */
+	children?: ReactNode;
+	/** on the row; it is a `group`, so its content can react to hover and focus */
+	className?: string;
+	/** false keeps the menu open after this item is chosen; true by default */
+	closeOnAction?: boolean;
 };
 
 /**
@@ -22,6 +28,7 @@ export function SplitButton({
 	isDisabled,
 	menuLabel,
 	items,
+	menuClassName,
 }: {
 	children: ReactNode;
 	onPress: () => void;
@@ -30,6 +37,8 @@ export function SplitButton({
 	/** names the caret for screen readers, e.g. "Version options" */
 	menuLabel: string;
 	items: SplitButtonItem[];
+	/** on the menu itself, e.g. a fixed width, or a height that makes it scroll */
+	menuClassName?: string;
 }) {
 	if (items.length === 0) {
 		return (
@@ -55,16 +64,25 @@ export function SplitButton({
 					<TbChevronDown size={14} />
 				</Button>
 				<Dropdown.Popover>
-					<Dropdown.Menu onAction={(key) => items.find((item) => item.id === key)?.onAction()}>
+					<Dropdown.Menu
+						className={menuClassName}
+						onAction={(key) => items.find((item) => item.id === key)?.onAction()}
+					>
 						{items.map((item) => (
 							<Dropdown.Item
 								key={item.id}
 								id={item.id}
 								textValue={item.label}
 								isDisabled={item.isDisabled}
+								shouldCloseOnSelect={item.closeOnAction}
+								className={cn("group", item.className)}
 							>
-								{item.icon}
-								<Label>{item.label}</Label>
+								{item.children ?? (
+									<>
+										{item.icon}
+										<Label>{item.label}</Label>
+									</>
+								)}
 							</Dropdown.Item>
 						))}
 					</Dropdown.Menu>

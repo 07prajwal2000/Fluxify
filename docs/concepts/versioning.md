@@ -93,6 +93,8 @@ Production serves one version of each route and workflow: the one you **promoted
 - Fluxify runs its checks first. If they all pass, production switches to that version. If one fails, nothing changes, and the log shows what failed and why.
 - Promoting the version that is already live is refused.
 
+You can promote from the canvas without opening the history. Open the menu next to **Commit**. Under **Version history** it lists every version, newest first, and the live one is green. The menu keeps one size: it shows five versions and scrolls for the rest, with **Version history** staying at the top. A long title is cut to fit, and hovering it shows the whole name. Hover over any other version and a rocket appears at the end of its row, with the tooltip **Promote to prod**. Choose the row and Fluxify asks for the description, exactly as the history does. Once the checks pass, that version turns green and the one before it goes back to normal. For a version older than the live one the tooltip says **Roll back to this version**. **Version history** still opens the full history.
+
 | Check | What it looks at | Stops the promote? |
 | :--- | :--- | :--- |
 | Compiles | The version still builds. For example, a custom block it used may have been deleted. | Yes |
