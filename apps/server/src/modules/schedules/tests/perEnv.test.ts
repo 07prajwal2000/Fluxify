@@ -20,6 +20,9 @@ const IMAGE = "nats:2.14";
 const NAME = "fluxify-schedule-per-env-test";
 const ENVS: FluxifyEnv[] = ["production", "development"];
 const PROJECT = "p1";
+// the trigger's own switches (#1072): on in both environments, or off in both
+const ON = { active: true, devActive: true };
+const OFF = { active: false, devActive: false };
 let container: Docker.Container;
 
 beforeAll(async () => {
@@ -87,23 +90,23 @@ describe("a schedule per environment", () => {
 		created.push(id);
 
 		// development only: devActive is on, production has no promoted version
-		await syncSchedule(trigger(id), { active: false, devActive: true, prodVersionId: null }, true);
+		await syncSchedule(trigger(id), { active: false, devActive: true, prodVersionId: null }, ON);
 		expect(await where(id)).toEqual({ production: false, development: true });
 
 		// both: active and promoted, devActive on
-		await syncSchedule(trigger(id), { active: true, devActive: true, prodVersionId: "v1" }, true);
+		await syncSchedule(trigger(id), { active: true, devActive: true, prodVersionId: "v1" }, ON);
 		expect(await where(id)).toEqual({ production: true, development: true });
 
 		// production only: devActive off
-		await syncSchedule(trigger(id), { active: true, devActive: false, prodVersionId: "v1" }, true);
+		await syncSchedule(trigger(id), { active: true, devActive: false, prodVersionId: "v1" }, ON);
 		expect(await where(id)).toEqual({ production: true, development: false });
 
 		// active but never promoted: production's schedule goes away, development's stays
-		await syncSchedule(trigger(id), { active: true, devActive: true, prodVersionId: null }, true);
+		await syncSchedule(trigger(id), { active: true, devActive: true, prodVersionId: null }, ON);
 		expect(await where(id)).toEqual({ production: false, development: true });
 
 		// the trigger itself switched off: both go away
-		await syncSchedule(trigger(id), { active: true, devActive: true, prodVersionId: "v1" }, false);
+		await syncSchedule(trigger(id), { active: true, devActive: true, prodVersionId: "v1" }, OFF);
 		expect(await where(id)).toEqual({ production: false, development: false });
 	});
 
@@ -111,13 +114,25 @@ describe("a schedule per environment", () => {
 		const id = nextId();
 		created.push(id);
 
-		await syncSchedule(trigger(id), { active: true, devActive: true, prodVersionId: "v1" }, true);
+		await syncSchedule(trigger(id), { active: true, devActive: true, prodVersionId: "v1" }, ON);
 		expect(await where(id)).toEqual({ production: true, development: true });
 
-		await syncSchedule(trigger(id), { active: false, devActive: true, prodVersionId: null }, true);
+		await syncSchedule(trigger(id), { active: false, devActive: true, prodVersionId: null }, ON);
 		expect(await where(id)).toEqual({ production: false, development: true });
 
 		await removeScheduleEverywhere(PROJECT, id);
 		expect(await where(id)).toEqual({ production: false, development: false });
+	});
+
+	it("follows the trigger's own switch in each environment (#1072)", async () => {
+		const id = nextId();
+		created.push(id);
+		const live = { active: true, devActive: true, prodVersionId: "v1" };
+
+		await syncSchedule(trigger(id), live, { active: false, devActive: true });
+		expect(await where(id)).toEqual({ production: false, development: true });
+
+		await syncSchedule(trigger(id), live, { active: true, devActive: false });
+		expect(await where(id)).toEqual({ production: true, development: false });
 	});
 });

@@ -8,7 +8,12 @@ import type { FluxifyEnv } from "../../../lib/env";
 import type { EnvSwitches } from "../../compiler/observability";
 import { scheduleEnvironments } from "../reconciler";
 
-type Trigger = { active: boolean; workflowId: string | null; schedule: string | null };
+type Trigger = {
+	active: boolean;
+	devActive: boolean;
+	workflowId: string | null;
+	schedule: string | null;
+};
 
 const switches = (over: Partial<EnvSwitches> = {}): EnvSwitches => ({
 	active: false,
@@ -19,6 +24,7 @@ const switches = (over: Partial<EnvSwitches> = {}): EnvSwitches => ({
 
 const trigger = (over: Partial<Trigger> = {}): Trigger => ({
 	active: true,
+	devActive: true,
 	workflowId: "w1",
 	schedule: "@every 1m",
 	...over,
@@ -26,7 +32,7 @@ const trigger = (over: Partial<Trigger> = {}): Trigger => ({
 
 const cases: Array<[string, Trigger, EnvSwitches | null, FluxifyEnv[]]> = [
 	// a trigger with nothing to start fires nowhere
-	["switched off", trigger({ active: false }), switches({ active: true, devActive: true, prodVersionId: "v1" }), []],
+	["switched off", trigger({ active: false, devActive: false }), switches({ active: true, devActive: true, prodVersionId: "v1" }), []],
 	["no workflow attached", trigger({ workflowId: null }), switches({ active: true, devActive: true, prodVersionId: "v1" }), []],
 	["no schedule", trigger({ schedule: null }), switches({ active: true, devActive: true, prodVersionId: "v1" }), []],
 	["workflow row missing", trigger(), null, []],
@@ -39,6 +45,10 @@ const cases: Array<[string, Trigger, EnvSwitches | null, FluxifyEnv[]]> = [
 	["active on, promoted, devActive off", trigger(), switches({ active: true, prodVersionId: "v1" }), ["production"]],
 	["active on, never promoted", trigger(), switches({ active: true }), []],
 	["active on, promoted, devActive off is not dev", trigger(), switches({ active: true, prodVersionId: "v1", devActive: false }), ["production"]],
+	// the trigger's own switch per environment (#1072)
+	["trigger on in development only", trigger({ active: false }), switches({ active: true, devActive: true, prodVersionId: "v1" }), ["development"]],
+	["trigger on in production only", trigger({ devActive: false }), switches({ active: true, devActive: true, prodVersionId: "v1" }), ["production"]],
+	["trigger on in development, workflow off there", trigger({ active: false }), switches({ active: true, prodVersionId: "v1" }), []],
 	// neither switch on
 	["both off", trigger(), switches(), []],
 	["everything off but a version", trigger(), switches({ prodVersionId: "v1" }), []],

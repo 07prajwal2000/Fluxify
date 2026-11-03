@@ -339,7 +339,7 @@ export const readTools: McpTool[] = [
 					perPage: PER_PAGE,
 					search: a.search,
 				}),
-				["id", "name", "type", "active", "workflow", "sandboxId", "disabledReason"],
+				["id", "name", "type", "active", "devActive", "workflow", "sandboxId", "disabledReason"],
 			),
 	},
 	{

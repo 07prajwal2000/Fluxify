@@ -214,6 +214,8 @@ async function readObserved(): Promise<{
 
 /** Groups with at least one enabled trigger — the only ones that can fall behind. */
 async function readActiveGroups(projectId?: string): Promise<ActiveGroup[]> {
+	// on in either environment (#1072)
+	const enabled = or(eq(triggersEntity.active, true), eq(triggersEntity.devActive, true));
 	const rows = await db
 		.select({
 			projectId: triggerGroupsEntity.projectId,
@@ -223,11 +225,7 @@ async function readActiveGroups(projectId?: string): Promise<ActiveGroup[]> {
 		})
 		.from(triggersEntity)
 		.innerJoin(triggerGroupsEntity, eq(triggersEntity.groupId, triggerGroupsEntity.id))
-		.where(
-			projectId
-				? and(eq(triggersEntity.active, true), eq(triggerGroupsEntity.projectId, projectId))
-				: eq(triggersEntity.active, true),
-		)
+		.where(projectId ? and(enabled, eq(triggerGroupsEntity.projectId, projectId)) : enabled)
 		.groupBy(triggerGroupsEntity.projectId, triggerGroupsEntity.id, triggerGroupsEntity.name);
 	return rows;
 }

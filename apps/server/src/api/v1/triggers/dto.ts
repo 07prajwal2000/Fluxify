@@ -165,7 +165,10 @@ export const createSchema = z
 		integrationId: z.uuidv7().optional(),
 		/** Static data handed to the workflow, for sources that carry none. */
 		payload: z.unknown().optional(),
+		/** Production's switch. */
 		active: z.boolean().optional(),
+		/** Development's switch (#1072). Omitted means the same as `active`. */
+		devActive: z.boolean().optional(),
 		...batchSchema,
 		...scheduleSchema,
 		...connectorSchema,
@@ -197,6 +200,7 @@ export const patchSchema = z
 		sandboxId: z.uuidv7().nullable(),
 		payload: z.unknown(),
 		active: z.boolean(),
+		devActive: z.boolean(),
 		...batchSchema,
 		...scheduleSchema,
 		...connectorSchema,
@@ -254,7 +258,9 @@ export const triggerSchema = z.object({
 	retryDelayMs: z.number().int(),
 	schedule: z.string().nullable(),
 	timezone: z.string(),
+	/** `active` is production, `devActive` development (#1072) */
 	active: z.boolean(),
+	devActive: z.boolean(),
 	/** Set when the system switched it off, e.g. its queue was deleted; null otherwise. */
 	disabledReason: z.string().nullable(),
 	createdAt: z.string(),
