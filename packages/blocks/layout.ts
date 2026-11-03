@@ -1,6 +1,6 @@
 import type { HandleSpecs } from "./blockHandles";
 import { BlockTypes } from "./blockTypes";
-import { handleSide, layoutBand, splitIntoBands } from "./layoutLanes";
+import { handleSide, isBodyEdge, layoutBand, splitIntoBands } from "./layoutLanes";
 
 export {
 	BODY_HANDLES,
@@ -9,12 +9,14 @@ export {
 	getOutputHandles,
 	HANDLE_SIDE,
 	type HandleKind,
+	type HandlePosition,
 	type HandleSide,
 	type HandleSpec,
 	type HandleSpecs,
 	handleCorner,
 	isBodyHandle,
 	isFanOutHandle,
+	positionOf,
 	sideOf,
 	sortByOrder,
 } from "./blockHandles";
@@ -36,7 +38,7 @@ export {
 
 /** Fallbacks for blocks nothing has measured yet — the server never measures. */
 const FALLBACK_WIDTH = 168;
-const FALLBACK_HEIGHT = 48;
+const FALLBACK_HEIGHT = 64;
 
 /**
  * Where the blocks a new canvas starts with are placed. The response sits to
@@ -93,10 +95,20 @@ export { handleSide };
  * of the editor, but a model can emit one, so the walk is depth-capped instead
  * of trusting the input to terminate.
  */
-export function layerOf(nodes: LayoutNode[], edges: LayoutEdge[]): Map<string, number> {
-	const incoming = new Map<string, string[]>();
+export function layerOf(
+	nodes: LayoutNode[],
+	edges: LayoutEdge[],
+	specs: HandleSpecs = {},
+): Map<string, number> {
+	const typeOf = new Map(nodes.map((n) => [n.id, n.type]));
+	// A body handle (top/bottom) stacks its block under or over the parent in the
+	// same column, so the edge adds no step; any other edge moves one column right.
+	const incoming = new Map<string, { from: string; step: number }[]>();
 	for (const node of nodes) incoming.set(node.id, []);
-	for (const edge of edges) incoming.get(edge.to)?.push(edge.from);
+	for (const edge of edges) {
+		const step = isBodyEdge(edge, (id) => typeOf.get(id), specs) ? 0 : 1;
+		incoming.get(edge.to)?.push({ from: edge.from, step });
+	}
 
 	const layers = new Map<string, number>();
 	const walk = (id: string, seen: Set<string>): number => {
@@ -105,7 +117,7 @@ export function layerOf(nodes: LayoutNode[], edges: LayoutEdge[]): Map<string, n
 		if (seen.has(id)) return 0;
 		seen.add(id);
 		const parents = incoming.get(id) ?? [];
-		const layer = parents.length ? Math.max(...parents.map((p) => walk(p, seen) + 1)) : 0;
+		const layer = parents.length ? Math.max(...parents.map((p) => walk(p.from, seen) + p.step)) : 0;
 		seen.delete(id);
 		layers.set(id, layer);
 		return layer;
@@ -138,6 +150,44 @@ function anchorOffset(
 	};
 }
 
+/** How far a block under/over a body handle is shifted right of its parent. */
+const BODY_INDENT = 56;
+
+/**
+ * Horizontal shift of blocks stacked on a body handle: each level of nesting
+ * sits `BODY_INDENT` right of the block it hangs from, inside the parent's column.
+ */
+function indentOf(
+	nodes: LayoutNode[],
+	edges: LayoutEdge[],
+	layers: Map<string, number>,
+	specs: HandleSpecs,
+): Map<string, number> {
+	const typeOf = new Map(nodes.map((n) => [n.id, n.type]));
+	const bodyParents = new Map<string, string[]>();
+	for (const e of edges) {
+		if (layers.get(e.from) !== layers.get(e.to)) continue;
+		if (!isBodyEdge(e, (id) => typeOf.get(id), specs)) continue;
+		bodyParents.set(e.to, [...(bodyParents.get(e.to) ?? []), e.from]);
+	}
+	const indents = new Map<string, number>();
+	const walk = (id: string, seen: Set<string>): number => {
+		const known = indents.get(id);
+		if (known !== undefined) return known;
+		if (seen.has(id)) return 0;
+		seen.add(id);
+		const parents = bodyParents.get(id) ?? [];
+		const indent = parents.length
+			? Math.max(...parents.map((p) => walk(p, seen) + BODY_INDENT))
+			: 0;
+		seen.delete(id);
+		indents.set(id, indent);
+		return indent;
+	};
+	for (const n of nodes) walk(n.id, new Set());
+	return indents;
+}
+
 /** Space between two root bands. */
 const BAND_SPACING = 48;
 
@@ -159,7 +209,8 @@ export function layoutGraph(
 	const graphEdges = edges.filter(
 		(e) => byId.has(e.from) && byId.has(e.to) && byId.get(e.to)!.type !== BlockTypes.errorHandler,
 	);
-	const layers = layerOf(laidOut, graphEdges);
+	const layers = layerOf(laidOut, graphEdges, handleSpecs);
+	const indents = indentOf(laidOut, graphEdges, layers, handleSpecs ?? {});
 	const heightOf = (n: LayoutNode) => n.height ?? FALLBACK_HEIGHT;
 
 	// Columns are shared by every band so a block lines up with its peers.
@@ -168,7 +219,9 @@ export function layoutGraph(
 	for (const layer of [...new Set(layers.values())].sort((a, b) => a - b)) {
 		columnX.set(layer, x);
 		const members = laidOut.filter((n) => layers.get(n.id) === layer);
-		x += Math.max(...members.map((n) => n.width ?? FALLBACK_WIDTH)) + layerSpacing;
+		x +=
+			Math.max(...members.map((n) => (indents.get(n.id) ?? 0) + (n.width ?? FALLBACK_WIDTH))) +
+			layerSpacing;
 	}
 
 	const positions: LayoutPositions = {};
@@ -183,10 +236,11 @@ export function layoutGraph(
 			heightOf,
 			nodeSpacing,
 			handleSpecs,
+			indents,
 		);
 		for (const node of band) {
 			positions[node.id] = {
-				x: columnX.get(layers.get(node.id) ?? 0)!,
+				x: columnX.get(layers.get(node.id) ?? 0)! + (indents.get(node.id) ?? 0),
 				y: bandTop + tops.get(node.id)!,
 			};
 		}

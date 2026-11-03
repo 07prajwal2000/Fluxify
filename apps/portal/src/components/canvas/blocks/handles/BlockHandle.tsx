@@ -1,8 +1,15 @@
-import type { BodyCorner } from "@fluxify/blocks/layout";
+import type { HandlePosition } from "@fluxify/blocks/layout";
 import { Handle, Position, useNodeConnections } from "@xyflow/react";
 import { TbPlus } from "react-icons/tb";
 import { useQuickAdd } from "../../QuickAddContext";
-import { HANDLE_CONFIG, type HandleKind, handleId } from "./handleConfig";
+import { HANDLE_CONFIG, type HandleKind, type HandleSide, handleId } from "./handleConfig";
+
+const POSITION = {
+	left: Position.Left,
+	right: Position.Right,
+	top: Position.Top,
+	bottom: Position.Bottom,
+} as const satisfies Record<HandleSide, Position>;
 
 export type BlockHandleProps = {
 	blockId: string;
@@ -16,8 +23,8 @@ export type BlockHandleProps = {
 	name?: string;
 	/** Replaces the kind's connection limit (`null` = unlimited). */
 	maxConnections?: number | null;
-	/** A plugin body handle's corner: the rail it stacks on, and the edge it leaves from. */
-	corner?: BodyCorner;
+	/** A plugin handle's own place: the rail it sits on, and the edge it leaves from. Default: the kind's side. */
+	position?: HandlePosition;
 	/** Why a plugin deprecated this handle. */
 	deprecated?: string;
 };
@@ -26,7 +33,7 @@ export type BlockHandleProps = {
  * A single socket. Placement comes from the kind (see HANDLE_CONFIG) — the
  * parent BaseBlock buckets handles onto the correct edge rail, so callers just
  * declare `<BlockHandle kind="success" />` as a child of the block. A plugin
- * handle borrows the look of a kind and names itself (`name`, `corner`).
+ * handle borrows the look of a kind and names itself (`name`, `position`).
  *
  * An output that can take another edge shows a `+`: clicking it opens the
  * picker and connects the picked block here.
@@ -39,7 +46,7 @@ export function BlockHandle({
 	className,
 	name = kind,
 	maxConnections,
-	corner,
+	position,
 	deprecated,
 }: BlockHandleProps) {
 	const config = HANDLE_CONFIG[kind];
@@ -49,7 +56,15 @@ export function BlockHandle({
 	const isConnectable = max === null || connections.length < max;
 	const quickAdd = useQuickAdd();
 	const showAdd = quickAdd !== null && config.flow === "source" && isConnectable;
-	const side = corner ? (corner.startsWith("top") ? "top" : "bottom") : config.side;
+	// a corner is a top or bottom edge whose handles stack from that corner, each named
+	const corner = position?.includes("-") ? position : undefined;
+	const side = !position
+		? config.side
+		: corner
+			? corner.startsWith("top")
+				? "top"
+				: "bottom"
+			: (position as HandleSide);
 	const text = label ?? config.label;
 	const title = deprecated ? `${text} (deprecated): ${deprecated}` : text;
 
@@ -57,7 +72,7 @@ export function BlockHandle({
 		<Handle
 			id={id}
 			type={config.flow}
-			position={corner ? (side === "top" ? Position.Top : Position.Bottom) : config.position}
+			position={POSITION[side]}
 			isConnectable={isConnectable}
 			title={showAdd ? `${title} — click to add a block` : title}
 			aria-label={`${text} handle`}
@@ -80,7 +95,12 @@ export function BlockHandle({
 				onClick: () => quickAdd({ kind: "handle", nodeId: blockId, handle: name }),
 			})}
 		>
-			{showAdd && <TbPlus className="fx-handle__plus" aria-hidden />}
+			{showAdd && (
+				<>
+					<span className="fx-handle__dot" aria-hidden />
+					<TbPlus className="fx-handle__plus" aria-hidden />
+				</>
+			)}
 		</Handle>
 	);
 

@@ -42,11 +42,16 @@ describe("handleSpecSchema", () => {
 		["duplicate inputs", { in: ["target", "target"], out: [] }],
 		["a hyphen in a name", { out: [], body: [{ name: "my-tools", corner: "top-left" }] }],
 		["an empty name", { in: [""], out: [] }],
-		["a bad corner", { out: [], body: [{ name: "a", corner: "left" }] }],
+		["an unknown position", { out: [], body: [{ name: "a", corner: "middle" }] }],
+		["a position on a body handle's name", { out: [], body: [{ name: "a", corner: "top" }], position: { a: "left" } }],
+		["a position on an undeclared handle", { out: [], position: { nope: "top" } }],
+		["a bad input position", { out: [], position: { target: "centre" } }],
 	])("rejects %s", (_, spec) => {
 		expect(handleSpecSchema.safeParse(spec).success).toBe(false);
 	});
 });
+
+const handleSchemaOk = (spec: HandleSpec) => handleSpecSchema.safeParse(spec).success;
 
 describe("handle resolution", () => {
 	it("is unchanged for every builtin type with no spec", () => {
@@ -77,6 +82,22 @@ describe("handle resolution", () => {
 		expect(sideOf("failure", agent)).toBe("right");
 		expect(handleSide("b1-tools", agent)).toBe("bottom");
 		expect(handleSide("b1-tools")).toBe("right");
+	});
+
+	it("lets any handle sit on any side or corner", () => {
+		const free: HandleSpec = {
+			in: ["target"],
+			out: ["success", "failure"],
+			body: [{ name: "side", corner: "right" }],
+			position: { target: "top", success: "bottom-right", failure: "left" },
+		};
+		expect(handleSchemaOk(free)).toBe(true);
+		expect(sideOf("target", free)).toBe("top");
+		expect(sideOf("success", free)).toBe("bottom");
+		expect(handleCorner("success", free)).toBe("bottom-right");
+		expect(sideOf("failure", free)).toBe("left");
+		expect(handleCorner("failure", free)).toBeUndefined();
+		expect(sideOf("side", free)).toBe("right");
 	});
 });
 

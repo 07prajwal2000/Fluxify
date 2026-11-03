@@ -1,6 +1,11 @@
 // `@fluxify/sdk`: the plain-data shapes shared by every resource kind. Block
 // authoring lives in `@fluxify/sdk/blocks`.
-export { type BodyCorner, type HandleSpec, handleSpecSchema } from "./src/handles.js";
+export {
+	type BodyCorner,
+	type HandlePosition,
+	type HandleSpec,
+	handleSpecSchema,
+} from "./src/handles.js";
 export {
 	blockIdProblem,
 	customBlockId,

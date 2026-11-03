@@ -22,7 +22,7 @@ const { ReactFlow, ReactFlowProvider } = await import("@xyflow/react");
 const { createBlockNodeTypes } = await import("../blocks/BlockNode");
 const { PluginBlocksContext } = await import("./PluginBlocksContext");
 const { buildPluginBlocks } = await import("./PluginBlocksContext");
-const { agent, blocksOf, legacy, post, slack } = await import("./fixtures");
+const { agent, blocksOf, legacy, moved, post, slack } = await import("./fixtures");
 
 afterEach(cleanup);
 afterAll(() => GlobalRegistrator.unregister());
@@ -186,4 +186,26 @@ test("a rejected plugin's blocks are missing; a pending upgrade still serves the
 	// the live version has post; legacy is only in the version waiting for approval
 	const missing = [...view.container.querySelectorAll(".fx-block--missing")];
 	expect(missing.map((el) => el.getAttribute("data-block-id"))).toEqual(["s1", "l1"]);
+});
+
+test("any handle can sit on any side: an input on top, outputs below and left, a body handle on the right", () => {
+	const view = draw(blocksOf(slack([moved])), [{ id: "m1", type: moved.name }]);
+
+	expect(handle(view, "m1-target")?.className).toContain("fx-handle--top");
+	expect(handle(view, "m1-success")?.className).toContain("fx-handle--bottom");
+	expect(handle(view, "m1-failure")?.className).toContain("fx-handle--left");
+	expect(handle(view, "m1-side")?.className).toContain("fx-handle--right");
+	// each lands on the rail of its own side
+	for (const [side, id] of [
+		["top", "target"],
+		["bottom", "success"],
+		["left", "failure"],
+		["right", "side"],
+	]) {
+		expect(
+			view.container
+				.querySelector(`.fx-block__rail--${side}`)
+				?.querySelector(`[data-handleid="m1-${id}"]`),
+		).not.toBeNull();
+	}
 });

@@ -54,3 +54,14 @@ export const slack = (blocks: object[] = [post, legacy, search], over: Partial<P
 
 /** what a canvas of a project with these plugins sees */
 export const blocksOf = (...plugins: Plugin[]) => buildPluginBlocks(pluginBlockDefs(plugins));
+
+/** a square block that moved its input to the top and both outputs off the right edge */
+export const moved = block("acme/slack/messages/moved", {
+	label: "Moved",
+	handles: {
+		in: ["target"],
+		out: ["success", "failure"],
+		body: [{ name: "side", corner: "right" }],
+		position: { target: "top", success: "bottom", failure: "left" },
+	},
+});

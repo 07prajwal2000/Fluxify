@@ -1,6 +1,6 @@
 {
 	"name": "@fluxify/sdk",
-	"version": "2026.11.202",
+	"version": "2026.11.203",
 	"description": "Write programmable blocks (plugins) for Fluxify.",
 	"type": "module",
 	"license": "Apache-2.0",

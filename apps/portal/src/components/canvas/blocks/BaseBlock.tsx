@@ -63,7 +63,7 @@ export function splitChildren(children: ReactNode) {
 
 	for (const child of Children.toArray(children)) {
 		if (isValidElement<BlockHandleProps>(child) && child.type === BlockHandle) {
-			rails[child.props.corner ?? HANDLE_CONFIG[child.props.kind].side].push(child);
+			rails[child.props.position ?? HANDLE_CONFIG[child.props.kind].side].push(child);
 		} else {
 			body.push(child);
 		}
