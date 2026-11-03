@@ -10,6 +10,8 @@ export type AiConfig = {
 	baseUrl?: string;
 	/** extra request headers, `cfg:` references expanded */
 	headers?: Record<string, string>;
+	/** OpenAI Compatible only: extra JSON fields for the request body (#1068), `cfg:` references expanded */
+	extraBody?: Record<string, unknown>;
 };
 
 type Fetch = typeof fetch;
@@ -35,7 +37,7 @@ export type AiProviderSpec = {
 /** `Authorization: Bearer`, `{ data: [{ id }] }`: OpenAI, Mistral and most compatible servers */
 export const openAiModels = (defaultBaseUrl: string): AiProviderSpec["models"] => ({
 	url: (c) => `${(c.baseUrl || defaultBaseUrl).replace(/\/+$/, "")}/models`,
-	headers: (c) => ({ authorization: `Bearer ${c.apiKey}` }),
+	headers: (c) => (c.apiKey ? { authorization: `Bearer ${c.apiKey}` } : {}),
 	ids: (body) => body.data.map((m: { id: string }) => m.id),
 });
 
@@ -44,6 +46,17 @@ const fromAppConfig = (value: string, appConfigs: Map<string, string>, what: str
 	const resolved = appConfigs.get(value.slice(4));
 	if (!resolved) throw new Error(`${what} not found`);
 	return resolved;
+};
+
+/** a JSON value with every `cfg:` string expanded, at any depth; a missing key throws */
+const expandJson = (value: unknown, appConfigs: Map<string, string>): unknown => {
+	if (typeof value === "string") return fromAppConfig(value, appConfigs, "Extra body value");
+	if (Array.isArray(value)) return value.map((v) => expandJson(v, appConfigs));
+	if (value && typeof value === "object")
+		return Object.fromEntries(
+			Object.entries(value).map(([k, v]) => [k, expandJson(v, appConfigs)]),
+		);
+	return value;
 };
 
 /**
@@ -80,6 +93,9 @@ export class BaseAiIntegration implements AiAdapter {
 				baseUrl: fromAppConfig(config.baseUrl, appConfigs, "Base URL"),
 			}),
 			...(config.headers && { headers: resolveCustomHeaders(config.headers, appConfigs) }),
+			...(config.extraBody && {
+				extraBody: expandJson(config.extraBody, appConfigs) as Record<string, unknown>,
+			}),
 		};
 	}
 

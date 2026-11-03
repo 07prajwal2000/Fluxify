@@ -27,7 +27,7 @@ Use Mistral's open-weights models.
 
 ### OpenAI Compatible
 Connect to any service that follows the OpenAI API format (e.g., local LLMs via Ollama, or other providers like Groq).
-- **Required**: Base URL and API Key.
+- **Required**: Base URL and Model. The **API Key** is optional: leave it empty for a server that needs none, such as a local Ollama. No `Authorization` header is sent then.
 
 ## Custom headers
 
@@ -47,6 +47,23 @@ Every AI integration has an optional **Headers** list. Fluxify adds these header
 - A header whose `cfg:` key is missing or empty is left out of the request.
 - A header with the same name as one Fluxify sets itself (such as `Authorization`) replaces it, so a gateway can take its own credentials.
 - **Test connection** sends the headers too.
+
+## Extra request body (OpenAI Compatible)
+
+Compatible servers each turn thinking on in their own way, so Fluxify cannot guess it from the model name. The **Extra request body** field on an OpenAI Compatible integration lets you add your own fields to every request sent to the model, including the ones the AI assistant sends.
+
+| Server | What to add |
+| :--- | :--- |
+| Groq and many gateways | `{ "reasoning_effort": "low" }` |
+| OpenRouter | `{ "reasoning": { "effort": "high" } }` |
+| vLLM with Qwen | `{ "chat_template_kwargs": { "enable_thinking": true } }` |
+| DeepSeek and similar | `{ "thinking": { "type": "enabled" } }` |
+
+- It must be a JSON object. String values, at any depth, can use `cfg:` followed by an [App Config](/concepts/app-config) key for anything secret. A `cfg:` key that does not exist makes the request fail with a clear message.
+- Production and Development each have their own body. With **Same as production** on, Development uses the production body.
+- The request's own fields always win. You cannot set `model`, `messages`, `tools`, `tool_choice`, `functions`, `function_call`, `stream`, `stream_options` or `response_format`: saving is refused and names them. A setting the request already carries, such as `temperature`, is not replaced either; your value only fills it in when the request leaves it empty.
+- If the server rejects a field you added, it answers with an error and the request fails. **Test connection** only lists models, so it does not check this field.
+- The AI assistant's thinking level picker stays hidden for these integrations. Add the field yourself instead.
 
 ## Usage
 

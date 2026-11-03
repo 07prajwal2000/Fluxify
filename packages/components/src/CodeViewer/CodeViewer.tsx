@@ -13,7 +13,7 @@ export type CodeViewerProps = {
 	theme?: string;
 };
 
-function resolveTheme(theme?: string) {
+export function resolveTheme(theme?: string) {
 	if (theme) return theme;
 	if (typeof document === "undefined") return "vs-dark";
 	return document.documentElement.classList.contains("dark") ? "vs-dark" : "light";

@@ -38,6 +38,7 @@ export * from "./src/IntegrationSelector";
 export * from "./src/JavaScriptTextArea";
 export * from "./src/JoinsEditor";
 export * from "./src/JsonEditor";
+export * from "./src/JsonTextEditor";
 export * from "./src/JsTextField";
 export { LazyLoader } from "./src/LazyLoader/LazyLoader";
 export * from "./src/MultiSelect";

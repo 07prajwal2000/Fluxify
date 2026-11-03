@@ -3,6 +3,7 @@ import { createGoogle } from "@ai-sdk/google";
 import { createMistral } from "@ai-sdk/mistral";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+import { withExtraBody } from "@fluxify/adapters";
 import type { LanguageModel } from "ai";
 
 export const PROVIDERS = ["openai", "anthropic", "google", "mistral", "openai-compatible"] as const;
@@ -17,6 +18,8 @@ export function modelFromEnv(
 	env: Record<string, string | undefined>,
 	prefix = "AGENT",
 	headers?: Record<string, string>,
+	/** openai-compatible only: extra body fields (#1068); the agent's own fields always win over them */
+	extraBody?: Record<string, unknown>,
 ): Exclude<LanguageModel, string> {
 	const provider = env[`${prefix}_PROVIDER`] as Provider;
 	const model = env[`${prefix}_MODEL`];
@@ -36,7 +39,13 @@ export function modelFromEnv(
 			return createMistral({ apiKey, baseURL, headers })(model);
 		case "openai-compatible":
 			if (!baseURL) throw new Error(`${prefix}_BASE_URL is required for openai-compatible`);
-			return createOpenAICompatible({ name: "openai-compatible", apiKey, baseURL, headers })(model);
+			return createOpenAICompatible({
+				name: "openai-compatible",
+				apiKey,
+				baseURL,
+				headers,
+				transformRequestBody: withExtraBody(extraBody),
+			})(model);
 	}
 }
 
@@ -56,6 +65,7 @@ export function modelFromIntegration(i: {
 	apiKey?: string;
 	baseUrl?: string;
 	headers?: Record<string, string>;
+	extraBody?: Record<string, unknown>;
 }) {
 	const provider = VARIANT[i.variant];
 	if (!provider) throw new Error(`The agent does not support ${i.variant} integrations`);
@@ -68,6 +78,7 @@ export function modelFromIntegration(i: {
 		},
 		"AGENT",
 		i.headers,
+		i.extraBody,
 	);
 }
 

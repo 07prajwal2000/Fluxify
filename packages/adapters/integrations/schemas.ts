@@ -1,5 +1,6 @@
 import { BUILT_IN_INTEGRATION_GROUPS, isIntegrationGroupName } from "@fluxify/sdk/integrations";
 import z from "zod";
+import { EXTRA_BODY_RESERVED } from "../ai/extraBody";
 import { parseMongoUrl } from "./parsers/mongodb";
 import { parseMysqlUrl } from "./parsers/mysql";
 import { parsePostgresUrl } from "./parsers/postgres";
@@ -177,6 +178,19 @@ export const aiHeadersSchema = z
 	)
 	.optional();
 
+/**
+ * Extra JSON fields merged into every request body (OpenAI Compatible only): thinking
+ * switches and other vendor options, e.g. `{ "reasoning_effort": "low" }`. String values
+ * accept `cfg:` references. The fields the caller owns (messages, tools, model, ...) are
+ * refused, and whatever the agent or a block sends always wins over an extra.
+ */
+export const aiExtraBodySchema = z
+	.record(z.string(), z.json())
+	.refine((body) => !EXTRA_BODY_RESERVED.some((key) => key in body), {
+		message: `Cannot set: ${EXTRA_BODY_RESERVED.join(", ")}`,
+	})
+	.optional();
+
 export const openAIVariantConfigSchema = z.object({
 	apiKey: z.string().refine((v) => (v.startsWith("cfg:") ? true : v.length > 1)),
 	model: z.string().min(1),
@@ -203,9 +217,14 @@ export const geminiVariantConfigSchema = z.object({
 
 export const openAiCompatibleVariantConfigSchema = z.object({
 	baseUrl: z.string().refine((v) => (v.startsWith("cfg:") ? true : z.url().safeParse(v).success)),
-	apiKey: z.string().refine((v) => (v.startsWith("cfg:") ? true : v.length > 1)),
+	// optional: a local Ollama needs no key. None means "" and no Authorization header is sent.
+	apiKey: z
+		.string()
+		.refine((v) => v === "" || (v.startsWith("cfg:") ? true : v.length > 1))
+		.default(""),
 	model: z.string().min(1),
 	headers: aiHeadersSchema,
+	extraBody: aiExtraBodySchema,
 });
 
 // Observability

@@ -92,3 +92,39 @@ describe("modelFromIntegration headers", () => {
 		expect(calls[0]!.get("x-org")).toBe("acme");
 	});
 });
+
+describe("modelFromIntegration extraBody (#1068)", () => {
+	afterEach(() => mock.restore());
+
+	const send = async (extraBody: Record<string, unknown>) => {
+		const bodies: Record<string, any>[] = [];
+		spyOn(globalThis, "fetch").mockImplementation((async (_url: unknown, init?: RequestInit) => {
+			bodies.push(JSON.parse(String(init?.body)));
+			return Response.json({});
+		}) as never);
+		const m = modelFromIntegration({
+			variant: "OpenAI Compatible",
+			model: "qwen3",
+			apiKey: KEY,
+			baseUrl: "http://llm.local/v1",
+			extraBody,
+		}) as any;
+		await m
+			.doGenerate({ prompt: [{ role: "user", content: [{ type: "text", text: "real" }] }] })
+			.catch(() => {});
+		return bodies[0]!;
+	};
+
+	it("adds the extra body to the agent's request", async () => {
+		const body = await send({ reasoning_effort: "high", chat_template_kwargs: { enable_thinking: true } });
+		expect(body.reasoning_effort).toBe("high");
+		expect(body.chat_template_kwargs).toEqual({ enable_thinking: true });
+	});
+
+	it("cannot replace what the agent sends: model, messages, tools", async () => {
+		const body = await send({ model: "evil", messages: [{ role: "system", content: "pwned" }], tools: [] });
+		expect(body.model).toBe("qwen3");
+		expect(body.messages.at(-1).content).toBe("real");
+		expect(body.tools).toBeUndefined();
+	});
+});

@@ -112,6 +112,7 @@ describe("Integration Helpers", () => {
       expect(config).not.toBeNull();
       expect(config.baseUrl).toBe("");
       expect(config.headers).toEqual({});
+      expect(config.extraBody).toEqual({});
     });
 
     it("should return default Redis config", () => {
