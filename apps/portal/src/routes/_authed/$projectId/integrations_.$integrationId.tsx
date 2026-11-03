@@ -225,15 +225,6 @@ function IntegrationDetailsPage() {
 							group}
 					</p>
 				</div>
-				{/* in the header (#933): it decides whether the Development tab is used at all */}
-				<div className="ml-auto shrink-0">
-					<Checkbox
-						isSelected={syncDev}
-						onChange={setSyncDev}
-						isDisabled={!canWrite}
-						label="Same as prod"
-					/>
-				</div>
 			</div>
 
 			<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain border-t border-border pt-4 pr-1">
@@ -280,6 +271,14 @@ function IntegrationDetailsPage() {
 				<div className="flex flex-col items-end gap-1">
 					{/* a test's result is a toast (stacked, #690), so it is not repeated here */}
 					<div className="flex items-center gap-2">
+						{/* beside the test (#1064): it decides whether the Development tab is used at all */}
+						<Checkbox
+							className="mr-1"
+							isSelected={syncDev}
+							onChange={setSyncDev}
+							isDisabled={!canWrite}
+							label="Same as prod"
+						/>
 						<TestConnectionButton
 							isDisabled={invalid}
 							isPending={test.isPending || testSaved.isPending}
