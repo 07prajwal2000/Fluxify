@@ -106,7 +106,9 @@ function ObjectLevel({ node, path }: { node: SchemaNode; path: SchemaPath }) {
 					{properties.map((property, index) => (
 						<PropertyRow
 							isDuplicateKey={duplicateKeys.has(property.key.trim())}
-							key={property.id ?? `${index}-${property.key}`}
+							// never the key text: a saved property has no id, and a key that
+							// changes per keystroke remounts the row and drops focus (#1064)
+							key={property.id ?? index}
 							path={[...path, index]}
 							property={property}
 						/>
