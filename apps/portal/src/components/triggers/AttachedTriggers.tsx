@@ -1,4 +1,4 @@
-import { Button, Label, ListBox, Select, Spinner, Switch, toast } from "@fluxify/components";
+import { Button, Checkbox, Label, ListBox, Select, Spinner, toast } from "@fluxify/components";
 import { useState } from "react";
 import { TbBolt, TbExternalLink, TbPlus } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -178,6 +178,12 @@ function useLink(target: TriggerTarget) {
 	};
 }
 
+const BOTH = [
+	{ field: "active", label: "Prod" },
+	{ field: "devActive", label: "Dev" },
+] as const;
+const DEV_ONLY = [BOTH[1]];
+
 function TriggerRow({
 	trigger,
 	target,
@@ -205,25 +211,34 @@ function TriggerRow({
 						trigger.type
 					)}
 				</p>
-				<DisabledReason reason={trigger.active ? null : trigger.disabledReason} />
+				<DisabledReason
+					reason={trigger.active || trigger.devActive ? null : trigger.disabledReason}
+				/>
 			</div>
-			<Switch
-				isSelected={trigger.active}
-				onChange={(active) =>
-					update.mutate(
-						{ id: trigger.id, body: { active } },
-						{
-							onSuccess: (result) => {
-								toast.success(active ? "Trigger on" : "Trigger off");
-								announceWarnings(result.warnings);
-							},
-							onError: (error) => showErrorNotification(error as Error),
-						},
-					)
-				}
-				isDisabled={readOnly}
-				label={trigger.active ? "Active" : "Inactive"}
-			/>
+			{/* one switch per environment (#1072); a sandbox runs on development alone (#735) */}
+			<div className="flex items-center gap-4">
+				{(target.kind === "sandbox" ? DEV_ONLY : BOTH).map(({ field, label }) => (
+					<Checkbox
+						key={field}
+						isSelected={trigger[field]}
+						onChange={(on) =>
+							update.mutate(
+								{ id: trigger.id, body: { [field]: on } },
+								{
+									onSuccess: (result) => {
+										toast.success(`${label} ${on ? "on" : "off"}`);
+										announceWarnings(result.warnings);
+									},
+									onError: (error) => showErrorNotification(error as Error),
+								},
+							)
+						}
+						isDisabled={readOnly}
+						aria-label={`${label}: ${trigger.name}`}
+						label={label}
+					/>
+				))}
+			</div>
 			{!readOnly && (
 				<Button variant="outline" size="sm" onPress={() => setConfirming(true)}>
 					Detach

@@ -15,7 +15,11 @@ import {
 } from "@/components/triggers/pluginTrigger";
 import { TriggerBasicsStep } from "@/components/triggers/TriggerBasicsStep";
 import { errorMessage, NoticeList } from "@/components/triggers/TriggerNotices";
-import { type ReviewSection, TriggerReview } from "@/components/triggers/TriggerReview";
+import {
+	type ReviewSection,
+	TriggerReview,
+	type TriggerSwitchState,
+} from "@/components/triggers/TriggerReview";
 import { TriggerWorkflowsField } from "@/components/triggers/TriggerWorkflowsField";
 import {
 	TRIGGER_DEFAULTS,
@@ -65,7 +69,11 @@ export function TriggerWizard({
 	);
 	const [groupId, setGroupId] = useState(initialTrigger?.groupId ?? "");
 	const [workflowId, setWorkflowId] = useState<string | null>(initialTrigger?.workflowId ?? null);
-	const [active, setActive] = useState(initialTrigger ? initialTrigger.active : true);
+	// a new trigger starts on in both, as its one switch did before (#1072)
+	const [switches, setSwitches] = useState<TriggerSwitchState>({
+		active: initialTrigger ? initialTrigger.active : true,
+		devActive: initialTrigger ? initialTrigger.devActive : true,
+	});
 	const [pluginValues, setPluginValues] = useState<Record<string, unknown>>(
 		(initialTrigger?.source as Record<string, unknown> | null) ?? {},
 	);
@@ -171,7 +179,7 @@ export function TriggerWizard({
 			name: form.name.trim(),
 			description: form.description.trim() || undefined,
 			groupId: groupId || undefined,
-			active,
+			...switches,
 			...typeFields,
 		};
 		if (initialTrigger) {
@@ -297,7 +305,11 @@ export function TriggerWizard({
 						onRetryDelayChange={(value) =>
 							builtIn.setDelivery((previous) => ({ ...previous, retryDelayMs: value }))
 						}
-						disabledReason={initialTrigger?.active ? undefined : initialTrigger?.disabledReason}
+						disabledReason={
+							initialTrigger?.active || initialTrigger?.devActive
+								? undefined
+								: initialTrigger?.disabledReason
+						}
 						readOnly={readOnly}
 					/>
 				</div>
@@ -330,8 +342,8 @@ export function TriggerWizard({
 			content: (
 				<TriggerReview
 					sections={reviewSections}
-					active={active}
-					onActiveChange={setActive}
+					switches={switches}
+					onSwitchesChange={setSwitches}
 					isEdit={isEdit}
 					isConnector={isConnector}
 					disabledReason={initialTrigger?.disabledReason}

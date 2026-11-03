@@ -30,3 +30,9 @@ test("production with a promoted version is plainly enabled", () => {
 	// the explanation is the tooltip's, not the browser's title attribute
 	expect(view.container.querySelector("[title]")).toBeNull();
 });
+
+test("an item with no production shows the Dev chip alone", () => {
+	const view = render(<EnvStatusChips dev />);
+	expect(view.getByLabelText("Development: enabled")).toBeTruthy();
+	expect(view.container.textContent).toBe("Dev");
+});

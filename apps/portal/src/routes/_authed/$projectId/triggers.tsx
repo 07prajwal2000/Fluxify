@@ -4,7 +4,6 @@ import {
 	Input,
 	Label,
 	Spinner,
-	Switch,
 	Table,
 	TextField,
 	toast,
@@ -14,11 +13,12 @@ import { useMemo, useState } from "react";
 import { TbBolt, TbEdit, TbPlus, TbStack2 } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
+import { EnvStatusChips } from "@/components/common/EnvStatusChips";
 import { Badge } from "@/components/settings/plugins/PluginBadges";
 import { isPluginTriggerType, pluginKindName } from "@/components/triggers/pluginTrigger";
 import { queueName } from "@/components/triggers/SqsTriggerFields";
 import { TriggerGroupsModal } from "@/components/triggers/TriggerGroupsModal";
-import { announceWarnings, DisabledReason } from "@/components/triggers/TriggerNotices";
+import { DisabledReason } from "@/components/triggers/TriggerNotices";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
 import { projectsQuery } from "@/query/projectsQuery";
@@ -58,7 +58,6 @@ function TriggersPage() {
 	});
 	// The list carries a plugin row's type; the kind knows the label to show.
 	const { data: pluginKinds } = triggersQuery.pluginKinds.useQuery(projectId);
-	const update = triggersQuery.update.mutation();
 	const remove = triggersQuery.remove.mutation();
 
 	const rows = useMemo(() => {
@@ -201,24 +200,15 @@ function TriggersPage() {
 									</Table.Cell>
 									<Table.Cell>
 										<div className="flex max-w-xs flex-col gap-1">
-											<Switch
-												isSelected={trigger.active}
-												onChange={(active) =>
-													update.mutate(
-														{ id: trigger.id, body: { active } },
-														{
-															onSuccess: (result) => {
-																toast.success(active ? "Trigger on" : "Trigger off");
-																announceWarnings(result.warnings);
-															},
-															onError: (e) => showErrorNotification(e as Error),
-														},
-													)
-												}
-												label={trigger.active ? "Active" : "Inactive"}
+											{/* a sandbox's trigger runs on development alone (#735) */}
+											<EnvStatusChips
+												prod={trigger.sandboxId ? undefined : trigger.active}
+												dev={trigger.devActive}
 											/>
 											{trigger.pluginDisabled && <Badge tone="warning">Plugin disabled</Badge>}
-											<DisabledReason reason={trigger.active ? null : trigger.disabledReason} />
+											<DisabledReason
+												reason={trigger.active || trigger.devActive ? null : trigger.disabledReason}
+											/>
 										</div>
 									</Table.Cell>
 									<Table.Cell>
