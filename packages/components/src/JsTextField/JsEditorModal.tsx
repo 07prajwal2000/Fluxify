@@ -137,6 +137,7 @@ export function JsEditorModal({
 								className="flex-1 h-full rounded-lg border border-border"
 								height="100%"
 								onChange={onChange}
+								onSave={onSave}
 								onEditorMount={(editor) => {
 									editorRef.current = editor;
 								}}

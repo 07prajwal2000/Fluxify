@@ -42,6 +42,7 @@ export function ExpressionEditor({
 				autoFocus
 				className="flex-1"
 				onChange={onChange}
+				onSave={onSave}
 				rows={rows}
 				value={value}
 			/>

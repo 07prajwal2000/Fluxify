@@ -3,6 +3,7 @@ import clsx from "clsx";
 import { useCallback, useEffect, useId, useRef } from "react";
 // Side-effect import: self-hosts Monaco and registers the JS language config.
 import "./setup";
+import { bindSaveShortcut } from "./saveShortcut";
 
 /** Monaco's own default; pinned so `rows` maps to an exact pixel height. */
 const LINE_HEIGHT = 20;
@@ -41,6 +42,8 @@ export type JavaScriptTextAreaProps = {
 	expandable?: boolean;
 	/** Title of that modal. */
 	expandTitle?: string;
+	/** Ctrl+S (Cmd+S on a Mac) runs it, the way the editor's Save button does (#1064). */
+	onSave?: () => void;
 };
 
 function resolveTheme(theme?: string) {
@@ -72,9 +75,13 @@ export function JavaScriptTextArea({
 	onEditorMount,
 	"aria-label": ariaLabel,
 	language = "javascript",
+	onSave,
 }: JavaScriptTextAreaProps) {
 	const height = heightProp ?? rows * LINE_HEIGHT + VERTICAL_PADDING;
 	const mountedRef = useRef(false);
+	// the command is bound once at mount; the ref hands it the latest save and its draft
+	const onSaveRef = useRef(onSave);
+	onSaveRef.current = onSave;
 	const typeDefinitionsId = useId();
 
 	useEffect(() => {
@@ -98,6 +105,7 @@ export function JavaScriptTextArea({
 			editor.onDidFocusEditorText(() => onFocus?.());
 			// Disable F1 Command Palette
 			editor.addCommand(monaco.KeyCode.F1, () => {});
+			bindSaveShortcut(editor, monaco, () => onSaveRef.current);
 			if (autoFocus && !mountedRef.current) {
 				mountedRef.current = true;
 				editor.focus();
