@@ -28,6 +28,7 @@ export function SplitButton({
 	isDisabled,
 	menuLabel,
 	items,
+	menuClassName,
 }: {
 	children: ReactNode;
 	onPress: () => void;
@@ -36,6 +37,8 @@ export function SplitButton({
 	/** names the caret for screen readers, e.g. "Version options" */
 	menuLabel: string;
 	items: SplitButtonItem[];
+	/** on the menu itself, e.g. a fixed width, or a height that makes it scroll */
+	menuClassName?: string;
 }) {
 	if (items.length === 0) {
 		return (
@@ -61,7 +64,10 @@ export function SplitButton({
 					<TbChevronDown size={14} />
 				</Button>
 				<Dropdown.Popover>
-					<Dropdown.Menu onAction={(key) => items.find((item) => item.id === key)?.onAction()}>
+					<Dropdown.Menu
+						className={menuClassName}
+						onAction={(key) => items.find((item) => item.id === key)?.onAction()}
+					>
 						{items.map((item) => (
 							<Dropdown.Item
 								key={item.id}

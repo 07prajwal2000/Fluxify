@@ -33,7 +33,17 @@ export function versionMenuItem(
 		children: (
 			<>
 				<span className="font-mono font-semibold">v{version.versionNumber}</span>
-				<span className="min-w-0 flex-1 truncate">{version.title}</span>
+				{/* a fixed width truncates a long title; the tooltip reads all of it */}
+				<Tooltip delay={400}>
+					<Tooltip.Trigger
+						render={(props) => (
+							<span {...props} tabIndex={-1} className="min-w-0 flex-1 truncate" />
+						)}
+					>
+						{version.title}
+					</Tooltip.Trigger>
+					<Tooltip.Content>{version.title}</Tooltip.Content>
+				</Tooltip>
 				{version.isProd ? (
 					<TbCircleCheck size={16} role="img" aria-label="In production" className="shrink-0" />
 				) : (
@@ -43,6 +53,7 @@ export function versionMenuItem(
 								<span
 									{...props}
 									role="img"
+									tabIndex={-1}
 									aria-label={label}
 									className="shrink-0 text-muted opacity-0 transition-opacity group-hover:opacity-100 group-data-[focused=true]:opacity-100"
 								/>

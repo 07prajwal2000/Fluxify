@@ -115,6 +115,40 @@ test("the menu lists every version under Version history, the live one green", a
 	expect((await row(view, 3)).className).not.toContain("bg-success/10");
 });
 
+test("the menu has a fixed width and height, with Version history pinned above the scroll", async () => {
+	spyOn(versionsService, "list").mockResolvedValue(history(2) as never);
+	const { view } = renderControls();
+	openMenu(view);
+	await row(view, 3);
+	const menu = view.getByRole("menu");
+	// fixed width, and a height of Version history plus five rows; the rest scrolls
+	expect(menu.className).toContain("w-72");
+	expect(menu.className).toContain("max-h-[14.375rem]");
+	expect(menu.className).toContain("overflow-y-auto");
+	expect(view.getByRole("menuitem", { name: "Version history" }).className).toContain("sticky");
+	expect((await row(view, 3)).className).not.toContain("sticky");
+});
+
+test("a long title is cut to the row and is a tooltip trigger for its full name", async () => {
+	const long =
+		"http://localhost:8080/_/admin/ui/01a15f0f-d36d-7f6b-918a-c02898212e9c/canvas/01a19d18";
+	const data = history(2);
+	data.versions[0] = { ...data.versions[0], title: long } as never;
+	spyOn(versionsService, "list").mockResolvedValue(data as never);
+	const { view } = renderControls();
+	openMenu(view);
+	const item = await row(view, 3);
+	const title = [...item.querySelectorAll("span")].find((el) => el.textContent === long);
+	expect(title?.className).toContain("truncate");
+	expect(title?.className).toContain("min-w-0");
+
+	// the title is the tooltip's trigger, so hovering it reads the whole name (a test DOM has
+	// no hover timing to open the tooltip itself)
+	expect(title?.getAttribute("data-slot")).toBe("tooltip-trigger");
+	// it stays out of the menu's tab order: the menu moves focus between its rows
+	expect(title?.getAttribute("tabindex")).toBe("-1");
+});
+
 test("choosing the live version changes nothing and keeps the menu open", async () => {
 	spyOn(versionsService, "list").mockResolvedValue(history(2) as never);
 	const { view } = renderControls();

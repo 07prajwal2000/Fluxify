@@ -12,6 +12,15 @@ import { useVersionTarget } from "./useVersionTarget";
 import { versionMenuItem } from "./versionMenuItem";
 
 /**
+ * The version menu has a fixed width, so a long title cannot widen it, and a
+ * height of Version history plus five rows: the rest scrolls (#1075). A row is
+ * 2.25rem and the gap between rows 0.125rem.
+ */
+const VERSION_MENU = "w-72 max-w-full max-h-[14.375rem] overflow-y-auto";
+/** Version history stays at the top while the versions scroll under it. */
+const PINNED = "sticky top-0 z-10 bg-overlay hover:bg-default data-[focused=true]:bg-default";
+
+/**
  * The canvas header's version controls (#738): Commit, with a dot while there is
  * work no version holds, and a menu to the history. The menu lists the versions
  * under it, so one can be promoted from here (#1075). Viewers get the history only.
@@ -57,12 +66,14 @@ export function CommitControls({
 						isDisabled={!hasWork}
 						onPress={() => setCommitting(true)}
 						menuLabel="Version options"
+						menuClassName={VERSION_MENU}
 						items={[
 							{
 								id: "history",
 								label: "Version history",
 								icon: <TbHistory size={16} />,
 								onAction: onOpenHistory,
+								className: PINNED,
 							},
 							...versions.map((version) =>
 								versionMenuItem(version, liveVersionNumber, setPromoting),
