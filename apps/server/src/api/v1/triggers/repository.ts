@@ -285,6 +285,7 @@ export async function listTriggers(
 			schedule: triggersEntity.schedule,
 			timezone: triggersEntity.timezone,
 			active: triggersEntity.active,
+			devActive: triggersEntity.devActive,
 			disabledReason: triggersEntity.disabledReason,
 			createdAt: triggersEntity.createdAt,
 			updatedAt: triggersEntity.updatedAt,
@@ -333,7 +334,8 @@ export async function listActiveScheduledTriggers(env: FluxifyEnv, tx?: DbTransa
 		.where(
 			and(
 				eq(triggersEntity.type, "schedule"),
-				eq(triggersEntity.active, true),
+				// the trigger's own switch for this environment (#1072)
+				eq(env === "development" ? triggersEntity.devActive : triggersEntity.active, true),
 				isNotNull(triggersEntity.schedule),
 				served,
 			),

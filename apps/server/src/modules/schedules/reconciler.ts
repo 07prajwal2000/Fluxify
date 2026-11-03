@@ -11,6 +11,7 @@ import { natsConnection, natsName, natsStreamSpec } from "../../db/nats";
 import type { FluxifyEnv } from "../../lib/env";
 import { ENVIRONMENTS } from "../../lib/envValues";
 import { type EnvSwitches, isServedIn } from "../compiler/observability";
+import { type TriggerSwitches, triggerOn } from "../triggers/switches";
 import {
 	ALL_PROJECTS,
 	fireSubject,
@@ -125,15 +126,16 @@ export async function removeSchedule(
 /**
  * The environments a schedule should fire in: the ones its workflow is live in
  * (#738, #739). Development where the workflow's `devActive` is on; production
- * where it is `active` with a promoted version. A trigger that is switched off,
- * has no schedule, or starts no workflow fires nowhere.
+ * where it is `active` with a promoted version. The trigger has a switch per
+ * environment too (#1072), and fires only where its own switch is on as well.
+ * A trigger that has no schedule, or starts no workflow, fires nowhere.
  */
 export function scheduleEnvironments(
-	trigger: { active: boolean; workflowId: string | null; schedule: string | null },
+	trigger: TriggerSwitches & { workflowId: string | null; schedule: string | null },
 	workflow: EnvSwitches | null,
 ): FluxifyEnv[] {
-	if (!trigger.active || !trigger.workflowId || !trigger.schedule || !workflow) return [];
-	return ENVIRONMENTS.filter((env) => isServedIn(workflow, env));
+	if (!trigger.workflowId || !trigger.schedule || !workflow) return [];
+	return ENVIRONMENTS.filter((env) => triggerOn(trigger, env) && isServedIn(workflow, env));
 }
 
 /**
@@ -146,11 +148,11 @@ export function scheduleEnvironments(
 export async function syncSchedule(
 	trigger: ScheduledTrigger,
 	workflow: EnvSwitches | null,
-	active: boolean,
+	switches: TriggerSwitches,
 ) {
 	const live = new Set(
 		scheduleEnvironments(
-			{ active, workflowId: trigger.workflowId, schedule: trigger.schedule },
+			{ ...switches, workflowId: trigger.workflowId, schedule: trigger.schedule },
 			workflow,
 		),
 	);

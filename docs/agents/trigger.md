@@ -11,7 +11,7 @@ A trigger starts one workflow. It can run on the clock (a cron or interval sched
 
 | Tool | Role | What it does |
 | --- | --- | --- |
-| `list_triggers` | viewer | Triggers of a project: id, name, type, active, workflow, disabledReason. Args: `projectId`, `workflowId`, `sandboxId`, `page`, `search`. Triggers on other people's sandboxes are never listed. |
+| `list_triggers` | viewer | Triggers of a project: id, name, type, active, devActive, workflow, disabledReason. Args: `projectId`, `workflowId`, `sandboxId`, `page`, `search`. Triggers on other people's sandboxes are never listed. |
 | `get_trigger` | viewer | Every setting of one trigger. |
 | `save_trigger` | creator | Create (no `triggerId`) or update (`triggerId`). |
 | `delete_trigger` | creator | Deletes the trigger. The workflow stays. Nothing starts it from this trigger again. |
@@ -49,7 +49,7 @@ Pass `projectId`, `name`, `type`, `schedule` and the workflow.
 
 The result is `{ "id": "<trigger id>", "warnings": [] }`.
 
-A new trigger is **inactive**. Pass `active: true`, or nothing runs. The workflow must also be active.
+A new trigger is **off**. `active` switches it on in production and `devActive` in development. Leave `devActive` out and it takes the value of `active`, so `active: true` turns it on in both. The workflow must also be on in the same environment.
 
 ## Create a queue trigger
 
@@ -101,7 +101,7 @@ A plugin can add a trigger kind, and the project creates triggers from it like a
 - `batchSize`, `maxWaitMs`, `maxBytes`, `concurrency`, `commitMode` and dead-letter settings do not apply. The plugin owns batching and delivery.
 - `maxAttempts` and `retryDelayMs` apply only when the kind declares that Fluxify retries its runs. Otherwise they are unused.
 
-The trigger runs wherever its workflow is live and the plugin is enabled. A trigger Fluxify turned off keeps the reason in `disabledReason`. Setting `active: true` clears the reason, re-checks the trigger and its params, and starts a fresh failure count.
+The trigger runs wherever its workflow is live and the plugin is enabled. A trigger Fluxify turned off keeps the reason in `disabledReason`. Setting `active: true` or `devActive: true` clears the reason, re-checks the trigger and its params, and starts a fresh failure count.
 
 ## Update a trigger
 
@@ -111,9 +111,11 @@ Pass `triggerId` and only the fields that change.
 { "triggerId": "<trigger id>", "active": false }
 ```
 
+That stops it in production and leaves development as it is. Pass `devActive` to change development.
+
 - `type` and `projectId` cannot change. If you pass them they are ignored.
 - `workflowId: null` detaches the workflow. The trigger then idles.
-- Turning a trigger on clears its `disabledReason`. The system sets that field when it switches a trigger off itself, for example when its queue was deleted.
+- Turning a trigger on in either environment clears its `disabledReason`. The system sets that field when it switches a trigger off itself, for example when its queue was deleted. It then turns off both `active` and `devActive`.
 
 ## Common fields
 
@@ -128,7 +130,8 @@ Pass `triggerId` and only the fields that change.
 | `groupId` | string | A trigger group of the same project. Leave it out for the default group. | default group |
 | `integrationId` | string | Built-in queue types only. An integration of the right kind in this project. Never for `schedule`, `internal` or `plugin:<kind>`. | none |
 | `payload` | any JSON | Static data handed to the workflow. Use it for sources that carry none. | none |
-| `active` | boolean | Only active triggers run. | `false` |
+| `active` | boolean | On in production. It runs there only while its workflow is live in production. | `false` |
+| `devActive` | boolean | On in development. It runs there only while its workflow is on in development. A trigger with a `sandboxId` runs only by this switch. | the value of `active` |
 
 A group holds at most 5 triggers by default. The operator can change that. The 6th fails with `A trigger group holds at most 5 triggers and this one has 5. Create another group for the rest.` No tool creates groups, so ask a person.
 
@@ -212,4 +215,4 @@ These apply to the built-in queue triggers. A plugin trigger owns batching and d
 | `Not found: Workflow ... not found` | Wrong `workflowId`. Use `list_workflows`. |
 | Broker message, such as a missing stream or queue | The source does not exist or the credentials fail. Fix it and save again. |
 
-Nothing runs when the trigger is off, has no workflow, or the workflow is inactive. All three must be right. Check `list_triggers` for `disabledReason`. For a worked example see [Recipe, workflow with a cron trigger](/agents/recipes/workflow-cron-trigger).
+Nothing runs in an environment when the trigger is off there, has no workflow, or the workflow is off there. All three must be right. Check `list_triggers` for `disabledReason`. For a worked example see [Recipe, workflow with a cron trigger](/agents/recipes/workflow-cron-trigger).

@@ -814,7 +814,10 @@ export const triggersEntity = pgTable(
 		/** IANA name the schedule is read in. Cron only — an interval has no
 		 *  wall clock to be shifted by. */
 		timezone: varchar({ length: 64 }).default("UTC").notNull(),
+		/** Production's switch; `devActive` is development's (#1072), as on routes and workflows (#738). */
 		active: boolean().default(false).notNull(),
+		/** A create that leaves it out takes `active`'s value, so an older caller sees no change. */
+		devActive: boolean("dev_active").default(false).notNull(),
 		/** Why the system switched it off (e.g. its queue was deleted). Cleared when a user re-enables it. */
 		disabledReason: text("disabled_reason"),
 		createdAt: timestamp("created_at").defaultNow().notNull(),

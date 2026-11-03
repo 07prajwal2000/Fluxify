@@ -1,6 +1,6 @@
 import { logger } from "@fluxify/common";
 import { groupPair } from "@fluxify/common/orchestrator";
-import { and, eq, inArray, isNotNull } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, or } from "drizzle-orm";
 import {
 	kafkaVariantConfigSchema,
 	natsVariantConfigSchema,
@@ -130,7 +130,8 @@ async function internalTriggersByGroup(): Promise<Map<string, string[]>> {
 		.where(
 			and(
 				eq(triggersEntity.type, "internal"),
-				eq(triggersEntity.active, true),
+				// on in either environment (#1072): a node may need to run it
+				or(eq(triggersEntity.active, true), eq(triggersEntity.devActive, true)),
 				isNotNull(triggersEntity.workflowId),
 			),
 		);
@@ -163,7 +164,8 @@ async function externalTriggersByGroup(): Promise<Map<string, ExternalTrigger[]>
 		.where(
 			and(
 				inArray(triggersEntity.type, ["kafka", "sqs", "nats", "redis", "rabbitmq"]),
-				eq(triggersEntity.active, true),
+				// on in either environment (#1072): a node may need to run it
+				or(eq(triggersEntity.active, true), eq(triggersEntity.devActive, true)),
 				isNotNull(triggersEntity.workflowId),
 			),
 		);

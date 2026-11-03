@@ -19,6 +19,7 @@ import { type EnvSwitches, isServedIn } from "../../../modules/compiler/observab
 import { triggerKey } from "../../../modules/compiler/subjects";
 import { removeScheduleEverywhere, syncSchedule } from "../../../modules/schedules/reconciler";
 import type { ScheduledTrigger } from "../../../modules/schedules/types";
+import { isOn, triggerOn } from "../../../modules/triggers/switches";
 import { assertConnector } from "./connectors";
 import type {
 	createSchema,
@@ -118,6 +119,7 @@ export async function createTrigger(
 				schedule: data.schedule ?? null,
 				timezone: data.timezone,
 				active: data.active ?? false,
+				devActive: data.devActive ?? data.active ?? false,
 				createdBy: userId,
 			},
 			tx,
@@ -165,7 +167,9 @@ export async function updateTrigger(
 
 		if (data.workflowId) await assertWorkflowInProject(data.workflowId, existing.projectId, tx);
 		// enabling proves the credentials and the source still work, however long it sat off
-		const enabling = data.active === true && !existing.active;
+		const enabling =
+			(data.active === true && !existing.active) ||
+			(data.devActive === true && !existing.devActive);
 		warnings = await assertConnector(
 			{
 				type: existing.type,
@@ -210,8 +214,13 @@ export async function updateTrigger(
 export async function disableTrigger(id: string, projectId: string, reason: string) {
 	const existing = await findTriggerById(id);
 	// a trigger the worker does not really own, or one a user already switched off
-	if (!existing || existing.projectId !== projectId || !existing.active) return;
-	const disabled = (await updateTriggerRow(id, { active: false, disabledReason: reason }))!;
+	if (!existing || existing.projectId !== projectId || !isOn(existing)) return;
+	// its source is gone for both environments, so both switches go off
+	const disabled = (await updateTriggerRow(id, {
+		active: false,
+		devActive: false,
+		disabledReason: reason,
+	}))!;
 	await republish(disabled);
 	logger.warn(`[triggers] disabled ${id}: ${reason}`, "TRIGGERS");
 }
@@ -448,7 +457,7 @@ export async function republish(trigger: Trigger) {
 	// source into nothing. A sandbox runs as the workflow its id names (#735).
 	const target = trigger.workflowId ?? trigger.sandboxId;
 	const plugin = await pluginTriggerPart(trigger);
-	if (!trigger.active || !target || plugin === null) return withdraw(trigger.projectId, trigger.id);
+	if (!isOn(trigger) || !target || plugin === null) return withdraw(trigger.projectId, trigger.id);
 
 	const artifact: TriggerArtifact = {
 		triggerId: trigger.id,
@@ -472,13 +481,18 @@ export async function republish(trigger: Trigger) {
 	// a plugin trigger runs only where its plugin loads, and stops where it is switched off
 	const pluginOn = plugin?.servedIn ?? (() => true);
 	// A sandbox is development's alone (#735); a workflow's trigger runs in each
-	// environment that workflow is live in.
+	// environment that workflow is live in and its own switch is on (#1072).
 	if (trigger.sandboxId)
-		await (pluginOn("development")
+		await (pluginOn("development") && trigger.devActive
 			? publishSandboxTrigger(key, artifact)
 			: withdraw(trigger.projectId, trigger.id));
 	else
-		await publishPerEnv(key, artifact, await findWorkflowSwitches(trigger.workflowId!), pluginOn);
+		await publishPerEnv(
+			key,
+			artifact,
+			await findWorkflowSwitches(trigger.workflowId!),
+			(env) => triggerOn(trigger, env) && pluginOn(env),
+		);
 	logger.debug(`[triggers] published ${key}`, "TRIGGERS");
 }
 
@@ -493,11 +507,11 @@ async function publishPerEnv(
 	key: string,
 	artifact: TriggerArtifact,
 	workflow: EnvSwitches | null,
-	pluginOn: (env: FluxifyEnv) => boolean,
+	runsIn: (env: FluxifyEnv) => boolean,
 ) {
 	await Promise.all(
 		ENVIRONMENTS.map((env) =>
-			workflow && isServedIn(workflow, env) && pluginOn(env)
+			workflow && isServedIn(workflow, env) && runsIn(env)
 				? putArtifact(key, artifact, env)
 				: deleteArtifact(key, env),
 		),
@@ -526,7 +540,7 @@ async function republishSchedule(trigger: Trigger) {
 		payload: trigger.payload ?? undefined,
 	};
 	const workflow = trigger.workflowId ? await findWorkflowSwitches(trigger.workflowId) : null;
-	await syncSchedule(schedule, workflow, trigger.active);
+	await syncSchedule(schedule, workflow, trigger);
 }
 
 /**
@@ -565,6 +579,7 @@ function present(row: Trigger): z.infer<typeof triggerSchema> {
 		schedule: row.schedule,
 		timezone: row.timezone,
 		active: row.active,
+		devActive: row.devActive,
 		disabledReason: row.disabledReason,
 		createdAt: row.createdAt.toISOString(),
 		updatedAt: row.updatedAt.toISOString(),

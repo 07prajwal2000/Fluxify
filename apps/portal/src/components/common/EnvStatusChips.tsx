@@ -9,8 +9,8 @@ const TONES = {
 };
 
 type EnvStatusChipsProps = {
-	/** `active`: production's switch */
-	prod: boolean;
+	/** `active`: production's switch. Omit where there is no production, as for a sandbox's trigger. */
+	prod?: boolean;
 	/** `devActive`: development's switch */
 	dev: boolean;
 	/** Whether production has a promoted version to serve; omit where there are no versions. */
@@ -26,15 +26,17 @@ export function EnvStatusChips({ prod, dev, promoted }: EnvStatusChipsProps) {
 	const waiting = prod && promoted === false;
 	return (
 		<div className="flex items-center gap-1.5">
-			<EnvChip
-				label="Prod"
-				tone={waiting ? "pending" : prod ? "on" : "off"}
-				description={
-					waiting
-						? "Production: enabled, but no version is promoted yet"
-						: `Production: ${prod ? "enabled" : "disabled"}`
-				}
-			/>
+			{prod !== undefined && (
+				<EnvChip
+					label="Prod"
+					tone={waiting ? "pending" : prod ? "on" : "off"}
+					description={
+						waiting
+							? "Production: enabled, but no version is promoted yet"
+							: `Production: ${prod ? "enabled" : "disabled"}`
+					}
+				/>
+			)}
 			<EnvChip
 				label="Dev"
 				tone={dev ? "on" : "off"}
