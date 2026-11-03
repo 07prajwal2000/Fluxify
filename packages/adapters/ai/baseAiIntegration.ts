@@ -1,10 +1,16 @@
 import type { EmbeddingModelV4, LanguageModelV4 } from "@ai-sdk/provider";
-import type { AiAdapter } from "@fluxify/sdk/integrations";
+import { type AiAdapter, resolveCustomHeaders } from "@fluxify/sdk/integrations";
 
 export type { AiAdapter };
 
 /** a stored AI integration, `cfg:` references expanded */
-export type AiConfig = { apiKey: string; model: string; baseUrl?: string };
+export type AiConfig = {
+	apiKey: string;
+	model: string;
+	baseUrl?: string;
+	/** extra request headers, `cfg:` references expanded */
+	headers?: Record<string, string>;
+};
 
 type Fetch = typeof fetch;
 
@@ -73,6 +79,7 @@ export class BaseAiIntegration implements AiAdapter {
 			...(config.baseUrl !== undefined && {
 				baseUrl: fromAppConfig(config.baseUrl, appConfigs, "Base URL"),
 			}),
+			...(config.headers && { headers: resolveCustomHeaders(config.headers, appConfigs) }),
 		};
 	}
 
@@ -80,7 +87,7 @@ export class BaseAiIntegration implements AiAdapter {
 	static async ListModels(config: AiConfig, fetch: Fetch = globalThis.fetch) {
 		const { models } = this.provider;
 		const res = await fetch(models.url(config), {
-			headers: models.headers(config),
+			headers: { ...models.headers(config), ...config.headers },
 			signal: AbortSignal.timeout(10_000),
 		});
 		if (!res.ok) throw new Error(`${res.status} ${(await res.text()).slice(0, 500)}`);

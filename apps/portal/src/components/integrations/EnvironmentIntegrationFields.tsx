@@ -1,4 +1,4 @@
-import { Checkbox, Chip, Label, Tabs } from "@fluxify/components";
+import { Checkbox, Chip, Input, Label, Tabs } from "@fluxify/components";
 import { useState } from "react";
 import { TbAlertTriangle } from "react-icons/tb";
 import { ConnectorFields } from "./ConnectorFields";
@@ -31,6 +31,30 @@ export type EnvironmentIntegrationFieldsProps = {
 		saved: { production: boolean; development: boolean };
 	};
 };
+
+// The name is shared by both environments, so it sits above the Production / Development
+// sections and each connector form hides its own copy.
+function IntegrationNameField({
+	name,
+	onName,
+	variant,
+	readOnly,
+}: Pick<EnvironmentIntegrationFieldsProps, "name" | "onName" | "variant" | "readOnly">) {
+	return (
+		<div className="flex flex-col gap-1">
+			<label htmlFor="integration-name" className="text-xs font-medium text-foreground">
+				Integration Name <span className="text-danger">*</span>
+			</label>
+			<Input
+				id="integration-name"
+				value={name}
+				onChange={(e) => onName(e.currentTarget.value)}
+				placeholder={`${variant} | Production`}
+				disabled={readOnly}
+			/>
+		</div>
+	);
+}
 
 export function isConfigEmpty(config: Record<string, unknown> | null | undefined): boolean {
 	if (!config) return true;
@@ -84,10 +108,14 @@ export function EnvironmentIntegrationFields({
 			onName={onName}
 			config={config}
 			setField={setField}
+			hideName
 			readOnly={readOnly}
 			tools={tools}
 			oauth={target("production")}
 		/>
+	);
+	const nameField = (
+		<IntegrationNameField name={name} onName={onName} variant={variant} readOnly={readOnly} />
 	);
 	const syncWarning = (
 		<div
@@ -133,6 +161,7 @@ export function EnvironmentIntegrationFields({
 		return (
 			<div className="flex flex-col gap-4">
 				{errorBox}
+				{nameField}
 				{syncDev && syncWarning}
 				<Tabs
 					variant="secondary"
@@ -174,6 +203,7 @@ export function EnvironmentIntegrationFields({
 	return (
 		<div className="flex flex-col gap-6">
 			{errorBox}
+			{nameField}
 			{/* Production Section */}
 			<div className="flex flex-col gap-4 rounded-xl border border-border bg-surface p-4">
 				<div className="flex items-center justify-between border-b border-border pb-2">

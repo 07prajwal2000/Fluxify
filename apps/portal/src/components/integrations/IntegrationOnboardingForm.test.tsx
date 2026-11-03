@@ -171,12 +171,12 @@ test("IntegrationOnboardingForm renders Name field for plugin variant and sends 
 	);
 
 	await waitFor(() => {
-		expect(document.getElementById("plugin-integration-name")).not.toBeNull();
+		expect(document.getElementById("integration-name")).not.toBeNull();
 	});
 
 	const getNameInput = () => {
-		const el = document.getElementById("plugin-integration-name");
-		if (!el) throw new Error("plugin-integration-name not found");
+		const el = document.getElementById("integration-name");
+		if (!el) throw new Error("integration-name not found");
 		return (el.tagName === "INPUT" ? el : el.querySelector("input") || el) as HTMLInputElement;
 	};
 

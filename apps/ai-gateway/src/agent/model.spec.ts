@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it, mock, spyOn } from "bun:test";
 import { modelFromEnv, modelFromIntegration } from "./model";
 
 const KEY = "test-key";
@@ -60,5 +60,35 @@ describe("modelFromIntegration", () => {
 
 	it("refuses an unknown variant", () => {
 		expect(() => modelFromIntegration({ variant: "Cohere", model: "x" })).toThrow("Cohere");
+	});
+});
+
+describe("modelFromIntegration headers", () => {
+	afterEach(() => mock.restore());
+
+	it.each([
+		["OpenAI", "gpt-4o"],
+		["Anthropic", "claude-sonnet-4-5"],
+		["Gemini", "gemini-2.5-pro"],
+		["Mistral", "mistral-small-latest"],
+		["OpenAI Compatible", "llama3"],
+	])("%s sends the integration headers", async (variant, id) => {
+		const calls: Headers[] = [];
+		spyOn(globalThis, "fetch").mockImplementation((async (_url: unknown, init?: RequestInit) => {
+			calls.push(new Headers(init?.headers));
+			return Response.json({});
+		}) as never);
+		const m = modelFromIntegration({
+			variant,
+			model: id,
+			apiKey: KEY,
+			baseUrl: "http://llm.local/v1",
+			headers: { "x-org": "acme" },
+		}) as any;
+		await m
+			.doGenerate({ prompt: [{ role: "user", content: [{ type: "text", text: "hi" }] }] })
+			.catch(() => {});
+		expect(calls).toHaveLength(1);
+		expect(calls[0]!.get("x-org")).toBe("acme");
 	});
 });

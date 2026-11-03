@@ -96,3 +96,52 @@ it("a missing app config key is reported", () => {
 		"API key not found",
 	);
 });
+
+describe.each(ROWS)("custom headers: %p", (Provider, row, baseUrl) => {
+	const withHeaders = {
+		...row,
+		headers: { "x-org": "acme", "x-route": "cfg:AI_ROUTE", "x-missing": "cfg:NOPE" },
+	};
+	const apps = new Map([...appConfig, ["AI_ROUTE", "eu-1"]]);
+
+	it("accepts headers and rejects a bad name or a multi-line value", () => {
+		const { configSchema } = integrationRegistry.require("ai", Provider.variant);
+		expect(configSchema.safeParse(withHeaders).success).toBe(true);
+		expect(configSchema.safeParse({ ...row, headers: {} }).success).toBe(true);
+		expect(configSchema.safeParse({ ...row, headers: { "": "x" } }).success).toBe(false);
+		expect(configSchema.safeParse({ ...row, headers: { "bad name": "x" } }).success).toBe(false);
+		expect(configSchema.safeParse({ ...row, headers: { "x-a\r\nx-b": "x" } }).success).toBe(false);
+		expect(configSchema.safeParse({ ...row, headers: { "x-a": "v\r\nx-b: y" } }).success).toBe(false);
+		expect(configSchema.safeParse({ ...row, headers: { "x-a": 1 } }).success).toBe(false);
+		expect(configSchema.parse(withHeaders).headers).toEqual(withHeaders.headers);
+	});
+
+	it("expands cfg: values, drops unresolved ones and leaves the stored row alone", () => {
+		const config = Provider.ExtractConnectionInfo(withHeaders as any, apps);
+		expect(config.headers).toEqual({ "x-org": "acme", "x-route": "eu-1" });
+		expect(withHeaders.headers["x-route"]).toBe("cfg:AI_ROUTE");
+	});
+
+	it("sends them on a model call and on the model listing", async () => {
+		const config = Provider.ExtractConnectionInfo(withHeaders as any, apps);
+		const { calls, fetch } = recorder({ data: [], models: [] });
+		await new Provider(config, fetch)
+			.languageModel()
+			.doGenerate({ prompt: [{ role: "user", content: [{ type: "text", text: "hi" }] }] })
+			.catch(() => {});
+		await Provider.ListModels(config, fetch);
+		expect(calls).toHaveLength(2);
+		for (const call of calls) {
+			expect(call.url.startsWith(baseUrl)).toBe(true);
+			expect(call.headers.get("x-org")).toBe("acme");
+			expect(call.headers.get("x-route")).toBe("eu-1");
+			expect(keyOf(call.headers)).toBe("sk-test-from-app-config");
+		}
+	});
+
+	it("sends nothing extra without headers", async () => {
+		const { calls, fetch } = recorder({ data: [], models: [] });
+		await Provider.ListModels(Provider.ExtractConnectionInfo(row as any, appConfig), fetch);
+		expect(calls[0]!.headers.get("x-org")).toBeNull();
+	});
+});

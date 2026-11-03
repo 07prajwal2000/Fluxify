@@ -120,6 +120,18 @@ An AI provider:
 { "apiKey": "cfg:OPENAI_KEY", "model": "gpt-4o-mini" }
 ```
 
+`headers` is optional on every AI provider: an object of header name to value, sent with each request to the provider, for a gateway or proxy. Values can be `cfg:KEY` references. `config` and `devConfig` each take their own:
+
+```json
+{
+  "apiKey": "cfg:OPENAI_KEY",
+  "model": "gpt-4o-mini",
+  "headers": { "x-org-id": "acme", "x-gateway-token": "cfg:GATEWAY_TOKEN" }
+}
+```
+
+A header name must be plain letters, digits or `-_.`, and a value must be one line.
+
 ## Production and development configs
 
 An integration has two configs under one id: `config` for production and `devConfig` for development. Same fields, same variant. The development worker uses `devConfig`, or `config` when `syncDev` is `true`.
@@ -190,8 +202,8 @@ Variants with one form:
 
 | Variant | Fields |
 | --- | --- |
-| `OpenAI`, `Anthropic`, `Gemini`, `Mistral` | `apiKey`, `model` |
-| `OpenAI Compatible` | `baseUrl`, `apiKey`, `model` |
+| `OpenAI`, `Anthropic`, `Gemini`, `Mistral` | `apiKey`, `model`, `headers?` |
+| `OpenAI Compatible` | `baseUrl`, `apiKey`, `model`, `headers?` |
 | `Kafka` | `brokers` (comma-separated `host:port`), `clientId?`, `ssl?` (default `false`), `saslMechanism?` (`none`, `PLAIN`, `SCRAM-SHA-256`, `SCRAM-SHA-512`, default `none`), `username?`, `password?`, `dlqTopic?`, `sendTimeoutMs?` |
 | `NATS` | `servers` (comma-separated `nats://host:port`), `tls?`, `token?`, `user?`, `pass?`, `creds?`, `nkeySeed?`, `dlqSubject?`, `monitoringEndpoint?`, `account?`, `sendTimeoutMs?` |
 | `SQS` | `region`, `accessKeyId?`, `secretAccessKey?`, `sessionToken?`, `endpoint?`, `sendTimeoutMs?`. Blank keys fall back to the server's AWS credentials. |

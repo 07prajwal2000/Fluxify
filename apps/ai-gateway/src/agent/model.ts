@@ -16,6 +16,7 @@ export type Provider = (typeof PROVIDERS)[number];
 export function modelFromEnv(
 	env: Record<string, string | undefined>,
 	prefix = "AGENT",
+	headers?: Record<string, string>,
 ): Exclude<LanguageModel, string> {
 	const provider = env[`${prefix}_PROVIDER`] as Provider;
 	const model = env[`${prefix}_MODEL`];
@@ -26,16 +27,16 @@ export function modelFromEnv(
 	if (!model) throw new Error(`${prefix}_MODEL is required`);
 	switch (provider) {
 		case "openai":
-			return createOpenAI({ apiKey, baseURL })(model);
+			return createOpenAI({ apiKey, baseURL, headers })(model);
 		case "anthropic":
-			return createAnthropic({ apiKey, baseURL })(model);
+			return createAnthropic({ apiKey, baseURL, headers })(model);
 		case "google":
-			return createGoogle({ apiKey, baseURL })(model);
+			return createGoogle({ apiKey, baseURL, headers })(model);
 		case "mistral":
-			return createMistral({ apiKey, baseURL })(model);
+			return createMistral({ apiKey, baseURL, headers })(model);
 		case "openai-compatible":
 			if (!baseURL) throw new Error(`${prefix}_BASE_URL is required for openai-compatible`);
-			return createOpenAICompatible({ name: "openai-compatible", apiKey, baseURL })(model);
+			return createOpenAICompatible({ name: "openai-compatible", apiKey, baseURL, headers })(model);
 	}
 }
 
@@ -54,15 +55,20 @@ export function modelFromIntegration(i: {
 	model?: string;
 	apiKey?: string;
 	baseUrl?: string;
+	headers?: Record<string, string>;
 }) {
 	const provider = VARIANT[i.variant];
 	if (!provider) throw new Error(`The agent does not support ${i.variant} integrations`);
-	return modelFromEnv({
-		AGENT_PROVIDER: provider,
-		AGENT_MODEL: i.model,
-		AGENT_API_KEY: i.apiKey || (i.baseUrl ? "not-required" : undefined),
-		AGENT_BASE_URL: i.baseUrl,
-	});
+	return modelFromEnv(
+		{
+			AGENT_PROVIDER: provider,
+			AGENT_MODEL: i.model,
+			AGENT_API_KEY: i.apiKey || (i.baseUrl ? "not-required" : undefined),
+			AGENT_BASE_URL: i.baseUrl,
+		},
+		"AGENT",
+		i.headers,
+	);
 }
 
 /** How hard the model thinks before it answers. `none` turns thinking off where the model allows it. */

@@ -104,12 +104,14 @@ describe("Integration Helpers", () => {
       expect(config).not.toBeNull();
       expect(config.apiKey).toBe("");
       expect(config.model).toBe("");
+      expect(config.headers).toEqual({});
     });
 
     it("should return default OpenAI Compatible config", () => {
       const config = getDefaultVariantValue("OpenAI Compatible") as any;
       expect(config).not.toBeNull();
       expect(config.baseUrl).toBe("");
+      expect(config.headers).toEqual({});
     });
 
     it("should return default Redis config", () => {

@@ -29,6 +29,25 @@ Use Mistral's open-weights models.
 Connect to any service that follows the OpenAI API format (e.g., local LLMs via Ollama, or other providers like Groq).
 - **Required**: Base URL and API Key.
 
+## Custom headers
+
+Every AI integration has an optional **Headers** list. Fluxify adds these headers to each request it sends to the provider. Use it for a gateway or proxy in front of the model, for example an organization or routing header, or a custom auth header.
+
+| Field | What to enter |
+| :--- | :--- |
+| **Header** | The header name, such as `x-org-id`. Letters, digits and `-` `_` only, no spaces. |
+| **Value** | The header value, on one line. Use `cfg:` followed by an [App Config](/concepts/app-config) key for anything secret. |
+
+| Header | Value |
+| :--- | :--- |
+| `x-org-id` | `acme` |
+| `x-gateway-token` | `cfg:GATEWAY_TOKEN` |
+
+- Production and Development each have their own list. With **Same as production** on, Development uses the production list.
+- A header whose `cfg:` key is missing or empty is left out of the request.
+- A header with the same name as one Fluxify sets itself (such as `Authorization`) replaces it, so a gateway can take its own credentials.
+- **Test connection** sends the headers too.
+
 ## Usage
 
 These integrations power the AI assistant. There are no built-in AI blocks yet, but a [plugin block](/plugins/authoring/integrations#ai-variants) can call a model through any of them.

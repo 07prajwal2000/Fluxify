@@ -89,6 +89,24 @@ describe("resolveIntegrationConfig", () => {
 		).toMatchObject({ url: "https://m", variant: "http", group: "mcp" });
 	});
 
+	it("resolves an ai row headers per environment, cfg: values expanded", () => {
+		const stored = {
+			...row("ai", "OpenAI", { apiKey: "cfg:KEY", model: "m", headers: { "x-org": "prod", "x-t": "cfg:KEY" } }),
+			syncDev: false,
+			devConfig: { apiKey: "cfg:KEY", model: "m", headers: { "x-org": "dev" } },
+		};
+		expect(resolveIntegrationConfig(stored, appConfig, "production").headers).toEqual({
+			"x-org": "prod",
+			"x-t": "sk-live",
+		});
+		expect(resolveIntegrationConfig(stored, appConfig, "development").headers).toEqual({ "x-org": "dev" });
+		// sync on: development reads production headers
+		expect(resolveIntegrationConfig({ ...stored, syncDev: true }, appConfig, "development").headers).toEqual({
+			"x-org": "prod",
+			"x-t": "sk-live",
+		});
+	});
+
 	it("leaves an unknown group or variant out, as before", () => {
 		expect(resolve("database", "Oracle", { source: "credentials" })).toBeNull();
 		expect(resolve("acme/crm", "X", {})).toBeNull();
