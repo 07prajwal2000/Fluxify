@@ -27,7 +27,7 @@ import { triggerScope } from "./strayErrors";
 import type { TriggerBatch } from "./types";
 
 /** what the runtime reads of a plugin's `trigger(...)` */
-export type TriggerModule = Pick<AnyTrigger, "name" | "params" | "start">;
+export type TriggerModule = Pick<AnyTrigger, "name" | "params" | "start" | "validate">;
 
 const TAG = "TRIGGERS.plugin";
 

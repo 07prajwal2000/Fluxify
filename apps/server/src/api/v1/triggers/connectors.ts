@@ -10,7 +10,7 @@ import {
 	redisSourceSchema,
 	sqsSourceSchema,
 } from "./dto";
-import { assertPluginTrigger, type PluginTriggerCheck } from "./pluginTriggers";
+import { checkPluginTrigger, type PluginTriggerCheck } from "./pluginTriggers";
 import * as triggerRepo from "./repository";
 
 /** Each connector type's integration variant and source shape. */
@@ -96,8 +96,8 @@ export async function assertConnector(
 	check: ConnectorCheck & PluginTriggerCheck,
 	tx?: Parameters<typeof triggerRepo.findIntegration>[1],
 ): Promise<string[]> {
-	// a plugin trigger has no broker to probe: its params are what can be checked
-	if (isPluginTriggerType(check.type)) return assertPluginTrigger(check, tx).then(() => []);
+	// a plugin trigger has no broker to probe: its params, and its own `validate`
+	if (isPluginTriggerType(check.type)) return checkPluginTrigger(check, tx);
 	const connector = CONNECTORS[check.type as keyof typeof CONNECTORS];
 	if (!connector) return [];
 	const { label, schema } = connector;

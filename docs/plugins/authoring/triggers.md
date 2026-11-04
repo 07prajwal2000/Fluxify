@@ -52,6 +52,7 @@ A trigger cannot receive an HTTP request. Routes already own the project's URLs.
 | [`tabs`](#tabs) | No | By first use | The order of the wizard's steps |
 | [`retry`](#retry) | No | `false` | Let Fluxify retry a failed run |
 | [`start`](#start) | Yes | | Opens the listener or poll loop |
+| [`validate`](#validate) | No | None | Checks the settings before a trigger is saved |
 
 ### name
 
@@ -182,6 +183,40 @@ async start(ctx) {
 Nothing to close is `async () => {}`.
 
 There is no top-level `stop` field. `trigger()` refuses one, because one definition can run as several instances and each one's cleanup belongs to its own `start` call.
+
+### validate
+
+An optional check that runs **before Fluxify saves the trigger**, so a mistake shows up in the wizard instead of as a trigger that is on but reads nothing. Use it to try the credentials, or to confirm that the table, topic or endpoint exists.
+
+```ts
+async validate(ctx) {
+	const response = await fetch(`${ctx.params.baseUrl}/orders?limit=1`, {
+		headers: { authorization: `Bearer ${ctx.getConfig(ctx.params.token)}` },
+		signal: ctx.signal,
+	});
+	if (response.status === 401) throw new Error("The API token was refused");
+	if (!response.ok) throw new Error(`The orders API answered ${response.status}`);
+	if (ctx.params.everySeconds < 5) return ["Polling more often than every 5 seconds may hit the API's rate limit"];
+},
+```
+
+What it does decides what the user sees:
+
+| `validate` | The save |
+| :--- | :--- |
+| Throws | Refused. The user sees the error's message, so write it for them |
+| Returns an array of strings | Goes ahead. Each string is shown as a warning |
+| Returns nothing | Goes ahead |
+
+**When it runs.** When a trigger is created, when it is turned on, when its settings change, and when a trigger that is on is attached to a workflow. Renaming a trigger or moving it to another group does not run it.
+
+**Where it runs.** On a **development** worker of the project, with the development integrations and App config, never on the admin. If no development worker is running, the trigger is saved anyway with a warning that the check was skipped. The same happens while a worker is still installing this version of the plugin.
+
+**What `ctx` holds.** `params` (defaulted and checked, as in `start`), `integrations`, `getConfig`, `logger` and `signal`, with the same permissions as `start`. There is no `emit`, `fail` or `reportTick`: nothing is running yet.
+
+::: warning Keep it quick
+`validate` has **10 seconds**. After that `ctx.signal` aborts and the save is refused. Close anything you open before returning: a connection left open stays open on the worker.
+:::
 
 ## Polling and waiting
 
@@ -455,6 +490,7 @@ An instance that stayed up for **60 seconds** starts the count again, so a trigg
 | :--- | :--- |
 | `start` must resolve within | 30 seconds |
 | The returned stop function must return within | 10 seconds |
+| `validate` must finish within | 10 seconds |
 | Restart wait after a failure | 1 second, doubling each time |
 | Failures in a row before the trigger is turned off | 5 |
 | Running time that resets the count | 60 seconds |

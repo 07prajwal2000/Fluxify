@@ -31,6 +31,7 @@ describe("trigger()", () => {
 			},
 			tabs: ["Source", "Auth"],
 			retry: false,
+			validate: false,
 		});
 	});
 

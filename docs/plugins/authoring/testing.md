@@ -1,6 +1,6 @@
 ---
 title: Testing a Plugin
-description: Unit-test a plugin block with runBlock, an integration with runIntegration and a trigger with runTrigger from @fluxify/sdk/testing, fake what they talk to, and see what the harness cannot check.
+description: Unit-test a plugin block with runBlock, an integration with runIntegration and a trigger with runTrigger and validateTrigger from @fluxify/sdk/testing, fake what they talk to, and see what the harness cannot check.
 ---
 
 # Testing
@@ -334,6 +334,28 @@ An `emit` stays pending until the test settles it, which stands in for the workf
 A trigger that uses `connection(id).raw` is tested by passing the client it expects under the matching `kind`. That is how the PostgreSQL poller is tested without a database; the same suite also runs one case against a real PostgreSQL container, because a fake cannot prove `FOR UPDATE SKIP LOCKED` holds the rows.
 
 The start of a trigger is also the only thing a harness can test this way: `emit` does not run a workflow, and the group placement, restarts and turn-off count belong to the runtime. Cover those with a route or workflow in a development environment.
+
+### Testing validate
+
+`validateTrigger(trigger, options)` runs a trigger's [`validate`](./triggers#validate) the way a save would. It takes the same options as `runTrigger`, and `timeoutMs` is how long `validate` may take.
+
+```ts
+import { validateTrigger } from "@fluxify/sdk/testing";
+
+const { warnings } = await validateTrigger(orders, {
+	params: { baseUrl: "https://shop.test", token: "cfg:TOKEN", everySeconds: 2 },
+	appConfig: { TOKEN: "t" },
+});
+expect(warnings).toEqual(["Polling more often than every 5 seconds may hit the API's rate limit"]);
+```
+
+| Outcome | What `validateTrigger` does |
+| :--- | :--- |
+| `validate` returns strings | Resolves with them as `warnings`, plus `logs` |
+| `validate` returns nothing, or the trigger has no `validate` | Resolves with `warnings: []` |
+| `validate` throws | Rejects with that error, the message the user would see |
+| `validate` hangs past `timeoutMs` | Rejects, and `ctx.signal` aborts |
+| Missing or invalid params | Rejects, as the save would |
 
 ## What the harness cannot mirror
 

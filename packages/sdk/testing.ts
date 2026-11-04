@@ -33,3 +33,4 @@ export {
 	runTrigger,
 	type TriggerRun,
 } from "./src/testing/runTrigger.js";
+export { type ValidateTriggerResult, validateTrigger } from "./src/testing/validateTrigger.js";

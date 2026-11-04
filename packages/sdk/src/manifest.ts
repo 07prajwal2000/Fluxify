@@ -309,6 +309,8 @@ const triggerEntryFields = z.strictObject({
 	tabs: tabsSchema,
 	/** a failed run is retried by the trigger's Attempts setting before `emit` rejects */
 	retry: z.boolean(),
+	/** it defines `validate`, which Fluxify runs on a development worker before a save; absent means no */
+	validate: z.boolean().optional(),
 });
 export const triggerEntrySchema = triggerEntryFields.superRefine(checkTriggerEntry);
 
