@@ -504,6 +504,8 @@ In the trigger wizard they appear as **Source** options next to Schedules and th
 | **Workflow** | The workflow the trigger starts |
 | **Review** | Every setting, before you save |
 
+A plugin can also check the settings when you save: an error it finds stops the save with its message, and anything else it notices is shown as a warning. The check runs on a development worker, so with none running the trigger is saved with a warning that the check was skipped.
+
 **Max attempts** and **Retry delay** appear only when the plugin asks Fluxify to retry a failed run. Batching, commit mode and dead-lettering do not: the plugin owns delivery and decides when an event is committed.
 
 Where it runs is the same as any other trigger: in every environment where its workflow is live and the plugin is enabled, on every worker of its group. Every worker of the group runs the plugin's listener, so the plugin is responsible for sharing the work — a queue's consumer group, row locking, or a group with one replica.

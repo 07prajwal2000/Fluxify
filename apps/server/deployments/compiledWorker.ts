@@ -69,6 +69,7 @@ import { serveTestRuns } from "../src/modules/testRunner/workerHost";
 import { TriggerWorker } from "../src/modules/triggers/consumers";
 import { watchRunStops } from "../src/modules/triggers/runStopBucket";
 import { consumedInExecution, runsHere } from "../src/modules/triggers/types";
+import { serveTriggerValidation } from "../src/modules/triggers/validateHost";
 import "../src/lib/bigintJson";
 
 /**
@@ -130,8 +131,8 @@ const testProcessEntry = fileURLToPath(
 );
 /** test-suite responders (#478), one per served project */
 const testRuns = new Map<string, RpcResponder>();
-/** test connection, metadata and inspect responders (I3), one per served project */
-const integrationOps = new Map<string, RpcResponder>();
+/** test connection, metadata and inspect (I3) and trigger validate responders, per served project */
+const integrationOps = new Map<string, RpcResponder[]>();
 const artifacts = new Map<string, ArtifactEntry>();
 const timeoutProjects = new Map<string, boolean>();
 let shuttingDown = false;
@@ -312,12 +313,13 @@ async function serveProject(projectId: string) {
 	await jobWorker.serve(projectId);
 	await triggerWorker.serveInternal(projectId);
 	if (!integrationOps.has(projectId)) {
-		integrationOps.set(
-			projectId,
+		integrationOps.set(projectId, [
 			serveIntegrationOps(projectId, FLUXIFY_ENV, projectConfig, {
 				pluginRefs: plugins.integrationRefs,
 			}),
-		);
+			// a plugin trigger's `validate` before a save (#985)
+			serveTriggerValidation(projectId, FLUXIFY_ENV, supervisor, plugins.triggerRefs),
+		]);
 	}
 	// suites run routes, so a workflow-only node never takes them
 	if (node.type !== "workflow" && !testRuns.has(projectId)) {
@@ -350,7 +352,7 @@ function unserveIfGone(projectId: string) {
 		jobWorker.unserve(projectId),
 		triggerWorker.unserveInternal(projectId),
 		tests?.stop(),
-		ops?.stop(),
+		...(ops ?? []).map((op) => op.stop()),
 	]).catch((error) =>
 		logger.error(`consumers for ${projectId} failed to stop: ${String(error)}`, "WORKER"),
 	);

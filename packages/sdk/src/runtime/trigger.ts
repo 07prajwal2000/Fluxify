@@ -66,6 +66,15 @@ export interface TriggerContext<P extends Params = Params> {
 }
 
 /**
+ * What a plugin trigger's `validate` gets as `ctx`: `start`'s, minus what only
+ * a running instance has. `signal` aborts when the check runs out of time.
+ */
+export type TriggerValidateContext<P extends Params = Params> = Pick<
+	TriggerContext<P>,
+	"params" | "integrations" | "getConfig" | "logger" | "signal"
+>;
+
+/**
  * What `ctx.getConfig` throws for a key the trigger may not read. It never fixes
  * itself, so the trigger is turned off at the first one.
  */

@@ -65,7 +65,7 @@ export type TriggerRun = {
 };
 
 /** `promise`, or a rejection naming `what` after `ms` */
-function within<T>(promise: Promise<T>, ms: number, what: string): Promise<T> {
+export function within<T>(promise: Promise<T>, ms: number, what: string): Promise<T> {
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	const timeout = new Promise<never>((_, reject) => {
 		timer = setTimeout(() => reject(new Error(`${what} within ${ms} ms`)), ms);
@@ -108,20 +108,13 @@ function emitRecorder(name: string, stopped: () => boolean) {
 	return { emits, emit, nextEmit };
 }
 
-/**
- * Runs a trigger with no Fluxify runtime: `start` gets its params (defaulted
- * and checked), the granted integrations and app config, and an `emit` that
- * records each call for the test to resolve or reject, as the workflow run
- * would. Resolves once `start` has; rejects when `start` throws or hangs.
- */
-export async function runTrigger<P extends Params>(
+/** what `start` and `validate` share of `ctx`, built as a worker builds it */
+export function testContext<P extends Params>(
 	def: TriggerDefinition<P>,
-	options: RunTriggerOptions<P> = {},
-): Promise<TriggerRun> {
+	options: RunTriggerOptions<P>,
+) {
 	const name = def.name;
-	const ms = options.timeoutMs ?? 5000;
 	const logs: LogEntry[] = [];
-	const logger = options.logger ?? recordingLogger(logs);
 	const params = (options.params ?? {}) as Record<string, unknown>;
 	const pooled = options.pool ?? testPool();
 	const leases = leasePool(pooled, ["integrations"]);
@@ -134,6 +127,33 @@ export async function runTrigger<P extends Params>(
 		},
 		{ integrations: def.permissions?.integrations ?? [], appconfig: true },
 		`trigger ${name}`,
+	);
+	return {
+		name,
+		ms: options.timeoutMs ?? 5000,
+		logs,
+		logger: options.logger ?? recordingLogger(logs),
+		params,
+		pooled,
+		leases,
+		getConfig,
+		integrations: integrations!,
+	};
+}
+
+/**
+ * Runs a trigger with no Fluxify runtime: `start` gets its params (defaulted
+ * and checked), the granted integrations and app config, and an `emit` that
+ * records each call for the test to resolve or reject, as the workflow run
+ * would. Resolves once `start` has; rejects when `start` throws or hangs.
+ */
+export async function runTrigger<P extends Params>(
+	def: TriggerDefinition<P>,
+	options: RunTriggerOptions<P> = {},
+): Promise<TriggerRun> {
+	const { name, ms, logs, logger, params, pooled, leases, getConfig, integrations } = testContext(
+		def,
+		options,
 	);
 	const controller = new AbortController();
 	let failure: Error | undefined;
@@ -167,7 +187,7 @@ export async function runTrigger<P extends Params>(
 	stopInstance = await within(
 		def.start({
 			params: params as never,
-			integrations: integrations!,
+			integrations,
 			getConfig: failingOnDenial(getConfig, fail),
 			logger,
 			signal: controller.signal,

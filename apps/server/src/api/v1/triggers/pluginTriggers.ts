@@ -11,6 +11,7 @@ import { integrationValueProblem } from "../../../modules/plugins/paramCheck";
 import { listPluginRows } from "../../../modules/plugins/repository";
 import { findTriggerKind } from "../../../modules/plugins/triggerKinds";
 import { isPluginTriggerType, pluginTriggerKind } from "../../../modules/triggers/types";
+import { runTriggerValidation } from "../../../modules/triggers/validateDispatch";
 
 /**
  * Plugin triggers (T2): a row of type `plugin:<kind>` whose params live in its
@@ -57,6 +58,25 @@ export async function assertPluginTrigger(check: PluginTriggerCheck, tx?: DbTran
 	const source = (check.source ?? {}) as Record<string, unknown>;
 	errors.push(...(await paramErrors(entry, source, check.projectId, tx)));
 	if (errors.length) throw new ValidationError(errors);
+	return { row, entry, source };
+}
+
+/**
+ * The static checks, then with `probe` the kind's own `validate` (#985), which
+ * runs on a development worker: its warnings, or a 400 with its error.
+ */
+export async function checkPluginTrigger(
+	check: PluginTriggerCheck & { probe: boolean },
+	tx?: DbTransactionType,
+): Promise<string[]> {
+	const { row, entry, source } = await assertPluginTrigger(check, tx);
+	if (!check.probe || !entry.validate) return [];
+	return runTriggerValidation({
+		projectId: check.projectId,
+		kind: entry.name,
+		integrity: row.integrity,
+		source,
+	});
 }
 
 /** each param against its schema, the rules a block's params and an integration's secrets follow */

@@ -66,6 +66,14 @@ export type ExecutionMessage =
 	  }
 	// the supervisor owns NATS, the child owns user code: jobs cross here
 	| { type: "job"; job: JobEnvelope }
+	// a plugin trigger's settings about to be saved, checked by its `validate` (#985)
+	| {
+			type: "validate-trigger";
+			id: string;
+			projectId: string;
+			kind: string;
+			source: Record<string, unknown>;
+	  }
 	// the stop bucket, as the supervisor's watcher sees it
 	| { type: "run-stop"; stop: RunStop }
 	| { type: "run-stop-cleared"; key: string };
@@ -75,6 +83,8 @@ export type ExecutionEvent =
 	| { type: "ready" }
 	| { type: "heartbeat" }
 	| { type: "job-finished"; id: string; error?: string }
+	/** a `validate-trigger` answered: its warnings, or the error that refuses the save */
+	| { type: "trigger-validated"; id: string; warnings?: string[]; error?: string }
 	/** user code asked to queue work; only the supervisor can publish it */
 	| { type: "enqueue-job"; job: JobEnvelope }
 	/** a run a stop applied to has ended; only the supervisor can delete the entry */

@@ -315,7 +315,8 @@ async function prepare(slot: Slot) {
 	}
 }
 
-function importTrigger(ref: PluginTriggerRef) {
+/** the checked module for `ref`, imported once per entry path */
+export function importTrigger(ref: PluginTriggerRef) {
 	let pending = modules.get(ref.entry);
 	if (!pending) {
 		pending = loadTrigger(ref);

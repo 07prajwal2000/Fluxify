@@ -14,6 +14,7 @@ import { exportTraceRun, resetProviders } from "../telemetry/destinations";
 import { RouteTraceRecorder, WorkflowTraceRecorder } from "../telemetry/routeRecorder";
 import { triggerPayloadLimit } from "../triggers/payloadLimit";
 import { refreshPluginTriggers } from "../triggers/pluginTriggerRuntime";
+import { validatePluginTrigger } from "../triggers/pluginTriggerValidate";
 import { setTriggerFaultReporter } from "../triggers/queueRuntime";
 import { guardProcess } from "../triggers/strayErrors";
 import { AsyncExecutor } from "./asyncExecutor";
@@ -82,6 +83,7 @@ process.on("message", (message: ExecutionMessage) => {
 		return;
 	}
 	if (message.type === "job") return void executeJob(message.job);
+	if (message.type === "validate-trigger") return void validateTrigger(message);
 	if (message.type === "run-stop") return applyRunStop(message.stop);
 	if (message.type === "run-stop-cleared") return forgetRunStop(message.key);
 	if (message.type === "base-domain") return setBaseDomain(message.baseDomain);
@@ -106,6 +108,28 @@ async function executeJob(job: JobEnvelope) {
 		send({ type: "job-finished", id: job.id });
 	} catch (error) {
 		send({ type: "job-finished", id: job.id, error: String(error) });
+	}
+}
+
+/** the message only, never a stack: it reaches the admin */
+async function validateTrigger({
+	id,
+	projectId,
+	kind,
+	source,
+}: Extract<ExecutionMessage, { type: "validate-trigger" }>) {
+	try {
+		send({
+			type: "trigger-validated",
+			id,
+			warnings: await validatePluginTrigger(projectId, kind, source),
+		});
+	} catch (error) {
+		send({
+			type: "trigger-validated",
+			id,
+			error: error instanceof Error ? error.message : String(error),
+		});
 	}
 }
 

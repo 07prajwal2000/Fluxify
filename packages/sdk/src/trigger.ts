@@ -2,7 +2,7 @@ import { z } from "zod";
 import { type CheckVisible, placeParams, prepareParams } from "./block.js";
 import { type TriggerEntry, triggerEntrySchema } from "./manifest.js";
 import type { Params } from "./params.js";
-import type { TriggerContext } from "./runtime/trigger.js";
+import type { TriggerContext, TriggerValidateContext } from "./runtime/trigger.js";
 import { BLOCK_ONLY_FIELDS } from "./validateTrigger.js";
 
 export type TriggerDefinition<P extends Params = Params> = {
@@ -38,6 +38,13 @@ export type TriggerDefinition<P extends Params = Params> = {
 	 * `ctx.signal` aborts, and it must return. Nothing to close: `async () => {}`.
 	 */
 	start(ctx: TriggerContext<P>): Promise<() => Promise<void>>;
+	/**
+	 * Optional. Checks the settings before Fluxify saves the trigger: when it is
+	 * created, turned on, or its params change. Throw to refuse the save with
+	 * that message; return strings to save with them as warnings. Runs on a
+	 * development worker, with the development integrations and app config.
+	 */
+	validate?(ctx: TriggerValidateContext<P>): Promise<void | string[]>;
 };
 
 /** any `trigger(...)` result */
@@ -53,6 +60,7 @@ export function toTriggerEntry(def: AnyTrigger): TriggerEntry {
 		permissions: def.permissions ?? {},
 		...placeParams(def),
 		retry: !!def.retry,
+		validate: !!def.validate,
 	};
 	return JSON.parse(JSON.stringify(entry));
 }
@@ -72,9 +80,17 @@ export function trigger<const P extends Params = {}>(
 	if (blockOnly.length) throw fail(`${blockOnly.join(", ")} belong to a block, not a trigger`);
 	const parsed = triggerEntrySchema.safeParse(toTriggerEntry(def));
 	if (!parsed.success) throw fail(z.prettifyError(parsed.error));
+	if (def.validate !== undefined && typeof def.validate !== "function")
+		throw fail("validate must be a function");
 	const params = (def.params ?? {}) as Params;
+	const prepared = <C extends { params: unknown }>(ctx: C): C => ({
+		...ctx,
+		params: prepareParams(params, ctx.params as never) as never,
+	});
+	const { validate } = def;
 	return {
 		...def,
-		start: (ctx) => def.start({ ...ctx, params: prepareParams(params, ctx.params) as never }),
+		start: (ctx) => def.start(prepared(ctx)),
+		...(validate ? { validate: (ctx) => validate(prepared(ctx)) } : {}),
 	};
 }

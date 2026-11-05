@@ -47,6 +47,7 @@ describe("triggers create", () => {
 					},
 				},
 				retry: false,
+				validate: false,
 			},
 		]);
 		const written = await Bun.file(join(root, "fluxify.json")).json();

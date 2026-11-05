@@ -15,6 +15,7 @@ export {
 	PermissionDeniedError,
 	type TriggerConnection,
 	type TriggerContext,
+	type TriggerValidateContext,
 } from "./src/runtime/trigger.js";
 export { type AnyTrigger, type TriggerDefinition, toTriggerEntry, trigger } from "./src/trigger.js";
 export {

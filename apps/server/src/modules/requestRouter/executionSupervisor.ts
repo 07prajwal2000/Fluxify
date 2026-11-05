@@ -89,6 +89,12 @@ export interface ExecutionSupervisor {
 	runStopChanged(key: string, stop: RunStop | null): void;
 	/** Runs a queued job in the child and resolves when it reports back. */
 	runJob(job: JobEnvelope): Promise<void>;
+	/** Runs a plugin trigger's `validate` in the child: its warnings, or a rejection with its error. */
+	validateTrigger(request: {
+		projectId: string;
+		kind: string;
+		source: Record<string, unknown>;
+	}): Promise<string[]>;
 	/** Re-reads the timeout policy and starts or stops watching for stalls. */
 	synchronizeMonitoring(): void;
 	/** The running child, for a drain on shutdown. */
@@ -154,10 +160,17 @@ export function createExecutionSupervisor(
 	 * otherwise the consumer sits on the message until the ack wait elapses.
 	 */
 	const pendingJobs = new Map<string, { resolve: () => void; reject: (error: Error) => void }>();
+	/** `validate-trigger` requests (#985) waiting on their answer; not jobs, nothing acks them */
+	const pendingValidations = new Map<
+		string,
+		{ resolve: (warnings: string[]) => void; reject: (error: Error) => void }
+	>();
 
 	function failPendingJobs(reason: string) {
-		for (const [, pending] of pendingJobs) pending.reject(new Error(reason));
+		for (const pending of [...pendingJobs.values(), ...pendingValidations.values()])
+			pending.reject(new Error(reason));
 		pendingJobs.clear();
+		pendingValidations.clear();
 	}
 
 	/**
@@ -193,6 +206,12 @@ export function createExecutionSupervisor(
 				pendingJobs.delete(event.id);
 				if (!pending) return;
 				return event.error ? pending.reject(new Error(event.error)) : pending.resolve();
+			}
+			case "trigger-validated": {
+				const pending = pendingValidations.get(event.id);
+				pendingValidations.delete(event.id);
+				if (event.error === undefined) return pending?.resolve(event.warnings ?? []);
+				return pending?.reject(new Error(event.error));
 			}
 			case "enqueue-job":
 				// user code queued work; failures are logged, the graph moved on already
@@ -407,6 +426,15 @@ export function createExecutionSupervisor(
 				if (!execution) return reject(new Error("execution process is not running"));
 				pendingJobs.set(job.id, { resolve, reject });
 				execution.send({ type: "job", job } satisfies ExecutionMessage);
+			});
+		},
+
+		validateTrigger(request) {
+			return new Promise<string[]>((resolve, reject) => {
+				if (!execution) return reject(new Error("execution process is not running"));
+				const id = crypto.randomUUID();
+				pendingValidations.set(id, { resolve, reject });
+				execution.send({ type: "validate-trigger", id, ...request } satisfies ExecutionMessage);
 			});
 		},
 
