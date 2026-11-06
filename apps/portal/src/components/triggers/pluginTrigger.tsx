@@ -1,4 +1,4 @@
-import { GENERAL_TAB } from "@fluxify/sdk";
+import { GENERAL_TAB, LAG_PER_WORKER } from "@fluxify/sdk";
 import type { Param } from "@fluxify/sdk/blocks";
 import { pluginParamProblems } from "@/components/canvas/panel/blocks/pluginParamProblems";
 import { type PluginParamTab, pluginParamTabs } from "@/components/integrations/pluginParamTabs";
@@ -41,6 +41,22 @@ export function pluginTriggerSteps(
 		name: tab.name === GENERAL_TAB ? PLUGIN_SETTINGS_TAB : tab.name,
 		items: tab.items,
 	}));
+}
+
+/**
+ * The kind's params for editing a saved trigger. One saved before its plugin
+ * gained `lag` has no Lag per worker and keeps scaling on cpu and memory, so
+ * editing it never demands one; a trigger that has a value keeps the field as
+ * the kind declares it.
+ */
+export function paramsForEdit(
+	params: Record<string, Param>,
+	saved: Record<string, unknown> | null | undefined,
+): Record<string, Param> {
+	const lag = params[LAG_PER_WORKER];
+	if (!saved || saved[LAG_PER_WORKER] != null || !lag || !("required" in lag)) return params;
+	const { required: _, ...optional } = lag;
+	return { ...params, [LAG_PER_WORKER]: optional as Param };
 }
 
 const filled = (value: unknown) => {

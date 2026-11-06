@@ -330,3 +330,110 @@ test("a kind that no longer exists shows a notice instead of crashing", async ()
 	await until(() => view.getByText("This trigger kind no longer exists"));
 	await until(() => expect(stepLabels(view)).toEqual(["Basics", "Workflow", "Review"]));
 });
+
+// A kind that defines `lag` (#963): the server adds the platform's Lag per worker to its params.
+const lagParam = (over: Record<string, unknown> = {}) => ({
+	type: "number",
+	label: "Lag per worker",
+	description: "Pending rows one worker clears per poll",
+	min: 1,
+	integer: true,
+	tab: "Scaling",
+	...over,
+});
+const lagKind = (lag: Record<string, unknown>) =>
+	kind({
+		params: { table: { type: "string", label: "Table", required: true }, lagPerWorker: lag },
+		tabs: undefined,
+	});
+
+test("a kind with lag gets a Scaling step, with the plugin's help text under the field", async () => {
+	kinds = [lagKind(lagParam({ required: true }))];
+	const view = createWizard();
+	await pickPlugin(view);
+	await until(() =>
+		expect(stepLabels(view)).toEqual([
+			"Source",
+			"Basics",
+			"Settings",
+			"Scaling",
+			"Workflow",
+			"Review",
+		]),
+	);
+});
+
+test("with no default, Lag per worker is required: Next stays off until it is set, and it is saved in source", async () => {
+	kinds = [lagKind(lagParam({ required: true }))];
+	const view = createWizard();
+	await reachSettings(view);
+	fireEvent.change(view.container.querySelector("input")!, { target: { value: "jobs" } });
+	await until(() => expect(button("Next")?.disabled).toBe(false));
+	fireEvent.click(button("Next")!);
+	await until(() => expect(view.getByText(/^Step 4 of/)).toBeTruthy());
+	await until(() => expect(view.getByText("Pending rows one worker clears per poll")).toBeTruthy());
+	expect(button("Next")?.disabled).toBe(true);
+	const lag = view.container.querySelector("input")!;
+	fireEvent.change(lag, { target: { value: "40" } });
+	fireEvent.blur(lag);
+	await until(() => expect(button("Next")?.disabled).toBe(false));
+	fireEvent.click(step("Review")!);
+	await until(() => expect(button("Create trigger")).toBeTruthy());
+	fireEvent.click(button("Create trigger")!);
+	await until(() =>
+		expect(triggersService.create).toHaveBeenCalledWith(
+			expect.objectContaining({ source: { table: "jobs", lagPerWorker: 40 } }),
+		),
+	);
+});
+
+test("with a default from the plugin, Lag per worker needs nothing typed, and a fraction or zero is refused", async () => {
+	kinds = [lagKind(lagParam({ default: 50 }))];
+	const view = createWizard();
+	await reachSettings(view);
+	fireEvent.change(view.container.querySelector("input")!, { target: { value: "jobs" } });
+	await until(() => expect(button("Next")?.disabled).toBe(false));
+	fireEvent.click(button("Next")!);
+	await until(() => expect(view.getByText(/^Step 4 of/)).toBeTruthy());
+	expect(button("Next")?.disabled).toBe(false);
+	const field = view.container.querySelector("input")!;
+	fireEvent.change(field, { target: { value: "0" } });
+	fireEvent.blur(field);
+	await until(() => expect(button("Next")?.disabled).toBe(true));
+});
+
+test("editing a trigger saved before its plugin gained lag never demands a value", async () => {
+	kinds = [lagKind(lagParam({ required: true }))];
+	byId = saved({ source: { table: "jobs" } });
+	plugins = [pluginFixture({ name: "acme/pg", devEnabled: true, prodEnabled: false })];
+	const view = renderPage(<TriggerPage projectId="p1" triggerId="t1" onDone={() => {}} />);
+	await until(() => view.getByText("Edit trigger"));
+	await until(() => expect(stepLabels(view)).toContain("Scaling"));
+	fireEvent.click(step("Scaling")!);
+	expect(view.queryByText("Lag per worker is required")).toBeNull();
+	await until(() => expect(view.getByText("Lag per worker")).toBeTruthy());
+	fireEvent.click(button("Save changes")!);
+	await until(() =>
+		expect(triggersService.update).toHaveBeenCalledWith(
+			"t1",
+			expect.objectContaining({ source: { table: "jobs" } }),
+		),
+	);
+});
+
+test("a trigger that already has a value keeps the field required when edited", async () => {
+	kinds = [lagKind(lagParam({ required: true }))];
+	byId = saved({ source: { table: "jobs", lagPerWorker: 25 } });
+	plugins = [pluginFixture({ name: "acme/pg", devEnabled: true, prodEnabled: false })];
+	const view = renderPage(<TriggerPage projectId="p1" triggerId="t1" onDone={() => {}} />);
+	await until(() => view.getByText("Edit trigger"));
+	await until(() => expect(stepLabels(view)).toContain("Scaling"));
+	fireEvent.click(step("Scaling")!);
+	await until(() => expect(view.getByDisplayValue("25")).toBeTruthy());
+	fireEvent.change(view.getByDisplayValue("25"), { target: { value: "" } });
+	// Wait for the step itself: the old `Save changes disabled || Review` check passed
+	// on the first half and then clicked a Review button that was not there yet.
+	await until(() => expect(step("Review")).toBeTruthy());
+	fireEvent.click(step("Review")!);
+	await until(() => expect(view.getByText("Lag per worker")).toBeTruthy());
+});

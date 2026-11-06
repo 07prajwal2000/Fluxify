@@ -75,6 +75,13 @@ export type TriggerValidateContext<P extends Params = Params> = Pick<
 >;
 
 /**
+ * What a plugin trigger's `lag.read` gets as `ctx`: the running instance's, so
+ * it reuses the connections `start` opened, minus `emit` and `fail`: it only
+ * measures. `signal` aborts when the trigger stops or the read runs out of time.
+ */
+export type TriggerLagContext<P extends Params = Params> = TriggerValidateContext<P>;
+
+/**
  * What `ctx.getConfig` throws for a key the trigger may not read. It never fixes
  * itself, so the trigger is turned off at the first one.
  */

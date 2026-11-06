@@ -232,6 +232,16 @@ does not scale its claim, and everything else carries on.
 The orchestrator's role needs `triggerauthentications` in the `keda.sh` group
 alongside `scaledobjects`.
 
+### Plugin triggers that report their lag {#plugin-lag}
+
+A plugin trigger can tell Fluxify how far behind it is ([how a plugin does that](/plugins/authoring/triggers#lag)). A trigger that does, and was saved with a **Lag per worker**, makes its claim grow on that number: the claim runs about *backlog ÷ lag per worker* workers, between its minimum and maximum, and the busiest trigger decides, as with the queues above. Without a **Lag per worker**, a plugin trigger does not scale its claim.
+
+KEDA reads the number from the claim's workers, over the cluster network, so such a claim gets a Service of its own named after it, with only the workers' health port on it. Nothing on the public side changes. The workers answer only with a token, which Fluxify derives from the master encryption key and keeps in the trigger's Secret and `TriggerAuthentication`, the same way as for the queues. There is nothing to configure.
+
+If a number cannot be read, because a worker is still starting or the trigger's source is down, the claim **stays at its current size**. It never reads as an empty queue. This needs a KEDA version that supports the ScaledObject's `fallback.behavior` setting (the current releases do).
+
+Changing a trigger's **Lag per worker** reaches KEDA within one orchestrator pass and does not restart the trigger.
+
 #### Kafka: scaling past the partition count {#allow-idle-consumers}
 
 By default KEDA never runs more workers than the topics have partitions,

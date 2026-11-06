@@ -1,8 +1,13 @@
 import { z } from "zod";
 import { type CheckVisible, placeParams, prepareParams } from "./block.js";
+import type { LagEntry } from "./lag.js";
 import { type TriggerEntry, triggerEntrySchema } from "./manifest.js";
 import type { Params } from "./params.js";
-import type { TriggerContext, TriggerValidateContext } from "./runtime/trigger.js";
+import type {
+	TriggerContext,
+	TriggerLagContext,
+	TriggerValidateContext,
+} from "./runtime/trigger.js";
 import { BLOCK_ONLY_FIELDS } from "./validateTrigger.js";
 
 export type TriggerDefinition<P extends Params = Params> = {
@@ -45,6 +50,22 @@ export type TriggerDefinition<P extends Params = Params> = {
 	 * development worker, with the development integrations and app config.
 	 */
 	validate?(ctx: TriggerValidateContext<P>): Promise<void | string[]>;
+	/**
+	 * Optional. Lets the trigger's claim scale on its backlog. Fluxify calls `read`
+	 * every few seconds on each worker running the trigger and gives KEDA the last
+	 * number; a read that throws, times out or returns something that is not a
+	 * number is "unknown", never 0. The trigger form then asks for **Lag per
+	 * worker**: how much backlog one worker clears, in the unit `helpText` names.
+	 * Replicas follow `ceil(lag / lagPerWorker)` between the claim's min and max.
+	 */
+	lag?: {
+		/** The source's current backlog as a number of at least 0: the whole source's, not this worker's share. */
+		read(ctx: TriggerLagContext<P>): Promise<number>;
+		/** What the form fills in when the user sets nothing: a whole number of at least 1. Without it the field is required. */
+		default?: number;
+		/** Shown under the field, in plain text on one line (200 characters): name the unit, e.g. "Pending rows one worker clears per poll". */
+		helpText: string;
+	};
 };
 
 /** any `trigger(...)` result */
@@ -61,6 +82,7 @@ export function toTriggerEntry(def: AnyTrigger): TriggerEntry {
 		...placeParams(def),
 		retry: !!def.retry,
 		validate: !!def.validate,
+		lag: def.lag && ({ default: def.lag.default, helpText: def.lag.helpText } satisfies LagEntry),
 	};
 	return JSON.parse(JSON.stringify(entry));
 }
@@ -82,15 +104,18 @@ export function trigger<const P extends Params = {}>(
 	if (!parsed.success) throw fail(z.prettifyError(parsed.error));
 	if (def.validate !== undefined && typeof def.validate !== "function")
 		throw fail("validate must be a function");
+	if (def.lag !== undefined && (typeof def.lag !== "object" || typeof def.lag?.read !== "function"))
+		throw fail("lag must be { read(ctx), helpText, default? }");
 	const params = (def.params ?? {}) as Params;
 	const prepared = <C extends { params: unknown }>(ctx: C): C => ({
 		...ctx,
 		params: prepareParams(params, ctx.params as never) as never,
 	});
-	const { validate } = def;
+	const { validate, lag } = def;
 	return {
 		...def,
 		start: (ctx) => def.start(prepared(ctx)),
 		...(validate ? { validate: (ctx) => validate(prepared(ctx)) } : {}),
+		...(lag ? { lag: { ...lag, read: (ctx) => lag.read(prepared(ctx)) } } : {}),
 	};
 }

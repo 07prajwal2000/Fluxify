@@ -82,6 +82,7 @@ export function createKubernetesDriver(
 		scaling: ScalingContext,
 		credentialHashes: ReadonlyMap<string, string>,
 	) {
+		const specOptions = { ...options, namespace: api.endpoint.namespace };
 		const external = workload.externalTriggers;
 		const secretsHash = external.length
 			? contentHash(
@@ -92,7 +93,7 @@ export function createKubernetesDriver(
 			buildDeployment(workload, options, options.passthroughEnv, scaling.licenseCapped),
 			buildService(workload, options),
 			buildIngressRoute(workload, options),
-			buildScaledObject(workload, options, scaling.policy, secretsHash),
+			buildScaledObject(workload, specOptions, scaling.policy, secretsHash),
 		].filter((object): object is KubeObject => object !== null);
 	}
 

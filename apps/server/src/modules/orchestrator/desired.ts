@@ -30,6 +30,7 @@ import { baseDomain, getSetting } from "../../loaders/instanceSettingsLoader";
 import { projectSubdomains } from "./claims";
 import type { ExternalTrigger } from "./kubernetesSpec";
 import { type KeyedClaim, withKeys } from "./nodeClaims";
+import { mergeByGroup, pluginLagTriggersByGroup } from "./pluginLagTriggers";
 import { type Claim, type DesiredNode, projectDesiredNodes } from "./projection";
 import { rabbitMqUrl, redisAddress } from "./queueAddresses";
 import { type ScalingContext, scalingCeilings } from "./scaling";

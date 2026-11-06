@@ -12,6 +12,7 @@ import type { JobEnvelope } from "../jobs/types";
 import { registerWorkflowJobHandler } from "../jobs/workflowJob";
 import { exportTraceRun, resetProviders } from "../telemetry/destinations";
 import { RouteTraceRecorder, WorkflowTraceRecorder } from "../telemetry/routeRecorder";
+import { setLagReporter } from "../triggers/lagSampler";
 import { triggerPayloadLimit } from "../triggers/payloadLimit";
 import { refreshPluginTriggers } from "../triggers/pluginTriggerRuntime";
 import { validatePluginTrigger } from "../triggers/pluginTriggerValidate";
@@ -171,6 +172,7 @@ async function bootstrap(nextBoot: ExecutionBootstrap) {
 	setScheduleHorizon(boot.scheduleHorizonMs);
 	configureSse({ livenessMs: boot.sseLivenessTimeoutMs });
 	setTriggerFaultReporter((fault) => send({ type: "trigger-fault", ...fault }));
+	setLagReporter((triggerId, lag) => send({ type: "trigger-lag", triggerId, lag }));
 	// This process holds no broker connection: queueing is a message to the
 	// supervisor, which owns NATS.
 	setJobEnqueuer((request) =>

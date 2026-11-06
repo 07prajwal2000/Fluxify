@@ -91,6 +91,8 @@ export type ExecutionEvent =
 	| { type: "clear-run-stop"; key: string; revision: number }
 	/** a finished run with recording on (#254); only the supervisor can publish it */
 	| { type: "record-run"; run: TraceRunPayload }
+	/** a plugin trigger's backlog as `lag.read` last measured it, or null: unknown, or it stopped (#963) */
+	| { type: "trigger-lag"; triggerId: string; lag: number | null }
 	/** a queue trigger's source is gone; only the admin can disable it */
 	| { type: "trigger-fault"; triggerId: string; projectId: string; reason: string }
 	| {

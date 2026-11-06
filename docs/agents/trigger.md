@@ -97,6 +97,7 @@ A plugin can add a trigger kind, and the project creates triggers from it like a
 - A `secret` param holds an App config key as `cfg:<KEY>`, exactly as an integration stores it.
 - An `integration` param holds the **id** of an integration in the same project, of the kind the param takes and one the plugin was granted. A wrong variant is refused with the variants it takes.
 - `integrationId` is refused for a plugin trigger, with `A plugin trigger takes its integrations as params, in source`.
+- A kind that reports its backlog (its params list includes **Lag per worker**) also takes `lagPerWorker` in `source`: a whole number of at least 1, how much backlog one worker clears, in the unit the field's help text names. Leave it out to take the plugin's default. With no default, a create without it is a 400 naming `source.lagPerWorker`. On Kubernetes the trigger's workers then scale on it. An update that sends a new `source` replaces it whole: leaving `lagPerWorker` out takes the plugin's default, or is a 400 when the trigger already had a value and the plugin has no default.
 - A kind from a plugin that is not approved is refused with `No approved plugin of this project provides trigger <kind>`. Creating one while the plugin is disabled is refused with `plugin <name> is disabled`.
 - `batchSize`, `maxWaitMs`, `maxBytes`, `concurrency`, `commitMode` and dead-letter settings do not apply. The plugin owns batching and delivery.
 - `maxAttempts` and `retryDelayMs` apply only when the kind declares that Fluxify retries its runs. Otherwise they are unused.
