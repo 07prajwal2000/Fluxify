@@ -12,6 +12,7 @@ import { listPluginRows } from "../../../modules/plugins/repository";
 import { findTriggerKind } from "../../../modules/plugins/triggerKinds";
 import { isPluginTriggerType, pluginTriggerKind } from "../../../modules/triggers/types";
 import { runTriggerValidation } from "../../../modules/triggers/validateDispatch";
+import { lagParam } from "./pluginLag";
 
 /**
  * Plugin triggers (T2): a row of type `plugin:<kind>` whose params live in its
@@ -29,6 +30,8 @@ export type PluginTriggerCheck = {
 	sandboxId?: string | null;
 	/** a new row: refused while its plugin is off, which an existing row is not */
 	creating?: boolean;
+	/** the row already held a `lagPerWorker`: clearing it is refused, not a way back to no lag scaling */
+	hadLag?: boolean;
 };
 
 /**
@@ -56,7 +59,7 @@ export async function assertPluginTrigger(check: PluginTriggerCheck, tx?: DbTran
 		});
 	// the body schema already holds `source` to an object
 	const source = (check.source ?? {}) as Record<string, unknown>;
-	errors.push(...(await paramErrors(entry, source, check.projectId, tx)));
+	errors.push(...(await paramErrors(entry, source, check, tx)));
 	if (errors.length) throw new ValidationError(errors);
 	return { row, entry, source };
 }
@@ -83,11 +86,15 @@ export async function checkPluginTrigger(
 async function paramErrors(
 	entry: TriggerEntry,
 	source: Record<string, unknown>,
-	projectId: string,
+	check: PluginTriggerCheck,
 	tx?: DbTransactionType,
 ) {
+	const { projectId } = check;
 	const errors: FieldError[] = [];
-	for (const [name, param] of Object.entries(entry.params)) {
+	for (const [name, param] of Object.entries({
+		...entry.params,
+		...lagParam(entry, source, check),
+	})) {
 		const field = `source.${name}`;
 		const parsed = paramsConfigSchema({ [name]: param }).safeParse({ [name]: source[name] });
 		if (!parsed.success) {

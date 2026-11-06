@@ -126,6 +126,23 @@ describe("upgrade diff: triggers", () => {
 		expect(result.blocking).toBe(false);
 	});
 
+	it("lists lag turned on or off, and a changed help text, as changes that break nothing", () => {
+		const lag = { default: 50, helpText: "Pending rows one worker clears" };
+		const used = [{ id: "t1", name: "t1" }];
+		const added = diff(trigger(), trigger({ lag }));
+		expect(added.changedTriggers).toEqual([
+			{ kind: KIND, change: "scaling on lag turned on", breaking: false, usedBy: used },
+		]);
+		expect(diff(trigger({ lag }), trigger()).changedTriggers[0]?.change).toBe(
+			"scaling on lag turned off",
+		);
+		const unit = diff(trigger({ lag }), trigger({ lag: { ...lag, helpText: "Seconds behind" } }));
+		expect(unit.changedTriggers[0]?.change).toContain("lag help text changed");
+		expect(unit.blocking).toBe(false);
+		// a new default alone moves nothing for a row that already saved its own value
+		expect(diff(trigger({ lag }), trigger({ lag: { ...lag, default: 10 } })).changedTriggers).toEqual([]);
+	});
+
 	it("lists a new kind as added", () => {
 		const other = trigger({ name: `${NAME}/other`, entry: triggerEntryPath(`${NAME}/other`) });
 		const result = diffManifests(withTriggers(trigger()), withTriggers(trigger(), other), [], [], []);

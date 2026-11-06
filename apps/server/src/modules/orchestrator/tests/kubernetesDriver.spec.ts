@@ -90,6 +90,45 @@ const options = {
 	passthroughEnv: { NATS_URL: "nats://nats:4222" },
 };
 
+describe("createKubernetesDriver: plugin trigger lag (#963)", () => {
+	const GROUP = "0192b1c4-3333-7000-8000-000000000003";
+	const TRIGGER = "0192b1c4-6666-7000-8000-000000000006";
+	const lagScaling = () => ({
+		...ctx(4),
+		scaling: {
+			...ctx(4).scaling,
+			externalByGroup: new Map([
+				[GROUP, [{ id: TRIGGER, type: "plugin-lag" as const, lagPerWorker: 50, token: "t".repeat(64) }]],
+			]),
+		},
+	});
+	const workflowNode = () => node({ projectId: "0192b1c4-2222-7000-8000-000000000002", type: "workflow", groupIds: [GROUP], env: "production" });
+
+	it("gives a workflow claim a Service, the token's Secret and authentication, and a scaler in the cluster's namespace", async () => {
+		const { api, store } = fakeCluster();
+		await createKubernetesDriver(options, api).apply([workflowNode()], [], lagScaling());
+
+		expect([...store.keys()].sort()).toEqual(
+			[
+				`Deployment/${NAME}`,
+				`ScaledObject/${NAME}`,
+				`Service/${NAME}`,
+				`Secret/fluxify-trigger-${TRIGGER}`,
+				`TriggerAuthentication/fluxify-trigger-${TRIGGER}`,
+				"Secret/fluxify-worker-env",
+			].sort(),
+		);
+		const [scaler] = (store.get(`ScaledObject/${NAME}`)!.spec as { triggers: { metadata: { url: string } }[] }).triggers;
+		expect(scaler!.metadata.url).toStartWith(`http://${NAME}.fluxify.svc:5601/`);
+	});
+
+	it("leaves a workflow claim with no lag trigger without a Service or a trigger Secret", async () => {
+		const { api, store } = fakeCluster();
+		await createKubernetesDriver(options, api).apply([workflowNode()], [], ctx(4));
+		expect([...store.keys()].some((k) => k.startsWith("Service/") || k.includes("fluxify-trigger-"))).toBe(false);
+	});
+});
+
 describe("createKubernetesDriver", () => {
 	it("turns a claim into a Deployment, a Service, an IngressRoute and a ScaledObject", async () => {
 		const { api, store } = fakeCluster();

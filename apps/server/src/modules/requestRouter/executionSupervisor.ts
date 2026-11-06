@@ -8,6 +8,7 @@ import { type RunStop, StopLedger } from "../jobs/runStops";
 import type { JobEnvelope } from "../jobs/types";
 import { publishRecording } from "../recordings/stream";
 import { cancelScheduledRun, scheduleWorkflowRun } from "../schedules/delayed";
+import { recordLag } from "../triggers/lagServe";
 import { fireInternalTrigger } from "../triggers/publisher";
 import { clearRunStop, putRunStop } from "../triggers/runStopBucket";
 import type { AsyncExecutorLimits } from "./asyncExecutor";
@@ -242,6 +243,8 @@ export function createExecutionSupervisor(
 					),
 				);
 			}
+			case "trigger-lag":
+				return recordLag(event.triggerId, event.lag);
 			case "heartbeat":
 				return watchdog.heartbeat();
 			case "execution-started":

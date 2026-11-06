@@ -85,6 +85,11 @@ export function diffTriggers(
 		if (dropped.length) change(`no longer granted ${dropped.join(", ")}`, true, rows(kind));
 		if (was.retry !== now.retry)
 			change(`retry turned ${now.retry ? "on" : "off"}`, false, rows(kind));
+		// what a saved Lag per worker means depends on the unit the help text names (#963)
+		if (!was.lag !== !now.lag)
+			change(`scaling on lag turned ${now.lag ? "on" : "off"}`, false, rows(kind));
+		else if (was.lag && now.lag && was.lag.helpText !== now.lag.helpText)
+			change("the lag help text changed: check that its unit did not", false, rows(kind));
 	}
 	return diff;
 }

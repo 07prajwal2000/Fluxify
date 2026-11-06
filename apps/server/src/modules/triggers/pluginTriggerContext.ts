@@ -10,7 +10,7 @@ import {
 	triggerGetConfig,
 	triggerSecretKeys,
 } from "@fluxify/sdk/runtime";
-import type { AnyTrigger } from "@fluxify/sdk/triggers";
+import { type AnyTrigger, LAG_PER_WORKER } from "@fluxify/sdk/triggers";
 import { missingAppConfigMessage } from "../../lib/envValues";
 import { getAppConfig, getProjectAppConfig } from "../../loaders/appconfigLoader";
 import { findIntegrationConfig } from "../../loaders/integrationsLoader";
@@ -27,7 +27,7 @@ import { triggerScope } from "./strayErrors";
 import type { TriggerBatch } from "./types";
 
 /** what the runtime reads of a plugin's `trigger(...)` */
-export type TriggerModule = Pick<AnyTrigger, "name" | "params" | "start" | "validate">;
+export type TriggerModule = Pick<AnyTrigger, "name" | "params" | "start" | "validate" | "lag">;
 
 const TAG = "TRIGGERS.plugin";
 
@@ -98,7 +98,8 @@ export function openContext(
 	hooks: InstanceHooks,
 ) {
 	const label = `trigger ${def.name}`;
-	const params = artifact.source ?? {};
+	// `lagPerWorker` is the platform's setting, not one of the author's params
+	const { [LAG_PER_WORKER]: _lag, ...params } = artifact.source ?? {};
 	const getConfig = triggerGetConfig(
 		def.name,
 		{ params: def.params, permissions: ref.permissions },

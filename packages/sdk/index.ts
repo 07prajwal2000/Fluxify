@@ -11,6 +11,7 @@ export {
 	customBlockId,
 	longestCustomBlockId,
 } from "./src/ids.js";
+export { LAG_PER_WORKER } from "./src/lag.js";
 export {
 	type PluginDefinition,
 	type PluginMeta,

@@ -31,6 +31,7 @@ import type {
 	triggerSchema,
 } from "./dto";
 import { groupCapRefusal } from "./groupCap";
+import { lagOnUpdate, settleLagOf } from "./pluginLag";
 import { pluginDisabledIds, pluginTriggerPart } from "./pluginTriggers";
 import {
 	deleteTriggerRow,
@@ -86,7 +87,9 @@ export async function createTrigger(
 
 		if (data.workflowId) await assertWorkflowInProject(data.workflowId, data.projectId, tx);
 		if (data.sandboxId) await assertOwnSandbox(data.projectId, data.sandboxId, userId, tx);
-		warnings = await assertConnector({ ...data, probe: true, creating: true }, tx);
+		// the plugin's default fills `lagPerWorker` when the user set none, once, here
+		const source = await settleLagOf(data, tx);
+		warnings = await assertConnector({ ...data, source, probe: true, creating: true }, tx);
 
 		if (await findTriggerByName(data.projectId, data.name, tx))
 			throw new ConflictError("trigger with that name already exists");
@@ -112,7 +115,7 @@ export async function createTrigger(
 				maxBytes: data.maxBytes,
 				concurrency: data.concurrency,
 				payload: data.payload ?? null,
-				source: data.source ?? null,
+				source: source ?? null,
 				commitMode: data.commitMode,
 				maxAttempts: data.maxAttempts,
 				retryDelayMs: data.retryDelayMs,
@@ -170,12 +173,13 @@ export async function updateTrigger(
 		const enabling =
 			(data.active === true && !existing.active) ||
 			(data.devActive === true && !existing.devActive);
+		const lag = await lagOnUpdate(existing, data.source, tx);
 		warnings = await assertConnector(
 			{
 				type: existing.type,
 				projectId: existing.projectId,
 				integrationId: data.integrationId ?? existing.integrationId,
-				source: data.source ?? existing.source,
+				...lag.check,
 				batchSize: data.batchSize ?? existing.batchSize,
 				concurrency: data.concurrency ?? existing.concurrency,
 				probe: enabling || data.source !== undefined || data.integrationId !== undefined,
@@ -187,6 +191,7 @@ export async function updateTrigger(
 			id,
 			{
 				...data,
+				...lag.patch,
 				...(groupId ? { groupId } : {}),
 				...(data.payload === undefined ? {} : { payload: data.payload }),
 				...(enabling ? { disabledReason: null } : {}),

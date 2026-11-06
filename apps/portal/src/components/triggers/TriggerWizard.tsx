@@ -6,6 +6,7 @@ import { FormWizard, type WizardStep } from "@/components/common/FormWizard";
 import { pluginReviewSections, pluginStepViews } from "@/components/triggers/PluginTriggerStep";
 import {
 	isPluginTriggerType,
+	paramsForEdit,
 	pluginKindName,
 	pluginNameOfKind,
 	pluginSource,
@@ -132,7 +133,10 @@ export function TriggerWizard({
 		icon: <TbPlug size={20} />,
 		available: true,
 	};
-	const pluginParams = (kind?.params ?? {}) as Record<string, Param>;
+	const pluginParams = paramsForEdit(
+		(kind?.params ?? {}) as Record<string, Param>,
+		isEdit ? (initialTrigger?.source as Record<string, unknown> | null) : undefined,
+	);
 	const pluginSteps = kind ? pluginTriggerSteps(pluginParams, kind.tabs, pluginValues) : [];
 	const groupName =
 		(groups ?? []).find((group) => group.id === groupId)?.name ??
@@ -210,10 +214,12 @@ export function TriggerWizard({
 		);
 	}
 
-	const pluginStepsView: WizardStep[] = kind
+	// the kind with the params this edit uses, so the steps and the review draw the same fields
+	const editedKind = kind && { ...kind, params: pluginParams };
+	const pluginStepsView: WizardStep[] = editedKind
 		? pluginStepViews({
 				projectId,
-				kind,
+				kind: editedKind,
 				steps: pluginSteps,
 				values: pluginValues,
 				setField: setPluginField,
@@ -237,7 +243,7 @@ export function TriggerWizard({
 						{ label: "Worker Group", value: groupName },
 					],
 				},
-				...(kind ? pluginReviewSections(kind, pluginSteps, pluginValues) : []),
+				...(editedKind ? pluginReviewSections(editedKind, pluginSteps, pluginValues) : []),
 			]
 		: [{ rows: builtIn.reviewRows(type) }];
 

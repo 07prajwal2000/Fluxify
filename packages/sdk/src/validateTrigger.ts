@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import { LAG_PER_WORKER } from "./lag.js";
 import type { Param } from "./params.js";
 import { checkParams, type Issue } from "./validate.js";
 import { CONFIG_PARAM_TYPES } from "./validateIntegration.js";
@@ -14,7 +15,7 @@ export const TRIGGER_PARAM_TYPES: readonly string[] = [
 ];
 
 /** the words `visibleWhen` groups by; `__`-prefixed names are the runtime's too */
-export const RESERVED_TRIGGER_PARAM_NAMES: readonly string[] = ["all", "any"];
+export const RESERVED_TRIGGER_PARAM_NAMES: readonly string[] = ["all", "any", LAG_PER_WORKER];
 
 /** fields only a block has; a trigger declaring one was likely copied from a block */
 export const BLOCK_ONLY_FIELDS = ["run", "handles", "shape", "invoke"] as const;

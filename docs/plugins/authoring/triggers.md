@@ -53,6 +53,7 @@ A trigger cannot receive an HTTP request. Routes already own the project's URLs.
 | [`retry`](#retry) | No | `false` | Let Fluxify retry a failed run |
 | [`start`](#start) | Yes | | Opens the listener or poll loop |
 | [`validate`](#validate) | No | None | Checks the settings before a trigger is saved |
+| [`lag`](#lag) | No | None | Lets the trigger's workers scale on its backlog |
 
 ### name
 
@@ -216,6 +217,41 @@ What it does decides what the user sees:
 
 ::: warning Keep it quick
 `validate` has **10 seconds**. After that `ctx.signal` aborts and the save is refused. Close anything you open before returning: a connection left open stays open on the worker.
+:::
+
+### lag
+
+An optional way to tell Fluxify how far behind the trigger is, so a project running on Kubernetes can add workers when the backlog grows and remove them when it clears. Without `lag`, a group that runs only plugin triggers stays at the number of workers it was given.
+
+```ts
+lag: {
+	// the whole backlog of the source, as a number of at least 0
+	read: async (ctx) => countPendingOrders(await ctx.integrations.get<"database">(ctx.params.database)),
+	// pre-fills the "Lag per worker" field; leave it out to make the field required
+	default: 50,
+	// shown under the field: say what one unit is
+	helpText: "Pending orders one worker clears per poll",
+},
+```
+
+| Field | Required | What it is |
+| :--- | :---: | :--- |
+| `read` | Yes | Returns the source's current backlog. Count the whole source, not this worker's share: every worker running the trigger reports the same number |
+| `helpText` | Yes | Plain text on one line, up to 200 characters. It names the unit, because the user has to pick a number in it |
+| `default` | No | A whole number of at least 1 that the **Lag per worker** field starts with |
+
+A kind that defines `lag` gets one more setting in its wizard, **Lag per worker**, on its own **Scaling** step. It is how much backlog one worker clears, in the unit your `helpText` names. Fluxify runs `ceil(lag / lagPerWorker)` workers, between the group's minimum and maximum. For example, with 50 per worker, a backlog of 120 asks for 3 workers.
+
+The field has a fixed name, `lagPerWorker`, so no param of yours may use it. When a user creates a trigger, it takes their value, otherwise your `default`. With neither, the save is refused and the field is named. A trigger saved before your plugin gained `lag` has no value and keeps scaling as it did; it starts to scale on lag once its settings are saved with one.
+
+**When it runs.** Every few seconds on each worker running the trigger, for a trigger that has a **Lag per worker**. Fluxify keeps the last number and hands it to the autoscaler, so the autoscaler's polling never reaches your source.
+
+**What `ctx` holds.** The same `ctx` as `start`'s, with its params and the connections `start` opened, without `emit` and `fail`: it measures, nothing more.
+
+**When it cannot tell.** A `read` that throws, runs past 5 seconds, or returns anything but a number of at least 0 means "unknown", never 0. The workers then stay where they are, and the failure is logged once. It is not a failure of the trigger, so it never turns it off or restarts it.
+
+::: warning Keep the unit the same
+A saved **Lag per worker** means what your `helpText` said when it was set. Changing the unit, say from messages to seconds, makes every saved value wrong. The upgrade page lists a changed help text, so a user sees it, but nothing converts the values: ship a new unit as a new trigger.
 :::
 
 ## Polling and waiting
@@ -491,6 +527,8 @@ An instance that stayed up for **60 seconds** starts the count again, so a trigg
 | `start` must resolve within | 30 seconds |
 | The returned stop function must return within | 10 seconds |
 | `validate` must finish within | 10 seconds |
+| `lag.read` is called | every 15 seconds, and must return within 5 seconds |
+| `lag.helpText` | 1 to 200 characters, one line |
 | Restart wait after a failure | 1 second, doubling each time |
 | Failures in a row before the trigger is turned off | 5 |
 | Running time that resets the count | 60 seconds |

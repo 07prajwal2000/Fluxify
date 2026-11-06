@@ -1,7 +1,13 @@
 import { describe, expect, it } from "bun:test";
 import { fluxifyManifestSchema, param } from "../blocks.js";
 import { runTrigger } from "../testing.js";
-import { type AnyTrigger, toTriggerEntry, trigger, triggerEntryPath } from "../triggers.js";
+import {
+	type AnyTrigger,
+	lagPerWorkerParam,
+	toTriggerEntry,
+	trigger,
+	triggerEntryPath,
+} from "../triggers.js";
 
 const base = { label: "Poll", icon: "./poll.svg", start: async () => async () => {} };
 const define = (def: Record<string, unknown>) => () => trigger({ ...base, ...def } as unknown as AnyTrigger);
@@ -379,5 +385,61 @@ describe("runTrigger", () => {
 		});
 		expect(await get("k")).toBe("kv-client");
 		await expect(get("d")).rejects.toThrow("was not granted database integrations");
+	});
+});
+
+describe("trigger() lag", () => {
+	const lag = { read: async () => 12, default: 50, helpText: "Pending rows one worker clears" };
+
+	it("puts the default and help text in the manifest entry, never `read`", () => {
+		const entry = toTriggerEntry(trigger({ ...base, name: "acme/t/lag", lag }));
+		expect(entry.lag).toEqual({ default: 50, helpText: "Pending rows one worker clears" });
+		expect(toTriggerEntry(trigger({ ...base, name: "acme/t/none" })).lag).toBeUndefined();
+	});
+
+	it("needs a read function and a help text, and a default of a whole number from 1", () => {
+		const bad = (value: unknown) => define({ name: "acme/t/lag", lag: value });
+		expect(bad({ helpText: "rows" })).toThrow("lag must be");
+		expect(bad("rows")).toThrow("lag");
+		expect(bad({ read: async () => 1 })).toThrow("helpText");
+		expect(bad({ read: async () => 1, helpText: "" })).toThrow("helpText");
+		expect(bad({ read: async () => 1, helpText: "x".repeat(201) })).toThrow("helpText");
+		expect(bad({ read: async () => 1, helpText: "two\nlines" })).toThrow("plain text");
+		expect(bad({ read: async () => 1, helpText: "rows", default: 0 })).toThrow("default");
+		expect(bad({ read: async () => 1, helpText: "rows", default: 1.5 })).toThrow("default");
+		expect(bad({ read: async () => 1, helpText: "rows" })).not.toThrow();
+	});
+
+	it("keeps lagPerWorker for the platform: no param may take the name", () => {
+		expect(
+			define({ name: "acme/t/lag", params: { lagPerWorker: param.number({}) } }),
+		).toThrow("lagPerWorker");
+	});
+
+	it("read gets the params defaulted and checked, as start does", async () => {
+		const def = trigger({
+			...base,
+			name: "acme/t/lag",
+			params: { table: param.string({ default: "orders" }) },
+			lag: {
+				helpText: "rows",
+				read: async (ctx) => (ctx.params.table === "orders" ? 7 : 0),
+			},
+		});
+		const ctx = { params: {}, signal: new AbortController().signal } as never;
+		expect(await def.lag!.read(ctx)).toBe(7);
+	});
+
+	it("the form field is required without a default, and filled with one", () => {
+		expect(lagPerWorkerParam({ helpText: "rows" })).toMatchObject({
+			type: "number",
+			min: 1,
+			integer: true,
+			required: true,
+			description: "rows",
+		});
+		const withDefault = lagPerWorkerParam({ helpText: "rows", default: 50 });
+		expect(withDefault).toMatchObject({ default: 50 });
+		expect(withDefault.required).toBeUndefined();
 	});
 });

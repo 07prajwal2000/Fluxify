@@ -67,6 +67,7 @@ import { workerTimeoutsEnabled } from "../src/modules/requestRouter/workerTimeou
 import { startFireConsumer } from "../src/modules/schedules/fire";
 import { serveTestRuns } from "../src/modules/testRunner/workerHost";
 import { TriggerWorker } from "../src/modules/triggers/consumers";
+import { lagResponse } from "../src/modules/triggers/lagServe";
 import { watchRunStops } from "../src/modules/triggers/runStopBucket";
 import { consumedInExecution, runsHere } from "../src/modules/triggers/types";
 import { serveTriggerValidation } from "../src/modules/triggers/validateHost";
@@ -115,7 +116,9 @@ if (!getEnv("MASTER_ENCRYPTION_KEY")) {
 
 const healthServer = Bun.serve({
 	port: healthPort,
-	fetch: (request) => healthResponse(request) ?? new Response(null, { status: 404 }),
+	// the lag KEDA scales plugin triggers on (#963) is read here, not on the traffic port
+	fetch: (request) =>
+		healthResponse(request) ?? lagResponse(request) ?? new Response(null, { status: 404 }),
 });
 logger.debug(`supervisor health on http://${healthServer.hostname}:${healthPort}`);
 

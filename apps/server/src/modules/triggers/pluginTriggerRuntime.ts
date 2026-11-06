@@ -6,6 +6,8 @@ import { secretParamNames } from "@fluxify/sdk/runtime";
 import type { TriggerArtifact } from "../compiler/artifacts";
 import { provideHostPackages } from "../requestRouter/hostPackages";
 import { type PluginTriggerRef, pluginTriggerRef } from "../requestRouter/pluginTriggers";
+import { startLagSampler } from "./lagSampler";
+import { lagTargetOf, withoutLagTarget } from "./lagShared";
 import { openContext, resolvedInputs, type TriggerModule } from "./pluginTriggerContext";
 import { reportTriggerFault } from "./queueRuntime";
 import { type StrayOwner, trackOwner, triggerScope } from "./strayErrors";
@@ -105,7 +107,8 @@ export function applyPluginTrigger(triggerId: string, artifact: TriggerArtifact 
 		return enqueue(slot, () => halt(slot!, "withdrawn"));
 	}
 	const { publishedAt: _, ...content } = artifact;
-	const key = JSON.stringify(content);
+	// the lag target is the orchestrator's, so changing it must not restart the trigger
+	const key = JSON.stringify({ ...content, source: withoutLagTarget(content.source) });
 	// a group reassignment sends every artifact again; a running one stays as it is
 	if (slot?.key === key && (slot.instance || slot.retry)) return slot.queue;
 	slot ??= { artifact, key, failures: 0, queue: Promise.resolve() };
@@ -231,8 +234,9 @@ async function start(slot: Slot) {
 	instance.untrack = trackOwner(owner);
 	let starting: Promise<unknown> | undefined;
 	let stop: unknown;
+	let opened: ReturnType<typeof openContext> | undefined;
 	try {
-		const opened = openContext(artifact, ready.ref, ready.def, {
+		const open = openContext(artifact, ready.ref, ready.def, {
 			signal: instance.controller.signal,
 			fail: crash("ctx.fail"),
 			denied: (error) => onFailure(slot, instance, `permission denied: ${messageOf(error)}`, true),
@@ -252,9 +256,10 @@ async function start(slot: Slot) {
 			},
 			stopped: () => instance.stopped,
 		});
-		instance.release = opened.release;
+		opened = open;
+		instance.release = open.release;
 		// the author's code, and every callback it schedules, runs in the instance's scope
-		starting = triggerScope.run(owner, () => ready.def.start(opened.ctx));
+		starting = triggerScope.run(owner, () => ready.def.start(open.ctx));
 		stop = await within(starting, pluginTriggerLimits.startTimeoutMs);
 	} catch (error) {
 		return crash("start failed")(error);
@@ -273,6 +278,20 @@ async function start(slot: Slot) {
 	if (instance.stopped) return;
 	instance.startedAt = Date.now();
 	logger.info(`[triggers] ${artifact.triggerId} started (${ready.def.name})`, TAG);
+	const { lag } = ready.def;
+	if (lag && lagTargetOf(artifact.source) !== undefined) {
+		// its own reads, and what they throw, are the author's code too
+		const { params, integrations, getConfig, logger: log, signal } = opened!.ctx;
+		triggerScope.run(owner, () =>
+			startLagSampler(artifact.triggerId, lag, {
+				params,
+				integrations,
+				getConfig,
+				logger: log,
+				signal,
+			}),
+		);
+	}
 }
 
 /**

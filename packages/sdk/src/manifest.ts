@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { handleSpecSchema } from "./handles.js";
+import { MAX_LAG_HELP_TEXT } from "./lag.js";
 import type { Condition, VisibleWhenInput } from "./params.js";
 import { numberParamProblem, stringParamProblem } from "./params.js";
 import { CTX_SPAN_TYPE, ICON_URL_MAX, INVOKE_MODES } from "./reserved.js";
@@ -292,6 +293,17 @@ export type IntegrationEntry = z.infer<typeof integrationEntrySchema>;
  * A plugin trigger as `fluxify.json` holds it: the definition minus `start`.
  * Its params are a block's, minus what only a request can fill.
  */
+/** `lag` without `read`: the default is a worker's share of the backlog, the help text is plain text */
+export const lagEntrySchema = z.strictObject({
+	default: z.number().int().positive().optional(),
+	helpText: z
+		.string()
+		.min(1)
+		.max(MAX_LAG_HELP_TEXT)
+		// biome-ignore lint/suspicious/noControlCharactersInRegex: control characters are what it refuses
+		.regex(/^[^\u0000-\u001f\u007f]+$/, "must be plain text on one line"),
+});
+
 /** a trigger row stores `plugin:<name>` in a 255-character column */
 export const MAX_TRIGGER_NAME_LENGTH = 255 - "plugin:".length;
 
@@ -311,6 +323,8 @@ const triggerEntryFields = z.strictObject({
 	retry: z.boolean(),
 	/** it defines `validate`, which Fluxify runs on a development worker before a save; absent means no */
 	validate: z.boolean().optional(),
+	/** it defines `lag`: the trigger form asks for `lagPerWorker`, and the claim scales on the backlog */
+	lag: lagEntrySchema.optional(),
 });
 export const triggerEntrySchema = triggerEntryFields.superRefine(checkTriggerEntry);
 

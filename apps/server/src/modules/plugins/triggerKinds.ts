@@ -1,4 +1,5 @@
 import type { FluxifyManifest } from "@fluxify/sdk/blocks";
+import { LAG_PER_WORKER, lagPerWorkerParam } from "@fluxify/sdk/triggers";
 import type { DbTransactionType } from "../../db";
 import { pluginTriggerType } from "../triggers/types";
 import { isUsableIn, liveOf } from "./meta";
@@ -55,7 +56,8 @@ export async function usableTriggerKinds(projectId: string, kind?: string) {
 				label: t.label,
 				description: t.description,
 				icon: dataIcon(t.icon),
-				params: t.params,
+				// a kind with `lag` adds the platform's Lag per worker field, drawn like any param (#963)
+				params: t.lag ? { ...t.params, [LAG_PER_WORKER]: lagPerWorkerParam(t.lag) } : t.params,
 				tabs: t.tabs,
 				permissions: t.permissions,
 				retry: t.retry,

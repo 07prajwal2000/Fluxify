@@ -3,6 +3,12 @@
 
 export type { ConnectionOf, IntegrationConnection } from "./src/context.js";
 export {
+	LAG_PER_WORKER,
+	type LagEntry,
+	lagPerWorkerParam,
+	MAX_LAG_HELP_TEXT,
+} from "./src/lag.js";
+export {
 	type TriggerEntry,
 	triggerEntryPath,
 	triggerEntrySchema,
@@ -15,6 +21,7 @@ export {
 	PermissionDeniedError,
 	type TriggerConnection,
 	type TriggerContext,
+	type TriggerLagContext,
 	type TriggerValidateContext,
 } from "./src/runtime/trigger.js";
 export { type AnyTrigger, type TriggerDefinition, toTriggerEntry, trigger } from "./src/trigger.js";
