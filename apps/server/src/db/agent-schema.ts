@@ -157,6 +157,56 @@ export const agentMessagesEntity = pgTable(
 	],
 );
 
+/** One finding of an AI canvas review (#754), tied to the blocks it is about. */
+export type ReviewFinding = {
+	severity: "error" | "warning" | "info";
+	category: "security" | "correctness" | "test_coverage" | "schema" | "performance";
+	message: string;
+	suggestedFix?: string;
+	/** The blocks as the model named them (`db_native_1`) and as the canvas does; empty for the whole canvas. */
+	blockKeys: string[];
+	blockIds: string[];
+};
+
+/**
+ * AI canvas review (#754): the latest review of one route or workflow. A new
+ * review replaces the row and takes a new id, which is also its job's id.
+ */
+export const agentReviewsEntity = pgTable(
+	"agent_reviews",
+	{
+		id: varchar({ length: 50 })
+			.primaryKey()
+			.$defaultFn(() => generateID()),
+		projectId: varchar("project_id", { length: 50 })
+			.references(() => projectsEntity.id, { onDelete: "cascade" })
+			.notNull(),
+		kind: varchar({ length: 20 }).$type<"route" | "workflow">().notNull(),
+		targetId: varchar("target_id", { length: 50 }).notNull(),
+		userId: varchar("user_id", { length: 50 }).references(() => systemUsers.id, {
+			onDelete: "set null",
+		}),
+		status: varchar({ length: 20 })
+			.$type<"running" | "completed" | "failed" | "cancelled">()
+			.default("running")
+			.notNull(),
+		/** The canvas revision the review read; the report is stale once the canvas moves past it. */
+		canvasRevision: integer("canvas_revision"),
+		summary: text("summary"),
+		findings: jsonb("findings").$type<ReviewFinding[]>(),
+		error: text("error"),
+		usage: jsonb("usage").$type<{ inputTokens: number; outputTokens: number }>(),
+		createdAt: timestamp("created_at").defaultNow().notNull(),
+		completedAt: timestamp("completed_at"),
+		/** Touched by the job's heartbeat while it runs. */
+		updatedAt: timestamp("updated_at")
+			.defaultNow()
+			.notNull()
+			.$onUpdate(() => new Date()),
+	},
+	(t) => [uniqueIndex("uq_agent_reviews_target").on(t.kind, t.targetId)],
+);
+
 /* ============================================================================
  * RELATIONS
  * ============================================================================ */

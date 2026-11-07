@@ -16,7 +16,7 @@ import type { AgentEvent } from "./events";
 
 /**
  * The agent (#646) on NATS:
- * - jobs: a work queue (`fluxify.agent.start|continue|compact.<conversationId>`), one
+ * - jobs: a work queue (`fluxify.agent.start|continue|compact|review.<conversationId>`), one
  *   durable consumer shared by every gateway replica;
  * - live events: `agent.run.<runId>` on a limits stream kept an hour, which a
  *   client replays from the start and then follows;
@@ -46,8 +46,11 @@ const EVENTS: StreamSpec = {
 };
 
 export type AgentJob = {
-	/** compact: /compact, a summary of the conversation and no model turn after it. */
-	type: "start" | "continue" | "compact";
+	/**
+	 * compact: /compact, a summary of the conversation and no model turn after it.
+	 * review: an AI canvas review (#754); `conversationId` and `runId` are the review's id.
+	 */
+	type: "start" | "continue" | "compact" | "review";
 	conversationId: string;
 	runId: string;
 	userId: string;
@@ -66,6 +69,8 @@ export type AgentJob = {
 	decisions?: { toolCallId: string; ok: boolean; reason?: string; comment?: string }[];
 	/** compact: what the user asked the summary to keep. */
 	keep?: string;
+	/** review: what it reviews. */
+	review?: { kind: "route" | "workflow"; targetId: string };
 };
 
 /** Declares both streams and the job consumer. Throws when NATS is down: it is a hard dependency. */

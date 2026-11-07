@@ -6,6 +6,8 @@ import { AGENT_CONCURRENT_JOBS } from "../../lib/env";
 import { httpAdminFetch } from "../../mcp/adminApi";
 import { closeServers, openServers, preloadMentioned } from "../external";
 import { modelFromIntegration } from "../model";
+import { executeReview } from "../review/job";
+import { endReview, touchReview } from "../review/repository";
 import { agentStore } from "../store";
 import { setupTelemetry } from "../telemetry";
 import { limitsFromProject } from "../timeouts";
@@ -102,16 +104,15 @@ async function runJob({ data }: { data: AgentJob }) {
 	const ctrl = new AbortController();
 	running.set(data.conversationId, { runId: data.runId, ctrl });
 	// The run row is the proof of life; a run released under us stops here.
+	const review = data.type === "review";
 	const stopBeat = startHeartbeat(
-		() => touchRun(data.runId),
+		() => (review ? touchReview : touchRun)(data.runId),
 		() => ctrl.abort(new Error("The run was released")),
 	);
 	try {
-		const status = await (data.type === "compact" ? executeCompact : executeRun)(
-			data,
-			deps,
-			ctrl.signal,
-		);
+		const status = review
+			? await executeReview(data, ctrl.signal)
+			: await (data.type === "compact" ? executeCompact : executeRun)(data, deps, ctrl.signal);
 		logger.info("[AgentRunner] job done", { runId: data.runId, type: data.type, status });
 	} finally {
 		stopBeat();
@@ -134,7 +135,9 @@ export async function initializeAgentWorker() {
 		// The job threw before executeRun settled it (e.g. the claim query): free the conversation.
 		onError: (error, job) => {
 			logger.error("[AgentRunner] job failed", { error });
-			if (job)
+			if (job?.data.type === "review")
+				void endReview(job.data.runId, "failed", String(error)).catch(deps.onError);
+			else if (job)
 				void Promise.all([
 					deps.store.setRunStatus(job.data.runId, "failed"),
 					settleConversation(job.data.conversationId, job.data.runId, "failed"),

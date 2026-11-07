@@ -22,6 +22,7 @@ import { extractTasks } from "./tasksExtract";
 import { moveBlocksTasks } from "./tasksMoveBlocks";
 import { planTasks } from "./tasksPlan";
 import { productionTasks } from "./tasksProduction";
+import { reviewTasks, reviewTurn } from "./tasksReview";
 
 /**
  * Agent evals: each task gets a fresh project, its setup, an agent run, automatic checks,
@@ -139,7 +140,13 @@ export async function runTask(task: Task, deps: Deps, signal: AbortSignal): Prom
 			out(`[auto-approved] ${call.toolName}\n`);
 			return { ok: true };
 		};
-		for (const [i, turn] of [task.prompt].flat().entries()) {
+		if (task.review) {
+			const r = await reviewTurn(ctx, deps, signal);
+			history.push(...r.messages);
+			row.tokensIn += r.usage.inputTokens;
+			row.tokensOut += r.usage.outputTokens;
+		}
+		for (const [i, turn] of (task.review ? [] : [task.prompt].flat()).entries()) {
 			if (signal.aborted) break;
 			// plan, then not: the plan is approved (#771)
 			const mode = task.modes?.[i] ?? "auto";
@@ -248,6 +255,7 @@ const ALL_TASKS = [
 	...extractTasks,
 	...productionTasks,
 	...planTasks,
+	...reviewTasks,
 ];
 
 /** --task ids → tasks, in the suite's order; throws on an unknown id. */

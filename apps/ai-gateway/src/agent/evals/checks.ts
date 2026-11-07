@@ -18,6 +18,11 @@ export type Ctx = {
 	summaries?: number;
 	/** The agent's todo list at the end (#771). */
 	todos?: Todo[];
+	/** A review task's report (#754). */
+	review?: {
+		summary: string;
+		findings: { severity: string; category: string; message: string; blockKeys: string[] }[];
+	};
 	env: Record<string, string | undefined>;
 };
 
@@ -36,6 +41,8 @@ export type Task = {
 	/** Limits for this task over the run's own, e.g. a small context window to force compaction. */
 	limits?: { maxContextTokens?: number };
 	setup?: (ctx: Ctx) => Promise<void>;
+	/** An AI canvas review of setup's `seed.routeId` (#754) instead of an agent run. */
+	review?: boolean;
 	checks: Check[];
 	/** Quality items for the judge, scored pass/fail from the conversation. */
 	judge: string[];

@@ -17,8 +17,12 @@ import {
 const BROKEN_SQL =
 	"const rows = await dbQuery('select count(*)::int as n from pg_catalog.pg_class where relnmae = $1', [getQueryParam('name')]);\nreturn { exists: rows[0].n > 0 };";
 
-/** GET /table-exists: a PostgreSQL integration and a db_native block with a broken query. */
-async function brokenSqlRoute(ctx: Ctx) {
+/** A route with a PostgreSQL integration and one db_native block running `js`, entrypoint → query → response. */
+export async function sqlRoute(
+	ctx: Ctx,
+	route: { name: string; method: string; path: string },
+	js: string,
+) {
 	await ctx.tool("save_app_config", {
 		projectId: ctx.projectId,
 		keyName: "DB_URL",
@@ -34,13 +38,8 @@ async function brokenSqlRoute(ctx: Ctx) {
 		variant: "PostgreSQL",
 		config: { source: "url", url: "cfg:DB_URL" },
 	});
-	const { id } = await ctx.tool("save_route", {
-		projectId: ctx.projectId,
-		name: "table exists",
-		method: "GET",
-		path: "/table-exists",
-		active: true,
-	});
+	const { id } = await ctx.tool("save_route", { projectId: ctx.projectId, ...route, active: true });
+	ctx.seed.routeId = id;
 	const target = { kind: "route", id };
 	const canvas = await ctx.tool("get_canvas", { target });
 	const entry = canvas.blocks.find((b: any) => b.type === "entrypoint").key;
@@ -53,7 +52,7 @@ async function brokenSqlRoute(ctx: Ctx) {
 				op: "add_block",
 				ref: "query",
 				type: "db_native",
-				data: { blockName: "Find table", connection: db.id, js: BROKEN_SQL },
+				data: { blockName: "Query", connection: db.id, js },
 				connect_from: { from: entry },
 			},
 			{ op: "connect", from: "query", to: response },
@@ -340,7 +339,8 @@ export const moreTasks: Task[] = [
 		id: "broken-sql",
 		title: "Fix a route with a broken SQL query",
 		needsEnv: ["EVAL_POSTGRES_URL"],
-		setup: brokenSqlRoute,
+		setup: (ctx) =>
+			sqlRoute(ctx, { name: "table exists", method: "GET", path: "/table-exists" }, BROKEN_SQL),
 		prompt:
 			'GET /table-exists answers 500. Fix it so it answers { "exists": true } for ?name=pg_class and { "exists": false } for ?name=no_such_table.',
 		checks: [
