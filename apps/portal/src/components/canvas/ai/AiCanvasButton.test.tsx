@@ -123,18 +123,37 @@ test("it is a resizable side panel like Diagnostics", async () => {
 	expect(view.getByRole("separator", { name: "Resize AI chat panel" })).toBeTruthy();
 });
 
-test("the toggle at the top left lists the project's chats and opens one", async () => {
+test("the toggle at the top left slides the project's chats over 40% of the chat", async () => {
 	const view = renderButton();
 	fireEvent.click(view.getByRole("button", { name: "Open AI Assistant" }));
 	await until(() => expect(panel()).toBeTruthy());
 	const toggle = view.getByRole("button", { name: "Conversations" });
 	// first in the header, before the title
 	expect(panel()?.querySelector("header button")).toBe(toggle);
+	const drawer = () =>
+		panel()
+			?.querySelector('ul[aria-label="Conversations"]')
+			?.closest("div.absolute") as HTMLElement;
+	// out of view and out of the tab order until toggled
+	await until(() => expect(drawer().className).toContain("-translate-x-full"));
+	expect(drawer().hasAttribute("inert")).toBe(true);
+
 	fireEvent.click(toggle);
 	expect(toggle.getAttribute("aria-pressed")).toBe("true");
-	await until(() => expect(panel()?.textContent).toContain("Fix the SQL"));
+	expect(drawer().className).toContain("w-2/5");
+	expect(drawer().className).toContain("translate-x-0");
+	expect(drawer().hasAttribute("inert")).toBe(false);
+	// the chat stays behind it
+	expect(panel()?.textContent).toContain("Ask the agent about this canvas");
+	expect(drawer().textContent).toContain("Fix the SQL");
 	// archived chats are left out
-	expect(panel()?.textContent).not.toContain("Old one");
+	expect(drawer().textContent).not.toContain("Old one");
+
+	// the dimmed rest closes it
+	fireEvent.click(view.getByRole("button", { name: "Close conversations" }));
+	expect(toggle.getAttribute("aria-pressed")).toBe("false");
+
+	fireEvent.click(toggle);
 	fireEvent.click(view.getByRole("button", { name: /Fix the SQL/ }));
 	await until(() => expect(ai?.chat.conversationId).toBe("c1"));
 	expect(toggle.getAttribute("aria-pressed")).toBe("false");

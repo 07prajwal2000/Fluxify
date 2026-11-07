@@ -99,17 +99,8 @@ export function CanvasChatPanel() {
 				</div>
 			</header>
 			{isOpen && (
-				<div className="min-h-0 flex-1">
-					{showList ? (
-						<Conversations
-							projectId={projectId}
-							current={chat.conversationId}
-							onOpen={(id) => {
-								chat.setConversation(id);
-								setShowList(false);
-							}}
-						/>
-					) : chat.conversationId ? (
+				<div className="relative min-h-0 flex-1 overflow-hidden">
+					{chat.conversationId ? (
 						<ConversationView
 							key={chat.conversationId}
 							projectId={projectId}
@@ -118,6 +109,28 @@ export function CanvasChatPanel() {
 					) : (
 						<NewCanvasChat key={chat.draftSeq} projectId={projectId} chat={chat} />
 					)}
+					{/* the list slides over the left 40%; the dimmed rest closes it */}
+					{showList && (
+						<button
+							type="button"
+							aria-label="Close conversations"
+							className="absolute inset-0 z-10 cursor-default bg-background/50"
+							onClick={() => setShowList(false)}
+						/>
+					)}
+					<div
+						className={`absolute inset-y-0 left-0 z-20 w-2/5 border-r border-border bg-background shadow-lg transition-transform duration-200 ${showList ? "translate-x-0" : "-translate-x-full"}`}
+						inert={!showList}
+					>
+						<Conversations
+							projectId={projectId}
+							current={chat.conversationId}
+							onOpen={(id) => {
+								chat.setConversation(id);
+								setShowList(false);
+							}}
+						/>
+					</div>
 				</div>
 			)}
 		</aside>
@@ -152,13 +165,15 @@ function Conversations({
 						type="button"
 						aria-current={c.id === current ? "true" : undefined}
 						onClick={() => onOpen(c.id)}
-						className={`flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs transition-colors hover:bg-surface-secondary ${c.id === current ? "bg-accent/10" : ""}`}
+						className={`flex w-full flex-col gap-0.5 rounded-md px-2.5 py-2 text-left text-xs transition-colors hover:bg-surface-secondary ${c.id === current ? "bg-accent/10" : ""}`}
 					>
-						<span className="min-w-0 flex-1 truncate text-foreground">
+						<span className="w-full truncate text-foreground" title={c.title ?? undefined}>
 							{c.title ?? "Untitled session"}
 						</span>
-						<StatusDot status={c.status} />
-						<span className="shrink-0 text-muted">{getTimeAgo(c.updatedAt)}</span>
+						<span className="flex items-center gap-1.5 text-[11px] text-muted">
+							<StatusDot status={c.status} />
+							{getTimeAgo(c.updatedAt)}
+						</span>
 					</button>
 				</li>
 			))}

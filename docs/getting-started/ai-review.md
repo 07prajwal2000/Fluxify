@@ -92,8 +92,9 @@ and double-click the edge to reset it.
 The chat works like the AI page: the agent asks before it changes anything (in
 Manual mode), and every change shows up in the canvas once you reload it.
 
-- **Conversations** (the button at the top left) lists the project's chats.
-  Click one to carry on with it here.
+- **Conversations** (the button at the top left) slides the project's chats in
+  over the left side of the chat. Click one to carry on with it here, or click
+  the chat beside the list to close it.
 - **New chat** (the plus icon) starts over.
 - **Open in AI page** (the expand icon) carries on in the full-size AI page.
 - A chat started here is also listed on the AI page.
