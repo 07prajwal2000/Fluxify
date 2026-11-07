@@ -1,5 +1,5 @@
 import type { ReviewFinding } from "@fluxify/server";
-import { generateText, type LanguageModel, Output } from "ai";
+import { generateText, type LanguageModel, NoObjectGeneratedError, Output } from "ai";
 import { z } from "zod";
 import { MAX_CONTEXT_TOKENS } from "../compact";
 import { TOKEN_BUDGET } from "../guards";
@@ -60,17 +60,84 @@ export function tooBig(prompt: string, limits: Limits) {
 		: undefined;
 }
 
+/**
+ * What a model that misses the schema still sends: severities like "high",
+ * categories like "test coverage", a missing fix or key list. Normalized by `toFindings`.
+ */
+const looseReport = z.object({
+	summary: z.string().optional(),
+	findings: z
+		.array(
+			z.object({
+				severity: z.string().optional(),
+				category: z.string().optional(),
+				message: z.string(),
+				suggestedFix: z.string().optional(),
+				blockKeys: z.array(z.string()).optional(),
+			}),
+		)
+		.optional(),
+});
+type LooseFinding = NonNullable<z.infer<typeof looseReport>["findings"]>[number];
+
+const SEVERITY: Record<string, ReviewFinding["severity"]> = {
+	critical: "error",
+	high: "error",
+	error: "error",
+	medium: "warning",
+	moderate: "warning",
+	warning: "warning",
+	warn: "warning",
+	low: "info",
+	minor: "info",
+	info: "info",
+	note: "info",
+};
+
+const severityOf = (s = "") => SEVERITY[s.trim().toLowerCase()] ?? "warning";
+
+function categoryOf(c = ""): ReviewFinding["category"] {
+	const k = c
+		.trim()
+		.toLowerCase()
+		.replace(/[\s-]+/g, "_");
+	if ((CATEGORIES as readonly string[]).includes(k)) return k as ReviewFinding["category"];
+	if (/test|coverage/.test(k)) return "test_coverage";
+	if (/secur|auth|inject/.test(k)) return "security";
+	if (/perf/.test(k)) return "performance";
+	return "correctness";
+}
+
+/**
+ * The report in a model's plain answer: a JSON object (or just the findings
+ * array), maybe inside a code fence or after some prose. Undefined when there is none.
+ */
+export function parseLooseReport(text: string | undefined) {
+	if (!text) return undefined;
+	const body = text.replace(/```(?:json)?/gi, "");
+	const start = body.search(/[[{]/);
+	const end = Math.max(body.lastIndexOf("}"), body.lastIndexOf("]"));
+	if (start < 0 || end <= start) return undefined;
+	try {
+		const json = JSON.parse(body.slice(start, end + 1));
+		const parsed = looseReport.safeParse(Array.isArray(json) ? { findings: json } : json);
+		return parsed.success ? parsed.data : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
 /** Keys as the model wrote them → the canvas's block ids; a key the canvas lacks is dropped. */
 export function toFindings(
-	raw: z.infer<typeof reportSchema>["findings"],
+	raw: LooseFinding[],
 	blocks: { id: string; key?: string }[],
 ): ReviewFinding[] {
 	const ids = new Map(blocks.map((b) => [b.key ?? b.id, b.id]));
 	return raw.slice(0, MAX_FINDINGS).map((f) => {
-		const keys = [...new Set(f.blockKeys)].filter((k) => ids.has(k));
+		const keys = [...new Set(f.blockKeys ?? [])].filter((k) => ids.has(k));
 		return {
-			severity: f.severity,
-			category: f.category,
+			severity: severityOf(f.severity),
+			category: categoryOf(f.category),
 			message: f.message,
 			...(f.suggestedFix ? { suggestedFix: f.suggestedFix } : {}),
 			blockKeys: keys,
@@ -79,7 +146,10 @@ export function toFindings(
 	});
 }
 
-/** One model call, no tools: the context is all read up front. */
+/**
+ * One model call, no tools: the context is all read up front. The schema
+ * steers the model; a model that misses it is read from its text instead.
+ */
 export async function runReview(
 	model: LanguageModel,
 	kind: ReviewKind,
@@ -87,18 +157,35 @@ export async function runReview(
 	limits: Limits,
 	signal: AbortSignal,
 ) {
-	const { output, usage } = await generateText({
-		model,
-		system: reviewInstructions(kind),
-		prompt,
-		output: Output.object({ schema: reportSchema }),
-		maxOutputTokens: MAX_OUTPUT_TOKENS,
-		maxRetries: limits.retries,
-		abortSignal: AbortSignal.any([signal, AbortSignal.timeout(limits.callMs)]),
+	const usageOf = (u?: { inputTokens?: number; outputTokens?: number }) => ({
+		inputTokens: u?.inputTokens ?? 0,
+		outputTokens: u?.outputTokens ?? 0,
 	});
-	return {
-		summary: output.summary,
-		findings: output.findings,
-		usage: { inputTokens: usage.inputTokens ?? 0, outputTokens: usage.outputTokens ?? 0 },
-	};
+	try {
+		const { output, usage } = await generateText({
+			model,
+			system: reviewInstructions(kind),
+			prompt,
+			output: Output.object({ schema: reportSchema }),
+			maxOutputTokens: MAX_OUTPUT_TOKENS,
+			maxRetries: limits.retries,
+			abortSignal: AbortSignal.any([signal, AbortSignal.timeout(limits.callMs)]),
+		});
+		return { summary: output.summary, findings: output.findings, usage: usageOf(usage) };
+	} catch (e) {
+		if (!NoObjectGeneratedError.isInstance(e)) throw e;
+		const loose = parseLooseReport(e.text);
+		if (loose) {
+			return {
+				summary: loose.summary ?? "",
+				findings: loose.findings ?? [],
+				usage: usageOf(e.usage),
+			};
+		}
+		throw new Error(
+			e.finishReason === "length"
+				? `The model's report was cut off at ${MAX_OUTPUT_TOKENS} tokens. Run it again, or pick a model with more output room.`
+				: "The model's answer was not a report Fluxify could read. Run it again, or pick a model that supports structured (JSON) output.",
+		);
+	}
 }

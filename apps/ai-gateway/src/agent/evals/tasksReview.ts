@@ -1,6 +1,6 @@
 import type { ModelMessage } from "ai";
 import { reviewContext } from "../review/context";
-import { reviewPrompt, runReview } from "../review/review";
+import { reviewPrompt, runReview, toFindings } from "../review/review";
 import type { Check, Ctx, Task } from "./checks";
 import type { Deps } from "./run";
 import { sqlRoute } from "./tasks2";
@@ -20,9 +20,21 @@ export async function reviewTurn(
 	deps: Deps,
 	signal: AbortSignal,
 ): Promise<{ messages: ModelMessage[]; usage: { inputTokens: number; outputTokens: number } }> {
-	const { context } = await reviewContext(ctx.api, ctx.projectId, "route", ctx.seed.routeId!);
+	const { context, blocks } = await reviewContext(
+		ctx.api,
+		ctx.projectId,
+		"route",
+		ctx.seed.routeId!,
+	);
 	const prompt = reviewPrompt(context);
-	const { usage, ...report } = await runReview(deps.model, "route", prompt, deps.limits, signal);
+	const { usage, summary, findings } = await runReview(
+		deps.model,
+		"route",
+		prompt,
+		deps.limits,
+		signal,
+	);
+	const report = { summary, findings: toFindings(findings, blocks) };
 	ctx.review = report;
 	deps.write(`${JSON.stringify(report, null, 2)}\n`);
 	return {
