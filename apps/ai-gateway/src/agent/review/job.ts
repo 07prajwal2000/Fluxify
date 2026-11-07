@@ -8,7 +8,7 @@ import type { AgentJob } from "../runner/queue";
 import { limitsFromProject } from "../timeouts";
 import { reviewContext } from "./context";
 import { endReview, finishReview, touchReview } from "./repository";
-import { reviewPrompt, runReview, toFindings, tooBig } from "./review";
+import { reviewInstructions, reviewPrompt, runReview, toFindings, tooBig } from "./review";
 
 const LIMIT_KEYS = ["settings.ai.tokenBudget", "settings.ai.maxContextTokens"] as const;
 
@@ -64,7 +64,7 @@ export async function executeReview(job: AgentJob, signal: AbortSignal, d = defa
 		const { kind, targetId } = job.review;
 		const { revision, blocks, context } = await reviewContext(api, job.projectId, kind, targetId);
 		const prompt = reviewPrompt(context);
-		const big = tooBig(prompt, limits);
+		const big = tooBig(prompt, limits, reviewInstructions(kind));
 		if (big) throw new Error(big);
 		const r = await d.run(model, kind, prompt, limits, signal);
 		await d.finish(id, {

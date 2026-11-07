@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { MockLanguageModelV4 } from "ai/test";
-import { parseLooseReport, runReview, toFindings } from "./review";
+import { parseLooseReport, reviewInstructions, runReview, toFindings } from "./review";
 
 const limits = { idleMs: 1000, callMs: 5000, toolMs: 1000, retries: 0 };
 const usage = {
@@ -95,5 +95,23 @@ describe("toFindings", () => {
 			["info", "schema"],
 			["warning", "correctness"],
 		]);
+	});
+});
+
+describe("reviewInstructions", () => {
+	it("carries every review recipe, without frontmatter or doc links", () => {
+		const text = reviewInstructions("route");
+		for (const heading of [
+			"Review recipe - security",
+			"Review recipe - error handling",
+			"Review recipe - correctness",
+			"Review recipe - data integrity",
+			"Review recipe - schema",
+			"Review recipe - performance",
+			"Review recipe - test coverage",
+		])
+			expect(text).toContain(heading);
+		expect(text).not.toContain("description:");
+		expect(text).not.toMatch(/\]\(\//);
 	});
 });

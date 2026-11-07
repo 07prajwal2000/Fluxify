@@ -25,7 +25,10 @@ const { integrationService } = await import("@/services/integrations");
 const { CanvasAiProvider, useCanvasAi } = await import("./CanvasAiContext");
 const { AiReviewSection, fixPrompt } = await import("./AiReviewSection");
 
-afterEach(cleanup);
+afterEach(() => {
+	cleanup();
+	localStorage.clear();
+});
 afterAll(() => GlobalRegistrator.unregister());
 
 /** Not RTL's waitFor: it stays bound to the DOM of whichever test file loaded RTL first. */
@@ -145,8 +148,10 @@ test("a finished report lists findings; clicking one opens its block", async () 
 	const { onSelectBlock } = renderSection();
 	await until(() => expect(text()).toContain(finding.message));
 	expect(text()).toContain("Searches users by name.");
-	expect(text()).toContain("Security · db_native_1");
-	expect(text()).toContain("Fix: Pass it as $1.");
+	expect(text()).toContain("Security");
+	expect(text()).toContain("db_native_1");
+	expect(text()).toContain("Suggested fix");
+	expect(text()).toContain("Pass it as $1.");
 	expect(text()).not.toContain("older version");
 	fireEvent.click(await until(() => document.querySelector("li button") as HTMLButtonElement));
 	expect(onSelectBlock).toHaveBeenCalledWith("b-sql", "General");
@@ -158,7 +163,7 @@ test("a finding about the whole canvas opens no block", async () => {
 		review({ findings: [{ ...finding, blockKeys: [], blockIds: [] }] }) as never,
 	);
 	const { onSelectBlock } = renderSection();
-	await until(() => expect(text()).toContain("Security · whole route"));
+	await until(() => expect(text()).toContain("Whole route"));
 	const item = document.querySelector("li button") as HTMLButtonElement;
 	expect(item.disabled).toBe(true);
 	fireEvent.click(item);
@@ -189,7 +194,7 @@ test("Ask the agent to fix this opens a new canvas chat with the finding in its 
 	expect(chat?.chat.draft).toContain("in db_native_1");
 	expect(chat?.chat.draft).toContain("Suggested fix: Pass it as $1.");
 	// so the agent can mark it when it is done
-	expect(chat?.chat.draft).toContain("resolve_review_finding with reviewId rev1 and finding 0");
+	expect(chat?.chat.draft).toContain("resolve_review_finding with reviewId rev1 and finding 1");
 });
 
 test("a finding the agent fixed shows green, with its note and a way back to the chat", async () => {
@@ -254,4 +259,59 @@ test("a canvas with no review target shows no section", async () => {
 	await act(() => new Promise((r) => setTimeout(r, 40)));
 	expect(text()).not.toContain("AI review");
 	expect(get).not.toHaveBeenCalled();
+});
+
+test("collapsing hides the report, shows the open count and is remembered", async () => {
+	spyOn(agentReviewsService, "get").mockResolvedValue(review() as never);
+	renderSection();
+	await until(() => expect(text()).toContain(finding.message));
+	const toggle = document.querySelector("[aria-label='Collapse AI review']") as HTMLButtonElement;
+	fireEvent.click(toggle);
+	expect(text()).not.toContain(finding.message);
+	expect(toggle.getAttribute("aria-expanded")).toBe("false");
+	expect(toggle.textContent).toContain("1");
+	cleanup();
+	renderSection();
+	await until(() => expect(document.querySelector("[aria-label='Expand AI review']")).toBeTruthy());
+	expect(text()).not.toContain(finding.message);
+});
+
+test("Fix all opens one chat listing every unmarked finding by its report number", async () => {
+	const resolution = { status: "fixed", conversationId: "c9", at: "t" };
+	const second = { ...finding, severity: "warning" as const, message: "No error handler." };
+	const third = {
+		...finding,
+		message: "Rows go out whole.",
+		blockKeys: [],
+		suggestedFix: undefined,
+	};
+	spyOn(agentReviewsService, "get").mockResolvedValue(
+		review({ findings: [finding, { ...second, resolution }, second, third] }) as never,
+	);
+	renderSection();
+	fireEvent.click(await button("Fix all (3)"));
+	await until(() => expect(chat?.chat.isOpen).toBe(true));
+	const draft = chat?.chat.draft ?? "";
+	expect(draft).toContain(
+		`1. [error in db_native_1] ${finding.message}\n   Suggested fix: Pass it as $1.`,
+	);
+	expect(draft).not.toContain("2. ");
+	expect(draft).toContain("3. [warning in db_native_1] No error handler.");
+	expect(draft).toContain("4. [error] Rows go out whole.");
+	expect(draft).toContain("resolve_review_finding once with reviewId rev1");
+});
+
+test("Fix all needs more than one open finding, and the creator role", async () => {
+	spyOn(agentReviewsService, "get").mockResolvedValue(review() as never);
+	renderSection();
+	await until(() => expect(text()).toContain(finding.message));
+	expect(text()).not.toContain("Fix all");
+	cleanup();
+	setRole("viewer");
+	spyOn(agentReviewsService, "get").mockResolvedValue(
+		review({ findings: [finding, finding] }) as never,
+	);
+	renderSection();
+	await until(() => expect(text()).toContain(finding.message));
+	expect(text()).not.toContain("Fix all");
 });

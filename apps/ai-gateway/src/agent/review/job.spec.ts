@@ -222,6 +222,11 @@ describe("tooBig", () => {
 	it("refuses one past the window", () => {
 		expect(tooBig("x".repeat(4 * 120_000), limits)).toContain("120k tokens");
 	});
+	it("counts the instructions too: a canvas that fits alone can overflow with them", () => {
+		const tight = { ...limits, tokenBudget: 12_000 };
+		expect(tooBig("x".repeat(4 * 3_000), tight)).toBeUndefined();
+		expect(tooBig("x".repeat(4 * 3_000), tight, "y".repeat(4 * 2_000))).toContain("5k tokens");
+	});
 	it("refuses one past the token budget", () => {
 		expect(tooBig("x".repeat(4 * 20_000), { ...limits, tokenBudget: 10_000 })).toContain("2k");
 	});

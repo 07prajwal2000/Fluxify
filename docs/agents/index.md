@@ -50,6 +50,10 @@ Each recipe is a list of steps. Every step is a tool call with its arguments.
 - [Plan and work through a big job](/agents/recipes/plan-and-todos): suggest plan mode for a big request, write the plan, then work through it with `update_todos`.
 - [Debug a route in a sandbox](/agents/recipes/debug-route-in-sandbox): copy a route into your own sandbox with `copy_blocks`, fix it there on development data, and copy the fix back.
 
+## Reviewing a canvas
+
+- [Review recipes](/agents/review/): the categories a review checks (security, error handling, correctness, data integrity, schema, performance, test coverage), each with a recipe of checks, severities and fixes.
+
 ## Replying
 
 - [Referring to resources in chat](/agents/references): link an existing route, workflow or other resource in your reply with `:ref[Label]{type=route id=...}`.
