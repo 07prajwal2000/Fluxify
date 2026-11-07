@@ -11,9 +11,11 @@ import {
 	TbStethoscope,
 } from "react-icons/tb";
 import { CustomBlockIcon } from "@/components/customBlocks/IconPicker";
+import { AiReviewSection } from "../ai/AiReviewSection";
 import { blockIcon } from "../blocks/blockIconMap";
 import { blockLabels } from "../blocks/blockLabels";
 import { useCustomBlockDefs } from "../blocks/useCustomBlockDefs";
+import { PanelResizeHandle } from "../panel/PanelResizeHandle";
 import { useBlockPanelResize } from "../panel/useBlockPanelResize";
 import { useBlockDiagnostics } from "./DiagnosticsContext";
 import { type BlockDiagnostic, diagnosticSourceLabel } from "./types";
@@ -46,22 +48,8 @@ export function DiagnosticsPanel({
 	const { getNode } = useReactFlow();
 	const customBlockDefs = useCustomBlockDefs();
 
-	const {
-		width,
-		isResizing,
-		handleMouseDown,
-		handleTouchStart,
-		handleDoubleClick,
-		handleKeyDown,
-		minWidth: resolvedMinWidth,
-		maxWidth: resolvedMaxWidth,
-	} = useBlockPanelResize({
-		defaultWidth,
-		minWidth,
-		maxWidth,
-		storageKey,
-		onClose,
-	});
+	const resize = useBlockPanelResize({ defaultWidth, minWidth, maxWidth, storageKey, onClose });
+	const { width, isResizing } = resize;
 
 	const blockEntries = useMemo(() => {
 		const entries: Array<{
@@ -175,37 +163,7 @@ export function DiagnosticsPanel({
 			aria-label="Canvas diagnostics"
 			aria-hidden={!isOpen}
 		>
-			{isOpen && (
-				<div
-					className="fx-panel__resize-handle"
-					role="separator"
-					tabIndex={0}
-					aria-orientation="vertical"
-					aria-label="Resize diagnostics panel"
-					aria-valuenow={Math.round(width)}
-					aria-valuemin={Number.isFinite(resolvedMinWidth) ? resolvedMinWidth : 0}
-					aria-valuemax={Number.isFinite(resolvedMaxWidth) ? resolvedMaxWidth : 9999}
-					onMouseDown={handleMouseDown}
-					onTouchStart={handleTouchStart}
-					onDoubleClick={handleDoubleClick}
-					onKeyDown={handleKeyDown}
-					title="Drag to resize panel (double-click to reset)"
-				>
-					<div className="fx-panel__resize-knob">
-						<svg
-							width="6"
-							height="12"
-							viewBox="0 0 6 12"
-							fill="currentColor"
-							aria-hidden="true"
-							className="fx-panel__resize-icon"
-						>
-							<rect x="0" y="0" width="2" height="12" rx="1" />
-							<rect x="4" y="0" width="2" height="12" rx="1" />
-						</svg>
-					</div>
-				</div>
-			)}
+			{isOpen && <PanelResizeHandle label="Resize diagnostics panel" resize={resize} />}
 
 			<header className="fx-panel__header">
 				<span
@@ -258,6 +216,7 @@ export function DiagnosticsPanel({
 				className="fx-panel__body flex flex-col gap-3 overflow-y-auto p-3"
 				style={{ paddingTop: 12 }}
 			>
+				{isOpen && <AiReviewSection onSelectBlock={handleItemClick} />}
 				{canvasWide.map((diag, idx) => (
 					<div
 						key={`${diag.source}-${idx}`}

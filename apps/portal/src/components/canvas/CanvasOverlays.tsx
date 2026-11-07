@@ -1,4 +1,5 @@
 import type { ComponentProps, ReactNode } from "react";
+import { CanvasChatPanel } from "./ai/CanvasChatPanel";
 import { BlockPickerSidebar } from "./BlockPickerSidebar";
 import type { useCanvasDiagnosticsBridge } from "./diagnostics";
 import { DiagnosticsPanel } from "./diagnostics";
@@ -29,8 +30,8 @@ export interface CanvasOverlaysProps {
 
 /**
  * Secondary overlays and sidebars anchored around the canvas:
- * block picker sidebar, block settings panel, diagnostics drawer,
- * and the playground modal dialog.
+ * block picker sidebar, block settings panel, diagnostics drawer, the AI chat
+ * panel and the playground modal dialog.
  */
 export function CanvasOverlays({
 	readOnly,
@@ -74,6 +75,7 @@ export function CanvasOverlays({
 				onClose={diagnostics.closePanel}
 				onSelectBlock={handleSelectBlock}
 			/>
+			<CanvasChatPanel />
 			{enablePlayground && playgroundContent && (
 				<PlaygroundModal trackExecution={trackExecutionContent}>
 					{playgroundContent}

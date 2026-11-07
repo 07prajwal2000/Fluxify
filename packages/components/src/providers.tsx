@@ -8,8 +8,9 @@ export function Providers({ children }: { children: ReactNode }) {
 	return (
 		<>
 			{/* expanded: several results at once (a failed test and its reason, then the retry)
-			    stay readable side by side instead of folding behind the newest (#690) */}
-			<ToastProvider isExpanded placement="bottom end" width="min(24rem, calc(100vw - 2rem))" />
+			    stay readable side by side instead of folding behind the newest (#690).
+			    top right, under the page header (styles.css): the bottom right holds the canvas's AI button */}
+			<ToastProvider isExpanded placement="top end" width="min(24rem, calc(100vw - 2rem))" />
 			{children}
 		</>
 	);

@@ -102,16 +102,28 @@ export const CORE = [
 	LIST_MCP_TOOLS,
 ];
 
+/** Marks an AI review finding fixed (#754); web runs add it, see review/resolveTool. */
+export const RESOLVE_FINDING = "resolve_review_finding";
+
 export type Mode = "manual" | "auto" | "plan";
 export const MODES: Mode[] = ["manual", "auto", "plan"];
 
 /**
  * Reads never ask: the agent's own list/get/meta tools, update_todos (the agent's own list only),
- * and MCP tools marked read-only (unmarked = read, as in mcp/index.ts).
+ * resolve_review_finding (a mark on the review's report), and MCP tools marked read-only
+ * (unmarked = read, as in mcp/index.ts).
  */
 export const isRead = (name: string) => {
 	if (
-		["list", "get", "list_advanced_tools", "load_tools", LIST_MCP_TOOLS, TODO_TOOL].includes(name)
+		[
+			"list",
+			"get",
+			"list_advanced_tools",
+			"load_tools",
+			LIST_MCP_TOOLS,
+			TODO_TOOL,
+			RESOLVE_FINDING,
+		].includes(name)
 	)
 		return true;
 	const t = ALL.find((x) => x.name === name);
@@ -126,6 +138,7 @@ const AGENT_TITLES: Record<string, string> = {
 	[LIST_MCP_TOOLS]: "List MCP tools",
 	[SUGGEST_PLAN]: "Suggest plan mode",
 	[TODO_TOOL]: "Update todo list",
+	[RESOLVE_FINDING]: "Mark review finding",
 };
 
 /** The human name of a tool, for chat rows and the approval bar. */

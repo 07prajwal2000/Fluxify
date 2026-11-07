@@ -8,7 +8,7 @@ export {
 	graphToFlow,
 	nodeToBlock,
 } from "./adapters";
-export * from "./aiButton";
+export * from "./ai";
 export { BlockCanvas } from "./BlockCanvas";
 export * from "./blocks";
 export { CanvasCommands, type CanvasCommandsProps } from "./CanvasCommands";

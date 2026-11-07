@@ -27,6 +27,7 @@ import { previewEdit, previewInput } from "../../../mcp/canvasPreview";
 import type { Target } from "../../../mcp/canvasTools";
 import { authOf } from "../../../mcp/index";
 import { currentResource, PREVIEWABLE } from "../../../mcp/resourcePreview";
+import { registerReviewRoutes } from "./reviews";
 import {
 	answerApproval,
 	compactConversation,
@@ -85,6 +86,7 @@ async function conversationOf(c: Context, role: AccessControlRole) {
 export function registerAgentRoutes(app: Hono) {
 	const r = app.basePath("/agent");
 	const base = "/:projectId/conversations";
+	registerReviewRoutes(r, caller);
 
 	r.post(base, json(z.object({ title: z.string().min(1).max(255).optional() })), async (c) => {
 		const projectId = c.req.param("projectId");
