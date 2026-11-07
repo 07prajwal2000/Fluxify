@@ -12,6 +12,8 @@ export type CanvasChat = {
 	draftSeq: number;
 	/** a new chat, its prompt holding `draft` when given */
 	open: (draft?: string) => void;
+	/** opens the chat on an existing conversation */
+	show: (conversationId: string) => void;
 	toggle: () => void;
 	close: () => void;
 	setConversation: (id: string) => void;
@@ -55,6 +57,10 @@ export function CanvasAiProvider({
 				open: (text = "") => {
 					setConversation(undefined);
 					setDraft((d) => ({ text, seq: d.seq + 1 }));
+					setOpen(true);
+				},
+				show: (id) => {
+					setConversation(id);
 					setOpen(true);
 				},
 				toggle: () => setOpen((o) => !o),

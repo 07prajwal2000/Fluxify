@@ -1,6 +1,12 @@
 import { Button, Spinner } from "@fluxify/components";
 import { Link } from "@tanstack/react-router";
-import { TbAlertCircle, TbAlertTriangle, TbInfoCircle, TbSparkles } from "react-icons/tb";
+import {
+	TbAlertCircle,
+	TbAlertTriangle,
+	TbCircleCheck,
+	TbInfoCircle,
+	TbSparkles,
+} from "react-icons/tb";
 import { useAgentModel } from "@/components/ai/AgentModel";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { agentReviewsQuery } from "@/query/agentReviewsQuery";
@@ -25,14 +31,24 @@ const SEVERITY_ICON = {
 	info: <TbInfoCircle className="text-muted" size={14} />,
 };
 
-/** What "Ask the agent to fix this" puts in a new chat's prompt. */
-export function fixPrompt(kind: ReviewKind, id: string, f: ReviewFinding) {
+/**
+ * What "Ask the agent to fix this" puts in a new chat's prompt. The review id and
+ * finding number let the agent mark it with resolve_review_finding when it is done.
+ */
+export function fixPrompt(
+	kind: ReviewKind,
+	id: string,
+	f: ReviewFinding,
+	reviewId: string,
+	index: number,
+) {
 	const where = f.blockKeys.length ? ` in ${f.blockKeys.join(", ")}` : "";
 	return [
 		`An AI review of the ${kind} ${id} found this ${f.severity}${where}:`,
 		f.message,
 		f.suggestedFix ? `Suggested fix: ${f.suggestedFix}` : "",
 		"Check whether it is right, and fix it if it is.",
+		`When you are done, call resolve_review_finding with reviewId ${reviewId} and finding ${index}.`,
 	]
 		.filter(Boolean)
 		.join("\n");
@@ -53,6 +69,7 @@ export function AiReviewSection({ onSelectBlock }: Props) {
 			kind={ai.review.kind}
 			id={ai.review.id}
 			openChat={ai.chat.open}
+			showChat={ai.chat.show}
 			onSelectBlock={onSelectBlock}
 		/>
 	);
@@ -63,8 +80,15 @@ function AiReview({
 	kind,
 	id,
 	openChat,
+	showChat,
 	onSelectBlock,
-}: Props & { projectId: string; kind: ReviewKind; id: string; openChat: (text: string) => void }) {
+}: Props & {
+	projectId: string;
+	kind: ReviewKind;
+	id: string;
+	openChat: (text: string) => void;
+	showChat: (conversationId: string) => void;
+}) {
 	const canEdit = useCanEditProject(projectId);
 	const { data: review, isLoading } = agentReviewsQuery.latest.useQuery(projectId, kind, id);
 	const running = review?.status === "running";
@@ -123,7 +147,10 @@ function AiReview({
 									finding={f}
 									kind={kind}
 									onSelectBlock={onSelectBlock}
-									onAskFix={canEdit ? () => openChat(fixPrompt(kind, id, f)) : undefined}
+									onAskFix={
+										canEdit ? () => openChat(fixPrompt(kind, id, f, review.id, i)) : undefined
+									}
+									onShowChat={showChat}
 								/>
 							))}
 						</ul>
@@ -195,23 +222,29 @@ function Finding({
 	kind,
 	onSelectBlock,
 	onAskFix,
+	onShowChat,
 }: {
 	finding: ReviewFinding;
 	kind: ReviewKind;
 	onSelectBlock: Props["onSelectBlock"];
 	onAskFix?: () => void;
+	onShowChat: (conversationId: string) => void;
 }) {
 	const blockId = f.blockIds[0];
+	const done = f.resolution;
+	const fixed = done?.status === "fixed";
 	return (
-		<li className="flex flex-col gap-1 rounded p-1.5 transition-colors hover:bg-surface-secondary">
+		<li
+			className={`flex flex-col gap-1 rounded p-1.5 transition-colors ${fixed ? "border border-success/40 bg-success/10" : "hover:bg-surface-secondary"}`}
+		>
 			<button
 				type="button"
 				disabled={!blockId}
 				onClick={() => blockId && onSelectBlock(blockId, FINDING_TAB)}
 				className="flex w-full items-start gap-2 text-left disabled:cursor-default"
 			>
-				<span className="mt-0.5 shrink-0" role="img" aria-label={f.severity}>
-					{SEVERITY_ICON[f.severity]}
+				<span className="mt-0.5 shrink-0" role="img" aria-label={fixed ? "fixed" : f.severity}>
+					{fixed ? <TbCircleCheck className="text-success" size={14} /> : SEVERITY_ICON[f.severity]}
 				</span>
 				<span className="flex min-w-0 flex-1 flex-col">
 					<span className="leading-snug text-foreground">{f.message}</span>
@@ -221,15 +254,29 @@ function Finding({
 				</span>
 			</button>
 			{f.suggestedFix && <p className="pl-6 leading-snug text-muted">Fix: {f.suggestedFix}</p>}
-			{onAskFix && (
-				<Button
-					size="sm"
-					variant="ghost"
-					className="ml-4 h-6 self-start px-2 text-xs"
-					onPress={onAskFix}
-				>
-					Ask the agent to fix this
-				</Button>
+			{done ? (
+				<p className={`pl-6 leading-snug ${fixed ? "text-success" : "text-muted"}`}>
+					{fixed ? "Fixed by the agent" : "The agent found this is not an issue"}
+					{done.note && `: ${done.note}`}{" "}
+					<button
+						type="button"
+						className="text-accent hover:underline"
+						onClick={() => onShowChat(done.conversationId)}
+					>
+						Open chat
+					</button>
+				</p>
+			) : (
+				onAskFix && (
+					<Button
+						size="sm"
+						variant="ghost"
+						className="ml-4 h-6 self-start px-2 text-xs"
+						onPress={onAskFix}
+					>
+						Ask the agent to fix this
+					</Button>
+				)
 			)}
 		</li>
 	);

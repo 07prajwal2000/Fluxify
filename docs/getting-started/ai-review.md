@@ -48,6 +48,18 @@ The report starts with a short summary, then one entry per problem:
 - **Ask the agent to fix this** opens the canvas chat with the problem already
   written into a new message. Read it, edit it if you like, and send it.
 
+When the agent finishes, it marks the problem in the report:
+
+| Mark | Meaning |
+| :--- | :--- |
+| Green, **Fixed by the agent** | The agent made the fix. Its note says what it changed. |
+| **The agent found this is not an issue** | The agent checked and decided the finding was wrong. Its note says why. |
+
+Either way, **Open chat** shows the conversation, so you can see exactly what the
+agent did. Switch back to Diagnostics after the chat finishes to see the mark.
+A mark only says what the agent reported: **Run again** for a fresh review that
+checks the fixes.
+
 Findings are suggestions. They stay in the AI review section and never mark
 blocks on the canvas, because AI can be wrong. Check each one before acting on
 it.

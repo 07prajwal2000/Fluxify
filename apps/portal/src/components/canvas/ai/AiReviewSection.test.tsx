@@ -185,9 +185,43 @@ test("Ask the agent to fix this opens a new canvas chat with the finding in its 
 	fireEvent.click(await button("Ask the agent to fix this"));
 	await until(() => expect(chat?.chat.isOpen).toBe(true));
 	expect(chat?.chat.conversationId).toBeUndefined();
-	expect(chat?.chat.draft).toBe(fixPrompt("route", "r1", finding));
+	expect(chat?.chat.draft).toBe(fixPrompt("route", "r1", finding, "rev1", 0));
 	expect(chat?.chat.draft).toContain("in db_native_1");
 	expect(chat?.chat.draft).toContain("Suggested fix: Pass it as $1.");
+	// so the agent can mark it when it is done
+	expect(chat?.chat.draft).toContain("resolve_review_finding with reviewId rev1 and finding 0");
+});
+
+test("a finding the agent fixed shows green, with its note and a way back to the chat", async () => {
+	const resolution = { status: "fixed", note: "Added two suites", conversationId: "c9", at: "t" };
+	spyOn(agentReviewsService, "get").mockResolvedValue(
+		review({ findings: [{ ...finding, resolution }, finding] }) as never,
+	);
+	renderSection();
+	await until(() => expect(text()).toContain("Fixed by the agent: Added two suites"));
+	const [fixed, open] = [...document.querySelectorAll("li")];
+	expect(fixed.className).toContain("bg-success/10");
+	expect(fixed.querySelector('[aria-label="fixed"]')).toBeTruthy();
+	expect(open.className).not.toContain("bg-success/10");
+	// only the open one still offers a fix
+	expect(fixed.textContent).not.toContain("Ask the agent to fix this");
+	expect(open.textContent).toContain("Ask the agent to fix this");
+	fireEvent.click(await button("Open chat"));
+	await until(() => expect(chat?.chat.isOpen).toBe(true));
+	expect(chat?.chat.conversationId).toBe("c9");
+});
+
+test("a finding the agent found wrong says so, not in green", async () => {
+	spyOn(agentReviewsService, "get").mockResolvedValue(
+		review({
+			findings: [
+				{ ...finding, resolution: { status: "not_an_issue", conversationId: "c9", at: "t" } },
+			],
+		}) as never,
+	);
+	renderSection();
+	await until(() => expect(text()).toContain("The agent found this is not an issue"));
+	expect(document.querySelector("li")?.className).not.toContain("bg-success/10");
 });
 
 test("a viewer reads the report but cannot start one or ask for a fix", async () => {
