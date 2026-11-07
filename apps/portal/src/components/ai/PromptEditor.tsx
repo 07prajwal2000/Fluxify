@@ -140,7 +140,6 @@ type Props = {
 	onSubmit: (query: string, mentions?: string[]) => void;
 	isPending?: boolean;
 	minRows?: number;
-	maxRows?: number;
 	placeholder?: string;
 	typewriter?: boolean;
 	isRunning?: boolean;
@@ -159,7 +158,6 @@ export function PromptEditor({
 	onSubmit,
 	isPending,
 	minRows = 1,
-	maxRows = 2,
 	placeholder = "Message AI...",
 	typewriter = true,
 	isRunning,
@@ -280,7 +278,7 @@ export function PromptEditor({
 				<div className="relative w-full min-h-[46px]">
 					<PlainTextPlugin
 						contentEditable={
-							<ContentEditable className="w-full resize-none bg-transparent px-1 text-sm leading-relaxed text-foreground outline-none min-h-[46px]" />
+							<ContentEditable className="w-full resize-none bg-transparent px-1 text-sm leading-relaxed text-foreground outline-none min-h-[46px] max-h-[5lh] overflow-y-auto" />
 						}
 						placeholder={
 							<div className="absolute top-0 left-1 pointer-events-none text-muted text-sm">
