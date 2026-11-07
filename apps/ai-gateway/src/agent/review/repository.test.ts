@@ -134,6 +134,29 @@ describe("agent reviews", () => {
 		});
 	});
 
+	it("marks one finding of a finished report, and nothing on a replaced one", async () => {
+		await sql`INSERT INTO workflows (id, name, project_id) VALUES ('w2', 'Fixes', 'p1')`;
+		const r = await repo.startReview("workflow", "w2", "p1", "u1");
+		const other = { ...finding, message: "other" };
+		await repo.finishReview(r.id, {
+			canvasRevision: 0,
+			summary: "s",
+			findings: [finding, other],
+			usage: { inputTokens: 0, outputTokens: 0 },
+		});
+		const fixed = { status: "fixed" as const, note: "Added suites", conversationId: "c1", at: "t" };
+		expect(await repo.resolveFinding(r.id, "p1", 1, fixed)).toBe(true);
+		expect((await repo.getReview("workflow", "w2", "p1"))?.findings).toEqual([
+			finding,
+			{ ...other, resolution: fixed },
+		]);
+		// no such finding, another project, or a report replaced since
+		expect(await repo.resolveFinding(r.id, "p1", 2, fixed)).toBe(false);
+		expect(await repo.resolveFinding(r.id, "p2", 0, fixed)).toBe(false);
+		await repo.startReview("workflow", "w2", "p1", "u1");
+		expect(await repo.resolveFinding(r.id, "p1", 0, fixed)).toBe(false);
+	});
+
 	it("goes with its project", async () => {
 		await sql`INSERT INTO routes (id, name, path, project_id) VALUES ('r2', 'Gone', '/gone', 'p2')`;
 		await repo.startReview("route", "r2", "p2", "u1");

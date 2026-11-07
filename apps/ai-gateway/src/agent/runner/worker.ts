@@ -8,10 +8,11 @@ import { closeServers, openServers, preloadMentioned } from "../external";
 import { modelFromIntegration } from "../model";
 import { executeReview } from "../review/job";
 import { endReview, touchReview } from "../review/repository";
+import { resolveFindingTool } from "../review/resolveTool";
 import { agentStore } from "../store";
 import { setupTelemetry } from "../telemetry";
 import { limitsFromProject } from "../timeouts";
-import { agentTools } from "../tools";
+import { agentTools, RESOLVE_FINDING } from "../tools";
 import { executeCompact } from "./compactJob";
 import { agentIntegration, agentMcpServers } from "./integration";
 import { executeRun, type RunDeps } from "./job";
@@ -67,11 +68,12 @@ export const buildAgent: RunDeps["build"] = async (job, loaded, todos = []) => {
 		servers,
 	);
 	preloadMentioned(servers, job.mentions, load);
+	tools[RESOLVE_FINDING] = resolveFindingTool(job.projectId, job.conversationId);
 	return {
 		close: () => closeServers(servers),
 		model: modelFromIntegration(integration),
 		tools,
-		active,
+		active: () => [...active(), RESOLVE_FINDING],
 		load,
 		projectId: job.projectId,
 		limits: limitsFromProject(settings, process.env),

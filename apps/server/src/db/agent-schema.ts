@@ -166,6 +166,13 @@ export type ReviewFinding = {
 	/** The blocks as the model named them (`db_native_1`) and as the canvas does; empty for the whole canvas. */
 	blockKeys: string[];
 	blockIds: string[];
+	/** Set by the agent asked to fix it, once it fixed it or found it was not a problem. */
+	resolution?: {
+		status: "fixed" | "not_an_issue";
+		note?: string;
+		conversationId: string;
+		at: string;
+	};
 };
 
 /**

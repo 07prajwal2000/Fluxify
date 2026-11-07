@@ -6,7 +6,7 @@ import {
 	routesEntity,
 	workflowsEntity,
 } from "@fluxify/server";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 /** AI canvas reviews (#754): one row per route or workflow, the latest review. */
 export type ReviewKind = "route" | "workflow";
@@ -88,6 +88,30 @@ export const finishReview = (
 		usage: { inputTokens: number; outputTokens: number };
 	},
 ) => whileRunning(id, { ...r, status: "completed", completedAt: new Date() });
+
+/** Marks one finding of a finished report; false when the report was replaced or has no such finding. */
+export async function resolveFinding(
+	reviewId: string,
+	projectId: string,
+	index: number,
+	resolution: NonNullable<ReviewFinding["resolution"]>,
+) {
+	const rows = await db
+		.update(reviews)
+		.set({
+			findings: sql`jsonb_set(${reviews.findings}, ${`{${index},resolution}`}::text[], ${JSON.stringify(resolution)}::text::jsonb)`,
+		})
+		.where(
+			and(
+				eq(reviews.id, reviewId),
+				eq(reviews.projectId, projectId),
+				eq(reviews.status, "completed"),
+				sql`jsonb_array_length(${reviews.findings}) > ${index}`,
+			),
+		)
+		.returning({ id: reviews.id });
+	return rows.length > 0;
+}
 
 export const endReview = (id: string, status: "failed" | "cancelled", error?: string) =>
 	whileRunning(id, { status, error: error ?? null, completedAt: new Date() });
