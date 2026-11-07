@@ -14,7 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "@xyflow/react/dist/style.css";
 import "./canvas.css";
 import { flowToGraph, graphToFlow } from "./adapters";
-import { AiCanvasButton } from "./aiButton";
+import { AiCanvasButton } from "./ai";
 import { BLOCK_TYPES } from "./blocks";
 import { CanvasCommands } from "./CanvasCommands";
 import { CanvasLayoutLockProvider } from "./CanvasLayoutLockContext";

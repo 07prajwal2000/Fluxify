@@ -11,6 +11,7 @@ import {
 	TbStethoscope,
 } from "react-icons/tb";
 import { CustomBlockIcon } from "@/components/customBlocks/IconPicker";
+import { AiReviewSection } from "../ai/AiReviewSection";
 import { blockIcon } from "../blocks/blockIconMap";
 import { blockLabels } from "../blocks/blockLabels";
 import { useCustomBlockDefs } from "../blocks/useCustomBlockDefs";
@@ -258,6 +259,7 @@ export function DiagnosticsPanel({
 				className="fx-panel__body flex flex-col gap-3 overflow-y-auto p-3"
 				style={{ paddingTop: 12 }}
 			>
+				{isOpen && <AiReviewSection onSelectBlock={handleItemClick} />}
 				{canvasWide.map((diag, idx) => (
 					<div
 						key={`${diag.source}-${idx}`}

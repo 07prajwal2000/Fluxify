@@ -4,6 +4,7 @@ import { TbRefresh } from "react-icons/tb";
 
 import type { CanvasItems, CanvasSavePayload } from "@/services/canvas";
 import { emptyGraph } from "./adapters";
+import { CanvasAiProvider } from "./ai/CanvasAiContext";
 import { BlockCanvas } from "./BlockCanvas";
 import { createBlockNodeTypes } from "./blocks";
 import { CanvasResourceContext } from "./CanvasResourceContext";
@@ -99,10 +100,18 @@ export function toGraph(data: CanvasItems | undefined): CanvasGraph {
 const nodeTypes = createBlockNodeTypes();
 
 export function CanvasWorkbench(props: CanvasWorkbenchProps) {
+	const { projectId, resourceType, resourceId } = props.compileTarget;
+	// routes and workflows get an AI review in diagnostics (#754); every canvas gets the chat
+	const review =
+		resourceType === "route" || resourceType === "workflow"
+			? { kind: resourceType, id: resourceId }
+			: undefined;
 	return (
 		<CanvasDiagnosticsProvider>
-			<CanvasResourceContext.Provider value={props.compileTarget.resourceType}>
-				<CanvasWorkbenchInner {...props} />
+			<CanvasResourceContext.Provider value={resourceType}>
+				<CanvasAiProvider projectId={projectId} review={review}>
+					<CanvasWorkbenchInner {...props} />
+				</CanvasAiProvider>
 			</CanvasResourceContext.Provider>
 		</CanvasDiagnosticsProvider>
 	);

@@ -5,7 +5,9 @@ try {
 	GlobalRegistrator.register();
 } catch {}
 
-mock.module("./AgentModel", () => ({ AgentModelLabel: () => null }));
+// the rest of the module stays: mock.module is process-wide, and canvas code reads useAgentModel
+const agentModel = await import("./AgentModel");
+mock.module("./AgentModel", () => ({ ...agentModel, AgentModelLabel: () => null }));
 
 const { act, cleanup, fireEvent, render, within } = await import("@testing-library/react");
 const q = () => within(document.body);

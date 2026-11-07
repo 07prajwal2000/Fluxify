@@ -36,7 +36,27 @@ export function ConversationPage() {
 	const { projectId, conversationId } = useParams({
 		from: "/_authed/$projectId/ai/$conversationId",
 	});
-	const [query, setQuery] = useState("");
+	return <ConversationView projectId={projectId} conversationId={conversationId} page />;
+}
+
+/**
+ * One conversation, live: the messages, approvals and the prompt. The AI page
+ * shows it full size (`page`: its header and the tab title); the canvas chat
+ * shows it in a small panel (#754).
+ */
+export function ConversationView({
+	projectId,
+	conversationId,
+	page = false,
+	initialQuery = "",
+}: {
+	projectId: string;
+	conversationId: string;
+	page?: boolean;
+	/** Text the prompt starts with. */
+	initialQuery?: string;
+}) {
+	const [query, setQuery] = useState(initialQuery);
 	const chat = useAgentConversation(projectId, conversationId);
 	const bottomRef = useRef<HTMLDivElement>(null);
 	const { isAtBottom, scrollToBottom } = useScrollToBottom(bottomRef, 250);
@@ -74,7 +94,11 @@ export function ConversationPage() {
 	}, [chat.rows.length, loadingOlder]);
 
 	usePageTitle(
-		conversation?.title ? `${conversation.title} | Fluxify AI` : "AI Conversation | Fluxify AI",
+		!page
+			? undefined
+			: conversation?.title
+				? `${conversation.title} | Fluxify AI`
+				: "AI Conversation | Fluxify AI",
 	);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: follow new output while at the bottom
@@ -93,11 +117,11 @@ export function ConversationPage() {
 
 	return (
 		<div className="relative flex h-full w-full min-w-0 flex-col">
-			<ChatHeader title={conversation?.title} />
+			{page && <ChatHeader title={conversation?.title} />}
 
 			<div
 				ref={scroller}
-				className="flex-1 overflow-y-auto px-4 pt-6 pb-8"
+				className={`flex-1 overflow-y-auto px-4 ${page ? "pt-6 pb-8" : "pt-3 pb-4"}`}
 				onWheel={() => {
 					follow.current = false;
 				}}
