@@ -28,3 +28,11 @@ export async function projectSupportsThinking(projectId: string) {
 	const integration = await agentIntegration(projectId).catch(() => undefined);
 	return integration ? integrationSupportsThinking(integration) : false;
 }
+
+/**
+ * Whether the project picked an agent connection (#754). Reads the setting
+ * only: the HTTP thread never loads the integration cache (the worker thread
+ * does), so the worker checks the integration itself when the job runs.
+ */
+export const hasAgentConnection = async (projectId: string) =>
+	Boolean(await getProjectSetting(projectId, "settings.ai.agentConnectionId"));

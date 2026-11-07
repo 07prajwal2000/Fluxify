@@ -47,9 +47,7 @@ const spies = {
 	stop: spyOn(queue, "requestStop").mockResolvedValue(undefined as never),
 	held: spyOn(queue, "isHeld").mockImplementation(async () => held),
 	quota: spyOn(quota, "assertRunQuota").mockResolvedValue(),
-	model: spyOn(integration, "agentIntegration").mockImplementation(
-		async () => (hasModel ? {} : undefined) as never,
-	),
+	model: spyOn(integration, "hasAgentConnection").mockImplementation(async () => hasModel),
 };
 afterAll(() => {
 	for (const s of Object.values(spies)) s.mockRestore();

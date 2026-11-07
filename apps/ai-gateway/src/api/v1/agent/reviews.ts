@@ -8,7 +8,7 @@ import {
 	startReview,
 	targetRevision,
 } from "../../../agent/review/repository";
-import { agentIntegration } from "../../../agent/runner/integration";
+import { hasAgentConnection } from "../../../agent/runner/integration";
 import { isHeld, publishAgentJob, requestStop } from "../../../agent/runner/queue";
 import { AGENT_RUN_STALE_MS } from "../../../lib/env";
 import { assertRunQuota } from "./rateLimit";
@@ -70,7 +70,7 @@ export function registerReviewRoutes(r: Hono, caller: Caller) {
 		const t = await targetOf(c, caller, "creator");
 		const current = await released(await getReview(t.kind, t.targetId, t.projectId));
 		if (current?.status === "running") return c.json(report(current, t.revision), 200);
-		if (!(await agentIntegration(t.projectId)))
+		if (!(await hasAgentConnection(t.projectId)))
 			throw new BadRequestError("Pick an AI connection in the project's AI settings first.");
 		await assertRunQuota(t.user.id);
 		const review = await startReview(t.kind, t.targetId, t.projectId, t.user.id);
