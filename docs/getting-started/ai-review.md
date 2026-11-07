@@ -10,7 +10,7 @@ Two AI tools sit on every route and workflow canvas:
 - **AI review**, in the Diagnostics panel, reads the whole route or workflow and
   lists problems with a suggested fix for each.
 - **The canvas chat**, behind the AI button in the bottom right corner, is the
-  same agent as the AI page, opened right next to the canvas.
+  same agent as the AI page, in a side panel next to the canvas.
 
 Both run on the AI connection picked in the project's settings, under
 **Settings → AI configuration**. Without one, the review and the chat show a link
@@ -84,10 +84,16 @@ for a fresh one.
 
 ## The canvas chat
 
-Click the AI button in the bottom right corner of a canvas to open a small chat
-above it. It works like the AI page: the agent asks before it changes anything
-(in Manual mode), and every change shows up in the canvas once you reload it.
+Click the AI button in the bottom right corner of a canvas to open the chat in
+a side panel, in the same place as Diagnostics and the block settings. Only one
+of the three is open at a time. Drag the panel's left edge to make it wider,
+and double-click the edge to reset it.
 
+The chat works like the AI page: the agent asks before it changes anything (in
+Manual mode), and every change shows up in the canvas once you reload it.
+
+- **Conversations** (the button at the top left) lists the project's chats.
+  Click one to carry on with it here.
 - **New chat** (the plus icon) starts over.
 - **Open in AI page** (the expand icon) carries on in the full-size AI page.
 - A chat started here is also listed on the AI page.

@@ -2,7 +2,6 @@ import { Button } from "@fluxify/components";
 import clsx from "clsx";
 import { TbSparkles } from "react-icons/tb";
 import { useCanvasAi } from "./CanvasAiContext";
-import { CanvasChatPanel } from "./CanvasChatPanel";
 import "./aiCanvasButton.css";
 
 export type AiCanvasButtonProps = {
@@ -18,7 +17,7 @@ export type AiCanvasButtonProps = {
 /**
  * A square-rounded floating AI icon button positioned at the bottom right of the canvas.
  * Uses the TbSparkles AI icon styled with primary theme color. On a canvas wired
- * to the AI (`CanvasAiProvider`) it opens and closes the agent chat above it.
+ * to the AI (`CanvasAiProvider`) it opens and closes the agent chat panel.
  */
 export function AiCanvasButton({
 	onPress,
@@ -28,21 +27,18 @@ export function AiCanvasButton({
 }: AiCanvasButtonProps) {
 	const chat = useCanvasAi()?.chat;
 	return (
-		<>
-			<CanvasChatPanel />
-			<div className="absolute bottom-4 right-4 z-30">
-				<Button
-					isIconOnly
-					aria-label={ariaLabel ?? (chat?.isOpen ? "Close AI chat" : "Open AI Assistant")}
-					aria-expanded={chat ? chat.isOpen : undefined}
-					variant="ghost"
-					className={clsx("fx-ai-canvas-button", className)}
-					onPress={onPress ?? chat?.toggle}
-					onClick={onClick}
-				>
-					<TbSparkles className="fx-ai-canvas-button__icon" />
-				</Button>
-			</div>
-		</>
+		<div className="absolute bottom-4 right-4 z-30">
+			<Button
+				isIconOnly
+				aria-label={ariaLabel ?? (chat?.isOpen ? "Close AI chat" : "Open AI Assistant")}
+				aria-expanded={chat ? chat.isOpen : undefined}
+				variant="ghost"
+				className={clsx("fx-ai-canvas-button", className)}
+				onPress={onPress ?? chat?.toggle}
+				onClick={onClick}
+			>
+				<TbSparkles className="fx-ai-canvas-button__icon" />
+			</Button>
+		</div>
 	);
 }

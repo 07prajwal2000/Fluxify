@@ -10,6 +10,7 @@ import type { BlockNode } from "../types";
 import { BlockDescriptionField, BlockNameInput } from "./BlockIdentityFields";
 import { BlockSettings } from "./BlockSettings";
 import { blockSettingsTabs } from "./blockSettingsRegistry";
+import { PanelResizeHandle } from "./PanelResizeHandle";
 import { useBlockPanelResize } from "./useBlockPanelResize";
 
 export type BlockPanelProps = {
@@ -61,16 +62,8 @@ export function BlockPanel({
 	const customDef = useCustomBlockDefs().find((def) => def.name === type);
 	const tabs = blockSettingsTabs(current?.type);
 
-	const {
-		width,
-		isResizing,
-		handleMouseDown,
-		handleTouchStart,
-		handleDoubleClick,
-		handleKeyDown,
-		minWidth: resolvedMinWidth,
-		maxWidth: resolvedMaxWidth,
-	} = useBlockPanelResize({ defaultWidth, minWidth, maxWidth, storageKey, onClose });
+	const resize = useBlockPanelResize({ defaultWidth, minWidth, maxWidth, storageKey, onClose });
+	const { width, isResizing } = resize;
 
 	return (
 		<aside
@@ -83,37 +76,7 @@ export function BlockPanel({
 			data-block-id={current?.id}
 			data-block-type={current ? type : undefined}
 		>
-			{block && (
-				<div
-					className="fx-panel__resize-handle"
-					role="separator"
-					tabIndex={0}
-					aria-orientation="vertical"
-					aria-label="Resize block settings panel"
-					aria-valuenow={Math.round(width)}
-					aria-valuemin={Number.isFinite(resolvedMinWidth) ? resolvedMinWidth : 0}
-					aria-valuemax={Number.isFinite(resolvedMaxWidth) ? resolvedMaxWidth : 9999}
-					onMouseDown={handleMouseDown}
-					onTouchStart={handleTouchStart}
-					onDoubleClick={handleDoubleClick}
-					onKeyDown={handleKeyDown}
-					title="Drag to resize panel (double-click to reset)"
-				>
-					<div className="fx-panel__resize-knob">
-						<svg
-							width="6"
-							height="12"
-							viewBox="0 0 6 12"
-							fill="currentColor"
-							aria-hidden="true"
-							className="fx-panel__resize-icon"
-						>
-							<rect x="0" y="0" width="2" height="12" rx="1" />
-							<rect x="4" y="0" width="2" height="12" rx="1" />
-						</svg>
-					</div>
-				</div>
-			)}
+			{block && <PanelResizeHandle label="Resize block settings panel" resize={resize} />}
 			{block && (
 				<button
 					type="button"

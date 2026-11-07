@@ -1,40 +1,78 @@
-import { Button, CloseButton, Spinner } from "@fluxify/components";
+import { Button, Spinner } from "@fluxify/components";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { TbArrowsMaximize, TbPlugConnected, TbPlus } from "react-icons/tb";
+import {
+	TbArrowsMaximize,
+	TbChevronsRight,
+	TbLayoutSidebarLeftExpand,
+	TbPlugConnected,
+	TbPlus,
+	TbSparkles,
+} from "react-icons/tb";
 import { useAgentModel } from "@/components/ai/AgentModel";
 import { AgentPickers } from "@/components/ai/AgentPickers";
 import { ConversationView } from "@/components/ai/ConversationPage";
 import { PromptEditor } from "@/components/ai/PromptEditor";
+import { StatusDot } from "@/components/ai/StatusDot";
 import { queueMessage } from "@/components/ai/useAgentConversation";
+import { getTimeAgo } from "@/lib/datetime";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { agentConversationsQuery } from "@/query/agentConversationsQuery";
 import type { Effort, Mode } from "@/services/agentConversations";
+import { PanelResizeHandle } from "../panel/PanelResizeHandle";
+import { useBlockPanelResize } from "../panel/useBlockPanelResize";
 import { type CanvasChat, useCanvasAi } from "./CanvasAiContext";
+import "../panel/panel.css";
+
+export const CHAT_PANEL_WIDTH_KEY = "fx-ai-chat-panel-width";
 
 /**
- * The agent chat over the canvas (#754): the same conversation as the AI page,
- * in a small panel above the AI button. A new chat starts from the prompt;
- * "Open in AI page" carries on full size.
+ * The agent chat beside the canvas (#754), a side panel like Diagnostics: the
+ * same conversation as the AI page, the project's chats behind the toggle at
+ * the top left, and "Open in AI page" to carry on full size.
  */
 export function CanvasChatPanel() {
 	const ai = useCanvasAi();
-	if (!ai?.chat.isOpen) return null;
-	const { projectId, chat } = ai;
+	const chat = ai?.chat;
+	const isOpen = !!chat?.isOpen;
+	const [showList, setShowList] = useState(false);
+	const resize = useBlockPanelResize({ storageKey: CHAT_PANEL_WIDTH_KEY, onClose: chat?.close });
+	if (!ai || !chat) return null;
+	const { projectId } = ai;
+
 	return (
-		<section
+		<aside
+			className={`fx-panel${isOpen ? " fx-panel--open" : ""}${resize.isResizing ? " fx-panel--resizing" : ""}`}
+			style={{ width: isOpen ? `${resize.width}px` : 0 }}
 			aria-label="AI chat"
-			className="absolute right-4 bottom-16 z-40 flex h-[min(36rem,70vh)] w-[min(26rem,calc(100%-2rem))] flex-col overflow-hidden rounded-xl border border-border bg-background shadow-xl"
+			aria-hidden={!isOpen}
 		>
-			<header className="flex items-center gap-1 border-b border-border py-1 pr-1 pl-3">
-				<span className="text-xs font-medium text-foreground">AI chat</span>
-				<div className="ml-auto flex items-center gap-0.5">
+			{isOpen && <PanelResizeHandle label="Resize AI chat panel" resize={resize} />}
+			<header className="fx-panel__header">
+				<button
+					type="button"
+					className="fx-panel__close"
+					title="Conversations"
+					aria-label="Conversations"
+					aria-pressed={showList}
+					onClick={() => setShowList((s) => !s)}
+				>
+					<TbLayoutSidebarLeftExpand />
+				</button>
+				<span className="fx-panel__icon text-accent">
+					<TbSparkles size={18} />
+				</span>
+				<span className="fx-panel__name">AI chat</span>
+				<div className="ml-auto flex items-center gap-1">
 					<Button
 						isIconOnly
 						size="sm"
 						variant="ghost"
 						aria-label="New chat"
-						onPress={() => chat.open()}
+						onPress={() => {
+							setShowList(false);
+							chat.open();
+						}}
 					>
 						<TbPlus size={16} />
 					</Button>
@@ -49,21 +87,82 @@ export function CanvasChatPanel() {
 							<TbArrowsMaximize size={16} />
 						</Link>
 					)}
-					<CloseButton aria-label="Close AI chat" onPress={chat.close} />
+					<button
+						type="button"
+						className="fx-panel__close"
+						title="Collapse panel"
+						aria-label="Collapse AI chat panel"
+						onClick={chat.close}
+					>
+						<TbChevronsRight />
+					</button>
 				</div>
 			</header>
-			<div className="min-h-0 flex-1">
-				{chat.conversationId ? (
-					<ConversationView
-						key={chat.conversationId}
-						projectId={projectId}
-						conversationId={chat.conversationId}
-					/>
-				) : (
-					<NewCanvasChat key={chat.draftSeq} projectId={projectId} chat={chat} />
-				)}
+			{isOpen && (
+				<div className="min-h-0 flex-1">
+					{showList ? (
+						<Conversations
+							projectId={projectId}
+							current={chat.conversationId}
+							onOpen={(id) => {
+								chat.setConversation(id);
+								setShowList(false);
+							}}
+						/>
+					) : chat.conversationId ? (
+						<ConversationView
+							key={chat.conversationId}
+							projectId={projectId}
+							conversationId={chat.conversationId}
+						/>
+					) : (
+						<NewCanvasChat key={chat.draftSeq} projectId={projectId} chat={chat} />
+					)}
+				</div>
+			)}
+		</aside>
+	);
+}
+
+/** The project's chats (not archived), newest first; the one shown is marked. */
+function Conversations({
+	projectId,
+	current,
+	onOpen,
+}: {
+	projectId: string;
+	current?: string;
+	onOpen: (id: string) => void;
+}) {
+	const { data, isLoading } = agentConversationsQuery.list.useQuery(projectId);
+	const chats = (data ?? []).filter((c) => !c.archived);
+	if (isLoading)
+		return (
+			<div className="flex h-full items-center justify-center">
+				<Spinner />
 			</div>
-		</section>
+		);
+	if (!chats.length)
+		return <p className="p-4 text-center text-xs text-muted">No conversations yet.</p>;
+	return (
+		<ul aria-label="Conversations" className="flex h-full flex-col gap-1 overflow-y-auto p-2">
+			{chats.map((c) => (
+				<li key={c.id}>
+					<button
+						type="button"
+						aria-current={c.id === current ? "true" : undefined}
+						onClick={() => onOpen(c.id)}
+						className={`flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs transition-colors hover:bg-surface-secondary ${c.id === current ? "bg-accent/10" : ""}`}
+					>
+						<span className="min-w-0 flex-1 truncate text-foreground">
+							{c.title ?? "Untitled session"}
+						</span>
+						<StatusDot status={c.status} />
+						<span className="shrink-0 text-muted">{getTimeAgo(c.updatedAt)}</span>
+					</button>
+				</li>
+			))}
+		</ul>
 	);
 }
 

@@ -24,6 +24,8 @@ const { integrationService } = await import("@/services/integrations");
 const { agentConversationsService } = await import("@/services/agentConversations");
 const { CanvasAiProvider, useCanvasAi } = await import("./CanvasAiContext");
 const { AiCanvasButton } = await import("./AiCanvasButton");
+const { CanvasChatPanel } = await import("./CanvasChatPanel");
+const { useExclusiveChatPanel } = await import("./useExclusiveChatPanel");
 
 afterEach(cleanup);
 afterAll(() => GlobalRegistrator.unregister());
@@ -57,6 +59,22 @@ beforeEach(() => {
 		config: { model: "claude" },
 	} as never);
 	spyOn(agentConversationsService, "model").mockResolvedValue({ supportsThinking: false });
+	spyOn(agentConversationsService, "list").mockResolvedValue([
+		{
+			id: "c1",
+			title: "Fix the SQL",
+			status: "completed",
+			archived: false,
+			updatedAt: new Date().toISOString(),
+		},
+		{
+			id: "c2",
+			title: "Old one",
+			status: "idle",
+			archived: true,
+			updatedAt: new Date().toISOString(),
+		},
+	] as never);
 });
 
 let ai: ReturnType<typeof useCanvasAi>;
@@ -73,12 +91,14 @@ function renderButton() {
 			<CanvasAiProvider projectId="p1" review={{ kind: "route", id: "r1" }}>
 				<Probe />
 				<AiCanvasButton />
+				<CanvasChatPanel />
 			</CanvasAiProvider>
 		</QueryClientProvider>,
 	);
 }
 
-const panel = () => document.body.querySelector('[aria-label="AI chat"]');
+/** The chat panel while it is open; it stays mounted (and hidden) when closed, to slide. */
+const panel = () => document.body.querySelector('aside[aria-label="AI chat"][aria-hidden="false"]');
 
 test("the AI button opens the canvas chat and closes it again", async () => {
 	const view = renderButton();
@@ -88,6 +108,36 @@ test("the AI button opens the canvas chat and closes it again", async () => {
 	await until(() => expect(panel()?.textContent).toContain("Ask the agent about this canvas"));
 	fireEvent.click(view.getByRole("button", { name: "Close AI chat", expanded: true }));
 	await until(() => expect(panel()).toBeNull());
+	// and from its own collapse button
+	fireEvent.click(view.getByRole("button", { name: "Open AI Assistant" }));
+	await until(() => expect(panel()).toBeTruthy());
+	fireEvent.click(view.getByRole("button", { name: "Collapse AI chat panel" }));
+	await until(() => expect(panel()).toBeNull());
+});
+
+test("it is a resizable side panel like Diagnostics", async () => {
+	const view = renderButton();
+	fireEvent.click(view.getByRole("button", { name: "Open AI Assistant" }));
+	const aside = await until(() => panel() as HTMLElement);
+	expect(aside.className).toContain("fx-panel--open");
+	expect(view.getByRole("separator", { name: "Resize AI chat panel" })).toBeTruthy();
+});
+
+test("the toggle at the top left lists the project's chats and opens one", async () => {
+	const view = renderButton();
+	fireEvent.click(view.getByRole("button", { name: "Open AI Assistant" }));
+	await until(() => expect(panel()).toBeTruthy());
+	const toggle = view.getByRole("button", { name: "Conversations" });
+	// first in the header, before the title
+	expect(panel()?.querySelector("header button")).toBe(toggle);
+	fireEvent.click(toggle);
+	expect(toggle.getAttribute("aria-pressed")).toBe("true");
+	await until(() => expect(panel()?.textContent).toContain("Fix the SQL"));
+	// archived chats are left out
+	expect(panel()?.textContent).not.toContain("Old one");
+	fireEvent.click(view.getByRole("button", { name: /Fix the SQL/ }));
+	await until(() => expect(ai?.chat.conversationId).toBe("c1"));
+	expect(toggle.getAttribute("aria-pressed")).toBe("false");
 });
 
 // the prompt's text itself is PromptEditor's `value`, covered by its own tests
@@ -112,4 +162,38 @@ test("outside a wired canvas the button does nothing and opens no chat", async (
 	fireEvent.click(view.getByRole("button", { name: "Open AI Assistant" }));
 	await act(() => new Promise((r) => setTimeout(r, 40)));
 	expect(panel()).toBeNull();
+});
+
+/** Stand-ins for Diagnostics and the block settings, to watch the chat close them. */
+function Panels(props: {
+	diagnostics: { isPanelOpen: boolean; closePanel: () => void };
+	block: { openBlockId: string | null; close: () => void };
+}) {
+	useExclusiveChatPanel(props.diagnostics, props.block);
+	return null;
+}
+
+test("one side panel at a time: the chat closes Diagnostics and settings, and they close it", async () => {
+	const closeDiagnostics = mock(() => undefined);
+	const closeBlock = mock(() => undefined);
+	const tree = (diagnosticsOpen: boolean) => (
+		<QueryClientProvider client={new QueryClient()}>
+			<CanvasAiProvider projectId="p1">
+				<Probe />
+				<Panels
+					diagnostics={{ isPanelOpen: diagnosticsOpen, closePanel: closeDiagnostics }}
+					block={{ openBlockId: null, close: closeBlock }}
+				/>
+			</CanvasAiProvider>
+		</QueryClientProvider>
+	);
+	const view = render(tree(true));
+	act(() => ai?.chat.open());
+	await until(() => expect(closeDiagnostics).toHaveBeenCalled());
+	expect(closeBlock).toHaveBeenCalled();
+
+	view.rerender(tree(false));
+	expect(ai?.chat.isOpen).toBe(true);
+	view.rerender(tree(true));
+	await until(() => expect(ai?.chat.isOpen).toBe(false));
 });

@@ -15,6 +15,7 @@ import "@xyflow/react/dist/style.css";
 import "./canvas.css";
 import { flowToGraph, graphToFlow } from "./adapters";
 import { AiCanvasButton } from "./ai";
+import { useExclusiveChatPanel } from "./ai/useExclusiveChatPanel";
 import { BLOCK_TYPES } from "./blocks";
 import { CanvasCommands } from "./CanvasCommands";
 import { CanvasLayoutLockProvider } from "./CanvasLayoutLockContext";
@@ -225,6 +226,7 @@ function CanvasInner({
 		panel,
 	});
 
+	useExclusiveChatPanel(diagnostics, panel);
 	const { setFromSource } = diagnostics;
 	const showBlockError = useCallback(
 		(blockId: string, message: string) => {
