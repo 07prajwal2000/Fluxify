@@ -89,28 +89,35 @@ export const finishReview = (
 	},
 ) => whileRunning(id, { ...r, status: "completed", completedAt: new Date() });
 
-/** Marks one finding of a finished report; false when the report was replaced or has no such finding. */
-export async function resolveFinding(
+/**
+ * Marks findings of a finished report, by index, in one locked read-and-write so
+ * two chats marking at once cannot drop each other's marks. Returns the indexes
+ * it marked: none when the report was replaced, and never one the report lacks.
+ */
+export async function resolveFindings(
 	reviewId: string,
 	projectId: string,
-	index: number,
-	resolution: NonNullable<ReviewFinding["resolution"]>,
+	marks: { index: number; resolution: NonNullable<ReviewFinding["resolution"]> }[],
 ) {
-	const rows = await db
-		.update(reviews)
-		.set({
-			findings: sql`jsonb_set(${reviews.findings}, ${`{${index},resolution}`}::text[], ${JSON.stringify(resolution)}::text::jsonb)`,
-		})
-		.where(
-			and(
-				eq(reviews.id, reviewId),
-				eq(reviews.projectId, projectId),
-				eq(reviews.status, "completed"),
-				sql`jsonb_array_length(${reviews.findings}) > ${index}`,
-			),
-		)
-		.returning({ id: reviews.id });
-	return rows.length > 0;
+	return db.transaction(async (tx) => {
+		const [row] = await tx
+			.select({ findings: reviews.findings })
+			.from(reviews)
+			.where(
+				and(
+					eq(reviews.id, reviewId),
+					eq(reviews.projectId, projectId),
+					eq(reviews.status, "completed"),
+				),
+			)
+			.for("update");
+		const findings = row?.findings ? [...row.findings] : [];
+		const done = marks.filter((m) => m.index >= 0 && m.index < findings.length);
+		if (!done.length) return [];
+		for (const m of done) findings[m.index] = { ...findings[m.index], resolution: m.resolution };
+		await tx.update(reviews).set({ findings }).where(eq(reviews.id, reviewId));
+		return [...new Set(done.map((m) => m.index))];
+	});
 }
 
 export const endReview = (id: string, status: "failed" | "cancelled", error?: string) =>

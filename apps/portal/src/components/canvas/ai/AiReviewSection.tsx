@@ -56,7 +56,8 @@ const EDGE = { error: "border-l-danger", warning: "border-l-warning", info: "bor
 
 /**
  * What "Ask the agent to fix this" puts in a new chat's prompt. The review id and
- * finding number let the agent mark it with resolve_review_finding when it is done.
+ * finding number (from 1, as the report counts) let the agent mark it with
+ * resolve_review_finding when it is done.
  */
 export function fixPrompt(
 	kind: ReviewKind,
@@ -71,10 +72,33 @@ export function fixPrompt(
 		f.message,
 		f.suggestedFix ? `Suggested fix: ${f.suggestedFix}` : "",
 		"Check whether it is right, and fix it if it is.",
-		`When you are done, call resolve_review_finding with reviewId ${reviewId} and finding ${index}.`,
+		`When you are done, call resolve_review_finding with reviewId ${reviewId} and finding ${index + 1}.`,
 	]
 		.filter(Boolean)
 		.join("\n");
+}
+
+/**
+ * What "Fix all" puts in a new chat's prompt (#1081): one numbered item per open
+ * finding. Each keeps its report number, so the user can delete items from the
+ * draft and the agent still marks the right ones.
+ */
+export function fixAllPrompt(
+	kind: ReviewKind,
+	id: string,
+	findings: { finding: ReviewFinding; index: number }[],
+	reviewId: string,
+) {
+	const items = findings.map(({ finding: f, index }) => {
+		const where = f.blockKeys.length ? ` in ${f.blockKeys.join(", ")}` : "";
+		const fix = f.suggestedFix ? `\n   Suggested fix: ${f.suggestedFix}` : "";
+		return `${index + 1}. [${f.severity}${where}] ${f.message}${fix}`;
+	});
+	return [
+		`An AI review of the ${kind} ${id} found these problems. Work through each one still in this list: check whether it is right, and fix it if it is.`,
+		items.join("\n\n"),
+		`When you are done, call resolve_review_finding once with reviewId ${reviewId} and an entry for each finding still listed above, by its number.`,
+	].join("\n\n");
 }
 
 type Props = { onSelectBlock: (blockId: string, tab?: string) => void };
@@ -126,6 +150,13 @@ function AiReview({
 	const worst = (["error", "warning", "info"] as const).find((s) =>
 		unresolved.some((f) => f.severity === s),
 	);
+	// what Fix all sends: every finding the agent has not marked yet, with its report number
+	const toFix =
+		review?.status === "completed"
+			? (review.findings ?? [])
+					.map((finding, index) => ({ finding, index }))
+					.filter(({ finding }) => !finding.resolution)
+			: [];
 	return (
 		<section
 			aria-label="AI review"
@@ -153,7 +184,17 @@ function AiReview({
 						</span>
 					)}
 				</button>
-				<div className="ml-auto">
+				<div className="ml-auto flex items-center gap-1.5">
+					{canEdit && toFix.length > 1 && review && (
+						<Button
+							size="sm"
+							variant="primary"
+							className="h-7 px-2 text-xs"
+							onPress={() => openChat(fixAllPrompt(kind, id, toFix, review.id))}
+						>
+							Fix all ({toFix.length})
+						</Button>
+					)}
 					{canEdit && (
 						<ReviewAction
 							projectId={projectId}

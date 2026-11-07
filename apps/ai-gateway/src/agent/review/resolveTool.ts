@@ -1,42 +1,67 @@
 import { type Tool, tool } from "ai";
 import { z } from "zod";
-import { RESOLVE_FINDING } from "../tools";
-import { resolveFinding } from "./repository";
+import { resolveFindings } from "./repository";
 
 /**
- * Lets the agent mark the AI review finding it was asked to fix (#754), so the
- * report shows it fixed. Web runs only: it writes to the database directly, as
- * the job's user, who needed the creator role to send the message.
+ * Lets the agent mark the AI review findings it was asked to fix (#754, #1081),
+ * several in one call, so the report shows them fixed. Web runs only: it writes
+ * to the database directly, as the job's user, who needed the creator role to
+ * send the message. Finding numbers are the ones the user's message shows, from 1.
  */
 export function resolveFindingTool(
 	projectId: string,
 	conversationId: string,
-	resolve = resolveFinding,
+	resolve = resolveFindings,
 ): Tool {
 	return tool({
-		title: "Mark review finding",
+		title: "Mark review findings",
 		description:
-			"Only when the user asked you to fix an AI review finding and gave its reviewId and finding number. Call it once you are done: fixed after the fix is saved, not_an_issue when the finding is wrong.",
+			"Only when the user asked you to fix AI review findings and gave a reviewId and finding numbers. Call it once when you are done, with one entry per finding the user's message still lists: fixed after the fix is saved, not_an_issue when the finding is wrong. Leave out findings you did not get to.",
 		inputSchema: z.object({
 			reviewId: z.string(),
-			finding: z.number().int().min(0).describe("The finding number from the user's message"),
-			outcome: z.enum(["fixed", "not_an_issue"]),
-			note: z
-				.string()
-				.max(300)
-				.optional()
-				.describe("One sentence: what you changed, or why it is not an issue"),
+			findings: z
+				.array(
+					z.object({
+						finding: z
+							.number()
+							.int()
+							.min(1)
+							.describe("The finding number as the user's message shows it"),
+						outcome: z.enum(["fixed", "not_an_issue"]),
+						note: z
+							.string()
+							.max(300)
+							.optional()
+							.describe("One sentence: what you changed, or why it is not an issue"),
+					}),
+				)
+				.min(1),
 		}),
-		execute: async ({ reviewId, finding, outcome, note }) => {
-			const ok = await resolve(reviewId, projectId, finding, {
-				status: outcome,
-				...(note && { note }),
-				conversationId,
-				at: new Date().toISOString(),
-			});
-			return ok
-				? `Finding ${finding} marked ${outcome}.`
-				: "No such finding: the review was run again since, or the number is wrong. Tell the user; nothing was marked.";
+		execute: async ({ reviewId, findings }) => {
+			const at = new Date().toISOString();
+			const marked = new Set(
+				await resolve(
+					reviewId,
+					projectId,
+					findings.map((f) => ({
+						index: f.finding - 1,
+						resolution: {
+							status: f.outcome,
+							...(f.note && { note: f.note }),
+							conversationId,
+							at,
+						},
+					})),
+				),
+			);
+			if (!marked.size)
+				return "Nothing was marked: the review was run again since, or the numbers are wrong. Tell the user.";
+			const lines = findings.map((f) =>
+				marked.has(f.finding - 1)
+					? `Finding ${f.finding} marked ${f.outcome}.`
+					: `Finding ${f.finding}: no such finding, not marked.`,
+			);
+			return lines.join("\n");
 		},
 	});
 }

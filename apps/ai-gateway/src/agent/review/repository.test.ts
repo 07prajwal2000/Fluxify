@@ -134,7 +134,7 @@ describe("agent reviews", () => {
 		});
 	});
 
-	it("marks one finding of a finished report, and nothing on a replaced one", async () => {
+	it("marks findings of a finished report in bulk, and nothing on a replaced one", async () => {
 		await sql`INSERT INTO workflows (id, name, project_id) VALUES ('w2', 'Fixes', 'p1')`;
 		const r = await repo.startReview("workflow", "w2", "p1", "u1");
 		const other = { ...finding, message: "other" };
@@ -145,16 +145,35 @@ describe("agent reviews", () => {
 			usage: { inputTokens: 0, outputTokens: 0 },
 		});
 		const fixed = { status: "fixed" as const, note: "Added suites", conversationId: "c1", at: "t" };
-		expect(await repo.resolveFinding(r.id, "p1", 1, fixed)).toBe(true);
+		const wrong = { status: "not_an_issue" as const, conversationId: "c2", at: "t" };
+		const mark = (index: number, resolution: typeof fixed | typeof wrong = fixed) => ({
+			index,
+			resolution,
+		});
+		expect(await repo.resolveFindings(r.id, "p1", [mark(1)])).toEqual([1]);
 		expect((await repo.getReview("workflow", "w2", "p1"))?.findings).toEqual([
 			finding,
 			{ ...other, resolution: fixed },
 		]);
+		// several at once; one the report lacks is skipped, the rest still land
+		expect(await repo.resolveFindings(r.id, "p1", [mark(0, wrong), mark(5)])).toEqual([0]);
+		expect((await repo.getReview("workflow", "w2", "p1"))?.findings).toEqual([
+			{ ...finding, resolution: wrong },
+			{ ...other, resolution: fixed },
+		]);
+		// two chats marking at once keep both marks
+		await Promise.all([
+			repo.resolveFindings(r.id, "p1", [mark(0)]),
+			repo.resolveFindings(r.id, "p1", [mark(1, wrong)]),
+		]);
+		expect(
+			(await repo.getReview("workflow", "w2", "p1"))?.findings?.map((f) => f.resolution?.status),
+		).toEqual(["fixed", "not_an_issue"]);
 		// no such finding, another project, or a report replaced since
-		expect(await repo.resolveFinding(r.id, "p1", 2, fixed)).toBe(false);
-		expect(await repo.resolveFinding(r.id, "p2", 0, fixed)).toBe(false);
+		expect(await repo.resolveFindings(r.id, "p1", [mark(2)])).toEqual([]);
+		expect(await repo.resolveFindings(r.id, "p2", [mark(0)])).toEqual([]);
 		await repo.startReview("workflow", "w2", "p1", "u1");
-		expect(await repo.resolveFinding(r.id, "p1", 0, fixed)).toBe(false);
+		expect(await repo.resolveFindings(r.id, "p1", [mark(0)])).toEqual([]);
 	});
 
 	it("goes with its project", async () => {

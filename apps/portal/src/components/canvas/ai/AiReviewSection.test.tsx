@@ -194,7 +194,7 @@ test("Ask the agent to fix this opens a new canvas chat with the finding in its 
 	expect(chat?.chat.draft).toContain("in db_native_1");
 	expect(chat?.chat.draft).toContain("Suggested fix: Pass it as $1.");
 	// so the agent can mark it when it is done
-	expect(chat?.chat.draft).toContain("resolve_review_finding with reviewId rev1 and finding 0");
+	expect(chat?.chat.draft).toContain("resolve_review_finding with reviewId rev1 and finding 1");
 });
 
 test("a finding the agent fixed shows green, with its note and a way back to the chat", async () => {
@@ -274,4 +274,44 @@ test("collapsing hides the report, shows the open count and is remembered", asyn
 	renderSection();
 	await until(() => expect(document.querySelector("[aria-label='Expand AI review']")).toBeTruthy());
 	expect(text()).not.toContain(finding.message);
+});
+
+test("Fix all opens one chat listing every unmarked finding by its report number", async () => {
+	const resolution = { status: "fixed", conversationId: "c9", at: "t" };
+	const second = { ...finding, severity: "warning" as const, message: "No error handler." };
+	const third = {
+		...finding,
+		message: "Rows go out whole.",
+		blockKeys: [],
+		suggestedFix: undefined,
+	};
+	spyOn(agentReviewsService, "get").mockResolvedValue(
+		review({ findings: [finding, { ...second, resolution }, second, third] }) as never,
+	);
+	renderSection();
+	fireEvent.click(await button("Fix all (3)"));
+	await until(() => expect(chat?.chat.isOpen).toBe(true));
+	const draft = chat?.chat.draft ?? "";
+	expect(draft).toContain(
+		`1. [error in db_native_1] ${finding.message}\n   Suggested fix: Pass it as $1.`,
+	);
+	expect(draft).not.toContain("2. ");
+	expect(draft).toContain("3. [warning in db_native_1] No error handler.");
+	expect(draft).toContain("4. [error] Rows go out whole.");
+	expect(draft).toContain("resolve_review_finding once with reviewId rev1");
+});
+
+test("Fix all needs more than one open finding, and the creator role", async () => {
+	spyOn(agentReviewsService, "get").mockResolvedValue(review() as never);
+	renderSection();
+	await until(() => expect(text()).toContain(finding.message));
+	expect(text()).not.toContain("Fix all");
+	cleanup();
+	setRole("viewer");
+	spyOn(agentReviewsService, "get").mockResolvedValue(
+		review({ findings: [finding, finding] }) as never,
+	);
+	renderSection();
+	await until(() => expect(text()).toContain(finding.message));
+	expect(text()).not.toContain("Fix all");
 });
