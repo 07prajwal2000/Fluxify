@@ -157,3 +157,12 @@ test("submitting an editor with an integration mention passes the mention ID in 
 
 	expect(submittedMentions).toEqual(["mcp-server-1"]);
 });
+
+test("the editor grows with its content up to 5 lines, then scrolls inside itself", () => {
+	editor({ value: Array.from({ length: 20 }, (_, i) => `line ${i + 1}`).join("\n\n") });
+	const box = document.querySelector("[contenteditable]") as HTMLElement;
+	// 5 lines of the editor's own line height, never more; the rest scrolls
+	expect(box.className).toContain("max-h-[5lh]");
+	expect(box.className).toContain("overflow-y-auto");
+	expect(box.className).not.toContain("overflow-hidden");
+});

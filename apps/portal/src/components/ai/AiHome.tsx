@@ -95,7 +95,6 @@ export function AiHome() {
 					onSubmit={submit}
 					isPending={create.isPending}
 					minRows={2}
-					maxRows={3}
 					controls={
 						<AgentPickers
 							mode={mode}

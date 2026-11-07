@@ -233,7 +233,6 @@ function NewCanvasChat({ projectId, chat }: { projectId: string; chat: CanvasCha
 				onSubmit={submit}
 				isPending={create.isPending}
 				minRows={2}
-				maxRows={8}
 				controls={
 					<AgentPickers
 						mode={mode}
