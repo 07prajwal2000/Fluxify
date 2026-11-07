@@ -160,7 +160,14 @@ export const agentMessagesEntity = pgTable(
 /** One finding of an AI canvas review (#754), tied to the blocks it is about. */
 export type ReviewFinding = {
 	severity: "error" | "warning" | "info";
-	category: "security" | "correctness" | "test_coverage" | "schema" | "performance";
+	category:
+		| "security"
+		| "error_handling"
+		| "correctness"
+		| "data_integrity"
+		| "schema"
+		| "performance"
+		| "test_coverage";
 	message: string;
 	suggestedFix?: string;
 	/** The blocks as the model named them (`db_native_1`) and as the canvas does; empty for the whole canvas. */
