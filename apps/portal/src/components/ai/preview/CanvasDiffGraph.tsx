@@ -8,6 +8,7 @@ import {
 	useEffect,
 	useMemo,
 } from "react";
+import { WithoutCanvasAi } from "@/components/canvas/ai/CanvasAiContext";
 import { BlockCanvas } from "@/components/canvas/BlockCanvas";
 import { createBlockNodeTypes } from "@/components/canvas/blocks";
 import { FLOW_EDGE_TYPE, FlowEdge } from "@/components/canvas/edges";
@@ -160,8 +161,10 @@ function DiffGraph({
 /** Plugin blocks' handles come from the project's plugins, so the graph is built under their provider. */
 export default function CanvasDiffGraph(props: Parameters<typeof DiffGraph>[0]) {
 	return (
-		<PluginBlocksProvider>
-			<DiffGraph {...props} />
-		</PluginBlocksProvider>
+		<WithoutCanvasAi>
+			<PluginBlocksProvider>
+				<DiffGraph {...props} />
+			</PluginBlocksProvider>
+		</WithoutCanvasAi>
 	);
 }
