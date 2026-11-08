@@ -85,16 +85,15 @@ export const canvasTools: McpTool[] = [
 			target,
 			revision: z.number().int().min(0).describe("The revision from get_canvas"),
 			ops: z.array(canvasOpSchema),
-			auto_layout: z.boolean().optional().describe("Re-lay out the whole canvas"),
 			validate: z.boolean().optional().describe("false: skip returning rule issues. On by default"),
 		},
 		call: async ({ get, send }, a) => {
 			const ops = a.ops as CanvasOp[];
 			const canvas = await read(get, a.target);
 			if (canvas.canvasRevision !== a.revision) throw new Error(STALE);
-			const { changes, refs, describe } = opsToChanges(canvas, ops, a.auto_layout);
+			const { changes, refs, describe } = opsToChanges(canvas, ops);
 			// nothing to change: at most a check, never a save
-			const checkOnly = ops.length === 0 && !a.auto_layout;
+			const checkOnly = ops.length === 0;
 			const validate = a.validate !== false;
 			if (checkOnly && !validate) return { revision: a.revision };
 			const query = `expectedRevision=${a.revision}${checkOnly ? "&dryRun=true" : ""}`;

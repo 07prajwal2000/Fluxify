@@ -28,11 +28,7 @@ function PendingEdit({ input }: { input: Record<string, unknown> }) {
 	const ready = Boolean(projectId) && isRec(input.target);
 	const preview = agentConversationsQuery.preview.canvas.useQuery(
 		projectId,
-		{
-			target: rec(input.target) as { kind: string; id: string },
-			ops,
-			...(input.auto_layout === true && { auto_layout: true }),
-		},
+		{ target: rec(input.target) as { kind: string; id: string }, ops },
 		ready,
 	);
 	if (preview.isLoading)

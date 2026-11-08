@@ -42,7 +42,6 @@ export type { EditPreview, Effort, Mode };
 export type CanvasPreviewBody = {
 	target: { kind: string; id: string };
 	ops: unknown[];
-	auto_layout?: boolean;
 };
 export type AgentConversationDetail = {
 	conversation: AgentConversation & { activeRunId: string | null };

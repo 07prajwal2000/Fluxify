@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { layoutGraph } from "@fluxify/blocks/layout";
 import { z } from "zod";
 import type { AdminApi } from "../adminApi";
 import { type CanvasOp, opsToChanges, trimCanvas } from "../canvasOps";
@@ -7,8 +8,8 @@ import { lenient } from "../tools";
 import { routeTools } from "../routeTools";
 
 const at = (x: number) => ({ x, y: 0 });
-/** entry → resp, plus an if block wired on success to log */
-const canvas = () => ({
+/** entry → resp, plus an if block wired on success to log; every block on y 0, so bands overlap */
+const messy = () => ({
 	canvasRevision: 3,
 	blocks: [
 		{ id: "entry", key: "entrypoint_1", type: "entrypoint", data: {}, position: at(0) },
@@ -23,7 +24,14 @@ const canvas = () => ({
 	],
 });
 
-const apply = (ops: CanvasOp[], autoLayout = false) => opsToChanges(canvas(), ops, autoLayout);
+/** `messy`, already formatted, so an edit only touches what it names */
+const canvas = () => {
+	const c = messy();
+	const at = layoutGraph(c.blocks, c.edges);
+	for (const b of c.blocks) b.position = at[b.id] ?? b.position;
+	return c;
+};
+const apply = (ops: CanvasOp[]) => opsToChanges(canvas(), ops);
 const upserts = (c: ReturnType<typeof apply>["changes"]) =>
 	c.actionsToPerform.blocks.filter((a) => a.action === "upsert").map((a) => a.id);
 const deletes = (c: ReturnType<typeof apply>["changes"], kind: "blocks" | "edges") =>
@@ -66,7 +74,7 @@ describe("edit_canvas ops → save diff", () => {
 	it("merges update_block data into the stored data and keeps its position", () => {
 		const { changes } = apply([{ op: "update_block", id: "consolelog_1", data: { level: "warn" } }]);
 		expect(changes.changes.blocks).toEqual([
-			expect.objectContaining({ id: "log", data: { value: "x", level: "warn" }, position: at(900) }),
+			expect.objectContaining({ id: "log", data: { value: "x", level: "warn" }, position: canvas().blocks[4].position }),
 		]);
 		expect(changes.changes.edges).toEqual([]);
 	});
@@ -99,11 +107,15 @@ describe("edit_canvas ops → save diff", () => {
 		expect(() => apply([{ op: "add_block", ref: "response_1", type: "response" }])).toThrow("already");
 	});
 
-	it("auto_layout moves stored blocks too, restating their data", () => {
-		const { changes } = apply([], true);
-		expect(changes.changes.blocks.length).toBeGreaterThan(0);
-		const resp = changes.changes.blocks.find((b) => b.id === "resp");
-		expect(resp?.data).toEqual({ httpCode: "200" });
+	it("formats every edit: messy stored blocks move, restating their data", () => {
+		const edit = (c: ReturnType<typeof messy>) =>
+			opsToChanges(c, [{ op: "update_block", id: "consolelog_1", data: { value: "y" } }]).changes.changes.blocks;
+		const moved = edit(messy());
+		expect(moved.find((b) => b.id === "resp")?.data).toEqual({ httpCode: "200" });
+		expect(moved.some((b) => b.id !== "log" && b.position)).toBe(true);
+		// a formatted canvas stays put, and a check formats nothing
+		expect(edit(canvas()).map((b) => b.id)).toEqual(["log"]);
+		expect(apply([]).changes.changes.blocks).toEqual([]);
 	});
 
 	it("get_canvas names blocks and edges by key, with no ids or UI data", () => {

@@ -188,19 +188,6 @@ describe("copy_blocks", () => {
 		).rejects.toThrow("Nothing to copy");
 	});
 
-	it("moves the copy to position, keeping the blocks' spacing", async () => {
-		const { api, calls } = fakeApi();
-		await run(
-			{ from: { kind: "route", id: "r1" }, keys: ["if_1", "response_1"], to: { kind: "workflow", id: "w1" }, position: { x: 500, y: 40 } },
-			api,
-		);
-		const xs = copiesIn(saved(calls)).map((b: any) => [b.type, b.position]);
-		expect(xs).toEqual([
-			["if", { x: 500, y: 40 }],
-			["response", { x: 600, y: 40 }],
-		]);
-	});
-
 	it("refuses a source or target in another project, and a key that is not there, and saves nothing", async () => {
 		const { api, calls } = fakeApi({ routeProject: OTHER });
 		await expect(

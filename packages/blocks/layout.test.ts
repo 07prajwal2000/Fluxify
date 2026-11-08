@@ -361,3 +361,15 @@ test("an output a plugin moved to the bottom starts a chain below the block, lik
 	expect(p.ko!.y).toBeGreaterThanOrEqual(p.a!.y + 40);
 	expect(p.ko!.x).toBeLessThan(p.ok!.x);
 });
+
+// #1082: the server never measures, so unmeasured blocks must take the sizes the editor draws
+test("unmeasured blocks lay out exactly as the editor's measured cards", () => {
+	const types = [BlockTypes.entrypoint, BlockTypes.jsrunner, BlockTypes.switch, BlockTypes.response];
+	const ids = ["e", "js", "sw", "r"];
+	const edges = [edge("e", "js"), edge("js", "sw"), edge("sw", "r", "case")];
+	const bare = ids.map((id, i) => ({ id, type: types[i] }));
+	// what the editor measures: compact squares 64 wide, other cards 168, all 64 tall
+	const measured = bare.map((n) => ({ ...n, width: n.type === BlockTypes.switch ? 168 : 64, height: 64 }));
+	expect(layoutGraph(bare, edges)).toEqual(layoutGraph(measured, edges));
+	expect(layoutGraph(bare, edges).js).toEqual({ x: 128, y: 0 });
+});

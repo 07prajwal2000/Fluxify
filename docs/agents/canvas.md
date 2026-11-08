@@ -140,7 +140,7 @@ Call `get_canvas` first. It gives `revision`, `blocks` (key, type, data) and `ed
 - Ops run **in order**. A later op can use a `ref` added earlier in the same call, and a `disconnect` followed by a `connect` on the same handle works.
 - All or nothing: one bad op (unknown block type, missing id, a handle the block does not have, a handle already used) refuses the whole call and saves nothing. The error names the block and lists its valid handles.
 - The answer has the new `revision`; `changes`, one line per thing done (`updated response_1 (httpCode)`, `edited jsrunner_1.value (1 change, lines 12–14)`, `connected if_1.success → db_insert_1`, `removed log_2 (+2 edges)`), so you can see each op hit the block you meant. A block you add also says what it outputs, which is the next block's `input`; and `refs`, which maps each of your refs to the key the block got. Use those keys in later calls.
-- Leave `position` out and the server places new blocks. Pass `auto_layout: true` to lay out the whole canvas again.
+- Every edit is laid out for you: new blocks are placed, and blocks are tidied left to right so nothing overlaps. Blocks that are already neat stay where they are.
 - `ops: []` checks the canvas and saves nothing.
 
 ### Change part of a script
