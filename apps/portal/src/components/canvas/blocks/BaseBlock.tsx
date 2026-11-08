@@ -13,7 +13,9 @@ import { HANDLE_CONFIG, type HandleSide } from "./handles/handleConfig";
  * `compact`: rounded square, name underneath (blocks with at most one input and one output).
  * `container`: taller card whose body handle sits top-right, apart from the rest.
  */
-export type BlockVariant = "default" | "compact" | "container";
+export type { BlockVariant } from "@fluxify/blocks/layout";
+
+import type { BlockVariant } from "@fluxify/blocks/layout";
 
 export type BaseBlockProps = {
 	variant?: BlockVariant;

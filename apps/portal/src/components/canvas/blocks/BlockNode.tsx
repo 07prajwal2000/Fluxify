@@ -1,3 +1,4 @@
+import { blockVariant } from "@fluxify/blocks/layout";
 import type { NodeProps, NodeTypes } from "@xyflow/react";
 import { GoWorkflow } from "react-icons/go";
 import { IoExtensionPuzzle } from "react-icons/io5";
@@ -6,13 +7,12 @@ import { CustomBlockIcon } from "@/components/customBlocks/IconPicker";
 import { useCanvasResourceType } from "../CanvasResourceContext";
 import { PluginBlockNode } from "../plugins/PluginBlockNode";
 import { isPluginType } from "../plugins/pluginBlocks";
-import { BaseBlock, type BlockVariant } from "./BaseBlock";
+import { BaseBlock } from "./BaseBlock";
 import { BLOCK_CATALOG, blockCatalogEntries } from "./blockCatalog";
 import { blockIcon } from "./blockIconMap";
 import { blockLabels } from "./blockLabels";
 import { BLOCK_TYPES } from "./blockTypes";
 import { BlockHandle } from "./handles/BlockHandle";
-import type { HandleKind } from "./handles/handleConfig";
 import { StickyNoteBlock } from "./StickyNoteBlock";
 import { useCustomBlockDefs } from "./useCustomBlockDefs";
 
@@ -27,22 +27,6 @@ const ENTRYPOINT_ICON = {
 	custom_block: <IoExtensionPuzzle size={18} />,
 	sandbox: <TbFlask size={18} />,
 };
-
-/**
- * Card design by sockets: a body handle makes a container; at most one input and
- * one output, or a true/false pair, makes a compact square.
- */
-export function blockVariant(type: string, handles: HandleKind[]): BlockVariant {
-	if (handles.some((kind) => kind === "executor" || kind === "orchestrate")) return "container";
-	if (handles.includes("success") || handles.includes("failure")) {
-		const branch = handles.every(
-			(kind) => kind === "target" || kind === "success" || kind === "failure",
-		);
-		return branch ? "compact" : "default";
-	}
-	const simple = handles.every((kind) => kind === "target" || kind === "source");
-	return simple && handles.length > 0 ? "compact" : "default";
-}
 
 /**
  * Renders any block type from the catalog: icon + name + description, with the
@@ -67,7 +51,7 @@ export function BlockNode({
 
 	return (
 		<BaseBlock
-			variant={isCustomBlock ? "default" : blockVariant(type, definition.handles)}
+			variant={isCustomBlock ? "default" : blockVariant(definition.handles)}
 			blockId={id}
 			blockType={type}
 			position={{ x: positionAbsoluteX, y: positionAbsoluteY }}

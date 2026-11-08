@@ -1,4 +1,4 @@
-import type { HandleSpecs } from "./blockHandles";
+import { getOutputHandles, type HandleSpecs } from "./blockHandles";
 import { BlockTypes } from "./blockTypes";
 import { handleSide, isBodyEdge, layoutBand, splitIntoBands } from "./layoutLanes";
 
@@ -36,9 +36,43 @@ export {
  * fraction of the code, with no dependency and no async.
  */
 
-/** Fallbacks for blocks nothing has measured yet — the server never measures. */
+/** Card sizes as the editor draws them: the server never measures, so it uses these. */
 const FALLBACK_WIDTH = 168;
+const COMPACT_WIDTH = 64;
 const FALLBACK_HEIGHT = 64;
+
+export type BlockVariant = "default" | "compact" | "container";
+
+/**
+ * Card design by sockets: a body handle makes a container; at most one input and
+ * one output, or a true/false pair, makes a compact square.
+ */
+export function blockVariant(handles: readonly string[]): BlockVariant {
+	if (handles.some((kind) => kind === "executor" || kind === "orchestrate")) return "container";
+	if (handles.includes("success") || handles.includes("failure")) {
+		const branch = handles.every(
+			(kind) => kind === "target" || kind === "success" || kind === "failure",
+		);
+		return branch ? "compact" : "default";
+	}
+	const simple = handles.every((kind) => kind === "target" || kind === "source");
+	return simple && handles.length > 0 ? "compact" : "default";
+}
+
+const BUILTIN = new Set<string>(Object.values(BlockTypes));
+const NO_INPUT = new Set<string>([BlockTypes.entrypoint, BlockTypes.errorHandler]);
+
+/** A builtin block's sockets, inputs first; undefined for a custom or plugin type. */
+export function builtinHandles(type: string): string[] | undefined {
+	if (!BUILTIN.has(type)) return undefined;
+	return [...(NO_INPUT.has(type) ? [] : ["target"]), ...getOutputHandles(type)];
+}
+
+/** How wide the editor draws a block: compact builtins are squares, every other card is wide. */
+export function blockWidth(type: string): number {
+	const handles = builtinHandles(type);
+	return handles && blockVariant(handles) === "compact" ? COMPACT_WIDTH : FALLBACK_WIDTH;
+}
 
 /**
  * Where the blocks a new canvas starts with are placed. The response sits to
@@ -220,7 +254,7 @@ export function layoutGraph(
 		columnX.set(layer, x);
 		const members = laidOut.filter((n) => layers.get(n.id) === layer);
 		x +=
-			Math.max(...members.map((n) => (indents.get(n.id) ?? 0) + (n.width ?? FALLBACK_WIDTH))) +
+			Math.max(...members.map((n) => (indents.get(n.id) ?? 0) + (n.width ?? blockWidth(n.type ?? "")))) +
 			layerSpacing;
 	}
 

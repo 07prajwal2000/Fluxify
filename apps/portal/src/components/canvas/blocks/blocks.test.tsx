@@ -1,9 +1,11 @@
 import { expect, test } from "bun:test";
+import { blockVariant, builtinHandles } from "@fluxify/blocks/layout";
 import { blockToNode, nodeToBlock } from "../adapters";
 import { splitChildren } from "./BaseBlock";
-import { blockVariant, createBlockNodeTypes } from "./BlockNode";
+import { createBlockNodeTypes } from "./BlockNode";
 import {
 	BLOCK_CATALOG,
+	blockCatalogEntries,
 	blockDefinition,
 	canAddBlock,
 	canPickBlock,
@@ -216,7 +218,7 @@ test("only the inbound and fan-out sockets accept multiple connections", () => {
 });
 
 test("card variant follows the sockets: body handle = container, plain in/out = compact", () => {
-	const variant = (type: string) => blockVariant(type, blockDefinition(type).handles);
+	const variant = (type: string) => blockVariant(blockDefinition(type).handles);
 	expect(variant(BLOCK_TYPES.forloop)).toBe("container");
 	expect(variant(BLOCK_TYPES.retry)).toBe("container");
 	expect(variant(BLOCK_TYPES.jsrunner)).toBe("compact");
@@ -227,4 +229,15 @@ test("card variant follows the sockets: body handle = container, plain in/out = 
 	expect(variant(BLOCK_TYPES.switch)).toBe("default");
 	expect(variant(BLOCK_TYPES.db_getsingle)).toBe("compact");
 	expect(variant(BLOCK_TYPES.kv_raw)).toBe("compact");
+});
+
+// #1082: the server lays a canvas out from these handles, so its card widths match the editor's
+test("the server's sockets give every catalog block the card the editor draws", () => {
+	for (const [type, def] of blockCatalogEntries()) {
+		if (type === BLOCK_TYPES.stickynote) continue;
+		expect([type, blockVariant(builtinHandles(type) ?? [])]).toEqual([
+			type,
+			blockVariant(def.handles),
+		]);
+	}
 });
