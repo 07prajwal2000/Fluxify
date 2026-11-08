@@ -104,16 +104,9 @@ export function registerAgentRoutes(app: Hono) {
 	// What a waiting edit_canvas would do to the canvas, for the approval card. Nothing is saved.
 	r.post("/:projectId/canvas-preview", json(previewInput), async (c) => {
 		caller(c, c.req.param("projectId"), "creator");
-		const { target, ops, auto_layout } = c.req.valid("json");
+		const { target, ops } = c.req.valid("json");
 		const api = adminApi(httpAdminFetch, authOf(c), "creator");
-		return c.json(
-			await previewEdit(
-				api,
-				target as Target,
-				ops as CanvasOp[],
-				auto_layout as boolean | undefined,
-			),
-		);
+		return c.json(await previewEdit(api, target as Target, ops as CanvasOp[]));
 	});
 
 	// The resource a waiting save_* or delete_* targets, as it is now: the "before" of its card.

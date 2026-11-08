@@ -94,7 +94,7 @@ type Declared = NonNullable<BlockBuilderPayload["blocks"]>[number];
  * `refs` maps each add_block ref to the id it was given; `describe` says what
  * the ops did, once `name` can say each block's key.
  */
-export function opsToChanges(canvas: CanvasItems, ops: CanvasOp[], autoLayout = false) {
+export function opsToChanges(canvas: CanvasItems, ops: CanvasOp[]) {
 	const draft = new Draft(canvas);
 	const stored = new Map(canvas.blocks.map((b) => [b.id, b]));
 	const declared = new Map<string, Declared>();
@@ -234,8 +234,7 @@ export function opsToChanges(canvas: CanvasItems, ops: CanvasOp[], autoLayout = 
 		refs[ref] = id;
 		if (!placed.has(ref)) unplaced.push(id);
 	});
-	place(changes, canvas, unplaced, autoLayout);
-	if (autoLayout) echo.push(() => "laid out every block again");
+	if (ops.length) place(changes, canvas, unplaced);
 	const describe = (name: (blockOrRef: string) => string) => echo.map((line) => line(name));
 	return { changes, refs, describe };
 }
@@ -245,21 +244,15 @@ const dedupe = <T extends { id: string }>(items: T[]) => [
 ];
 
 /**
- * Positions: a new block without one is placed by the layout; `autoLayout`
- * re-lays out every block. Blocks already on the canvas otherwise stay put.
+ * Every edit is formatted: the layout places new blocks without a position and
+ * moves any other block it lays out differently, anchored on the leftmost one
+ * left alone, so a tidy canvas stays put.
  */
-function place(
-	changes: CanvasChanges,
-	canvas: CanvasItems,
-	unplaced: string[],
-	autoLayout: boolean,
-) {
-	if (!autoLayout && unplaced.length === 0) return;
+function place(changes: CanvasChanges, canvas: CanvasItems, unplaced: string[]) {
 	const after = canvasAfterChanges(canvas, changes);
 	const moved = layoutGraph(after.blocks, after.edges, { changedIds: unplaced });
 	const byId = new Map(changes.changes.blocks.map((b) => [b.id, b]));
-	const ids = autoLayout ? Object.keys(moved) : unplaced;
-	for (const id of ids) {
+	for (const id of Object.keys(moved)) {
 		const position = moved[id];
 		if (!position) continue;
 		const block = byId.get(id);

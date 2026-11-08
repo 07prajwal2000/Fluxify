@@ -61,7 +61,6 @@ export async function previewEdit(
 	api: AdminApi,
 	target: Target,
 	ops: CanvasOp[],
-	autoLayout?: boolean,
 ): Promise<EditPreview> {
 	const canvas = await read(api.get, target);
 	const stored = nameBlocks(canvas);
@@ -69,7 +68,7 @@ export async function previewEdit(
 	const revision = canvas.canvasRevision as number;
 	let planned: ReturnType<typeof opsToChanges>;
 	try {
-		planned = opsToChanges(canvas, ops, autoLayout);
+		planned = opsToChanges(canvas, ops);
 	} catch (error) {
 		return { revision, before, error: (error as Error).message };
 	}
@@ -100,6 +99,4 @@ export async function previewEdit(
 
 const edit = canvasTools.find((t) => t.name === "edit_canvas") as McpTool;
 /** What the preview takes: edit_canvas's own target and ops, checked the same way, no revision. */
-export const previewInput = z.object(
-	lenient({ target: edit.input.target, ops: edit.input.ops, auto_layout: edit.input.auto_layout }),
-);
+export const previewInput = z.object(lenient({ target: edit.input.target, ops: edit.input.ops }));

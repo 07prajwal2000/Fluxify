@@ -108,7 +108,7 @@ export const copyBlocksTool: McpTool = {
 		"Copy blocks from one canvas to another in the same project: the debug loop is copy a route into a sandbox, fix it there, copy the fix back.",
 		'from and to are { kind: route | workflow | custom_block | sandbox, id }; a sandbox must be yours. to may also be "__new_sandbox__": it makes a sandbox named "<name> sandbox" first and connects its entrypoint to the copy (never a route or workflow).',
 		"keys are the block keys from get_canvas; leave them out to copy the whole canvas. The entrypoint and error handler are never copied, and an edge to a block you did not copy is dropped.",
-		"connect_from { from, handle? } is a block on the target; it is connected to the first copied block. Without it the copy sits unconnected. position moves the copy there.",
+		"connect_from { from, handle? } is a block on the target; it is connected to the first copied block. Without it the copy sits unconnected. The canvas is laid out after the copy.",
 		"Saved in one go with the usual canvas checks: a refused copy changes nothing. Copying into a route, workflow or custom block asks the user first, even in auto mode; into a sandbox it does not.",
 		"Returns target, keys (each source key → the key the copy got), revision, issues (rule warnings) and warnings (what was not copied or may not work, e.g. route middlewares, request schemas, a custom block's inputs).",
 	].join(" "),
@@ -123,10 +123,6 @@ export const copyBlocksTool: McpTool = {
 			.object({ from: z.string(), handle: z.string().optional() })
 			.optional()
 			.describe("A block on the target (key, or key.handle) to connect to the copy"),
-		position: z
-			.object({ x: z.number(), y: z.number() })
-			.optional()
-			.describe("Where the copy's top-left goes; omit and the server places it"),
 	},
 	call: async (api, a) => {
 		const project = a.projectId as string;
@@ -149,8 +145,6 @@ export const copyBlocksTool: McpTool = {
 		try {
 			const canvas = await read(api.get, target);
 			const ref = new Map(src.blocks.map((b, i) => [b.id, `copy_${i + 1}`]));
-			const minX = Math.min(...src.blocks.map((b) => b.position.x));
-			const minY = Math.min(...src.blocks.map((b) => b.position.y));
 			const entry = canvas.blocks.find(
 				(b: CanvasItems["blocks"][number]) => b.type === BlockTypes.entrypoint,
 			);
@@ -167,12 +161,6 @@ export const copyBlocksTool: McpTool = {
 					ref: ref.get(b.id)!,
 					type: b.type,
 					data,
-					...(a.position && {
-						position: {
-							x: b.position.x - minX + a.position.x,
-							y: b.position.y - minY + a.position.y,
-						},
-					}),
 					...(connect && b === src.head && { connect_from: connect }),
 				};
 			});
