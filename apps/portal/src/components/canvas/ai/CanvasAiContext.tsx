@@ -31,6 +31,15 @@ const CanvasAiContext = createContext<CanvasAi | undefined>(undefined);
 /** Undefined on a canvas no page wired the AI into (an embed, a preview). */
 export const useCanvasAi = () => useContext(CanvasAiContext);
 
+/**
+ * Cuts a canvas drawn inside another (the chat's diff preview) off from the
+ * page's AI: otherwise it renders the chat again, whose preview renders
+ * another canvas, without end.
+ */
+export const WithoutCanvasAi = ({ children }: { children: ReactNode }) => (
+	<CanvasAiContext.Provider value={undefined}>{children}</CanvasAiContext.Provider>
+);
+
 export function CanvasAiProvider({
 	projectId,
 	review,
