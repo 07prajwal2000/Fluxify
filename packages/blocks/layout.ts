@@ -254,8 +254,9 @@ export function layoutGraph(
 		columnX.set(layer, x);
 		const members = laidOut.filter((n) => layers.get(n.id) === layer);
 		x +=
-			Math.max(...members.map((n) => (indents.get(n.id) ?? 0) + (n.width ?? blockWidth(n.type ?? "")))) +
-			layerSpacing;
+			Math.max(
+				...members.map((n) => (indents.get(n.id) ?? 0) + (n.width ?? blockWidth(n.type ?? ""))),
+			) + layerSpacing;
 	}
 
 	const positions: LayoutPositions = {};
