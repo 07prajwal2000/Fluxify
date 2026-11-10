@@ -64,17 +64,19 @@ export function docsPageUrl(page: string) {
  */
 export function toPanelMarkdown(source: string, page: string): string {
 	const base = docsPageUrl(page);
-	return source
-		.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, "")
-		// screenshots are for the docs site; the panel is the block itself
-		.replace(/^[ \t]*!\[[^\]]*\]\([^)]*\)[ \t]*(?:\r?\n){1,2}/gm, "")
-		.replace(/^:::[ \t]*(\w+)[ \t]*(.*)$/gm, (_, kind: string, title: string) =>
-			title.trim() ? `:::${kind}[${title.trim()}]` : `:::${kind}`,
-		)
-		.replace(/\]\(((?!https?:|mailto:|#)[^)\s]+)\)/g, (_, href: string) => {
-			const url = new URL(href, base);
-			url.pathname = url.pathname.replace(/\.md$/, ".html");
-			return `](${url.href})`;
-		})
-		.trim();
+	return (
+		source
+			.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, "")
+			// screenshots are for the docs site; the panel is the block itself
+			.replace(/^[ \t]*!\[[^\]]*\]\([^)]*\)[ \t]*(?:\r?\n){1,2}/gm, "")
+			.replace(/^:::[ \t]*(\w+)[ \t]*(.*)$/gm, (_, kind: string, title: string) =>
+				title.trim() ? `:::${kind}[${title.trim()}]` : `:::${kind}`,
+			)
+			.replace(/\]\(((?!https?:|mailto:|#)[^)\s]+)\)/g, (_, href: string) => {
+				const url = new URL(href, base);
+				url.pathname = url.pathname.replace(/\.md$/, ".html");
+				return `](${url.href})`;
+			})
+			.trim()
+	);
 }
