@@ -5,6 +5,8 @@ description: Write your own JavaScript for anything the other blocks don't cover
 
 # JS Runner
 
+![JS Runner block on the canvas](/blocks/js-runner.png)
+
 The **JS Runner** block runs JavaScript that you write. It receives the data from the previous block as `input`, and whatever you `return` goes to the next block. It is the most flexible block, for logic that no other block covers.
 
 ## When to use it

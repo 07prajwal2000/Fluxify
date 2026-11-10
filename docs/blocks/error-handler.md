@@ -5,6 +5,8 @@ description: Choose what happens when any block in the flow fails.
 
 # Error Handler
 
+![Error Handler block on the canvas](/blocks/error-handler.png)
+
 The **Error Handler** block is your safety net. When any block in the flow fails, the run jumps here instead of stopping, and continues with the blocks you connected after it. They receive the error message as their `input`.
 
 ## When to use it

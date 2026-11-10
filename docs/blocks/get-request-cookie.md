@@ -5,6 +5,8 @@ description: Read one cookie from the incoming request.
 
 # Get Request Cookie
 
+![Get Request Cookie block on the canvas](/blocks/get-request-cookie.png)
+
 The **Get Request Cookie** block reads one cookie that the caller's browser sent, like a session id, and passes its value to the next block.
 
 ## When to use it

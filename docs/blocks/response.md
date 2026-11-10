@@ -5,6 +5,8 @@ description: Send the final answer back to the caller and end the flow.
 
 # Response
 
+![Response block on the canvas](/blocks/response.png)
+
 The **Response** block ends the flow and sends the result back to whoever called your route. The body of the response is the data that reached the block, and you choose the status code.
 
 ## When to use it

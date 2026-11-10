@@ -5,6 +5,8 @@ description: Reshape an object into a new one, by renaming fields or with JavaSc
 
 # Transformer
 
+![Transformer block on the canvas](/blocks/transformer.png)
+
 The **Transformer** block turns the data it receives into a new shape. You can pick and rename fields with a simple map, or switch to JavaScript for anything more involved.
 
 ## When to use it

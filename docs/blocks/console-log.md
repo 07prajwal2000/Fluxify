@@ -5,6 +5,8 @@ description: Print a message to the server logs, for debugging and simple monito
 
 # Console Log
 
+![Console Log block on the canvas](/blocks/console-log.png)
+
 The **Console Log** block prints a message to the server's log output. Use it to see what your flow is doing while you build it, or to leave a simple trail in production. Your data passes through it untouched.
 
 ## When to use it

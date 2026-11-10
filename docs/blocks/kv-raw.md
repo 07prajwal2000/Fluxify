@@ -5,6 +5,8 @@ description: Run any command against the key-value store with your own JavaScrip
 
 # KV Raw Connection
 
+![KV Raw Connection block on the canvas](/blocks/kv-raw.png)
+
 The **KV Raw Connection** block gives your JavaScript direct access to the key-value store's own client. Use it for anything [KV Operations](./kv-operations.md) doesn't cover: counters, setting an expiry on a key that already exists, hashes, lists, sets, or several commands in one go.
 
 ## When to use it

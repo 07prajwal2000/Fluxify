@@ -5,6 +5,8 @@ description: A note on the canvas that explains your flow. It never runs.
 
 # Sticky Note
 
+![Sticky Note block on the canvas](/blocks/sticky-note.png)
+
 The **Sticky Note** block is a note you place on the canvas to explain part of your flow or leave a reminder. It is only for people reading the canvas. It doesn't do anything when the flow runs.
 
 ## When to use it

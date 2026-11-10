@@ -5,6 +5,8 @@ description: Run your own SQL or database commands from JavaScript, when the oth
 
 # DB Native
 
+![DB Native block on the canvas](/blocks/db-native.png)
+
 The **DB Native** block gives you direct access to your database with JavaScript. Write a raw SQL query (or, for MongoDB, use the driver) for anything the other DB blocks can't do, and the value you return goes to the next block.
 
 ## When to use it

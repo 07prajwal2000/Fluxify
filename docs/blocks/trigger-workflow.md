@@ -5,6 +5,8 @@ description: Start a workflow from a route or another workflow.
 
 # Trigger Workflow
 
+![Trigger Workflow block on the canvas](/blocks/trigger-workflow.png)
+
 The **Trigger Workflow** block starts a [workflow](/concepts/workflows) — now,
 or once at a later time — and carries on immediately. It does not wait for the
 workflow to finish, and it never receives its result.

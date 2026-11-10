@@ -5,6 +5,8 @@ description: The block every workflow starts from. It hands the incoming data to
 
 # Entrypoint
 
+![Entrypoint block on the canvas](/blocks/entrypoint.png)
+
 The **Entrypoint** block is where every run begins. It takes the data that started the run (an API request body, or the payload of a workflow) and passes it on, unchanged, to the next block.
 
 ## When to use it

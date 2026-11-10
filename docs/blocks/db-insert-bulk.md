@@ -5,6 +5,8 @@ description: Add a list of records to a table in one operation.
 
 # DB Insert Bulk
 
+![DB Insert Bulk block on the canvas](/blocks/db-insert-bulk.png)
+
 The **DB Insert Bulk** block adds a whole list of records to a table in one operation, which is much faster than adding them one by one. It passes the inserted records on.
 
 ## When to use it

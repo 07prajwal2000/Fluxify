@@ -5,6 +5,8 @@ description: Run several chains of blocks at the same time and continue with all
 
 # Orchestrator
 
+![Orchestrator block on the canvas](/blocks/orchestrator.png)
+
 The **Orchestrator** block starts several chains of blocks at the same time, waits until all of them finish, then continues with a list of their results. Use it when steps don't depend on each other and you don't want to wait for them one by one.
 
 ## When to use it

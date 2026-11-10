@@ -5,6 +5,8 @@ description: Fetch exactly one record from a database table, like a lookup by id
 
 # DB Get Single
 
+![DB Get Single block on the canvas](/blocks/db-get-single.png)
+
 The **DB Get Single** block looks up one record in a table and passes it on. When several records match, it returns the first one, in the order you choose.
 
 ## When to use it

@@ -5,6 +5,8 @@ description: Change values in the records that match your conditions.
 
 # DB Update
 
+![DB Update block on the canvas](/blocks/db-update.png)
+
 The **DB Update** block changes the values of existing records in a table. It passes on how many records changed, and what they look like now.
 
 ## When to use it

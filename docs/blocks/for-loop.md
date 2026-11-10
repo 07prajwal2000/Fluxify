@@ -5,6 +5,8 @@ description: Repeat a chain of blocks a set number of times.
 
 # For Loop
 
+![For Loop block on the canvas](/blocks/for-loop.png)
+
 The **For Loop** block runs a chain of blocks again and again, counting from a start number up to an end number. Each round, the chain receives the current count.
 
 ## When to use it

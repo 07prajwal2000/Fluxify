@@ -5,6 +5,8 @@ description: Send a log message to an external log service such as Loki or OpenT
 
 # Cloud Logs
 
+![Cloud Logs block on the canvas](/blocks/cloud-logs.png)
+
 The **Cloud Logs** block sends a message to the log service you connected, like Loki or an OpenTelemetry collector. Use it to keep logs in one central place where you can search them and set alerts. Your data passes through it untouched.
 
 ## When to use it

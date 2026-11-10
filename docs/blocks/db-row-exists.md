@@ -5,6 +5,8 @@ description: Check whether a record exists and send the flow down a success or f
 
 # DB Row Exists
 
+![DB Row Exists block on the canvas](/blocks/db-row-exists.png)
+
 The **DB Row Exists** block looks up one record. If one matches, the flow continues on **Success** with that record. If none matches, it continues on **Failure** with the data it received.
 
 ## When to use it

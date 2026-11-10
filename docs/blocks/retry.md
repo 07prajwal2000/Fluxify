@@ -5,6 +5,8 @@ description: Run a chain of blocks again when it fails, with a wait between trie
 
 # Retry
 
+![Retry block on the canvas](/blocks/retry.png)
+
 The **Retry** block runs a chain of blocks and, if that chain fails with an error, runs it again. Use it for steps that sometimes fail for a moment and then work, like a call to a busy API.
 
 ## When to use it

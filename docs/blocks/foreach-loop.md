@@ -5,6 +5,8 @@ description: Run a chain of blocks once for every item in a list.
 
 # For Each Loop
 
+![For Each Loop block on the canvas](/blocks/foreach-loop.png)
+
 The **For Each Loop** block takes a list and runs a chain of blocks once for each item in it, from the first to the last. Each round, the chain receives the current item.
 
 ## When to use it

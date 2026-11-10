@@ -5,6 +5,8 @@ description: Read one header from the incoming request.
 
 # Get HTTP Header
 
+![Get HTTP Header block on the canvas](/blocks/get-http-header.png)
+
 The **Get HTTP Header** block reads one header from the request that started the flow, like `Authorization` or `User-Agent`, and passes its value to the next block.
 
 ## When to use it

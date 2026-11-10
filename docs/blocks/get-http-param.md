@@ -5,6 +5,8 @@ description: Read a value from the URL, either a query parameter or a path param
 
 # Get HTTP Param
 
+![Get HTTP Param block on the canvas](/blocks/get-http-param.png)
+
 The **Get HTTP Param** block reads one value from the request's URL and passes it to the next block. It can read a query parameter (`?page=2`) or a part of the path (`/users/123`).
 
 ## When to use it

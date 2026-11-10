@@ -5,6 +5,8 @@ description: Publish one message or a list of them to Kafka, NATS JetStream, Ama
 
 # Send Message
 
+![Send Message block on the canvas](/blocks/send-message.png)
+
 The **Send Message** block publishes messages from a route or workflow to a message queue: a Kafka topic, a NATS JetStream subject, an Amazon SQS queue, a RabbitMQ exchange or queue, or a Redis stream. It waits until the broker (the queue server) confirms each message, then tells you what was sent.
 
 ## When to use it

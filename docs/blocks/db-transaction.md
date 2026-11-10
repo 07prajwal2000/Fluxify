@@ -5,6 +5,8 @@ description: Run several database changes as one unit, so they all succeed or no
 
 # DB Transaction
 
+![DB Transaction block on the canvas](/blocks/db-transaction.png)
+
 The **DB Transaction** block makes a chain of database blocks succeed or fail together. If every block works, the changes are saved. If one fails, every change made in the chain is undone. This keeps your data correct, for example when you take money from one account and add it to another.
 
 ## When to use it
