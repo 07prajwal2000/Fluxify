@@ -5,6 +5,8 @@ description: Add a header to the response that goes back to the caller.
 
 # Set HTTP Header
 
+![Set HTTP Header block on the canvas](/blocks/set-http-header.png)
+
 The **Set HTTP Header** block adds one header to the response, like `Cache-Control` or `X-Request-Id`. Your data passes through it untouched.
 
 ## When to use it

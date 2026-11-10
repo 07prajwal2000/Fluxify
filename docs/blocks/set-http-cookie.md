@@ -5,6 +5,8 @@ description: Send a cookie to the caller's browser with the response.
 
 # Set HTTP Cookie
 
+![Set HTTP Cookie block on the canvas](/blocks/set-http-cookie.png)
+
 The **Set HTTP Cookie** block stores a cookie in the caller's browser, for example a login session. Your data passes through it untouched.
 
 ## When to use it

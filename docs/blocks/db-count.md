@@ -5,6 +5,8 @@ description: Count the records that match your conditions.
 
 # DB Count
 
+![DB Count block on the canvas](/blocks/db-count.png)
+
 The **DB Count** block counts the records in a table that match your conditions and passes on that number. Use it for "how many active orders does this rider have?", or to show a total next to a paginated list, without loading every row.
 
 ## When to use it

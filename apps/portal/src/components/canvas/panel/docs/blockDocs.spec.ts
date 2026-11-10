@@ -19,4 +19,10 @@ describe("block docs", () => {
 			"# X\n\n:::tip[Heads up]\nSee [a](https://docs.fluxify.rest/blocks/db-insert.html#on-conflict), [b](https://docs.fluxify.rest/blocks/switch), [c](https://x.dev).\n:::\n\n:::warning\nno\n:::",
 		);
 	});
+
+	test("drops screenshots", () => {
+		expect(toPanelMarkdown("# X\n\n![X block on the canvas](/blocks/x.png)\n\nText.", "x")).toBe(
+			"# X\n\nText.",
+		);
+	});
 });

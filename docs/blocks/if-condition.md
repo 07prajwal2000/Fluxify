@@ -5,6 +5,8 @@ description: Send the flow down one path when a check is true and another when i
 
 # If Condition
 
+![If Condition block on the canvas](/blocks/if-condition.png)
+
 The **If Condition** block checks one or more rules and then picks a path: **Success** when the rules pass, **Failure** when they don't. Think of it as "if this, do that, otherwise do something else".
 
 ## When to use it

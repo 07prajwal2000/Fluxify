@@ -5,6 +5,8 @@ description: Call an external web service or API and use its answer.
 
 # HTTP Request
 
+![HTTP Request block on the canvas](/blocks/http-request.png)
+
 The **HTTP Request** block sends a request to another web service, waits for the answer, and passes that answer on. Use it to fetch data from an API or to send data to one.
 
 ## When to use it

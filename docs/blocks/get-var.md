@@ -5,6 +5,8 @@ description: Read back a value that was saved earlier in the same request.
 
 # Get Variable
 
+![Get Variable block on the canvas](/blocks/get-var.png)
+
 The **Get Variable** block reads a value that you saved earlier with [Set Variable](./set-var.md) (or in JS code) and passes it to the next block.
 
 ## When to use it

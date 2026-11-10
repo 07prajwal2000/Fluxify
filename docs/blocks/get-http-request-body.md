@@ -5,6 +5,8 @@ description: Read the body of the incoming request, as JSON, form fields or file
 
 # Get HTTP Request Body
 
+![Get HTTP Request Body block on the canvas](/blocks/get-http-request-body.png)
+
 The **Get HTTP Request Body** block returns the body of the incoming request,
 already turned into something you can work with. What you get depends on the
 content type the caller used.

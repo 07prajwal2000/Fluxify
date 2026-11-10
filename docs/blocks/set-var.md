@@ -5,6 +5,8 @@ description: Save a value under a name so later blocks can read it.
 
 # Set Variable
 
+![Set Variable block on the canvas](/blocks/set-var.png)
+
 The **Set Variable** block saves a value under a name of your choice. Later blocks, including JS code, can read it by that name, even after other blocks have changed the flowing data.
 
 ## When to use it

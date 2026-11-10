@@ -5,6 +5,8 @@ description: Add items to, remove items from, or filter a list kept in a variabl
 
 # Array Operations
 
+![Array Operations block on the canvas](/blocks/array-operations.png)
+
 The **Array Operations** block changes a list that you keep in a variable. You can add an item at the start or end, remove the first or last item, or keep only the items that match a rule.
 
 ## When to use it

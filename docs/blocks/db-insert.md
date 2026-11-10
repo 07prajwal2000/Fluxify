@@ -5,6 +5,8 @@ description: Add one new record to a database table, or update it if it already 
 
 # DB Insert
 
+![DB Insert block on the canvas](/blocks/db-insert.png)
+
 The **DB Insert** block adds one new record to a table and passes the created record on. With **On conflict** it can also update an existing record instead, so you can "insert or update" in one step.
 
 ## When to use it

@@ -5,6 +5,8 @@ description: Fetch a list of records from a database table, with filters, sortin
 
 # DB Get All
 
+![DB Get All block on the canvas](/blocks/db-get-all.png)
+
 The **DB Get All** block reads many records from a table and passes them on as a list. You can filter them, sort them, pick the columns, join related tables, and read them page by page.
 
 ## When to use it
@@ -30,7 +32,7 @@ The **DB Get All** block reads many records from a table and passes them on as a
 | **Limit** | No | `1000` | The most records to return. `-1` means no limit. |
 | **Offset** | No | `0` | How many records to skip. Offset paging only. |
 | **After** | No | empty | Where a cursor page starts. Cursor paging only. |
-| **Tiebreaker columns** | No | primary key | Cursor paging only. |
+| **Tiebreaker columns** | No | primary key | Columns that, with **Sort**, make each record unique so no record is skipped between pages. Cursor paging only. See [Cursor paging](/blocks/db-paging-sorting#cursor-paging). |
 | **Save output to variable** | No | off | Store the result in `outputs.<name>`. |
 
 Limit, Offset and After accept a JS expression, for example `js:getQueryParam('limit')`.

@@ -5,6 +5,8 @@ description: Send the flow down one of several paths, picked by conditions check
 
 # Switch
 
+![Switch block on the canvas](/blocks/switch.png)
+
 The **Switch** block picks one path out of many. Every block connected to its **Cases** handle is one case. The cases are checked from top to bottom, and the first one that matches runs. You can also pick one case as the **default**, which runs when no other case matches.
 
 ## When to use it

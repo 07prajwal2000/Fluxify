@@ -5,6 +5,8 @@ description: Cancel the enclosing DB Transaction and undo everything it changed.
 
 # Rollback Transaction
 
+![Rollback Transaction block on the canvas](/blocks/db-rollback.png)
+
 The **Rollback Transaction** block cancels the [DB Transaction](./db-transaction.md) it runs inside. Every change made in the transaction so far is undone, and the transaction continues on its **Failure** handle.
 
 ## When to use it

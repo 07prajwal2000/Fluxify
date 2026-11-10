@@ -5,6 +5,8 @@ description: Read, write or delete a single key in a key-value store like Redis 
 
 # KV Operations
 
+![KV Operations block on the canvas](/blocks/kv-operations.png)
+
 The **KV Operations** block reads, writes or deletes one key in a key-value store. Use it to cache an expensive result, keep a short-lived token, or hold a small piece of state between requests.
 
 Pick the operation you want and the block shows only the fields that operation needs.

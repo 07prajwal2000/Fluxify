@@ -5,6 +5,8 @@ description: Permanently remove the records that match your conditions.
 
 # DB Delete
 
+![DB Delete block on the canvas](/blocks/db-delete.png)
+
 The **DB Delete** block permanently removes records from a table. It passes on how many records it deleted, and what they looked like just before.
 
 ## When to use it
