@@ -1,6 +1,8 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "../../../../db";
 import { traceRunsEntity } from "../../../../db/schema";
+import { olap } from "../../../../modules/olap";
+import { chDeleteRuns } from "../../../../modules/olap/recordings";
 import { type SuiteTarget, targetColumn } from "../../../../modules/testRunner/target";
 
 /**
@@ -10,6 +12,8 @@ import { type SuiteTarget, targetColumn } from "../../../../modules/testRunner/t
  * keys in `db/schema.ts`.
  */
 export async function deleteRecordedRuns(projectId: string, target: SuiteTarget, runId?: string) {
+	const ch = olap();
+	if (ch) return chDeleteRuns(ch, projectId, target, runId);
 	const deleted = await db
 		.delete(traceRunsEntity)
 		.where(

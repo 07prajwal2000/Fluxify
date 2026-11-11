@@ -1,13 +1,23 @@
 import { sql } from "drizzle-orm";
 import { db } from "../../../../../db";
 import { auditEventsEntity as t } from "../../../../../db/schema";
+import { olap } from "../../../../../modules/olap";
+import { chDistinct, chProjectsWithEvents } from "../../../../../modules/olap/audit";
 
 // Measured on 2M rows: each seq scan takes ~150 ms, so no index for these two.
-export const distinctResourceTypes = async () =>
-	(await db.selectDistinct({ v: t.resourceType }).from(t).orderBy(t.resourceType)).map((r) => r.v);
+export const distinctResourceTypes = async () => {
+	const ch = olap();
+	if (ch) return chDistinct(ch, "resource_type");
+	return (await db.selectDistinct({ v: t.resourceType }).from(t).orderBy(t.resourceType)).map(
+		(r) => r.v,
+	);
+};
 
-export const distinctActions = async () =>
-	(await db.selectDistinct({ v: t.action }).from(t).orderBy(t.action)).map((r) => r.v);
+export const distinctActions = async () => {
+	const ch = olap();
+	if (ch) return chDistinct(ch, "action");
+	return (await db.selectDistinct({ v: t.action }).from(t).orderBy(t.action)).map((r) => r.v);
+};
 
 type ProjectRow = { id: string; name: string | null; slug: string | null };
 
@@ -17,6 +27,8 @@ type ProjectRow = { id: string; name: string | null; slug: string | null };
  * to the next on `idx_audit_events_project_ts` instead (~1 ms).
  */
 export async function projectsWithEvents(): Promise<ProjectRow[]> {
+	const ch = olap();
+	if (ch) return chProjectsWithEvents(ch);
 	const rows = await db.execute<ProjectRow>(sql`
 		with recursive p as (
 			(select project_id from audit_events where project_id is not null order by project_id limit 1)

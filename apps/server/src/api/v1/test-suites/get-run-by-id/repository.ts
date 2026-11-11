@@ -2,6 +2,8 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "../../../../db";
 import { testRunsEntity, testSuiteRunsEntity, traceRunsEntity } from "../../../../db/schema";
 import { RECORDING_MAX_AGE_DAYS } from "../../../../lib/env";
+import { olap } from "../../../../modules/olap";
+import { chCaseTraces } from "../../../../modules/olap/recordings";
 import { type SuiteTarget, targetColumn } from "../../../../modules/testRunner/target";
 
 /**
@@ -58,6 +60,8 @@ export async function getTestRunById(projectId: string, target: SuiteTarget, run
  * out: they hang off the case's own trace.
  */
 async function getCaseTraces(projectId: string, testRunId: string) {
+	const ch = olap();
+	if (ch) return chCaseTraces(ch, projectId, testRunId);
 	const metadata = traceRunsEntity.metadata;
 	return db
 		.select({

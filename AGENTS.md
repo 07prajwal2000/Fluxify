@@ -237,6 +237,11 @@ const get = () => spyOn(orchestrationService, "getProject").mockResolvedValue(st
 **Issue:** integration specs checked `artifact.source` for `toContain("return 'one';")`. They failed after #944, because pure single-expression code is now emitted inline as `('one')`.
 **Rule:** match the inlined form (`"('one')"`, `"= (1);"`), or better, assert on what the route returns. The canvas and snapshot JSON still hold the raw `return …;` text.
 
+### Python Edits on Windows Write CRLF — Biome Then Fails Every Touched File
+**Issue:** after editing files with a Python heredoc (`open(p, "w").write(...)`), `bun run lint` exits 1 on every touched file, though nothing in the code changed.
+**Cause:** Python's text mode on Windows turns each `\n` into `\r\n`. The repo is LF, so Biome reports formatting on the whole file.
+**Fix:** open with `newline=""` (`open(p, "w", encoding="utf8", newline="")`), or prefer the Edit tool. Already written? `sed -i 's/\r$//' <files>`, then `bun run lint`.
+
 ---
 
 ## Documentation Writing Rules

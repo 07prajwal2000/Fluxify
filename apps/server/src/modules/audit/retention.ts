@@ -3,6 +3,7 @@ import { inArray, lt } from "drizzle-orm";
 import { db } from "../../db";
 import { auditEventsEntity } from "../../db/schema";
 import { AUDIT_LOG_MAX_AGE_DAYS } from "../../lib/env";
+import { olap } from "../olap";
 
 /** rows per delete, so one tick never holds a long lock */
 const BATCH = 5000;
@@ -13,6 +14,8 @@ const BATCH = 5000;
  * rows age out after a lapse; they stay readable until then.
  */
 export async function deleteExpiredAuditEvents(maxAgeDays = AUDIT_LOG_MAX_AGE_DAYS) {
+	// ClickHouse ages events out by TTL (#760)
+	if (olap()) return 0;
 	const cutoff = new Date(Date.now() - maxAgeDays * 24 * 60 * 60_000);
 	let deleted = 0;
 	for (;;) {
