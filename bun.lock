@@ -125,6 +125,7 @@
         "@better-auth/api-key": "1.6.23",
         "@better-auth/oauth-provider": "1.6.23",
         "@better-auth/sso": "^1.6.24",
+        "@clickhouse/client": "^1.25.0",
         "@fluxify/adapters": "workspace:*",
         "@fluxify/blocks": "workspace:*",
         "@fluxify/common": "workspace:*",
@@ -152,6 +153,7 @@
       },
       "devDependencies": {
         "@ai-sdk/openai-compatible": "^3.0.0",
+        "@faker-js/faker": "^10.6.0",
         "@fluxify/mcp-math": "workspace:*",
         "@fluxify/sdk": "workspace:*",
         "@nats-io/jetstream": "3.4.0",
@@ -272,7 +274,7 @@
     },
     "packages/cli": {
       "name": "@fluxify/cli",
-      "version": "2026.11.103",
+      "version": "2026.11.601",
       "bin": {
         "fluxify-cli": "./bin.ts",
       },
@@ -373,7 +375,7 @@
     },
     "packages/sdk": {
       "name": "@fluxify/sdk",
-      "version": "2026.11.103",
+      "version": "2026.11.601",
       "devDependencies": {
         "@ai-sdk/provider": "^4.0.0",
         "@aws-sdk/client-sqs": "^3.1130.0",
@@ -658,6 +660,8 @@
     "@braintree/sanitize-url": ["@braintree/sanitize-url@7.1.2", "", {}, "sha512-jigsZK+sMF/cuiB7sERuo9V7N9jx+dhmHHnQyDSVdpZwVutaBu7WvNYqMDLSgFgfB30n452TP3vjDAvFC973mA=="],
 
     "@chevrotain/types": ["@chevrotain/types@11.1.2", "", {}, "sha512-U+HFai5+zmJCkK86QsaJtoITlboZHBqrVketcO2ROv865xfCMSFpELQoz1GkX5GzME8pTa+3kbKrZHQtI0gdbw=="],
+
+    "@clickhouse/client": ["@clickhouse/client@1.25.0", "", {}, "sha512-sxoCDlA8iOEGpGrJzl9SeNvG7II6e5kSeo0JI4Mru2QhwhjydWuDEE55ryZg3vIJ0CSJ1bhn9+Xtnuvf1BZT/w=="],
 
     "@colors/colors": ["@colors/colors@1.6.0", "", {}, "sha512-Ir+AOibqzrIsL6ajt3Rz3LskB7OiMVHqltZmspbW/TJuTVuyOMirVqAkjfY6JISiLHgyNqicAC8AyHHGzNd/dA=="],
 

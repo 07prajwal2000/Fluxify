@@ -20,6 +20,8 @@ import {
 import { type FluxifyEnv, RECORDING_MAX_AGE_DAYS } from "../../lib/env";
 import { deleteExpiredEphemeralLogs, RUNTIME_LOG_TYPE, systemLog } from "../../lib/systemLogs";
 import { sweepEphemeralArtifacts } from "../compiler/ephemeralSweep";
+import { olap } from "../olap";
+import { chInsertRecording, type RunRow, type SpanRow } from "../olap/recordings";
 import { onSystemTick } from "../schedules/system";
 import { MAX_SPANS_PER_RUN } from "../telemetry/routeRecorder";
 import { RECORDINGS_CONSUMER, RECORDINGS_STREAM, RECORDINGS_STREAM_SPEC } from "./stream";
@@ -193,60 +195,70 @@ export async function persistRecording(payload: unknown): Promise<"stored" | "dr
 
 	// span times are `performance.now()` readings; this puts them on the wall clock
 	const wall = (t: number) => new Date(run.startedAtWallMs + (t - run.perfOrigin));
-	const fresh = await db.transaction(async (tx) => {
-		// the run id is the key: a redelivered run writes nothing twice
-		const [inserted] = await tx
-			.insert(traceRunsEntity)
-			.values({
-				id: run.runId,
-				projectId: run.projectId,
-				routeId: run.routeId,
-				workflowId: run.workflowId,
-				sandboxId: run.sandboxId,
-				routeVersion: run.routeVersion,
-				workflowVersion: run.workflowVersion,
-				versionId: runVersionId(run),
-				startedAt: new Date(run.startedAtWallMs),
-				endedAt: wall(run.endedAt),
-				outcome: run.outcome,
-				statusCode: run.statusCode,
-				truncated: run.truncated ?? false,
-				droppedSpans: run.droppedSpans ?? 0,
-				parentRunId: run.parentRunId,
-				parentSeq: run.parentSeq,
-				spanCount: run.spans.length,
-				metadata: run.metadata,
-				env,
-			})
-			.onConflictDoNothing()
-			.returning({ id: traceRunsEntity.id });
-		if (!run.spans.length) return Boolean(inserted);
-		await tx
-			.insert(traceSpansEntity)
-			.values(
-				run.spans.map((span) => ({
-					runId: run.runId,
-					seq: span.seq,
-					parentSeq: span.parentSeq,
-					blockId: span.blockId,
-					blockType: span.blockType,
-					blockName: span.blockName,
-					customBlockId: span.customBlockId,
-					middleware: span.middleware as TraceRunPayload["spans"][number]["middleware"],
-					startedAt: wall(span.startedAt),
-					endedAt: wall(span.endedAt),
-					outcome: span.outcome,
-					branch: span.branch,
-					error: span.error,
-					input: jsonbValue(span.input),
-					output: jsonbValue(span.output),
-					truncated: span.truncated ?? false,
-					metadata: span.metadata,
-				})),
-			)
-			.onConflictDoNothing();
-		return Boolean(inserted);
-	});
+	const runRow: RunRow = {
+		id: run.runId,
+		projectId: run.projectId,
+		routeId: run.routeId,
+		workflowId: run.workflowId,
+		sandboxId: run.sandboxId,
+		routeVersion: run.routeVersion,
+		workflowVersion: run.workflowVersion,
+		versionId: runVersionId(run),
+		startedAt: new Date(run.startedAtWallMs),
+		endedAt: wall(run.endedAt),
+		outcome: run.outcome,
+		statusCode: run.statusCode,
+		truncated: run.truncated ?? false,
+		droppedSpans: run.droppedSpans ?? 0,
+		parentRunId: run.parentRunId,
+		parentSeq: run.parentSeq,
+		spanCount: run.spans.length,
+		metadata: run.metadata,
+		env,
+	};
+	const spanRows: SpanRow[] = run.spans.map((span) => ({
+		runId: run.runId,
+		seq: span.seq,
+		parentSeq: span.parentSeq,
+		blockId: span.blockId,
+		blockType: span.blockType,
+		blockName: span.blockName,
+		customBlockId: span.customBlockId,
+		middleware: span.middleware,
+		startedAt: wall(span.startedAt),
+		endedAt: wall(span.endedAt),
+		outcome: span.outcome,
+		branch: span.branch,
+		error: span.error,
+		input: span.input,
+		output: span.output,
+		truncated: span.truncated ?? false,
+		metadata: span.metadata,
+	}));
+	const ch = olap();
+	const fresh = ch
+		? await chInsertRecording(ch, runRow, spanRows)
+		: await db.transaction(async (tx) => {
+				// the run id is the key: a redelivered run writes nothing twice
+				const [inserted] = await tx
+					.insert(traceRunsEntity)
+					.values(runRow)
+					.onConflictDoNothing()
+					.returning({ id: traceRunsEntity.id });
+				if (!spanRows.length) return Boolean(inserted);
+				await tx
+					.insert(traceSpansEntity)
+					.values(
+						run.spans.map((span, i) => ({
+							...spanRows[i]!,
+							middleware: span.middleware as TraceRunPayload["spans"][number]["middleware"],
+							input: jsonbValue(span.input),
+							output: jsonbValue(span.output),
+						})),
+					)
+					.onConflictDoNothing();
+				return Boolean(inserted);
+			});
 	// not on a redelivery, which would append the same failure again
 	if (fresh) await logFailedRun({ ...run, env });
 	return "stored";
@@ -327,6 +339,8 @@ async function shouldStore(run: {
  * cascade). Idempotent: a missed tick is covered by the next one.
  */
 export async function deleteExpiredRecordings(maxAgeDays = RECORDING_MAX_AGE_DAYS) {
+	// ClickHouse ages runs, spans and logs out by TTL (#760)
+	if (olap()) return 0;
 	const cutoff = new Date(Date.now() - maxAgeDays * 24 * 60 * 60_000);
 	let deleted = 0;
 	for (;;) {

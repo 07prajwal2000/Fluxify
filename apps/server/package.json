@@ -36,6 +36,7 @@
 	"description": "",
 	"devDependencies": {
 		"@ai-sdk/openai-compatible": "^3.0.0",
+		"@faker-js/faker": "^10.6.0",
 		"@fluxify/mcp-math": "workspace:*",
 		"@fluxify/sdk": "workspace:*",
 		"@nats-io/jetstream": "3.4.0",
@@ -57,6 +58,7 @@
 		"@better-auth/api-key": "1.6.23",
 		"@better-auth/oauth-provider": "1.6.23",
 		"@better-auth/sso": "^1.6.24",
+		"@clickhouse/client": "^1.25.0",
 		"@fluxify/adapters": "workspace:*",
 		"@fluxify/blocks": "workspace:*",
 		"@fluxify/common": "workspace:*",

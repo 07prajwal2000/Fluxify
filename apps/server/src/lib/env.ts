@@ -104,6 +104,30 @@ export const serverEnvSchema = baseEnvSchema.extend({
 			"How many days a recorded run (Execution history) is kept before it is deleted (default 30)",
 		),
 
+	OLAP_BACKEND: z
+		.enum(["postgres", "clickhouse"])
+		.optional()
+		.describe(
+			"Where append-only observability data lives: recordings, runtime and ephemeral system logs, audit events (default postgres). clickhouse needs an enterprise or non-commercial license; without one the admin falls back to postgres",
+		),
+
+	CLICKHOUSE_URL: z
+		.url()
+		.optional()
+		.describe(
+			"ClickHouse HTTP URL, e.g. http://clickhouse:8123. Required when OLAP_BACKEND=clickhouse",
+		),
+
+	CLICKHOUSE_USER: z.string().optional().describe("ClickHouse user (default `default`)"),
+
+	CLICKHOUSE_PASSWORD: z.string().optional().describe("ClickHouse password (default empty)"),
+
+	CLICKHOUSE_DATABASE: z
+		.string()
+		.regex(/^[A-Za-z_][A-Za-z0-9_]*$/)
+		.optional()
+		.describe("ClickHouse database, created if missing (default `fluxify`)"),
+
 	AUDIT_LOG_MAX_AGE_DAYS: z
 		.string()
 		.optional()
@@ -517,6 +541,13 @@ export const RECORDING_MAX_AGE_DAYS = Number(getEnv("RECORDING_MAX_AGE_DAYS")) |
 
 /** audit log entries older than this many days are deleted by the daily retention job (#833) */
 export const AUDIT_LOG_MAX_AGE_DAYS = Number(getEnv("AUDIT_LOG_MAX_AGE_DAYS")) || 30;
+
+/** where append-only observability data is stored (#760); clickhouse is licence-gated at boot */
+export const OLAP_BACKEND = (getEnv("OLAP_BACKEND") || "postgres") as "postgres" | "clickhouse";
+export const CLICKHOUSE_URL = getEnv("CLICKHOUSE_URL") || undefined;
+export const CLICKHOUSE_USER = getEnv("CLICKHOUSE_USER") || "default";
+export const CLICKHOUSE_PASSWORD = getEnv("CLICKHOUSE_PASSWORD") || "";
+export const CLICKHOUSE_DATABASE = getEnv("CLICKHOUSE_DATABASE") || "fluxify";
 
 /** how long the admin waits for a worker's answer to an integration op (I3) */
 export const INTEGRATION_WORKER_TIMEOUT_MS =

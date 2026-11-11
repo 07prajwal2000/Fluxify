@@ -2,6 +2,8 @@ import { and, asc, eq } from "drizzle-orm";
 import { db } from "../../../../db";
 import { canvasVersionsEntity, traceRunsEntity, traceSpansEntity } from "../../../../db/schema";
 import type { FluxifyEnv } from "../../../../lib/env";
+import { olap } from "../../../../modules/olap";
+import { chGetRun } from "../../../../modules/olap/recordings";
 import { type RunTarget, runTargetColumn } from "../get-runs/repository";
 
 /**
@@ -16,6 +18,8 @@ export async function getRecordedRunById(
 	runId: string,
 	env?: FluxifyEnv,
 ) {
+	const ch = olap();
+	if (ch) return chGetRun(ch, projectId, target, runId, env);
 	const [run] = await db
 		.select({
 			id: traceRunsEntity.id,

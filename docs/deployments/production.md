@@ -348,6 +348,57 @@ record at once.
 
 ---
 
+## Storing observability data in ClickHouse {#olap}
+
+Fluxify keeps three kinds of data that only ever grow: **saved runs**
+(Execution history, with each block's input and output), **run logs** (the
+error log a failed run leaves, and the log of each one-off `run_blocks` run) and
+**audit log entries**. By default they live in Postgres next to everything else.
+On a busy system that volume competes with your projects' own data. You can move
+it to [ClickHouse](https://clickhouse.com), a database built for this kind of data.
+
+```env
+# Where saved runs, run logs and audit log entries are stored: postgres (default) or clickhouse.
+OLAP_BACKEND=clickhouse
+# ClickHouse's HTTP address, usually port 8123.
+CLICKHOUSE_URL=http://clickhouse:8123
+CLICKHOUSE_USER=default
+CLICKHOUSE_PASSWORD=
+# Created on first start if it does not exist (default fluxify).
+CLICKHOUSE_DATABASE=fluxify
+```
+
+Set these on the admin service. Workers don't read them. Everything else stays
+in Postgres, including the compile and worker status shown on the **Logs** page.
+The dashboard, the API and the MCP tools work exactly the same either way.
+
+| Situation at startup | What happens |
+| :--- | :--- |
+| `OLAP_BACKEND` unset or `postgres` | Everything in Postgres. Nothing new to run. |
+| `clickhouse`, Enterprise (or non-commercial) licence | Saved runs, run logs and audit entries go to ClickHouse. |
+| `clickhouse`, Community edition or an expired licence past its grace period | A warning in the admin's log, and everything stays in Postgres. The admin still starts. |
+| `clickhouse`, licensed, but ClickHouse can't be reached | The admin refuses to start and says why. Fix the address or start ClickHouse. |
+
+::: info Licence
+ClickHouse storage needs an [Enterprise or non-commercial licence](./editions.md).
+The licence is checked when the admin starts, so a licence change takes effect
+on the next restart.
+:::
+
+::: warning Switching does not move your data
+Changing `OLAP_BACKEND` starts empty on the new database. Runs, run logs and
+audit entries already saved stay where they were and are not shown any more.
+Switching back shows the old ones again, minus anything past its retention.
+:::
+
+The retention settings above still apply: `RECORDING_MAX_AGE_DAYS` for runs and
+run logs, `AUDIT_LOG_MAX_AGE_DAYS` for audit entries. ClickHouse removes old rows
+on its own, and a changed value takes effect when the admin restarts. When you
+delete a route, workflow or project, its saved runs in ClickHouse are no longer
+shown and are removed once they reach their age limit.
+
+---
+
 ## Sandbox limit {#sandbox-limit}
 
 Each user can keep a limited number of **persistent** sandboxes in each project.

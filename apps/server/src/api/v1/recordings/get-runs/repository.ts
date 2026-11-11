@@ -2,6 +2,8 @@ import { and, count, desc, eq, gte, ilike, lt, or, sql } from "drizzle-orm";
 import type { z } from "zod";
 import { db } from "../../../../db";
 import { canvasVersionsEntity, traceRunsEntity } from "../../../../db/schema";
+import { olap } from "../../../../modules/olap";
+import { chListRuns } from "../../../../modules/olap/recordings";
 import { type SuiteTarget, targetColumn } from "../../../../modules/testRunner/target";
 import type { requestQuerySchema } from "./dto";
 
@@ -37,6 +39,16 @@ export async function getRecordedRuns(
 	skip: number,
 	take: number,
 ) {
+	const ch = olap();
+	if (ch)
+		return chListRuns(
+			ch,
+			projectId,
+			target,
+			{ outcome, from, to, source, testRunId, env, versionId, search },
+			skip,
+			take,
+		);
 	const where = and(
 		eq(traceRunsEntity.projectId, projectId),
 		eq(runTargetColumn(target), target.id),

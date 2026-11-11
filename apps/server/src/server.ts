@@ -92,6 +92,9 @@ async function main() {
 		await loadInstanceSettings(); // must precede initializeAuth so sso_config is available
 		subsystemConnected("Instance settings");
 		await publishConfiguredLicense();
+		// #760: needs the licence; before any consumer that writes observability data
+		const { initOlap } = await import("./modules/olap");
+		await initOlap();
 		initializeAuth(db);
 		authenticationRouter.registerHandler(app);
 		mapVersionedAdminRoutes(app);

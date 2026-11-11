@@ -141,6 +141,12 @@ const GATES = {
 		unlicensed: "Your license does not include audit logs",
 		community: "Audit logs need an enterprise license",
 	},
+	olap: {
+		expired:
+			"The enterprise license has expired. ClickHouse keeps storing observability data through the grace period",
+		unlicensed: "Your license does not include ClickHouse observability storage",
+		community: "ClickHouse observability storage needs an enterprise or non-commercial license",
+	},
 } as const satisfies Record<Feature, unknown>;
 
 /**
@@ -200,3 +206,20 @@ export function assertCanReadAudit(e = currentEntitlement()) {
 export function auditLogsDefaultEnabled(e = currentEntitlement()) {
 	return e.canCreate && includes(e, FEATURES.auditLogs);
 }
+
+/**
+ * Whether `OLAP_BACKEND=clickhouse` may be honoured (#760). Read once at admin
+ * boot: an unlicensed instance falls back to Postgres. Expired keeps it through
+ * the grace period, then the next boot falls back.
+ */
+export function canUseOlap(e = currentEntitlement()) {
+	return e.canRun && includes(e, FEATURES.olap);
+}
+
+/** Why `canUseOlap` said no, for the boot warning. */
+export const olapRefusal = (e = currentEntitlement()) =>
+	e.status === "community"
+		? GATES.olap.community
+		: e.status === "expired"
+			? "The enterprise license has expired past its grace period"
+			: GATES.olap.unlicensed;
