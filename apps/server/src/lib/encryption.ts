@@ -23,27 +23,36 @@ export class EncryptionService {
 		return decodedKey;
 	}
 
+	/** AES-256-GCM over bytes: IV + auth tag + ciphertext, the layout `encrypt` base64s */
+	static encryptBytes(data: Uint8Array): Uint8Array {
+		const iv = crypto.randomBytes(this.IV_LENGTH);
+		const cipher = crypto.createCipheriv(this.ALGORITHM, this.getMasterKey(), iv);
+		cipher.setAAD(Buffer.from("")); // Additional authenticated data
+		const encrypted = Buffer.concat([cipher.update(data), cipher.final()]);
+		return Buffer.concat([iv, cipher.getAuthTag(), encrypted]);
+	}
+
+	/** Reverses `encryptBytes`; throws when the key is wrong or the bytes were altered */
+	static decryptBytes(combined: Uint8Array): Uint8Array {
+		if (combined.length < this.IV_LENGTH + this.AUTH_TAG_LENGTH) {
+			throw new Error("Invalid encrypted data format");
+		}
+		const iv = combined.subarray(0, this.IV_LENGTH);
+		const authTag = combined.subarray(this.IV_LENGTH, this.IV_LENGTH + this.AUTH_TAG_LENGTH);
+		const decipher = crypto.createDecipheriv(this.ALGORITHM, this.getMasterKey(), iv);
+		decipher.setAAD(Buffer.from(""));
+		decipher.setAuthTag(authTag);
+		const encrypted = combined.subarray(this.IV_LENGTH + this.AUTH_TAG_LENGTH);
+		return Buffer.concat([decipher.update(encrypted), decipher.final()]);
+	}
+
 	/**
 	 * Encrypts plaintext using AES-256-GCM
 	 * @param plaintext - The text to encrypt
 	 * @returns Base64-encoded encrypted data with IV and auth tag
 	 */
 	static encrypt(plaintext: string): string {
-		const key = this.getMasterKey();
-		const iv = crypto.randomBytes(this.IV_LENGTH);
-
-		const cipher = crypto.createCipheriv(this.ALGORITHM, key, iv);
-		cipher.setAAD(Buffer.from("")); // Additional authenticated data
-
-		let encrypted = cipher.update(plaintext, "utf8", "base64");
-		encrypted += cipher.final("base64");
-
-		const authTag = cipher.getAuthTag();
-
-		// Combine IV + Auth Tag + Encrypted Data
-		const combined = Buffer.concat([iv, authTag, Buffer.from(encrypted, "base64")]);
-
-		return combined.toString("base64");
+		return Buffer.from(this.encryptBytes(Buffer.from(plaintext, "utf8"))).toString("base64");
 	}
 
 	/**
@@ -52,25 +61,7 @@ export class EncryptionService {
 	 * @returns Decrypted plaintext
 	 */
 	static decrypt(encryptedData: string): string {
-		const key = this.getMasterKey();
-		const combined = Buffer.from(encryptedData, "base64");
-
-		if (combined.length < this.IV_LENGTH + this.AUTH_TAG_LENGTH) {
-			throw new Error("Invalid encrypted data format");
-		}
-
-		const iv = combined.subarray(0, this.IV_LENGTH);
-		const authTag = combined.subarray(this.IV_LENGTH, this.IV_LENGTH + this.AUTH_TAG_LENGTH);
-		const encrypted = combined.subarray(this.IV_LENGTH + this.AUTH_TAG_LENGTH);
-
-		const decipher = crypto.createDecipheriv(this.ALGORITHM, key, iv);
-		decipher.setAAD(Buffer.from(""));
-		decipher.setAuthTag(authTag);
-
-		let decrypted = decipher.update(encrypted, undefined, "utf8");
-		decrypted += decipher.final("utf8");
-
-		return decrypted;
+		return Buffer.from(this.decryptBytes(Buffer.from(encryptedData, "base64"))).toString("utf8");
 	}
 
 	/**

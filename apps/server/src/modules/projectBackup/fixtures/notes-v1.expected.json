@@ -1,0 +1,21 @@
+{
+	"tags": [
+		{
+			"name": "red",
+			"color": "#f00"
+		}
+	],
+	"notes": [
+		{
+			"title": "first",
+			"tag": null,
+			"secret": ""
+		},
+		{
+			"title": "second",
+			"tag": null,
+			"secret": ""
+		}
+	],
+	"attachments": {}
+}
