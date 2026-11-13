@@ -1,0 +1,10 @@
+{
+	"block": "user_defined.project.bc908700b",
+	"name": "w-c8d4e532",
+	"trigger": "t-5173c78f",
+	"group": "g-aeb675c1",
+	"idle": "t-83e4d198",
+	"setup": "user_defined.project.bb0e0bbc3",
+	"loader": "user_defined.project.b52096655",
+	"suite": "suite-ea1dbf25"
+}

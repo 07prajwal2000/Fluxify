@@ -1,0 +1,138 @@
+import { and, asc, eq, getTableColumns, isNull } from "drizzle-orm";
+import { z } from "zod";
+import { ensureDefaultGroup } from "../../../api/v1/triggers/repository";
+import { republish } from "../../../api/v1/triggers/service";
+import { db } from "../../../db";
+import { triggerGroupsEntity, triggersEntity, workflowsEntity } from "../../../db/schema";
+import { BadRequestError } from "../../../errors/badRequestError";
+import type { BackupModule } from "../types";
+
+/**
+ * A project's trigger groups and triggers (#1098), in one section: a trigger
+ * cannot exist without its group, and a group holds nothing else. A trigger
+ * names its group and its workflow by name. A sandbox's trigger is left out,
+ * as sandboxes are.
+ *
+ * Restored rows reach workers after the commit (`afterCommit`): each trigger is
+ * republished as a save would, which registers a schedule in NATS or puts a
+ * queue trigger's artifact, in each environment its workflow is live in. The
+ * project compile does not do this, and a NATS write inside the transaction
+ * would outlive a rollback.
+ *
+ * `integrationId`, and integration ids among a plugin trigger's `source`
+ * params, are copied as they are until #1100 remaps them.
+ */
+
+const groupSchema = z.object({
+	name: z.string().min(1),
+	description: z.string().nullable().default(null),
+	isDefault: z.boolean().default(false),
+});
+
+const triggerSchema = z.object({
+	name: z.string().min(1),
+	description: z.string().nullable().default(null),
+	type: z.string().min(1),
+	/** the workflow's name; null is a saved, idle trigger */
+	workflow: z.string().nullable().default(null),
+	group: z.string().min(1),
+	integrationId: z.string().nullable().default(null),
+	batchSize: z.number().int().default(1),
+	maxWaitMs: z.number().int().default(0),
+	maxBytes: z.number().int().default(1048576),
+	concurrency: z.number().int().default(1),
+	payload: z.unknown().default(null),
+	source: z.unknown().default(null),
+	commitMode: z.string().default("auto"),
+	maxAttempts: z.number().int().default(3),
+	retryDelayMs: z.number().int().default(1000),
+	schedule: z.string().nullable().default(null),
+	timezone: z.string().default("UTC"),
+	active: z.boolean().default(false),
+	devActive: z.boolean().default(false),
+	disabledReason: z.string().nullable().default(null),
+});
+
+const schema = z.object({
+	groups: z.array(groupSchema).default([]),
+	triggers: z.array(triggerSchema).default([]),
+});
+type Section = z.infer<typeof schema>;
+
+export const triggersModule: BackupModule<Section> = {
+	name: "triggers",
+	version: 1,
+	minSupported: 1,
+	upgrades: {},
+	// a trigger starts a workflow, never a route; #1100 adds "integrations"
+	dependsOn: ["workflows"],
+	schema,
+
+	async export({ projectId }) {
+		return await db.transaction(async (tx) => {
+			const groups = await tx
+				.select()
+				.from(triggerGroupsEntity)
+				.where(eq(triggerGroupsEntity.projectId, projectId))
+				.orderBy(asc(triggerGroupsEntity.createdAt));
+			const groupName = new Map(groups.map((g) => [g.id, g.name]));
+			const rows = await tx
+				.select({ ...getTableColumns(triggersEntity), workflow: workflowsEntity.name })
+				.from(triggersEntity)
+				.leftJoin(workflowsEntity, eq(workflowsEntity.id, triggersEntity.workflowId))
+				.where(and(eq(triggersEntity.projectId, projectId), isNull(triggersEntity.sandboxId)))
+				.orderBy(asc(triggersEntity.createdAt));
+			return {
+				data: {
+					groups: groups.map((g) => ({
+						name: g.name,
+						description: g.description,
+						isDefault: g.isDefault,
+					})),
+					triggers: rows.map(
+						({ id: _, projectId: __, workflowId: ___, sandboxId: ____, groupId, ...t }) => ({
+							...t,
+							group: groupName.get(groupId)!,
+						}),
+					),
+				},
+			};
+		});
+	},
+
+	async import({ tx, projectId, ids, afterCommit }, { groups, triggers }) {
+		const groupIds = new Map<string, string>();
+		for (const { isDefault, ...group } of groups) {
+			// one default per project, wherever the project got it from
+			const id = isDefault
+				? await ensureDefaultGroup(projectId, undefined, tx)
+				: (
+						await tx
+							.insert(triggerGroupsEntity)
+							.values({ ...group, projectId })
+							.returning({ id: triggerGroupsEntity.id })
+					)[0]!.id;
+			groupIds.set(group.name, id);
+		}
+
+		for (const { workflow, group, ...fields } of triggers) {
+			const groupId = groupIds.get(group);
+			if (!groupId)
+				throw new BadRequestError(
+					`Trigger "${fields.name}" runs in the group "${group}", which isn't in this backup.`,
+				);
+			const workflowId = workflow ? ids.get("workflows", workflow) : null;
+			// a trigger aimed at nothing would sit idle where it used to fire
+			if (workflowId === undefined)
+				throw new BadRequestError(
+					`Trigger "${fields.name}" starts the workflow "${workflow}", which isn't in this backup.`,
+				);
+			const [row] = await tx
+				.insert(triggersEntity)
+				.values({ ...fields, projectId, groupId, workflowId })
+				.returning();
+			// one at a time, so one that fails does not hold the rest back
+			afterCommit(() => republish(row!));
+		}
+	},
+};

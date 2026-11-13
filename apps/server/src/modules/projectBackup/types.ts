@@ -45,6 +45,12 @@ export type ImportCtx = {
 	/** this module's files only. Untrusted: never write a path to disk unchecked. */
 	files: BackupFiles;
 	ids: IdMap;
+	/**
+	 * Work that reaches outside Postgres (NATS schedules, trigger artifacts),
+	 * run by `restoreBackup` once the transaction has committed, so a rolled-back
+	 * restore leaves nothing behind. It reads the committed rows, never `tx`.
+	 */
+	afterCommit(work: () => Promise<void>): void;
 };
 
 /**

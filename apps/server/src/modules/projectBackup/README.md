@@ -13,7 +13,7 @@ pack, check, upgrade and import modules. It owns no resource of its own.
 | `restore.ts` | `readBackup(bytes, BACKUP_MODULES)` checks everything; `restoreBackup(plan, openProject)` writes |
 | `archive.ts` | The tar layout, encryption, integrity hash, `readManifest` |
 | `sections.ts` | Refuses too-old / too-new sections and walks the upgrade steps |
-| `resources/` | The resource modules (`customBlocks`, `middlewares`, `routes`, …), their fixtures and Postgres tests |
+| `resources/` | The resource modules (`customBlocks`, `middlewares`, `routes`, `workflows`, `triggers`, …), their fixtures and Postgres tests |
 
 Versioned resources capture and restore their versions with
 `modules/versions/backup.ts` (`exportHistory`, `importHistory`,
@@ -62,6 +62,14 @@ await requestProjectCompile(id, "project restored");
    promotion gates. Nothing reaches workers until the caller asks for the
    project compile above, which publishes custom blocks, then middlewares, then
    routes and workflows, in the order production needs them.
+5. **After the commit.** Work that writes outside Postgres goes through
+   `ctx.afterCommit(work)`; `restoreBackup` runs it once `openProject` has
+   resolved, so a rolled-back restore leaves nothing in NATS. The project
+   compile does not register triggers, so the `triggers` module uses this to
+   republish each restored trigger as a save would: a schedule in NATS, or a
+   queue trigger's artifact, in each environment its workflow is live in. A
+   failure there is logged, not thrown (the project is already committed); the
+   boot reconcile re-registers schedules. The caller has nothing extra to call.
 
 ## Adding a resource module
 
@@ -76,7 +84,8 @@ await requestProjectCompile(id, "project restored");
      (credentials, app config values). `ctx.options` says whether version
      history and app config values were asked for (values are always off in a
      template). Binary payloads go in `files`, keyed by a relative path.
-   - `import(ctx, data)`: insert with `ctx.tx` into `ctx.projectId`, and record
+   - `import(ctx, data)`: insert with `ctx.tx` into `ctx.projectId` (NATS or
+     any other outside write goes in `ctx.afterCommit`), and record
      each name's new id with `ctx.ids.set(this.name, name, id)` for the modules
      after you. `ctx.ids.get(...)` can return `undefined` when the section it
      belongs to was left out; blank the reference or refuse with a

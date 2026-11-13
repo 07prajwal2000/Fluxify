@@ -38,8 +38,21 @@ const suiteSchema = z.object({
 	setupTimeoutMs: z.number().int().default(30_000),
 	teardownTimeoutMs: z.number().int().default(30_000),
 	runAlone: z.boolean().default(false),
+	/** off keeps it out of "Run all" and the promote tests gate */
+	enabled: z.boolean().default(true),
 	/** `blockId` is a block id of this bundle's canvas */
 	hooks: z.array(blockHookSchema).default([]),
+	/** a workflow suite's input (#1098): `SuiteInput`, with the loader block by name */
+	input: z
+		.object({
+			source: z.enum(["raw", "script", "loader"]),
+			mode: z.enum(["single", "cases"]),
+			raw: z.unknown().optional(),
+			script: z.string().optional(),
+			loaderBlock: z.string().nullish(),
+			timeoutMs: z.number().int().optional(),
+		})
+		.nullish(),
 });
 
 export const routeBundleSchema = z.object({

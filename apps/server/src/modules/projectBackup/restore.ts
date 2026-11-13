@@ -1,3 +1,4 @@
+import { logger } from "@fluxify/common";
 import type { DbTransactionType } from "../../db";
 import { BadRequestError } from "../../errors/badRequestError";
 import { openArchive, type Payload } from "./archive";
@@ -66,14 +67,29 @@ export type OpenProject = (
 	work: (tx: DbTransactionType, projectId: string) => Promise<void>,
 ) => Promise<string>;
 
-/** Imports a checked plan into a new project, each module in dependency order, in one transaction. */
-export function restoreBackup(plan: RestorePlan, openProject: OpenProject): Promise<string> {
-	return openProject(async (tx, projectId) => {
+/**
+ * Imports a checked plan into a new project, each module in dependency order, in
+ * one transaction, then runs the modules' `afterCommit` work. That work never
+ * fails the restore: the project is already committed, and a retry would make a
+ * second one. A failure is logged: the boot reconcile re-registers schedules,
+ * and saving a trigger republishes it.
+ */
+export async function restoreBackup(plan: RestorePlan, openProject: OpenProject): Promise<string> {
+	let pending: (() => Promise<void>)[] = [];
+	const projectId = await openProject(async (tx, projectId) => {
+		// a retried transaction starts over
+		pending = [];
 		const ids = idMap();
 		const { mode } = plan.manifest;
+		const afterCommit = (work: () => Promise<void>) => void pending.push(work);
 		for (const { module, data, files } of plan.sections)
-			await module.import({ tx, projectId, mode, files, ids }, data);
+			await module.import({ tx, projectId, mode, files, ids, afterCommit }, data);
 	});
+	for (const work of pending)
+		await work().catch((error) =>
+			logger.error(`[backup] after restoring ${projectId}: ${String(error)}`, "BACKUP"),
+		);
+	return projectId;
 }
 
 function idMap(): IdMap {
