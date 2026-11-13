@@ -31,12 +31,13 @@ export async function readBackup(tgz: Uint8Array, modules: BackupModule[]): Prom
 
 	const sections: RestorePlan["sections"] = [];
 	const warnings: RestoreWarning[] = [];
+	const read = (name: string) => sections.find((s) => s.module.name === name)?.data;
 	for (const module of orderModules(modules)) {
 		const version = manifest.sections[module.name];
 		if (version === undefined) continue;
 		const data = upgradeSection(module, version, readJson(payload, module.name));
 		sections.push({ module, data, files: filesOf(payload, module.name) });
-		for (const message of module.inspect?.(data) ?? [])
+		for (const message of module.inspect?.(data, read) ?? [])
 			warnings.push({ section: module.name, message });
 	}
 	return { manifest, sections, warnings };
@@ -81,19 +82,22 @@ export async function restoreBackup(
 ): Promise<{ projectId: string; warnings: RestoreWarning[] }> {
 	type Pending = RestoreWarning & { work: () => Promise<void> };
 	let pending: Pending[] = [];
+	let told: RestoreWarning[] = [];
 	const projectId = await openProject(async (tx, projectId) => {
 		// a retried transaction starts over
 		pending = [];
+		told = [];
 		const ids = idMap();
 		const { mode } = plan.manifest;
 		for (const { module, data, files } of plan.sections) {
 			const section = module.name;
 			const afterCommit = (work: () => Promise<void>, message: string) =>
 				void pending.push({ section, message, work });
-			await module.import({ tx, projectId, mode, files, ids, afterCommit }, data);
+			const warn = (message: string) => void told.push({ section, message });
+			await module.import({ tx, projectId, mode, files, ids, afterCommit, warn }, data);
 		}
 	});
-	const warnings = [...plan.warnings];
+	const warnings = [...plan.warnings, ...told];
 	for (const { work, ...warning } of pending)
 		await work().catch((error) => {
 			logger.error(`[backup] after restoring ${projectId}: ${String(error)}`, "BACKUP");

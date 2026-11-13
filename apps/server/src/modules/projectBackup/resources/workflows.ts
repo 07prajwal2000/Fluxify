@@ -12,7 +12,17 @@ import {
 } from "../../versions/backup";
 import { buildSnapshot, restoreSnapshot } from "../../versions/snapshot";
 import type { BackupModule } from "../types";
-import { assertCustomBlocks, suiteRefs } from "./canvas";
+import { assertCustomBlocks, BLANK_BLOCK, canvasPlaces, suiteRefs } from "./canvas";
+import {
+	integrationNames,
+	integrationTableSchema,
+	localIntegrations,
+	lostWarnings,
+	remapIntegrations,
+	restoredNames,
+	tableFor,
+	v1Table,
+} from "./integrationRefs";
 
 /**
  * Every workflow of a project (#1098), shaped like routes (#1097): the canvas
@@ -21,8 +31,8 @@ import { assertCustomBlocks, suiteRefs } from "./canvas";
  * middlewares, so its snapshots hold no reference to rename. Its triggers are
  * the `triggers` section's.
  *
- * Integration ids (in block data and suite overrides) are copied as they are
- * until #1100 restores integrations and remaps them.
+ * Integration ids (in block data and suite overrides) resolve through the
+ * section's integration table (#1100, v2); one that doesn't is blanked.
  */
 
 const workflowSchema = z.object({
@@ -38,22 +48,43 @@ const workflowSchema = z.object({
 	history: backupHistorySchema,
 });
 
-const schema = z.object({ workflows: z.array(workflowSchema) });
+const schema = z.object({
+	workflows: z.array(workflowSchema),
+	integrations: integrationTableSchema,
+});
 type Section = z.infer<typeof schema>;
 
 const same = (snapshot: VersionSnapshot) => snapshot;
 
 export const workflowsModule: BackupModule<Section> = {
 	name: "workflows",
-	version: 1,
+	version: 2,
 	minSupported: 1,
-	upgrades: {},
-	// integration ids are copied as they are; #1100 adds "integrations" and remaps them
-	dependsOn: ["customBlocks"],
+	upgrades: {
+		// v1 kept integration ids with no names
+		1: (data) => ({ ...(data as object), integrations: v1Table(data) }),
+	},
+	dependsOn: ["integrations", "customBlocks"],
 	schema,
 
+	inspect({ workflows, integrations }, read) {
+		const have = restoredNames(read);
+		return workflows.flatMap((w) =>
+			lostWarnings(
+				`Workflow "${w.name}"`,
+				[
+					...canvasPlaces(w.history),
+					...w.suites.map((s) => ({ where: `test "${s.name}"`, value: s.integrationOverrides })),
+				],
+				integrations,
+				have,
+				`${BLANK_BLOCK} A blank test override is dropped.`,
+			),
+		);
+	},
+
 	async export({ projectId, options }) {
-		const workflows = await db.transaction(async (tx) => {
+		const data = await db.transaction(async (tx) => {
 			const rows = await tx
 				.select()
 				.from(workflowsEntity)
@@ -86,13 +117,16 @@ export const workflowsModule: BackupModule<Section> = {
 					),
 				});
 			}
-			return out;
+			const names = await integrationNames(projectId, tx);
+			return { workflows: out, integrations: tableFor(out, names) };
 		});
-		return { data: { workflows } };
+		return { data };
 	},
 
-	async import({ tx, projectId, ids }, { workflows }) {
-		for (const raw of workflows) {
+	async import({ tx, projectId, ids }, { workflows, integrations }) {
+		const lookup = localIntegrations(integrations, ids);
+		for (const workflow of workflows) {
+			const raw = remapIntegrations(workflow, lookup);
 			// one fresh id per canvas id, in the versions and the suites' hooks alike
 			const { history, suites, ...fields } = freshCanvasIds(raw, raw.history);
 			const owner = `Workflow "${fields.name}"`;

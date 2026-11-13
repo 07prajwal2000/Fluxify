@@ -9,11 +9,13 @@ import { createStack, type Stack } from "../../../deployments/tests/blockHarness
 import { createBackup } from "../../backup";
 import { readBackup, restoreBackup } from "../../restore";
 import type { BackupModule } from "../../types";
+import { appConfigModule } from "../appConfig";
 import { customBlocksModule } from "../customBlocks";
+import { integrationsModule } from "../integrations";
 import { middlewaresModule } from "../middlewares";
 import { routesModule } from "../routes";
 
-const MODULES = [customBlocksModule, middlewaresModule, routesModule] as BackupModule[];
+const MODULES = [appConfigModule, integrationsModule, customBlocksModule, middlewaresModule, routesModule] as BackupModule[];
 const FIXTURES = join(import.meta.dir, "..", "fixtures");
 
 let stack: Stack;

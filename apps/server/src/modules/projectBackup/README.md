@@ -13,7 +13,7 @@ pack, check, upgrade and import modules. It owns no resource of its own.
 | `restore.ts` | `readBackup(bytes, BACKUP_MODULES)` checks everything; `restoreBackup(plan, openProject)` writes |
 | `archive.ts` | The tar layout, encryption, integrity hash, `readManifest` |
 | `sections.ts` | Refuses too-old / too-new sections and walks the upgrade steps |
-| `resources/` | The resource modules (`customBlocks`, `middlewares`, `routes`, `workflows`, `triggers`, …), their fixtures and Postgres tests |
+| `resources/` | The resource modules (`appConfig`, `integrations`, `projectSettings`, `projectDependencies`, `customBlocks`, `middlewares`, `routes`, `workflows`, `triggers`, …), their fixtures and Postgres tests |
 
 Versioned resources capture and restore their versions with
 `modules/versions/backup.ts` (`exportHistory`, `importHistory`,
@@ -73,14 +73,24 @@ await requestProjectCompile(id, "project restored");
    the message passed with the work (`afterCommit(work, warning)`) comes back in
    `warnings`. The caller has nothing extra to call.
 6. **Warnings.** One channel, plain strings tagged with their section. A
-   module's optional `inspect(data)` runs in `readBackup` after the upgrade and
-   the parse, writes nothing, and returns what the user should know about
-   restoring that data here (a trigger group over this instance's
-   `MAX_TRIGGERS_PER_GROUP`, say). They land in `plan.warnings`, so a caller can
-   show them before the user confirms. `restoreBackup` returns
-   `{ projectId, warnings }`: the plan's warnings plus one per failed
-   `afterCommit` task. A warning never stops a restore; refuse with a
+   module's optional `inspect(data, read)` runs in `readBackup` after the
+   upgrade and the parse, writes nothing, and returns what the user should know
+   about restoring that data here (a trigger group over this instance's
+   `MAX_TRIGGERS_PER_GROUP`, or a reference to an integration the backup
+   doesn't hold). `read(section)` gives a section parsed before this one, so a
+   module can check its references against its `dependsOn`. They land in
+   `plan.warnings`, so a caller can show them before the user confirms.
+   What only the database can tell (a subdomain already taken) goes through
+   `ctx.warn(message)` during the import. `restoreBackup` returns
+   `{ projectId, warnings }`: the plan's warnings, the import's, and one per
+   failed `afterCommit` task. A warning never stops a restore; refuse with a
    `BadRequestError` instead.
+7. **Integration references** (in block data, route config, suites, triggers,
+   settings) travel through one shared remapper, `resources/integrationRefs.ts`:
+   export adds the section's `integrations` table (`tableFor`), import runs the
+   whole entry through `remapIntegrations(entry, localIntegrations(table, ids))`,
+   and `inspect` reports what won't resolve (`lostWarnings`). A new module that
+   holds integration ids does the same and adds `"integrations"` to `dependsOn`.
 
 ## Adding a resource module
 

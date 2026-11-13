@@ -54,4 +54,25 @@ describe("restore warnings", () => {
 			{ section: "tags", message: 'Tag "red" could not be published.' },
 		]);
 	});
+
+	it("inspect reads the sections before it; import's warn joins the result", async () => {
+		const readingNotes: BackupModule = {
+			...(notes as BackupModule),
+			inspect: (_, read) => [
+				`${(read("tags") as { tags: unknown[] }).tags.length} tags`,
+				`${read("missing") ?? "no missing section"}`,
+			],
+			async import(ctx, data) {
+				await notes.import(ctx, data as Parameters<typeof notes.import>[1]);
+				ctx.warn("checked against the database");
+			},
+		};
+		const plan = await readBackup(await backup(), orderModules([tags, readingNotes]));
+		expect(plan.warnings.map((w) => w.message)).toEqual(["2 tags", "no missing section"]);
+		const { warnings } = await restoreBackup(plan, openProject);
+		expect(warnings).toEqual([
+			...plan.warnings,
+			{ section: "notes", message: "checked against the database" },
+		]);
+	});
 });

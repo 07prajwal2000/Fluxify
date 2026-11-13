@@ -7,6 +7,16 @@ import { db } from "../../../db";
 import { triggerGroupsEntity, triggersEntity, workflowsEntity } from "../../../db/schema";
 import { BadRequestError } from "../../../errors/badRequestError";
 import type { BackupModule } from "../types";
+import {
+	integrationNames,
+	integrationTableSchema,
+	localIntegrations,
+	lostWarnings,
+	remapIntegrations,
+	restoredNames,
+	tableFor,
+	v1Table,
+} from "./integrationRefs";
 
 /**
  * A project's trigger groups and triggers (#1098), in one section: a trigger
@@ -25,8 +35,14 @@ import type { BackupModule } from "../types";
  * over-cap group still saves and runs; it only refuses new triggers.
  *
  * `integrationId`, and integration ids among a plugin trigger's `source`
- * params, are copied as they are until #1100 remaps them.
+ * params, resolve through the section's integration table (#1100, v2). A
+ * trigger whose integration doesn't resolve restores with it blank and both
+ * switches off, with a `disabledReason`, as when its queue is deleted: turning
+ * it back on checks the connector again.
  */
+
+export const LOST_INTEGRATION =
+	"Its integration wasn't in the backup it was restored from. Choose one, then turn it on.";
 
 const groupSchema = z.object({
 	name: z.string().min(1),
@@ -61,29 +77,49 @@ const triggerSchema = z.object({
 const schema = z.object({
 	groups: z.array(groupSchema).default([]),
 	triggers: z.array(triggerSchema).default([]),
+	integrations: integrationTableSchema,
 });
 type Section = z.infer<typeof schema>;
 
+/** another instance's cap, or a cap lowered since: restore as is, and say so */
+function overCap(triggers: Section["triggers"]) {
+	const cap = maxTriggersPerGroup();
+	const counts = new Map<string, number>();
+	for (const { group } of triggers) counts.set(group, (counts.get(group) ?? 0) + 1);
+	return [...counts]
+		.filter(([, n]) => n > cap)
+		.map(
+			([group, n]) =>
+				`Group "${group}" has ${n} triggers; this instance allows ${cap} per group (MAX_TRIGGERS_PER_GROUP). They will all be restored, so this group will be over the limit. You can't add more triggers to it until it is back under.`,
+		);
+}
+
 export const triggersModule: BackupModule<Section> = {
 	name: "triggers",
-	version: 1,
+	version: 2,
 	minSupported: 1,
-	upgrades: {},
-	// a trigger starts a workflow, never a route; #1100 adds "integrations"
-	dependsOn: ["workflows"],
+	upgrades: {
+		// v1 kept integration ids with no names
+		1: (data) => ({ ...(data as object), integrations: v1Table(data, { sourceParams: true }) }),
+	},
+	// a trigger starts a workflow, never a route
+	dependsOn: ["integrations", "workflows"],
 	schema,
 
-	// another instance's cap, or a cap lowered since: restore as is, and say so
-	inspect({ triggers }) {
-		const cap = maxTriggersPerGroup();
-		const counts = new Map<string, number>();
-		for (const { group } of triggers) counts.set(group, (counts.get(group) ?? 0) + 1);
-		return [...counts]
-			.filter(([, n]) => n > cap)
-			.map(
-				([group, n]) =>
-					`Group "${group}" has ${n} triggers; this instance allows ${cap} per group (MAX_TRIGGERS_PER_GROUP). They will all be restored, so this group will be over the limit. You can't add more triggers to it until it is back under.`,
-			);
+	inspect({ triggers, integrations }, read) {
+		const have = restoredNames(read);
+		return [
+			...overCap(triggers),
+			...triggers.flatMap((t) =>
+				lostWarnings(
+					`Trigger "${t.name}"`,
+					[{ where: "its connector", value: [t.integrationId, t.source] }],
+					integrations,
+					have,
+					"It is restored switched off with that integration blank; choose one, then turn it on.",
+				),
+			),
+		];
 	},
 
 	async export({ projectId }) {
@@ -100,6 +136,13 @@ export const triggersModule: BackupModule<Section> = {
 				.leftJoin(workflowsEntity, eq(workflowsEntity.id, triggersEntity.workflowId))
 				.where(and(eq(triggersEntity.projectId, projectId), isNull(triggersEntity.sandboxId)))
 				.orderBy(asc(triggersEntity.createdAt));
+			const triggers = rows.map(
+				({ id: _, projectId: __, workflowId: ___, sandboxId: ____, groupId, ...t }) => ({
+					...t,
+					group: groupName.get(groupId)!,
+				}),
+			);
+			const names = await integrationNames(projectId, tx);
 			return {
 				data: {
 					groups: groups.map((g) => ({
@@ -107,18 +150,14 @@ export const triggersModule: BackupModule<Section> = {
 						description: g.description,
 						isDefault: g.isDefault,
 					})),
-					triggers: rows.map(
-						({ id: _, projectId: __, workflowId: ___, sandboxId: ____, groupId, ...t }) => ({
-							...t,
-							group: groupName.get(groupId)!,
-						}),
-					),
+					triggers,
+					integrations: tableFor(triggers, names),
 				},
 			};
 		});
 	},
 
-	async import({ tx, projectId, ids, afterCommit }, { groups, triggers }) {
+	async import({ tx, projectId, ids, afterCommit }, { groups, triggers, integrations }) {
 		const groupIds = new Map<string, string>();
 		for (const { isDefault, ...group } of groups) {
 			// one default per project, wherever the project got it from
@@ -133,7 +172,21 @@ export const triggersModule: BackupModule<Section> = {
 			groupIds.set(group.name, id);
 		}
 
-		for (const { workflow, group, ...fields } of triggers) {
+		const resolve = localIntegrations(integrations, ids);
+		for (const trigger of triggers) {
+			let lost = false;
+			const { workflow, group, ...fields } = remapIntegrations(trigger, (value) => {
+				const id = resolve(value);
+				if (id === "") lost = true;
+				return id;
+			});
+			if (lost)
+				Object.assign(fields, {
+					integrationId: fields.integrationId || null,
+					active: false,
+					devActive: false,
+					disabledReason: LOST_INTEGRATION,
+				});
 			const groupId = groupIds.get(group);
 			if (!groupId)
 				throw new BadRequestError(
