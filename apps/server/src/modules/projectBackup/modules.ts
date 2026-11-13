@@ -1,6 +1,7 @@
 import { orderModules } from "./registry";
 import { customBlocksModule } from "./resources/customBlocks";
 import { middlewaresModule } from "./resources/middlewares";
+import { routesModule } from "./resources/routes";
 import type { BackupModule } from "./types";
 
 /**
@@ -11,4 +12,5 @@ import type { BackupModule } from "./types";
 export const BACKUP_MODULES: BackupModule[] = orderModules([
 	customBlocksModule,
 	middlewaresModule,
+	routesModule,
 ] as BackupModule[]);

@@ -30,6 +30,8 @@ const suiteSchema = z.object({
 		.default([]),
 	/** keys only: the values can be secrets and are never exported */
 	appConfigOverrideKeys: z.array(z.string()).default([]),
+	/** the values too: only a project backup that includes app config values (#1097) */
+	appConfigOverrides: z.array(z.object({ key: z.string(), value: z.string() })).optional(),
 	/** custom block names */
 	setupBlock: z.string().nullish(),
 	teardownBlock: z.string().nullish(),

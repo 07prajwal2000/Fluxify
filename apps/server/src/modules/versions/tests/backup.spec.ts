@@ -51,4 +51,10 @@ describe("freshCanvasIds", () => {
 			`return '${A}x';`,
 		);
 	});
+
+	it("rewrites references beside the history the same way, given a record that holds it", () => {
+		const out = freshCanvasIds({ history, hooks: [{ blockId: B }, { blockId: "other" }] }, history);
+		expect(out.hooks).toEqual([{ blockId: out.history.working.blocks[1]!.id }, { blockId: "other" }]);
+		expect(out.hooks[0]!.blockId).not.toBe(B);
+	});
 });
