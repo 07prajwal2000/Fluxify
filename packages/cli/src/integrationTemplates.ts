@@ -33,6 +33,7 @@ const CONTRACTS: Record<
 	observability: { type: "ObservabilityAdapter", methods: ["logInfo", "logWarn", "logError"] },
 	baas: { type: "BaasAdapter", methods: ["client"] },
 	mcp: { type: "McpAdapter", methods: ["listTools", "callTool", "close"] },
+	storage: { type: "ObjectStorageAdapter", methods: ["put", "get", "head", "list", "delete"] },
 };
 
 const SYNC = new Set(["logInfo", "logWarn", "logError", "client"]);

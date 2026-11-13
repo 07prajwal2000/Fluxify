@@ -53,6 +53,7 @@ describe("GET /integrations/variants", () => {
 			["observability", "Observability", 2],
 			["queue", "Message queues", 4],
 			["mcp", "MCP servers", 1],
+			["storage", "Object Storage", 1],
 		]);
 		expect(groups[0]!.variants.map((v) => [v.variant, v.conditionEditor])).toEqual([
 			["PostgreSQL", "sql"],
