@@ -2,6 +2,7 @@ import { Chip, Spinner } from "@fluxify/components";
 import type { ReactNode } from "react";
 import { TbCheck, TbInfoCircle, TbMinus } from "react-icons/tb";
 import { instanceSettingsQuery } from "@/query/instanceSettingsQuery";
+import { publicSettingsQuery } from "@/query/publicSettingsQuery";
 import type { LicenseView } from "@/services/instanceSettings";
 import { EditionForm } from "./EditionForm";
 
@@ -37,6 +38,7 @@ const date = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() :
 
 export function LicenseSettings() {
 	const { data: view, isLoading, isError } = instanceSettingsQuery.license.useQuery();
+	const { data: publicSettings } = publicSettingsQuery.get.useQuery();
 
 	if (isLoading) {
 		return (
@@ -71,6 +73,9 @@ export function LicenseSettings() {
 							Current edition
 						</p>
 						<p className="text-base font-bold text-foreground">{EDITION_LABEL[view.edition]}</p>
+						{publicSettings?.version && (
+							<p className="mt-0.5 text-xs text-muted">Release {publicSettings.version}</p>
+						)}
 					</div>
 					<Chip size="sm" color={chip.color}>
 						{chip.label}

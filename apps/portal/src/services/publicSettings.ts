@@ -35,6 +35,8 @@ export type PublicSettingsResponse = {
 	license: Entitlement;
 	/** the server's Bun version; the editor loads matching `@types/bun` */
 	bunVersion?: string;
+	/** release tag of this build (`v2026.11.0`), or `unknown-version` */
+	version?: string;
 	/** days a recorded run is kept before the retention job deletes it */
 	recordingMaxAgeDays?: number;
 	/** persistent sandboxes one user may keep in one project (#763) */

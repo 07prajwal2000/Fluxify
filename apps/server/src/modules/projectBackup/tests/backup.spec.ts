@@ -24,6 +24,21 @@ beforeEach(() => {
 });
 
 describe("project backup round trip", () => {
+	it("stamps the manifest with the release from the version helper", async () => {
+		const prev = process.env.FLUXIFY_VERSION;
+		process.env.FLUXIFY_VERSION = "v2026.11.0";
+		try {
+			const { manifest } = await createBackup(
+				{ projectId: seedProject(), source, mode: "backup" },
+				STUBS,
+			);
+			expect(manifest.release).toBe("v2026.11.0");
+		} finally {
+			if (prev === undefined) delete process.env.FLUXIFY_VERSION;
+			else process.env.FLUXIFY_VERSION = prev;
+		}
+	});
+
 	it("restores a backup into a new project with the same data, ids remapped by name", async () => {
 		const from = seedProject();
 		const { bytes, manifest } = await createBackup(

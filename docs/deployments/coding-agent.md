@@ -286,6 +286,7 @@ The agent runs these and reports each result. `<url>` is your public address.
 | :--- | :--- | :--- |
 | Containers or pods are up | `docker ps` or `kubectl get pods -n <namespace>` | Every one `Up`/`healthy` or `Running` and ready, with a `fluxify-worker-…` among them (Admin + Workers), beside `fluxify-dev-worker`. |
 | Admin answers | `curl -s -o /dev/null -w '%{http_code}' <url>/_/admin/api/public-settings` | `200` |
+| Release is the one you deployed | `curl -s <url>/_/admin/api/public-settings` | JSON whose `version` is the image tag you deployed (the startup log prints the same as `Release:`). `unknown-version` means the image carries no release tag, for example one built by hand without a version. |
 | A worker answers | `curl -s <url>/fluxify-agent-check` | `{"message":"Route not found"}`. That is the worker. A `502`, or Traefik's plain `404 page not found`, means no worker is serving. |
 | The development worker answers | `curl -s <url>/_/dev/fluxify-agent-check` | `{"message":"Missing or wrong development token"}`. That is the development worker. `{"message":"Route not found"}` means `/_/dev` reached a production worker: the proxy rule for `/_/dev` is missing. |
 | MCP server answers | `curl -i -X POST <url>/_/admin/mcp` | `401` with a `WWW-Authenticate` header. |
