@@ -1,6 +1,6 @@
 import { BadRequestError } from "../../errors/badRequestError";
+import { releaseVersion } from "../../lib/version";
 import { type Payload, writeArchive } from "./archive";
-import { RELEASE } from "./manifest";
 import type { BackupMode, BackupModule, BackupOptions, ExportCtx } from "./types";
 
 export type CreateBackupInput = {
@@ -44,7 +44,7 @@ export async function createBackup(input: CreateBackupInput, modules: BackupModu
 		sections[module.name] = module.version;
 	}
 	return writeArchive(
-		{ mode, release: RELEASE, createdAt: new Date().toISOString(), source, sections },
+		{ mode, release: releaseVersion(), createdAt: new Date().toISOString(), source, sections },
 		payload,
 	);
 }

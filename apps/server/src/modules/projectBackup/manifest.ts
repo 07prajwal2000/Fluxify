@@ -10,13 +10,6 @@ export const BACKUP_KIND = "fluxify.project";
 /** The envelope's own version: the archive layout and this manifest. Sections version themselves. */
 export const BACKUP_FORMAT = 1;
 
-/**
- * The release that made the archive; informational only, nothing branches on it.
- * ponytail: images only carry VERSION as a label today; set FLUXIFY_VERSION
- * from it in the Dockerfiles when the release needs to show in the UI.
- */
-export const RELEASE = process.env.FLUXIFY_VERSION || "dev";
-
 export const manifestSchema = z.object({
 	kind: z.literal(BACKUP_KIND),
 	format: z.number().int().min(1),
