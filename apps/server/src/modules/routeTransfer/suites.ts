@@ -46,7 +46,7 @@ export async function namesOf(
 
 export type SuiteExport = {
 	tx?: Executor;
-	/** keep integration ids rather than names (a backup, until #1100 restores integrations) */
+	/** keep integration ids rather than names (a project backup, whose integration table names them) */
 	integrationIds?: boolean;
 	/** also carry the app config override values (a backup that includes them) */
 	values?: boolean;

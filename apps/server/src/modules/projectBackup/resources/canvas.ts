@@ -3,6 +3,7 @@ import { BadRequestError } from "../../../errors/badRequestError";
 import type { SuiteRefs } from "../../routeTransfer/suites";
 import type { BackupHistory } from "../../versions/backup";
 import type { IdMap } from "../types";
+import type { Place } from "./integrationRefs";
 
 /**
  * What the canvas modules (routes #1097, workflows #1098) share on restore.
@@ -26,6 +27,20 @@ export function assertCustomBlocks(ids: IdMap, owner: string, history: BackupHis
 	}
 }
 
+/** what a blanked integration does to a canvas block, for the `inspect` warnings */
+export const BLANK_BLOCK =
+	"They are left blank: the project still compiles, but each of those blocks fails when it runs until you pick an integration for it.";
+
+/** inspect: each block that runs now or in production, by key, for `lostWarnings` */
+export function canvasPlaces(history: BackupHistory): Place[] {
+	const prod = history.versions.find((v) => v.number === history.prod)?.snapshot;
+	const blocks = new Map<string, unknown[]>();
+	for (const snapshot of [history.working, ...(prod ? [prod] : [])])
+		for (const { key, data } of snapshot.blocks)
+			blocks.set(key, [...(blocks.get(key) ?? []), data]);
+	return [...blocks].map(([key, data]) => ({ where: `block ${key}`, value: data }));
+}
+
 /**
  * Suite references in a backup: setup, teardown and loader blocks by name, and
  * refused when missing; hooks on the restored working copy's (fresh) block ids.
@@ -41,8 +56,9 @@ export function suiteRefs(ids: IdMap, owner: string, history: BackupHistory): Su
 				);
 			return id;
 		},
-		// ids, until #1100
-		integration: (o) => ({ existingId: o.existing, newId: o.replacement }),
+		// already this project's ids (`remapIntegrations`); a blanked one drops the override
+		integration: (o) =>
+			o.existing && o.replacement ? { existingId: o.existing, newId: o.replacement } : null,
 		canvasBlock: (id) => (canvas.has(id) ? id : undefined),
 		warn: () => {},
 	};

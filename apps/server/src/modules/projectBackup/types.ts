@@ -53,6 +53,12 @@ export type ImportCtx = {
 	 * to the user, so say what didn't happen and how to fix it.
 	 */
 	afterCommit(work: () => Promise<void>, warning: string): void;
+	/**
+	 * Something only the database could tell (a subdomain already taken here), to
+	 * return with the restore's warnings. The restore goes on; refuse with a
+	 * `BadRequestError` instead when it must not.
+	 */
+	warn(message: string): void;
 };
 
 /** something the user should know about restoring a section on this instance */
@@ -80,9 +86,11 @@ export type BackupModule<T = unknown> = {
 	/**
 	 * Warnings about restoring this (upgraded, parsed) section on this instance,
 	 * shown before the user confirms. Pure apart from reading instance settings:
-	 * no database, nothing written.
+	 * no database, nothing written. `read(section)` gives a section read before
+	 * this one (its `dependsOn` among them), parsed; undefined when the archive
+	 * has none.
 	 */
-	inspect?(data: T): string[];
+	inspect?(data: T, read: (section: string) => unknown): string[];
 	export(ctx: ExportCtx): Promise<{ data: T; files?: BackupFiles }>;
 	import(ctx: ImportCtx, data: T): Promise<void>;
 };

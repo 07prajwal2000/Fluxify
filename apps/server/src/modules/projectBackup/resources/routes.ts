@@ -19,7 +19,19 @@ import {
 } from "../../versions/backup";
 import { buildSnapshot, restoreSnapshot } from "../../versions/snapshot";
 import type { BackupModule, IdMap } from "../types";
-import { assertCustomBlocks, suiteRefs } from "./canvas";
+import { assertCustomBlocks, BLANK_BLOCK, canvasPlaces, suiteRefs } from "./canvas";
+import {
+	integrationNames,
+	integrationTableSchema,
+	localIntegrations,
+	lostWarnings,
+	remapIntegrations,
+	restoredNames,
+	tableFor,
+	v1Table,
+} from "./integrationRefs";
+
+const BLANK_ROUTE = `${BLANK_BLOCK} A blank SSE broker leaves the route without one, and a blank test override is dropped.`;
 
 /**
  * Every route of a project (#1097). The canvas, path, schemas, response schemas
@@ -29,8 +41,9 @@ import { assertCustomBlocks, suiteRefs } from "./canvas";
  * beside it.
  *
  * Middlewares travel by name. A custom block is called by its name already.
- * Integration ids (in block data, the SSE broker and suite overrides) are
- * copied as they are until #1100 restores integrations and remaps them.
+ * Integration ids (in block data, the SSE broker and suite overrides) resolve
+ * through the section's integration table (#1100, v2); one that doesn't is
+ * blanked: the block has none, the route no SSE broker, the override is dropped.
  */
 
 const suiteSchema = routeBundleSchema.shape.suites.unwrap().element;
@@ -49,7 +62,7 @@ const routeSchema = z.object({
 	history: backupHistorySchema,
 });
 
-const schema = z.object({ routes: z.array(routeSchema) });
+const schema = z.object({ routes: z.array(routeSchema), integrations: integrationTableSchema });
 type Section = z.infer<typeof schema>;
 
 type Phases = { before: string[]; after: string[] };
@@ -79,15 +92,34 @@ const localMiddlewares = (ids: IdMap, route: string) => (snapshot: VersionSnapsh
 
 export const routesModule: BackupModule<Section> = {
 	name: "routes",
-	version: 1,
+	version: 2,
 	minSupported: 1,
-	upgrades: {},
-	// integration ids are copied as they are; #1100 adds "integrations" and remaps them
-	dependsOn: ["customBlocks", "middlewares"],
+	upgrades: {
+		// v1 kept integration ids with no names
+		1: (data) => ({ ...(data as object), integrations: v1Table(data) }),
+	},
+	dependsOn: ["integrations", "customBlocks", "middlewares"],
 	schema,
 
+	inspect({ routes, integrations }, read) {
+		const have = restoredNames(read);
+		return routes.flatMap((r) =>
+			lostWarnings(
+				`Route "${r.name}"`,
+				[
+					...canvasPlaces(r.history),
+					{ where: "SSE broker", value: r.config.sseBrokerId },
+					...r.suites.map((s) => ({ where: `test "${s.name}"`, value: s.integrationOverrides })),
+				],
+				integrations,
+				have,
+				BLANK_ROUTE,
+			),
+		);
+	},
+
 	async export({ projectId, options }) {
-		const routes = await db.transaction(async (tx) => {
+		const data = await db.transaction(async (tx) => {
 			const middlewares = await tx
 				.select({ id: middlewaresEntity.id, name: middlewaresEntity.name })
 				.from(middlewaresEntity)
@@ -135,15 +167,20 @@ export const routesModule: BackupModule<Section> = {
 					),
 				});
 			}
-			return out;
+			const names = await integrationNames(projectId, tx);
+			return { routes: out, integrations: tableFor(out, names) };
 		});
-		return { data: { routes } };
+		return { data };
 	},
 
-	async import({ tx, projectId, ids }, { routes }) {
-		for (const raw of routes) {
+	async import({ tx, projectId, ids }, { routes, integrations }) {
+		const lookup = localIntegrations(integrations, ids);
+		for (const route of routes) {
+			const raw = remapIntegrations(route, lookup);
 			// one fresh id per canvas id, in the versions and the suites' hooks alike
 			const { history, suites, config, ...fields } = freshCanvasIds(raw, raw.history);
+			// a broker that didn't resolve is none
+			if (config.sseBrokerId === "") config.sseBrokerId = null;
 			const owner = `Route "${fields.name}"`;
 			assertCustomBlocks(ids, owner, history);
 			const local = localMiddlewares(ids, fields.name);

@@ -16,12 +16,24 @@ import {
 } from "../../versions/backup";
 import { buildSnapshot, restoreSnapshot } from "../../versions/snapshot";
 import type { BackupModule } from "../types";
+import { BLANK_BLOCK, canvasPlaces } from "./canvas";
+import {
+	integrationNames,
+	integrationTableSchema,
+	localIntegrations,
+	lostWarnings,
+	remapIntegrations,
+	restoredNames,
+	tableFor,
+	v1Table,
+} from "./integrationRefs";
 
 /**
  * Every custom block of a project (#1099): its live fields, its working copy,
  * and its promoted version (all its versions with version history). A canvas
- * calls another custom block by name (the block's `type`), so nothing inside a
- * snapshot needs translating; only canvas ids are made fresh on restore.
+ * calls another custom block by name (the block's `type`), so that needs no
+ * translating; canvas ids are made fresh on restore, and integration ids in
+ * block data resolve through the section's integration table (#1100, v2).
  */
 
 const blockSchema = z.object({
@@ -37,22 +49,37 @@ const blockSchema = z.object({
 	history: backupHistorySchema,
 });
 
-const schema = z.object({ blocks: z.array(blockSchema) });
+const schema = z.object({ blocks: z.array(blockSchema), integrations: integrationTableSchema });
 type Section = z.infer<typeof schema>;
 
 const same = (snapshot: VersionSnapshot) => snapshot;
 
 export const customBlocksModule: BackupModule<Section> = {
 	name: "customBlocks",
-	version: 1,
+	version: 2,
 	minSupported: 1,
-	upgrades: {},
-	// a block's canvas may name integrations; add "integrations" here once #1100 registers it
-	dependsOn: [],
+	upgrades: {
+		// v1 kept integration ids with no names
+		1: (data) => ({ ...(data as object), integrations: v1Table(data) }),
+	},
+	dependsOn: ["integrations"],
 	schema,
 
+	inspect({ blocks, integrations }, read) {
+		const have = restoredNames(read);
+		return blocks.flatMap((b) =>
+			lostWarnings(
+				`Custom block "${b.name}"`,
+				canvasPlaces(b.history),
+				integrations,
+				have,
+				BLANK_BLOCK,
+			),
+		);
+	},
+
 	async export({ projectId, options }) {
-		const blocks = await db.transaction(async (tx) => {
+		return await db.transaction(async (tx) => {
 			const rows = await tx
 				.select()
 				.from(customBlocksListEntity)
@@ -81,13 +108,15 @@ export const customBlocksModule: BackupModule<Section> = {
 					),
 				});
 			}
-			return out;
+			const names = await integrationNames(projectId, tx);
+			return { data: { blocks: out, integrations: tableFor(out, names) } };
 		});
-		return { data: { blocks } };
 	},
 
-	async import({ tx, projectId, ids }, { blocks }) {
-		for (const { history: raw, ...fields } of blocks) {
+	async import({ tx, projectId, ids }, { blocks, integrations }) {
+		const lookup = localIntegrations(integrations, ids);
+		for (const block of blocks) {
+			const { history: raw, ...fields } = remapIntegrations(block, lookup);
 			const history = freshCanvasIds(raw);
 			const [row] = await tx
 				.insert(customBlocksListEntity)
