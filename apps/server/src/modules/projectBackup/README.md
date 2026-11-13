@@ -13,7 +13,7 @@ pack, check, upgrade and import modules. It owns no resource of its own.
 | `restore.ts` | `readBackup(bytes, BACKUP_MODULES)` checks everything; `restoreBackup(plan, openProject)` writes |
 | `archive.ts` | The tar layout, encryption, integrity hash, `readManifest` |
 | `sections.ts` | Refuses too-old / too-new sections and walks the upgrade steps |
-| `resources/` | The resource modules (`customBlocks`, `middlewares`, `routes`, …), their fixtures and Postgres tests |
+| `resources/` | The resource modules (`customBlocks`, `middlewares`, `routes`, `workflows`, `triggers`, …), their fixtures and Postgres tests |
 
 Versioned resources capture and restore their versions with
 `modules/versions/backup.ts` (`exportHistory`, `importHistory`,
@@ -47,7 +47,8 @@ secret values. `manifest.json` is never encrypted, so put nothing secret in it.
 
 ```ts
 const plan = await readBackup(bytes, BACKUP_MODULES);
-const id = await restoreBackup(plan, (work) =>
+// show plan.warnings ({ section, message }[]) before the user confirms
+const { projectId: id, warnings } = await restoreBackup(plan, (work) =>
 	db.transaction(async (tx) => {
 		const projectId = await createProject({ ... }, tx);
 		await work(tx, projectId);
@@ -62,6 +63,24 @@ await requestProjectCompile(id, "project restored");
    promotion gates. Nothing reaches workers until the caller asks for the
    project compile above, which publishes custom blocks, then middlewares, then
    routes and workflows, in the order production needs them.
+5. **After the commit.** Work that writes outside Postgres goes through
+   `ctx.afterCommit(work)`; `restoreBackup` runs it once `openProject` has
+   resolved, so a rolled-back restore leaves nothing in NATS. The project
+   compile does not register triggers, so the `triggers` module uses this to
+   republish each restored trigger as a save would: a schedule in NATS, or a
+   queue trigger's artifact, in each environment its workflow is live in. A
+   failure there is logged, not thrown (the project is already committed), and
+   the message passed with the work (`afterCommit(work, warning)`) comes back in
+   `warnings`. The caller has nothing extra to call.
+6. **Warnings.** One channel, plain strings tagged with their section. A
+   module's optional `inspect(data)` runs in `readBackup` after the upgrade and
+   the parse, writes nothing, and returns what the user should know about
+   restoring that data here (a trigger group over this instance's
+   `MAX_TRIGGERS_PER_GROUP`, say). They land in `plan.warnings`, so a caller can
+   show them before the user confirms. `restoreBackup` returns
+   `{ projectId, warnings }`: the plan's warnings plus one per failed
+   `afterCommit` task. A warning never stops a restore; refuse with a
+   `BadRequestError` instead.
 
 ## Adding a resource module
 
@@ -76,7 +95,8 @@ await requestProjectCompile(id, "project restored");
      (credentials, app config values). `ctx.options` says whether version
      history and app config values were asked for (values are always off in a
      template). Binary payloads go in `files`, keyed by a relative path.
-   - `import(ctx, data)`: insert with `ctx.tx` into `ctx.projectId`, and record
+   - `import(ctx, data)`: insert with `ctx.tx` into `ctx.projectId` (NATS or
+     any other outside write goes in `ctx.afterCommit`), and record
      each name's new id with `ctx.ids.set(this.name, name, id)` for the modules
      after you. `ctx.ids.get(...)` can return `undefined` when the section it
      belongs to was left out; blank the reference or refuse with a

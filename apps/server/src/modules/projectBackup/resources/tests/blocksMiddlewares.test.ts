@@ -56,7 +56,7 @@ const backup = (projectId: string, includeVersionHistory = false, mode: "backup"
 
 async function restore(bytes: Uint8Array) {
 	const plan = await readBackup(bytes, MODULES);
-	return await restoreBackup(plan, (work) =>
+	const { projectId } = await restoreBackup(plan, (work) =>
 		db.transaction(async (tx: any) => {
 			const id = Bun.randomUUIDv7();
 			await tx.insert(schema.projectsEntity).values({ id, name: id, slug: id });
@@ -64,6 +64,7 @@ async function restore(bytes: Uint8Array) {
 			return id;
 		}),
 	);
+	return projectId;
 }
 
 const byName = async (table: any, projectId: string, name: string) => {

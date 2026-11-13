@@ -65,6 +65,6 @@ export async function buildRouteBundle(
 		},
 		responseSchemas: schemas.map(({ statusCode, schema }) => ({ statusCode, schema })),
 		middlewares: { before: names(middlewareIds.before), after: names(middlewareIds.after) },
-		...(includeTests ? { suites: await exportSuites(routeId) } : {}),
+		...(includeTests ? { suites: await exportSuites({ routeId }) } : {}),
 	};
 }

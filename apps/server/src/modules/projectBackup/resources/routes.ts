@@ -1,4 +1,3 @@
-import { CUSTOM_BLOCK_NAME_PREFIX } from "@fluxify/lib";
 import { asc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { patchRouteConfig, readRouteConfig } from "../../../api/v1/routes/routeConfigRepository";
@@ -13,7 +12,6 @@ import { BadRequestError } from "../../../errors/badRequestError";
 import { routeBundleSchema } from "../../routeTransfer/bundle";
 import { exportSuites, writeSuites } from "../../routeTransfer/suites";
 import {
-	type BackupHistory,
 	backupHistorySchema,
 	exportHistory,
 	freshCanvasIds,
@@ -21,6 +19,7 @@ import {
 } from "../../versions/backup";
 import { buildSnapshot, restoreSnapshot } from "../../versions/snapshot";
 import type { BackupModule, IdMap } from "../types";
+import { assertCustomBlocks, suiteRefs } from "./canvas";
 
 /**
  * Every route of a project (#1097). The canvas, path, schemas, response schemas
@@ -78,23 +77,6 @@ const localMiddlewares = (ids: IdMap, route: string) => (snapshot: VersionSnapsh
 		}),
 	);
 
-/**
- * What the route runs now and in production must call only custom blocks the
- * backup restores. An older version is copied as it is: it only runs again if
- * someone checks it out, and the canvas save checks it then.
- */
-function assertCustomBlocks(ids: IdMap, route: string, history: BackupHistory) {
-	const prod = history.versions.find((v) => v.number === history.prod)?.snapshot;
-	for (const snapshot of [history.working, ...(prod ? [prod] : [])]) {
-		for (const { type } of snapshot.blocks) {
-			if (type.startsWith(CUSTOM_BLOCK_NAME_PREFIX) && !ids.get("customBlocks", type))
-				throw new BadRequestError(
-					`Route "${route}" calls the custom block "${type}", which isn't in this backup.`,
-				);
-		}
-	}
-}
-
 export const routesModule: BackupModule<Section> = {
 	name: "routes",
 	version: 1,
@@ -134,12 +116,15 @@ export const routesModule: BackupModule<Section> = {
 					devTracingEnabled: row.devTracingEnabled,
 					devRecordExecution: row.devRecordExecution,
 					config: await readRouteConfig(row.id, tx),
-					suites: await exportSuites(row.id, {
-						tx,
-						integrationIds: true,
-						// never in a template: it keeps the keys only, as a `.fluxroute` export does
-						values: options.includeAppConfigValues,
-					}),
+					suites: await exportSuites(
+						{ routeId: row.id },
+						{
+							tx,
+							integrationIds: true,
+							// never in a template: it keeps the keys only, as a `.fluxroute` export does
+							values: options.includeAppConfigValues,
+						},
+					),
 					history: await exportHistory(
 						"route",
 						row.id,
@@ -159,7 +144,8 @@ export const routesModule: BackupModule<Section> = {
 		for (const raw of routes) {
 			// one fresh id per canvas id, in the versions and the suites' hooks alike
 			const { history, suites, config, ...fields } = freshCanvasIds(raw, raw.history);
-			assertCustomBlocks(ids, fields.name, history);
+			const owner = `Route "${fields.name}"`;
+			assertCustomBlocks(ids, owner, history);
 			const local = localMiddlewares(ids, fields.name);
 
 			const [row] = await tx
@@ -172,26 +158,7 @@ export const routesModule: BackupModule<Section> = {
 			await restoreSnapshot("route", target, local(history.working as VersionSnapshot), tx);
 			await importHistory("route", target, history, local, tx);
 
-			const canvas = new Set(history.working.blocks.map((b) => b.id));
-			await writeSuites(
-				target.id,
-				suites,
-				{
-					block(name, role, suite) {
-						const id = ids.get("customBlocks", name);
-						if (!id)
-							throw new BadRequestError(
-								`Route "${fields.name}", test "${suite}": the ${role} block "${name}" isn't in this backup.`,
-							);
-						return id;
-					},
-					// ids, until #1100
-					integration: (o) => ({ existingId: o.existing, newId: o.replacement }),
-					canvasBlock: (id) => (canvas.has(id) ? id : undefined),
-					warn: () => {},
-				},
-				tx,
-			);
+			await writeSuites({ routeId: target.id }, suites, suiteRefs(ids, owner, history), tx);
 			ids.set("routes", fields.name, target.id);
 		}
 	},

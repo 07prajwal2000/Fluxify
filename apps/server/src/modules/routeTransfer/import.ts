@@ -171,7 +171,7 @@ export async function importRouteBundle(userId: string, projectId: string, raw: 
 		await setRouteMiddlewares(id, projectId, phases, tx);
 
 		await writeSuites(
-			id,
+			{ routeId: id },
 			suites,
 			{
 				block(name, role, suite) {

@@ -6,6 +6,7 @@ import {
 	customBlocksListEntity,
 	integrationsEntity,
 	type middlewaresEntity,
+	type SuiteInput,
 	testSuiteBlockHooksEntity,
 	testSuitesEntity,
 } from "../../db/schema";
@@ -13,12 +14,21 @@ import { replaceSuiteHooks } from "../testRunner/hooks";
 import type { BundleSuite } from "./bundle";
 
 /**
- * A route's test suites in and out of a route bundle. A `.fluxroute` export and
- * a project backup (#1097) share this; they differ only in how references to
- * other resources travel, which the caller decides.
+ * A route's or workflow's test suites in and out of the bundle form. A
+ * `.fluxroute` export and a project backup (#1097, #1098) share this; they
+ * differ only in how references to other resources travel, which the caller
+ * decides.
  */
 
 type Executor = DbTransactionType | typeof db;
+
+/** what the suites test: exactly one route or one workflow */
+export type SuiteTarget = { routeId: string } | { workflowId: string };
+
+const targetColumn = (target: SuiteTarget) =>
+	"routeId" in target
+		? eq(testSuitesEntity.routeId, target.routeId)
+		: eq(testSuitesEntity.workflowId, target.workflowId);
 
 /** id → name for rows of `table`, so references can travel by name */
 export async function namesOf(
@@ -43,13 +53,13 @@ export type SuiteExport = {
 };
 
 export async function exportSuites(
-	routeId: string,
+	target: SuiteTarget,
 	{ tx = db, integrationIds = false, values = false }: SuiteExport = {},
 ): Promise<BundleSuite[]> {
 	const suites = await tx
 		.select()
 		.from(testSuitesEntity)
-		.where(eq(testSuitesEntity.routeId, routeId))
+		.where(targetColumn(target))
 		.orderBy(testSuitesEntity.createdAt);
 	if (suites.length === 0) return [];
 
@@ -64,7 +74,9 @@ export async function exportSuites(
 		);
 	const blockNames = await namesOf(
 		customBlocksListEntity,
-		suites.flatMap((s) => [s.setupBlockId, s.teardownBlockId]).filter((id): id is string => !!id),
+		suites
+			.flatMap((s) => [s.setupBlockId, s.teardownBlockId, s.input?.loaderBlockId])
+			.filter((id): id is string => !!id),
 		tx,
 	);
 	const integrationIdsUsed = suites.flatMap((s) =>
@@ -73,6 +85,7 @@ export async function exportSuites(
 	const integrationNames = integrationIds
 		? new Map(integrationIdsUsed.map((id) => [id, id]))
 		: await namesOf(integrationsEntity, integrationIdsUsed, tx);
+	const blockName = (id: string | null | undefined) => (id ? (blockNames.get(id) ?? null) : null);
 
 	return suites.map((s) => ({
 		name: s.name,
@@ -91,20 +104,27 @@ export async function exportSuites(
 		}),
 		appConfigOverrideKeys: (s.appConfigOverrides ?? []).map((o) => o.key),
 		...(values ? { appConfigOverrides: s.appConfigOverrides ?? [] } : {}),
-		setupBlock: s.setupBlockId ? (blockNames.get(s.setupBlockId) ?? null) : null,
-		teardownBlock: s.teardownBlockId ? (blockNames.get(s.teardownBlockId) ?? null) : null,
+		setupBlock: blockName(s.setupBlockId),
+		teardownBlock: blockName(s.teardownBlockId),
 		setupTimeoutMs: s.setupTimeoutMs,
 		teardownTimeoutMs: s.teardownTimeoutMs,
 		runAlone: s.runAlone,
+		enabled: s.enabled,
 		hooks: hooks
 			.filter((h) => h.suiteId === s.id)
 			.map((h) => ({ blockId: h.blockId, onBefore: h.onBefore, onAfter: h.onAfter })),
+		...(s.input ? { input: portableInput(s.input, blockName(s.input.loaderBlockId)) } : {}),
 	}));
 }
 
+const portableInput = ({ loaderBlockId: _, ...input }: SuiteInput, loaderBlock: string | null) => ({
+	...input,
+	loaderBlock,
+});
+
 /** How a suite's references become this project's ids. A miss returns null/undefined, or throws. */
 export type SuiteRefs = {
-	block(name: string, role: "setup" | "teardown", suite: string): string | null;
+	block(name: string, role: "setup" | "teardown" | "loader", suite: string): string | null;
 	integration(
 		override: { existing: string; replacement: string },
 		suite: string,
@@ -115,7 +135,7 @@ export type SuiteRefs = {
 };
 
 export async function writeSuites(
-	routeId: string,
+	target: SuiteTarget,
 	suites: BundleSuite[],
 	refs: SuiteRefs,
 	tx: DbTransactionType,
@@ -128,16 +148,23 @@ export async function writeSuites(
 			appConfigOverrides,
 			setupBlock,
 			teardownBlock,
+			input,
 			...fields
 		} = suite;
 		const suiteId = generateID();
+		const block = (name: string | null | undefined, role: "setup" | "teardown" | "loader") =>
+			name ? refs.block(name, role, suite.name) : null;
+		const { loaderBlock, ...rest } = input ?? {};
 		await createTestSuite(
 			{
 				...fields,
+				...target,
 				id: suiteId,
-				routeId,
-				setupBlockId: setupBlock ? refs.block(setupBlock, "setup", suite.name) : null,
-				teardownBlockId: teardownBlock ? refs.block(teardownBlock, "teardown", suite.name) : null,
+				setupBlockId: block(setupBlock, "setup"),
+				teardownBlockId: block(teardownBlock, "teardown"),
+				input: input
+					? ({ ...rest, loaderBlockId: block(loaderBlock, "loader") } as SuiteInput)
+					: null,
 				integrationOverrides: integrationOverrides.flatMap((o) => {
 					const found = refs.integration(o, suite.name);
 					return found ? [found] : [];

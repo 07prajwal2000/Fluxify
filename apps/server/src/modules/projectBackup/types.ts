@@ -45,7 +45,18 @@ export type ImportCtx = {
 	/** this module's files only. Untrusted: never write a path to disk unchecked. */
 	files: BackupFiles;
 	ids: IdMap;
+	/**
+	 * Work that reaches outside Postgres (NATS schedules, trigger artifacts),
+	 * run by `restoreBackup` once the transaction has committed, so a rolled-back
+	 * restore leaves nothing behind. It reads the committed rows, never `tx`.
+	 * A failure never fails the restore: it is logged and `warning` is returned
+	 * to the user, so say what didn't happen and how to fix it.
+	 */
+	afterCommit(work: () => Promise<void>, warning: string): void;
 };
+
+/** something the user should know about restoring a section on this instance */
+export type RestoreWarning = { section: string; message: string };
 
 /**
  * One resource type in a project backup. Adding a resource is adding one of
@@ -66,6 +77,12 @@ export type BackupModule<T = unknown> = {
 	schema: z.ZodType<T>;
 	/** keyed by the version upgraded FROM. Pure, and never edited once released. */
 	upgrades: Record<number, (data: unknown) => unknown>;
+	/**
+	 * Warnings about restoring this (upgraded, parsed) section on this instance,
+	 * shown before the user confirms. Pure apart from reading instance settings:
+	 * no database, nothing written.
+	 */
+	inspect?(data: T): string[];
 	export(ctx: ExportCtx): Promise<{ data: T; files?: BackupFiles }>;
 	import(ctx: ImportCtx, data: T): Promise<void>;
 };
