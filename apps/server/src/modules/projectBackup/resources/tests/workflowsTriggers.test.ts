@@ -14,10 +14,11 @@ import type { BackupModule } from "../../types";
 import { appConfigModule } from "../appConfig";
 import { customBlocksModule } from "../customBlocks";
 import { integrationsModule } from "../integrations";
+import { pluginsModule } from "../plugins";
 import { triggersModule } from "../triggers";
 import { workflowsModule } from "../workflows";
 
-const MODULES = [appConfigModule, integrationsModule, customBlocksModule, workflowsModule, triggersModule] as BackupModule[];
+const MODULES = [appConfigModule, integrationsModule, pluginsModule, customBlocksModule, workflowsModule, triggersModule] as BackupModule[];
 const FIXTURES = join(import.meta.dir, "..", "fixtures");
 type Env = "production" | "development";
 
