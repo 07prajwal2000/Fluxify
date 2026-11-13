@@ -82,6 +82,7 @@ describe("IntegrationRegistry", () => {
 			"observability",
 			"queue",
 			"mcp",
+			"storage",
 			"acme/crm",
 		]);
 		registry.unregister("acme/crm", "Acme CRM");

@@ -209,6 +209,9 @@ export function cacheForGroup(group: string | null) {
 			return queueIntegrationsCache;
 		case integrationsGroupSchema.enum.mcp:
 			return mcpIntegrationsCache;
+		// opened on demand by admin code (`modules/objectStorage`); no block uses it yet
+		case integrationsGroupSchema.enum.storage:
+			return undefined;
 		default:
 			return isIntegrationGroupName(group ?? "") ? pluginIntegrationsCache : undefined;
 	}

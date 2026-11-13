@@ -18,6 +18,7 @@ import { MemcachedIntegration } from "../kv/memcached";
 import { RedisIntegration } from "../kv/redis";
 import { LokiLogger } from "../observability/loki";
 import { OpenTelemetryLogs } from "../observability/openTelemetryLogs";
+import { S3Storage } from "../storage/s3";
 import { BUILT_IN_VARIANT_META } from "./builtinVariants";
 import { BUILT_IN_OPS } from "./ops";
 import { parseMongoUrl } from "./parsers/mongodb";
@@ -99,6 +100,8 @@ const HOOKS: Hooks = {
 	"queue/NATS": queue("nats"),
 	"queue/SQS": queue("sqs"),
 	"queue/RabbitMQ": queue("rabbitmq"),
+	// no `resolve`: every field is a flat string or boolean, expanded as is
+	"storage/S3 Compatible": { create: (config: any) => new S3Storage(config) },
 };
 
 export const BUILT_IN_VARIANTS = BUILT_IN_VARIANT_META.map((meta) => {

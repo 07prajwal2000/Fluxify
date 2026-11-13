@@ -7,6 +7,7 @@ import { KafkaForm } from "./connectors/KafkaForm";
 import { McpForm } from "./connectors/McpForm";
 import { NatsForm } from "./connectors/NatsForm";
 import { ObservabilityForm } from "./connectors/ObservabilityForm";
+import { S3Form } from "./connectors/S3Form";
 import { SendTimeoutField } from "./connectors/SendTimeoutField";
 import { SqsForm } from "./connectors/SqsForm";
 import { PluginIntegrationForm } from "./PluginIntegrationForm";
@@ -191,6 +192,7 @@ export function ConnectorFields({
 			{group === "queue" && variant === "Kafka" && <KafkaForm {...formProps} />}
 			{group === "queue" && variant === "NATS" && <NatsForm {...formProps} />}
 			{group === "queue" && variant === "SQS" && <SqsForm {...formProps} />}
+			{group === "storage" && variant === "S3 Compatible" && <S3Form {...formProps} />}
 			{group === "queue" && variant === "RabbitMQ" && (
 				<>
 					<CredentialsUrlForm

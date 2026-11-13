@@ -16,6 +16,7 @@ export const BUILT_IN_GROUP_LABELS: Record<IntegrationGroup, string> = {
 	observability: "Observability",
 	queue: "Message queues",
 	mcp: "MCP servers",
+	storage: "Object Storage",
 };
 
 /**
@@ -87,6 +88,10 @@ const mcp = {
 	http: { configSchema: s.mcpVariantConfigSchema },
 } satisfies Table<"mcp", typeof s.mcpVariantSchema>;
 
+const storage = {
+	"S3 Compatible": { configSchema: s.s3VariantConfigSchema, tags: ["s3"] },
+} satisfies Table<"storage", typeof s.storageVariantSchema>;
+
 // baas has variant names (`baasVariantSchema`) but no implementation, so none is offered
 const tables: { [G in IntegrationGroup]?: Record<string, object> } = {
 	database,
@@ -95,6 +100,7 @@ const tables: { [G in IntegrationGroup]?: Record<string, object> } = {
 	observability,
 	queue,
 	mcp,
+	storage,
 };
 
 /** Every built-in variant, in the order the integrations page lists them. */
