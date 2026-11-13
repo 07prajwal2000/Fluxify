@@ -13,6 +13,11 @@ pack, check, upgrade and import modules. It owns no resource of its own.
 | `restore.ts` | `readBackup(bytes, BACKUP_MODULES)` checks everything; `restoreBackup(plan, openProject)` writes |
 | `archive.ts` | The tar layout, encryption, integrity hash, `readManifest` |
 | `sections.ts` | Refuses too-old / too-new sections and walks the upgrade steps |
+| `resources/` | The resource modules (`customBlocks`, `middlewares`, …), their fixtures and Postgres tests |
+
+Versioned resources capture and restore their versions with
+`modules/versions/backup.ts` (`exportHistory`, `importHistory`,
+`freshCanvasIds`).
 
 ## The archive
 
@@ -49,7 +54,14 @@ const id = await restoreBackup(plan, (work) =>
 		return projectId;
 	}),
 );
+// after the commit: the compiler reads Postgres, so it must not run inside the transaction
+await requestProjectCompile(id, "project restored");
 ```
+
+4. Modules write promoted versions and `prod_version_id` directly and run no
+   promotion gates. Nothing reaches workers until the caller asks for the
+   project compile above, which publishes custom blocks, then middlewares, then
+   routes and workflows, in the order production needs them.
 
 ## Adding a resource module
 

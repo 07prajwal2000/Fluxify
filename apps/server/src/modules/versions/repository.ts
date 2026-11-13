@@ -36,7 +36,7 @@ const ownerColumns = {
 } as const;
 
 /** The column of `canvas_versions` that points at this kind of target. */
-function ownerColumn(kind: CanvasVersionKind) {
+export function ownerColumn(kind: CanvasVersionKind) {
 	return ownerColumns[kind];
 }
 
@@ -111,6 +111,8 @@ export async function insertVersion(
 		authorId: string | null;
 		authorEmail: string | null;
 		snapshot: VersionSnapshot;
+		/** a restored backup keeps when each version was made; otherwise now */
+		createdAt?: Date;
 	},
 	tx: DbTransactionType,
 ) {

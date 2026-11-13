@@ -1,4 +1,6 @@
 import { orderModules } from "./registry";
+import { customBlocksModule } from "./resources/customBlocks";
+import { middlewaresModule } from "./resources/middlewares";
 import type { BackupModule } from "./types";
 
 /**
@@ -6,4 +8,7 @@ import type { BackupModule } from "./types";
  * this list; the order is worked out from `dependsOn`, and a bad list fails at
  * startup. See README.md.
  */
-export const BACKUP_MODULES: BackupModule[] = orderModules([]);
+export const BACKUP_MODULES: BackupModule[] = orderModules([
+	customBlocksModule,
+	middlewaresModule,
+] as BackupModule[]);
