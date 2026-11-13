@@ -2,6 +2,7 @@ import { orderModules } from "./registry";
 import { appConfigModule } from "./resources/appConfig";
 import { customBlocksModule } from "./resources/customBlocks";
 import { integrationsModule } from "./resources/integrations";
+import { knowledgeSourcesModule } from "./resources/knowledgeSources";
 import { middlewaresModule } from "./resources/middlewares";
 import { pluginsModule } from "./resources/plugins";
 import { projectDependenciesModule } from "./resources/projectDependencies";
@@ -27,4 +28,5 @@ export const BACKUP_MODULES: BackupModule[] = orderModules([
 	routesModule,
 	workflowsModule,
 	triggersModule,
+	knowledgeSourcesModule,
 ] as BackupModule[]);
