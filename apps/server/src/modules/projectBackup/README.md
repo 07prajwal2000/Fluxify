@@ -13,7 +13,7 @@ pack, check, upgrade and import modules. It owns no resource of its own.
 | `restore.ts` | `readBackup(bytes, BACKUP_MODULES)` checks everything; `restoreBackup(plan, openProject)` writes |
 | `archive.ts` | The tar layout, encryption, integrity hash, `readManifest` |
 | `sections.ts` | Refuses too-old / too-new sections and walks the upgrade steps |
-| `resources/` | The resource modules (`customBlocks`, `middlewares`, …), their fixtures and Postgres tests |
+| `resources/` | The resource modules (`customBlocks`, `middlewares`, `routes`, …), their fixtures and Postgres tests |
 
 Versioned resources capture and restore their versions with
 `modules/versions/backup.ts` (`exportHistory`, `importHistory`,
@@ -68,7 +68,7 @@ await requestProjectCompile(id, "project restored");
 1. Write a `BackupModule<T>` next to the resource's code:
    - `name`: the section key. **Never rename it**; old archives use it.
    - `version: 1`, `minSupported: 1`, `upgrades: {}`.
-   - `dependsOn`: modules whose ids you need (e.g. routes depend on `integrations`).
+   - `dependsOn`: modules whose ids you need (e.g. routes depend on `customBlocks` and `middlewares`).
    - `schema`: a zod schema of `T`. It parses every section on export *and* on
      restore, so give optional fields a `.default()`.
    - `export(ctx)`: the project's rows as `T`. Refer to other resources **by

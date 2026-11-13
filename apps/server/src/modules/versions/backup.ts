@@ -174,14 +174,21 @@ export async function importHistory(
  * the working copy and every version alike, keeps them consistent with each
  * other (a checkout upserts by id). Ids are UUIDs, so replacing them where they
  * appear as a whole string or as a handle prefix (`<id>-source`) is exact.
+ *
+ * `value` defaults to the history itself; pass a record that holds it (with
+ * `history`) to rewrite references outside it too, such as a test suite's block
+ * hooks.
  */
-export function freshCanvasIds(history: BackupHistory): BackupHistory {
+export function freshCanvasIds<T = BackupHistory>(
+	value: T,
+	history: BackupHistory = value as BackupHistory,
+): T {
 	const snapshots = [history.working, ...history.versions.map((v) => v.snapshot)];
 	const old = new Set(snapshots.flatMap((s) => [...s.blocks, ...s.edges].map((x) => x.id)));
-	if (old.size === 0) return history;
+	if (old.size === 0) return value;
 	const fresh = new Map([...old].map((id) => [id, generateID()]));
 	const pattern = new RegExp(`"(${[...old].map(literal).join("|")})(["-])`, "g");
-	const json = JSON.stringify(history).replace(
+	const json = JSON.stringify(value).replace(
 		pattern,
 		(_, id: string, end: string) => `"${fresh.get(id)}${end}`,
 	);

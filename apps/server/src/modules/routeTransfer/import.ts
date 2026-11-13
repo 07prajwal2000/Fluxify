@@ -3,7 +3,6 @@ import { and, eq, inArray } from "drizzle-orm";
 import { setRouteMiddlewares } from "../../api/v1/middlewares/repository";
 import { requestBodySchema } from "../../api/v1/routes/create/dto";
 import createRoute from "../../api/v1/routes/create/service";
-import { createTestSuite } from "../../api/v1/test-suites/create/repository";
 import { db } from "../../db";
 import { CHAN_ON_ROUTE_CHANGE, publishMessage } from "../../db/redis";
 import { customBlocksListEntity, integrationsEntity, middlewaresEntity } from "../../db/schema";
@@ -11,7 +10,6 @@ import { BadRequestError } from "../../errors/badRequestError";
 import { SSE_BROKER_VARIANTS } from "../../lib/routeConfig";
 import { saveCanvas } from "../canvas/service";
 import { upsertResponseSchema } from "../responseSchemas/repository";
-import { replaceSuiteHooks } from "../testRunner/hooks";
 import {
 	migrateBundle,
 	ROUTE_BUNDLE_KIND,
@@ -19,6 +17,7 @@ import {
 	type RouteBundle,
 	routeBundleSchema,
 } from "./bundle";
+import { writeSuites } from "./suites";
 
 /** Reads untrusted input into a bundle, or says why it is not one. */
 export function parseBundle(raw: unknown): RouteBundle {
@@ -171,62 +170,32 @@ export async function importRouteBundle(userId: string, projectId: string, raw: 
 		};
 		await setRouteMiddlewares(id, projectId, phases, tx);
 
-		for (const suite of suites) {
-			const {
-				hooks,
-				integrationOverrides,
-				appConfigOverrideKeys,
-				setupBlock,
-				teardownBlock,
-				...fields
-			} = suite;
-			const blockOf = (name: string | null | undefined, role: string) => {
-				if (!name) return null;
-				const found = customBlocks.get(name);
-				if (!found)
-					warnings.push(
-						`Test "${suite.name}": ${role} block "${name}" doesn't exist here and was dropped.`,
-					);
-				return found ?? null;
-			};
-			const suiteId = generateID();
-			await createTestSuite(
-				{
-					...fields,
-					id: suiteId,
-					routeId: id,
-					setupBlockId: blockOf(setupBlock, "setup"),
-					teardownBlockId: blockOf(teardownBlock, "teardown"),
-					integrationOverrides: integrationOverrides.flatMap((o) => {
-						const existingId = integrations.get(o.existing);
-						const replacementId = integrations.get(o.replacement);
-						if (existingId && replacementId) return [{ existingId, newId: replacementId }];
+		await writeSuites(
+			id,
+			suites,
+			{
+				block(name, role, suite) {
+					const found = customBlocks.get(name);
+					if (!found)
 						warnings.push(
-							`Test "${suite.name}": integration override ${o.existing} → ${o.replacement} was dropped.`,
+							`Test "${suite}": ${role} block "${name}" doesn't exist here and was dropped.`,
 						);
-						return [];
-					}),
-					// values are never exported, so there is nothing to restore but the names
-					appConfigOverrides: [],
+					return found ?? null;
 				},
-				tx,
-			);
-			if (appConfigOverrideKeys.length) {
-				warnings.push(
-					`Test "${suite.name}": set the values of the app config overrides ${appConfigOverrideKeys.join(", ")}.`,
-				);
-			}
-			// ponytail: hooks are not re-run through validateHooks (it reads outside this transaction); the exporting server already validated them
-			const remapped = hooks.flatMap((h) =>
-				blockIds.has(h.blockId) ? [{ ...h, blockId: newId(h.blockId) }] : [],
-			);
-			if (remapped.length < hooks.length) {
-				warnings.push(
-					`Test "${suite.name}": ${hooks.length - remapped.length} block hook(s) had no block and were dropped.`,
-				);
-			}
-			await replaceSuiteHooks(suiteId, remapped, tx);
-		}
+				integration(o, suite) {
+					const existingId = integrations.get(o.existing);
+					const newId = integrations.get(o.replacement);
+					if (existingId && newId) return { existingId, newId };
+					warnings.push(
+						`Test "${suite}": integration override ${o.existing} → ${o.replacement} was dropped.`,
+					);
+					return null;
+				},
+				canvasBlock: (blockId) => blockIds.get(blockId),
+				warn: (message) => warnings.push(message),
+			},
+			tx,
+		);
 		return id;
 	});
 
