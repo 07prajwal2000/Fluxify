@@ -19,7 +19,15 @@ import {
 } from "../../versions/backup";
 import { buildSnapshot, restoreSnapshot } from "../../versions/snapshot";
 import type { BackupModule, IdMap } from "../types";
-import { assertCustomBlocks, BLANK_BLOCK, canvasPlaces, suiteRefs } from "./canvas";
+import {
+	assertCustomBlocks,
+	BLANK_BLOCK,
+	canvasPlaces,
+	MISSING_PLUGIN_BLOCK,
+	missingPluginWarnings,
+	pluginPlaces,
+	suiteRefs,
+} from "./canvas";
 import {
 	integrationNames,
 	integrationTableSchema,
@@ -98,13 +106,13 @@ export const routesModule: BackupModule<Section> = {
 		// v1 kept integration ids with no names
 		1: (data) => ({ ...(data as object), integrations: v1Table(data) }),
 	},
-	dependsOn: ["integrations", "customBlocks", "middlewares"],
+	dependsOn: ["integrations", "plugins", "customBlocks", "middlewares"],
 	schema,
 
 	inspect({ routes, integrations }, read) {
 		const have = restoredNames(read);
-		return routes.flatMap((r) =>
-			lostWarnings(
+		return routes.flatMap((r) => [
+			...lostWarnings(
 				`Route "${r.name}"`,
 				[
 					...canvasPlaces(r.history),
@@ -115,7 +123,13 @@ export const routesModule: BackupModule<Section> = {
 				have,
 				BLANK_ROUTE,
 			),
-		);
+			...missingPluginWarnings(
+				`Route "${r.name}"`,
+				pluginPlaces(r.history),
+				read,
+				MISSING_PLUGIN_BLOCK,
+			),
+		]);
 	},
 
 	async export({ projectId, options }) {

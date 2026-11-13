@@ -114,6 +114,8 @@ describe("integration references that don't resolve", () => {
 		expect(lost("triggers")).toEqual([
 			expect.stringContaining(`Trigger "${src.queue}" uses integrations this backup doesn't restore: its connector ("bus")`),
 			expect.stringContaining(`Trigger "${src.plugin}" uses integrations this backup doesn't restore: its connector ("pg-main")`),
+			// its plugin was never installed in the source project
+			expect.stringContaining(`Trigger "${src.plugin}" uses plugins this backup doesn't restore: "acme/kit" (its kind)`),
 		]);
 		expect(lost("projectSettings")).toEqual([expect.stringContaining('settings.ai.agentMcpIntegrations ("docs-mcp")')]);
 

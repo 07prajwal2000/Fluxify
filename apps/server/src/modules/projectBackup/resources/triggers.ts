@@ -7,6 +7,7 @@ import { db } from "../../../db";
 import { triggerGroupsEntity, triggersEntity, workflowsEntity } from "../../../db/schema";
 import { BadRequestError } from "../../../errors/badRequestError";
 import type { BackupModule } from "../types";
+import { missingPluginWarnings } from "./canvas";
 import {
 	integrationNames,
 	integrationTableSchema,
@@ -102,8 +103,8 @@ export const triggersModule: BackupModule<Section> = {
 		// v1 kept integration ids with no names
 		1: (data) => ({ ...(data as object), integrations: v1Table(data, { sourceParams: true }) }),
 	},
-	// a trigger starts a workflow, never a route
-	dependsOn: ["integrations", "workflows"],
+	// a trigger starts a workflow, never a route; a plugin trigger's plugin is in place before `afterCommit` republishes it
+	dependsOn: ["integrations", "plugins", "workflows"],
 	schema,
 
 	inspect({ triggers, integrations }, read) {
@@ -117,6 +118,14 @@ export const triggersModule: BackupModule<Section> = {
 					integrations,
 					have,
 					"It is restored switched off with that integration blank; choose one, then turn it on.",
+				),
+			),
+			...triggers.flatMap((t) =>
+				missingPluginWarnings(
+					`Trigger "${t.name}"`,
+					[{ where: "its kind", type: t.type }],
+					read,
+					"It is restored, but it doesn't run until you install and approve the plugin.",
 				),
 			),
 		];

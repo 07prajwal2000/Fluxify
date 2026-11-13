@@ -88,6 +88,8 @@ describe("integration references", () => {
 		// the source still holds its subdomain on this instance
 		expect(settings["settings.routing.subdomain"]).toBeUndefined();
 		expect(warnings).toEqual([
+			// the source never installed the plugin its plugin trigger names
+			{ section: "triggers", message: expect.stringContaining(`Trigger "${src.plugin}" uses plugins this backup doesn't restore`) },
 			{ section: "projectSettings", message: expect.stringContaining(`The subdomain "${src.subdomain}" is already used`) },
 		]);
 

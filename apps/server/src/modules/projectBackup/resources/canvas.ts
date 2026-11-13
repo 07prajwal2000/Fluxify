@@ -41,6 +41,48 @@ export function canvasPlaces(history: BackupHistory): Place[] {
 	return [...blocks].map(([key, data]) => ({ where: `block ${key}`, value: data }));
 }
 
+/** plugin block types are `<scope>/<name>/<block>` and trigger kinds `plugin:<scope>/<name>/<kind>` */
+const pluginOf = (type: string) => {
+	const parts = type.replace(/^plugin:/, "").split("/");
+	return parts.length > 2 ? parts.slice(0, 2).join("/") : undefined;
+};
+
+/** inspect: each plugin block that runs now or in production, by key */
+export function pluginPlaces(history: BackupHistory) {
+	const prod = history.versions.find((v) => v.number === history.prod)?.snapshot;
+	const places = new Map<string, string>();
+	for (const snapshot of [history.working, ...(prod ? [prod] : [])])
+		for (const { key, type } of snapshot.blocks) places.set(`block ${key}`, type);
+	return [...places].map(([where, type]) => ({ where, type }));
+}
+
+/**
+ * inspect: one warning per resource that uses plugins the backup doesn't
+ * restore (its plugins section left out, or the plugin not in it), naming each
+ * plugin and where it is used. The resource restores as it is regardless.
+ */
+export function missingPluginWarnings(
+	owner: string,
+	places: { where: string; type: string }[],
+	read: (section: string) => unknown,
+	consequence: string,
+): string[] {
+	const section = read("plugins") as { plugins: { name: string }[] } | undefined;
+	const have = new Set(section?.plugins.map((p) => p.name));
+	const lost = new Map<string, string[]>();
+	for (const { where, type } of places) {
+		const plugin = pluginOf(type);
+		if (plugin && !have.has(plugin)) lost.set(plugin, [...(lost.get(plugin) ?? []), where]);
+	}
+	if (!lost.size) return [];
+	const parts = [...lost].map(([plugin, where]) => `"${plugin}" (${where.join(", ")})`);
+	return [`${owner} uses plugins this backup doesn't restore: ${parts.join("; ")}. ${consequence}`];
+}
+
+/** what a canvas block of a missing plugin does after a restore */
+export const MISSING_PLUGIN_BLOCK =
+	"Those blocks are restored as they are, but they won't compile until you install and approve the plugin.";
+
 /**
  * Suite references in a backup: setup, teardown and loader blocks by name, and
  * refused when missing; hooks on the restored working copy's (fresh) block ids.

@@ -12,10 +12,11 @@ import type { BackupModule } from "../../types";
 import { appConfigModule } from "../appConfig";
 import { customBlocksModule } from "../customBlocks";
 import { integrationsModule } from "../integrations";
+import { pluginsModule } from "../plugins";
 import { middlewaresModule } from "../middlewares";
 import { routesModule } from "../routes";
 
-const MODULES = [appConfigModule, integrationsModule, customBlocksModule, middlewaresModule, routesModule] as BackupModule[];
+const MODULES = [appConfigModule, integrationsModule, pluginsModule, customBlocksModule, middlewaresModule, routesModule] as BackupModule[];
 const FIXTURES = join(import.meta.dir, "..", "fixtures");
 
 let stack: Stack;

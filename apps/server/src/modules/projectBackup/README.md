@@ -13,7 +13,7 @@ pack, check, upgrade and import modules. It owns no resource of its own.
 | `restore.ts` | `readBackup(bytes, BACKUP_MODULES)` checks everything; `restoreBackup(plan, openProject)` writes |
 | `archive.ts` | The tar layout, encryption, integrity hash, `readManifest` |
 | `sections.ts` | Refuses too-old / too-new sections and walks the upgrade steps |
-| `resources/` | The resource modules (`appConfig`, `integrations`, `projectSettings`, `projectDependencies`, `customBlocks`, `middlewares`, `routes`, `workflows`, `triggers`, …), their fixtures and Postgres tests |
+| `resources/` | The resource modules (`appConfig`, `integrations`, `projectSettings`, `projectDependencies`, `plugins`, `customBlocks`, `middlewares`, `routes`, `workflows`, `triggers`, …), their fixtures and Postgres tests |
 
 Versioned resources capture and restore their versions with
 `modules/versions/backup.ts` (`exportHistory`, `importHistory`,

@@ -12,7 +12,15 @@ import {
 } from "../../versions/backup";
 import { buildSnapshot, restoreSnapshot } from "../../versions/snapshot";
 import type { BackupModule } from "../types";
-import { assertCustomBlocks, BLANK_BLOCK, canvasPlaces, suiteRefs } from "./canvas";
+import {
+	assertCustomBlocks,
+	BLANK_BLOCK,
+	canvasPlaces,
+	MISSING_PLUGIN_BLOCK,
+	missingPluginWarnings,
+	pluginPlaces,
+	suiteRefs,
+} from "./canvas";
 import {
 	integrationNames,
 	integrationTableSchema,
@@ -64,13 +72,13 @@ export const workflowsModule: BackupModule<Section> = {
 		// v1 kept integration ids with no names
 		1: (data) => ({ ...(data as object), integrations: v1Table(data) }),
 	},
-	dependsOn: ["integrations", "customBlocks"],
+	dependsOn: ["integrations", "plugins", "customBlocks"],
 	schema,
 
 	inspect({ workflows, integrations }, read) {
 		const have = restoredNames(read);
-		return workflows.flatMap((w) =>
-			lostWarnings(
+		return workflows.flatMap((w) => [
+			...lostWarnings(
 				`Workflow "${w.name}"`,
 				[
 					...canvasPlaces(w.history),
@@ -80,7 +88,13 @@ export const workflowsModule: BackupModule<Section> = {
 				have,
 				`${BLANK_BLOCK} A blank test override is dropped.`,
 			),
-		);
+			...missingPluginWarnings(
+				`Workflow "${w.name}"`,
+				pluginPlaces(w.history),
+				read,
+				MISSING_PLUGIN_BLOCK,
+			),
+		]);
 	},
 
 	async export({ projectId, options }) {

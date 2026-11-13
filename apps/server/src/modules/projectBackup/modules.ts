@@ -3,6 +3,7 @@ import { appConfigModule } from "./resources/appConfig";
 import { customBlocksModule } from "./resources/customBlocks";
 import { integrationsModule } from "./resources/integrations";
 import { middlewaresModule } from "./resources/middlewares";
+import { pluginsModule } from "./resources/plugins";
 import { projectDependenciesModule } from "./resources/projectDependencies";
 import { projectSettingsModule } from "./resources/projectSettings";
 import { routesModule } from "./resources/routes";
@@ -20,6 +21,7 @@ export const BACKUP_MODULES: BackupModule[] = orderModules([
 	integrationsModule,
 	projectSettingsModule,
 	projectDependenciesModule,
+	pluginsModule,
 	customBlocksModule,
 	middlewaresModule,
 	routesModule,
