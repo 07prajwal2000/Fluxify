@@ -5,18 +5,21 @@ import { openArchive, type Payload } from "./archive";
 import type { BackupManifest } from "./manifest";
 import { orderModules } from "./registry";
 import { upgradeSection } from "./sections";
-import type { BackupFiles, BackupModule, IdMap } from "./types";
+import type { BackupFiles, BackupModule, IdMap, RestoreWarning } from "./types";
 
 export type RestorePlan = {
 	manifest: BackupManifest;
 	/** in import order, already upgraded and parsed */
 	sections: { module: BackupModule; data: unknown; files: BackupFiles }[];
+	/** what the modules' `inspect` found, to show before the user confirms */
+	warnings: RestoreWarning[];
 };
 
 /**
  * Everything a restore checks, with nothing written: the archive, its hash,
  * the key, and every section's version and shape. A registered module whose
  * section is absent (an older backup, or one left out) imports nothing.
+ * Each module's `inspect` adds its warnings to the plan.
  */
 export async function readBackup(tgz: Uint8Array, modules: BackupModule[]): Promise<RestorePlan> {
 	const { manifest, payload } = await openArchive(tgz);
@@ -27,17 +30,16 @@ export async function readBackup(tgz: Uint8Array, modules: BackupModule[]): Prom
 		);
 
 	const sections: RestorePlan["sections"] = [];
+	const warnings: RestoreWarning[] = [];
 	for (const module of orderModules(modules)) {
 		const version = manifest.sections[module.name];
 		if (version === undefined) continue;
-		const raw = readJson(payload, module.name);
-		sections.push({
-			module,
-			data: upgradeSection(module, version, raw),
-			files: filesOf(payload, module.name),
-		});
+		const data = upgradeSection(module, version, readJson(payload, module.name));
+		sections.push({ module, data, files: filesOf(payload, module.name) });
+		for (const message of module.inspect?.(data) ?? [])
+			warnings.push({ section: module.name, message });
 	}
-	return { manifest, sections };
+	return { manifest, sections, warnings };
 }
 
 function readJson(payload: Payload, name: string): unknown {
@@ -71,25 +73,33 @@ export type OpenProject = (
  * Imports a checked plan into a new project, each module in dependency order, in
  * one transaction, then runs the modules' `afterCommit` work. That work never
  * fails the restore: the project is already committed, and a retry would make a
- * second one. A failure is logged: the boot reconcile re-registers schedules,
- * and saving a trigger republishes it.
+ * second one. A failure is logged and its warning returned with the plan's.
  */
-export async function restoreBackup(plan: RestorePlan, openProject: OpenProject): Promise<string> {
-	let pending: (() => Promise<void>)[] = [];
+export async function restoreBackup(
+	plan: RestorePlan,
+	openProject: OpenProject,
+): Promise<{ projectId: string; warnings: RestoreWarning[] }> {
+	type Pending = RestoreWarning & { work: () => Promise<void> };
+	let pending: Pending[] = [];
 	const projectId = await openProject(async (tx, projectId) => {
 		// a retried transaction starts over
 		pending = [];
 		const ids = idMap();
 		const { mode } = plan.manifest;
-		const afterCommit = (work: () => Promise<void>) => void pending.push(work);
-		for (const { module, data, files } of plan.sections)
+		for (const { module, data, files } of plan.sections) {
+			const section = module.name;
+			const afterCommit = (work: () => Promise<void>, message: string) =>
+				void pending.push({ section, message, work });
 			await module.import({ tx, projectId, mode, files, ids, afterCommit }, data);
+		}
 	});
-	for (const work of pending)
-		await work().catch((error) =>
-			logger.error(`[backup] after restoring ${projectId}: ${String(error)}`, "BACKUP"),
-		);
-	return projectId;
+	const warnings = [...plan.warnings];
+	for (const { work, ...warning } of pending)
+		await work().catch((error) => {
+			logger.error(`[backup] after restoring ${projectId}: ${String(error)}`, "BACKUP");
+			warnings.push(warning);
+		});
+	return { projectId, warnings };
 }
 
 function idMap(): IdMap {

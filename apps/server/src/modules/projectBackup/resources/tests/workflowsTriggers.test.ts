@@ -5,7 +5,7 @@
 // The real project compile must publish the restored promoted version to
 // production with no promotion of its own, and the restored schedule must be
 // registered in NATS, so it fires in the new project.
-import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { afterAll, beforeAll, describe, expect, it, spyOn } from "bun:test";
 import { join } from "node:path";
 import { createStack, type Stack, short } from "../../../deployments/tests/blockHarness";
 import { createBackup } from "../../backup";
@@ -107,9 +107,8 @@ const backup = (
 		MODULES,
 	);
 
-async function restore(bytes: Uint8Array) {
-	const plan = await readBackup(bytes, MODULES);
-	return await restoreBackup(plan, (work) =>
+const restorePlan = (plan: Awaited<ReturnType<typeof readBackup>>) =>
+	restoreBackup(plan, (work) =>
 		db.transaction(async (tx: any) => {
 			const id = Bun.randomUUIDv7();
 			await tx.insert(schema.projectsEntity).values({ id, name: id, slug: id });
@@ -117,7 +116,9 @@ async function restore(bytes: Uint8Array) {
 			return id;
 		}),
 	);
-}
+
+const restore = async (bytes: Uint8Array) =>
+	(await restorePlan(await readBackup(bytes, MODULES))).projectId;
 
 const byName = async (table: any, projectId: string, name: string) => {
 	const { and, eq } = await import("drizzle-orm");
@@ -250,6 +251,63 @@ describe("workflows and triggers backup", () => {
 		const restored = restore((await backup(project, { sections: ["workflows"] })).bytes);
 		await expect(restored).rejects.toThrow(`calls the custom block "${block.name}", which isn't in this backup`);
 		expect(await count("workflows", row.name)).toBe(1);
+	});
+
+	it("restores a group over this instance's cap as it was, warns, and keeps it editable but full", async () => {
+		const src = await sourceProject();
+		const [group] = await stack.sql`SELECT id FROM trigger_groups WHERE project_id = ${src.project} AND name = ${src.group}`;
+		for (let i = 0; i < 6; i++)
+			await stack.sql`INSERT INTO triggers (id, name, type, project_id, workflow_id, group_id, schedule, timezone, active, dev_active)
+				VALUES (${Bun.randomUUIDv7()}, ${`t-${short()}`}, 'schedule', ${src.project}, ${src.workflow}, ${group.id}, '@every 1h', 'UTC', true, true)`;
+		const prev = process.env.MAX_TRIGGERS_PER_GROUP;
+		process.env.MAX_TRIGGERS_PER_GROUP = "5";
+		try {
+			const plan = await readBackup((await backup(src.project)).bytes, MODULES);
+			expect(plan.warnings).toEqual([
+				{
+					section: "triggers",
+					message: expect.stringContaining(`Group "${src.group}" has 7 triggers; this instance allows 5 per group`),
+				},
+			]);
+			const { projectId, warnings } = await restorePlan(plan);
+			expect(warnings).toEqual(plan.warnings);
+
+			const restored = await stack.sql`SELECT t.id, t.active, t.dev_active FROM triggers t
+				JOIN trigger_groups g ON g.id = t.group_id WHERE g.project_id = ${projectId} AND g.name = ${src.group}`;
+			expect(restored.map((t: any) => [t.active, t.dev_active])).toEqual(Array(7).fill([true, true]));
+			const subjects = await scheduled(projectId, "production");
+			for (const t of restored) expect(subjects.some((s) => s.endsWith(t.id))).toBe(true);
+
+			const { createTrigger, updateTrigger } = await import("../../../../api/v1/triggers/service");
+			const acl = [{ projectId, role: "creator" }] as any;
+			const saved = await updateTrigger(restored[0].id, { description: "edited" }, acl, src.as.user);
+			expect(saved.description).toBe("edited");
+			const groupId = (await byName(schema.triggerGroupsEntity, projectId, src.group)).id;
+			const eighth = { name: `t-${short()}`, type: "internal", projectId, groupId } as any;
+			await expect(createTrigger(src.as.user, eighth, acl)).rejects.toThrow("holds at most 5 triggers");
+		} finally {
+			if (prev === undefined) delete process.env.MAX_TRIGGERS_PER_GROUP;
+			else process.env.MAX_TRIGGERS_PER_GROUP = prev;
+		}
+	});
+
+	it("returns a trigger that could not be republished as a warning, and still restores", async () => {
+		const src = await sourceProject();
+		const service = await import("../../../../api/v1/triggers/service");
+		const original = service.republish;
+		const spy = spyOn(service, "republish").mockImplementation(async (t) => {
+			if (t.name === src.trigger) throw new Error("broker down");
+			return original(t);
+		});
+		try {
+			const { projectId, warnings } = await restorePlan(await readBackup((await backup(src.project)).bytes, MODULES));
+			expect(warnings).toEqual([
+				{ section: "triggers", message: `Trigger "${src.trigger}" could not be activated. Open it and save it once.` },
+			]);
+			expect(await byName(schema.triggersEntity, projectId, src.trigger)).toBeDefined();
+		} finally {
+			spy.mockRestore();
+		}
 	});
 
 	it("restores the committed v1 fixture", async () => {

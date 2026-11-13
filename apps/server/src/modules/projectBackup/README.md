@@ -47,7 +47,8 @@ secret values. `manifest.json` is never encrypted, so put nothing secret in it.
 
 ```ts
 const plan = await readBackup(bytes, BACKUP_MODULES);
-const id = await restoreBackup(plan, (work) =>
+// show plan.warnings ({ section, message }[]) before the user confirms
+const { projectId: id, warnings } = await restoreBackup(plan, (work) =>
 	db.transaction(async (tx) => {
 		const projectId = await createProject({ ... }, tx);
 		await work(tx, projectId);
@@ -68,8 +69,18 @@ await requestProjectCompile(id, "project restored");
    compile does not register triggers, so the `triggers` module uses this to
    republish each restored trigger as a save would: a schedule in NATS, or a
    queue trigger's artifact, in each environment its workflow is live in. A
-   failure there is logged, not thrown (the project is already committed); the
-   boot reconcile re-registers schedules. The caller has nothing extra to call.
+   failure there is logged, not thrown (the project is already committed), and
+   the message passed with the work (`afterCommit(work, warning)`) comes back in
+   `warnings`. The caller has nothing extra to call.
+6. **Warnings.** One channel, plain strings tagged with their section. A
+   module's optional `inspect(data)` runs in `readBackup` after the upgrade and
+   the parse, writes nothing, and returns what the user should know about
+   restoring that data here (a trigger group over this instance's
+   `MAX_TRIGGERS_PER_GROUP`, say). They land in `plan.warnings`, so a caller can
+   show them before the user confirms. `restoreBackup` returns
+   `{ projectId, warnings }`: the plan's warnings plus one per failed
+   `afterCommit` task. A warning never stops a restore; refuse with a
+   `BadRequestError` instead.
 
 ## Adding a resource module
 

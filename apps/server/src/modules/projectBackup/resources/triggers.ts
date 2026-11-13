@@ -1,5 +1,6 @@
 import { and, asc, eq, getTableColumns, isNull } from "drizzle-orm";
 import { z } from "zod";
+import { maxTriggersPerGroup } from "../../../api/v1/triggers/groupCap";
 import { ensureDefaultGroup } from "../../../api/v1/triggers/repository";
 import { republish } from "../../../api/v1/triggers/service";
 import { db } from "../../../db";
@@ -17,7 +18,11 @@ import type { BackupModule } from "../types";
  * republished as a save would, which registers a schedule in NATS or puts a
  * queue trigger's artifact, in each environment its workflow is live in. The
  * project compile does not do this, and a NATS write inside the transaction
- * would outlive a rollback.
+ * would outlive a rollback. One that fails comes back as a restore warning.
+ *
+ * The group cap (`MAX_TRIGGERS_PER_GROUP`) is not enforced: every trigger
+ * restores as it was, and `inspect` warns about each group over it. An
+ * over-cap group still saves and runs; it only refuses new triggers.
  *
  * `integrationId`, and integration ids among a plugin trigger's `source`
  * params, are copied as they are until #1100 remaps them.
@@ -67,6 +72,19 @@ export const triggersModule: BackupModule<Section> = {
 	// a trigger starts a workflow, never a route; #1100 adds "integrations"
 	dependsOn: ["workflows"],
 	schema,
+
+	// another instance's cap, or a cap lowered since: restore as is, and say so
+	inspect({ triggers }) {
+		const cap = maxTriggersPerGroup();
+		const counts = new Map<string, number>();
+		for (const { group } of triggers) counts.set(group, (counts.get(group) ?? 0) + 1);
+		return [...counts]
+			.filter(([, n]) => n > cap)
+			.map(
+				([group, n]) =>
+					`Group "${group}" has ${n} triggers; this instance allows ${cap} per group (MAX_TRIGGERS_PER_GROUP). They will all be restored, so this group will be over the limit. You can't add more triggers to it until it is back under.`,
+			);
+	},
 
 	async export({ projectId }) {
 		return await db.transaction(async (tx) => {
@@ -132,7 +150,10 @@ export const triggersModule: BackupModule<Section> = {
 				.values({ ...fields, projectId, groupId, workflowId })
 				.returning();
 			// one at a time, so one that fails does not hold the rest back
-			afterCommit(() => republish(row!));
+			afterCommit(
+				() => republish(row!),
+				`Trigger "${row!.name}" could not be activated. Open it and save it once.`,
+			);
 		}
 	},
 };
