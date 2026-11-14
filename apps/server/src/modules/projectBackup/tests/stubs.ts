@@ -104,7 +104,7 @@ export const openProject: OpenProject = async (work) => {
 };
 
 export async function restore(tgz: Uint8Array, modules: BackupModule[] = STUBS) {
-	return restoreBackup(await readBackup(tgz, modules), openProject);
+	return (await restoreBackup(await readBackup(tgz, modules), openProject)).projectId;
 }
 
 /** a project with two tags and two notes, one tagged and one not */

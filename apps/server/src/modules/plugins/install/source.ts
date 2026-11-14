@@ -20,16 +20,14 @@ import { pluginsRoot, readTree } from "../sources/tree";
 type Source = Pick<PluginArtifact, "source" | "location" | "integrity">;
 
 export async function fetchPluginFiles(artifact: Source): Promise<PluginFiles> {
-	switch (artifact.source) {
-		case "upload":
-		case "url":
-			return untar(await fromObjectStore(artifact));
-		case "npm":
-			return untar(await fromRegistry(artifact));
-		case "fs":
-			return fromDirectory(artifact);
-	}
+	return artifact.source === "fs"
+		? fromDirectory(artifact)
+		: untar(await fetchPluginTarball({ ...artifact, source: artifact.source }));
 }
+
+/** the checked tarball of a plugin that has one (every source but `fs`), as it was approved */
+export const fetchPluginTarball = (artifact: Source & { source: "upload" | "url" | "npm" }) =>
+	artifact.source === "npm" ? fromRegistry(artifact) : fromObjectStore(artifact);
 
 async function fromObjectStore({ location, integrity }: Source) {
 	const key = objectKeyOf(location);

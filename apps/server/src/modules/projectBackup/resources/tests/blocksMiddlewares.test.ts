@@ -8,10 +8,13 @@ import { createStack, type Stack } from "../../../deployments/tests/blockHarness
 import { createBackup } from "../../backup";
 import { readBackup, restoreBackup } from "../../restore";
 import type { BackupModule } from "../../types";
+import { appConfigModule } from "../appConfig";
 import { customBlocksModule } from "../customBlocks";
+import { integrationsModule } from "../integrations";
+import { pluginsModule } from "../plugins";
 import { middlewaresModule } from "../middlewares";
 
-const MODULES = [customBlocksModule, middlewaresModule] as BackupModule[];
+const MODULES = [appConfigModule, integrationsModule, pluginsModule, customBlocksModule, middlewaresModule] as BackupModule[];
 const FIXTURES = join(import.meta.dir, "..", "fixtures");
 
 let stack: Stack;
@@ -56,7 +59,7 @@ const backup = (projectId: string, includeVersionHistory = false, mode: "backup"
 
 async function restore(bytes: Uint8Array) {
 	const plan = await readBackup(bytes, MODULES);
-	return await restoreBackup(plan, (work) =>
+	const { projectId } = await restoreBackup(plan, (work) =>
 		db.transaction(async (tx: any) => {
 			const id = Bun.randomUUIDv7();
 			await tx.insert(schema.projectsEntity).values({ id, name: id, slug: id });
@@ -64,6 +67,7 @@ async function restore(bytes: Uint8Array) {
 			return id;
 		}),
 	);
+	return projectId;
 }
 
 const byName = async (table: any, projectId: string, name: string) => {

@@ -1,4 +1,3 @@
-import { CUSTOM_BLOCK_NAME_PREFIX } from "@fluxify/lib";
 import { asc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { patchRouteConfig, readRouteConfig } from "../../../api/v1/routes/routeConfigRepository";
@@ -12,7 +11,6 @@ import {
 import { BadRequestError } from "../../../errors/badRequestError";
 import { bundleSuiteSchema, exportSuites, writeSuites } from "../../transfer/suites";
 import {
-	type BackupHistory,
 	backupHistorySchema,
 	exportHistory,
 	freshCanvasIds,
@@ -20,6 +18,27 @@ import {
 } from "../../versions/backup";
 import { buildSnapshot, restoreSnapshot } from "../../versions/snapshot";
 import type { BackupModule, IdMap } from "../types";
+import {
+	assertCustomBlocks,
+	BLANK_BLOCK,
+	canvasPlaces,
+	MISSING_PLUGIN_BLOCK,
+	missingPluginWarnings,
+	pluginPlaces,
+	suiteRefs,
+} from "./canvas";
+import {
+	integrationNames,
+	integrationTableSchema,
+	localIntegrations,
+	lostWarnings,
+	remapIntegrations,
+	restoredNames,
+	tableFor,
+	v1Table,
+} from "./integrationRefs";
+
+const BLANK_ROUTE = `${BLANK_BLOCK} A blank SSE broker leaves the route without one, and a blank test override is dropped.`;
 
 /**
  * Every route of a project (#1097). The canvas, path, schemas, response schemas
@@ -29,8 +48,9 @@ import type { BackupModule, IdMap } from "../types";
  * beside it.
  *
  * Middlewares travel by name. A custom block is called by its name already.
- * Integration ids (in block data, the SSE broker and suite overrides) are
- * copied as they are until #1100 restores integrations and remaps them.
+ * Integration ids (in block data, the SSE broker and suite overrides) resolve
+ * through the section's integration table (#1100, v2); one that doesn't is
+ * blanked: the block has none, the route no SSE broker, the override is dropped.
  */
 
 const suiteSchema = bundleSuiteSchema;
@@ -49,7 +69,7 @@ const routeSchema = z.object({
 	history: backupHistorySchema,
 });
 
-const schema = z.object({ routes: z.array(routeSchema) });
+const schema = z.object({ routes: z.array(routeSchema), integrations: integrationTableSchema });
 type Section = z.infer<typeof schema>;
 
 type Phases = { before: string[]; after: string[] };
@@ -77,34 +97,42 @@ const localMiddlewares = (ids: IdMap, route: string) => (snapshot: VersionSnapsh
 		}),
 	);
 
-/**
- * What the route runs now and in production must call only custom blocks the
- * backup restores. An older version is copied as it is: it only runs again if
- * someone checks it out, and the canvas save checks it then.
- */
-function assertCustomBlocks(ids: IdMap, route: string, history: BackupHistory) {
-	const prod = history.versions.find((v) => v.number === history.prod)?.snapshot;
-	for (const snapshot of [history.working, ...(prod ? [prod] : [])]) {
-		for (const { type } of snapshot.blocks) {
-			if (type.startsWith(CUSTOM_BLOCK_NAME_PREFIX) && !ids.get("customBlocks", type))
-				throw new BadRequestError(
-					`Route "${route}" calls the custom block "${type}", which isn't in this backup.`,
-				);
-		}
-	}
-}
-
 export const routesModule: BackupModule<Section> = {
 	name: "routes",
-	version: 1,
+	version: 2,
 	minSupported: 1,
-	upgrades: {},
-	// integration ids are copied as they are; #1100 adds "integrations" and remaps them
-	dependsOn: ["customBlocks", "middlewares"],
+	upgrades: {
+		// v1 kept integration ids with no names
+		1: (data) => ({ ...(data as object), integrations: v1Table(data) }),
+	},
+	dependsOn: ["integrations", "plugins", "customBlocks", "middlewares"],
 	schema,
 
+	inspect({ routes, integrations }, read) {
+		const have = restoredNames(read);
+		return routes.flatMap((r) => [
+			...lostWarnings(
+				`Route "${r.name}"`,
+				[
+					...canvasPlaces(r.history),
+					{ where: "SSE broker", value: r.config.sseBrokerId },
+					...r.suites.map((s) => ({ where: `test "${s.name}"`, value: s.integrationOverrides })),
+				],
+				integrations,
+				have,
+				BLANK_ROUTE,
+			),
+			...missingPluginWarnings(
+				`Route "${r.name}"`,
+				pluginPlaces(r.history),
+				read,
+				MISSING_PLUGIN_BLOCK,
+			),
+		]);
+	},
+
 	async export({ projectId, options }) {
-		const routes = await db.transaction(async (tx) => {
+		const data = await db.transaction(async (tx) => {
 			const middlewares = await tx
 				.select({ id: middlewaresEntity.id, name: middlewaresEntity.name })
 				.from(middlewaresEntity)
@@ -152,16 +180,22 @@ export const routesModule: BackupModule<Section> = {
 					),
 				});
 			}
-			return out;
+			const names = await integrationNames(projectId, tx);
+			return { routes: out, integrations: tableFor(out, names) };
 		});
-		return { data: { routes } };
+		return { data };
 	},
 
-	async import({ tx, projectId, ids }, { routes }) {
-		for (const raw of routes) {
+	async import({ tx, projectId, ids }, { routes, integrations }) {
+		const lookup = localIntegrations(integrations, ids);
+		for (const route of routes) {
+			const raw = remapIntegrations(route, lookup);
 			// one fresh id per canvas id, in the versions and the suites' hooks alike
 			const { history, suites, config, ...fields } = freshCanvasIds(raw, raw.history);
-			assertCustomBlocks(ids, fields.name, history);
+			// a broker that didn't resolve is none
+			if (config.sseBrokerId === "") config.sseBrokerId = null;
+			const owner = `Route "${fields.name}"`;
+			assertCustomBlocks(ids, owner, history);
 			const local = localMiddlewares(ids, fields.name);
 
 			const [row] = await tx
@@ -174,26 +208,7 @@ export const routesModule: BackupModule<Section> = {
 			await restoreSnapshot("route", target, local(history.working as VersionSnapshot), tx);
 			await importHistory("route", target, history, local, tx);
 
-			const canvas = new Set(history.working.blocks.map((b) => b.id));
-			await writeSuites(
-				{ routeId: target.id },
-				suites,
-				{
-					block(name, role, suite) {
-						const id = ids.get("customBlocks", name);
-						if (!id)
-							throw new BadRequestError(
-								`Route "${fields.name}", test "${suite}": the ${role} block "${name}" isn't in this backup.`,
-							);
-						return id;
-					},
-					// ids, until #1100
-					integration: (o) => ({ existingId: o.existing, newId: o.replacement }),
-					canvasBlock: (id) => (canvas.has(id) ? id : undefined),
-					warn: () => {},
-				},
-				tx,
-			);
+			await writeSuites({ routeId: target.id }, suites, suiteRefs(ids, owner, history), tx);
 			ids.set("routes", fields.name, target.id);
 		}
 	},
