@@ -1965,3 +1965,50 @@ export const auditEventsEntity = pgTable(
 		index("idx_audit_events_ts").on(table.ts),
 	],
 );
+
+/* ============================================================================
+ * 11. PROJECT BACKUPS (#1103)
+ * ============================================================================ */
+
+export const BACKUP_TYPES = ["manual", "object_storage"] as const;
+export const BACKUP_STATUSES = ["running", "succeeded", "failed"] as const;
+
+/**
+ * One backup of a project: its history, and for a manual one where the archive
+ * is held until it expires. `object_storage` rows (#1106) use the same table;
+ * their `destinationKey` is the object's key in the bucket, which is never
+ * cleaned up here. A row outlives its archive: `destinationKey` goes null when
+ * a manual archive expires, and the row stays as history.
+ */
+export const projectBackupsEntity = pgTable(
+	"project_backups",
+	{
+		id: varchar({ length: 50 })
+			.primaryKey()
+			.$defaultFn(() => generateID()),
+		projectId: varchar("project_id", { length: 50 })
+			.references(() => projectsEntity.id, { onDelete: "cascade" })
+			.notNull(),
+		type: varchar({ length: 20 }).$type<(typeof BACKUP_TYPES)[number]>().notNull(),
+		mode: varchar({ length: 20 }).$type<"backup" | "template">().notNull(),
+		/** the resource sections that were asked for */
+		sections: jsonb().$type<string[]>().notNull(),
+		/** each written section's format version; empty until the run finishes */
+		formatVersions: jsonb("format_versions").$type<Record<string, number>>().default({}).notNull(),
+		/** the Fluxify release that made it; null until the run finishes */
+		release: varchar({ length: 100 }),
+		sizeBytes: integer("size_bytes"),
+		status: varchar({ length: 20 })
+			.$type<(typeof BACKUP_STATUSES)[number]>()
+			.default("running")
+			.notNull(),
+		error: text(),
+		destinationKey: text("destination_key"),
+		createdBy: varchar("created_by", { length: 50 }).references(() => systemUsers.id, {
+			onDelete: "set null",
+		}),
+		createdAt: timestamp("created_at").defaultNow().notNull(),
+		finishedAt: timestamp("finished_at"),
+	},
+	(table) => [index("idx_project_backups_project_created").on(table.projectId, table.createdAt)],
+);

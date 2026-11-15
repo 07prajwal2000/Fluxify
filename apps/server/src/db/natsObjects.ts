@@ -23,3 +23,22 @@ export function pluginObjects(): Promise<ObjectBucket> {
 		});
 	return bucket;
 }
+
+/**
+ * Manual project backups (#1103) wait here until they are downloaded or
+ * expire (`modules/projectBackup/archives.ts`). Separate from the plugin
+ * bucket so a purge of one can never touch the other.
+ */
+export const BACKUP_BUCKET = "fluxify_backups";
+
+let backups: Promise<ObjectBucket> | undefined;
+
+export function backupObjects(): Promise<ObjectBucket> {
+	backups ??= initializeNats()
+		.then((nc) => openObjectBucket(nc, BACKUP_BUCKET))
+		.catch((error) => {
+			backups = undefined;
+			throw error;
+		});
+	return backups;
+}

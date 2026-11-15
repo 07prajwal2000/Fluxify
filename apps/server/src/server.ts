@@ -162,6 +162,11 @@ async function main() {
 		await onSystemTick("daily", "agent-conversation-retention", async () => {
 			await deleteExpiredAgentConversations();
 		});
+		// Manual backups (#1103): archives past their retention go, interrupted runs fail
+		const { expireBackups } = await import("./modules/projectBackup/archives");
+		await onSystemTick("daily", "backup-retention", async () => {
+			await expireBackups();
+		});
 		// Plugin health (#861): one admin replica runs each tick (shared durable consumer)
 		const { scanAllPlugins } = await import("./modules/plugins/scanner");
 		await onSystemTick("hourly", "plugin-scan", scanAllPlugins);

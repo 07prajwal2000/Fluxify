@@ -76,3 +76,26 @@ export function restoredSource(v: StoredVersion, key: string, bytes: Uint8Array)
 	}
 	return { source: "upload" as const, location: key, integrity };
 }
+
+/**
+ * `tarballOf` for a backup: a version that can't be read fails the whole
+ * backup, so the error names the plugin and says what to do about it.
+ */
+export async function exportTarball(name: string, v: StoredVersion) {
+	try {
+		return await tarballOf(v);
+	} catch (error) {
+		// the source already says "approve it again"; the advice below covers that
+		const why = (error instanceof Error ? error.message : String(error)).replace(
+			/; approve it again$/,
+			"",
+		);
+		const fix =
+			v.source === "fs"
+				? "Approve the changed version again (Settings → Plugins), check that FLUXIFY_PLUGINS_DIR is mounted on the admin, or untick Plugins for this backup."
+				: "Try again, or untick Plugins for this backup.";
+		throw new BadRequestError(
+			`Plugin "${name}" ${v.version} couldn't be read for the backup: ${why}. ${fix}`,
+		);
+	}
+}

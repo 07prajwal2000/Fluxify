@@ -34,6 +34,8 @@ import {
  */
 
 const SUBDOMAIN = "settings.routing.subdomain";
+/** the last backup's README (#1103) travels in the archive itself, not as a setting of the copy */
+const NOT_BACKED_UP = "settings.backup.readme";
 
 const schema = z.object({
 	settings: z.array(z.object({ key: z.string().min(1), value: z.string() })),
@@ -87,7 +89,9 @@ export const projectSettingsModule: BackupModule<Section> = {
 				.select({ key: projectSettingsEntity.key, value: projectSettingsEntity.value })
 				.from(projectSettingsEntity)
 				.where(eq(projectSettingsEntity.projectId, projectId));
-			const settings = rows.map((r) => ({ key: r.key, value: r.value }));
+			const settings = rows
+				.filter((r) => r.key !== NOT_BACKED_UP)
+				.map((r) => ({ key: r.key, value: r.value }));
 			const names = await integrationNames(projectId, tx);
 			return {
 				data: {

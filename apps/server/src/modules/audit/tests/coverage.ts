@@ -96,6 +96,8 @@ export const AUDITED: Record<string, string> = {
 	"update-knowledge-source-page": `${V}/knowledge-sources/service.ts`,
 	"refetch-knowledge-source": `${V}/knowledge-sources/service.ts`,
 	"delete-knowledge-source": `${V}/knowledge-sources/service.ts`,
+	// project backups (#1103); the download is a GET, audited in the same service
+	"start-backup": `${V}/backups/service.ts`,
 	// test suites and their runs
 	"create-test-suite": `${V}/test-suites/create/service.ts`,
 	"update-test-suite": `${V}/test-suites/update/service.ts`,

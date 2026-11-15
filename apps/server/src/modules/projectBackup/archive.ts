@@ -21,6 +21,9 @@ export type Payload = Map<string, Uint8Array>;
 
 const MANIFEST = "manifest.json";
 const SEALED = "payload.enc";
+/** The author's note, at the archive root and never sealed, so it can be read before a restore. */
+const README = "README.md";
+export const MAX_README_BYTES = 64 * 1024;
 
 /** ponytail: one cap on everything unpacked (the zip-bomb guard); archives sit in memory, stream them if projects outgrow it */
 export const MAX_UNPACKED_BYTES = 512 * 1024 * 1024;
@@ -57,16 +60,24 @@ const pack = (files: Payload | Record<string, Uint8Array>) =>
 
 export type ManifestHead = Omit<BackupManifest, "kind" | "format" | "integrity">;
 
-export async function writeArchive(head: ManifestHead, payload: Payload) {
+/** what the integrity hash covers: the payload and, when there is one, the README */
+const hashed = (payload: Payload, readme?: Uint8Array): Payload =>
+	readme ? new Map([...payload, [README, readme]]) : payload;
+
+export async function writeArchive(head: ManifestHead, payload: Payload, readme?: string) {
+	const note = readme?.trim() ? new TextEncoder().encode(readme) : undefined;
+	if (note && note.length > MAX_README_BYTES)
+		throw new BadRequestError(`The README is longer than ${MAX_README_BYTES / 1024} KB.`);
 	const manifest: BackupManifest = {
 		kind: BACKUP_KIND,
 		format: BACKUP_FORMAT,
 		...head,
-		integrity: hashFiles(payload),
+		integrity: hashFiles(hashed(payload, note)),
 	};
 	const entries: Record<string, Uint8Array> = {
 		[MANIFEST]: new TextEncoder().encode(JSON.stringify(manifest, null, 2)),
 	};
+	if (note) entries[README] = note;
 	if (manifest.mode === "backup")
 		entries[SEALED] = EncryptionService.encryptBytes(await pack(payload));
 	else Object.assign(entries, Object.fromEntries(payload));
@@ -91,9 +102,28 @@ function parseManifest(raw: Uint8Array | undefined): BackupManifest {
 	return parsed.data;
 }
 
-/** The manifest alone, without decrypting: what the UI shows before a restore. */
+/** the README of an unpacked archive; refused over the limit, since nothing has checked it yet */
+function readmeOf(entries: Payload): Uint8Array | undefined {
+	const note = entries.get(README);
+	if (note && note.length > MAX_README_BYTES)
+		throw new BadRequestError(
+			`${NOT_A_BACKUP} Its README is longer than ${MAX_README_BYTES / 1024} KB.`,
+		);
+	return note;
+}
+
+/**
+ * The manifest and the author's README (null when there is none), without
+ * decrypting: what the UI shows before a restore. The README is not checked
+ * against the hash here; `openArchive` does that before anything is imported.
+ */
 export async function readManifest(tgz: Uint8Array) {
-	return parseManifest((await unpack(tgz)).get(MANIFEST));
+	const entries = await unpack(tgz);
+	const note = readmeOf(entries);
+	return {
+		...parseManifest(entries.get(MANIFEST)),
+		readme: note ? new TextDecoder().decode(note) : null,
+	};
 }
 
 async function unseal(sealed: Uint8Array | undefined) {
@@ -110,15 +140,17 @@ async function unseal(sealed: Uint8Array | undefined) {
 	return unpack(inner);
 }
 
-/** The manifest and the plain payload, decrypted and checked against the manifest's hash. */
+/** The manifest and the plain payload, decrypted and checked against the manifest's hash (which covers the README too). */
 export async function openArchive(tgz: Uint8Array) {
 	const entries = await unpack(tgz);
 	const manifest = parseManifest(entries.get(MANIFEST));
+	const note = readmeOf(entries);
 	entries.delete(MANIFEST);
+	entries.delete(README);
 	const payload = manifest.mode === "backup" ? await unseal(entries.get(SEALED)) : entries;
-	if (hashFiles(payload) !== manifest.integrity)
+	if (hashFiles(hashed(payload, note)) !== manifest.integrity)
 		throw new BadRequestError(
 			"This backup is damaged or was altered: its contents don't match its manifest.",
 		);
-	return { manifest, payload };
+	return { manifest, payload, readme: note ? new TextDecoder().decode(note) : null };
 }

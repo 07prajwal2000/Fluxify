@@ -9,6 +9,8 @@ import type { BackupFiles, BackupModule, IdMap, RestoreWarning } from "./types";
 
 export type RestorePlan = {
 	manifest: BackupManifest;
+	/** the author's Markdown note, to show before the user confirms; null when there is none */
+	readme: string | null;
 	/** in import order, already upgraded and parsed */
 	sections: { module: BackupModule; data: unknown; files: BackupFiles }[];
 	/** what the modules' `inspect` found, to show before the user confirms */
@@ -22,7 +24,7 @@ export type RestorePlan = {
  * Each module's `inspect` adds its warnings to the plan.
  */
 export async function readBackup(tgz: Uint8Array, modules: BackupModule[]): Promise<RestorePlan> {
-	const { manifest, payload } = await openArchive(tgz);
+	const { manifest, payload, readme } = await openArchive(tgz);
 	const unknown = Object.keys(manifest.sections).find((n) => !modules.some((m) => m.name === n));
 	if (unknown)
 		throw new BadRequestError(
@@ -40,7 +42,7 @@ export async function readBackup(tgz: Uint8Array, modules: BackupModule[]): Prom
 		for (const message of module.inspect?.(data, read) ?? [])
 			warnings.push({ section: module.name, message });
 	}
-	return { manifest, sections, warnings };
+	return { manifest, readme, sections, warnings };
 }
 
 function readJson(payload: Payload, name: string): unknown {
