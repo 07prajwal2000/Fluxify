@@ -73,6 +73,18 @@ export const projectSettingsModule: BackupModule<Section> = {
 	dependsOn: ["integrations"],
 	schema,
 
+	// an integration id reads as its name
+	preview: ({ settings, integrations }) =>
+		settings
+			.filter((s) => s.key !== NOT_BACKED_UP)
+			.map((s) => {
+				const value = s.value
+					.split(",")
+					.map((v) => integrations[v] ?? v)
+					.join(", ");
+				return { name: s.key, summary: value, details: { Value: value || null } };
+			}),
+
 	inspect({ settings, integrations }, read) {
 		return lostWarnings(
 			"Project settings",

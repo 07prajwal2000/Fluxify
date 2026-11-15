@@ -87,6 +87,22 @@ export const knowledgeSourcesModule: BackupModule<Section> = {
 	dependsOn: [],
 	schema,
 
+	preview: ({ sources }, mode) =>
+		sources.map((s) => ({
+			name: s.name,
+			summary: s.url ?? s.type,
+			details: {
+				Type: s.type,
+				Address: s.url,
+				Enabled: s.enabled,
+				Documents:
+					mode === "template" && s.type !== "markdown"
+						? "Fetched again on restore"
+						: s.pages.length,
+				"Header keys": Object.keys(s.headers).join(", ") || null,
+			},
+		})),
+
 	inspect: ({ sources }) =>
 		sources
 			.filter((s) => s.type === "markdown" && !s.pages.length)

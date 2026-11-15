@@ -33,6 +33,7 @@ import {
 	tableFor,
 	v1Table,
 } from "./integrationRefs";
+import { canvasOf, versionDetails } from "./preview";
 
 /**
  * Every custom block of a project (#1099): its live fields, its working copy,
@@ -70,6 +71,14 @@ export const customBlocksModule: BackupModule<Section> = {
 	},
 	dependsOn: ["integrations", "plugins"],
 	schema,
+
+	preview: ({ blocks }) =>
+		blocks.map((b) => ({
+			name: b.label || b.name,
+			summary: b.description ?? undefined,
+			details: { Type: b.name, Usage: b.usage, Source: b.sourceType, ...versionDetails(b.history) },
+			canvas: canvasOf(b.history),
+		})),
 
 	inspect({ blocks, integrations }, read) {
 		const have = restoredNames(read);

@@ -25,6 +25,7 @@ import {
 	MISSING_PLUGIN_BLOCK,
 	missingPluginWarnings,
 	pluginPlaces,
+	productionOff,
 	suiteRefs,
 } from "./canvas";
 import {
@@ -37,6 +38,7 @@ import {
 	tableFor,
 	v1Table,
 } from "./integrationRefs";
+import { canvasOf, listOf, onOff, production, versionDetails } from "./preview";
 
 const BLANK_ROUTE = `${BLANK_BLOCK} A blank SSE broker leaves the route without one, and a blank test override is dropped.`;
 
@@ -107,6 +109,24 @@ export const routesModule: BackupModule<Section> = {
 	},
 	dependsOn: ["integrations", "plugins", "customBlocks", "middlewares"],
 	schema,
+
+	preview: ({ routes }, mode) =>
+		routes.map((r) => {
+			const s = r.history.working.settings as CanvasSnapshot["settings"];
+			return {
+				name: r.name,
+				summary: `${(s.method ?? "").toUpperCase()} ${s.path ?? ""}`.trim(),
+				details: {
+					Production: production(r.active, mode),
+					Development: onOff(r.devActive),
+					"Middlewares before": listOf(s.middlewares?.before ?? []),
+					"Middlewares after": listOf(s.middlewares?.after ?? []),
+					"Test suites": r.suites.length,
+					...versionDetails(r.history),
+				},
+				canvas: canvasOf(r.history),
+			};
+		}),
 
 	inspect({ routes, integrations }, read) {
 		const have = restoredNames(read);
@@ -186,7 +206,7 @@ export const routesModule: BackupModule<Section> = {
 		return { data };
 	},
 
-	async import({ tx, projectId, ids }, { routes, integrations }) {
+	async import({ tx, projectId, mode, ids }, { routes, integrations }) {
 		const lookup = localIntegrations(integrations, ids);
 		for (const route of routes) {
 			const raw = remapIntegrations(route, lookup);
@@ -200,7 +220,7 @@ export const routesModule: BackupModule<Section> = {
 
 			const [row] = await tx
 				.insert(routesEntity)
-				.values({ ...fields, projectId })
+				.values({ ...fields, ...productionOff(mode), projectId })
 				.returning({ id: routesEntity.id });
 			const target = { id: row!.id, projectId };
 			await patchRouteConfig(target.id, projectId, config, tx);

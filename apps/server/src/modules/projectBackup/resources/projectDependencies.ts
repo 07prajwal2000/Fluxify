@@ -35,6 +35,19 @@ export const projectDependenciesModule: BackupModule<Section> = {
 	dependsOn: [],
 	schema,
 
+	/** one item per package in package.json */
+	preview({ dependencies }) {
+		let pkg: { dependencies?: Record<string, string> } = {};
+		try {
+			pkg = JSON.parse(dependencies?.packageJson ?? "{}");
+		} catch {}
+		return Object.entries(pkg.dependencies ?? {}).map(([name, version]) => ({
+			name,
+			summary: version,
+			details: { Version: version },
+		}));
+	},
+
 	async export({ projectId }) {
 		const [row] = await db
 			.select()

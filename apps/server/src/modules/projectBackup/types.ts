@@ -42,6 +42,8 @@ export type ImportCtx = {
 	projectId: string;
 	/** what the archive was made as; a template has no secrets to restore */
 	mode: BackupMode;
+	/** the project the archive was made from, as the manifest names it */
+	source: { name: string; slug: string };
 	/** this module's files only. Untrusted: never write a path to disk unchecked. */
 	files: BackupFiles;
 	ids: IdMap;
@@ -63,6 +65,31 @@ export type ImportCtx = {
 
 /** something the user should know about restoring a section on this instance */
 export type RestoreWarning = { section: string; message: string };
+
+/** a canvas as the portal's read-only canvas draws it */
+export type PreviewCanvas = {
+	blocks: { id: string; type: string; position: { x: number; y: number }; data: unknown }[];
+	edges: {
+		id: string;
+		from: string;
+		to: string;
+		fromHandle: string | null;
+		toHandle: string | null;
+	}[];
+};
+
+/**
+ * One resource of a section as the restore dialog shows it, read only. Never a
+ * secret: integration config and app config values stay out, whatever the mode.
+ */
+export type PreviewItem = {
+	name: string;
+	/** one line under the name, e.g. `GET /orders` */
+	summary?: string;
+	/** label → value, in the order shown */
+	details?: Record<string, string | number | boolean | null>;
+	canvas?: PreviewCanvas;
+};
 
 /**
  * One resource type in a project backup. Adding a resource is adding one of
@@ -88,9 +115,19 @@ export type BackupModule<T = unknown> = {
 	 * shown before the user confirms. Pure apart from reading instance settings:
 	 * no database, nothing written. `read(section)` gives a section read before
 	 * this one (its `dependsOn` among them), parsed; undefined when the archive
-	 * has none.
+	 * has none. `archive` holds this module's files (untrusted) and the mode.
+	 * A throw refuses the archive here, before the user fills anything in.
 	 */
-	inspect?(data: T, read: (section: string) => unknown): string[];
+	inspect?(
+		data: T,
+		read: (section: string) => unknown,
+		archive: { files: BackupFiles; mode: BackupMode },
+	): string[] | Promise<string[]>;
+	/**
+	 * The section's resources for the restore dialog, as they will be restored
+	 * in `mode` (a template's production switches show off). No secrets.
+	 */
+	preview?(data: T, mode: BackupMode): PreviewItem[];
 	export(ctx: ExportCtx): Promise<{ data: T; files?: BackupFiles }>;
 	import(ctx: ImportCtx, data: T): Promise<void>;
 };

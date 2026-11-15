@@ -7,6 +7,10 @@ import {
 	type responseSchema as getAllResponseSchema,
 } from "@fluxify/server/src/api/v1/projects/get-all/dto";
 import type { responseSchema as getByIdResponseSchema } from "@fluxify/server/src/api/v1/projects/get-by-id/dto";
+import type {
+	inspectResponseSchema,
+	restoreResponseSchema,
+} from "@fluxify/server/src/api/v1/projects/restore/dto";
 import {
 	requestBodySchema as updateRequestBodySchema,
 	type responseSchema as updateResponseSchema,
@@ -15,6 +19,12 @@ import type z from "zod";
 import { httpClient } from "@/lib/http";
 
 const baseUrl = "/v1/projects";
+
+export type ArchiveSummary = z.infer<typeof inspectResponseSchema>;
+export type RestoreResult = z.infer<typeof restoreResponseSchema>;
+
+// the client's JSON default would turn the form into JSON; the browser adds the boundary
+const MULTIPART = { headers: { "Content-Type": "multipart/form-data" } };
 
 export type GetAllProjectsQueryParams = z.infer<typeof getAllRequestQuerySchema>;
 
@@ -52,6 +62,20 @@ export const projectsService = {
 	async getById(id: string): Promise<z.infer<typeof getByIdResponseSchema>> {
 		const result = await httpClient.get(`${baseUrl}/${id}`);
 		return result.data;
+	},
+	/** checks a backup or template file and says what it holds; creates nothing */
+	async inspectArchive(file: File): Promise<ArchiveSummary> {
+		const form = new FormData();
+		form.set("file", file);
+		return (await httpClient.post(`${baseUrl}/restore/inspect`, form, MULTIPART)).data;
+	},
+	/** a new project from a backup or template file */
+	async restore(file: File, names: { name: string; slug: string }): Promise<RestoreResult> {
+		const form = new FormData();
+		form.set("file", file);
+		form.set("name", names.name);
+		form.set("slug", names.slug);
+		return (await httpClient.post(`${baseUrl}/restore`, form, MULTIPART)).data;
 	},
 	createRequestBodySchema,
 	updateRequestBodySchema,

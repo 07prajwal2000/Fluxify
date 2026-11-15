@@ -157,13 +157,16 @@ const namesOf = (src: Source) => ({
 });
 
 /** production runs the promoted version, development the working copy, and the schedule is live in both */
-async function expectLive(project: string, names: Names) {
+/** `production` false: a template, which comes up switched off in production (#1104) */
+async function expectLive(project: string, names: Names, production = true) {
 	const workflow = await byName(schema.workflowsEntity, project, names.name);
 	await compileProject(project);
 	const prod = await workflowArtifact(project, workflow.id, "production");
-	expect(prod?.versionId).toBe(workflow.prodVersionId);
-	expect(prod?.source).toContain(names.block);
-	expect(prod?.source).not.toContain("'dev'");
+	if (production) {
+		expect(prod?.versionId).toBe(workflow.prodVersionId);
+		expect(prod?.source).toContain(names.block);
+		expect(prod?.source).not.toContain("'dev'");
+	} else expect([workflow.active, workflow.devActive, prod]).toEqual([false, true, null]);
 	expect((await workflowArtifact(project, workflow.id, "development"))?.source).toContain("('dev')");
 
 	const trigger = await byName(schema.triggersEntity, project, names.trigger);
@@ -171,8 +174,9 @@ async function expectLive(project: string, names: Names) {
 	expect(trigger.payload).toEqual({ hello: "world" });
 	const group = await byName(schema.triggerGroupsEntity, project, names.group);
 	expect(trigger.groupId).toBe(group.id);
-	for (const env of ["production", "development"] as const)
-		expect((await scheduled(project, env)).some((s) => s.endsWith(trigger.id))).toBe(true);
+	expect(trigger.active).toBe(production);
+	expect((await scheduled(project, "production")).some((s) => s.endsWith(trigger.id))).toBe(production);
+	expect((await scheduled(project, "development")).some((s) => s.endsWith(trigger.id))).toBe(true);
 
 	const idle = await byName(schema.triggersEntity, project, names.idle);
 	const def = await byName(schema.triggerGroupsEntity, project, "default");
@@ -326,7 +330,8 @@ describe("workflows and triggers backup", () => {
 		const names = await Bun.file(join(FIXTURES, "workflows-triggers-v1.expected.json")).json();
 		// a fresh handle: the one above may have cached the file as missing
 		const project = await restore(await Bun.file(file.name!).bytes());
-		const workflow = await expectLive(project, names);
+		// a template: production off, its promoted version restored for when it is switched on
+		const workflow = await expectLive(project, names, false);
 		const [v1] = await workflowVersions(workflow.id);
 		expect(workflow.prodVersionId).toBe(v1.id);
 	});

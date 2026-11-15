@@ -18,6 +18,7 @@ import {
 	MISSING_PLUGIN_BLOCK,
 	missingPluginWarnings,
 	pluginPlaces,
+	productionOff,
 	suiteRefs,
 } from "./canvas";
 import {
@@ -30,6 +31,7 @@ import {
 	tableFor,
 	v1Table,
 } from "./integrationRefs";
+import { canvasOf, onOff, production, versionDetails } from "./preview";
 
 /**
  * Every workflow of a project (#1098), shaped like routes (#1097): the canvas
@@ -73,6 +75,19 @@ export const workflowsModule: BackupModule<Section> = {
 	},
 	dependsOn: ["integrations", "plugins", "customBlocks"],
 	schema,
+
+	preview: ({ workflows }, mode) =>
+		workflows.map((w) => ({
+			name: w.name,
+			summary: w.description ?? undefined,
+			details: {
+				Production: production(w.active, mode),
+				Development: onOff(w.devActive),
+				"Test suites": w.suites.length,
+				...versionDetails(w.history),
+			},
+			canvas: canvasOf(w.history),
+		})),
 
 	inspect({ workflows, integrations }, read) {
 		const have = restoredNames(read);
@@ -136,7 +151,7 @@ export const workflowsModule: BackupModule<Section> = {
 		return { data };
 	},
 
-	async import({ tx, projectId, ids }, { workflows, integrations }) {
+	async import({ tx, projectId, mode, ids }, { workflows, integrations }) {
 		const lookup = localIntegrations(integrations, ids);
 		for (const workflow of workflows) {
 			const raw = remapIntegrations(workflow, lookup);
@@ -147,7 +162,7 @@ export const workflowsModule: BackupModule<Section> = {
 
 			const [row] = await tx
 				.insert(workflowsEntity)
-				.values({ ...fields, projectId })
+				.values({ ...fields, ...productionOff(mode), projectId })
 				.returning({ id: workflowsEntity.id });
 			const target = { id: row!.id, projectId };
 			// the timeout comes with the snapshot

@@ -2,13 +2,20 @@ import { CUSTOM_BLOCK_NAME_PREFIX } from "@fluxify/lib";
 import { BadRequestError } from "../../../errors/badRequestError";
 import type { SuiteRefs } from "../../transfer/suites";
 import type { BackupHistory } from "../../versions/backup";
-import type { IdMap } from "../types";
+import type { BackupMode, IdMap } from "../types";
 import type { Place } from "./integrationRefs";
 
 /**
  * What the canvas modules (routes #1097, workflows #1098) share on restore.
  * `owner` names the resource in a refusal, e.g. `Route "orders"`.
  */
+
+/**
+ * A template comes up switched off in production (#1104): its integrations are
+ * blank, so live it would serve half-configured. Development keeps its switch,
+ * so the project still answers at `/_/dev`. A backup keeps its flags.
+ */
+export const productionOff = (mode: BackupMode) => (mode === "template" ? { active: false } : {});
 
 /**
  * What runs now and in production must call only custom blocks the backup

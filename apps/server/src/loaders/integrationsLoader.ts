@@ -5,7 +5,7 @@ import {
 	integrationRegistry,
 	resolveMcpHeaders,
 } from "@fluxify/adapters";
-import { MissingEnvValueError } from "@fluxify/common";
+import { logger, MissingEnvValueError } from "@fluxify/common";
 import { isIntegrationGroupName } from "@fluxify/sdk/integrations";
 import { mcpOAuthFor } from "../api/v1/integrations/mcp-oauth/store";
 import { integrationsGroupSchema } from "../api/v1/integrations/schemas";
@@ -273,15 +273,30 @@ export function resolveIntegrationConfig(
 }
 
 async function loadFromDB() {
-	const integrations = await db.select().from(integrationsEntity);
+	cacheIntegrations(await db.select().from(integrationsEntity));
+}
+
+/** every row into its group's cache; exported for its spec */
+export function cacheIntegrations(integrations: IntegrationRow[]) {
 	for (const integration of integrations) {
 		const cache = cacheForGroup(integration.group);
 		if (!cache) continue;
 		// this loader backs the production, database-connected process
-		cache[integration.id] = resolveIntegrationConfig(
-			integration,
-			getProjectAppConfig(integration.projectId!),
-			"production",
-		);
+		try {
+			cache[integration.id] = resolveIntegrationConfig(
+				integration,
+				getProjectAppConfig(integration.projectId!),
+				"production",
+			);
+		} catch (error) {
+			// One integration that can't resolve (a `cfg:` key with no value, as a
+			// restored template has) must not take the whole admin down with it:
+			// it is left out until its config or app config is saved.
+			delete cache[integration.id];
+			logger.warn(
+				`[integrations] skipped "${integration.name}" (${integration.id}) of project ${integration.projectId}: ${error instanceof Error ? error.message : String(error)}`,
+				"INTEGRATIONS",
+			);
+		}
 	}
 }

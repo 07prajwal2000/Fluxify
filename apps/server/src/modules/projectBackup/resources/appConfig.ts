@@ -42,6 +42,20 @@ export const appConfigModule: BackupModule<Section> = {
 	dependsOn: [],
 	schema,
 
+	// whether a value is there, never the value
+	preview: ({ keys }) =>
+		keys.map((k) => ({
+			name: k.keyName,
+			summary: k.description ?? undefined,
+			details: {
+				"Data type": k.dataType,
+				Encrypted: k.isEncrypted,
+				"Production value": k.value === null ? "Not set" : "Included",
+				"Development value":
+					k.devValue !== null ? "Included" : k.syncDev ? "Same as production" : "Not set",
+			},
+		})),
+
 	async export({ projectId, mode, options }) {
 		const values = mode === "backup" && options.includeAppConfigValues;
 		const rows = await db

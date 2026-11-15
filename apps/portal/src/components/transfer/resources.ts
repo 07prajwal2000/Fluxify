@@ -118,8 +118,16 @@ export function conflictNotice<B>(
 	return `${found.join(" and ")} already exist${found.length === 1 ? "s" : ""} in this project. It will be imported as a copy, or rename it as you like.`;
 }
 
-/** The bundle's canvas as the read-only canvas draws it: every block as it is. */
-export function previewCanvas(bundle: RouteBundle | WorkflowBundle): CanvasDiff {
+/** What a read-only preview draws: a bundle, or a resource in a backup (#1104). */
+type HasCanvas = {
+	canvas: {
+		blocks: { id: string; type: string; position: { x: number; y: number }; data?: unknown }[];
+		edges: { id: string; from: string; to: string; fromHandle?: string | null }[];
+	};
+};
+
+/** The canvas as the read-only canvas draws it: every block as it is. */
+export function previewCanvas(bundle: HasCanvas): CanvasDiff {
 	return {
 		blocks: bundle.canvas.blocks.map((b) => ({
 			key: b.id,
