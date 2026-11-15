@@ -184,10 +184,12 @@ function ProjectSettingsPage() {
 					))}
 				</div>
 
-				{/* Right Content */}
+				{/* Right Content. relative: the pane scrolls, so the hidden inputs, tab
+				    indicators and sr-only labels inside it must be positioned against it,
+				    not the page, or a long tab stretches the whole document. */}
 				<div
 					className={cn(
-						"flex-1",
+						"relative flex-1",
 						activeTab === "ai-connections"
 							? "flex flex-col min-h-0 overflow-hidden p-6"
 							: "overflow-y-auto p-8",
