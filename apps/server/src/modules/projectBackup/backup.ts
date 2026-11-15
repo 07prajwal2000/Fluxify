@@ -11,6 +11,8 @@ export type CreateBackupInput = {
 	options?: Partial<BackupOptions>;
 	/** section names to include; every module when absent */
 	sections?: string[];
+	/** the author's Markdown note, stored unencrypted at the archive root (64 KB at most) */
+	readme?: string;
 };
 
 /**
@@ -46,5 +48,6 @@ export async function createBackup(input: CreateBackupInput, modules: BackupModu
 	return writeArchive(
 		{ mode, release: releaseVersion(), createdAt: new Date().toISOString(), source, sections },
 		payload,
+		input.readme,
 	);
 }

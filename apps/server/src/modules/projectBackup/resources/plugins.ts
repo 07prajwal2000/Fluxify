@@ -7,7 +7,7 @@ import { PLUGIN_APPROVALS, PLUGIN_SOURCES, pluginsEntity } from "../../../db/sch
 import { listPluginRows } from "../../plugins/repository";
 import { pluginObjectKey } from "../../plugins/sources/location";
 import type { BackupModule } from "../types";
-import { checkedTarball, restoredSource, tarballOf, tarballPath } from "./pluginBytes";
+import { checkedTarball, exportTarball, restoredSource, tarballPath } from "./pluginBytes";
 
 /**
  * A project's plugins (#1101): each row, with the bytes of every version it
@@ -85,7 +85,7 @@ export const pluginsModule: BackupModule<Section> = {
 				live: mode === "template" ? null : row.live,
 			};
 			for (const v of versionsOf(plugin))
-				files[tarballPath(row.name, v.version)] = await tarballOf(v);
+				files[tarballPath(row.name, v.version)] = await exportTarball(row.name, v);
 			plugins.push(plugin);
 		}
 		return { data: { plugins }, files };

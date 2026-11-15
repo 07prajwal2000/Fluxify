@@ -12,6 +12,7 @@ pack, check, upgrade and import modules. It owns no resource of its own.
 | `backup.ts` | `createBackup(input, BACKUP_MODULES)` → `{ bytes, manifest }` |
 | `restore.ts` | `readBackup(bytes, BACKUP_MODULES)` checks everything; `restoreBackup(plan, openProject)` writes |
 | `archive.ts` | The tar layout, encryption, integrity hash, `readManifest` |
+| `run.ts`, `history.ts`, `archives.ts` | A manual backup as a job on admin: the `project_backups` rows, the archive held in the Object Store until it expires, the daily cleanup (the API is `api/v1/backups`) |
 | `sections.ts` | Refuses too-old / too-new sections and walks the upgrade steps |
 | `resources/` | The resource modules (`appConfig`, `integrations`, `projectSettings`, `projectDependencies`, `plugins`, `customBlocks`, `middlewares`, `routes`, `workflows`, `triggers`, …), their fixtures and Postgres tests |
 
@@ -23,6 +24,7 @@ Versioned resources capture and restore their versions with
 
 ```
 manifest.json          always readable: kind, format, mode, release, createdAt, source, sections, integrity
+README.md              optional note by the person who made it (Markdown, 64 KB at most); never encrypted, covered by `integrity`
 sections/<name>.json   one per module, at that module's format version
 files/<name>/<path>    binary payloads a module returned (plugin tarballs)
 ```
@@ -30,7 +32,12 @@ files/<name>/<path>    binary payloads a module returned (plugin tarballs)
 In a **backup** the `sections/` and `files/` entries are a gzipped tar sealed
 with `MASTER_ENCRYPTION_KEY` as `payload.enc`; it restores only on an instance
 with the same key. A **template** keeps them as plain entries and carries no
-secret values. `manifest.json` is never encrypted, so put nothing secret in it.
+secret values. `manifest.json` and `README.md` are never encrypted, so put nothing secret in them.
+
+`createBackup({ ..., readme })` writes the README; `readManifest(bytes).readme`
+and `readBackup(...).readme` give it back (null when there is none), so a restore
+can show it before the user confirms. It is hashed with the payload: editing,
+adding or removing it makes `readBackup` refuse the archive.
 
 ## Restoring
 
