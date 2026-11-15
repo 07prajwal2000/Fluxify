@@ -1,7 +1,7 @@
 import { afterAll, afterEach, expect, mock, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { ReactNode } from "react";
-import type { RouteBundle } from "@/services/routes";
+import type { RouteBundle } from "@/services/transfer";
 
 // DOM only for this file; RTL reads `document` on import, so load it after.
 GlobalRegistrator.register();
@@ -33,7 +33,7 @@ mock.module("@tanstack/react-router", () => ({
 
 const { act, cleanup, fireEvent, render, waitFor } = await import("@testing-library/react");
 const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query");
-const { RouteBundlePreview } = await import("./RouteBundlePreview");
+const { BundlePreview } = await import("./BundlePreview");
 
 afterEach(cleanup);
 afterAll(() => GlobalRegistrator.unregister());
@@ -65,7 +65,7 @@ test("draws every block of the route on a read-only canvas", async () => {
 	await act(async () => {
 		view = render(
 			<QueryClientProvider client={new QueryClient()}>
-				<RouteBundlePreview bundle={bundle} />
+				<BundlePreview bundle={bundle} />
 			</QueryClientProvider>,
 		);
 	});
@@ -85,7 +85,7 @@ test("opens a block's settings, and they cannot be edited", async () => {
 	await act(async () => {
 		view = render(
 			<QueryClientProvider client={new QueryClient()}>
-				<RouteBundlePreview bundle={bundle} />
+				<BundlePreview bundle={bundle} />
 			</QueryClientProvider>,
 		);
 	});

@@ -1,6 +1,6 @@
 import { CUSTOM_BLOCK_NAME_PREFIX } from "@fluxify/lib";
 import { BadRequestError } from "../../../errors/badRequestError";
-import type { SuiteRefs } from "../../routeTransfer/suites";
+import type { SuiteRefs } from "../../transfer/suites";
 import type { BackupHistory } from "../../versions/backup";
 import type { IdMap } from "../types";
 import type { Place } from "./integrationRefs";

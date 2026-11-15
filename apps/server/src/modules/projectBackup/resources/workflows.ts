@@ -2,8 +2,7 @@ import { asc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../../db";
 import { type VersionSnapshot, workflowsEntity } from "../../../db/schema";
-import { routeBundleSchema } from "../../routeTransfer/bundle";
-import { exportSuites, writeSuites } from "../../routeTransfer/suites";
+import { bundleSuiteSchema, exportSuites, writeSuites } from "../../transfer/suites";
 import {
 	backupHistorySchema,
 	exportHistory,
@@ -52,7 +51,7 @@ const workflowSchema = z.object({
 	recordExecution: z.boolean().default(false),
 	devTracingEnabled: z.boolean().default(false),
 	devRecordExecution: z.boolean().default(true),
-	suites: z.array(routeBundleSchema.shape.suites.unwrap().element).default([]),
+	suites: z.array(bundleSuiteSchema).default([]),
 	history: backupHistorySchema,
 });
 

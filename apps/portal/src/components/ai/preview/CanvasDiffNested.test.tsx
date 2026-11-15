@@ -32,11 +32,13 @@ mock.module("@tanstack/react-router", () => ({
 		</a>
 	),
 }));
-const { act, render } = await import("@testing-library/react");
+const { act, cleanup, render } = await import("@testing-library/react");
 const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query");
 const { CanvasDiffView } = await import("./CanvasDiffView");
 const { CanvasAiProvider } = await import("@/components/canvas/ai/CanvasAiContext");
 
+// without this, its mounted containers outlive the DOM and break the next file's cleanup
+afterEach(cleanup);
 afterAll(() => GlobalRegistrator.unregister());
 
 const diff: CanvasDiff = {

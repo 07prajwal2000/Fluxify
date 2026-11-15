@@ -1,6 +1,14 @@
 import { describe, expect, it } from "bun:test";
-import type { RouteBundle } from "@/services/routes";
-import { conflictNotice, copyPath, importDefaults, previewCanvas } from "./routeImport";
+import type { RouteBundle } from "@/services/transfer";
+import {
+	conflictNotice,
+	copyPath,
+	importDefaults,
+	previewCanvas,
+	TRANSFER_RESOURCES,
+} from "./resources";
+
+const R = TRANSFER_RESOURCES.route;
 
 const bundle = (route = { name: "Get users", path: "/users" }) =>
 	({
@@ -14,24 +22,27 @@ const bundle = (route = { name: "Get users", path: "/users" }) =>
 		},
 	}) as unknown as RouteBundle;
 
-const route = { name: "Get users", path: "/users", method: "GET" } as RouteBundle["route"];
-const free = { nameTaken: false, pathTaken: false };
+const route = {
+	...bundle(),
+	route: { name: "Get users", path: "/users", method: "GET" },
+} as unknown as RouteBundle;
+const free: ("name" | "path")[] = [];
 
 describe("importDefaults", () => {
 	it("keeps the name and path when nothing is taken", () => {
-		expect(importDefaults(route, free)).toEqual({ name: "Get users", path: "/users" });
+		expect(importDefaults(R, route, free)).toEqual({ name: "Get users", path: "/users" });
 	});
 
 	it("adds -copy to what is taken, and only to that", () => {
-		expect(importDefaults(route, { nameTaken: true, pathTaken: true })).toEqual({
+		expect(importDefaults(R, route, ["name", "path"])).toEqual({
 			name: "Get users-copy",
 			path: "/users-copy",
 		});
-		expect(importDefaults(route, { nameTaken: false, pathTaken: true })).toEqual({
+		expect(importDefaults(R, route, ["path"])).toEqual({
 			name: "Get users",
 			path: "/users-copy",
 		});
-		expect(importDefaults(route, { nameTaken: true, pathTaken: false })).toEqual({
+		expect(importDefaults(R, route, ["name"])).toEqual({
 			name: "Get users-copy",
 			path: "/users",
 		});
@@ -40,15 +51,15 @@ describe("importDefaults", () => {
 
 describe("conflictNotice", () => {
 	it("says nothing when nothing is taken", () => {
-		expect(conflictNotice(route, free)).toBeUndefined();
+		expect(conflictNotice(R, route, free)).toBeUndefined();
 	});
 
 	it("names what already exists and offers a copy or a rename", () => {
-		const both = conflictNotice(route, { nameTaken: true, pathTaken: true });
+		const both = conflictNotice(R, route, ["name", "path"]);
 		expect(both).toContain('a route named "Get users" and GET /users already exist');
 		expect(both).toContain("imported as a copy");
 		expect(both).toContain("rename it");
-		expect(conflictNotice(route, { nameTaken: false, pathTaken: true })).toContain(
+		expect(conflictNotice(R, route, ["path"])).toContain(
 			"GET /users already exists in this project",
 		);
 	});
@@ -74,5 +85,23 @@ describe("previewCanvas", () => {
 		expect(canvas.edges).toEqual([
 			{ id: "e1", from: "a", to: "b", handle: "success", status: "same" },
 		]);
+	});
+});
+
+describe("workflow resource", () => {
+	const W = TRANSFER_RESOURCES.workflow;
+	const wf = {
+		kind: "fluxify.workflow",
+		workflow: { name: "Nightly", timeoutSeconds: 300 },
+		canvas: { blocks: [], edges: [] },
+	} as never;
+	it("copies only the name", () => {
+		expect(importDefaults(W, wf, ["name"])).toEqual({ name: "Nightly-copy" });
+		expect(conflictNotice(W, wf, ["name"])).toContain('a workflow named "Nightly" already exists');
+	});
+	it("writes the name back and recognises only its own kind", () => {
+		expect(W.write(wf, { name: "X" }).workflow.name).toBe("X");
+		expect(W.isBundle(wf)).toBe(true);
+		expect(R.isBundle(wf)).toBe(false);
 	});
 });

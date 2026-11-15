@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, expect, mock, test } from "bun:test";
+import { afterAll, beforeEach, expect, spyOn, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { AxiosError, type AxiosResponse } from "axios";
 
@@ -10,13 +10,14 @@ GlobalRegistrator.register();
 	`http://localhost/_/admin/ui/oauth/consent?${RAW}`,
 );
 
-const post = mock(async (..._args: unknown[]) => ({
+// spyOn, not mock.module: a module mock would outlive this file (see AGENTS.md).
+const { httpClient } = await import("@/lib/http");
+const { authClient } = await import("@/lib/auth");
+const post = spyOn(httpClient, "post").mockResolvedValue({
 	data: { redirect: true, url: "http://localhost/back" },
-}));
-mock.module("@/lib/http", () => ({
-	httpClient: { get: async () => ({ data: { client_name: "Claude" } }), post },
-}));
-mock.module("@/lib/auth", () => ({ authClient: { getSession: mock() } }));
+});
+const get = spyOn(httpClient, "get").mockResolvedValue({ data: { client_name: "Claude" } });
+const session = spyOn(authClient, "getSession").mockResolvedValue(undefined as never);
 
 const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query");
 const { act } = await import("react");
@@ -26,7 +27,12 @@ const { ConsentPage, isExpired } = await import("./oauth.consent");
 window.history.replaceState(null, "", "?client_id=c1&ba_param=%5B%22a%22%2C%22b%22%5D&sig=x");
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-afterAll(() => GlobalRegistrator.unregister());
+afterAll(() => {
+	post.mockRestore();
+	get.mockRestore();
+	session.mockRestore();
+	GlobalRegistrator.unregister();
+});
 beforeEach(() => post.mockClear());
 
 const settle = () => new Promise((r) => setTimeout(r, 50));

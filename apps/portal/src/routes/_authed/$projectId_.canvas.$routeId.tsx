@@ -15,12 +15,12 @@ import { CanvasWorkbench } from "@/components/canvas";
 import { CanvasStatusBadges } from "@/components/canvas/CanvasStatusBadges";
 import { RouteApiPlayground } from "@/components/RouteApiPlayground";
 import { RecordingIndicator } from "@/components/recordings/RecordingControls";
-import { ExportRouteModal } from "@/components/routes/ExportRouteModal";
 import { RouteSettingsModal } from "@/components/routes/RouteSettingsModal";
 import { RouteSwitcher } from "@/components/routes/RouteSwitcher";
 import { RouteWorkbenchTabs } from "@/components/routes/RouteWorkbenchTabs";
 import { extractPathParams } from "@/components/routes/routeForm";
 import { SettingsSplitButton } from "@/components/sandboxes/SettingsSplitButton";
+import { ExportModal } from "@/components/transfer/ExportModal";
 import { CommitControls } from "@/components/versions/CommitControls";
 import { ProductionChip } from "@/components/versions/ProductionChip";
 import { useTargetSpotlight } from "@/components/versions/useTargetSpotlight";
@@ -180,8 +180,9 @@ function RouteCanvasPage() {
 					readOnly={!canEdit}
 				/>
 			)}
-			<ExportRouteModal
-				route={exportOpen ? { id: routeId, name: route?.name } : null}
+			<ExportModal
+				resourceType="route"
+				resource={exportOpen ? { id: routeId, name: route?.name } : null}
 				onClose={() => setExportOpen(false)}
 			/>
 			{spotlight.dialogs}

@@ -1,5 +1,5 @@
 import z from "zod";
-import { routeBundleSchema } from "../../../../modules/routeTransfer/bundle";
+import { routeBundleSchema } from "../../../../modules/transfer/handlers/route";
 
 export const requestRouteSchema = z.object({ id: z.uuidv7() });
 

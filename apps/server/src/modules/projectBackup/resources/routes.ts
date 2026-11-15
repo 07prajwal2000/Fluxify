@@ -9,8 +9,7 @@ import {
 	type VersionSnapshot,
 } from "../../../db/schema";
 import { BadRequestError } from "../../../errors/badRequestError";
-import { routeBundleSchema } from "../../routeTransfer/bundle";
-import { exportSuites, writeSuites } from "../../routeTransfer/suites";
+import { bundleSuiteSchema, exportSuites, writeSuites } from "../../transfer/suites";
 import {
 	backupHistorySchema,
 	exportHistory,
@@ -54,7 +53,7 @@ const BLANK_ROUTE = `${BLANK_BLOCK} A blank SSE broker leaves the route without 
  * blanked: the block has none, the route no SSE broker, the override is dropped.
  */
 
-const suiteSchema = routeBundleSchema.shape.suites.unwrap().element;
+const suiteSchema = bundleSuiteSchema;
 
 const routeSchema = z.object({
 	name: z.string().min(1),

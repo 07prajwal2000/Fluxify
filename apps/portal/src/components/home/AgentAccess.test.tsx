@@ -1,13 +1,14 @@
-import { afterAll, expect, mock, test } from "bun:test";
+import { afterAll, expect, spyOn, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 
 GlobalRegistrator.register();
 
-const post = mock(async () => ({ data: { key: "flx_secret_value" } }));
-const get = mock(async (url: string) => ({
+const { httpClient } = await import("@/lib/http");
+// spyOn, not mock.module: a module mock would outlive this file (see AGENTS.md).
+const post = spyOn(httpClient, "post").mockResolvedValue({ data: { key: "flx_secret_value" } });
+const get = spyOn(httpClient, "get").mockImplementation((async (url: string) => ({
 	data: url.includes("get-consents") ? [] : { apiKeys: [] },
-}));
-mock.module("@/lib/http", () => ({ httpClient: { get, post } }));
+})) as never);
 
 const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query");
 const { act } = await import("react");
@@ -15,7 +16,11 @@ const { createRoot } = await import("react-dom/client");
 const { AccessTokens, ConnectAgent } = await import("./AgentAccess");
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-afterAll(() => GlobalRegistrator.unregister());
+afterAll(() => {
+	post.mockRestore();
+	get.mockRestore();
+	GlobalRegistrator.unregister();
+});
 
 test("creating a token shows the key once", async () => {
 	const box = document.createElement("div");

@@ -1,27 +1,30 @@
 import { Button, Checkbox, CloseButton, Modal, toast } from "@fluxify/components";
 import { useState } from "react";
 import { showErrorNotification } from "@/lib/errorNotifier";
-import { routesService } from "@/services/routes";
-import { downloadRouteFile, routeFilename } from "./routeFile";
+import { type ResourceType, transferService } from "@/services/transfer";
+import { capitalize, resourceOf } from "./resources";
+import { bundleFilename, downloadBundle } from "./transferFile";
 
-type ExportRouteModalProps = {
-	/** the route to export; the modal is open while this is set */
-	route: { id: string; name?: string | null } | null;
+type ExportModalProps = {
+	resourceType: ResourceType;
+	/** what to export; the modal is open while this is set */
+	resource: { id: string; name?: string | null } | null;
 	onClose: () => void;
 };
 
-/** Asks whether the route's tests go in the file, then downloads it. */
-export function ExportRouteModal({ route, onClose }: ExportRouteModalProps) {
+/** Asks whether the tests go in the file, then downloads it. */
+export function ExportModal({ resourceType, resource, onClose }: ExportModalProps) {
+	const { label, contents } = resourceOf(resourceType);
 	const [includeTests, setIncludeTests] = useState(true);
 	const [pending, setPending] = useState(false);
 
 	const run = async () => {
-		if (!route) return;
+		if (!resource) return;
 		setPending(true);
 		try {
-			const bundle = await routesService.export(route.id, includeTests);
-			downloadRouteFile(bundle, routeFilename(route.name ?? ""));
-			toast.success("Route exported");
+			const bundle = await transferService.export(resourceType, resource.id, includeTests);
+			downloadBundle(bundle, bundleFilename(resourceType, resource.name ?? ""));
+			toast.success(`${capitalize(label)} exported`);
 			onClose();
 		} catch (error) {
 			showErrorNotification(error as Error);
@@ -31,18 +34,18 @@ export function ExportRouteModal({ route, onClose }: ExportRouteModalProps) {
 	};
 
 	return (
-		<Modal isOpen={route !== null} onOpenChange={(open) => !open && onClose()}>
+		<Modal isOpen={resource !== null} onOpenChange={(open) => !open && onClose()}>
 			<Modal.Backdrop>
 				<Modal.Container placement="center" size="sm">
 					<Modal.Dialog>
 						<Modal.Header className="flex flex-row items-center justify-between">
-							<Modal.Heading>Export route</Modal.Heading>
+							<Modal.Heading>Export {label}</Modal.Heading>
 							<CloseButton />
 						</Modal.Header>
 						<Modal.Body className="flex flex-col gap-3">
 							<p className="text-sm text-muted">
-								Exports {route?.name ? `“${route.name}”` : "the route"} with its settings, blocks
-								and response schemas, so it can be imported into any project.
+								Exports {resource?.name ? `“${resource.name}”` : `the ${label}`} with its {contents}
+								, so it can be imported into any project.
 							</p>
 							<Checkbox
 								checked={includeTests}

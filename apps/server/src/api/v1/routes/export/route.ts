@@ -8,9 +8,10 @@ import handleRequest from "./service";
 
 const openapiRouteOptions: DescribeRouteOptions = {
 	description:
-		"Exports a route as a portable bundle: settings, canvas, response schemas, middlewares and, unless includeTests=false, its test suites.",
+		"Deprecated, use GET /v1/transfer/route/{id}/export. Exports a route as a portable bundle: settings, canvas, response schemas, middlewares and, unless includeTests=false, its test suites.",
 	operationId: "export-route",
 	tags: ["Routes"],
+	deprecated: true,
 	responses: {
 		200: {
 			description: "Successful",

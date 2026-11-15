@@ -3,16 +3,18 @@ import { type DescribeRouteOptions, describeRoute, resolver, validator } from "h
 import { errorSchema } from "../../../../errors/customError";
 import { validationErrorSchema } from "../../../../errors/validationError";
 import zodErrorCallbackParser from "../../../../middlewares/zodErrorCallbackParser";
-import { importRouteBundle } from "../../../../modules/routeTransfer/import";
+import { parseEnvelope } from "../../../../modules/transfer/envelope";
+import { routeHandler } from "../../../../modules/transfer/handlers/route";
 import type { HonoServer } from "../../../../types";
 import { requireProjectAccess } from "../../../auth/middleware";
 import { requestBodySchema, responseSchema } from "./dto";
 
 const openapiRouteOptions: DescribeRouteOptions = {
 	description:
-		"Creates a route, its canvas and its test suites from an exported bundle. Middlewares, custom blocks and integrations are matched by name; what has no match is dropped and listed in warnings.",
+		"Deprecated, use POST /v1/transfer/route/import. Creates a route, its canvas and its test suites from an exported bundle. Middlewares, custom blocks and integrations are matched by name; what has no match is dropped and listed in warnings.",
 	operationId: "import-route",
 	tags: ["Routes"],
+	deprecated: true,
 	responses: {
 		200: {
 			description: "Successful",
@@ -38,7 +40,10 @@ export default function (app: HonoServer) {
 		async (ctx) => {
 			const { projectId, bundle } = ctx.req.valid("json");
 			// same placeholder the create endpoint uses for the author
-			return ctx.json(await importRouteBundle(generateID(), projectId, bundle));
+			const parsed = parseEnvelope(bundle, routeHandler.spec);
+			return ctx.json(
+				await routeHandler.import({ userId: generateID(), acl: [] }, projectId, parsed),
+			);
 		},
 	);
 }
