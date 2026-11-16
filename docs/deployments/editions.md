@@ -21,6 +21,7 @@ setting.
 | Message queue triggers & Send Message blocks (Kafka, NATS, SQS, RabbitMQ, Redis Streams) | ✅ | ✅ |
 | Single sign-on (OIDC and SAML) | — | ✅ |
 | [Audit Logs](../concepts/audit-logs.md), a record of who changed what | — | ✅ |
+| [Scheduled backups to object storage](../concepts/backup-schedules.md) | — | ✅ |
 | [Storing runs, run logs and audit logs in ClickHouse](./production.md#olap) | — | ✅ |
 
 A license key says which Enterprise features it includes. Most include all of
@@ -162,6 +163,8 @@ An expired license does not take anything down straight away. You have a
 | You can change project audit settings | ✅ | ❌ | ❌ |
 | People can sign in with SSO | ✅ | ✅ | ✅ |
 | You can change the SSO configuration | ✅ | ❌ | ❌ |
+| Scheduled backups to object storage keep running | ✅ | ✅ | ❌ |
+| You can change scheduled backup settings | ✅ | ❌ | ❌ |
 | ClickHouse storage is used (checked when the admin starts) | ✅ | ✅ | ❌ (back to Postgres) |
 | Community features | ✅ | ✅ | ✅ |
 
