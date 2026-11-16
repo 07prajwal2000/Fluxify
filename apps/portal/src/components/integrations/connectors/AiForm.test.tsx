@@ -1,4 +1,4 @@
-import { afterAll, afterEach, expect, mock, test } from "bun:test";
+import { afterAll, afterEach, expect, mock, spyOn, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 
 // DOM only for this file; RTL reads `document` on import, so load it after.
@@ -6,7 +6,7 @@ try {
 	GlobalRegistrator.register();
 } catch {}
 
-const { cleanup, fireEvent, render } = await import("@testing-library/react");
+const { cleanup, fireEvent, render, within } = await import("@testing-library/react");
 
 // Monaco cannot load under `bun test` (Vite `?worker` entries): a textarea stands in for the editor
 mock.module("../../../../../../packages/components/src/JavaScriptTextArea/monacoEditor", () => ({
@@ -20,6 +20,7 @@ mock.module("../../../../../../packages/components/src/JavaScriptTextArea/monaco
 }));
 const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query");
 const { useState } = await import("react");
+const { integrationService } = await import("@/services/integrations");
 const { AiForm } = await import("./AiForm");
 const { setPath } = await import("../ConnectorFields");
 
@@ -44,6 +45,7 @@ function Harness({
 			name="gpt"
 			onName={() => {}}
 			config={config}
+			variant="OpenAI"
 			showBaseUrl={showBaseUrl}
 			setField={(path, value) => setConfig((c) => setPath(c, path, value))}
 		/>
@@ -117,4 +119,15 @@ test("half-typed or non-object JSON shows an error and keeps the last valid body
 	fireEvent.change(editor, { target: { value: '{ "b": 2 }' } });
 	expect(view.queryByText(/Not valid JSON yet|Must be a JSON object/)).toBeNull();
 	expect(latest.extraBody).toEqual({ b: 2 });
+});
+
+test("the Model field is typable, and Browse opens the model picker", async () => {
+	spyOn(integrationService, "listModels").mockResolvedValue({ models: [] });
+	const { baseElement } = renderForm();
+	const ui = within(baseElement);
+	const input = baseElement.querySelector("#ai-model") as HTMLInputElement;
+	fireEvent.change(input, { target: { value: "my-model" } });
+	expect(latest.model).toBe("my-model");
+	fireEvent.click(ui.getByText("Browse"));
+	expect(ui.getByText("Select Model")).toBeTruthy();
 });

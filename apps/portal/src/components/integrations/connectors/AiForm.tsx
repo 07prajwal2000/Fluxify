@@ -1,6 +1,9 @@
-import { Input } from "@fluxify/components";
+import { Button, Input } from "@fluxify/components";
+import { useState } from "react";
+import { TbList } from "react-icons/tb";
 import { AppConfigSelector } from "../AppConfigSelector";
 import { HeadersEditor } from "../HeadersEditor";
+import { ModelSelectorModal } from "../ModelSelectorModal";
 import { ExtraBodyField } from "./ExtraBodyField";
 import type { ConnectorFormProps } from "./types";
 
@@ -13,7 +16,9 @@ export function AiForm({
 	setField,
 	hideName = false,
 	showBaseUrl = false,
-}: ConnectorFormProps & { showBaseUrl?: boolean }) {
+	variant,
+}: ConnectorFormProps & { showBaseUrl?: boolean; variant: string }) {
+	const [pickingModel, setPickingModel] = useState(false);
 	return (
 		<div className="flex flex-col gap-3.5">
 			{!hideName && (
@@ -50,11 +55,26 @@ export function AiForm({
 				<label htmlFor="ai-model" className="text-xs font-medium text-foreground">
 					Model <span className="text-danger">*</span>
 				</label>
-				<Input
-					id="ai-model"
-					value={(config.model as string) ?? ""}
-					onChange={(e) => setField("model", e.currentTarget.value)}
-					placeholder="e.g. gpt-4o, claude-3-5-sonnet, gemini-1.5-pro"
+				<div className="flex items-center gap-2">
+					<Input
+						id="ai-model"
+						className="flex-1"
+						value={(config.model as string) ?? ""}
+						onChange={(e) => setField("model", e.currentTarget.value)}
+						placeholder="e.g. gpt-4o, claude-3-5-sonnet, gemini-1.5-pro"
+					/>
+					<Button variant="outline" size="sm" onPress={() => setPickingModel(true)}>
+						<TbList size={14} /> Browse
+					</Button>
+				</div>
+				<ModelSelectorModal
+					projectId={projectId}
+					variant={variant}
+					config={config}
+					isOpen={pickingModel}
+					onOpenChange={setPickingModel}
+					selectedValue={(config.model as string) ?? ""}
+					onSelect={(id) => setField("model", id)}
 				/>
 			</div>
 			<HeadersEditor
