@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+import { TbInfoCircle } from "react-icons/tb";
 import { Section } from "@/components/common/Section";
 import { labelOf, MODE_COPY } from "@/components/settings/backup/labels";
 import type { ArchiveSummary } from "@/services/projects";
@@ -11,7 +13,9 @@ export function RestoreOverview({
 	onForm,
 	isRestoring,
 	onOpenSection,
+	notice,
 }: {
+	notice?: ReactNode;
 	summary: ArchiveSummary;
 	form: ProjectForm;
 	onForm: (form: ProjectForm) => void;
@@ -27,6 +31,15 @@ export function RestoreOverview({
 	return (
 		<div className="h-full overflow-y-auto p-6">
 			<div className="flex max-w-4xl flex-col gap-6">
+				{notice && (
+					<div
+						role="note"
+						className="flex gap-3 rounded-lg border border-accent/40 bg-accent/5 p-4 text-sm text-foreground"
+					>
+						<TbInfoCircle size={18} className="mt-0.5 shrink-0 text-accent" />
+						<div>{notice}</div>
+					</div>
+				)}
 				<NewProjectForm form={form} onForm={onForm} isDisabled={isRestoring} />
 
 				<Section title="About this file" description={MODE_COPY[summary.mode].body}>

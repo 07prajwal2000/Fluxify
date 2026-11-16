@@ -13,6 +13,7 @@ import {
 	sectionsResponseSchema,
 	startBodySchema,
 } from "./dto";
+import { registerRemoteBackups } from "./remote";
 import * as schedule from "./schedule";
 import * as service from "./service";
 
@@ -122,6 +123,7 @@ export default {
 				return c.json({ id: run.id });
 			},
 		);
+		registerRemoteBackups(router);
 		router.get(
 			"/:id/download",
 			doc("download-backup", "Downloads a finished manual backup (.tar.gz)"),

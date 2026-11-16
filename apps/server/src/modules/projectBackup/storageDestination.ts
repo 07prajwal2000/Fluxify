@@ -1,6 +1,14 @@
 import type { ObjectStorageAdapter } from "@fluxify/sdk/integrations";
+import type { z } from "zod";
 import { describeStorageError, openObjectStorage } from "../objectStorage";
-import { ARCHIVE_EXT, BACKUP_NAME, backupBase, META_EXT } from "./prefix";
+import {
+	ARCHIVE_EXT,
+	BACKUP_NAME,
+	backupBase,
+	type backupMetaSchema,
+	META_EXT,
+	META_KIND,
+} from "./prefix";
 import type { BackupDestination, BackupRow, FinishedArchive } from "./run";
 
 /**
@@ -10,14 +18,16 @@ import type { BackupDestination, BackupRow, FinishedArchive } from "./run";
  * incomplete. There is no shared index file: the listing is the history.
  */
 
-export const META_KIND = "fluxify.project.backup-meta";
-
 /**
  * What `.meta.json` holds: what a restore picker (#1107) lists after a
  * reconnect, before downloading anything. Unencrypted, so never a secret and
  * never the README's text.
  */
-export function backupMeta(row: BackupRow, archive: FinishedArchive, name: string) {
+export function backupMeta(
+	row: BackupRow,
+	archive: FinishedArchive,
+	name: string,
+): z.infer<typeof backupMetaSchema> {
 	const { manifest } = archive;
 	return {
 		kind: META_KIND,
@@ -34,19 +44,22 @@ export function backupMeta(row: BackupRow, archive: FinishedArchive, name: strin
 	};
 }
 
-/** everything this feature wrote directly under `<prefix>/`, by backup (`<stamp>-<id>`) */
-async function listBackups(storage: ObjectStorageAdapter, prefix: string) {
+/**
+ * Everything this feature wrote directly under `<prefix>/`, by backup
+ * (`<stamp>-<id>`), with the archive's size as the bucket reports it.
+ */
+export async function bucketBackups(storage: ObjectStorageAdapter, prefix: string) {
 	// the trailing `/` keeps prefix `a` from reaching `ab/…`
 	const dir = `${prefix}/`;
-	const found = new Map<string, { archive: boolean; meta: boolean }>();
+	const found = new Map<string, { archive: boolean; meta: boolean; size: number }>();
 	let cursor: string | undefined;
 	do {
 		const page = await storage.list(dir, { cursor });
-		for (const { key } of page.objects) {
+		for (const { key, size } of page.objects) {
 			const match = BACKUP_NAME.exec(key.slice(dir.length));
 			if (!key.startsWith(dir) || !match) continue;
-			const entry = found.get(match[1]!) ?? { archive: false, meta: false };
-			if (match[2] === "tar.gz") entry.archive = true;
+			const entry = found.get(match[1]!) ?? { archive: false, meta: false, size: 0 };
+			if (match[2] === "tar.gz") Object.assign(entry, { archive: true, size });
 			else entry.meta = true;
 			found.set(match[1]!, entry);
 		}
@@ -62,7 +75,7 @@ async function listBackups(storage: ObjectStorageAdapter, prefix: string) {
  * by time because they start with the timestamp. Returns the keys deleted.
  */
 export async function pruneBackups(storage: ObjectStorageAdapter, prefix: string, keep: number) {
-	const found = await listBackups(storage, prefix);
+	const found = await bucketBackups(storage, prefix);
 	const names = [...found.keys()].sort();
 	const complete = names.filter((n) => found.get(n)!.archive && found.get(n)!.meta);
 	if (complete.length <= keep) return [];

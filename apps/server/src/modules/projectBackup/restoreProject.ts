@@ -85,12 +85,19 @@ export async function inspectArchive(bytes: Uint8Array) {
  */
 export async function restoreProject(
 	bytes: Uint8Array,
-	input: Pick<Parameters<typeof insertNewProject>[0], "name" | "slug" | "description" | "settings">,
+	{
+		subdomain,
+		...input
+	}: Pick<Parameters<typeof insertNewProject>[0], "name" | "slug" | "description"> & {
+		/** stands over the archive's own; one another project holds refuses the restore (409) */
+		subdomain?: string;
+	},
 ) {
 	const plan = await readBackup(bytes, BACKUP_MODULES);
+	const settings = subdomain ? { "settings.routing.subdomain": subdomain } : undefined;
 	const { projectId, warnings } = await restoreBackup(plan, (work) =>
 		db.transaction(async (tx) => {
-			const created = await insertNewProject(input, tx);
+			const created = await insertNewProject({ ...input, settings }, tx);
 			await work(tx, created.projectId);
 			// the last step: a failed publish rolls the project back
 			await recordProjectCreated(created, "restore", ["name", "slug", plan.manifest.mode]);
