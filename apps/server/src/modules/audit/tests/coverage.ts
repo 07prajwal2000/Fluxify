@@ -144,6 +144,7 @@ export const SKIPPED: Record<string, string> = {
 	"check-route-import": "asks whether a route would clash and changes nothing",
 	"validate-test-suite": "checks a suite against its last run and changes nothing",
 	"preview-llms-txt": "fetches a page to list its links and changes nothing",
+	"list-ai-models": "lists the models a provider offers and changes nothing",
 	"inspect-integration": "reads an integration (tables, a key) and changes nothing",
 	"connect-mcp-oauth":
 		"only starts the sign-in; the connection it leads to is recorded when the callback completes it",
