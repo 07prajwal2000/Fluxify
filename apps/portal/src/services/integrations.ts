@@ -6,6 +6,7 @@ import type { responseSchema as getAllResponseSchema } from "@fluxify/server/src
 import type { responseSchema as getBasicListResponseSchema } from "@fluxify/server/src/api/v1/integrations/get-basic-list/dto";
 import type { responseSchema as getByIdResponseSchema } from "@fluxify/server/src/api/v1/integrations/get-by-id/dto";
 import type { responseSchema as getMetadataResponseSchema } from "@fluxify/server/src/api/v1/integrations/get-metadata/dto";
+import type { responseSchema as listModelsResponseSchema } from "@fluxify/server/src/api/v1/integrations/list-models/dto";
 import type { responseSchema as testConnectionResponseSchema } from "@fluxify/server/src/api/v1/integrations/test-connection/dto";
 import type { responseSchema as testExistingConnectionResponseSchema } from "@fluxify/server/src/api/v1/integrations/test-existing-connection/dto";
 import {
@@ -89,6 +90,22 @@ export const integrationService = {
 	): Promise<z.infer<typeof testExistingConnectionResponseSchema>> {
 		const res = await httpClient.get(
 			`${getBaseUrl(projectId)}/test-production-connection/${id}${signal ? `?signal=${signal}` : ""}`,
+			{ signal: abort },
+		);
+		return res.data;
+	},
+	/** The models an AI provider offers for a config that may not be saved yet; the server holds the key. */
+	async listModels(
+		projectId: string,
+		variant: string,
+		config: unknown,
+		/** skip the server's cached copy */
+		refresh = false,
+		abort?: AbortSignal,
+	): Promise<z.infer<typeof listModelsResponseSchema>> {
+		const res = await httpClient.post(
+			`${getBaseUrl(projectId)}/list-models`,
+			{ variant, config, refresh },
 			{ signal: abort },
 		);
 		return res.data;

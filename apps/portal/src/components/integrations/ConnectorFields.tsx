@@ -171,7 +171,9 @@ export function ConnectorFields({
 					databaseLabel={CRED_PLACEHOLDERS[variant].dbLabel}
 				/>
 			)}
-			{group === "ai" && <AiForm {...formProps} showBaseUrl={variant === "OpenAI Compatible"} />}
+			{group === "ai" && (
+				<AiForm {...formProps} variant={variant} showBaseUrl={variant === "OpenAI Compatible"} />
+			)}
 			{group === "observability" && variant === "Loki" && (
 				<ObservabilityForm
 					{...formProps}

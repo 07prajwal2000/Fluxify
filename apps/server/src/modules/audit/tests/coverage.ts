@@ -151,6 +151,7 @@ export const SKIPPED: Record<string, string> = {
 	"check-resource-import": "asks whether an import would clash and changes nothing",
 	"validate-test-suite": "checks a suite against its last run and changes nothing",
 	"preview-llms-txt": "fetches a page to list its links and changes nothing",
+	"list-ai-models": "lists the models a provider offers and changes nothing",
 	"inspect-integration": "reads an integration (tables, a key) and changes nothing",
 	"inspect-project-archive": "reads an uploaded backup archive and changes nothing",
 	"connect-mcp-oauth":

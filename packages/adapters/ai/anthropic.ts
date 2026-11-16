@@ -14,6 +14,11 @@ export class AnthropicIntegration extends BaseAiIntegration {
 			url: () => "https://api.anthropic.com/v1/models",
 			headers: (c) => ({ "x-api-key": c.apiKey, "anthropic-version": "2023-06-01" }),
 			ids: (body) => body.data.map((m: { id: string }) => m.id),
+			info: (body) =>
+				body.data.map((m: { id: string; display_name?: string }) => ({
+					id: m.id,
+					...(m.display_name && { name: m.display_name }),
+				})),
 		},
 	} satisfies typeof BaseAiIntegration.provider;
 }

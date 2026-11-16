@@ -81,9 +81,34 @@ describe.each(ROWS)("%p", (Provider, row, baseUrl) => {
 		expect(await Provider.ListModels(config, fetch)).toEqual([
 			Provider === GeminiIntegration ? "gemini-2.5-flash" : "m1",
 		]);
-		expect(calls[0]!.url).toBe(`${baseUrl}models`);
+		expect(calls[0]!.url.startsWith(`${baseUrl}models`)).toBe(true);
 		expect(keyOf(calls[0]!.headers)).toBe("sk-test-from-app-config");
 	});
+});
+
+// #698: names, context and prices where the provider reports them
+it("lists OpenRouter-style details per model", async () => {
+	const { fetch } = recorder({
+		data: [
+			{ id: "a/b", name: "A B", context_length: 8000, pricing: { prompt: "0.000001", completion: "0.000002" } },
+			{ id: "plain" },
+		],
+	});
+	expect(await OpenAIIntegration.ListModelInfo({ apiKey: "x", model: "m" }, fetch)).toEqual([
+		{ id: "a/b", name: "A B", contextLength: 8000, pricing: { input: 1, output: 2 } },
+		{ id: "plain" },
+	]);
+});
+
+it("lists Anthropic and Gemini display names", async () => {
+	const claude = recorder({ data: [{ id: "claude-x", display_name: "Claude X" }] });
+	expect(await AnthropicIntegration.ListModelInfo({ apiKey: "x", model: "m" }, claude.fetch)).toEqual([
+		{ id: "claude-x", name: "Claude X" },
+	]);
+	const gemini = recorder({ models: [{ name: "models/g", displayName: "G", inputTokenLimit: 1000 }] });
+	expect(await GeminiIntegration.ListModelInfo({ apiKey: "x", model: "m" }, gemini.fetch)).toEqual([
+		{ id: "g", name: "G", contextLength: 1000 },
+	]);
 });
 
 it("a refused listing throws the provider's status", async () => {
