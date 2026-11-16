@@ -16,6 +16,7 @@ import {
 	TbUsers,
 } from "react-icons/tb";
 import { AiConnectionsSettings } from "@/components/settings/AiConnectionsSettings";
+import { resolveActiveTab } from "@/components/settings/activeTab";
 import { BackupSettings } from "@/components/settings/backup/BackupSettings";
 import { type BackupView, parseBackupView } from "@/components/settings/backup/views";
 import { DangerZoneSettings } from "@/components/settings/DangerZoneSettings";
@@ -38,7 +39,7 @@ import { projectMembersQuery } from "@/query/projectMembersQuery";
 import { projectSettingsKeysQuery } from "@/query/projectSettingsKeysQuery";
 import { projectsQuery } from "@/query/projectsQuery";
 import { publicSettingsQuery } from "@/query/publicSettingsQuery";
-import { useCanEditProject, useIsSystemAdmin } from "@/store/auth";
+import { useAuthStore, useCanEditProject, useIsSystemAdmin } from "@/store/auth";
 
 type SettingsSearch = {
 	tab?:
@@ -114,16 +115,28 @@ function ProjectSettingsPage() {
 			(!("systemAdminOnly" in tab) || isSystemAdmin),
 	);
 
-	const validTabs = tabs.map((t) => t.id);
-	const activeTab: TabId = validTabs.includes(search.tab as any)
-		? (search.tab as TabId)
-		: "general";
+	// The session is filled in after the first render, so on a refresh the gated
+	// tabs aren't in `tabs` yet; judging ?tab= before then bounced it to General.
+	const authReady = useAuthStore().userData.id !== "";
+	const activeTab: TabId = resolveActiveTab({
+		requested: search.tab,
+		visible: tabs.map((t) => t.id),
+		all: SETTINGS_TABS.map((t) => t.id),
+		authReady,
+		fallback: "general",
+	});
+	const gated = SETTINGS_TABS.some(
+		(t) => t.id === activeTab && ("editorsOnly" in t || "systemAdminOnly" in t),
+	);
+
+	// a gated tab renders nothing until the session says whether this user may see it
+	const contentTab = gated && !authReady ? undefined : activeTab;
 
 	useEffect(() => {
-		if (search.tab !== activeTab) {
+		if (authReady && search.tab !== activeTab) {
 			navigate({ search: { tab: activeTab } as any, replace: true });
 		}
-	}, [search.tab, activeTab, navigate]);
+	}, [authReady, search.tab, activeTab, navigate]);
 
 	// For Members badge
 	const { data: projectsData } = projectsQuery.getAll.useQuery({ page: 1, perPage: 50 });
@@ -204,14 +217,14 @@ function ProjectSettingsPage() {
 							activeTab === "ai-connections" ? "flex flex-col min-h-0 flex-1 w-full" : "max-w-4xl"
 						}
 					>
-						{activeTab === "general" && (
+						{contentTab === "general" && (
 							<div className="flex flex-col gap-6">
 								<GeneralSettings projectId={projectId} />
 								<TriggerSettings projectId={projectId} />
 								<WorkflowConcurrencySettings projectId={projectId} />
 							</div>
 						)}
-						{activeTab === "telemetry" && (
+						{contentTab === "telemetry" && (
 							<div className="flex flex-col gap-4">
 								<div>
 									<h1 className="text-xl font-semibold tracking-tight">Telemetry</h1>
@@ -222,9 +235,9 @@ function ProjectSettingsPage() {
 								<TelemetryDestinations projectId={projectId} />
 							</div>
 						)}
-						{activeTab === "nodes" && <NodesSettings projectId={projectId} />}
-						{activeTab === "packages" && <PackagesSettings projectId={projectId} />}
-						{activeTab === "plugins" && (
+						{contentTab === "nodes" && <NodesSettings projectId={projectId} />}
+						{contentTab === "packages" && <PackagesSettings projectId={projectId} />}
+						{contentTab === "plugins" && (
 							<PluginsSettings
 								projectId={projectId}
 								selected={search.plugin}
@@ -233,10 +246,10 @@ function ProjectSettingsPage() {
 								}
 							/>
 						)}
-						{activeTab === "dev-access" && <DevAccessSettings projectId={projectId} />}
-						{activeTab === "members" && <MembersSettings projectId={projectId} />}
-						{activeTab === "audit-logs" && <ProjectAuditSettings projectId={projectId} />}
-						{activeTab === "backup" && (
+						{contentTab === "dev-access" && <DevAccessSettings projectId={projectId} />}
+						{contentTab === "members" && <MembersSettings projectId={projectId} />}
+						{contentTab === "audit-logs" && <ProjectAuditSettings projectId={projectId} />}
+						{contentTab === "backup" && (
 							<BackupSettings
 								projectId={projectId}
 								view={search.backupView}
@@ -248,9 +261,9 @@ function ProjectSettingsPage() {
 								}
 							/>
 						)}
-						{activeTab === "ai-connections" && <AiConnectionsSettings projectId={projectId} />}
-						{activeTab === "experimental" && <ExperimentalSettings projectId={projectId} />}
-						{activeTab === "danger" && (
+						{contentTab === "ai-connections" && <AiConnectionsSettings projectId={projectId} />}
+						{contentTab === "experimental" && <ExperimentalSettings projectId={projectId} />}
+						{contentTab === "danger" && (
 							<DangerZoneSettings projectId={projectId} onDeleted={() => navigate({ to: "/" })} />
 						)}
 					</div>
