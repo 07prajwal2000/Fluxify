@@ -12,7 +12,7 @@ pack, check, upgrade and import modules. It owns no resource of its own.
 | `backup.ts` | `createBackup(input, BACKUP_MODULES)` → `{ bytes, manifest }` |
 | `restore.ts` | `readBackup(bytes, BACKUP_MODULES)` checks everything; `restoreBackup(plan, openProject)` writes |
 | `archive.ts` | The tar layout, encryption, integrity hash, `readManifest` |
-| `restoreProject.ts` | `inspectArchive(bytes)` and `restoreProject(bytes, { name, slug })`: a new project from an uploaded archive, created through the "create project" path, then compiled (the API is `api/v1/projects/restore`) |
+| `restoreProject.ts` | `inspectArchive(bytes)` and `restoreProject(bytes, { name, slug, description, settings })`: a new project from an uploaded archive, created through the "create project" path, then compiled (the API is `api/v1/projects/restore`) |
 | `run.ts`, `history.ts`, `archives.ts` | A manual backup as a job on admin: the `project_backups` rows, the archive held in the Object Store until it expires, the daily cleanup (the API is `api/v1/backups`) |
 | `sections.ts` | Refuses too-old / too-new sections and walks the upgrade steps |
 | `resources/` | The resource modules (`appConfig`, `integrations`, `projectSettings`, `projectDependencies`, `plugins`, `customBlocks`, `middlewares`, `routes`, `workflows`, `triggers`, …), their fixtures and Postgres tests |

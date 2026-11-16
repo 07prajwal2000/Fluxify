@@ -83,7 +83,10 @@ export async function inspectArchive(bytes: Uint8Array) {
  * has committed, the project compile writes every artifact to the NATS store,
  * where dev and prod workers pick them up.
  */
-export async function restoreProject(bytes: Uint8Array, input: { name: string; slug?: string }) {
+export async function restoreProject(
+	bytes: Uint8Array,
+	input: Pick<Parameters<typeof insertNewProject>[0], "name" | "slug" | "description" | "settings">,
+) {
 	const plan = await readBackup(bytes, BACKUP_MODULES);
 	const { projectId, warnings } = await restoreBackup(plan, (work) =>
 		db.transaction(async (tx) => {

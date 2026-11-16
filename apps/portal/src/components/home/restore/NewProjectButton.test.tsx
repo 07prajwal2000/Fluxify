@@ -194,7 +194,13 @@ test("shows what the file holds, then creates the project and opens it", async (
 	renderButton();
 	await pick();
 
-	await until(() => expect(text()).toContain("Orders template"));
+	await until(() => expect(text()).toContain("Orders (orders)"));
+	// the README has its own page
+	expect(text()).not.toContain("Set the database first");
+	fireEvent.click(nav("README"));
+	await until(() => expect(text()).toContain("Set the database first"));
+	fireEvent.click(nav("Overview"));
+	await until(() => field("Slug"));
 	expect(inspect).toHaveBeenCalled();
 	expect(text()).toContain("orders.tar.gz");
 	expect(text()).toContain("Template");
@@ -206,13 +212,31 @@ test("shows what the file holds, then creates the project and opens it", async (
 	expect(restore).not.toHaveBeenCalled();
 
 	fireEvent.change(field("Slug"), { target: { value: "orders-copy" } });
+	fireEvent.change(field("Subdomain"), { target: { value: "orders-eu" } });
+	fireEvent.change(field("Description"), { target: { value: "EU orders" } });
 	await act(async () => {
 		fireEvent.click(button("Create project"));
 	});
 	await until(() =>
 		expect(navigate).toHaveBeenCalledWith({ to: "/$projectId", params: { projectId: "p9" } }),
 	);
-	expect(restore.mock.calls[0]?.[1]).toEqual({ name: "Orders (2)", slug: "orders-copy" });
+	expect(restore.mock.calls[0]?.[1]).toEqual({
+		name: "Orders (2)",
+		slug: "orders-copy",
+		description: "EU orders",
+		subdomain: "orders-eu",
+	});
+});
+
+test("refuses an invalid subdomain before anything is sent", async () => {
+	spyOn(projectsService, "inspectArchive").mockResolvedValue(SUMMARY);
+	const restore = spyOn(projectsService, "restore").mockResolvedValue({ id: "p9", warnings: [] });
+	renderButton();
+	await pick();
+	await until(() => field("Subdomain"));
+	fireEvent.change(field("Subdomain"), { target: { value: "-bad-" } });
+	await until(() => expect(button("Create project").disabled).toBe(true));
+	expect(restore).not.toHaveBeenCalled();
 });
 
 test("shows the server's refusal before any name is asked for", async () => {
@@ -292,6 +316,10 @@ test("renders the README as Markdown only: no script, no javascript: link", asyn
 	});
 	renderButton();
 	await pick();
+	await until(() => nav("README"));
+	// its own page, not part of the overview
+	expect(document.body.querySelector('section[aria-label="README"]')).toBeNull();
+	fireEvent.click(nav("README"));
 	const readme = await until(() => {
 		const found = document.body.querySelector('section[aria-label="README"]');
 		if (!found) throw new Error("no README");
@@ -310,23 +338,12 @@ test("renders the README as Markdown only: no script, no javascript: link", asyn
 	expect(docs?.getAttribute("rel")).toBe("noopener noreferrer");
 });
 
-test("folds a long README until asked, and hides it when there is none", async () => {
-	spyOn(projectsService, "inspectArchive").mockResolvedValueOnce({
-		...SUMMARY,
-		readme: "word ".repeat(400),
-	});
-	renderButton();
-	await pick();
-	await until(() => button("Show the whole README"));
-	fireEvent.click(button("Show the whole README"));
-	await until(() => button("Show less"));
-	cleanup();
-
+test("has no README page when the file has none", async () => {
 	spyOn(projectsService, "inspectArchive").mockResolvedValueOnce({ ...SUMMARY, readme: null });
 	renderButton();
 	await pick();
 	await until(() => field("Slug"));
-	expect(document.body.querySelector('section[aria-label="README"]')).toBeNull();
+	expect(() => nav("README")).toThrow();
 });
 
 test("browses each section read only: the list, the details, the canvas, never a credential", async () => {
@@ -362,6 +379,15 @@ test("browses each section read only: the list, the details, the canvas, never a
 	fireEvent.click(nav("Triggers"));
 	await until(() => expect(text()).toContain("Nothing in this section."));
 	expect(text()).toContain('Group "jobs" has 7 triggers');
-	// the name and slug stay in reach on every page
-	expect(field("Slug").value).toBe("orders-2");
+	// what was typed on the overview is still there when it is reopened
+	fireEvent.click(nav("Overview"));
+	await until(() => expect(field("Slug").value).toBe("orders-2"));
+});
+
+test("has no README page when the README is only whitespace", async () => {
+	spyOn(projectsService, "inspectArchive").mockResolvedValueOnce({ ...SUMMARY, readme: " \n\t " });
+	renderButton();
+	await pick();
+	await until(() => field("Slug"));
+	expect(() => nav("README")).toThrow();
 });

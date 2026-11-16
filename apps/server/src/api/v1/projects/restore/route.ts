@@ -10,7 +10,7 @@ import {
 } from "../../../../modules/projectBackup/restoreProject";
 import type { HonoContext, HonoServer } from "../../../../types";
 import { requireSystemAdmin } from "../../../auth/middleware";
-import { inspectResponseSchema, namesSchema, restoreResponseSchema } from "./dto";
+import { inspectResponseSchema, newProjectSchema, restoreResponseSchema } from "./dto";
 
 const doc = (operationId: string, description: string, schema: z.ZodType) =>
 	describeRoute({
@@ -68,7 +68,7 @@ export default function (app: HonoServer) {
 		"/restore",
 		doc(
 			"restore-project",
-			"Creates a project from a backup or template archive (multipart fields `file`, `name`, `slug`)",
+			"Creates a project from a backup or template archive (multipart fields `file`, `name`, and optionally `slug`, `description`, `subdomain`)",
 			restoreResponseSchema,
 		),
 		requireSystemAdmin,
@@ -80,9 +80,20 @@ export default function (app: HonoServer) {
 				0,
 			);
 			const { body, bytes } = await readUpload(ctx);
-			const names = namesSchema.safeParse({ name: body.name, slug: body.slug || undefined });
-			if (!names.success) return zodErrorCallbackParser(names, ctx);
-			const { projectId, warnings } = await restoreProject(bytes, names.data);
+			// a blank optional field arrives as ""
+			const blank = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : undefined);
+			const fields = newProjectSchema.safeParse({
+				name: body.name,
+				slug: blank(body.slug),
+				description: blank(body.description),
+				subdomain: blank(body.subdomain),
+			});
+			if (!fields.success) return zodErrorCallbackParser(fields, ctx);
+			const { subdomain, ...project } = fields.data;
+			const { projectId, warnings } = await restoreProject(bytes, {
+				...project,
+				settings: subdomain ? { "settings.routing.subdomain": subdomain } : undefined,
+			});
 			return ctx.json({ id: projectId, warnings });
 		},
 	);

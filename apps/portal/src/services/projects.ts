@@ -70,11 +70,13 @@ export const projectsService = {
 		return (await httpClient.post(`${baseUrl}/restore/inspect`, form, MULTIPART)).data;
 	},
 	/** a new project from a backup or template file */
-	async restore(file: File, names: { name: string; slug: string }): Promise<RestoreResult> {
+	async restore(
+		file: File,
+		project: { name: string; slug: string; description?: string; subdomain?: string },
+	): Promise<RestoreResult> {
 		const form = new FormData();
 		form.set("file", file);
-		form.set("name", names.name);
-		form.set("slug", names.slug);
+		for (const [key, value] of Object.entries(project)) if (value) form.set(key, value);
 		return (await httpClient.post(`${baseUrl}/restore`, form, MULTIPART)).data;
 	},
 	createRequestBodySchema,

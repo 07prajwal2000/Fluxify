@@ -1,22 +1,12 @@
-import {
-	Button,
-	Chip,
-	CloseButton,
-	cn,
-	Input,
-	Label,
-	Modal,
-	Spinner,
-	TextField,
-} from "@fluxify/components";
+import { Button, Chip, CloseButton, cn, Modal, Spinner } from "@fluxify/components";
 import { useState } from "react";
-import { TbAlertTriangle, TbInfoCircle } from "react-icons/tb";
+import { TbAlertTriangle, TbFileText, TbInfoCircle } from "react-icons/tb";
 import { labelOf, MODE_COPY } from "@/components/settings/backup/labels";
 import type { ArchiveSummary } from "@/services/projects";
+import { formReady, type ProjectForm } from "./NewProjectForm";
 import { RestoreOverview } from "./RestoreOverview";
+import { RestoreReadme } from "./RestoreReadme";
 import { iconOf, SectionBrowser } from "./SectionBrowser";
-
-export type Names = { name: string; slug: string };
 
 type Props = {
 	fileName: string;
@@ -24,8 +14,8 @@ type Props = {
 	summary: ArchiveSummary | null;
 	/** why the server refused the file; nothing more can be done with it */
 	refusal?: string;
-	names: Names;
-	onNames: (names: Names) => void;
+	form: ProjectForm;
+	onForm: (form: ProjectForm) => void;
 	/** a restore that failed and can be retried, e.g. a slug already taken */
 	error?: string;
 	isRestoring: boolean;
@@ -35,7 +25,7 @@ type Props = {
 
 /**
  * A new project from a backup or template file (#1104): what the file holds, a
- * section at a time and read only, beside the name and slug the project gets.
+ * section at a time and read only, beside the details the project gets.
  */
 export function RestoreDialog(props: Props) {
 	const { summary, refusal, isRestoring } = props;
@@ -65,7 +55,7 @@ export function RestoreDialog(props: Props) {
 							{refusal ? (
 								<Refused message={refusal} />
 							) : summary ? (
-								<Browser summary={summary} />
+								<Browser {...props} summary={summary} />
 							) : (
 								<div className="flex h-full items-center justify-center gap-2 text-sm text-muted">
 									<Spinner size="sm" /> Checking the file…
@@ -96,8 +86,8 @@ function Refused({ message }: { message: string }) {
 	);
 }
 
-/** the left nav, like Project Settings: the overview, then one entry per section */
-function Browser({ summary }: { summary: ArchiveSummary }) {
+/** the left nav, like Project Settings: the overview, the README, then one entry per section */
+function Browser({ summary, form, onForm, isRestoring }: Props & { summary: ArchiveSummary }) {
 	const [active, setActive] = useState("overview");
 	const warningsIn = (section: string) =>
 		summary.warnings.filter((w) => w.section === section).length;
@@ -109,6 +99,9 @@ function Browser({ summary }: { summary: ArchiveSummary }) {
 			count: summary.warnings.length,
 			warn: true,
 		},
+		...(summary.readme?.trim()
+			? [{ id: "readme", label: "README", icon: TbFileText, count: 0, warn: false }]
+			: []),
 		...summary.preview.map((p) => ({
 			id: p.section,
 			label: labelOf(p.section),
@@ -118,15 +111,16 @@ function Browser({ summary }: { summary: ArchiveSummary }) {
 		})),
 	];
 	const section = summary.preview.find((p) => p.section === active);
+	const firstResource = summary.preview[0]?.section;
 	return (
 		<div className="flex h-full min-h-0">
 			<nav
 				aria-label="What the file holds"
 				className="flex w-60 shrink-0 flex-col gap-1 overflow-y-auto border-r border-border py-4 pl-3 pr-2"
 			>
-				{entries.map((e, i) => (
+				{entries.map((e) => (
 					<div key={e.id}>
-						{i === 1 && (
+						{e.id === firstResource && (
 							<div className="mb-1 mt-3 px-3 text-xs font-semibold uppercase tracking-wider text-muted">
 								Resources
 							</div>
@@ -147,10 +141,10 @@ function Browser({ summary }: { summary: ArchiveSummary }) {
 								{e.label}
 							</span>
 							<span className="flex items-center gap-1">
-								{e.id !== "overview" && e.warn && (
+								{e.id !== "overview" && e.id !== "readme" && e.warn && (
 									<TbAlertTriangle size={14} className="text-warning" />
 								)}
-								{(e.id !== "overview" || e.count > 0) && (
+								{e.id !== "readme" && (e.id !== "overview" || e.count > 0) && (
 									<span
 										className={cn(
 											"flex h-5 min-w-5 items-center justify-center rounded px-1 text-[11px] font-medium",
@@ -174,47 +168,28 @@ function Browser({ summary }: { summary: ArchiveSummary }) {
 						section={section}
 						warnings={summary.warnings.filter((w) => w.section === section.section)}
 					/>
+				) : active === "readme" && summary.readme?.trim() ? (
+					<RestoreReadme text={summary.readme} />
 				) : (
-					<RestoreOverview summary={summary} onOpenSection={setActive} />
+					<RestoreOverview
+						summary={summary}
+						form={form}
+						onForm={onForm}
+						isRestoring={isRestoring}
+						onOpenSection={setActive}
+					/>
 				)}
 			</div>
 		</div>
 	);
 }
 
-function Footer({
-	summary,
-	refusal,
-	names,
-	onNames,
-	error,
-	isRestoring,
-	onCreate,
-	onClose,
-}: Props) {
+function Footer({ summary, refusal, form, error, isRestoring, onCreate, onClose }: Props) {
 	const ready = summary && !refusal;
 	return (
 		<Modal.Footer className="flex shrink-0 flex-row flex-wrap items-end gap-3 border-t border-border px-5 py-3">
 			{ready && (
 				<>
-					<TextField
-						className="w-64"
-						value={names.name}
-						isDisabled={isRestoring}
-						onChange={(name) => onNames({ ...names, name })}
-					>
-						<Label>Project name</Label>
-						<Input />
-					</TextField>
-					<TextField
-						className="w-64"
-						value={names.slug}
-						isDisabled={isRestoring}
-						onChange={(slug) => onNames({ ...names, slug })}
-					>
-						<Label>Slug</Label>
-						<Input className="font-mono" />
-					</TextField>
 					<div className="min-w-0 flex-1 self-center text-xs">
 						{error ? (
 							<p role="alert" className="text-danger">
@@ -240,7 +215,7 @@ function Footer({
 					<Button
 						variant="primary"
 						isPending={isRestoring}
-						isDisabled={names.name.trim().length < 2}
+						isDisabled={!formReady(form)}
 						onPress={onCreate}
 					>
 						{isRestoring ? "Restoring…" : "Create project"}
