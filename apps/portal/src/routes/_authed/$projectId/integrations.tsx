@@ -6,6 +6,7 @@ import { LuServerCrash } from "react-icons/lu";
 import {
 	TbArrowsExchange,
 	TbBook,
+	TbBucket,
 	TbCloudCog,
 	TbDatabase,
 	TbExternalLink,
@@ -43,6 +44,7 @@ export const Route = createFileRoute("/_authed/$projectId/integrations")({
 			observability: "Observability",
 			queue: "Message Queues",
 			mcp: "MCP Servers",
+			storage: "Object Storage",
 		};
 		const category = search.group ? groupLabels[search.group] || search.group : "All";
 		return {
@@ -65,6 +67,7 @@ const BUILT_IN_CONNECTORS: { name: string; type: string; icon: ReactNode }[] = [
 	},
 	{ name: "Queues", type: "queue", icon: <TbArrowsExchange size={18} /> },
 	{ name: "MCP Servers", type: "mcp", icon: <VscMcp size={18} /> },
+	{ name: "Object Storage", type: "storage", icon: <TbBucket size={18} /> },
 ];
 
 export function IntegrationsPage() {
@@ -440,6 +443,14 @@ const HELP_DATA: Record<
 		docsUrl: "https://docs.fluxify.rest/integrations/message-queues.html",
 		tip: "Set a dead-letter topic under Advanced, or one bad message holds up its partition until it succeeds. For SQS, give the queue a redrive policy in AWS instead; for RabbitMQ, a dead-letter exchange on the queue.",
 		tipIcon: <TbArrowsExchange size={16} className="shrink-0 text-muted mt-0.5" />,
+	},
+	storage: {
+		title: "Object Storage",
+		description:
+			"Connect an S3-compatible bucket (Amazon S3, Cloudflare R2, MinIO or Google Cloud Storage) to keep project backups off the server.",
+		docsUrl: "https://docs.fluxify.rest/integrations/object-storage.html",
+		tip: "Give the keys access to one bucket only, and keep the secret in an encrypted App Config key.",
+		tipIcon: <TbBucket size={16} className="shrink-0 text-muted mt-0.5" />,
 	},
 	baas: {
 		title: "Backend Services",

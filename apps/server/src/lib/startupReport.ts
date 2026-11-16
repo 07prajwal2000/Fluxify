@@ -8,6 +8,7 @@ import {
 	WORKER_MODE,
 	WORKER_PROJECT_ID,
 } from "./env";
+import { releaseVersion } from "./version";
 
 /**
  * Server-side helpers for the unified startup report (#797): start it, record
@@ -62,6 +63,7 @@ function projectText(projectId: string | undefined): string {
 /** Admin control plane: sandbox cap, its public URL and the admin rate limit. */
 export function reportServerSettings() {
 	const report = startup();
+	report.setting(`Release: ${releaseVersion()}`);
 	report.setting(`Max sandboxes per user: ${getEnv("MAX_SANDBOX_PER_USER") || "20"}`);
 	if (getEnv("ENABLE_BUILTIN_WORKER") === "true") {
 		report.setting(`Builtin worker mode: ${modeText(getEnv("WORKER_MODE"))}`);
@@ -79,6 +81,7 @@ export function reportServerSettings() {
 export function reportOrchestratorSettings() {
 	const provider = getEnv("ORCHESTRATOR_PROVIDER") || "docker";
 	const report = startup();
+	report.setting(`Release: ${releaseVersion()}`);
 	report.setting(`Platform driver: ${provider}`);
 	report.setting(`Worker image: ${getEnv("ORCHESTRATOR_WORKER_IMAGE") || "(unset)"}`);
 	if (provider === "kubernetes") {
@@ -98,6 +101,7 @@ export interface WorkerSettings {
 /** A request worker: what it runs, where, and which node it is. */
 export function reportWorkerSettings(overrides: WorkerSettings = {}) {
 	const report = startup();
+	report.setting(`Release: ${releaseVersion()}`);
 	report.setting(`Worker mode: ${modeText(overrides.mode ?? WORKER_MODE)}`);
 	report.setting(`Worker project: ${projectText(overrides.projectId ?? WORKER_PROJECT_ID)}`);
 	report.setting(`Max triggers per group: ${getEnv("MAX_TRIGGERS_PER_GROUP") || "5"}`);

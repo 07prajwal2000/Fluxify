@@ -149,6 +149,17 @@ export const projectSettingsKeySchemaMap = {
 		defaultValue: "false",
 		dataType: "boolean",
 	},
+	/**
+	 * The README the last backup carried (#1103), so the next one, and a
+	 * scheduled one (#1106), starts from it. Markdown, stored unencrypted in
+	 * the archive; the limit is the archive's (64 KB in bytes, so a character
+	 * cap here is a safe subset).
+	 */
+	"settings.backup.readme": {
+		schema: z.string().max(65536),
+		defaultValue: "",
+		dataType: "string",
+	},
 };
 
 /** Keys only a project admin may write; everything else needs creator. */

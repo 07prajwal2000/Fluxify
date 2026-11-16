@@ -28,6 +28,7 @@ export const aiVariantSchema = z.enum([
 ]);
 export const baasVariantSchema = z.enum(["Firebase", "Supabase"]);
 export const observabilityVariantSchema = z.enum(["Open Telemetry", "Loki"]);
+export const storageVariantSchema = z.enum(["S3 Compatible"]);
 
 // Database
 /** milliseconds before a query is stopped; the runtime uses 30s when it is left out */
@@ -366,4 +367,27 @@ export const mcpVariantConfigSchema = z.object({
 		message: "Must be an http:// or https:// URL",
 	}),
 	headers: z.array(z.object({ key: z.string().min(1), value: z.string() })).default([]),
+});
+
+// Object storage
+/**
+ * Any S3-compatible bucket: AWS S3, Cloudflare R2, MinIO, GCS through its S3
+ * interoperability. Every string accepts a `cfg:` reference; keep the secret in
+ * app config.
+ */
+export const s3VariantConfigSchema = z.object({
+	/** blank is AWS, built from the region */
+	endpoint: z
+		.string()
+		.refine((v) => v === "" || v.startsWith("cfg:") || /^https?:\/\/\S+$/.test(v), {
+			message: "Must be an http:// or https:// URL",
+		})
+		.default(""),
+	/** R2 takes `auto` */
+	region: z.string().default("us-east-1"),
+	bucket: z.string().min(1, "Bucket is required"),
+	accessKeyId: z.string().min(1, "Access key ID is required"),
+	secretAccessKey: z.string().min(1, "Secret access key is required"),
+	/** `endpoint/bucket/key` rather than `bucket.endpoint/key`; MinIO needs it */
+	forcePathStyle: z.boolean().default(false),
 });

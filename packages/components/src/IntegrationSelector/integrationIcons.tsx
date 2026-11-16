@@ -40,6 +40,7 @@ export const integrationIcons: Record<string, ReactNode> = {
 	NATS: <SiNatsdotio size={size} />,
 	SQS: <TbBrandAws size={size} />,
 	RabbitMQ: <SiRabbitmq size={size} />,
+	"S3 Compatible": brandImage("s3.svg"),
 	http: <VscMcp size={size} />,
 	mcp: <VscMcp size={size} />,
 };

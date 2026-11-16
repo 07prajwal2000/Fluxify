@@ -2,7 +2,7 @@ import { AI_OPS } from "./ai";
 import { DATABASE_OPS } from "./database";
 import { KV_OPS } from "./kv";
 import { OBSERVABILITY_OPS } from "./observability";
-import { MCP_OPS, QUEUE_OPS } from "./services";
+import { MCP_OPS, QUEUE_OPS, STORAGE_OPS } from "./services";
 
 /** The built-ins' op hooks (test, describe, inspect), keyed `group/variant`. */
 export const BUILT_IN_OPS: Record<string, object> = {
@@ -12,6 +12,7 @@ export const BUILT_IN_OPS: Record<string, object> = {
 	...OBSERVABILITY_OPS,
 	...QUEUE_OPS,
 	...MCP_OPS,
+	...STORAGE_OPS,
 };
 
 export { KV_VALUE_CAP, type KvValueResult } from "./kv";

@@ -23,7 +23,9 @@ import {
 	type queueVariantSchema,
 	type rabbitMqVariantConfigSchema,
 	type redisVariantConfigSchema,
+	type s3VariantConfigSchema,
 	type sqsVariantConfigSchema,
+	type storageVariantSchema,
 } from "./schemas";
 
 type Variants =
@@ -33,7 +35,8 @@ type Variants =
 	| keyof typeof observabilityVariantSchema.enum
 	| keyof typeof aiVariantSchema.enum
 	| keyof typeof baasVariantSchema.enum
-	| keyof typeof mcpVariantSchema.enum;
+	| keyof typeof mcpVariantSchema.enum
+	| keyof typeof storageVariantSchema.enum;
 
 /**
  * Pure on purpose: the portal imports this file. Server code reads the variant
@@ -154,6 +157,16 @@ export function getDefaultVariantValue(variant: Variants) {
 			useSSL: false,
 			source: "credentials",
 		} as z.infer<typeof rabbitMqVariantConfigSchema>;
+	}
+	if (variant === "S3 Compatible") {
+		return {
+			endpoint: "",
+			region: "",
+			bucket: "",
+			accessKeyId: "",
+			secretAccessKey: "",
+			forcePathStyle: false,
+		} as z.input<typeof s3VariantConfigSchema>;
 	}
 	if (variant === "http") {
 		return { url: "", headers: [], auth: "headers" } as z.infer<typeof mcpVariantConfigSchema>;

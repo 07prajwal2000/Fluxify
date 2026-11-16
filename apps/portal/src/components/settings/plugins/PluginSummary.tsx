@@ -1,3 +1,4 @@
+import { isBuiltInIntegrationGroup } from "@fluxify/sdk/integrations";
 import { chosenConfigFields, requestedPermissions } from "@fluxify/server/src/modules/plugins/meta";
 import type { ReactNode } from "react";
 import { TbCheck, TbExternalLink, TbX } from "react-icons/tb";
@@ -103,9 +104,7 @@ export function PluginIntegrations({ plugin }: { plugin: Plugin }) {
 			group: e.group,
 			variant: e.variant,
 			label: e.label ?? e.variant,
-			ownGroup: !["database", "kv", "ai", "baas", "observability", "queue", "mcp"].includes(
-				e.group,
-			),
+			ownGroup: !isBuiltInIntegrationGroup(e.group),
 			secretParams: e.secretParams ?? [],
 			hooks: {
 				test: Boolean(e.hasTest),

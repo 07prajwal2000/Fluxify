@@ -21,6 +21,8 @@ export const AUDITED: Record<string, string> = {
 	"create-route": `${V}/routes/create/service.ts`,
 	// an import creates the route through the create service, which records it
 	"import-route": `${V}/routes/create/service.ts`,
+	// the same, for a workflow: it is created through the workflow create service, which records it
+	"import-resource": `${V}/routes/create/service.ts`,
 	"update-route": `${V}/routes/update/service.ts`,
 	"delete-route": `${V}/routes/delete/service.ts`,
 	"partial-update-route": `${V}/routes/update-partial/service.ts`,
@@ -63,6 +65,8 @@ export const AUDITED: Record<string, string> = {
 	"delete-trigger": `${V}/triggers/service.ts`,
 	// projects
 	"create-project": `${V}/projects/create/service.ts`,
+	// a restore creates its project through the create service's helpers, which record it
+	"restore-project": `${V}/projects/create/service.ts`,
 	"update-project": `${V}/projects/update/service.ts`,
 	"delete-project": `${V}/projects/delete/service.ts`,
 	"project-members-add": `${V}/projects/settings/members/add/service.ts`,
@@ -96,6 +100,8 @@ export const AUDITED: Record<string, string> = {
 	"update-knowledge-source-page": `${V}/knowledge-sources/service.ts`,
 	"refetch-knowledge-source": `${V}/knowledge-sources/service.ts`,
 	"delete-knowledge-source": `${V}/knowledge-sources/service.ts`,
+	// project backups (#1103); the download is a GET, audited in the same service
+	"start-backup": `${V}/backups/service.ts`,
 	// test suites and their runs
 	"create-test-suite": `${V}/test-suites/create/service.ts`,
 	"update-test-suite": `${V}/test-suites/update/service.ts`,
@@ -142,10 +148,12 @@ export const SKIPPED: Record<string, string> = {
 	"call-sandbox": RUNS,
 	"run-ephemeral-blocks": `${RUNS} (a scratch sandbox that is rolled back)`,
 	"check-route-import": "asks whether a route would clash and changes nothing",
+	"check-resource-import": "asks whether an import would clash and changes nothing",
 	"validate-test-suite": "checks a suite against its last run and changes nothing",
 	"preview-llms-txt": "fetches a page to list its links and changes nothing",
 	"list-ai-models": "lists the models a provider offers and changes nothing",
 	"inspect-integration": "reads an integration (tables, a key) and changes nothing",
+	"inspect-project-archive": "reads an uploaded backup archive and changes nothing",
 	"connect-mcp-oauth":
 		"only starts the sign-in; the connection it leads to is recorded when the callback completes it",
 	"delete-recorded-runs": SCOPE,

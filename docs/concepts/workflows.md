@@ -149,3 +149,7 @@ A project's workers must all be configured the same way. Two workers set up
 differently for the same project will refuse to start, rather than quietly run
 every workflow twice.
 :::
+
+## Moving a workflow
+
+Use **Export workflow** on a row of the Workflows page to save it to a `.fluxworkflow` file, and **Import** to create it again in the same or another project. Triggers are not included. See [Export and Import](/concepts/export-import).

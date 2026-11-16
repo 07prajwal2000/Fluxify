@@ -47,7 +47,8 @@ export default function handleRequest(projectId: string): z.infer<typeof respons
 					tabs: def.tabs ? [...def.tabs] : undefined,
 					hasTest:
 						def.hasTest ??
-						(builtIn && ["database", "kv", "ai", "observability", "queue"].includes(def.group)),
+						(builtIn &&
+							["database", "kv", "ai", "observability", "queue", "storage"].includes(def.group)),
 					hasDescribe: def.hasDescribe ?? (builtIn && def.group === "database"),
 					hasInspect: def.hasInspect ?? (builtIn && ["database", "kv"].includes(def.group)),
 					description: def.description,

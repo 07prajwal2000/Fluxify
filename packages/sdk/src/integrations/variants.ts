@@ -6,6 +6,7 @@ import type { KvAdapter, KvConnectionConfig } from "./kv.js";
 import type { McpAdapter } from "./mcp.js";
 import type { ObservabilityAdapter } from "./observability.js";
 import type { QueueConnector, QueueProducer } from "./queue.js";
+import type { ObjectStorageAdapter } from "./storage.js";
 
 /**
  * The groups Fluxify ships. Fixed: a plugin adds variants to them, or brings
@@ -19,6 +20,7 @@ export const BUILT_IN_INTEGRATION_GROUPS = [
 	"observability",
 	"queue",
 	"mcp",
+	"storage",
 ] as const;
 
 /**
@@ -37,6 +39,7 @@ export const BUILT_IN_VARIANT_NAMES: Record<
 	observability: ["Open Telemetry", "Open Telemetry Logs", "Loki"],
 	queue: ["Kafka", "NATS", "SQS", "RabbitMQ"],
 	mcp: ["http"],
+	storage: ["S3 Compatible"],
 };
 /** a built-in variant's older names still stored on rows -> its name */
 export const BUILT_IN_VARIANT_ALIASES = {
@@ -189,6 +192,13 @@ interface BuiltInGroupSpecs {
 		config: any;
 		ctx: Record<string, never>;
 		adapter: McpAdapter;
+		describe: unknown;
+		inspect: unknown;
+	};
+	storage: {
+		config: any;
+		ctx: Record<string, never>;
+		adapter: ObjectStorageAdapter;
 		describe: unknown;
 		inspect: unknown;
 	};

@@ -1,6 +1,7 @@
 import { openAPIRouteHandler } from "hono-openapi";
 import type { HonoServer } from "../../types";
 import appConfig from "./app-config/register";
+import backups from "./backups/register";
 import customBlocks from "./custom-blocks/register";
 import ephemeralRuns from "./ephemeral-runs/register";
 import instanceSettings from "./instance-settings/register";
@@ -13,6 +14,7 @@ import recordings from "./recordings/register";
 import routes from "./routes/register";
 import sandboxes from "./sandboxes/register";
 import testSuites from "./test-suites/register";
+import transfer from "./transfer/register";
 import triggers from "./triggers/register";
 import workflows from "./workflows/register";
 
@@ -42,11 +44,13 @@ export default {
 		appConfig.registerHandler(router);
 		integrations.registerHandler(router);
 		knowledgeSources.registerHandler(router);
+		backups.registerHandler(router);
 		testSuites.registerHandler(router);
 		recordings.registerHandler(router);
 		customBlocks.registerHandler(router);
 		middlewares.registerHandler(router);
 		plugins.registerHandler(router);
 		instanceSettings.registerHandler(router);
+		transfer.registerHandler(router);
 	},
 };

@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { projectsQuery } from "@/query/projectsQuery";
 import { useAuthStore } from "@/store/auth";
 import { ProjectCard } from "./ProjectCard";
+import { NewProjectButton } from "./restore/NewProjectButton";
 
 export function ProjectsTab() {
 	const navigate = useNavigate();
@@ -76,16 +77,5 @@ export function ProjectsTab() {
 				</div>
 			)}
 		</div>
-	);
-}
-
-function NewProjectButton() {
-	const navigate = useNavigate();
-
-	return (
-		<Button variant="primary" onPress={() => navigate({ to: "/projects/new" })}>
-			<TbPlus className="h-4 w-4" />
-			New Project
-		</Button>
 	);
 }

@@ -1,0 +1,18 @@
+{
+	"tags": [
+		{
+			"name": "red",
+			"color": "#f00"
+		}
+	],
+	"notes": [
+		{
+			"title": "first",
+			"tag": "red",
+			"secret": "s3cret"
+		}
+	],
+	"attachments": {
+		"first.txt": "hello"
+	}
+}

@@ -6,15 +6,18 @@ import {
 	Spinner,
 	Table,
 	TextField,
+	Tooltip,
 	toast,
 } from "@fluxify/components";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { TbEdit, TbPlus, TbRoute } from "react-icons/tb";
+import { TbEdit, TbPackageExport, TbPlus, TbRoute } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
 import { EnvStatusChips } from "@/components/common/EnvStatusChips";
 import { RecordingIndicator } from "@/components/recordings/RecordingControls";
+import { ExportModal } from "@/components/transfer/ExportModal";
+import { ImportButton } from "@/components/transfer/ImportButton";
 import { WorkflowRunButton, WorkflowRunModal } from "@/components/workflows/WorkflowRunModal";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
@@ -38,6 +41,7 @@ function WorkflowsPage() {
 	const [page, setPage] = useState(1);
 	const [search, setSearch] = useState("");
 	const [pendingDelete, setPendingDelete] = useState<Workflow | null>(null);
+	const [pendingExport, setPendingExport] = useState<Workflow | null>(null);
 	const [pendingRun, setPendingRun] = useState<Workflow | null>(null);
 
 	// the server does the searching, so a match on page 3 is still found
@@ -82,6 +86,7 @@ function WorkflowsPage() {
 						<Label className="sr-only">Search workflows</Label>
 						<Input placeholder="Search workflows" />
 					</TextField>
+					<ImportButton resourceType="workflow" projectId={projectId} onOpen={openCanvas} />
 					<Button variant="primary" onPress={openNew}>
 						<TbPlus size={16} /> New workflow
 					</Button>
@@ -147,14 +152,28 @@ function WorkflowsPage() {
 									</Table.Cell>
 									<Table.Cell>
 										<div className="flex items-center justify-end gap-1">
-											<Button
-												isIconOnly
-												variant="ghost"
-												aria-label={`Edit ${workflow.name}`}
-												onPress={() => openCanvas(workflow.id)}
-											>
-												<TbEdit size={16} />
-											</Button>
+											<Tooltip>
+												<Button
+													isIconOnly
+													variant="ghost"
+													aria-label={`Edit ${workflow.name}`}
+													onPress={() => openCanvas(workflow.id)}
+												>
+													<TbEdit size={16} />
+												</Button>
+												<Tooltip.Content>Edit workflow</Tooltip.Content>
+											</Tooltip>
+											<Tooltip>
+												<Button
+													isIconOnly
+													variant="ghost"
+													aria-label={`Export ${workflow.name}`}
+													onPress={() => setPendingExport(workflow)}
+												>
+													<TbPackageExport size={16} />
+												</Button>
+												<Tooltip.Content>Export workflow</Tooltip.Content>
+											</Tooltip>
 											<WorkflowRunButton
 												projectId={projectId}
 												active={!!workflow.active}
@@ -190,6 +209,12 @@ function WorkflowsPage() {
 					</Button>
 				</div>
 			)}
+
+			<ExportModal
+				resourceType="workflow"
+				resource={pendingExport}
+				onClose={() => setPendingExport(null)}
+			/>
 
 			{/* mounted per workflow so the payload box starts empty every time */}
 			{pendingRun && (

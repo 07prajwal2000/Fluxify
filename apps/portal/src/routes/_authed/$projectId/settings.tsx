@@ -6,6 +6,7 @@ import {
 	TbAdjustments,
 	TbAlertTriangle,
 	TbCpu,
+	TbDatabaseExport,
 	TbFlask,
 	TbHistory,
 	TbKey,
@@ -15,6 +16,7 @@ import {
 	TbUsers,
 } from "react-icons/tb";
 import { AiConnectionsSettings } from "@/components/settings/AiConnectionsSettings";
+import { BackupSettings } from "@/components/settings/backup/BackupSettings";
 import { DangerZoneSettings } from "@/components/settings/DangerZoneSettings";
 import { DevAccessSettings } from "@/components/settings/DevAccessSettings";
 import { ExperimentalSettings } from "@/components/settings/ExperimentalSettings";
@@ -48,6 +50,7 @@ type SettingsSearch = {
 		| "nodes"
 		| "members"
 		| "audit-logs"
+		| "backup"
 		| "experimental"
 		| "danger";
 	/** the plugin whose page is open on the Plugins tab, as `scope/name` */
@@ -81,6 +84,8 @@ const SETTINGS_TABS = [
 	{ id: "dev-access", label: "Development access", icon: TbKey, editorsOnly: true },
 	{ id: "members", label: "Members", icon: TbUsers },
 	{ id: "audit-logs", label: "Audit logs", icon: TbHistory },
+	// Creators and above: an archive holds the whole project, and the API refuses a viewer.
+	{ id: "backup", label: "Backup", icon: TbDatabaseExport, editorsOnly: true },
 	{ id: "experimental", label: "Experimental", icon: TbFlask },
 	// System admins only: the API refuses a project delete to everyone else.
 	{ id: "danger", label: "Danger Zone", icon: TbAlertTriangle, systemAdminOnly: true },
@@ -179,10 +184,12 @@ function ProjectSettingsPage() {
 					))}
 				</div>
 
-				{/* Right Content */}
+				{/* Right Content. relative: the pane scrolls, so the hidden inputs, tab
+				    indicators and sr-only labels inside it must be positioned against it,
+				    not the page, or a long tab stretches the whole document. */}
 				<div
 					className={cn(
-						"flex-1",
+						"relative flex-1",
 						activeTab === "ai-connections"
 							? "flex flex-col min-h-0 overflow-hidden p-6"
 							: "overflow-y-auto p-8",
@@ -225,6 +232,7 @@ function ProjectSettingsPage() {
 						{activeTab === "dev-access" && <DevAccessSettings projectId={projectId} />}
 						{activeTab === "members" && <MembersSettings projectId={projectId} />}
 						{activeTab === "audit-logs" && <ProjectAuditSettings projectId={projectId} />}
+						{activeTab === "backup" && <BackupSettings projectId={projectId} />}
 						{activeTab === "ai-connections" && <AiConnectionsSettings projectId={projectId} />}
 						{activeTab === "experimental" && <ExperimentalSettings projectId={projectId} />}
 						{activeTab === "danger" && (

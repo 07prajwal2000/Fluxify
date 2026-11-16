@@ -33,8 +33,8 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { EnvStatusChips } from "@/components/common/EnvStatusChips";
 import { RouteApiPlayground } from "@/components/RouteApiPlayground";
 import { RecordingIndicator, RecordingLegend } from "@/components/recordings/RecordingControls";
-import { ExportRouteModal } from "@/components/routes/ExportRouteModal";
-import { ImportRouteButton } from "@/components/routes/ImportRouteButton";
+import { ExportModal } from "@/components/transfer/ExportModal";
+import { ImportButton } from "@/components/transfer/ImportButton";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { PAGE_SIZES, usePageSize } from "@/lib/pageSize";
 import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
@@ -183,7 +183,13 @@ function RoutesPage() {
 						<Label className="sr-only">Search routes</Label>
 						<Input placeholder="Search routes" />
 					</TextField>
-					<ImportRouteButton projectId={projectId} />
+					<ImportButton
+						resourceType="route"
+						projectId={projectId}
+						onOpen={(routeId) =>
+							navigate({ to: "/$projectId/canvas/$routeId", params: { projectId, routeId } })
+						}
+					/>
 					<Button variant="primary" onPress={openNew}>
 						<TbPlus size={16} /> New route
 					</Button>
@@ -352,7 +358,11 @@ function RoutesPage() {
 				)}
 			</div>
 
-			<ExportRouteModal route={pendingExport} onClose={() => setPendingExport(null)} />
+			<ExportModal
+				resourceType="route"
+				resource={pendingExport}
+				onClose={() => setPendingExport(null)}
+			/>
 
 			{pendingPlayground && (
 				<Modal

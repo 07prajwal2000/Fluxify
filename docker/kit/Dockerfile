@@ -150,6 +150,7 @@ WORKDIR /app
 ARG BUN_VERSION
 # Build metadata, passed by CI: --build-arg VERSION=... --build-arg VCS_REF=...
 ARG VERSION=dev
+ENV FLUXIFY_VERSION=${VERSION}
 ARG VCS_REF=unknown
 ARG BUILD_DATE=unknown
 

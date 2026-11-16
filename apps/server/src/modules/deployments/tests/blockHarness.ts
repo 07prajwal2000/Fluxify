@@ -123,6 +123,7 @@ export async function createStack(prefix: string) {
 	const publisher = await import("../../compiler/publisher");
 	spyOn(publisher, "requestMiddlewareCompile").mockImplementation(async (id) => {
 		signals.push({ chan: "compile:middleware", id });
+		return true;
 	});
 
 	const app = new Hono<any>();

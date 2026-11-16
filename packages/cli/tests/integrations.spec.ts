@@ -126,7 +126,7 @@ describe("integrations create", () => {
 			"acme/ledger",
 		]);
 		const run = Bun.spawnSync(["bun", "test", "src/integrations"], { cwd: root, env: { ...process.env, NODE_ENV: "test" } });
-		expect(run.stderr.toString()).toContain("8 pass");
+		expect(run.stderr.toString()).toContain(`${BUILT_IN_INTEGRATION_GROUPS.length + 1} pass`);
 	}, 120_000);
 
 	it("refuses an existing file and a malformed group", async () => {

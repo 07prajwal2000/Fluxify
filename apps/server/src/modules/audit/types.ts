@@ -18,6 +18,8 @@ export const AUDIT_ACTIONS = [
 	"connect",
 	"disconnect",
 	"copy",
+	"download",
+	"restore",
 ] as const;
 
 export type AuditActor = { actorId: string; actorEmail: string; source: AuditSource };

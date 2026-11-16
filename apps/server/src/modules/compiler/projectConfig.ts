@@ -67,6 +67,8 @@ export async function buildProjectConfig(
 		.where(or(eq(integrationsEntity.projectId, projectId), isNull(integrationsEntity.projectId)));
 
 	for (const row of rows) {
+		// admin only for now (backups): no worker code reads object storage, so its keys stay home
+		if (row.group === integrationsGroupSchema.enum.storage) continue;
 		const field =
 			GROUP_FIELD[row.group as keyof typeof GROUP_FIELD] ??
 			(isIntegrationGroupName(row.group ?? "") ? "pluginIntegrations" : undefined);

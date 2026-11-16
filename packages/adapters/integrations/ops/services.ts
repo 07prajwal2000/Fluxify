@@ -49,6 +49,13 @@ export const QUEUE_OPS = {
 	),
 };
 
+export const STORAGE_OPS = {
+	"storage/S3 Compatible": {
+		test: async (config: any, ctx: IntegrationOpContext) =>
+			(await import("../../storage/s3")).testS3Connection(expandCfg(config, ctx.appConfig) as any),
+	},
+};
+
 export const MCP_OPS = {
 	/** Connects, lists the tools, closes. Header values are never logged. */
 	"mcp/http": {

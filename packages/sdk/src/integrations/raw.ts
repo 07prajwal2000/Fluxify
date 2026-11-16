@@ -13,7 +13,7 @@ import type { Producer } from "@platformatic/kafka";
 // @ts-ignore optional peer
 import type { ConfirmChannel } from "amqplib";
 // @ts-ignore optional peer
-import type { SQL } from "bun";
+import type { S3Client, SQL } from "bun";
 // @ts-ignore optional peer
 import type { Redis } from "ioredis";
 // @ts-ignore optional peer
@@ -64,5 +64,7 @@ export interface BuiltInVariantRaw {
 	};
 	observability: { "Open Telemetry": undefined; Loki: undefined };
 	mcp: { http: undefined };
+	/** Bun's `S3Client`, bound to the integration's bucket */
+	storage: { "S3 Compatible": Peer<S3Client> };
 	baas: Record<never, never>;
 }

@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { currentEntitlement } from "../lib/edition";
 import { RECORDING_MAX_AGE_DAYS } from "../lib/env";
+import { releaseVersion } from "../lib/version";
 import { getPublicSettings } from "../loaders/instanceSettingsLoader";
 import { orchestrationEnabled } from "../modules/orchestrator/gate";
 import type { HonoServer } from "../types";
@@ -27,6 +28,8 @@ export function mapVersionedAdminRoutes(app: HonoServer) {
 			maxSandboxesPerUser: maxSandboxesPerUser(),
 			// the editor loads `@types/bun` at this version
 			bunVersion: Bun.version,
+			// the release tag of this build, or "unknown-version"
+			version: releaseVersion(),
 		}),
 	);
 	router.get("/openapi/ui", (c) => {

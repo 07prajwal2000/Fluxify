@@ -6,6 +6,7 @@ export * from "./mcp.js";
 export * from "./observability.js";
 export * from "./queue.js";
 export type * from "./raw.js";
+export * from "./storage.js";
 export * from "./variants.js";
 
 import type { AiAdapter, AiInspectResult } from "./ai.js";
@@ -15,6 +16,7 @@ import type { KvAdapter, KvInspectResult } from "./kv.js";
 import type { McpAdapter, McpInspectResult } from "./mcp.js";
 import type { ObservabilityAdapter, ObservabilityInspectResult } from "./observability.js";
 import type { QueueInspectResult, QueueProducer } from "./queue.js";
+import type { ObjectStorageAdapter, ObjectStorageInspectResult } from "./storage.js";
 
 /** Built-in group -> adapter contract mapping. */
 export interface BuiltInIntegrationAdapters {
@@ -25,6 +27,7 @@ export interface BuiltInIntegrationAdapters {
 	observability: ObservabilityAdapter;
 	baas: BaasAdapter;
 	mcp: McpAdapter;
+	storage: ObjectStorageAdapter;
 }
 
 /** Built-in group -> inspect / describe shape mapping. */
@@ -36,4 +39,5 @@ export interface BuiltInIntegrationInspectResults {
 	observability: ObservabilityInspectResult;
 	baas: BaasInspectResult;
 	mcp: McpInspectResult;
+	storage: ObjectStorageInspectResult;
 }

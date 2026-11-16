@@ -1,6 +1,12 @@
 import type { ReactNode } from "react";
 import { FaRobot, FaTableList } from "react-icons/fa6";
-import { TbArrowsExchange, TbCloudCog, TbDatabase, TbHeartRateMonitor } from "react-icons/tb";
+import {
+	TbArrowsExchange,
+	TbBucket,
+	TbCloudCog,
+	TbDatabase,
+	TbHeartRateMonitor,
+} from "react-icons/tb";
 import { VscMcp } from "react-icons/vsc";
 
 export const GROUP_DETAILS: Record<string, { description: string; icon: ReactNode }> = {
@@ -19,5 +25,9 @@ export const GROUP_DETAILS: Record<string, { description: string; icon: ReactNod
 	mcp: {
 		description: "Connect an external MCP server",
 		icon: <VscMcp size={20} />,
+	},
+	storage: {
+		description: "Connect an S3-compatible bucket",
+		icon: <TbBucket size={20} />,
 	},
 };

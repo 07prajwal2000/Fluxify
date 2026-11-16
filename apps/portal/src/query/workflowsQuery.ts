@@ -7,7 +7,7 @@ import {
 	workflowsService,
 } from "@/services/workflows";
 
-const LIST_KEY = ["workflows", "list"];
+export const LIST_KEY = ["workflows", "list"];
 const byIdKey = (id: string) => ["workflows", id, "by-id"];
 
 export const workflowsQuery = {

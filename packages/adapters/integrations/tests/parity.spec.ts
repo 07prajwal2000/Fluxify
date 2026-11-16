@@ -122,7 +122,11 @@ describe("registry parity with the old enums and schemas", () => {
 	});
 
 	it("lists the same groups and variants, in the same order, without the alias", () => {
-		expect(integrationRegistry.groups()).toEqual(legacy.getIntegrationsGroups());
+		// groups added after the registry have no legacy counterpart
+		const ADDED_SINCE = ["storage"];
+		expect(integrationRegistry.groups().filter((g) => !ADDED_SINCE.includes(g))).toEqual(
+			legacy.getIntegrationsGroups(),
+		);
 		for (const group of legacy.getIntegrationsGroups()) {
 			expect(integrationRegistry.variants(group).map((def) => def.variant)).toEqual(
 				legacy.getIntegrationsVariants(group),

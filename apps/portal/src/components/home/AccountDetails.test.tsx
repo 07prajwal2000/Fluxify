@@ -4,12 +4,12 @@ import type { ReactNode } from "react";
 
 GlobalRegistrator.register();
 
-mock.module("@/lib/http", () => ({
-	httpClient: {
-		get: async (url: string) => ({ data: url.includes("get-consents") ? [] : { apiKeys: [] } }),
-		post: async () => ({ data: {} }),
-	},
-}));
+// spyOn, not mock.module: a module mock would outlive this file (see AGENTS.md).
+const { httpClient } = await import("@/lib/http");
+const get = spyOn(httpClient, "get").mockImplementation((async (url: string) => ({
+	data: url.includes("get-consents") ? [] : { apiKeys: [] },
+})) as never);
+const post = spyOn(httpClient, "post").mockResolvedValue({ data: {} });
 // The real client needs a base URL at import time; only the session is read here.
 mock.module("@/lib/auth", () => ({
 	authClient: {
@@ -48,7 +48,11 @@ const theme = await import("@/lib/theme");
 const { AccountDetails } = await import("./AccountDetails");
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-afterAll(() => GlobalRegistrator.unregister());
+afterAll(() => {
+	get.mockRestore();
+	post.mockRestore();
+	GlobalRegistrator.unregister();
+});
 
 test("switching account sections shows the right panel and puts it in the URL", async () => {
 	let lastSearch: Search = {};
