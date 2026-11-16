@@ -3,7 +3,7 @@ import { requestBodySchema } from "../create/dto";
 import { projectSettingsKeySchemaMap } from "../settings/keys/keySchemaMap";
 
 /** something the user should know about restoring a section here; never stops a restore */
-const warningSchema = z.object({ section: z.string(), message: z.string() });
+export const warningSchema = z.object({ section: z.string(), message: z.string() });
 
 const canvasSchema = z.object({
 	blocks: z.array(

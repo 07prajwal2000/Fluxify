@@ -7,7 +7,13 @@ import {
 	canvasVersionsEntity,
 	type VersionSnapshot,
 } from "../../db/schema";
-import { insertVersion, ownerColumn, targetTable } from "./repository";
+import {
+	insertVersion,
+	nextVersionNumber,
+	ownerColumn,
+	readTarget,
+	targetTable,
+} from "./repository";
 
 /**
  * A target's versions in a project backup (#1099): the promoted version always,
@@ -165,6 +171,71 @@ export async function importHistory(
 			headVersionId,
 			prodVersionId: pointer(history.prod),
 		})
+		.where(eq(table.id, target.id));
+}
+
+/**
+ * A rollback into an existing target (#1130): its history is kept, and the
+ * backup's promoted version and working copy are written on top of it as new
+ * versions, so the rollback can itself be rolled forward. Production points at
+ * the restored promoted version (none when the backup had none), without the
+ * gates, as `importHistory` does; the head at the restored working copy, which
+ * shows as committed. The working copy is the caller's to write
+ * (`restoreSnapshot`), as for `importHistory`.
+ */
+export async function importAsNewVersions(
+	kind: CanvasVersionKind,
+	target: { id: string; projectId: string },
+	history: BackupHistory,
+	local: Convert,
+	tx: DbTransactionType,
+) {
+	const current = (await readTarget(kind, target.id, tx, true))!;
+	let number = await nextVersionNumber(kind, target.id, tx);
+	let parentId = current.headVersionId;
+	const write = async (snapshot: PortableSnapshot, title: string, description: string | null) => {
+		const created = await insertVersion(
+			{
+				kind,
+				targetId: target.id,
+				projectId: target.projectId,
+				versionNumber: number++,
+				parentId,
+				title,
+				description,
+				authorId: null,
+				authorEmail: null,
+				snapshot: await local(snapshot as VersionSnapshot),
+			},
+			tx,
+		);
+		parentId = created.id;
+		return created.id;
+	};
+
+	const prod = history.versions.find((v) => v.number === history.prod);
+	const prodVersionId = prod
+		? await write(
+				prod.snapshot,
+				`Rolled back: production (v${prod.number}, ${prod.title})`,
+				prod.description,
+			)
+		: null;
+	// the working copy was that same version, unedited: one version stands for both
+	const workingIsProd =
+		prod !== undefined &&
+		history.head === history.prod &&
+		history.committedRevision === history.canvasRevision;
+	const headVersionId =
+		workingIsProd && prodVersionId
+			? prodVersionId
+			: await write(history.working, "Rolled back: working copy", null);
+
+	const canvasRevision = current.canvasRevision + 1;
+	const table = targetTable(kind);
+	await tx
+		.update(table)
+		.set({ canvasRevision, committedRevision: canvasRevision, headVersionId, prodVersionId })
 		.where(eq(table.id, target.id));
 }
 

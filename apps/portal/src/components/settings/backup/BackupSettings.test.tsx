@@ -48,6 +48,7 @@ const row = (over: Partial<Row>): Row => ({
 	downloadable: true,
 	expiresAt: null,
 	destinationKey: null,
+	label: null,
 	createdBy: { email: "ada@example.com", name: "Ada" },
 	createdAt: new Date().toISOString(),
 	finishedAt: new Date().toISOString(),

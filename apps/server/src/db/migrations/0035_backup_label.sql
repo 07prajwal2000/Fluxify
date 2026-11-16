@@ -1,0 +1,1 @@
+ALTER TABLE "project_backups" ADD COLUMN "label" varchar(100);

@@ -1,3 +1,8 @@
+import type {
+	rollbackInspectResponseSchema,
+	rollbackResponseSchema,
+} from "@fluxify/server/src/api/v1/backups/dto";
+import type z from "zod";
 import type { ProjectForm } from "@/components/home/restore/NewProjectForm";
 import { httpClient } from "@/lib/http";
 import type { ArchiveSummary, RestoreResult } from "./projects";
@@ -20,6 +25,8 @@ export interface BackupRow {
 	expiresAt: string | null;
 	/** the bucket key of an object storage backup */
 	destinationKey: string | null;
+	/** why it was taken, e.g. "Before rollback" (#1130); null for one made by hand or on schedule */
+	label: string | null;
 	createdBy: { email: string; name: string | null } | null;
 	createdAt: string;
 	finishedAt: string | null;
@@ -75,6 +82,29 @@ export interface RemoteBackup {
 }
 
 export type RemoteTarget = { integrationId: string; key: string };
+
+/** rolling this project back in place (#1130) */
+export type RollbackSummary = z.infer<typeof rollbackInspectResponseSchema>;
+export type RollbackResult = z.infer<typeof rollbackResponseSchema>;
+export type RollbackChoice = {
+	mode: "keep" | "exact";
+	sections: string[];
+	restoreSecrets: boolean;
+};
+
+// the client's JSON default would turn the form into JSON; the browser adds the boundary
+const MULTIPART = { headers: { "Content-Type": "multipart/form-data" } };
+
+function rollbackForm(file: File, choice?: RollbackChoice) {
+	const form = new FormData();
+	form.set("file", file);
+	if (choice) {
+		form.set("mode", choice.mode);
+		form.set("sections", choice.sections.join(","));
+		form.set("restoreSecrets", String(choice.restoreSecrets));
+	}
+	return form;
+}
 
 const base = (projectId: string) => `/v1/${projectId}/backups`;
 
@@ -147,6 +177,33 @@ export const backupsService = {
 	): Promise<RestoreResult> {
 		const fields = Object.fromEntries(Object.entries(form).filter(([, v]) => v.trim()));
 		return (await httpClient.post(`${base(projectId)}/remote/restore`, { ...target, ...fields }))
+			.data;
+	},
+
+	/** what rolling this project back to the file would change; writes nothing */
+	async inspectRollback(projectId: string, file: File): Promise<RollbackSummary> {
+		return (
+			await httpClient.post(`${base(projectId)}/rollback/inspect`, rollbackForm(file), MULTIPART)
+		).data;
+	},
+
+	/** backs the project up, then rolls it back to the file */
+	async rollback(projectId: string, file: File, choice: RollbackChoice): Promise<RollbackResult> {
+		return (
+			await httpClient.post(`${base(projectId)}/rollback`, rollbackForm(file, choice), MULTIPART)
+		).data;
+	},
+
+	async inspectRemoteRollback(projectId: string, target: RemoteTarget): Promise<RollbackSummary> {
+		return (await httpClient.post(`${base(projectId)}/remote/rollback/inspect`, target)).data;
+	},
+
+	async remoteRollback(
+		projectId: string,
+		target: RemoteTarget,
+		choice: RollbackChoice,
+	): Promise<RollbackResult> {
+		return (await httpClient.post(`${base(projectId)}/remote/rollback`, { ...target, ...choice }))
 			.data;
 	},
 

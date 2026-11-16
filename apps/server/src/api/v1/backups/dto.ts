@@ -7,7 +7,7 @@ import {
 	backupPrefixSchema,
 	MAX_BACKUP_RETENTION,
 } from "../../../modules/projectBackup/prefix";
-import { newProjectSchema } from "../projects/restore/dto";
+import { inspectResponseSchema, newProjectSchema, warningSchema } from "../projects/restore/dto";
 
 export const projectParamSchema = z.object({ projectId: z.string() });
 export const idParamSchema = projectParamSchema.extend({ id: z.string() });
@@ -47,6 +47,8 @@ export const backupSchema = z.object({
 	expiresAt: z.date().nullable(),
 	/** the bucket key of an object storage backup */
 	destinationKey: z.string().nullable(),
+	/** why it was taken, e.g. "Before rollback" (#1130); null for one made by hand or on schedule */
+	label: z.string().nullable(),
 	createdBy: z.object({ email: z.string(), name: z.string().nullable() }).nullable(),
 	createdAt: z.date(),
 	finishedAt: z.date().nullable(),
@@ -95,3 +97,61 @@ export const remoteListResponseSchema = z.object({
 	backups: z.array(backupMetaSchema.extend({ key: z.string() })),
 });
 export const prefixesResponseSchema = z.object({ prefixes: z.array(z.string()) });
+
+/** rolling a project back in place (#1130) */
+export const rollbackChoiceSchema = z.object({
+	mode: z
+		.enum(["keep", "exact"])
+		.describe("keep: leave what the backup lacks; exact: remove it, in the chosen sections"),
+	sections: z.array(z.string().min(1)).min(1).describe("the archive's sections to restore"),
+	restoreSecrets: z
+		.boolean()
+		.default(false)
+		.describe("a backup's credentials and app config values over today's"),
+});
+export const remoteRollbackBodySchema = rollbackChoiceSchema.extend(remoteKeySchema.shape);
+
+const conditionSchema = z.object({
+	message: z.string(),
+	mode: z.enum(["keep", "exact"]),
+	selected: z.array(z.string()),
+	kept: z.array(z.string()),
+});
+
+export const rollbackInspectResponseSchema = inspectResponseSchema
+	.omit({ suggested: true })
+	.extend({
+		rollback: z.object({
+			sections: z.array(
+				z.object({
+					section: z.string(),
+					update: z.array(z.string()),
+					create: z.array(z.string()),
+					/** only in the project: kept, or removed by an exact replica */
+					extras: z.array(z.string()),
+					/** no named resources: restored over what is there */
+					replaced: z.boolean(),
+				}),
+			),
+			/** active in `mode` when every `selected` section is restored and no `kept` one is */
+			conflicts: z.array(conditionSchema),
+			/**
+			 * Warnings under the same rule, never refusals: the archive's, resolved
+			 * against this project, and what an exact replica's removals may break.
+			 * The top-level `warnings` are these for keep extras and every section.
+			 */
+			notes: z.array(
+				conditionSchema.extend({
+					section: z.string(),
+					/** about what an exact replica removes: shown beside the removal list */
+					removal: z.boolean().optional(),
+				}),
+			),
+		}),
+	});
+
+export const rollbackResponseSchema = z.object({
+	/** the backup of the project as it was, taken first */
+	backupId: z.string(),
+	warnings: z.array(warningSchema),
+});

@@ -1,10 +1,11 @@
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { ingest } from "../../../api/v1/knowledge-sources/ingest";
 import { db } from "../../../db";
 import { CHAN_ON_KNOWLEDGE_SOURCE_CHANGE, publishMessage } from "../../../db/redis";
 import { KNOWLEDGE_SOURCE_TYPES, knowledgeSourcesEntity } from "../../../db/schema";
 import type { BackupModule } from "../types";
+import { byName } from "./rollback";
 
 /**
  * A project's knowledge base sources (#1102), content included.
@@ -108,6 +109,31 @@ export const knowledgeSourcesModule: BackupModule<Section> = {
 			.filter((s) => s.type === "markdown" && !s.pages.length)
 			.map((s) => `Knowledge source "${s.name}" has no documents; upload them to use it.`),
 
+	names: ({ sources }) => sources.map((s) => s.name),
+
+	async existing(projectId, tx) {
+		return byName(
+			await tx
+				.select({ id: knowledgeSourcesEntity.id, name: knowledgeSourcesEntity.name })
+				.from(knowledgeSourcesEntity)
+				.where(eq(knowledgeSourcesEntity.projectId, projectId)),
+		);
+	},
+
+	async prune({ tx, projectId, afterCommit }, stale) {
+		if (!stale.length) return;
+		await tx.delete(knowledgeSourcesEntity).where(
+			inArray(
+				knowledgeSourcesEntity.id,
+				stale.map((s) => s.id),
+			),
+		);
+		afterCommit(
+			() => publishMessage(CHAN_ON_KNOWLEDGE_SOURCE_CHANGE, projectId).then(() => {}),
+			"The agent may still search the removed knowledge sources until the AI gateway restarts.",
+		);
+	},
+
 	async export({ projectId, mode }) {
 		const rows = await db
 			.select()
@@ -129,12 +155,19 @@ export const knowledgeSourcesModule: BackupModule<Section> = {
 		return { data: { sources: mode === "template" ? sources.map(forTemplate) : sources } };
 	},
 
-	async import({ tx, projectId, mode, ids, afterCommit }, { sources }) {
+	async import({ tx, projectId, mode, ids, afterCommit, match }, { sources }) {
 		for (const s of sources) {
-			const [row] = await tx
-				.insert(knowledgeSourcesEntity)
-				.values({ ...s, projectId })
-				.returning({ id: knowledgeSourcesEntity.id });
+			const matched = match(s.name);
+			const [row] = matched
+				? await tx
+						.update(knowledgeSourcesEntity)
+						.set(s)
+						.where(eq(knowledgeSourcesEntity.id, matched))
+						.returning({ id: knowledgeSourcesEntity.id })
+				: await tx
+						.insert(knowledgeSourcesEntity)
+						.values({ ...s, projectId })
+						.returning({ id: knowledgeSourcesEntity.id });
 			ids.set("knowledgeSources", s.name, row!.id);
 			if (mode === "template" && s.type !== "markdown")
 				afterCommit(() => refetch(projectId, row!.id, s), reindexWarning(s.name));

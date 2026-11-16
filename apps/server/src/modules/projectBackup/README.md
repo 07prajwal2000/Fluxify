@@ -125,9 +125,53 @@ await requestProjectCompile(id, "project restored");
      belongs to was left out; blank the reference or refuse with a
      `BadRequestError`. `ctx.files` holds your files only and is untrusted:
      never write a path from it to disk unchecked.
+   - Make `import` an **upsert by name** (see below), and give the rollback
+     hooks `existing`, `names`, `prune` and `uses` if the section holds named
+     resources.
 2. Add it to the list in `modules.ts`. A cycle, an unknown dependency or a
    missing upgrade step fails at startup.
 3. Add a fixture (below).
+
+## Rolling back in place (#1130)
+
+`restoreBackup(plan, openProject, into)` with `into = { sections, prune,
+restoreSecrets }` restores into a live project instead of a new one. There is
+one import path: a new-project restore is the case of an empty target.
+`rollback.ts` is the caller (safety backup, lock, audit, compile) and
+`rollbackPreview.ts` works out what would change, with nothing written.
+
+**The upsert contract every module follows:**
+
+1. `ctx.match(name)` is the id this section's resource of that name already
+   has, or `undefined` (always, for `target: "new"`). A match is **updated in
+   place and keeps its id** (logs, runs, trigger registrations, tokens and
+   references from sections not restored stay valid); record it with
+   `ctx.ids.set(section, name, matchedId)`. No match: insert as before.
+2. Canvas resources write a match's history with `importAsNewVersions`
+   (`versions/backup.ts`) instead of `importHistory`: the backup's promoted
+   version and working copy become new versions on top of the kept history,
+   production points at the restored one, no gates.
+3. Anything a match owns that the backup replaces wholesale (a route's config
+   and test suites) is deleted first, then written from the backup.
+4. Secrets: a matching integration or app config key keeps today's
+   credentials and values unless `ctx.restoreSecrets` (backup mode only).
+5. `existing(projectId, tx)` lists the project's resources, name → id;
+   `names(data)` the backup's. The engine seeds `ids` with every section's
+   existing resources, except a section an exact replica restores, so a
+   reference resolves to what the project has wherever it isn't replaced.
+6. `prune(ctx, stale, data)` deletes what the backup lacks (exact replica),
+   only in the sections chosen, after every import, in **reverse import
+   order** (triggers before workflows, middlewares before custom blocks,
+   everything before integrations and app config). Artifacts, schedules and
+   caches go in `ctx.afterCommit`, as the resource's own delete endpoint does.
+7. `uses(data)` says, for the project's current export, what each resource
+   uses in other sections by name. The preview refuses an exact replica that
+   would remove something a resource it keeps (a section not chosen) uses,
+   naming both. `conflicts(data, projectId, tx)` adds refusals only the module
+   can find (a route path an extra route serves, keep extras only).
+8. `ctx.target === "existing"`: a module leaves alone what belongs to the live
+   project rather than to its content (`projectSettings` keeps the subdomain,
+   audit logging and `settings.backup.storage.*`).
 
 ## Changing a module's format
 

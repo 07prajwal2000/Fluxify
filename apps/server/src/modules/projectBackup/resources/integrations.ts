@@ -1,10 +1,11 @@
-import { and, asc, eq, ne } from "drizzle-orm";
+import { and, asc, eq, inArray, ne } from "drizzle-orm";
 import { z } from "zod";
 import { integrationGroupNameSchema } from "../../../api/v1/integrations/schemas";
 import { db } from "../../../db";
 import { CHAN_ON_INTEGRATION_CHANGE, publishMessage } from "../../../db/redis";
 import { integrationsEntity, projectsEntity } from "../../../db/schema";
 import type { BackupModule } from "../types";
+import { byName } from "./rollback";
 
 /**
  * A project's integrations (#1100), production and development config both,
@@ -113,6 +114,48 @@ export const integrationsModule: BackupModule<Section> = {
 			},
 		})),
 
+	names: ({ integrations }) => integrations.map((i) => i.name),
+
+	async existing(projectId, tx) {
+		return byName(
+			await tx
+				.select({ id: integrationsEntity.id, name: integrationsEntity.name })
+				.from(integrationsEntity)
+				.where(eq(integrationsEntity.projectId, projectId))
+				.orderBy(asc(integrationsEntity.createdAt)),
+		);
+	},
+
+	// config may read app config (`cfg:KEY`)
+	uses: ({ integrations }) =>
+		integrations.flatMap((i) => {
+			const keys = new Set<string>();
+			JSON.stringify([i.config, i.devConfig], (_, v) => {
+				if (typeof v === "string" && v.startsWith("cfg:")) keys.add(v.slice(4));
+				return v;
+			});
+			return [...keys].map((name) => ({
+				owner: `Integration "${i.name}"`,
+				section: "appConfig",
+				name,
+			}));
+		}),
+
+	async prune({ tx, afterCommit }, stale) {
+		if (!stale.length) return;
+		// the triggers reading through one cascade with it; a rollback refuses that unless their section is restored too
+		await tx.delete(integrationsEntity).where(
+			inArray(
+				integrationsEntity.id,
+				stale.map((s) => s.id),
+			),
+		);
+		afterCommit(
+			() => publishMessage(CHAN_ON_INTEGRATION_CHANGE, "").then(() => {}),
+			"The removed integrations may still be cached by this server until the admin restarts.",
+		);
+	},
+
 	async export({ projectId, mode }) {
 		const rows = await db
 			.select()
@@ -133,7 +176,8 @@ export const integrationsModule: BackupModule<Section> = {
 		};
 	},
 
-	async import({ tx, projectId, mode, source, ids, afterCommit, warn }, { integrations }) {
+	async import(ctx, { integrations }) {
+		const { tx, projectId, mode, source, ids, afterCommit, warn, match, restoreSecrets } = ctx;
 		// Next to its source, both copies would share one MCP sign-in: a provider that
 		// rotates refresh tokens then signs one of them out on the other's refresh.
 		// Another instance (disaster recovery) has no source to share it with.
@@ -150,6 +194,16 @@ export const integrationsModule: BackupModule<Section> = {
 			// blank whatever a hand-made template carries, too
 			const row = mode === "template" ? forTemplate(raw) : besideSource ? signedOut(raw) : raw;
 			if (besideSource && row !== raw) warn(`MCP server "${row.name}" needs signing in again.`);
+			const matched = match(row.name);
+			if (matched) {
+				// a rollback keeps today's credentials, unless asked for the backup's
+				await tx
+					.update(integrationsEntity)
+					.set(restoreSecrets ? row : { tags: row.tags })
+					.where(eq(integrationsEntity.id, matched));
+				ids.set("integrations", row.name, matched);
+				continue;
+			}
 			const [created] = await tx
 				.insert(integrationsEntity)
 				.values({ ...row, projectId })

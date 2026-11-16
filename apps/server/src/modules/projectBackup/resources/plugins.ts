@@ -1,13 +1,23 @@
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../../db";
 import { systemUsers } from "../../../db/auth-schema";
+import { deleteArtifact } from "../../../db/natsKv";
 import { pluginObjects } from "../../../db/natsObjects";
-import { PLUGIN_APPROVALS, PLUGIN_SOURCES, pluginsEntity } from "../../../db/schema";
+import {
+	PLUGIN_APPROVALS,
+	PLUGIN_SOURCES,
+	pluginsEntity,
+	pluginUrlRequestsEntity,
+} from "../../../db/schema";
+import { ENVIRONMENTS } from "../../../lib/envValues";
+import { pluginKey } from "../../compiler/subjects";
 import { listPluginRows } from "../../plugins/repository";
 import { pluginObjectKey } from "../../plugins/sources/location";
+import { syncPluginVariants } from "../../plugins/variants";
 import type { BackupModule } from "../types";
 import { checkedTarball, exportTarball, restoredSource, tarballPath } from "./pluginBytes";
+import { byName } from "./rollback";
 
 /**
  * A project's plugins (#1101): each row, with the bytes of every version it
@@ -88,6 +98,40 @@ export const pluginsModule: BackupModule<Section> = {
 		);
 	},
 
+	names: ({ plugins }) => plugins.map((p) => p.name),
+
+	async existing(projectId, tx) {
+		return byName(
+			await tx
+				.select({ id: pluginsEntity.id, name: pluginsEntity.name })
+				.from(pluginsEntity)
+				.where(eq(pluginsEntity.projectId, projectId)),
+		);
+	},
+
+	/** as removing a plugin does (`removePlugin`); its usage was refused before anything was written */
+	async prune({ tx, projectId, afterCommit }, stale) {
+		for (const { name, id } of stale) {
+			await tx
+				.delete(pluginUrlRequestsEntity)
+				.where(
+					and(
+						eq(pluginUrlRequestsEntity.projectId, projectId),
+						eq(pluginUrlRequestsEntity.pluginName, name),
+					),
+				);
+			await tx.delete(pluginsEntity).where(eq(pluginsEntity.id, id));
+			afterCommit(async () => {
+				await Promise.all(
+					ENVIRONMENTS.map((env) => deleteArtifact(pluginKey(projectId, name), env)),
+				);
+				const objects = await pluginObjects();
+				for (const key of await objects.keys(`${projectId}/${name}/`)) await objects.delete(key);
+				await syncPluginVariants(projectId, name);
+			}, `Plugin "${name}" was removed, but workers may keep loading it until the admin restarts.`);
+		}
+	},
+
 	async export({ projectId, mode }) {
 		const rows = await listPluginRows(projectId);
 		const approvers = rows.flatMap((r) => (r.approvedBy ? [r.approvedBy] : []));
@@ -116,7 +160,7 @@ export const pluginsModule: BackupModule<Section> = {
 		return { data: { plugins }, files };
 	},
 
-	async import({ tx, projectId, mode, files, ids }, { plugins }) {
+	async import({ tx, projectId, mode, files, ids, match }, { plugins }) {
 		const template = mode === "template";
 		const restoring = plugins.map((p) => ({ ...p, live: template ? null : p.live }));
 		// every version is checked before anything is written, here or in the Object Store
@@ -148,23 +192,29 @@ export const pluginsModule: BackupModule<Section> = {
 								.where(eq(systemUsers.email, p.approvedBy))
 						)[0]?.id
 					: undefined;
-			const [row] = await tx
-				.insert(pluginsEntity)
-				.values({
-					projectId,
-					name: p.name,
-					...current,
-					url: current.manifest.url,
-					sdkRange: current.manifest.sdk,
-					approval: template ? "pending" : p.approval,
-					approvedBy: approver ?? null,
-					approvedAt: template ? null : p.approvedAt,
-					permissions: template ? null : p.permissions,
-					live,
-					devEnabled: p.devEnabled,
-					prodEnabled: p.prodEnabled,
-				})
-				.returning({ id: pluginsEntity.id });
+			const values = {
+				projectId,
+				name: p.name,
+				...current,
+				url: current.manifest.url,
+				sdkRange: current.manifest.sdk,
+				approval: template ? "pending" : p.approval,
+				approvedBy: approver ?? null,
+				approvedAt: template ? null : p.approvedAt,
+				permissions: template ? null : p.permissions,
+				live,
+				devEnabled: p.devEnabled,
+				prodEnabled: p.prodEnabled,
+			};
+			// a rollback puts the backup's version back on the same row
+			const matched = match(p.name);
+			const [row] = matched
+				? await tx
+						.update(pluginsEntity)
+						.set(values)
+						.where(eq(pluginsEntity.id, matched))
+						.returning({ id: pluginsEntity.id })
+				: await tx.insert(pluginsEntity).values(values).returning({ id: pluginsEntity.id });
 			ids.set("plugins", p.name, row!.id);
 		}
 	},

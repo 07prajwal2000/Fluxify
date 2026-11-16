@@ -106,6 +106,9 @@ export const AUDITED: Record<string, string> = {
 	// backups to object storage (#1106): the settings save, and "Back up now" (recorded where the run starts)
 	"put-backup-schedule": `${V}/backups/schedule.ts`,
 	"start-object-storage-backup": "modules/projectBackup/storageRun.ts",
+	// rolling a project back in place (#1130): recorded in the rollback's transaction
+	"rollback-project": "modules/projectBackup/rollback.ts",
+	"remote-rollback-project": "modules/projectBackup/rollback.ts",
 	// test suites and their runs
 	"create-test-suite": `${V}/test-suites/create/service.ts`,
 	"update-test-suite": `${V}/test-suites/update/service.ts`,
@@ -159,6 +162,8 @@ export const SKIPPED: Record<string, string> = {
 	"inspect-integration": "reads an integration (tables, a key) and changes nothing",
 	"inspect-project-archive": "reads an uploaded backup archive and changes nothing",
 	"inspect-remote-backup": "downloads a backup from the bucket and changes nothing",
+	"inspect-rollback": "reads an uploaded backup archive and the project, and changes nothing",
+	"inspect-remote-rollback": "downloads a backup from the bucket, reads the project, and changes nothing",
 	"connect-mcp-oauth":
 		"only starts the sign-in; the connection it leads to is recorded when the callback completes it",
 	"delete-recorded-runs": SCOPE,

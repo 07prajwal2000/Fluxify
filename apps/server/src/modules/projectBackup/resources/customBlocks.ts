@@ -1,6 +1,8 @@
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { z } from "zod";
+import { deleteCustomBlock } from "../../../api/v1/custom-blocks/delete/repository";
 import { db } from "../../../db";
+import { CHAN_ON_CUSTOM_BLOCK_CHANGE, publishMessage } from "../../../db/redis";
 import {
 	CUSTOM_BLOCK_USAGES,
 	customBlockIconTypeEnum,
@@ -8,10 +10,12 @@ import {
 	customBlocksListEntity,
 	type VersionSnapshot,
 } from "../../../db/schema";
+import { dropCustomBlock } from "../../compiler/customBlocks";
 import {
 	backupHistorySchema,
 	exportHistory,
 	freshCanvasIds,
+	importAsNewVersions,
 	importHistory,
 } from "../../versions/backup";
 import { buildSnapshot, restoreSnapshot } from "../../versions/snapshot";
@@ -34,6 +38,7 @@ import {
 	v1Table,
 } from "./integrationRefs";
 import { canvasOf, versionDetails } from "./preview";
+import { byName, canvasUses, integrationUses } from "./rollback";
 
 /**
  * Every custom block of a project (#1099): its live fields, its working copy,
@@ -79,6 +84,52 @@ export const customBlocksModule: BackupModule<Section> = {
 			details: { Type: b.name, Usage: b.usage, Source: b.sourceType, ...versionDetails(b.history) },
 			canvas: canvasOf(b.history),
 		})),
+
+	names: ({ blocks }) => blocks.map((b) => b.name),
+
+	async existing(projectId, tx) {
+		return byName(
+			await tx
+				.select({ id: customBlocksListEntity.id, name: customBlocksListEntity.name })
+				.from(customBlocksListEntity)
+				.where(eq(customBlocksListEntity.projectId, projectId))
+				.orderBy(asc(customBlocksListEntity.createdAt)),
+		);
+	},
+
+	uses: ({ blocks, integrations }) =>
+		blocks.flatMap((b) => {
+			const owner = `Custom block "${b.name}"`;
+			return [
+				...canvasUses(owner, b.history).filter((u) => u.name !== b.name),
+				...integrationUses(owner, b.history, integrations),
+			];
+		}),
+
+	async prune({ tx, projectId, afterCommit }, stale) {
+		const fromPlugins = new Set(
+			(
+				await tx
+					.select({ id: customBlocksListEntity.id })
+					.from(customBlocksListEntity)
+					.where(
+						and(
+							eq(customBlocksListEntity.projectId, projectId),
+							eq(customBlocksListEntity.sourceType, "plugin"),
+						),
+					)
+			).map((r) => r.id),
+		);
+		for (const { name, id } of stale) {
+			// a plugin's blocks come and go with the plugin
+			if (fromPlugins.has(id)) continue;
+			await deleteCustomBlock(id, tx);
+			afterCommit(async () => {
+				await dropCustomBlock(projectId, id);
+				await publishMessage(CHAN_ON_CUSTOM_BLOCK_CHANGE, id);
+			}, `Custom block "${name}" was removed, but workers may keep it until the admin restarts.`);
+		}
+	},
 
 	inspect({ blocks, integrations }, read) {
 		const have = restoredNames(read);
@@ -134,19 +185,28 @@ export const customBlocksModule: BackupModule<Section> = {
 		});
 	},
 
-	async import({ tx, projectId, ids }, { blocks, integrations }) {
+	async import({ tx, projectId, ids, match }, { blocks, integrations }) {
 		const lookup = localIntegrations(integrations, ids);
 		for (const block of blocks) {
 			const { history: raw, ...fields } = remapIntegrations(block, lookup);
 			const history = freshCanvasIds(raw);
-			const [row] = await tx
-				.insert(customBlocksListEntity)
-				.values({ ...fields, projectId })
-				.returning({ id: customBlocksListEntity.id });
+			const matched = match(fields.name);
+			const values = { ...fields, projectId };
+			const [row] = matched
+				? await tx
+						.update(customBlocksListEntity)
+						.set(values)
+						.where(eq(customBlocksListEntity.id, matched))
+						.returning({ id: customBlocksListEntity.id })
+				: await tx
+						.insert(customBlocksListEntity)
+						.values(values)
+						.returning({ id: customBlocksListEntity.id });
 			const target = { id: row!.id, projectId };
 			// the working copy goes through the same path a checkout does
 			await restoreSnapshot("custom_block", target, history.working as VersionSnapshot, tx);
-			await importHistory("custom_block", target, history, same, tx);
+			const write = matched ? importAsNewVersions : importHistory;
+			await write("custom_block", target, history, same, tx);
 			ids.set("customBlocks", fields.name, target.id);
 		}
 	},

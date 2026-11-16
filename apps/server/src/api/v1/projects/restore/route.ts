@@ -28,7 +28,7 @@ const doc = (operationId: string, description: string, schema: z.ZodType) =>
 		},
 	});
 
-const limit = bodyLimit({
+export const uploadLimit = bodyLimit({
 	// a little over the archive itself: the multipart envelope
 	maxSize: MAX_ARCHIVE_UPLOAD_BYTES + 1024 * 1024,
 	onError: (ctx) =>
@@ -48,7 +48,7 @@ export function noIdleTimeout(ctx: HonoContext) {
 	);
 }
 
-async function readUpload(ctx: HonoContext) {
+export async function readUpload(ctx: HonoContext) {
 	const body = await ctx.req.parseBody();
 	if (!(body.file instanceof File))
 		throw new BadRequestError("Send the archive as the multipart field `file`");
@@ -69,7 +69,7 @@ export default function (app: HonoServer) {
 			inspectResponseSchema,
 		),
 		requireSystemAdmin,
-		limit,
+		uploadLimit,
 		async (ctx) => ctx.json(await inspectArchive((await readUpload(ctx)).bytes)),
 	);
 	app.post(
@@ -80,7 +80,7 @@ export default function (app: HonoServer) {
 			restoreResponseSchema,
 		),
 		requireSystemAdmin,
-		limit,
+		uploadLimit,
 		async (ctx) => {
 			noIdleTimeout(ctx);
 			const { body, bytes } = await readUpload(ctx);
