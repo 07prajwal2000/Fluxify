@@ -289,7 +289,8 @@ function IntegrationDetailsPage() {
 								testSaved.reset();
 							}}
 						/>
-						{canEdit && (
+						{/* Same as prod: development is production, so one test covers both (#1127) */}
+						{canEdit && !syncDev && (
 							<TestConnectionButton
 								isPending={testProd.isPending}
 								onPress={testProduction}
