@@ -19,11 +19,14 @@ import {
  * restarting, the work is still waiting when it comes back.
  */
 
+/** false when the request couldn't be queued; it is logged, and most callers need nothing more */
 async function request(subject: string, body: CompileRequest) {
 	try {
 		await publishToStream(natsConnection(), subject, body);
+		return true;
 	} catch (error) {
 		logger.error(`[compiler] failed to queue ${subject}: ${String(error)}`, "COMPILER.publish");
+		return false;
 	}
 }
 

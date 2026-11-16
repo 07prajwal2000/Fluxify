@@ -11,6 +11,7 @@ import { BadRequestError } from "../../../errors/badRequestError";
 import { backupHistorySchema, exportHistory, importHistory } from "../../versions/backup";
 import { buildSnapshot, restoreSnapshot } from "../../versions/snapshot";
 import type { BackupModule, IdMap } from "../types";
+import { listOf, versionDetails } from "./preview";
 
 /**
  * Every middleware of a project (#1099). A middleware's version is its chain of
@@ -54,6 +55,16 @@ export const middlewaresModule: BackupModule<Section> = {
 	upgrades: {},
 	dependsOn: ["customBlocks"],
 	schema,
+
+	preview: ({ middlewares }) =>
+		middlewares.map((m) => ({
+			name: m.name,
+			summary: m.description ?? undefined,
+			details: {
+				"Runs, in order": listOf(chainOf(m.history.working as VersionSnapshot)),
+				...versionDetails(m.history),
+			},
+		})),
 
 	async export({ projectId, options }) {
 		const middlewares = await db.transaction(async (tx) => {

@@ -112,12 +112,20 @@ const routeVersions = async (id: string) => {
 		.orderBy(asc(schema.canvasVersionsEntity.versionNumber));
 };
 
-/** production calls the custom block behind the middleware; development runs the working copy */
-async function expectServed(project: string, names: { block: string; mw: string; name: string }) {
+/**
+ * production calls the custom block behind the middleware; development runs the
+ * working copy. A template comes up switched off in production (#1104).
+ */
+async function expectServed(project: string, names: { block: string; mw: string; name: string }, production = true) {
 	const route = await byName(schema.routesEntity, project, names.name);
 	const mw = await byName(schema.middlewaresEntity, project, names.mw);
 	await compileProject(project);
 	const prod = await stack.routeArtifact(project, route.id, "production");
+	if (!production) {
+		expect([route.active, route.devActive, prod]).toEqual([false, true, null]);
+		expect((await stack.routeArtifact(project, route.id, "development"))?.source).toContain("('dev')");
+		return route;
+	}
 	expect(prod?.versionId).toBe(route.prodVersionId);
 	expect(prod?.source).toContain(names.block);
 	expect(prod?.source).not.toContain("'dev'");
@@ -216,7 +224,8 @@ describe("routes backup", () => {
 		// a fresh handle: the one above may have cached the file as missing
 		const project = await restore(await Bun.file(file.name!).bytes());
 
-		const route = await expectServed(project, names);
+		// a template: production off, but its promoted version restored for when it is switched on
+		const route = await expectServed(project, names, false);
 		const [v1] = await routeVersions(route.id);
 		expect(route.prodVersionId).toBe(v1.id);
 		const [suite] = await stack.sql`SELECT name FROM test_suites WHERE route_id = ${route.id}`;

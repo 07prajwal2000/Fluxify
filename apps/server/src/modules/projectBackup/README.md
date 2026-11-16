@@ -12,6 +12,7 @@ pack, check, upgrade and import modules. It owns no resource of its own.
 | `backup.ts` | `createBackup(input, BACKUP_MODULES)` → `{ bytes, manifest }` |
 | `restore.ts` | `readBackup(bytes, BACKUP_MODULES)` checks everything; `restoreBackup(plan, openProject)` writes |
 | `archive.ts` | The tar layout, encryption, integrity hash, `readManifest` |
+| `restoreProject.ts` | `inspectArchive(bytes)` and `restoreProject(bytes, { name, slug })`: a new project from an uploaded archive, created through the "create project" path, then compiled (the API is `api/v1/projects/restore`) |
 | `run.ts`, `history.ts`, `archives.ts` | A manual backup as a job on admin: the `project_backups` rows, the archive held in the Object Store until it expires, the daily cleanup (the API is `api/v1/backups`) |
 | `sections.ts` | Refuses too-old / too-new sections and walks the upgrade steps |
 | `resources/` | The resource modules (`appConfig`, `integrations`, `projectSettings`, `projectDependencies`, `plugins`, `customBlocks`, `middlewares`, `routes`, `workflows`, `triggers`, …), their fixtures and Postgres tests |
@@ -52,6 +53,9 @@ adding or removing it makes `readBackup` refuse the archive.
    creates the new project in it and calls `work(tx, projectId)`; the modules
    import in dependency order inside it. Any throw rolls the whole restore back.
 
+A caller that makes a new project should use `restoreProject` (`restoreProject.ts`),
+which does all of the below. The steps, for a caller with other needs:
+
 ```ts
 const plan = await readBackup(bytes, BACKUP_MODULES);
 // show plan.warnings ({ section, message }[]) before the user confirms
@@ -80,8 +84,9 @@ await requestProjectCompile(id, "project restored");
    the message passed with the work (`afterCommit(work, warning)`) comes back in
    `warnings`. The caller has nothing extra to call.
 6. **Warnings.** One channel, plain strings tagged with their section. A
-   module's optional `inspect(data, read)` runs in `readBackup` after the
-   upgrade and the parse, writes nothing, and returns what the user should know
+   module's optional `inspect(data, read, { files, mode })` runs in `readBackup` after the
+   upgrade and the parse, may be async, writes nothing (a throw refuses the archive
+   before the user fills anything in: plugins check their bytes and SDK range there), and returns what the user should know
    about restoring that data here (a trigger group over this instance's
    `MAX_TRIGGERS_PER_GROUP`, or a reference to an integration the backup
    doesn't hold). `read(section)` gives a section parsed before this one, so a

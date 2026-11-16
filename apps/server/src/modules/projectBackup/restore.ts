@@ -38,8 +38,10 @@ export async function readBackup(tgz: Uint8Array, modules: BackupModule[]): Prom
 		const version = manifest.sections[module.name];
 		if (version === undefined) continue;
 		const data = upgradeSection(module, version, readJson(payload, module.name));
-		sections.push({ module, data, files: filesOf(payload, module.name) });
-		for (const message of module.inspect?.(data, read) ?? [])
+		const files = filesOf(payload, module.name);
+		sections.push({ module, data, files });
+		for (const message of (await module.inspect?.(data, read, { files, mode: manifest.mode })) ??
+			[])
 			warnings.push({ section: module.name, message });
 	}
 	return { manifest, readme, sections, warnings };
@@ -90,13 +92,13 @@ export async function restoreBackup(
 		pending = [];
 		told = [];
 		const ids = idMap();
-		const { mode } = plan.manifest;
+		const { mode, source } = plan.manifest;
 		for (const { module, data, files } of plan.sections) {
 			const section = module.name;
 			const afterCommit = (work: () => Promise<void>, message: string) =>
 				void pending.push({ section, message, work });
 			const warn = (message: string) => void told.push({ section, message });
-			await module.import({ tx, projectId, mode, files, ids, afterCommit, warn }, data);
+			await module.import({ tx, projectId, mode, source, files, ids, afterCommit, warn }, data);
 		}
 	});
 	const warnings = [...plan.warnings, ...told];

@@ -63,6 +63,31 @@ export const pluginsModule: BackupModule<Section> = {
 	dependsOn: [],
 	schema,
 
+	preview: ({ plugins }, mode) =>
+		plugins.map((p) => ({
+			name: p.name,
+			summary: `v${p.version}`,
+			details: {
+				Version: p.version,
+				Source: p.source,
+				Approval: mode === "template" ? "Pending: needs approving again" : p.approval,
+				Blocks: Object.keys(p.manifest.blocks).length,
+				Development: p.devEnabled ? "Enabled" : "Disabled",
+				Production: p.prodEnabled ? "Enabled" : "Disabled",
+			},
+		})),
+
+	/** refuses here what the import would (integrity, SDK range), before the user fills anything in */
+	async inspect({ plugins }, _read, { files, mode }) {
+		for (const p of plugins)
+			for (const v of mode === "template" ? [p] : versionsOf(p))
+				await checkedTarball(p.name, v, files[tarballPath(p.name, v.version)]);
+		if (mode !== "template") return [];
+		return plugins.map(
+			(p) => `Plugin "${p.name}" needs approving before routes that use its blocks will compile.`,
+		);
+	},
+
 	async export({ projectId, mode }) {
 		const rows = await listPluginRows(projectId);
 		const approvers = rows.flatMap((r) => (r.approvedBy ? [r.approvedBy] : []));

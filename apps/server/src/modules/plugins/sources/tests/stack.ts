@@ -24,7 +24,7 @@ let sql: SQL;
 let app: Hono<any>;
 
 const publisher = await import("../../../compiler/publisher");
-spyOn(publisher, "requestProjectCompile").mockImplementation(async () => {});
+spyOn(publisher, "requestProjectCompile").mockImplementation(async () => true);
 const loader = await import("../../../../loaders/instanceSettingsLoader");
 let trusted: string[] = [];
 spyOn(loader, "getSetting").mockImplementation(((key: string) =>

@@ -1,9 +1,9 @@
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq, ne } from "drizzle-orm";
 import { z } from "zod";
 import { integrationGroupNameSchema } from "../../../api/v1/integrations/schemas";
 import { db } from "../../../db";
 import { CHAN_ON_INTEGRATION_CHANGE, publishMessage } from "../../../db/redis";
-import { integrationsEntity } from "../../../db/schema";
+import { integrationsEntity, projectsEntity } from "../../../db/schema";
 import type { BackupModule } from "../types";
 
 /**
@@ -66,6 +66,19 @@ const forTemplate = (row: Row): Row => ({
 	syncDev: false,
 });
 
+type Config = Row["config"];
+const withoutOAuth = (config: Config): Config => {
+	if (!config || !("oauth" in config)) return config;
+	const { oauth: _, ...rest } = config;
+	return rest;
+};
+/** the same row with no MCP sign-in in either environment; the row itself when it had none */
+function signedOut(row: Row): Row {
+	const config = withoutOAuth(row.config);
+	const devConfig = withoutOAuth(row.devConfig);
+	return config === row.config && devConfig === row.devConfig ? row : { ...row, config, devConfig };
+}
+
 export const integrationsModule: BackupModule<Section> = {
 	name: "integrations",
 	version: 1,
@@ -74,6 +87,31 @@ export const integrationsModule: BackupModule<Section> = {
 	// config may name app config keys (`cfg:KEY`)
 	dependsOn: ["appConfig"],
 	schema,
+
+	// the kind of connection, never its config
+	preview: ({ integrations }, mode) =>
+		integrations.map((i) => ({
+			name: i.name,
+			summary: `${i.group} · ${i.variant}`,
+			details: {
+				Group: i.group,
+				Variant: i.variant,
+				Tags: i.tags || null,
+				Production: !i.config
+					? "Not set"
+					: mode === "template"
+						? "Credentials left blank"
+						: "Included",
+				Development:
+					mode === "template"
+						? "Not set"
+						: i.devConfig
+							? "Its own"
+							: i.syncDev
+								? "Same as production"
+								: "Not set",
+			},
+		})),
 
 	async export({ projectId, mode }) {
 		const rows = await db
@@ -95,10 +133,23 @@ export const integrationsModule: BackupModule<Section> = {
 		};
 	},
 
-	async import({ tx, projectId, mode, ids, afterCommit }, { integrations }) {
+	async import({ tx, projectId, mode, source, ids, afterCommit, warn }, { integrations }) {
+		// Next to its source, both copies would share one MCP sign-in: a provider that
+		// rotates refresh tokens then signs one of them out on the other's refresh.
+		// Another instance (disaster recovery) has no source to share it with.
+		const besideSource =
+			mode === "backup" &&
+			(
+				await tx
+					.select({ id: projectsEntity.id })
+					.from(projectsEntity)
+					.where(and(eq(projectsEntity.slug, source.slug), ne(projectsEntity.id, projectId)))
+					.limit(1)
+			).length > 0;
 		for (const raw of integrations) {
 			// blank whatever a hand-made template carries, too
-			const row = mode === "template" ? forTemplate(raw) : raw;
+			const row = mode === "template" ? forTemplate(raw) : besideSource ? signedOut(raw) : raw;
+			if (besideSource && row !== raw) warn(`MCP server "${row.name}" needs signing in again.`);
 			const [created] = await tx
 				.insert(integrationsEntity)
 				.values({ ...row, projectId })

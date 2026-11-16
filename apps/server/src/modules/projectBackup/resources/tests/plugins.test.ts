@@ -155,11 +155,30 @@ describe("plugins backup", () => {
 		expect(await triggerArtifact(projectId, trigger.id)).toBeNull();
 	});
 
-	it("restores a template's plugins pending approval", async () => {
+	it("restores a template's plugins pending approval, and says so before the restore", async () => {
 		const src = await source();
-		const { projectId } = await restorePlan(await readBackup(await backup(src, { mode: "template" }), BACKUP_MODULES));
+		const plan = await readBackup(await backup(src, { mode: "template" }), BACKUP_MODULES);
+		for (const name of [STORE, ECHO])
+			expect(plan.warnings).toContainEqual({
+				section: "plugins",
+				message: `Plugin "${name}" needs approving before routes that use its blocks will compile.`,
+			});
+		const { projectId } = await restorePlan(plan);
 		for (const row of (await pluginRows(projectId)).values())
 			expect(row).toMatchObject({ approval: "pending", approvedBy: null, approvedAt: null, permissions: null });
+	});
+
+	it("refuses a plugin this instance's SDK doesn't satisfy when the archive is read, naming it", async () => {
+		const src = await source();
+		const bytes = await backup(src);
+		const satisfies = spyOn(Bun.semver, "satisfies").mockReturnValue(false);
+		try {
+			await expect(readBackup(bytes, BACKUP_MODULES)).rejects.toThrow(
+				/Plugin "[^"]+" [\d.]+ can't be restored here: The plugin needs @fluxify\/sdk .+, but this Fluxify provides /,
+			);
+		} finally {
+			satisfies.mockRestore();
+		}
 	});
 
 	it("restores the committed v1 fixture offline", async () => {

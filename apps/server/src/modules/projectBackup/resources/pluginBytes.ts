@@ -56,7 +56,15 @@ export async function checkedTarball(
 		throw new BadRequestError(
 			`${which} doesn't match the integrity it was approved with. The backup was altered or damaged; nothing was restored.`,
 		);
-	const valid = validatePlugin(await untar(bytes));
+	let valid: ReturnType<typeof validatePlugin>;
+	try {
+		valid = validatePlugin(await untar(bytes));
+	} catch (error) {
+		// e.g. an SDK range this instance doesn't satisfy: say which plugin
+		throw new BadRequestError(
+			`${which} can't be restored here: ${error instanceof Error ? error.message : String(error)}. Nothing was restored.`,
+		);
+	}
 	if (valid.manifest.name !== name || valid.version !== v.version)
 		throw new BadRequestError(`${which}: its files hold ${valid.manifest.name} ${valid.version}.`);
 	return valid.manifest;

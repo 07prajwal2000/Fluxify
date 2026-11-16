@@ -24,6 +24,7 @@ const publisher = await import("../../compiler/publisher");
 export const recompiles: string[] = [];
 spyOn(publisher, "requestProjectCompile").mockImplementation(async (projectId) => {
 	recompiles.push(projectId);
+	return true;
 });
 
 async function waitForPostgres(url: string) {

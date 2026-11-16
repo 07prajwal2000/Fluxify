@@ -29,8 +29,11 @@ export function SplitButton({
 	menuLabel,
 	items,
 	menuClassName,
+	variant = "outline",
 }: {
 	children: ReactNode;
+	/** outline by default; primary for a page's main call to action */
+	variant?: "outline" | "primary";
 	onPress: () => void;
 	/** the main action only; the menu stays reachable */
 	isDisabled?: boolean;
@@ -42,13 +45,13 @@ export function SplitButton({
 }) {
 	if (items.length === 0) {
 		return (
-			<Button variant="outline" isDisabled={isDisabled} onPress={onPress}>
+			<Button variant={variant} isDisabled={isDisabled} onPress={onPress}>
 				{children}
 			</Button>
 		);
 	}
 	return (
-		<ButtonGroup variant="outline">
+		<ButtonGroup variant={variant}>
 			{/* the button's own radius outranks utilities, hence the ! */}
 			<Button className="!rounded-e-none" isDisabled={isDisabled} onPress={onPress}>
 				{children}
@@ -56,7 +59,7 @@ export function SplitButton({
 			<Dropdown>
 				<Button
 					isIconOnly
-					variant="outline"
+					variant={variant}
 					aria-label={menuLabel}
 					className="-ml-px !rounded-s-none"
 				>

@@ -7,7 +7,7 @@ import { db } from "../../../db";
 import { triggerGroupsEntity, triggersEntity, workflowsEntity } from "../../../db/schema";
 import { BadRequestError } from "../../../errors/badRequestError";
 import type { BackupModule } from "../types";
-import { missingPluginWarnings } from "./canvas";
+import { missingPluginWarnings, productionOff } from "./canvas";
 import {
 	integrationNames,
 	integrationTableSchema,
@@ -18,6 +18,7 @@ import {
 	tableFor,
 	v1Table,
 } from "./integrationRefs";
+import { onOff, production } from "./preview";
 
 /**
  * A project's trigger groups and triggers (#1098), in one section: a trigger
@@ -107,6 +108,21 @@ export const triggersModule: BackupModule<Section> = {
 	dependsOn: ["integrations", "plugins", "workflows"],
 	schema,
 
+	preview: ({ triggers }, mode) =>
+		triggers.map((t) => ({
+			name: t.name,
+			summary: t.workflow ? `${t.type} → ${t.workflow}` : t.type,
+			details: {
+				Type: t.type,
+				Workflow: t.workflow ?? "None",
+				Group: t.group,
+				Schedule: t.schedule ? `${t.schedule} (${t.timezone})` : null,
+				Production: production(t.active, mode),
+				Development: onOff(t.devActive),
+				...(t.disabledReason ? { "Turned off because": t.disabledReason } : {}),
+			},
+		})),
+
 	inspect({ triggers, integrations }, read) {
 		const have = restoredNames(read);
 		return [
@@ -166,7 +182,7 @@ export const triggersModule: BackupModule<Section> = {
 		});
 	},
 
-	async import({ tx, projectId, ids, afterCommit }, { groups, triggers, integrations }) {
+	async import({ tx, projectId, mode, ids, afterCommit }, { groups, triggers, integrations }) {
 		const groupIds = new Map<string, string>();
 		for (const { isDefault, ...group } of groups) {
 			// one default per project, wherever the project got it from
@@ -209,7 +225,7 @@ export const triggersModule: BackupModule<Section> = {
 				);
 			const [row] = await tx
 				.insert(triggersEntity)
-				.values({ ...fields, projectId, groupId, workflowId })
+				.values({ ...fields, ...productionOff(mode), projectId, groupId, workflowId })
 				.returning();
 			// one at a time, so one that fails does not hold the rest back
 			afterCommit(

@@ -4,6 +4,7 @@ import createProjectRoute from "./create/route";
 import deleteProjectRoute from "./delete/route";
 import getAllProjectRoute from "./get-all/route";
 import getByIdProjectRoute from "./get-by-id/route";
+import restoreProjectRoute from "./restore/route";
 import registerProjectDevToken from "./settings/dev-token/route";
 import registerProjectSettingsKeys from "./settings/keys/register";
 import registerProjectMembers from "./settings/members/register";
@@ -16,6 +17,7 @@ export default {
 	registerHandler(app: HonoServer) {
 		const router = app.basePath("/projects");
 		createProjectRoute(router);
+		restoreProjectRoute(router);
 		getAllProjectRoute(router);
 		getByIdProjectRoute(router);
 		updateProjectRoute(router);
