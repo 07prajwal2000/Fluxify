@@ -12,12 +12,15 @@ export function RollbackUpload({ projectId }: { projectId: string }) {
 	const input = useRef<HTMLInputElement>(null);
 	const flow = useRestoreFlow();
 	return (
-		<section aria-label="Roll back" className="flex flex-col gap-3">
-			<div>
+		<section
+			aria-label="Roll back"
+			className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-3"
+		>
+			<div className="max-w-xl">
 				<h2 className="text-sm font-semibold text-foreground">Roll back</h2>
 				<p className="text-sm text-muted">
-					Put this project back the way a backup has it, keeping what still matches. It is backed up
-					first, so the rollback can be undone.
+					Put this project back the way a backup has it. It is backed up first, so this can be
+					undone.
 				</p>
 			</div>
 			<div>

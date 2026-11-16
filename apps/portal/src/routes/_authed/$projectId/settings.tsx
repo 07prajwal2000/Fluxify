@@ -17,6 +17,7 @@ import {
 } from "react-icons/tb";
 import { AiConnectionsSettings } from "@/components/settings/AiConnectionsSettings";
 import { BackupSettings } from "@/components/settings/backup/BackupSettings";
+import { type BackupView, parseBackupView } from "@/components/settings/backup/views";
 import { DangerZoneSettings } from "@/components/settings/DangerZoneSettings";
 import { DevAccessSettings } from "@/components/settings/DevAccessSettings";
 import { ExperimentalSettings } from "@/components/settings/ExperimentalSettings";
@@ -55,6 +56,8 @@ type SettingsSearch = {
 		| "danger";
 	/** the plugin whose page is open on the Plugins tab, as `scope/name` */
 	plugin?: string;
+	/** the open inner tab of the Backup tab; absent means Back up */
+	backupView?: BackupView;
 };
 
 export const Route = createFileRoute("/_authed/$projectId/settings")({
@@ -62,6 +65,7 @@ export const Route = createFileRoute("/_authed/$projectId/settings")({
 		return {
 			tab: typeof search.tab === "string" ? (search.tab as SettingsSearch["tab"]) : undefined,
 			plugin: typeof search.plugin === "string" ? search.plugin : undefined,
+			backupView: parseBackupView(search.backupView),
 		};
 	},
 	head: createRouteHead(
@@ -232,7 +236,18 @@ function ProjectSettingsPage() {
 						{activeTab === "dev-access" && <DevAccessSettings projectId={projectId} />}
 						{activeTab === "members" && <MembersSettings projectId={projectId} />}
 						{activeTab === "audit-logs" && <ProjectAuditSettings projectId={projectId} />}
-						{activeTab === "backup" && <BackupSettings projectId={projectId} />}
+						{activeTab === "backup" && (
+							<BackupSettings
+								projectId={projectId}
+								view={search.backupView}
+								onViewChange={(backupView) =>
+									navigate({
+										search: { tab: "backup", backupView } as any,
+										replace: true,
+									})
+								}
+							/>
+						)}
 						{activeTab === "ai-connections" && <AiConnectionsSettings projectId={projectId} />}
 						{activeTab === "experimental" && <ExperimentalSettings projectId={projectId} />}
 						{activeTab === "danger" && (

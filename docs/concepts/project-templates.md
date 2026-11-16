@@ -22,8 +22,8 @@ To create a template:
 1. Open **Project Settings → Backup**.
 2. Under **Kind of archive**, select **Template**.
 3. Under **What to include**, choose the project parts you want to package.
-4. In the **README (optional)** section, write documentation describing what the template does and how to set it up.
-5. Click **Download backup**.
+4. Click **Add a README** and write documentation describing what the template does and how to set it up.
+5. Click **Download backup** at the top of the page.
 
 The browser downloads a `.tar.gz` archive file that anyone with system administrator access can import.
 

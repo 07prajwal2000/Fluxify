@@ -22,7 +22,7 @@ For configuration details and setup examples, see [Object Storage Integrations](
 To configure automatic backups:
 
 1. Open **Project Settings → Backup**.
-2. Scroll to the **Object storage** section.
+2. Open the **Schedule** tab.
 3. Configure the backup parameters:
    - **Integration**: Select the Object Storage integration whose bucket will receive the backups.
    - **Prefix**: The folder path inside the bucket where backups will be stored.
@@ -37,7 +37,7 @@ To configure automatic backups:
    - **Back up on a schedule**: Check this box to enable automatic recurring backups.
 4. Click **Save**.
 
-Scheduled backups use the parts of the project selected under **What to include** in the Backup tab, and include any text written in the **README** field. Scheduled backups are always created as full, encrypted backups — never unencrypted templates.
+Scheduled backups use the parts of the project selected under **What to include** on the **Back up** tab, and include any text written in the **README** field. Scheduled backups are always created as full, encrypted backups — never unencrypted templates.
 
 ## When backups run
 
@@ -51,7 +51,7 @@ If a scheduled backup fails (for example, if the storage bucket is temporarily u
 
 ## Back up now
 
-The **Back up now** button uploads an encrypted backup to your bucket immediately. It does not wait for the next scheduled interval. This is useful when you are about to deploy significant changes or want an immediate snapshot saved off-site.
+The **Back up now** button, in the bar at the top of the Backup page next to **Download backup**, uploads an encrypted backup to your bucket immediately. It does not wait for the next scheduled interval. This is useful when you are about to deploy significant changes or want an immediate snapshot saved off-site. The button appears once you have saved an integration and a prefix on the **Schedule** tab.
 
 ## What is in the bucket
 
@@ -74,9 +74,9 @@ Fluxify automatically manages retention based on your **Backups to keep** settin
 
 ## Failures
 
-If an upload fails — due to invalid credentials, network timeouts, or an unapproved plugin — the failure is recorded in the project's **History** table along with the error description.
+If an upload fails — due to invalid credentials, network timeouts, or an unapproved plugin — the failure is recorded in the project's **History** tab along with the error description.
 
-The **Object storage** section also displays an alert showing when the last run failed and the error message reported by the storage service.
+The **Schedule** tab also displays an alert showing when the last run failed and the error message reported by the storage service.
 
 ## Licensing and grace periods
 

@@ -66,7 +66,7 @@ After creating a restored project, complete these setup steps before directing p
 If your backups are stored in an S3-compatible cloud bucket, you can restore them directly without uploading files through your browser:
 
 1. Open **Project Settings → Backup**.
-2. Scroll to the **Remote backups** section.
+2. Open the **Restore & roll back** tab.
 3. Select your **Integration** and folder **Prefix**.
 4. The table displays all complete backups in the folder, showing the creation date, source project name and slug, release, compressed size, and included resources.
 5. Click **Restore** on the backup row you want.
@@ -83,7 +83,7 @@ If your original server is lost or destroyed, you can recover projects completel
 1. Install and start a new Fluxify instance configured with the **same `MASTER_ENCRYPTION_KEY`** used by the original instance.
 2. Sign in as a System Administrator and create an empty project.
 3. In that project, navigate to **Integrations** and add an **Object Storage** integration pointing to the bucket that holds your backups.
-4. Go to **Project Settings → Backup → Remote backups**.
+4. Go to **Project Settings → Backup → Restore & roll back**.
 5. Select the Object Storage integration and the prefix folder of your lost project.
 6. Click **Restore** on the latest backup row.
 7. Confirm the project name and subdomain (if the subdomain is not in use on this new instance, it will be assigned to your restored project).
@@ -96,7 +96,7 @@ Instead of creating a separate new project, you can roll back your current proje
 
 ### Where to start a rollback
 
-You can start an in-place rollback from two places in **Project Settings → Backup**:
+You can start an in-place rollback from the **Restore & roll back** tab in **Project Settings → Backup**:
 
 - Click **Upload a backup to roll back** to upload an archive file.
 - Click **Roll back** on any row in the **Remote backups** list.
