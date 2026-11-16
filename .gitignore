@@ -8,6 +8,7 @@ dist
 .next
 docs_index
 .models/
+.trackd
 docs/.vitepress/cache
 docs/.vitepress/dist
 apps/ai-gateway/src/harness/demo.ts

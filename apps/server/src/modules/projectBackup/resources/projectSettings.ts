@@ -36,6 +36,19 @@ import {
 const SUBDOMAIN = "settings.routing.subdomain";
 /** the last backup's README (#1103) travels in the archive itself, not as a setting of the copy */
 const NOT_BACKED_UP = "settings.backup.readme";
+/**
+ * Backups to object storage (#1106) restore switched off and without a prefix:
+ * a copy writing to (and pruning) the source's prefix would delete the source's
+ * backups. The integration, interval and retention are kept.
+ */
+const SCHEDULE_OFF: Record<string, string> = {
+	"settings.backup.storage.enabled": "false",
+	"settings.backup.storage.prefix": "",
+};
+export const SCHEDULE_OFF_WARNING =
+	"Scheduled backups are off in the restored project; choose a prefix and turn them on.";
+const scheduleWasOn = (settings: Section["settings"]) =>
+	settings.some((s) => s.key === "settings.backup.storage.enabled" && s.value === "true");
 
 const schema = z.object({
 	settings: z.array(z.object({ key: z.string().min(1), value: z.string() })),
@@ -86,13 +99,17 @@ export const projectSettingsModule: BackupModule<Section> = {
 			}),
 
 	inspect({ settings, integrations }, read) {
-		return lostWarnings(
-			"Project settings",
-			settings.map((s) => ({ where: s.key, value: s.value.split(",") })),
-			integrations,
-			restoredNames(read),
-			"They are cleared; choose them again in Project Settings.",
-		);
+		const off = scheduleWasOn(settings) ? [SCHEDULE_OFF_WARNING] : [];
+		return [
+			...off,
+			...lostWarnings(
+				"Project settings",
+				settings.map((s) => ({ where: s.key, value: s.value.split(",") })),
+				integrations,
+				restoredNames(read),
+				"They are cleared; choose them again in Project Settings.",
+			),
+		];
 	},
 
 	async export({ projectId }) {
@@ -120,7 +137,7 @@ export const projectSettingsModule: BackupModule<Section> = {
 	async import({ tx, projectId, ids, afterCommit, warn }, { settings, integrations }) {
 		const lookup = localIntegrations(integrations, ids);
 		for (const { key, value: raw } of settings) {
-			const value = accepted(key, remapValue(raw, lookup));
+			const value = accepted(key, SCHEDULE_OFF[key] ?? remapValue(raw, lookup));
 			if (value === undefined) continue;
 			const clash = key === SUBDOMAIN && value && (await subdomainClash(projectId, value, tx));
 			if (clash === "taken")

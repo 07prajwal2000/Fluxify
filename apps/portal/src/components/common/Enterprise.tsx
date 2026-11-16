@@ -29,6 +29,11 @@ export function useEnterpriseSso() {
 	return useFeature("sso");
 }
 
+/** True when backups to object storage can be set up (#1106). */
+export function useEnterpriseStorageBackups() {
+	return useFeature("objectStorageBackups");
+}
+
 /**
  * True when the license includes audit logs. Unlike the others it ignores
  * `canCreate`: events recorded before a license lapsed stay readable.

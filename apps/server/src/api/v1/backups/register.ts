@@ -8,9 +8,12 @@ import {
 	idResponseSchema,
 	listResponseSchema,
 	projectParamSchema,
+	scheduleBodySchema,
+	scheduleResponseSchema,
 	sectionsResponseSchema,
 	startBodySchema,
 } from "./dto";
+import * as schedule from "./schedule";
 import * as service from "./service";
 
 function doc(operationId: string, description: string, schema?: z.ZodType) {
@@ -34,6 +37,9 @@ const creator = requireProjectAccess("creator", { key: "projectId", source: "par
 const project = validator("param", projectParamSchema, zodErrorCallbackParser);
 const id = validator("param", idParamSchema, zodErrorCallbackParser);
 const body = validator("json", startBodySchema, zodErrorCallbackParser);
+const scheduleBody = validator("json", scheduleBodySchema, zodErrorCallbackParser);
+const userId = (c: { get(key: "user"): unknown }) =>
+	(c.get("user") as { id: string } | undefined)?.id ?? null;
 
 /**
  * Manual project backups (#1103): start one, list the history, download a
@@ -69,13 +75,51 @@ export default {
 			project,
 			body,
 			async (c) => {
-				const user = c.get("user") as { id: string } | undefined;
 				const { id: backupId } = await service.start(
 					c.req.valid("param").projectId,
-					user?.id ?? null,
+					userId(c),
 					c.req.valid("json"),
 				);
 				return c.json({ id: backupId });
+			},
+		);
+		// backups to object storage (#1106, EE): settings, and "Back up now"
+		router.get(
+			"/schedule",
+			doc(
+				"get-backup-schedule",
+				"Reads the project's backup to object storage settings and its last run",
+				scheduleResponseSchema,
+			),
+			creator,
+			project,
+			async (c) => c.json(await schedule.getSchedule(c.req.valid("param").projectId)),
+		);
+		router.put(
+			"/schedule",
+			doc(
+				"put-backup-schedule",
+				"Saves the project's backup to object storage settings (Enterprise)",
+				scheduleResponseSchema,
+			),
+			creator,
+			project,
+			scheduleBody,
+			async (c) =>
+				c.json(await schedule.saveSchedule(c.req.valid("param").projectId, c.req.valid("json"))),
+		);
+		router.post(
+			"/object-storage",
+			doc(
+				"start-object-storage-backup",
+				"Backs the project up to its Object Storage integration now (Enterprise)",
+				idResponseSchema,
+			),
+			creator,
+			project,
+			async (c) => {
+				const run = await schedule.backupNow(c.req.valid("param").projectId, userId(c));
+				return c.json({ id: run.id });
 			},
 		);
 		router.get(

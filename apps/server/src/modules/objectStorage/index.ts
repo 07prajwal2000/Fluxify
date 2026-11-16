@@ -1,5 +1,6 @@
 import { expandCfg } from "@fluxify/adapters";
 import { appConfigKeys, integrationRegistry } from "@fluxify/adapters/integrations";
+import { describeS3Error } from "@fluxify/adapters/storage/s3";
 import type { ObjectStorageAdapter } from "@fluxify/sdk/integrations";
 import { configForAdminEnv } from "../../api/v1/integrations/adminEnv";
 import { getIntegrationById } from "../../api/v1/integrations/test-existing-connection/repository";
@@ -9,7 +10,10 @@ import type { FluxifyEnv } from "../../lib/env";
 import { decodeAppConfig } from "../integrationOps/appConfig";
 
 /** integration id + env -> the adapter, and the hash of the config it was made from */
-const clients = new Map<string, { hash: bigint | number; storage: ObjectStorageAdapter }>();
+const clients = new Map<
+	string,
+	{ hash: bigint | number; storage: ObjectStorageAdapter; config: Record<string, unknown> }
+>();
 
 /**
  * A project's Object Storage integration as an adapter, `cfg:` references read
@@ -43,6 +47,23 @@ export async function openObjectStorage(
 	const cached = clients.get(key);
 	if (cached?.hash === hash) return cached.storage;
 	const storage = def.create(config, {}) as ObjectStorageAdapter;
-	clients.set(key, { hash, storage });
+	clients.set(key, { hash, storage, config });
 	return storage;
+}
+
+/**
+ * A storage failure as the user has to fix it (credentials, bucket, endpoint),
+ * for an integration `openObjectStorage` opened. Undefined when it never was.
+ */
+export function describeStorageError(
+	integrationId: string,
+	error: unknown,
+	env: FluxifyEnv = "production",
+) {
+	const config = clients.get(`${integrationId}:${env}`)?.config;
+	if (!config) return undefined;
+	return describeS3Error(error, {
+		bucket: String(config.bucket ?? ""),
+		endpoint: String(config.endpoint ?? ""),
+	});
 }

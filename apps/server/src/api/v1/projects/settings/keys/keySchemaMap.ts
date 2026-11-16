@@ -1,5 +1,10 @@
 import z from "zod";
 import { subdomainSchema } from "../../../../../lib/hosting";
+import {
+	BACKUP_INTERVALS,
+	backupPrefixSchema,
+	MAX_BACKUP_RETENTION,
+} from "../../../../../modules/projectBackup/prefix";
 
 export const projectSettingsKeySchemaMap = {
 	"settings.ai.agentConnectionId": {
@@ -160,7 +165,58 @@ export const projectSettingsKeySchemaMap = {
 		defaultValue: "",
 		dataType: "string",
 	},
+	/**
+	 * Backups to object storage (#1106, EE). Written only through
+	 * `PUT /v1/:projectId/backups/schedule`, which checks the license, the
+	 * integration and the prefix; the generic settings write refuses them.
+	 * Kept as settings so a restore carries them, switched off (see
+	 * `projectBackup/resources/projectSettings.ts`).
+	 */
+	"settings.backup.storage.integrationId": {
+		schema: z.uuidv7(),
+		defaultValue: "",
+		dataType: "string",
+	},
+	"settings.backup.storage.prefix": {
+		schema: backupPrefixSchema,
+		defaultValue: "",
+		dataType: "string",
+	},
+	"settings.backup.storage.interval": {
+		schema: z.enum(BACKUP_INTERVALS),
+		defaultValue: "daily",
+		dataType: "string",
+	},
+	"settings.backup.storage.retention": {
+		schema: z.coerce.number().int().min(1).max(MAX_BACKUP_RETENTION),
+		defaultValue: "7",
+		dataType: "number",
+	},
+	"settings.backup.storage.enabled": {
+		schema: z.enum(["true", "false"]),
+		defaultValue: "false",
+		dataType: "boolean",
+	},
+	/** The resources a scheduled backup takes, comma-separated; the manual form starts from it too. Empty = all. */
+	"settings.backup.sections": {
+		schema: z.string().max(2000),
+		defaultValue: "",
+		dataType: "string",
+	},
+	"settings.backup.versionHistory": {
+		schema: z.enum(["true", "false"]),
+		defaultValue: "false",
+		dataType: "boolean",
+	},
+	"settings.backup.appConfigValues": {
+		schema: z.enum(["true", "false"]),
+		defaultValue: "false",
+		dataType: "boolean",
+	},
 };
+
+/** Keys only the backup schedule endpoint writes (it checks the license and the integration). */
+export const BACKUP_SCHEDULE_KEY_PREFIX = "settings.backup.storage.";
 
 /** Keys only a project admin may write; everything else needs creator. */
 export const adminOnlyProjectSettingKeys: ReadonlySet<string> = new Set([

@@ -16,6 +16,7 @@ import {
 	hasRunning,
 	insertBackup,
 	listBackups,
+	lockProjectBackups,
 } from "../../../modules/projectBackup/history";
 import { BACKUP_MODULES } from "../../../modules/projectBackup/modules";
 import { runBackup } from "../../../modules/projectBackup/run";
@@ -35,7 +36,7 @@ export const README_KEY = "settings.backup.readme";
 const downloadable = (row: Row) =>
 	row.type === "manual" && row.status === "succeeded" && row.destinationKey !== null;
 
-const view = (row: Row, by: { email: string | null; name: string | null }) => ({
+export const view = (row: Row, by: { email: string | null; name: string | null }) => ({
 	id: row.id,
 	type: row.type,
 	mode: row.mode,
@@ -47,6 +48,7 @@ const view = (row: Row, by: { email: string | null; name: string | null }) => ({
 	error: row.error,
 	downloadable: downloadable(row),
 	expiresAt: downloadable(row) && row.finishedAt ? expiresAt(row.finishedAt) : null,
+	destinationKey: row.type === "object_storage" ? row.destinationKey : null,
 	createdBy: by.email ? { email: by.email, name: by.name } : null,
 	createdAt: row.createdAt,
 	finishedAt: row.finishedAt,
@@ -68,8 +70,6 @@ export async function list(projectId: string) {
 export async function start(projectId: string, userId: string | null, body: Body) {
 	const unknown = body.sections.find((name) => !BACKUP_MODULES.some((m) => m.name === name));
 	if (unknown) throw new BadRequestError(`There is no "${unknown}" section to back up.`);
-	if (await hasRunning(projectId))
-		throw new ConflictError("A backup of this project is already running. Wait for it to finish.");
 
 	const options = {
 		includeVersionHistory: body.includeVersionHistory,
@@ -77,6 +77,11 @@ export async function start(projectId: string, userId: string | null, body: Body
 		includeAppConfigValues: body.mode === "backup" && body.includeAppConfigValues,
 	};
 	const row = await db.transaction(async (tx) => {
+		await lockProjectBackups(tx, projectId);
+		if (await hasRunning(projectId, tx))
+			throw new ConflictError(
+				"A backup of this project is already running. Wait for it to finish.",
+			);
 		const created = await insertBackup(
 			{
 				projectId,

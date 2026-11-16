@@ -10,6 +10,8 @@ const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query
 const { BackupSettings } = await import("./BackupSettings");
 const { backupsService } = await import("@/services/backups");
 const { projectSettingsKeysService } = await import("@/services/projectSettingsKeys");
+const { integrationService } = await import("@/services/integrations");
+const { publicSettingsService } = await import("@/services/publicSettings");
 
 type Row = Awaited<ReturnType<typeof backupsService.list>>["backups"][number];
 
@@ -45,6 +47,7 @@ const row = (over: Partial<Row>): Row => ({
 	error: null,
 	downloadable: true,
 	expiresAt: null,
+	destinationKey: null,
 	createdBy: { email: "ada@example.com", name: "Ada" },
 	createdAt: new Date().toISOString(),
 	finishedAt: new Date().toISOString(),
@@ -55,6 +58,27 @@ const sections = spyOn(backupsService, "sections");
 const list = spyOn(backupsService, "list");
 const start = spyOn(backupsService, "start");
 const settingsKeys = spyOn(projectSettingsKeysService, "getAll");
+const schedule = spyOn(backupsService, "schedule");
+spyOn(integrationService, "getAll").mockResolvedValue([] as never);
+spyOn(publicSettingsService, "get").mockResolvedValue({
+	license: { status: "active", canRun: true, canCreate: true, features: ["*"] },
+} as never);
+/** what the server answers for a project that never set up object storage: every section */
+const unsaved = (over: object = {}) => ({
+	schedule: {
+		integrationId: null,
+		prefix: "",
+		interval: "daily" as const,
+		retention: 7,
+		enabled: false,
+		sections: SECTIONS.map((s) => s.name),
+		includeVersionHistory: false,
+		includeAppConfigValues: false,
+		...over,
+	},
+	defaultPrefix: "p1",
+	lastRun: null,
+});
 let rows: Row[] = [];
 const download = mock((_url: string) => {});
 let client: InstanceType<typeof QueryClient>;
@@ -66,6 +90,7 @@ beforeEach(() => {
 	list.mockReset().mockImplementation(async () => ({ backups: rows, retentionDays: 7 }));
 	start.mockReset().mockResolvedValue({ id: "new" });
 	settingsKeys.mockReset().mockResolvedValue({} as never);
+	schedule.mockReset().mockResolvedValue(unsaved());
 });
 afterEach(cleanup);
 afterAll(() => GlobalRegistrator.unregister());
@@ -108,6 +133,15 @@ test("starts with every section ticked, and version history and config values of
 	expect(checkbox("Canvas version history").checked).toBe(false);
 	expect(checkbox("App config values").checked).toBe(false);
 	expect(mode("Backup").getAttribute("aria-checked")).toBe("true");
+});
+
+test("starts from the resources and options the object storage backup uses", async () => {
+	schedule.mockResolvedValue(unsaved({ sections: ["routes"], includeVersionHistory: true }));
+	setup();
+	await loaded();
+	expect(checkbox("Routes").checked).toBe(true);
+	expect(checkbox("Integrations").checked).toBe(false);
+	expect(checkbox("Canvas version history").checked).toBe(true);
 });
 
 test("Download backup sends the choices, then downloads the archive once it has succeeded", async () => {

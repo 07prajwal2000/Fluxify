@@ -43,9 +43,17 @@ export const listBackups = (projectId: string, limit = 100) =>
 		.orderBy(desc(projectBackupsEntity.createdAt))
 		.limit(limit);
 
+/**
+ * Serialises starting a backup of one project across admin replicas (#1106):
+ * the check for a running one and the insert happen under this lock, which is
+ * held until the transaction ends.
+ */
+export const lockProjectBackups = (tx: DbTransactionType, projectId: string) =>
+	tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`project-backup:${projectId}`}))`);
+
 /** a backup of this project that is still going */
-export async function hasRunning(projectId: string) {
-	const [row] = await db
+export async function hasRunning(projectId: string, tx: DbTransactionType | typeof db = db) {
+	const [row] = await tx
 		.select({ id: projectBackupsEntity.id })
 		.from(projectBackupsEntity)
 		.where(
@@ -57,6 +65,27 @@ export async function hasRunning(projectId: string) {
 		)
 		.limit(1);
 	return Boolean(row);
+}
+
+/** the newest object storage run of a project, `succeeded` only when asked */
+export async function lastStorageRun(
+	projectId: string,
+	succeeded = false,
+	tx: DbTransactionType | typeof db = db,
+) {
+	const [row] = await tx
+		.select()
+		.from(projectBackupsEntity)
+		.where(
+			and(
+				eq(projectBackupsEntity.projectId, projectId),
+				eq(projectBackupsEntity.type, "object_storage"),
+				succeeded ? eq(projectBackupsEntity.status, "succeeded") : undefined,
+			),
+		)
+		.orderBy(desc(projectBackupsEntity.createdAt))
+		.limit(1);
+	return row;
 }
 
 /** runs whose process is gone: failed, so the table stops showing them as running */

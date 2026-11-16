@@ -147,6 +147,12 @@ const GATES = {
 		unlicensed: "Your license does not include ClickHouse observability storage",
 		community: "ClickHouse observability storage needs an enterprise or non-commercial license",
 	},
+	objectStorageBackups: {
+		expired:
+			"The enterprise license has expired. Scheduled backups keep running through the grace period, but their settings cannot be changed",
+		unlicensed: "Your license does not include backups to object storage",
+		community: "Backups to object storage need an enterprise or non-commercial license",
+	},
 } as const satisfies Record<Feature, unknown>;
 
 /**
@@ -214,6 +220,28 @@ export function auditLogsDefaultEnabled(e = currentEntitlement()) {
  */
 export function canUseOlap(e = currentEntitlement()) {
 	return e.canRun && includes(e, FEATURES.olap);
+}
+
+/**
+ * Whether backups to object storage may run (#1106), scheduled or "Back up now".
+ * Like audit logs they keep running through the grace period; the settings
+ * themselves are changed only behind `assertCanUse`. On community the settings
+ * are kept and nothing runs.
+ */
+export function canRunStorageBackups(e = currentEntitlement()) {
+	return e.canRun && includes(e, FEATURES.objectStorageBackups);
+}
+
+export function assertCanRunStorageBackups(e = currentEntitlement()) {
+	if (canRunStorageBackups(e)) return;
+	const gate = GATES.objectStorageBackups;
+	throw new ForbiddenError(
+		e.status === "community"
+			? gate.community
+			: e.status === "expired"
+				? gate.expired
+				: gate.unlicensed,
+	);
 }
 
 /** Why `canUseOlap` said no, for the boot warning. */

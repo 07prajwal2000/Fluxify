@@ -18,7 +18,12 @@ import { logger } from "../logging";
 export const NON_COMMERCIAL = "NON_COMMERCIAL";
 
 /** A feature a license can unlock. `*` in a key's `features` claim unlocks all of them. */
-export const FEATURES = { sso: "sso", auditLogs: "auditLogs", olap: "olap" } as const;
+export const FEATURES = {
+	sso: "sso",
+	auditLogs: "auditLogs",
+	olap: "olap",
+	objectStorageBackups: "objectStorageBackups",
+} as const;
 export type Feature = (typeof FEATURES)[keyof typeof FEATURES];
 const ALL = "*";
 

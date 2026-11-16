@@ -10,7 +10,11 @@ import { constructProjectSettingCacheKey } from "../../../../../../lib/project-s
 import { audit, forgetProject } from "../../../../../../modules/audit";
 import { hasRouteClaim } from "../../../../../../modules/orchestrator/claims";
 import { getProjectSettingsKeys } from "../get-all/repository";
-import { type ProjectSettingsKeyType, projectSettingsKeySchemaMap } from "../keySchemaMap";
+import {
+	BACKUP_SCHEDULE_KEY_PREFIX,
+	type ProjectSettingsKeyType,
+	projectSettingsKeySchemaMap,
+} from "../keySchemaMap";
 import { testConnectionFn } from "./connection";
 import { checkProjectExists, upsertProjectSettingKey } from "./repository";
 
@@ -28,6 +32,9 @@ export default async function handleRequest(
 
 	if (!schemaMap) {
 		throw new BadRequestError("Invalid key");
+	}
+	if (key.startsWith(BACKUP_SCHEDULE_KEY_PREFIX)) {
+		throw new BadRequestError("Change backups to object storage in Project Settings > Backup.");
 	}
 
 	let finalValue = value;
