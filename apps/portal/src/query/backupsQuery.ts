@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { backupsService, type StartBackupBody } from "@/services/backups";
+import { type BackupSchedule, backupsService, type StartBackupBody } from "@/services/backups";
 
 const key = (projectId: string) => ["backups", projectId];
 const POLL_MS = 2000;
@@ -24,6 +24,37 @@ export const backupsQuery = {
 				refetchOnWindowFocus: false,
 				refetchInterval: (query) =>
 					query.state.data?.backups.some((b) => b.status === "running") ? POLL_MS : false,
+			});
+		},
+	},
+	/** backups to object storage (#1106); polls while its last run is going */
+	schedule: {
+		useQuery(projectId: string) {
+			return useQuery({
+				queryKey: [...key(projectId), "schedule"],
+				queryFn: () => backupsService.schedule(projectId),
+				refetchOnWindowFocus: false,
+				refetchInterval: (query) =>
+					query.state.data?.lastRun?.status === "running" ? POLL_MS : false,
+			});
+		},
+	},
+	saveSchedule: {
+		useMutation(projectId: string) {
+			const client = useQueryClient();
+			return useMutation({
+				mutationFn: (body: BackupSchedule & { integrationId: string }) =>
+					backupsService.saveSchedule(projectId, body),
+				onSuccess: (view) => client.setQueryData([...key(projectId), "schedule"], view),
+			});
+		},
+	},
+	backupNow: {
+		useMutation(projectId: string) {
+			const client = useQueryClient();
+			return useMutation({
+				mutationFn: () => backupsService.backupNow(projectId),
+				onSuccess: () => client.invalidateQueries({ queryKey: key(projectId) }),
 			});
 		},
 	},

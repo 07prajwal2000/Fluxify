@@ -8,6 +8,7 @@ import { type BackupMode, backupsService } from "@/services/backups";
 import { BackupHistory } from "./BackupHistory";
 import { byteLength, triggerDownload } from "./format";
 import { dependencyHint, labelOf, MODE_COPY, SECTION_LABELS } from "./labels";
+import { ObjectStorageBackup } from "./ObjectStorageBackup";
 import { README_MAX_BYTES, ReadmeField } from "./ReadmeField";
 
 const README_KEY = "settings.backup.readme";
@@ -31,12 +32,15 @@ export function BackupSettings({
 	const { data: sections } = backupsQuery.sections.useQuery(projectId);
 	const { data: history } = backupsQuery.list.useQuery(projectId);
 	const { data: settings } = projectSettingsKeysQuery.getAll.useQuery(projectId);
+	// the resources and options the object storage backup uses (#1106); the form starts from them
+	const { data: schedule } = backupsQuery.schedule.useQuery(projectId);
 	const start = backupsQuery.start.useMutation(projectId);
 
 	const [mode, setMode] = useState<BackupMode>("backup");
-	const [unticked, setUnticked] = useState<Set<string>>(new Set());
-	const [versionHistory, setVersionHistory] = useState(false);
-	const [appConfigValues, setAppConfigValues] = useState(false);
+	// undefined until edited: what the object storage backup uses
+	const [picked, setPicked] = useState<Set<string>>();
+	const [historyEdited, setVersionHistory] = useState<boolean>();
+	const [valuesEdited, setAppConfigValues] = useState<boolean>();
 	// undefined until edited: the README the last backup used
 	const [edited, setEdited] = useState<string>();
 	const readme = edited ?? (settings as Record<string, string> | undefined)?.[README_KEY] ?? "";
@@ -50,7 +54,7 @@ export function BackupSettings({
 		if (row.status === "succeeded") download(backupsService.downloadUrl(projectId, row.id));
 	}, [history, download, projectId]);
 
-	if (!sections || !history) {
+	if (!sections || !history || !schedule) {
 		return (
 			<div className="flex justify-center py-16">
 				<Spinner />
@@ -58,18 +62,21 @@ export function BackupSettings({
 		);
 	}
 
-	const ticked = new Set(sections.map((s) => s.name).filter((n) => !unticked.has(n)));
+	const saved = schedule.schedule;
+	const ticked =
+		picked ?? new Set(sections.map((s) => s.name).filter((n) => saved.sections.includes(n)));
+	const versionHistory = historyEdited ?? saved.includeVersionHistory;
+	const appConfigValues = valuesEdited ?? saved.includeAppConfigValues;
 	const running = history.backups.some((b) => b.status === "running");
 	const template = mode === "template";
 	const tooLong = byteLength(readme) > README_MAX_BYTES;
 
-	const toggle = (name: string, on: boolean) =>
-		setUnticked((prev) => {
-			const next = new Set(prev);
-			if (on) next.delete(name);
-			else next.add(name);
-			return next;
-		});
+	const toggle = (name: string, on: boolean) => {
+		const next = new Set(ticked);
+		if (on) next.add(name);
+		else next.delete(name);
+		setPicked(next);
+	};
 
 	const submit = () =>
 		start.mutate(
@@ -175,6 +182,16 @@ export function BackupSettings({
 					<span className="text-sm text-muted">Pick at least one resource.</span>
 				)}
 			</div>
+
+			<ObjectStorageBackup
+				projectId={projectId}
+				view={schedule}
+				selection={{
+					sections: [...ticked],
+					includeVersionHistory: versionHistory,
+					includeAppConfigValues: appConfigValues,
+				}}
+			/>
 
 			<div className="flex flex-col gap-2">
 				<h2 className="text-sm font-semibold text-foreground">History</h2>

@@ -102,6 +102,9 @@ export const AUDITED: Record<string, string> = {
 	"delete-knowledge-source": `${V}/knowledge-sources/service.ts`,
 	// project backups (#1103); the download is a GET, audited in the same service
 	"start-backup": `${V}/backups/service.ts`,
+	// backups to object storage (#1106): the settings save, and "Back up now" (recorded where the run starts)
+	"put-backup-schedule": `${V}/backups/schedule.ts`,
+	"start-object-storage-backup": "modules/projectBackup/storageRun.ts",
 	// test suites and their runs
 	"create-test-suite": `${V}/test-suites/create/service.ts`,
 	"update-test-suite": `${V}/test-suites/update/service.ts`,

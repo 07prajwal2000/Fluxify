@@ -19,7 +19,7 @@ function Outcome({ projectId, row, days }: { projectId: string; row: BackupRow; 
 	if (row.status === "running") return <Spinner size="sm" />;
 	if (!row.downloadable)
 		return (
-			<span className="text-muted">
+			<span className="text-muted" title={row.destinationKey ?? undefined}>
 				{row.type === "object_storage" ? "In object storage" : `Expired (kept ${days} days)`}
 			</span>
 		);

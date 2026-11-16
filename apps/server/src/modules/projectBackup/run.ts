@@ -6,16 +6,47 @@ import { CustomError } from "../../errors/customError";
 import { archiveKey, deleteArchive, putArchive } from "./archives";
 import { createBackup } from "./backup";
 import { finishBackup } from "./history";
+import type { BackupManifest } from "./manifest";
 import { BACKUP_MODULES } from "./modules";
 import type { BackupOptions } from "./types";
 
-type Row = typeof projectBackupsEntity.$inferSelect;
+export type BackupRow = typeof projectBackupsEntity.$inferSelect;
+
+/** what a finished archive is, for the place that keeps it */
+export type FinishedArchive = {
+	bytes: Uint8Array;
+	manifest: BackupManifest;
+	hasReadme: boolean;
+};
+
+/** Where a run puts its archive: the Object Store for a manual one (#1103), a bucket for #1106. */
+export type BackupDestination = {
+	/** stores a finished archive and returns its key; leaves nothing behind when it throws */
+	save(archive: FinishedArchive): Promise<string>;
+	/** removes what `save` stored, when the row can't be updated */
+	discard(key: string): Promise<void>;
+	/** a message for the history, for a failure this destination understands */
+	explain?(error: unknown): string | undefined;
+	/** runs once the row says succeeded (retention); a failure is logged, never fails the backup */
+	after?(): Promise<void>;
+};
+
+/** the manual destination: the NATS Object Store, downloadable for a few days */
+const objectStore = (row: BackupRow): BackupDestination => ({
+	async save({ bytes }) {
+		const key = archiveKey(row.projectId, row.id);
+		await putArchive(key, bytes);
+		return key;
+	},
+	discard: deleteArchive,
+});
 
 /** what the history shows when a run fails: our own errors say what to do, anything else is generic */
-const reason = (error: unknown) =>
+const reason = (error: unknown, destination: BackupDestination) =>
 	error instanceof CustomError
 		? error.message
-		: "The backup failed unexpectedly. Check the server log, then try again.";
+		: (destination.explain?.(error) ??
+			"The backup failed unexpectedly. Check the server log, then try again.");
 
 /**
  * One backup, start to finish, on this admin process (it holds the database
@@ -23,8 +54,11 @@ const reason = (error: unknown) =>
  * The archive is stored only once it is complete, and removed again if the row
  * can't be updated, so a failed run leaves no file.
  */
-export async function runBackup(row: Row, input: { options: BackupOptions; readme?: string }) {
-	const key = archiveKey(row.projectId, row.id);
+export async function runBackup(
+	row: BackupRow,
+	input: { options: BackupOptions; readme?: string },
+	destination: BackupDestination = objectStore(row),
+) {
 	try {
 		const [project] = await db
 			.select({ name: projectsEntity.name, slug: projectsEntity.slug })
@@ -42,7 +76,7 @@ export async function runBackup(row: Row, input: { options: BackupOptions; readm
 			},
 			BACKUP_MODULES,
 		);
-		await putArchive(key, bytes);
+		const key = await destination.save({ bytes, manifest, hasReadme: Boolean(input.readme) });
 		await finishBackup(row.id, {
 			status: "succeeded",
 			sizeBytes: bytes.length,
@@ -50,13 +84,19 @@ export async function runBackup(row: Row, input: { options: BackupOptions; readm
 			release: manifest.release,
 			destinationKey: key,
 		}).catch(async (error) => {
-			await deleteArchive(key).catch(() => {});
+			await destination.discard(key).catch(() => {});
 			throw error;
 		});
 	} catch (error) {
 		logger.error(`[backup] ${row.id} of ${row.projectId} failed: ${String(error)}`, "BACKUP");
-		await finishBackup(row.id, { status: "failed", error: reason(error) }).catch((e) =>
+		await finishBackup(row.id, { status: "failed", error: reason(error, destination) }).catch((e) =>
 			logger.error(`[backup] could not record the failure of ${row.id}: ${String(e)}`, "BACKUP"),
 		);
+		return;
 	}
+	await destination
+		.after?.()
+		.catch((error) =>
+			logger.error(`[backup] after ${row.id} of ${row.projectId}: ${String(error)}`, "BACKUP"),
+		);
 }

@@ -16,6 +16,8 @@ export interface BackupRow {
 	/** a finished manual archive that is still held */
 	downloadable: boolean;
 	expiresAt: string | null;
+	/** the bucket key of an object storage backup */
+	destinationKey: string | null;
 	createdBy: { email: string; name: string | null } | null;
 	createdAt: string;
 	finishedAt: string | null;
@@ -34,6 +36,27 @@ export interface StartBackupBody {
 	readme?: string;
 }
 
+export type BackupInterval = "daily" | "weekly" | "monthly";
+
+/** backups to object storage (#1106); the resources and options are shared with the manual form */
+export interface BackupSchedule {
+	integrationId: string | null;
+	prefix: string;
+	interval: BackupInterval;
+	retention: number;
+	enabled: boolean;
+	sections: string[];
+	includeVersionHistory: boolean;
+	includeAppConfigValues: boolean;
+}
+
+export interface BackupScheduleView {
+	schedule: BackupSchedule;
+	/** what the prefix starts as: the project's slug */
+	defaultPrefix: string;
+	lastRun: BackupRow | null;
+}
+
 const base = (projectId: string) => `/v1/${projectId}/backups`;
 
 export const backupsService = {
@@ -50,6 +73,25 @@ export const backupsService = {
 
 	async start(projectId: string, body: StartBackupBody): Promise<{ id: string }> {
 		const res = await httpClient.post(base(projectId), body);
+		return res.data;
+	},
+
+	async schedule(projectId: string): Promise<BackupScheduleView> {
+		const res = await httpClient.get(`${base(projectId)}/schedule`);
+		return res.data;
+	},
+
+	async saveSchedule(
+		projectId: string,
+		body: BackupSchedule & { integrationId: string },
+	): Promise<BackupScheduleView> {
+		const res = await httpClient.put(`${base(projectId)}/schedule`, body);
+		return res.data;
+	},
+
+	/** uploads to the saved Object Storage integration now */
+	async backupNow(projectId: string): Promise<{ id: string }> {
+		const res = await httpClient.post(`${base(projectId)}/object-storage`);
 		return res.data;
 	},
 

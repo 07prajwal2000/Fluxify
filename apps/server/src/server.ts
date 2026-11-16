@@ -167,6 +167,11 @@ async function main() {
 		await onSystemTick("daily", "backup-retention", async () => {
 			await expireBackups();
 		});
+		// Backups to object storage (#1106, EE): every enabled project that is due
+		const { runScheduledBackups } = await import("./modules/projectBackup/storageRun");
+		await onSystemTick("daily", "backup-object-storage", async () => {
+			await runScheduledBackups();
+		});
 		// Plugin health (#861): one admin replica runs each tick (shared durable consumer)
 		const { scanAllPlugins } = await import("./modules/plugins/scanner");
 		await onSystemTick("hourly", "plugin-scan", scanAllPlugins);
