@@ -9,6 +9,7 @@ import {
 	RemovalList,
 	RollbackForm,
 	removals,
+	withChoice,
 } from "@/components/settings/backup/RollbackForm";
 import { parseApiError } from "@/lib/errorNotifier";
 import { projectsQuery } from "@/query/projectsQuery";
@@ -137,7 +138,9 @@ export function useRestoreFlow() {
 					title={pending.source.title}
 					subtitle={pending.source.subtitle}
 					notice={pending.source.notice}
-					summary={pending.summary}
+					summary={
+						isRollback(pending) ? withChoice(pending.summary, pending.choice) : pending.summary
+					}
 					refusal={pending.refusal}
 					{...(isRollback(pending)
 						? {

@@ -1,13 +1,20 @@
+import { logger } from "@fluxify/common";
 import { db } from "../../db";
-import { SCHEDULE_OFF_WARNING } from "./resources/projectSettings";
 import type { RestorePlan } from "./restore";
+import {
+	keyNotes,
+	noun,
+	pluginKindNotes,
+	type RollbackNote,
+	resolvedWarnings,
+} from "./rollbackWarnings";
 import type { RollbackConflict } from "./types";
 
 /**
  * What a rollback into a project would do (#1130), with nothing written: per
  * section, which resources it updates, creates and (exact replica) removes,
- * and what would stop it. Both modes and every choice of sections at once, so
- * the dialog can follow the user's choices without asking again.
+ * what would stop it and what to know. Both modes and every choice of sections
+ * at once, so the dialog can follow the user's choices without asking again.
  */
 
 export type SectionChanges = {
@@ -21,21 +28,6 @@ export type SectionChanges = {
 	/** a section with no named resources (the npm packages): restored over what is there */
 	replaced: boolean;
 };
-
-/** how a section names one of its resources in a sentence */
-const NOUNS: Record<string, string> = {
-	appConfig: "app config key",
-	integrations: "integration",
-	plugins: "plugin",
-	customBlocks: "custom block",
-	middlewares: "middleware",
-	workflows: "workflow",
-	routes: "route",
-	triggers: "trigger",
-	knowledgeSources: "knowledge source",
-	projectSettings: "project setting",
-};
-const noun = (section: string) => NOUNS[section] ?? `${section} resource`;
 
 export async function previewRollback(plan: RestorePlan, projectId: string) {
 	return await db.transaction(async (tx) => {
@@ -56,17 +48,54 @@ export async function previewRollback(plan: RestorePlan, projectId: string) {
 			});
 		}
 
+		const extras = (section: string) => sections.find((s) => s.section === section)?.extras ?? [];
+		const current = sections.some((s) => s.extras.length)
+			? await currentData(plan, projectId)
+			: new Map<string, unknown>();
 		const conflicts: RollbackConflict[] = [];
 		for (const { module, data } of plan.sections)
 			conflicts.push(...((await module.conflicts?.(data, projectId, tx)) ?? []));
-		conflicts.push(...(await brokenUses(plan, projectId, sections)));
+		conflicts.push(...brokenUses(plan, current, sections));
+		const notes: RollbackNote[] = [
+			...(await resolvedWarnings(plan, projectId, tx)),
+			...keyNotes(extras("appConfig"), current),
+			...(extras("integrations").length ? await pluginKindNotes(plan, projectId, tx) : []),
+		];
+		const all = plan.sections.map((s) => s.module.name);
 		return {
 			sections,
-			conflicts: dedupe(conflicts),
-			// the rollback leaves the project's own scheduled backups as they are
-			warnings: plan.warnings.filter((w) => w.message !== SCHEDULE_OFF_WARNING),
+			conflicts: unique(conflicts),
+			notes: unique(notes),
+			// as they stand for the dialog's first choice: keep extras, every section
+			warnings: warningsFor(notes, false, all),
 		};
 	});
+}
+
+/**
+ * The project as it is now, section by section, through each module's own
+ * export: what the resources a rollback may keep hold. Plugins are left out:
+ * their export reads every tarball, and a plugin's code is its own. A section
+ * read only for warnings (no `uses`) that fails to export is skipped: a
+ * warning must never stop a rollback.
+ */
+async function currentData(plan: RestorePlan, projectId: string) {
+	const current = new Map<string, unknown>();
+	for (const module of plan.modules) {
+		if (module.name === "plugins" || module.name === "appConfig") continue;
+		try {
+			const { data } = await module.export({
+				projectId,
+				mode: "backup",
+				options: { includeVersionHistory: false, includeAppConfigValues: false },
+			});
+			current.set(module.name, data);
+		} catch (error) {
+			if (module.uses) throw error;
+			logger.warn(`[backup] rollback preview skipped ${module.name}: ${String(error)}`, "BACKUP");
+		}
+	}
+	return current;
 }
 
 /**
@@ -75,18 +104,12 @@ export async function previewRollback(plan: RestorePlan, projectId: string) {
  * leave that resource broken, so it is refused, naming both. What the project
  * uses now is read through each module's own export.
  */
-async function brokenUses(plan: RestorePlan, projectId: string, sections: SectionChanges[]) {
+function brokenUses(plan: RestorePlan, current: Map<string, unknown>, sections: SectionChanges[]) {
 	const extras = new Map(sections.map((s) => [s.section, new Set(s.extras)]));
-	if (![...extras.values()].some((names) => names.size)) return [];
 	const conflicts: RollbackConflict[] = [];
 	for (const module of plan.modules) {
-		if (!module.uses) continue;
-		const { data } = await module.export({
-			projectId,
-			mode: "backup",
-			options: { includeVersionHistory: false, includeAppConfigValues: false },
-		});
-		for (const use of module.uses(data)) {
+		if (!module.uses || !current.has(module.name)) continue;
+		for (const use of module.uses(current.get(module.name))) {
 			if (use.section === module.name || !extras.get(use.section)?.has(use.name)) continue;
 			conflicts.push({
 				message: `${use.owner} uses the ${noun(use.section)} "${use.name}", which an exact replica would remove. Restore the ${noun(module.name)}s too, or keep extras.`,
@@ -99,13 +122,15 @@ async function brokenUses(plan: RestorePlan, projectId: string, sections: Sectio
 	return conflicts;
 }
 
-const dedupe = (conflicts: RollbackConflict[]) => [
-	...new Map(conflicts.map((c) => [c.message, c])).values(),
-];
+/** one of each: a message with several conditions keeps every one */
+const unique = <T>(items: T[]) => [...new Map(items.map((i) => [JSON.stringify(i), i])).values()];
 
-/** the conflicts that stop a rollback with these choices; the portal evaluates the same rule */
-export const activeConflicts = (
-	conflicts: RollbackConflict[],
+/**
+ * The conflicts that stop a rollback with these choices, or the notes that
+ * apply to it; the portal evaluates the same rule.
+ */
+export const activeConflicts = <T extends RollbackConflict>(
+	conflicts: T[],
 	prune: boolean,
 	sections: string[],
 ) =>
@@ -114,4 +139,10 @@ export const activeConflicts = (
 			c.mode === (prune ? "exact" : "keep") &&
 			c.selected.every((s) => sections.includes(s)) &&
 			c.kept.every((s) => !sections.includes(s)),
+	);
+
+/** the notes that apply to these choices, as restore warnings, each message once */
+export const warningsFor = (notes: RollbackNote[], prune: boolean, sections: string[]) =>
+	unique(
+		activeConflicts(notes, prune, sections).map(({ section, message }) => ({ section, message })),
 	);

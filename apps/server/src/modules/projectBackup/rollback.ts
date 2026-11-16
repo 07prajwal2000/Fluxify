@@ -8,10 +8,9 @@ import { audit } from "../audit";
 import { requestProjectCompile } from "../compiler/publisher";
 import { hasRunning, insertBackup, lockProjectBackups } from "./history";
 import { BACKUP_MODULES } from "./modules";
-import { SCHEDULE_OFF_WARNING } from "./resources/projectSettings";
 import { readBackup, restoreBackup } from "./restore";
 import { COMPILE_NOT_QUEUED, summaryOf } from "./restoreProject";
-import { activeConflicts, previewRollback } from "./rollbackPreview";
+import { activeConflicts, previewRollback, warningsFor } from "./rollbackPreview";
 import { runBackup } from "./run";
 import { readSchedule } from "./schedule";
 import { storageDestination } from "./storageDestination";
@@ -114,8 +113,10 @@ export async function rollbackProject(
 	if (refused.length) throw new BadRequestError(refused.map((c) => c.message).join(" "));
 
 	const backupId = await backUpBeforeRollback(projectId, userId);
+	// the archive's warnings as they stand against this project, for these choices
+	const planned = warningsFor(preview.notes, choice.prune, sections);
 	const { warnings } = await restoreBackup(
-		plan,
+		{ ...plan, warnings: planned },
 		(work) =>
 			db.transaction(async (tx) => {
 				await lockProjectBackups(tx, projectId);
@@ -137,6 +138,5 @@ export async function rollbackProject(
 	);
 	if (!(await requestProjectCompile(projectId, "project rolled back")))
 		warnings.push({ section: "project", message: COMPILE_NOT_QUEUED });
-	// the rollback leaves the project's own scheduled backups as they are
-	return { backupId, warnings: warnings.filter((w) => w.message !== SCHEDULE_OFF_WARNING) };
+	return { backupId, warnings };
 }

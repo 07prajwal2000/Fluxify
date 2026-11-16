@@ -111,6 +111,13 @@ export const rollbackChoiceSchema = z.object({
 });
 export const remoteRollbackBodySchema = rollbackChoiceSchema.extend(remoteKeySchema.shape);
 
+const conditionSchema = z.object({
+	message: z.string(),
+	mode: z.enum(["keep", "exact"]),
+	selected: z.array(z.string()),
+	kept: z.array(z.string()),
+});
+
 export const rollbackInspectResponseSchema = inspectResponseSchema
 	.omit({ suggested: true })
 	.extend({
@@ -127,12 +134,17 @@ export const rollbackInspectResponseSchema = inspectResponseSchema
 				}),
 			),
 			/** active in `mode` when every `selected` section is restored and no `kept` one is */
-			conflicts: z.array(
-				z.object({
-					message: z.string(),
-					mode: z.enum(["keep", "exact"]),
-					selected: z.array(z.string()),
-					kept: z.array(z.string()),
+			conflicts: z.array(conditionSchema),
+			/**
+			 * Warnings under the same rule, never refusals: the archive's, resolved
+			 * against this project, and what an exact replica's removals may break.
+			 * The top-level `warnings` are these for keep extras and every section.
+			 */
+			notes: z.array(
+				conditionSchema.extend({
+					section: z.string(),
+					/** about what an exact replica removes: shown beside the removal list */
+					removal: z.boolean().optional(),
 				}),
 			),
 		}),

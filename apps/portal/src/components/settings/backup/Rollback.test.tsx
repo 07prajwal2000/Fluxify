@@ -71,7 +71,10 @@ const BACKUP: RemoteBackup = {
 };
 const TARGET = { integrationId: "s3", key: BACKUP.key };
 
-const summary = (conflicts: RollbackSummary["rollback"]["conflicts"] = []): RollbackSummary => ({
+const summary = (
+	conflicts: RollbackSummary["rollback"]["conflicts"] = [],
+	notes: RollbackSummary["rollback"]["notes"] = [],
+): RollbackSummary => ({
 	mode: "backup",
 	release: "2026.11.1",
 	createdAt: "2026-11-10T02:00:00.000Z",
@@ -90,6 +93,7 @@ const summary = (conflicts: RollbackSummary["rollback"]["conflicts"] = []): Roll
 			{ section: "routes", update: ["x", "y"], create: [], extras: ["z"], replaced: false },
 		],
 		conflicts,
+		notes,
 	},
 });
 
@@ -193,4 +197,46 @@ test("refuses an exact replica that would break a resource it keeps", async () =
 	await press(checkbox("Routes"));
 	await until(() => expect(text()).toContain(message));
 	expect(dialogButton().disabled).toBe(true);
+});
+
+test("warnings follow the choices, and an exact replica's show beside the removal list", async () => {
+	spyOn(backupsService, "remoteRollback").mockResolvedValue({ backupId: "b9", warnings: [] });
+	const removal = 'App config key "API_KEY" will be removed, but route "r1" may still read it.';
+	const lost = `Route "x" uses integrations this backup doesn't restore: block db_1 ("pg").`;
+	await openRollback(
+		summary(
+			[],
+			[
+				// the project has "pg": only an exact replica that restores integrations loses it
+				{
+					section: "routes",
+					message: lost,
+					mode: "exact",
+					selected: ["routes", "integrations"],
+					kept: [],
+				},
+				{
+					section: "appConfig",
+					message: removal,
+					mode: "exact",
+					selected: ["routes"],
+					kept: ["customBlocks"],
+					removal: true,
+				},
+			],
+		),
+	);
+	expect(text()).not.toContain(removal);
+	await press(mode("Exact replica"));
+	expect(text()).not.toContain(removal);
+	await press(checkbox("Custom blocks"));
+	await until(() => expect(text()).toContain(removal));
+	expect(text()).not.toContain(lost);
+
+	await press(button("Roll back"));
+	await until(() => expect(text()).toContain("These are not in the backup and will be removed"));
+	const list = [...document.querySelectorAll('[aria-label="Removal warnings"]')];
+	// once in the form, once in the confirm
+	expect(list).toHaveLength(2);
+	expect(list.at(-1)?.textContent).toContain(removal);
 });

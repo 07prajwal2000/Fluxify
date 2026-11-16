@@ -24,14 +24,35 @@ export const defaultChoice = (summary: RollbackSummary): RollbackChoice => ({
 	restoreSecrets: false,
 });
 
+type Condition = RollbackSummary["rollback"]["conflicts"][number];
+type Note = RollbackSummary["rollback"]["notes"][number];
+
+/** a conflict or a note applies in its mode, with its `selected` sections chosen and none of its `kept` */
+const applies = (c: Condition, choice: RollbackChoice) =>
+	c.mode === choice.mode &&
+	c.selected.every((s) => choice.sections.includes(s)) &&
+	c.kept.every((s) => !choice.sections.includes(s));
+
 /** what stops the rollback with these choices: the same rule the server refuses by */
 export const activeConflicts = (summary: RollbackSummary, choice: RollbackChoice) =>
-	summary.rollback.conflicts.filter(
-		(c) =>
-			c.mode === choice.mode &&
-			c.selected.every((s) => choice.sections.includes(s)) &&
-			c.kept.every((s) => !choice.sections.includes(s)),
-	);
+	summary.rollback.conflicts.filter((c) => applies(c, choice));
+
+/** the warnings for these choices, each message once: what the server returns after the rollback */
+export const activeNotes = (summary: RollbackSummary, choice: RollbackChoice) => [
+	...new Map(
+		summary.rollback.notes.filter((n) => applies(n, choice)).map((n) => [n.message, n] as const),
+	).values(),
+];
+
+/** the summary with its warnings as they stand for these choices, for the dialog's overview */
+export const withChoice = (summary: RollbackSummary, choice: RollbackChoice): RollbackSummary => ({
+	...summary,
+	warnings: activeNotes(summary, choice).map(({ section, message }) => ({ section, message })),
+});
+
+/** what an exact replica's removals may break: beside the removal list */
+const removalNotes = (summary: RollbackSummary, choice: RollbackChoice): Note[] =>
+	activeNotes(summary, choice).filter((n) => n.removal);
 
 /** what an exact replica removes, by section, for the confirm */
 export const removals = (summary: RollbackSummary, choice: RollbackChoice) =>
@@ -136,6 +157,7 @@ export function RollbackForm({
 						</ul>
 					</div>
 				)}
+				<RemovalWarnings summary={summary} choice={choice} />
 			</fieldset>
 		</Section>
 	);
@@ -160,6 +182,31 @@ export function RemovalList({
 					</li>
 				))}
 			</ul>
+			<RemovalWarnings summary={summary} choice={choice} />
 		</div>
+	);
+}
+
+/** what the removals may break that nothing records as a reference: a warning, never a refusal */
+function RemovalWarnings({
+	summary,
+	choice,
+}: {
+	summary: RollbackSummary;
+	choice: RollbackChoice;
+}) {
+	const notes = removalNotes(summary, choice);
+	if (!notes.length) return null;
+	return (
+		<ul aria-label="Removal warnings" className="flex flex-col gap-2">
+			{notes.map((n) => (
+				<li
+					key={n.message}
+					className="rounded-md border border-warning/40 bg-warning/5 px-3 py-2 text-sm text-foreground"
+				>
+					{n.message}
+				</li>
+			))}
+		</ul>
 	);
 }
