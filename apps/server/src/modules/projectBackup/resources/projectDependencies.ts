@@ -59,15 +59,32 @@ export const projectDependenciesModule: BackupModule<Section> = {
 		return { data: { dependencies } };
 	},
 
+	/**
+	 * A rollback replaces the packages with the backup's and moves the version on,
+	 * which is what makes workers install again. A backup with none leaves
+	 * today's packages alone, in either mode.
+	 */
 	async import({ tx, projectId, afterCommit }, { dependencies }) {
 		if (!dependencies) return;
+		const [current] = await tx
+			.select({ version: projectDependenciesEntity.version })
+			.from(projectDependenciesEntity)
+			.where(eq(projectDependenciesEntity.projectId, projectId));
+		const values = current
+			? { ...dependencies, version: current.version + 1, updatedAt: new Date() }
+			: dependencies;
 		const [row] = await tx
 			.insert(projectDependenciesEntity)
-			.values({ projectId, ...dependencies })
-			.returning({ updatedAt: projectDependenciesEntity.updatedAt });
+			.values({ projectId, ...values })
+			.onConflictDoUpdate({ target: projectDependenciesEntity.projectId, set: values })
+			.returning({
+				version: projectDependenciesEntity.version,
+				updatedAt: projectDependenciesEntity.updatedAt,
+			});
 		const artifact: DepsArtifact = {
 			projectId,
 			...dependencies,
+			version: row!.version,
 			updatedAt: row!.updatedAt.toISOString(),
 		};
 		afterCommit(

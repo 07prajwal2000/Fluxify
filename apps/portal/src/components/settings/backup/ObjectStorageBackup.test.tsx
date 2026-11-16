@@ -62,6 +62,7 @@ const run = (over: Partial<Row>): Row => ({
 	downloadable: false,
 	expiresAt: null,
 	destinationKey: "shop/prod/20261116T000000Z-b1.tar.gz",
+	label: null,
 	createdBy: null,
 	createdAt: new Date().toISOString(),
 	finishedAt: new Date().toISOString(),

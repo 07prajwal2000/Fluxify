@@ -49,7 +49,7 @@ export function canvasPlaces(history: BackupHistory): Place[] {
 }
 
 /** plugin block types are `<scope>/<name>/<block>` and trigger kinds `plugin:<scope>/<name>/<kind>` */
-const pluginOf = (type: string) => {
+export const pluginOf = (type: string) => {
 	const parts = type.replace(/^plugin:/, "").split("/");
 	return parts.length > 2 ? parts.slice(0, 2).join("/") : undefined;
 };

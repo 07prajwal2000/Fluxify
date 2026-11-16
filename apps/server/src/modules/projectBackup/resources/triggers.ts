@@ -1,13 +1,14 @@
-import { and, asc, eq, getTableColumns, isNull } from "drizzle-orm";
+import { and, asc, eq, getTableColumns, inArray, isNull, notInArray } from "drizzle-orm";
 import { z } from "zod";
 import { maxTriggersPerGroup } from "../../../api/v1/triggers/groupCap";
 import { ensureDefaultGroup } from "../../../api/v1/triggers/repository";
-import { republish } from "../../../api/v1/triggers/service";
-import { db } from "../../../db";
+import { republish, withdraw } from "../../../api/v1/triggers/service";
+import { type DbTransactionType, db } from "../../../db";
 import { triggerGroupsEntity, triggersEntity, workflowsEntity } from "../../../db/schema";
 import { BadRequestError } from "../../../errors/badRequestError";
+import { removeScheduleEverywhere } from "../../schedules/reconciler";
 import type { BackupModule } from "../types";
-import { missingPluginWarnings, productionOff } from "./canvas";
+import { missingPluginWarnings, pluginOf, productionOff } from "./canvas";
 import {
 	integrationNames,
 	integrationTableSchema,
@@ -19,6 +20,7 @@ import {
 	v1Table,
 } from "./integrationRefs";
 import { onOff, production } from "./preview";
+import { byName, integrationUses } from "./rollback";
 
 /**
  * A project's trigger groups and triggers (#1098), in one section: a trigger
@@ -96,6 +98,50 @@ function overCap(triggers: Section["triggers"]) {
 		);
 }
 
+/** off the workers wherever it was: a schedule in NATS, or a queue trigger's artifact */
+const unregister = (row: { projectId: string; id: string; type: string }) =>
+	row.type === "schedule"
+		? removeScheduleEverywhere(row.projectId, row.id)
+		: withdraw(row.projectId, row.id);
+
+/** the project's own triggers; a sandbox's are never backed up, so never matched or pruned */
+const ownTriggers = (projectId: string) =>
+	and(eq(triggersEntity.projectId, projectId), isNull(triggersEntity.sandboxId));
+
+/** group name → id, made or updated as the backup has it */
+async function writeGroups(
+	tx: DbTransactionType,
+	projectId: string,
+	groups: Section["groups"],
+): Promise<Map<string, string>> {
+	const have = byName(
+		await tx
+			.select({ id: triggerGroupsEntity.id, name: triggerGroupsEntity.name })
+			.from(triggerGroupsEntity)
+			.where(eq(triggerGroupsEntity.projectId, projectId)),
+	);
+	const groupIds = new Map<string, string>();
+	for (const { isDefault, ...group } of groups) {
+		const matched = have.get(group.name);
+		// one default per project, wherever the project got it from
+		if (isDefault) groupIds.set(group.name, await ensureDefaultGroup(projectId, undefined, tx));
+		else if (matched) {
+			await tx
+				.update(triggerGroupsEntity)
+				.set({ description: group.description })
+				.where(eq(triggerGroupsEntity.id, matched));
+			groupIds.set(group.name, matched);
+		} else {
+			const [row] = await tx
+				.insert(triggerGroupsEntity)
+				.values({ ...group, projectId })
+				.returning({ id: triggerGroupsEntity.id });
+			groupIds.set(group.name, row!.id);
+		}
+	}
+	return groupIds;
+}
+
 export const triggersModule: BackupModule<Section> = {
 	name: "triggers",
 	version: 2,
@@ -122,6 +168,64 @@ export const triggersModule: BackupModule<Section> = {
 				...(t.disabledReason ? { "Turned off because": t.disabledReason } : {}),
 			},
 		})),
+
+	names: ({ triggers }) => triggers.map((t) => t.name),
+
+	async existing(projectId, tx) {
+		return byName(
+			await tx
+				.select({ id: triggersEntity.id, name: triggersEntity.name })
+				.from(triggersEntity)
+				.where(ownTriggers(projectId))
+				.orderBy(asc(triggersEntity.createdAt)),
+		);
+	},
+
+	uses: ({ triggers, integrations }) =>
+		triggers.flatMap((t) => {
+			const owner = `Trigger "${t.name}"`;
+			const plugin = pluginOf(t.type);
+			return [
+				...(t.workflow ? [{ owner, section: "workflows", name: t.workflow }] : []),
+				...(plugin ? [{ owner, section: "plugins", name: plugin }] : []),
+				...integrationUses(owner, [t.integrationId, t.source], integrations),
+			];
+		}),
+
+	/** the triggers the backup lacks, then the groups it lacks once nothing runs in them */
+	async prune({ tx, projectId, afterCommit }, stale, data) {
+		if (stale.length) {
+			const rows = await tx
+				.delete(triggersEntity)
+				.where(
+					inArray(
+						triggersEntity.id,
+						stale.map((s) => s.id),
+					),
+				)
+				.returning();
+			for (const row of rows)
+				afterCommit(
+					() => unregister(row),
+					`Trigger "${row.name}" was removed, but it may keep running until the admin restarts.`,
+				);
+		}
+		const kept = data.groups.map((g) => g.name);
+		const busy = tx
+			.select({ id: triggersEntity.groupId })
+			.from(triggersEntity)
+			.where(eq(triggersEntity.projectId, projectId));
+		await tx
+			.delete(triggerGroupsEntity)
+			.where(
+				and(
+					eq(triggerGroupsEntity.projectId, projectId),
+					eq(triggerGroupsEntity.isDefault, false),
+					kept.length ? notInArray(triggerGroupsEntity.name, kept) : undefined,
+					notInArray(triggerGroupsEntity.id, busy),
+				),
+			);
+	},
 
 	inspect({ triggers, integrations }, read) {
 		const have = restoredNames(read);
@@ -182,20 +286,11 @@ export const triggersModule: BackupModule<Section> = {
 		});
 	},
 
-	async import({ tx, projectId, mode, ids, afterCommit }, { groups, triggers, integrations }) {
-		const groupIds = new Map<string, string>();
-		for (const { isDefault, ...group } of groups) {
-			// one default per project, wherever the project got it from
-			const id = isDefault
-				? await ensureDefaultGroup(projectId, undefined, tx)
-				: (
-						await tx
-							.insert(triggerGroupsEntity)
-							.values({ ...group, projectId })
-							.returning({ id: triggerGroupsEntity.id })
-					)[0]!.id;
-			groupIds.set(group.name, id);
-		}
+	async import(
+		{ tx, projectId, mode, ids, match, afterCommit },
+		{ groups, triggers, integrations },
+	) {
+		const groupIds = await writeGroups(tx, projectId, groups);
 
 		const resolve = localIntegrations(integrations, ids);
 		for (const trigger of triggers) {
@@ -223,15 +318,25 @@ export const triggersModule: BackupModule<Section> = {
 				throw new BadRequestError(
 					`Trigger "${fields.name}" starts the workflow "${workflow}", which isn't in this backup.`,
 				);
-			const [row] = await tx
-				.insert(triggersEntity)
-				.values({ ...fields, ...productionOff(mode), projectId, groupId, workflowId })
-				.returning();
+			const values = { ...fields, ...productionOff(mode), projectId, groupId, workflowId };
+			// a rollback keeps the trigger's id, so its run history stays with it
+			const matched = match(fields.name);
+			const [before] = matched
+				? await tx.select().from(triggersEntity).where(eq(triggersEntity.id, matched))
+				: [];
+			const [row] = matched
+				? await tx
+						.update(triggersEntity)
+						.set(values)
+						.where(eq(triggersEntity.id, matched))
+						.returning()
+				: await tx.insert(triggersEntity).values(values).returning();
 			// one at a time, so one that fails does not hold the rest back
-			afterCommit(
-				() => republish(row!),
-				`Trigger "${row!.name}" could not be activated. Open it and save it once.`,
-			);
+			afterCommit(async () => {
+				// a schedule turned queue trigger (or back) leaves its old registration behind
+				if (before && before.type !== row!.type) await unregister(before);
+				await republish(row!);
+			}, `Trigger "${row!.name}" could not be activated. Open it and save it once.`);
 		}
 	},
 };

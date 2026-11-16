@@ -2004,6 +2004,8 @@ export const projectBackupsEntity = pgTable(
 			.notNull(),
 		error: text(),
 		destinationKey: text("destination_key"),
+		/** why it was taken, when not by hand or on schedule: "Before rollback" (#1130) */
+		label: varchar({ length: 100 }),
 		createdBy: varchar("created_by", { length: 50 }).references(() => systemUsers.id, {
 			onDelete: "set null",
 		}),

@@ -9,7 +9,7 @@ import {
 import { db } from "../../db";
 import { requestProjectCompile } from "../compiler/publisher";
 import { BACKUP_MODULES } from "./modules";
-import { readBackup, restoreBackup } from "./restore";
+import { type RestorePlan, readBackup, restoreBackup } from "./restore";
 
 /**
  * The largest archive a person can upload to make a project from (#1104).
@@ -36,29 +36,35 @@ async function firstFree(
 	return "";
 }
 
+/** what a checked archive holds, for the restore and rollback dialogs; never a secret */
+export function summaryOf({ manifest, readme, warnings, sections }: RestorePlan) {
+	return {
+		mode: manifest.mode,
+		release: manifest.release,
+		createdAt: manifest.createdAt,
+		source: manifest.source,
+		sections: manifest.sections,
+		encrypted: manifest.mode === "backup",
+		readme,
+		warnings,
+		// what each section holds, read only, in import order
+		preview: sections.map(({ module, data }) => ({
+			section: module.name,
+			items: module.preview?.(data, manifest.mode) ?? [],
+		})),
+	};
+}
+
 /**
  * What the archive holds, with every check a restore makes and nothing written:
  * the summary, the README and warnings to show before the user confirms, and a
  * name and slug for the new project that no project here has yet.
  */
 export async function inspectArchive(bytes: Uint8Array) {
-	const { manifest, readme, warnings, sections } = await readBackup(bytes, BACKUP_MODULES);
-	const { source } = manifest;
-	// what each section holds, read only, in import order
-	const preview = sections.map(({ module, data }) => ({
-		section: module.name,
-		items: module.preview?.(data, manifest.mode) ?? [],
-	}));
+	const summary = summaryOf(await readBackup(bytes, BACKUP_MODULES));
+	const { source } = summary;
 	return {
-		mode: manifest.mode,
-		release: manifest.release,
-		createdAt: manifest.createdAt,
-		source,
-		sections: manifest.sections,
-		encrypted: manifest.mode === "backup",
-		readme,
-		warnings,
-		preview,
+		...summary,
 		suggested: {
 			name: await firstFree(
 				source.name,

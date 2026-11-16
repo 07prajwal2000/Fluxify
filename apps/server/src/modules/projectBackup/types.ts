@@ -36,10 +36,35 @@ export type IdMap = {
 	get(section: string, name: string): string | undefined;
 };
 
+/**
+ * Where a restore writes (#1130). `new`: a project this restore just created,
+ * empty. `existing`: a rollback into a live project, where every module
+ * upserts by name (see README.md, "Rolling back in place").
+ */
+export type RestoreTarget = "new" | "existing";
+
 export type ImportCtx = {
 	tx: DbTransactionType;
-	/** the project being created by this restore */
+	/** the project this restore writes into: a new one, or the one being rolled back */
 	projectId: string;
+	target: RestoreTarget;
+	/**
+	 * Exact replica (rollback only): once every section is in, the engine calls
+	 * `prune` with what this section's backup lacks. Always false for `new`.
+	 */
+	prune: boolean;
+	/**
+	 * Rollback only, and only in a backup: a matching integration takes the
+	 * backup's credentials and a matching app config key its values. Otherwise
+	 * a match keeps today's.
+	 */
+	restoreSecrets: boolean;
+	/**
+	 * The id this section's resource of that name already has in the project,
+	 * which a match keeps: update it in place and `ids.set` that id. Always
+	 * undefined for a `new` target.
+	 */
+	match(name: string): string | undefined;
 	/** what the archive was made as; a template has no secrets to restore */
 	mode: BackupMode;
 	/** the project the archive was made from, as the manifest names it */
@@ -129,5 +154,49 @@ export type BackupModule<T = unknown> = {
 	 */
 	preview?(data: T, mode: BackupMode): PreviewItem[];
 	export(ctx: ExportCtx): Promise<{ data: T; files?: BackupFiles }>;
+	/** an upsert by name: see `ImportCtx.match`. A `new` target never matches. */
 	import(ctx: ImportCtx, data: T): Promise<void>;
+
+	/*
+	 * Rolling back in place (#1130). A module that holds named resources gives
+	 * all four of `existing`, `names`, `prune` and `uses` it can; one without
+	 * them is restored over what is there and never pruned.
+	 */
+	/** the project's resources of this section, name → id (the first, should a name repeat) */
+	existing?(projectId: string, tx: DbTransactionType): Promise<Map<string, string>>;
+	/** the names the backup's section holds, as `existing` keys them */
+	names?(data: T): string[];
+	/**
+	 * Exact replica: deletes `stale` (in the project, not in the backup), in
+	 * `ctx.tx`, after every section is in, in reverse dependency order. Called
+	 * even when `stale` is empty, with the section's `data`, for what a module
+	 * keeps inside a section (trigger groups). What lives outside Postgres
+	 * (artifacts, schedules) goes in `ctx.afterCommit`.
+	 */
+	prune?(ctx: ImportCtx, stale: { name: string; id: string }[], data: T): Promise<void>;
+	/**
+	 * What each resource of this (exported) section uses in other sections, by
+	 * name, so a rollback refuses to prune something a resource it keeps uses.
+	 */
+	uses?(data: T): Use[];
+	/**
+	 * Refusals only this section can find, e.g. a route path an extra route
+	 * already serves. Read only.
+	 */
+	conflicts?(data: T, projectId: string, tx: DbTransactionType): Promise<RollbackConflict[]>;
+};
+
+/** `Route "orders"` uses the custom block `user_defined.project.auth` */
+export type Use = { owner: string; section: string; name: string };
+
+/**
+ * Something that stops a rollback, and when: in `mode`, with every section of
+ * `selected` restored and none of `kept`. The dialog evaluates it as the user
+ * changes the choices; the rollback itself refuses it before writing anything.
+ */
+export type RollbackConflict = {
+	message: string;
+	mode: "keep" | "exact";
+	selected: string[];
+	kept: string[];
 };

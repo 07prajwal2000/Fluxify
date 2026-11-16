@@ -261,4 +261,24 @@ describe("rollback", () => {
 		const [row] = await stack.sql`SELECT name FROM projects WHERE id = ${res.body.id}`;
 		expect(row.name).toBe(name);
 	});
+
+	it("rolls the project itself back in place (#1130), a creator is enough, and backs it up to the bucket first", async () => {
+		const src = await source(1);
+		const [backup] = (await call(src.who, "GET", `/remote?integrationId=${src.integrationId}&prefix=${src.prefix}`)).body.backups;
+		await stack.createRoute(src.as, true);
+		const body = { integrationId: src.integrationId, key: backup.key };
+
+		const preview = await call(src.who, "POST", "/remote/rollback/inspect", body, false);
+		expect(preview.status).toBe(200);
+		const routes = preview.body.rollback.sections.find((s: { section: string }) => s.section === "routes");
+		expect([routes.update.length, routes.extras.length]).toEqual([1, 1]);
+
+		const res = await call(src.who, "POST", "/remote/rollback", { ...body, mode: "exact", sections: ["routes"] }, false);
+		expect(res.status).toBe(200);
+		expect(await routesOf(src.as.project)).toBe(1);
+		expect(await subdomainOf(src.as.project)).toBe(src.subdomain);
+		const [safety] = await stack.sql`SELECT type, label, status, destination_key FROM project_backups WHERE id = ${res.body.backupId}`;
+		expect(safety).toMatchObject({ type: "object_storage", label: "Before rollback", status: "succeeded" });
+		expect(await minio.bucket.head(safety.destination_key)).not.toBeNull();
+	});
 });

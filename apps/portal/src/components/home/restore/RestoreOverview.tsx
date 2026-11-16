@@ -3,23 +3,18 @@ import { TbInfoCircle } from "react-icons/tb";
 import { Section } from "@/components/common/Section";
 import { labelOf, MODE_COPY } from "@/components/settings/backup/labels";
 import type { ArchiveSummary } from "@/services/projects";
-import { NewProjectForm, type ProjectForm } from "./NewProjectForm";
 import { iconOf } from "./SectionBrowser";
 
-/** The first page: the new project's details, where the file comes from, what it holds and what to know. */
+/** The first page: what the user fills in, where the file comes from, what it holds and what to know. */
 export function RestoreOverview({
 	summary,
-	form,
-	onForm,
-	isRestoring,
+	fields,
 	onOpenSection,
 	notice,
 }: {
 	notice?: ReactNode;
-	summary: ArchiveSummary;
-	form: ProjectForm;
-	onForm: (form: ProjectForm) => void;
-	isRestoring: boolean;
+	summary: Omit<ArchiveSummary, "suggested">;
+	fields: ReactNode;
 	onOpenSection: (section: string) => void;
 }) {
 	const facts = [
@@ -40,7 +35,7 @@ export function RestoreOverview({
 						<div>{notice}</div>
 					</div>
 				)}
-				<NewProjectForm form={form} onForm={onForm} isDisabled={isRestoring} />
+				{fields}
 
 				<Section title="About this file" description={MODE_COPY[summary.mode].body}>
 					<dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">

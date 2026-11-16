@@ -1,9 +1,10 @@
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../../db";
 import { CHAN_ON_APPCONFIG_CHANGE, publishMessage } from "../../../db/redis";
 import { appConfigDataTypeEnum, appConfigEntity, encodingTypeEnum } from "../../../db/schema";
 import type { BackupModule } from "../types";
+import { byName } from "./rollback";
 
 /**
  * A project's app config (#1100). The keys always travel, with their
@@ -56,6 +57,31 @@ export const appConfigModule: BackupModule<Section> = {
 			},
 		})),
 
+	names: ({ keys }) => keys.map((k) => k.keyName),
+
+	async existing(projectId, tx) {
+		const rows = await tx
+			.select({ id: appConfigEntity.id, name: appConfigEntity.keyName })
+			.from(appConfigEntity)
+			.where(eq(appConfigEntity.projectId, projectId))
+			.orderBy(asc(appConfigEntity.id));
+		return byName(rows.map((r) => ({ id: String(r.id), name: r.name })));
+	},
+
+	async prune({ tx, afterCommit }, stale) {
+		if (!stale.length) return;
+		await tx.delete(appConfigEntity).where(
+			inArray(
+				appConfigEntity.id,
+				stale.map((s) => Number(s.id)),
+			),
+		);
+		afterCommit(
+			() => publishMessage(CHAN_ON_APPCONFIG_CHANGE, "").then(() => {}),
+			"The removed app config keys may still be cached by this server until the admin restarts.",
+		);
+	},
+
 	async export({ projectId, mode, options }) {
 		const values = mode === "backup" && options.includeAppConfigValues;
 		const rows = await db
@@ -74,17 +100,33 @@ export const appConfigModule: BackupModule<Section> = {
 		return { data: schema.parse({ keys }) };
 	},
 
-	async import({ tx, projectId, mode, afterCommit }, { keys }) {
+	async import({ tx, projectId, mode, afterCommit, match, restoreSecrets }, { keys }) {
 		if (!keys.length) return;
 		// a hand-made template carries no value either
 		const rows = mode === "template" ? keys.map(withoutValues) : keys;
-		await tx.insert(appConfigEntity).values(rows.map((k) => ({ ...k, projectId })));
+		const added = [];
+		for (const key of rows) {
+			const matched = match(key.keyName);
+			if (!matched) added.push({ ...key, projectId });
+			// a rollback keeps today's value and what describes it (type, encoding), unless asked
+			// for the backup's; a key the backup holds no value for keeps today's either way
+			else
+				await tx
+					.update(appConfigEntity)
+					.set(restoreSecrets && carriesValue(key) ? key : { description: key.description })
+					.where(eq(appConfigEntity.id, Number(matched)));
+		}
+		if (added.length) await tx.insert(appConfigEntity).values(added);
 		afterCommit(
 			() => publishMessage(CHAN_ON_APPCONFIG_CHANGE, "").then(() => {}),
 			"The restored app config may not be picked up by this server until a key is saved or the admin restarts.",
 		);
 	},
 };
+
+/** a backup made without values (`includeAppConfigValues` off) has none to restore */
+const carriesValue = (key: Section["keys"][number]) =>
+	key.value !== null || key.devValue !== null || key.syncDev;
 
 const withoutValues = (key: Section["keys"][number]) => ({
 	...key,

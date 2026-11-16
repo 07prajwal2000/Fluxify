@@ -69,7 +69,14 @@ export function BackupHistory({
 									{STATUS[row.status].label}
 								</Chip>
 							</Table.Cell>
-							<Table.Cell>{TYPES[row.type]}</Table.Cell>
+							<Table.Cell>
+								{TYPES[row.type]}
+								{row.label && (
+									<Chip size="sm" variant="soft" className="ml-2">
+										{row.label}
+									</Chip>
+								)}
+							</Table.Cell>
 							<Table.Cell className="capitalize">{row.mode}</Table.Cell>
 							<Table.Cell>{row.release ?? "—"}</Table.Cell>
 							<Table.Cell>{formatBytes(row.sizeBytes)}</Table.Cell>

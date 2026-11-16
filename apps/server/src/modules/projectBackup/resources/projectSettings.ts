@@ -1,4 +1,4 @@
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import { z } from "zod";
 import {
 	type ProjectSettingsKeyType,
@@ -19,6 +19,7 @@ import {
 	restoredNames,
 	tableFor,
 } from "./integrationRefs";
+import { integrationUses } from "./rollback";
 
 /**
  * A project's settings (#1100), as stored. Several name integrations (the AI
@@ -47,6 +48,17 @@ const SCHEDULE_OFF: Record<string, string> = {
 };
 export const SCHEDULE_OFF_WARNING =
 	"Scheduled backups are off in the restored project; choose a prefix and turn them on.";
+/**
+ * What a rollback (#1130) leaves as it is on the live project: its address, its
+ * own backups to object storage (restoring them would switch them off), and
+ * audit logging, which a rollback must never turn off.
+ */
+const KEPT_ON_ROLLBACK = (key: string) =>
+	key === SUBDOMAIN ||
+	key === NOT_BACKED_UP ||
+	key === "auditLogs.enabled" ||
+	key.startsWith("settings.backup.storage.");
+
 const scheduleWasOn = (settings: Section["settings"]) =>
 	settings.some((s) => s.key === "settings.backup.storage.enabled" && s.value === "true");
 
@@ -112,6 +124,37 @@ export const projectSettingsModule: BackupModule<Section> = {
 		];
 	},
 
+	names: ({ settings }) => settings.map((s) => s.key).filter((key) => !KEPT_ON_ROLLBACK(key)),
+
+	async existing(projectId, tx) {
+		const rows = await tx
+			.select({ key: projectSettingsEntity.key })
+			.from(projectSettingsEntity)
+			.where(eq(projectSettingsEntity.projectId, projectId));
+		return new Map(rows.filter((r) => !KEPT_ON_ROLLBACK(r.key)).map((r) => [r.key, r.key]));
+	},
+
+	uses: ({ settings, integrations }) =>
+		integrationUses(
+			"Project settings",
+			settings.map((s) => s.value.split(",")),
+			integrations,
+		),
+
+	/** a setting the backup didn't have was at its default then: no row is the default */
+	async prune({ tx, projectId }, stale) {
+		if (!stale.length) return;
+		await tx.delete(projectSettingsEntity).where(
+			and(
+				eq(projectSettingsEntity.projectId, projectId),
+				inArray(
+					projectSettingsEntity.key,
+					stale.map((s) => s.name),
+				),
+			),
+		);
+	},
+
 	async export({ projectId }) {
 		return await db.transaction(async (tx) => {
 			const rows = await tx
@@ -134,9 +177,10 @@ export const projectSettingsModule: BackupModule<Section> = {
 		});
 	},
 
-	async import({ tx, projectId, ids, afterCommit, warn }, { settings, integrations }) {
+	async import({ tx, projectId, ids, afterCommit, warn, target }, { settings, integrations }) {
 		const lookup = localIntegrations(integrations, ids);
 		for (const { key, value: raw } of settings) {
+			if (target === "existing" && KEPT_ON_ROLLBACK(key)) continue;
 			const value = accepted(key, SCHEDULE_OFF[key] ?? remapValue(raw, lookup));
 			if (value === undefined) continue;
 			const clash = key === SUBDOMAIN && value && (await subdomainClash(projectId, value, tx));

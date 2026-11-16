@@ -1,12 +1,16 @@
 import { asc, eq } from "drizzle-orm";
 import { z } from "zod";
+import { deleteWorkflowRow } from "../../../api/v1/workflows/repository";
 import { db } from "../../../db";
-import { type VersionSnapshot, workflowsEntity } from "../../../db/schema";
+import { CHAN_ON_WORKFLOW_CHANGE, publishMessage } from "../../../db/redis";
+import { testSuitesEntity, type VersionSnapshot, workflowsEntity } from "../../../db/schema";
+import { dropWorkflow } from "../../compiler/service";
 import { bundleSuiteSchema, exportSuites, writeSuites } from "../../transfer/suites";
 import {
 	backupHistorySchema,
 	exportHistory,
 	freshCanvasIds,
+	importAsNewVersions,
 	importHistory,
 } from "../../versions/backup";
 import { buildSnapshot, restoreSnapshot } from "../../versions/snapshot";
@@ -32,6 +36,7 @@ import {
 	v1Table,
 } from "./integrationRefs";
 import { canvasOf, onOff, production, versionDetails } from "./preview";
+import { byName, canvasUses, integrationUses } from "./rollback";
 
 /**
  * Every workflow of a project (#1098), shaped like routes (#1097): the canvas
@@ -88,6 +93,42 @@ export const workflowsModule: BackupModule<Section> = {
 			},
 			canvas: canvasOf(w.history),
 		})),
+
+	names: ({ workflows }) => workflows.map((w) => w.name),
+
+	async existing(projectId, tx) {
+		return byName(
+			await tx
+				.select({ id: workflowsEntity.id, name: workflowsEntity.name })
+				.from(workflowsEntity)
+				.where(eq(workflowsEntity.projectId, projectId))
+				.orderBy(asc(workflowsEntity.createdAt)),
+		);
+	},
+
+	uses: ({ workflows, integrations }) =>
+		workflows.flatMap((w) => {
+			const owner = `Workflow "${w.name}"`;
+			const hooks = w.suites.flatMap((s) => [s.setupBlock, s.teardownBlock, s.input?.loaderBlock]);
+			return [
+				...canvasUses(owner, w.history),
+				...[...new Set(hooks)].flatMap((name) =>
+					name ? [{ owner, section: "customBlocks", name }] : [],
+				),
+				...integrationUses(owner, [w.history, w.suites], integrations),
+			];
+		}),
+
+	async prune({ tx, projectId, afterCommit }, stale) {
+		for (const { name, id } of stale) {
+			// its triggers keep their rows, idle (the column is set null), unless the triggers section prunes them first
+			await deleteWorkflowRow(id, tx);
+			afterCommit(async () => {
+				await dropWorkflow(projectId, id);
+				await publishMessage(CHAN_ON_WORKFLOW_CHANGE, id);
+			}, `Workflow "${name}" was removed, but workers may still run it until the admin restarts.`);
+		}
+	},
 
 	inspect({ workflows, integrations }, read) {
 		const have = restoredNames(read);
@@ -151,7 +192,7 @@ export const workflowsModule: BackupModule<Section> = {
 		return { data };
 	},
 
-	async import({ tx, projectId, mode, ids }, { workflows, integrations }) {
+	async import({ tx, projectId, mode, ids, match }, { workflows, integrations }) {
 		const lookup = localIntegrations(integrations, ids);
 		for (const workflow of workflows) {
 			const raw = remapIntegrations(workflow, lookup);
@@ -160,14 +201,22 @@ export const workflowsModule: BackupModule<Section> = {
 			const owner = `Workflow "${fields.name}"`;
 			assertCustomBlocks(ids, owner, history);
 
-			const [row] = await tx
-				.insert(workflowsEntity)
-				.values({ ...fields, ...productionOff(mode), projectId })
-				.returning({ id: workflowsEntity.id });
+			// a rollback keeps the workflow's id: its runs and triggers stay attached
+			const matched = match(fields.name);
+			const values = { ...fields, ...productionOff(mode), projectId };
+			const [row] = matched
+				? await tx
+						.update(workflowsEntity)
+						.set(values)
+						.where(eq(workflowsEntity.id, matched))
+						.returning({ id: workflowsEntity.id })
+				: await tx.insert(workflowsEntity).values(values).returning({ id: workflowsEntity.id });
 			const target = { id: row!.id, projectId };
+			if (matched)
+				await tx.delete(testSuitesEntity).where(eq(testSuitesEntity.workflowId, matched));
 			// the timeout comes with the snapshot
 			await restoreSnapshot("workflow", target, history.working as VersionSnapshot, tx);
-			await importHistory("workflow", target, history, same, tx);
+			await (matched ? importAsNewVersions : importHistory)("workflow", target, history, same, tx);
 			await writeSuites({ workflowId: target.id }, suites, suiteRefs(ids, owner, history), tx);
 			ids.set("workflows", fields.name, target.id);
 		}

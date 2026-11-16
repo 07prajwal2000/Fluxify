@@ -8,7 +8,7 @@ import {
 	Table,
 } from "@fluxify/components";
 import { useCallback, useState } from "react";
-import { TbRestore } from "react-icons/tb";
+import { TbArrowBackUp, TbRestore } from "react-icons/tb";
 import {
 	EnterpriseChip,
 	EnterpriseGate,
@@ -55,14 +55,32 @@ function remoteSource(
 	};
 }
 
+/** the same backup, rolled back into this project in place (#1130) */
+function rollbackSource(
+	projectId: string,
+	integrationId: string,
+	backup: RemoteBackup,
+): RestoreSource {
+	const target = { integrationId, key: backup.key };
+	return {
+		kind: "rollback",
+		title: "Roll back this project",
+		subtitle: backup.key,
+		inspect: () => backupsService.inspectRemoteRollback(projectId, target),
+		restore: (choice) => backupsService.remoteRollback(projectId, target, choice),
+	};
+}
+
 function Rows({
 	backups,
 	canRestore,
 	onRestore,
+	onRollback,
 }: {
 	backups: RemoteBackup[];
 	canRestore: boolean;
 	onRestore: (b: RemoteBackup) => void;
+	onRollback: (b: RemoteBackup) => void;
 }) {
 	return (
 		<Table>
@@ -91,15 +109,21 @@ function Rows({
 									</span>
 								</Table.Cell>
 								<Table.Cell>
-									<Button
-										size="sm"
-										variant="secondary"
-										isDisabled={!canRestore}
-										onPress={() => onRestore(b)}
-									>
-										<TbRestore size={14} />
-										Restore
-									</Button>
+									<div className="flex items-center justify-end gap-2">
+										<Button
+											size="sm"
+											variant="secondary"
+											isDisabled={!canRestore}
+											onPress={() => onRestore(b)}
+										>
+											<TbRestore size={14} />
+											Restore
+										</Button>
+										<Button size="sm" variant="ghost" onPress={() => onRollback(b)}>
+											<TbArrowBackUp size={14} />
+											Roll back
+										</Button>
+									</div>
 								</Table.Cell>
 							</Table.Row>
 						))}
@@ -146,7 +170,7 @@ export function RemoteBackups({
 				</h2>
 				<p className="text-sm text-muted">
 					The backups in a bucket, this project's or another's, even from another instance that uses
-					the same master key. Restoring one makes a new project.
+					the same master key. Restoring one makes a new project; rolling back changes this one.
 				</p>
 			</div>
 			<EnterpriseGate
@@ -212,6 +236,7 @@ export function RemoteBackups({
 							backups={list.data}
 							canRestore={isAdmin}
 							onRestore={(b) => void flow.start(remoteSource(projectId, integrationId, b))}
+							onRollback={(b) => void flow.start(rollbackSource(projectId, integrationId, b))}
 						/>
 					) : (
 						<p className="text-sm text-muted">No complete backups under {prefix}/.</p>

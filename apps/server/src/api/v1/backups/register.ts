@@ -14,6 +14,7 @@ import {
 	startBodySchema,
 } from "./dto";
 import { registerRemoteBackups } from "./remote";
+import { registerRollback } from "./rollback";
 import * as schedule from "./schedule";
 import * as service from "./service";
 
@@ -124,6 +125,8 @@ export default {
 			},
 		);
 		registerRemoteBackups(router);
+		// rolling the project back in place (#1130)
+		registerRollback(router);
 		router.get(
 			"/:id/download",
 			doc("download-backup", "Downloads a finished manual backup (.tar.gz)"),

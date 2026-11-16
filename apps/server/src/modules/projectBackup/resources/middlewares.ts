@@ -8,10 +8,17 @@ import {
 	type VersionSnapshot,
 } from "../../../db/schema";
 import { BadRequestError } from "../../../errors/badRequestError";
-import { backupHistorySchema, exportHistory, importHistory } from "../../versions/backup";
+import { requestMiddlewareCompile } from "../../compiler/publisher";
+import {
+	backupHistorySchema,
+	exportHistory,
+	importAsNewVersions,
+	importHistory,
+} from "../../versions/backup";
 import { buildSnapshot, restoreSnapshot } from "../../versions/snapshot";
 import type { BackupModule, IdMap } from "../types";
 import { listOf, versionDetails } from "./preview";
+import { byName } from "./rollback";
 
 /**
  * Every middleware of a project (#1099). A middleware's version is its chain of
@@ -66,6 +73,42 @@ export const middlewaresModule: BackupModule<Section> = {
 			},
 		})),
 
+	names: ({ middlewares }) => middlewares.map((m) => m.name),
+
+	async existing(projectId, tx) {
+		return byName(
+			await tx
+				.select({ id: middlewaresEntity.id, name: middlewaresEntity.name })
+				.from(middlewaresEntity)
+				.where(eq(middlewaresEntity.projectId, projectId))
+				.orderBy(asc(middlewaresEntity.createdAt)),
+		);
+	},
+
+	uses: ({ middlewares }) =>
+		middlewares.flatMap((m) => {
+			const prod = m.history.versions.find((v) => v.number === m.history.prod)?.snapshot;
+			const chain = [m.history.working, ...(prod ? [prod] : [])].flatMap((s) =>
+				chainOf(s as VersionSnapshot),
+			);
+			return [...new Set(chain)].map((name) => ({
+				owner: `Middleware "${m.name}"`,
+				section: "customBlocks",
+				name,
+			}));
+		}),
+
+	async prune({ tx, projectId, afterCommit }, stale) {
+		for (const { name, id } of stale) {
+			await tx.delete(middlewaresEntity).where(eq(middlewaresEntity.id, id));
+			// compiling a middleware that is gone drops its artifact
+			afterCommit(async () => {
+				if (!(await requestMiddlewareCompile(id, projectId, "middleware removed by a rollback")))
+					throw new Error("the compile was not queued");
+			}, `Middleware "${name}" was removed, but workers may keep it until the admin restarts.`);
+		}
+	},
+
 	async export({ projectId, options }) {
 		const middlewares = await db.transaction(async (tx) => {
 			const blocks = await tx
@@ -106,16 +149,24 @@ export const middlewaresModule: BackupModule<Section> = {
 		return { data: { middlewares } };
 	},
 
-	async import({ tx, projectId, ids }, { middlewares }) {
+	async import({ tx, projectId, ids, match }, { middlewares }) {
 		for (const { name, description, history } of middlewares) {
 			const local = localChain(ids, name);
-			const [row] = await tx
-				.insert(middlewaresEntity)
-				.values({ name, description, projectId })
-				.returning({ id: middlewaresEntity.id });
+			const matched = match(name);
+			const [row] = matched
+				? await tx
+						.update(middlewaresEntity)
+						.set({ description })
+						.where(eq(middlewaresEntity.id, matched))
+						.returning({ id: middlewaresEntity.id })
+				: await tx
+						.insert(middlewaresEntity)
+						.values({ name, description, projectId })
+						.returning({ id: middlewaresEntity.id });
 			const target = { id: row!.id, projectId };
 			await restoreSnapshot("middleware", target, local(history.working as VersionSnapshot), tx);
-			await importHistory("middleware", target, history, local, tx);
+			const write = matched ? importAsNewVersions : importHistory;
+			await write("middleware", target, history, local, tx);
 			ids.set("middlewares", name, target.id);
 		}
 	},

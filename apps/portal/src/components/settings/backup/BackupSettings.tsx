@@ -11,6 +11,7 @@ import { dependencyHint, labelOf, MODE_COPY, SECTION_LABELS } from "./labels";
 import { ObjectStorageBackup } from "./ObjectStorageBackup";
 import { README_MAX_BYTES, ReadmeField } from "./ReadmeField";
 import { RemoteBackups } from "./RemoteBackups";
+import { RollbackUpload } from "./RollbackUpload";
 
 const README_KEY = "settings.backup.readme";
 
@@ -193,6 +194,8 @@ export function BackupSettings({
 					includeAppConfigValues: appConfigValues,
 				}}
 			/>
+
+			<RollbackUpload projectId={projectId} />
 
 			<RemoteBackups projectId={projectId} view={schedule} />
 

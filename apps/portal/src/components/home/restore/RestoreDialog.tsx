@@ -3,7 +3,6 @@ import { type ReactNode, useState } from "react";
 import { TbAlertTriangle, TbFileText, TbInfoCircle } from "react-icons/tb";
 import { labelOf, MODE_COPY } from "@/components/settings/backup/labels";
 import type { ArchiveSummary } from "@/services/projects";
-import { formReady, type ProjectForm } from "./NewProjectForm";
 import { RestoreOverview } from "./RestoreOverview";
 import { RestoreReadme } from "./RestoreReadme";
 import { iconOf, SectionBrowser } from "./SectionBrowser";
@@ -16,11 +15,18 @@ type Props = {
 	/** shown above the new project's details, e.g. what happens to the subdomain */
 	notice?: ReactNode;
 	/** null while the file is being checked */
-	summary: ArchiveSummary | null;
+	summary: Omit<ArchiveSummary, "suggested"> | null;
 	/** why the server refused the file; nothing more can be done with it */
 	refusal?: string;
-	form: ProjectForm;
-	onForm: (form: ProjectForm) => void;
+	/** what the user fills in, atop the overview: the new project's details, or the rollback's choices */
+	fields: ReactNode;
+	/** enables the action */
+	ready: boolean;
+	/** the action button, e.g. "Create project" */
+	action: string;
+	/** under the archive, beside the action: what the action does, then while it runs */
+	note: string;
+	busyNote: string;
 	/** a restore that failed and can be retried, e.g. a slug already taken */
 	error?: string;
 	isRestoring: boolean;
@@ -30,8 +36,8 @@ type Props = {
 
 /**
  * A new project from a backup or template file (#1104), or from a backup in a
- * bucket (#1107): what the archive holds, a section at a time and read only,
- * beside the details the project gets.
+ * bucket (#1107), or this project rolled back to one (#1130): what the archive
+ * holds, a section at a time and read only, beside what the user fills in.
  */
 export function RestoreDialog(props: Props) {
 	const { summary, refusal, isRestoring } = props;
@@ -95,11 +101,9 @@ function Refused({ message }: { message: string }) {
 /** the left nav, like Project Settings: the overview, the README, then one entry per section */
 function Browser({
 	summary,
-	form,
-	onForm,
-	isRestoring,
+	fields,
 	notice,
-}: Props & { summary: ArchiveSummary }) {
+}: Props & { summary: Omit<ArchiveSummary, "suggested"> }) {
 	const [active, setActive] = useState("overview");
 	const warningsIn = (section: string) =>
 		summary.warnings.filter((w) => w.section === section).length;
@@ -186,9 +190,7 @@ function Browser({
 					<RestoreOverview
 						notice={notice}
 						summary={summary}
-						form={form}
-						onForm={onForm}
-						isRestoring={isRestoring}
+						fields={fields}
 						onOpenSection={setActive}
 					/>
 				)}
@@ -197,7 +199,18 @@ function Browser({
 	);
 }
 
-function Footer({ summary, refusal, form, error, isRestoring, onCreate, onClose }: Props) {
+function Footer({
+	summary,
+	refusal,
+	ready: canAct,
+	action,
+	note,
+	busyNote,
+	error,
+	isRestoring,
+	onCreate,
+	onClose,
+}: Props) {
 	const ready = summary && !refusal;
 	return (
 		<Modal.Footer className="flex shrink-0 flex-row flex-wrap items-end gap-3 border-t border-border px-5 py-3">
@@ -208,14 +221,8 @@ function Footer({ summary, refusal, form, error, isRestoring, onCreate, onClose 
 							<p role="alert" className="text-danger">
 								{error}
 							</p>
-						) : isRestoring ? (
-							<p className="text-muted">
-								Restoring… A template that fetches web knowledge sources can take a few minutes.
-							</p>
 						) : (
-							<p className="text-muted">
-								Restoring always makes a new project; nothing existing is changed.
-							</p>
+							<p className="text-muted">{isRestoring ? busyNote : note}</p>
 						)}
 					</div>
 				</>
@@ -225,13 +232,8 @@ function Footer({ summary, refusal, form, error, isRestoring, onCreate, onClose 
 					{refusal ? "Close" : "Cancel"}
 				</Button>
 				{ready && (
-					<Button
-						variant="primary"
-						isPending={isRestoring}
-						isDisabled={!formReady(form)}
-						onPress={onCreate}
-					>
-						{isRestoring ? "Restoring…" : "Create project"}
+					<Button variant="primary" isPending={isRestoring} isDisabled={!canAct} onPress={onCreate}>
+						{isRestoring ? "Restoring…" : action}
 					</Button>
 				)}
 			</div>
