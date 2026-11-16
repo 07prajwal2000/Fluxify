@@ -103,8 +103,11 @@ function Rows({
 								</Table.Cell>
 								<Table.Cell>{b.release}</Table.Cell>
 								<Table.Cell>{formatBytes(b.sizeBytes)}</Table.Cell>
-								<Table.Cell>
-									<span className="text-muted">
+								<Table.Cell className="max-w-[14rem]">
+									<span
+										className="block truncate text-muted"
+										title={Object.keys(b.sections).map(labelOf).join(", ")}
+									>
 										{Object.keys(b.sections).map(labelOf).join(", ")}
 									</span>
 								</Table.Cell>
@@ -169,8 +172,8 @@ export function RemoteBackups({
 					Remote backups <EnterpriseChip />
 				</h2>
 				<p className="text-sm text-muted">
-					The backups in a bucket, this project's or another's, even from another instance that uses
-					the same master key. Restoring one makes a new project; rolling back changes this one.
+					Backups in a bucket, from this project or another. Restore makes a new project; Roll back
+					changes this one.
 				</p>
 			</div>
 			<EnterpriseGate

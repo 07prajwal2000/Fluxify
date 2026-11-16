@@ -9,6 +9,7 @@ const { act, cleanup, fireEvent, render } = await import("@testing-library/react
 const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query");
 const { BackupSettings } = await import("./BackupSettings");
 const { backupsService } = await import("@/services/backups");
+const { parseBackupView } = await import("./views");
 const { projectSettingsKeysService } = await import("@/services/projectSettingsKeys");
 const { integrationService } = await import("@/services/integrations");
 const { publicSettingsService } = await import("@/services/publicSettings");
@@ -96,11 +97,11 @@ beforeEach(() => {
 afterEach(cleanup);
 afterAll(() => GlobalRegistrator.unregister());
 
-function setup() {
+function setup(props: Partial<React.ComponentProps<typeof BackupSettings>> = {}) {
 	client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	render(
 		<QueryClientProvider client={client}>
-			<BackupSettings projectId="p1" download={download} />
+			<BackupSettings projectId="p1" download={download} {...props} />
 		</QueryClientProvider>,
 	);
 }
@@ -246,7 +247,7 @@ test("shows each backup's status, size, who and release, with a link only for a 
 		row({ id: "run", status: "running", downloadable: false, sizeBytes: null }),
 		row({ id: "old", downloadable: false }),
 	];
-	setup();
+	setup({ view: "history" });
 	await until(() => expect(document.body.textContent).toContain("Succeeded"));
 	const text = document.body.textContent ?? "";
 	for (const expected of [
@@ -282,4 +283,132 @@ test("nothing ticked cannot be started", async () => {
 		fireEvent.click(checkbox(label));
 	await until(() => expect(button("Download backup").hasAttribute("disabled")).toBe(true));
 	expect(document.body.textContent).toContain("Pick at least one resource.");
+});
+
+const header = () => document.querySelector('[role="region"][aria-label="Backup status"]')!;
+const tab = (name: string) =>
+	[...document.querySelectorAll('[role="tab"]')].find((t) => t.textContent?.includes(name))!;
+
+const configured = (over: object = {}) =>
+	unsaved({ integrationId: "i1", prefix: "shop/prod", enabled: true, ...over });
+const storageRun = (over: Partial<Row> = {}) =>
+	row({ id: "s1", type: "object_storage", downloadable: false, ...over });
+
+test("the header shows the last backup and when the next scheduled one can run", async () => {
+	const last = new Date(Date.UTC(2026, 10, 10, 3, 0)).toISOString();
+	rows = [storageRun({ createdAt: last })];
+	schedule.mockResolvedValue({
+		...configured({ interval: "weekly" }),
+		lastRun: storageRun({ createdAt: last }),
+	});
+	setup();
+	await until(() => expect(header().textContent).toContain("Succeeded"));
+	// a week after the last success, never an exact time: the platform checks once a day
+	expect(header().textContent).toContain("On or after 17 Nov 2026");
+	expect(header().textContent).toContain("Back up now");
+});
+
+test("the header says scheduled backups are off, and offers no Back up now", async () => {
+	setup();
+	await until(() => expect(header().textContent).toContain("Scheduled backups off"));
+	expect(header().textContent).toContain("No backups yet");
+	expect(header().textContent).not.toContain("Back up now");
+	expect(header().textContent).toContain("Download backup");
+});
+
+test("Back up now in the header uploads with the saved settings, and waits while one runs", async () => {
+	const now = spyOn(backupsService, "backupNow").mockResolvedValue({ id: "b2" });
+	schedule.mockResolvedValue(configured());
+	setup();
+	await until(() => expect(header().textContent).toContain("Back up now"));
+	fireEvent.click(button("Back up now"));
+	await until(() => expect(now).toHaveBeenCalledWith("p1"));
+
+	cleanup();
+	rows = [row({ id: "run", status: "running", downloadable: false, sizeBytes: null })];
+	setup();
+	await until(() => expect(header().textContent).toContain("A backup is running"));
+	expect(button("Back up now").hasAttribute("disabled")).toBe(true);
+});
+
+test("the header is locked on Community: a badge, no Back up now", async () => {
+	spyOn(publicSettingsService, "get").mockResolvedValue({
+		license: { status: "community", canRun: true, canCreate: false, features: [] },
+	} as never);
+	schedule.mockResolvedValue(configured());
+	setup();
+	await until(() => expect(header().textContent).toContain("Enterprise"));
+	expect(header().textContent).not.toContain("Back up now");
+	expect(header().textContent).not.toContain("Scheduled backups off");
+	// the manual download is never gated
+	expect(header().textContent).toContain("Download backup");
+});
+
+test("the open tab is the route's backupView: each shows its own content, and picking one reports it", async () => {
+	const open = mock((_view: string) => {});
+	const { rerender } = (() => {
+		client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+		const ui = (view?: "backup" | "schedule" | "history" | "restore") => (
+			<QueryClientProvider client={client}>
+				<BackupSettings projectId="p1" download={download} view={view} onViewChange={open} />
+			</QueryClientProvider>
+		);
+		const r = render(ui());
+		return { rerender: (v: Parameters<typeof ui>[0]) => r.rerender(ui(v)) };
+	})();
+
+	// no param: Back up
+	await loaded();
+	expect(tab("Back up").getAttribute("aria-selected")).toBe("true");
+	expect(document.body.textContent).toContain("What to include");
+
+	fireEvent.click(tab("History"));
+	await until(() => expect(open).toHaveBeenCalledWith("history"));
+
+	rerender("history");
+	await until(() =>
+		expect(document.body.textContent).toContain("No backups yet. The ones you make"),
+	);
+	expect(document.body.textContent).not.toContain("What to include");
+
+	rerender("schedule");
+	await until(() => expect(document.body.textContent).toContain("Back up on a schedule"));
+
+	rerender("restore");
+	await until(() => expect(document.body.textContent).toContain("Upload a backup to roll back"));
+	expect(document.body.textContent).toContain("Backups in a bucket".slice(0, 0) + "Remote backups");
+});
+
+test("the header's last backup opens the History tab", async () => {
+	rows = [row({ id: "ok" })];
+	const open = mock((_view: string) => {});
+	client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+	render(
+		<QueryClientProvider client={client}>
+			<BackupSettings projectId="p1" download={download} onViewChange={open} />
+		</QueryClientProvider>,
+	);
+	await until(() => expect(header().textContent).toContain("Succeeded"));
+	fireEvent.click([...header().querySelectorAll("button")].find((b) => b.title)!);
+	expect(open).toHaveBeenCalledWith("history");
+});
+
+test("the README stays folded until it is opened, or already has text", async () => {
+	setup();
+	await loaded();
+	expect(document.querySelector('[aria-label="README"]')).toBeNull();
+	fireEvent.click(button("Add a README"));
+	await until(() => expect(document.querySelector('[aria-label="README"]')).not.toBeNull());
+
+	cleanup();
+	settingsKeys.mockResolvedValue({ "settings.backup.readme": "# Last time" } as never);
+	setup();
+	await until(() => expect(document.querySelector('[aria-label="README"]')).not.toBeNull());
+});
+
+test("only a known backupView is accepted from the URL", () => {
+	expect(parseBackupView("history")).toBe("history");
+	expect(parseBackupView("restore")).toBe("restore");
+	for (const bad of ["toString", "", "nope", 1, undefined, null])
+		expect(parseBackupView(bad)).toBeUndefined();
 });

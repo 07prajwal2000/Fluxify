@@ -12,7 +12,6 @@ import {
 	toast,
 } from "@fluxify/components";
 import { useCallback, useState } from "react";
-import { TbCloudUpload } from "react-icons/tb";
 import {
 	EnterpriseChip,
 	EnterpriseGate,
@@ -34,7 +33,7 @@ const INTERVALS: Record<BackupInterval, string> = {
 /** the prefix rule the server checks, so the field can say so before saving */
 const PREFIX = /^[A-Za-z0-9][\w.-]*(\/[A-Za-z0-9][\w.-]*)*$/;
 
-/** what the resource picker above holds; a scheduled backup takes the same */
+/** what the Back up tab's picker holds; a scheduled backup takes the same */
 export type BackupSelection = {
 	sections: string[];
 	includeVersionHistory: boolean;
@@ -61,8 +60,9 @@ function LastRun({ view }: { view: BackupScheduleView }) {
 
 /**
  * Project settings > Backup > Object storage (#1106, Enterprise): upload a
- * backup to an Object Storage integration on a schedule, or now. It always
- * makes an encrypted backup of the resources ticked above. Without the license
+ * backup to an Object Storage integration on a schedule ("Back up now" is in the
+ * status header). It always makes an encrypted backup of the resources ticked
+ * on the Back up tab. Without the license
  * the settings stay visible, locked, and nothing runs.
  */
 export function ObjectStorageBackup({
@@ -80,7 +80,6 @@ export function ObjectStorageBackup({
 		[projectId],
 	);
 	const save = backupsQuery.saveSchedule.useMutation(projectId);
-	const now = backupsQuery.backupNow.useMutation(projectId);
 	const saved = view.schedule;
 
 	const [integrationId, setIntegrationId] = useState(saved.integrationId);
@@ -90,7 +89,6 @@ export function ObjectStorageBackup({
 	const [enabled, setEnabled] = useState(saved.enabled);
 
 	const badPrefix = !PREFIX.test(prefix);
-	const running = view.lastRun?.status === "running";
 	const canSave = Boolean(integrationId) && !badPrefix && selection.sections.length > 0;
 
 	const submit = () =>
@@ -101,11 +99,6 @@ export function ObjectStorageBackup({
 				onError: (e) => showErrorNotification(e as Error),
 			},
 		);
-	const upload = () =>
-		now.mutate(undefined, {
-			onSuccess: () => toast.success("Backup started."),
-			onError: (e) => showErrorNotification(e as Error),
-		});
 
 	return (
 		<section aria-label="Object storage" className="flex flex-col gap-3">
@@ -114,8 +107,8 @@ export function ObjectStorageBackup({
 					Object storage <EnterpriseChip />
 				</h2>
 				<p className="text-sm text-muted">
-					Upload an encrypted backup of the resources ticked above to a bucket, on a schedule or
-					now. The oldest ones beyond the number kept are deleted after each new backup.
+					Uploads an encrypted backup of the resources ticked on the Back up tab. The oldest beyond
+					the number kept are deleted after each new one.
 				</p>
 			</div>
 			<EnterpriseGate
@@ -143,7 +136,7 @@ export function ObjectStorageBackup({
 						)}
 						createIntegrationUrl={withBasePath(`/${projectId}/integrations/new?group=storage`)}
 					/>
-					<div className="grid gap-4 sm:grid-cols-2">
+					<div className="grid gap-4 sm:grid-cols-3">
 						<TextField value={prefix} onChange={setPrefix} isInvalid={badPrefix}>
 							<Label>Prefix</Label>
 							<Input className="font-mono text-xs" />
@@ -190,13 +183,13 @@ export function ObjectStorageBackup({
 							</NumberField.Group>
 						</NumberField>
 					</div>
-					<Checkbox
-						isSelected={enabled}
-						onChange={(on: boolean) => setEnabled(on)}
-						label="Back up on a schedule"
-						description="Checked once a day; a backup runs when the interval has passed since the last one that succeeded."
-					/>
-					<div className="flex flex-wrap items-center gap-3">
+					<div className="flex flex-wrap items-center justify-between gap-3">
+						<Checkbox
+							isSelected={enabled}
+							onChange={(on: boolean) => setEnabled(on)}
+							label="Back up on a schedule"
+							description="Checked once a day; a backup runs when the interval has passed since the last one that succeeded."
+						/>
 						<Button
 							variant="primary"
 							onPress={submit}
@@ -204,15 +197,6 @@ export function ObjectStorageBackup({
 							isPending={save.isPending}
 						>
 							Save
-						</Button>
-						<Button
-							variant="secondary"
-							onPress={upload}
-							isDisabled={!saved.integrationId || !saved.prefix || running}
-							isPending={now.isPending}
-						>
-							<TbCloudUpload size={16} />
-							Back up now
 						</Button>
 					</div>
 					<LastRun view={view} />

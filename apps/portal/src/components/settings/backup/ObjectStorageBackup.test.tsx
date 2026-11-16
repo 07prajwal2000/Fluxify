@@ -70,7 +70,6 @@ const run = (over: Partial<Row>): Row => ({
 });
 
 const save = spyOn(backupsService, "saveSchedule");
-const now = spyOn(backupsService, "backupNow");
 const integrations = spyOn(integrationService, "getAll");
 const license = spyOn(publicSettingsService, "get");
 const licensed = (features: string[]) =>
@@ -85,7 +84,6 @@ const licensed = (features: string[]) =>
 
 beforeEach(() => {
 	save.mockReset().mockImplementation(async () => view());
-	now.mockReset().mockResolvedValue({ id: "b2" });
 	integrations
 		.mockReset()
 		.mockResolvedValue([{ id: INTEGRATION, name: "backups-bucket", group: "storage" }] as never);
@@ -129,9 +127,8 @@ test("Save sends the settings with the resources picked above", async () => {
 test("starts the prefix at the project's slug", async () => {
 	setup(view({ integrationId: null, prefix: "" }));
 	await until(() => expect((prefixInput() as HTMLInputElement).value).toBe("shop"));
-	// nothing saved yet: no integration, so no saving and no "Back up now"
+	// nothing saved yet: no integration, so no saving
 	expect(disabled(button("Save"))).toBe(true);
-	expect(disabled(button("Back up now"))).toBe(true);
 });
 
 test("refuses a prefix with a slash at either end before saving", async () => {
@@ -140,13 +137,6 @@ test("refuses a prefix with a slash at either end before saving", async () => {
 	fireEvent.change(prefixInput(), { target: { value: "/shop/" } });
 	await until(() => expect(document.body.textContent).toContain("with no '/' at either end"));
 	expect(disabled(button("Save"))).toBe(true);
-});
-
-test("Back up now uploads with the saved settings", async () => {
-	setup();
-	await until(() => expect(disabled(button("Back up now"))).toBe(false));
-	fireEvent.click(button("Back up now"));
-	await until(() => expect(now).toHaveBeenCalledWith("p1"));
 });
 
 test("shows where the last backup went, or why it failed", async () => {
@@ -172,6 +162,6 @@ test("is locked without the license, with the settings still shown", async () =>
 	setup();
 	await until(() => expect(document.body.textContent).toContain("Enterprise only"));
 	expect(document.body.textContent).toContain("The settings and history are kept");
-	expect(document.querySelector("[inert]")?.textContent).toContain("Back up now");
+	expect(document.querySelector("[inert]")?.textContent).toContain("Save");
 	expect((prefixInput() as HTMLInputElement).value).toBe("shop/prod");
 });

@@ -75,14 +75,14 @@ For more details on building starter projects for others, see [Project Templates
 
 To create a backup manually:
 
-1. Open **Project Settings → Backup**.
+1. Open **Project Settings → Backup**. The **Back up** tab opens first.
 2. Select the archive kind: **Backup** or **Template**.
 3. Under **What to include**, select the checkboxes for the parts you want to save.
 4. (Optional) Check **Canvas version history** or **App config values**.
-5. (Optional) Under **README (optional)**, write setup notes or instructions in Markdown.
-6. Click **Download backup**.
+5. (Optional) Click **Add a README** and write setup notes or instructions in Markdown.
+6. Click **Download backup** at the top of the page.
 
-Fluxify starts creating the backup archive in the background. Once finished, your browser automatically begins downloading the `.tar.gz` archive. The archive also remains available for 7 days in the **History** table on the same page.
+Fluxify starts creating the backup archive in the background. Once finished, your browser automatically begins downloading the `.tar.gz` archive. The archive also remains available for 7 days in the **History** tab on the same page.
 
 ## When some parts are left out
 
@@ -99,7 +99,7 @@ You can still create the backup with missing dependencies, but restoring it will
 
 ## Backup history
 
-The **History** table lists recent backups created for the project:
+The bar at the top of the Backup page always shows your most recent backup, with its result and how long ago it ran. Click the time to open the **History** tab, which lists recent backups created for the project:
 
 - **Status**: Whether the backup succeeded, is currently running, or failed.
 - **Size**: Compressed archive size on disk.
@@ -140,5 +140,5 @@ Backups created by a newer release of Fluxify cannot be restored on an older ins
 | "This backup unpacks to more than 512 MB; that is the limit." | The uncompressed size exceeds the 512 MB safety cap. Untick canvas version history or large knowledge sources to reduce size. |
 | "This backup can't be decrypted. It was made on an instance with a different MASTER_ENCRYPTION_KEY, or it is damaged. Restore it on an instance with the key it was made with." | Verify that the target instance has the exact same `MASTER_ENCRYPTION_KEY` environment variable as the instance where the backup was made. |
 | "This backup was made by a newer version of Fluxify. Update Fluxify to restore it." | The backup was created with a newer release of Fluxify. Update your Fluxify instance to the latest release before restoring. |
-| "The README is longer than 64 KB." | Shorten your README note in the Backup tab to under 64 KB. |
+| "The README is longer than 64 KB." | Shorten your README note on the **Back up** tab to under 64 KB. |
 | "A backup is already running" | Wait for the active backup to finish before starting another one. |
