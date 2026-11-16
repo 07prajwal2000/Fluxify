@@ -7,9 +7,12 @@ import { useCanEditProject } from "@/store/auth";
 export function IntegrationTestButtons({
 	projectId,
 	integrationId,
+	syncDev = false,
 }: {
 	projectId: string;
 	integrationId: string;
+	/** Same as prod: development is production, so one test covers both (#1127) */
+	syncDev?: boolean;
 }) {
 	const canEdit = useCanEditProject(projectId);
 	const test = integrationsQuery.testExistingConnection.mutation(projectId);
@@ -35,7 +38,7 @@ export function IntegrationTestButtons({
 					test.reset();
 				}}
 			/>
-			{canEdit && (
+			{canEdit && !syncDev && (
 				<TestConnectionButton
 					isPending={testProd.isPending && testProd.variables?.id === integrationId}
 					onPress={() =>
