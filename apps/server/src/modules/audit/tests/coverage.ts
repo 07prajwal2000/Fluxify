@@ -67,6 +67,7 @@ export const AUDITED: Record<string, string> = {
 	"create-project": `${V}/projects/create/service.ts`,
 	// a restore creates its project through the create service's helpers, which record it
 	"restore-project": `${V}/projects/create/service.ts`,
+	"restore-remote-backup": `${V}/projects/create/service.ts`,
 	"update-project": `${V}/projects/update/service.ts`,
 	"delete-project": `${V}/projects/delete/service.ts`,
 	"project-members-add": `${V}/projects/settings/members/add/service.ts`,
@@ -157,6 +158,7 @@ export const SKIPPED: Record<string, string> = {
 	"list-ai-models": "lists the models a provider offers and changes nothing",
 	"inspect-integration": "reads an integration (tables, a key) and changes nothing",
 	"inspect-project-archive": "reads an uploaded backup archive and changes nothing",
+	"inspect-remote-backup": "downloads a backup from the bucket and changes nothing",
 	"connect-mcp-oauth":
 		"only starts the sign-in; the connection it leads to is recorded when the callback completes it",
 	"delete-recorded-runs": SCOPE,

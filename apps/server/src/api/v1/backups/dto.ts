@@ -3,9 +3,11 @@ import { BACKUP_STATUSES, BACKUP_TYPES } from "../../../db/schema";
 import { MAX_README_BYTES } from "../../../modules/projectBackup/archive";
 import {
 	BACKUP_INTERVALS,
+	backupMetaSchema,
 	backupPrefixSchema,
 	MAX_BACKUP_RETENTION,
 } from "../../../modules/projectBackup/prefix";
+import { newProjectSchema } from "../projects/restore/dto";
 
 export const projectParamSchema = z.object({ projectId: z.string() });
 export const idParamSchema = projectParamSchema.extend({ id: z.string() });
@@ -77,3 +79,19 @@ export const scheduleResponseSchema = z.object({
 	/** the newest object storage run, whatever its outcome */
 	lastRun: backupSchema.nullable(),
 });
+
+/** backups read back from a bucket (#1107) */
+export const remoteQuerySchema = z.object({
+	integrationId: z.string().min(1).describe("an Object Storage integration of this project"),
+	prefix: backupPrefixSchema.describe("the folder whose backups to list"),
+});
+export const prefixesQuerySchema = remoteQuerySchema.pick({ integrationId: true });
+export const remoteKeySchema = prefixesQuerySchema.extend({
+	key: z.string().min(1).max(500).describe("the archive's key, as the listing returned it"),
+});
+export const remoteRestoreBodySchema = newProjectSchema.extend(remoteKeySchema.shape);
+
+export const remoteListResponseSchema = z.object({
+	backups: z.array(backupMetaSchema.extend({ key: z.string() })),
+});
+export const prefixesResponseSchema = z.object({ prefixes: z.array(z.string()) });

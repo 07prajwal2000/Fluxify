@@ -38,6 +38,23 @@ export const META_EXT = ".meta.json";
 /** a name directly under the prefix that this feature wrote; anything else in the bucket is left alone */
 export const BACKUP_NAME = /^(\d{8}T\d{6}Z-[^/]+)\.(tar\.gz|meta\.json)$/;
 
+export const META_KIND = "fluxify.project.backup-meta";
+
+/** `.meta.json` as a reader checks it (#1107); the bucket is outside our control */
+export const backupMetaSchema = z.object({
+	kind: z.literal(META_KIND),
+	backupId: z.string(),
+	archive: z.string(),
+	createdAt: z.string(),
+	mode: z.enum(["backup", "template"]),
+	format: z.number(),
+	release: z.string(),
+	sizeBytes: z.number(),
+	source: z.object({ projectId: z.string(), name: z.string(), slug: z.string() }),
+	sections: z.record(z.string(), z.number()),
+	hasReadme: z.boolean(),
+});
+
 /** the tick fires at about the same time each day; this keeps "a day later" from slipping a day */
 const SLACK_MS = 60 * 60_000;
 

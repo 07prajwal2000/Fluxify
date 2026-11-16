@@ -1,4 +1,6 @@
+import type { ProjectForm } from "@/components/home/restore/NewProjectForm";
 import { httpClient } from "@/lib/http";
+import type { ArchiveSummary, RestoreResult } from "./projects";
 
 export type BackupMode = "backup" | "template";
 
@@ -57,6 +59,23 @@ export interface BackupScheduleView {
 	lastRun: BackupRow | null;
 }
 
+/** a backup in a bucket, from its `.meta.json` alone (#1107) */
+export interface RemoteBackup {
+	key: string;
+	backupId: string;
+	createdAt: string;
+	mode: BackupMode;
+	release: string;
+	/** what the bucket holds */
+	sizeBytes: number;
+	source: { projectId: string; name: string; slug: string };
+	/** section -> its format version */
+	sections: Record<string, number>;
+	hasReadme: boolean;
+}
+
+export type RemoteTarget = { integrationId: string; key: string };
+
 const base = (projectId: string) => `/v1/${projectId}/backups`;
 
 export const backupsService = {
@@ -93,6 +112,42 @@ export const backupsService = {
 	async backupNow(projectId: string): Promise<{ id: string }> {
 		const res = await httpClient.post(`${base(projectId)}/object-storage`);
 		return res.data;
+	},
+
+	/** the folders in the integration's bucket that hold backups */
+	async remotePrefixes(projectId: string, integrationId: string): Promise<string[]> {
+		const res = await httpClient.get(`${base(projectId)}/remote/prefixes`, {
+			params: { integrationId },
+		});
+		return res.data.prefixes;
+	},
+
+	/** complete backups under a prefix, newest first */
+	async remoteBackups(
+		projectId: string,
+		integrationId: string,
+		prefix: string,
+	): Promise<RemoteBackup[]> {
+		const res = await httpClient.get(`${base(projectId)}/remote`, {
+			params: { integrationId, prefix },
+		});
+		return res.data.backups;
+	},
+
+	/** downloads the backup on the server and says what it holds; creates nothing */
+	async inspectRemote(projectId: string, target: RemoteTarget): Promise<ArchiveSummary> {
+		return (await httpClient.post(`${base(projectId)}/remote/inspect`, target)).data;
+	},
+
+	/** a new project from the backup; blank optional fields are left out */
+	async restoreRemote(
+		projectId: string,
+		target: RemoteTarget,
+		form: ProjectForm,
+	): Promise<RestoreResult> {
+		const fields = Object.fromEntries(Object.entries(form).filter(([, v]) => v.trim()));
+		return (await httpClient.post(`${base(projectId)}/remote/restore`, { ...target, ...fields }))
+			.data;
 	},
 
 	/**

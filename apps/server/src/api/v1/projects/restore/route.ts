@@ -40,6 +40,14 @@ const limit = bodyLimit({
 		),
 });
 
+/** a template's web sources are fetched inside a restore call: lift Bun's idle cut-off */
+export function noIdleTimeout(ctx: HonoContext) {
+	(ctx.env as { timeout?(request: Request, seconds: number): void } | undefined)?.timeout?.(
+		ctx.req.raw,
+		0,
+	);
+}
+
 async function readUpload(ctx: HonoContext) {
 	const body = await ctx.req.parseBody();
 	if (!(body.file instanceof File))
@@ -74,11 +82,7 @@ export default function (app: HonoServer) {
 		requireSystemAdmin,
 		limit,
 		async (ctx) => {
-			// a template's web sources are fetched inside this call: no idle cut-off
-			(ctx.env as { timeout?(request: Request, seconds: number): void } | undefined)?.timeout?.(
-				ctx.req.raw,
-				0,
-			);
+			noIdleTimeout(ctx);
 			const { body, bytes } = await readUpload(ctx);
 			// a blank optional field arrives as ""
 			const blank = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : undefined);
@@ -89,11 +93,7 @@ export default function (app: HonoServer) {
 				subdomain: blank(body.subdomain),
 			});
 			if (!fields.success) return zodErrorCallbackParser(fields, ctx);
-			const { subdomain, ...project } = fields.data;
-			const { projectId, warnings } = await restoreProject(bytes, {
-				...project,
-				settings: subdomain ? { "settings.routing.subdomain": subdomain } : undefined,
-			});
+			const { projectId, warnings } = await restoreProject(bytes, fields.data);
 			return ctx.json({ id: projectId, warnings });
 		},
 	);

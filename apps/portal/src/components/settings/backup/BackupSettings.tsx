@@ -10,6 +10,7 @@ import { byteLength, triggerDownload } from "./format";
 import { dependencyHint, labelOf, MODE_COPY, SECTION_LABELS } from "./labels";
 import { ObjectStorageBackup } from "./ObjectStorageBackup";
 import { README_MAX_BYTES, ReadmeField } from "./ReadmeField";
+import { RemoteBackups } from "./RemoteBackups";
 
 const README_KEY = "settings.backup.readme";
 
@@ -192,6 +193,8 @@ export function BackupSettings({
 					includeAppConfigValues: appConfigValues,
 				}}
 			/>
+
+			<RemoteBackups projectId={projectId} view={schedule} />
 
 			<div className="flex flex-col gap-2">
 				<h2 className="text-sm font-semibold text-foreground">History</h2>

@@ -58,6 +58,29 @@ export const backupsQuery = {
 			});
 		},
 	},
+	/** backups in a bucket (#1107); nothing is asked until both are chosen */
+	remotePrefixes: {
+		useQuery(projectId: string, integrationId: string | null, enabled: boolean) {
+			return useQuery({
+				queryKey: [...key(projectId), "remote-prefixes", integrationId],
+				queryFn: () => backupsService.remotePrefixes(projectId, integrationId!),
+				enabled: enabled && Boolean(integrationId),
+				refetchOnWindowFocus: false,
+				retry: false,
+			});
+		},
+	},
+	remote: {
+		useQuery(projectId: string, integrationId: string | null, prefix: string, enabled: boolean) {
+			return useQuery({
+				queryKey: [...key(projectId), "remote", integrationId, prefix],
+				queryFn: () => backupsService.remoteBackups(projectId, integrationId!, prefix),
+				enabled: enabled && Boolean(integrationId && prefix),
+				refetchOnWindowFocus: false,
+				retry: false,
+			});
+		},
+	},
 	start: {
 		useMutation(projectId: string) {
 			const client = useQueryClient();

@@ -6,57 +6,21 @@ import { afterAll, beforeAll, describe, expect, it, spyOn } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { docker, pullImage, startContainerWithRandomPort } from "@fluxify/adapters/containerTestHelpers";
-import { S3Storage } from "@fluxify/adapters/storage/s3";
-import type Docker from "dockerode";
 import { createStack, type Stack, short } from "../../../../modules/deployments/tests/blockHarness";
-
-const IMAGE = "pgsty/minio:RELEASE.2026-08-04T00-00-00Z";
-const CONTAINER = "fluxify-backup-s3-test";
-const USER = "fluxifytest";
-const PASS = "fluxifytest-secret";
-const BUCKET = "fluxify-backups";
+import { startMinio } from "./minio";
 
 let stack: Stack;
-let container: Docker.Container | undefined;
-let endpoint: string;
-let bucket: S3Storage;
+let minio: Awaited<ReturnType<typeof startMinio>>;
+let bucket: Awaited<ReturnType<typeof startMinio>>["bucket"];
 let tick: typeof import("../../../../modules/projectBackup/storageRun");
 let edition: typeof import("../../../../lib/edition");
 let audit: typeof import("../../../../modules/audit");
 let restoreProject: typeof import("../../../../modules/projectBackup/restoreProject").restoreProject;
 const folder = mkdtempSync(join(tmpdir(), "fx-s3backup-plugins-"));
 
-async function exec(cmd: string[]) {
-	const run = await container!.exec({ Cmd: cmd, AttachStdout: true, AttachStderr: true });
-	const stream = await run.start({});
-	await new Promise((resolve) => stream.on("end", resolve).resume());
-	return (await run.inspect()).ExitCode;
-}
-
 beforeAll(async () => {
-	await docker
-		.getContainer(CONTAINER)
-		.remove({ force: true })
-		.catch(() => {});
-	await pullImage(IMAGE);
-	const started = await startContainerWithRandomPort((port) =>
-		docker.createContainer({
-			Image: IMAGE,
-			name: CONTAINER,
-			Cmd: ["server", "/data"],
-			Env: [`MINIO_ROOT_USER=${USER}`, `MINIO_ROOT_PASSWORD=${PASS}`],
-			HostConfig: { PortBindings: { "9000/tcp": [{ HostPort: String(port) }] } },
-		}),
-	);
-	container = started.container;
-	endpoint = `http://127.0.0.1:${started.port}`;
-	for (let i = 0; i < 60; i++) {
-		const mc = `mc alias set local http://127.0.0.1:9000 ${USER} ${PASS} && mc mb --ignore-existing local/${BUCKET}`;
-		if ((await exec(["sh", "-c", mc])) === 0) break;
-		await Bun.sleep(500);
-	}
-	bucket = new S3Storage(s3Config());
+	minio = await startMinio("fluxify-backup-s3-test");
+	bucket = minio.bucket;
 
 	stack = await createStack("s3backups");
 	(await import("../register")).default.registerHandler(stack.app);
@@ -78,18 +42,10 @@ afterAll(async () => {
 	rmSync(folder, { recursive: true, force: true });
 	delete process.env.FLUXIFY_PLUGINS_DIR;
 	await stack?.stop();
-	await container?.remove({ force: true }).catch(() => {});
+	await minio?.stop();
 });
 
-const s3Config = (over: object = {}) => ({
-	endpoint,
-	region: "us-east-1",
-	bucket: BUCKET,
-	accessKeyId: USER,
-	secretAccessKey: PASS,
-	forcePathStyle: true,
-	...over,
-});
+const s3Config = (over: object = {}) => minio.s3Config(over);
 
 type As = Awaited<ReturnType<Stack["setup"]>>["as"];
 

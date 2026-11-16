@@ -1,5 +1,5 @@
 import { Button, Chip, CloseButton, cn, Modal, Spinner } from "@fluxify/components";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { TbAlertTriangle, TbFileText, TbInfoCircle } from "react-icons/tb";
 import { labelOf, MODE_COPY } from "@/components/settings/backup/labels";
 import type { ArchiveSummary } from "@/services/projects";
@@ -9,7 +9,12 @@ import { RestoreReadme } from "./RestoreReadme";
 import { iconOf, SectionBrowser } from "./SectionBrowser";
 
 type Props = {
-	fileName: string;
+	/** "New project from a file" unless given */
+	title?: string;
+	/** the file's name, or the backup's key in a bucket */
+	subtitle: string;
+	/** shown above the new project's details, e.g. what happens to the subdomain */
+	notice?: ReactNode;
 	/** null while the file is being checked */
 	summary: ArchiveSummary | null;
 	/** why the server refused the file; nothing more can be done with it */
@@ -24,8 +29,9 @@ type Props = {
 };
 
 /**
- * A new project from a backup or template file (#1104): what the file holds, a
- * section at a time and read only, beside the details the project gets.
+ * A new project from a backup or template file (#1104), or from a backup in a
+ * bucket (#1107): what the archive holds, a section at a time and read only,
+ * beside the details the project gets.
  */
 export function RestoreDialog(props: Props) {
 	const { summary, refusal, isRestoring } = props;
@@ -37,9 +43,9 @@ export function RestoreDialog(props: Props) {
 						<Modal.Header className="flex shrink-0 flex-row items-center gap-3 border-b border-border px-5 py-3">
 							<div className="min-w-0">
 								<Modal.Heading className="text-sm font-semibold">
-									New project from a file
+									{props.title ?? "New project from a file"}
 								</Modal.Heading>
-								<p className="truncate text-xs text-muted">{props.fileName}</p>
+								<p className="truncate text-xs text-muted">{props.subtitle}</p>
 							</div>
 							{summary && (
 								<div className="flex items-center gap-2">
@@ -87,7 +93,13 @@ function Refused({ message }: { message: string }) {
 }
 
 /** the left nav, like Project Settings: the overview, the README, then one entry per section */
-function Browser({ summary, form, onForm, isRestoring }: Props & { summary: ArchiveSummary }) {
+function Browser({
+	summary,
+	form,
+	onForm,
+	isRestoring,
+	notice,
+}: Props & { summary: ArchiveSummary }) {
 	const [active, setActive] = useState("overview");
 	const warningsIn = (section: string) =>
 		summary.warnings.filter((w) => w.section === section).length;
@@ -172,6 +184,7 @@ function Browser({ summary, form, onForm, isRestoring }: Props & { summary: Arch
 					<RestoreReadme text={summary.readme} />
 				) : (
 					<RestoreOverview
+						notice={notice}
 						summary={summary}
 						form={form}
 						onForm={onForm}
