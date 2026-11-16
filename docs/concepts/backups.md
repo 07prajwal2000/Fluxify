@@ -108,9 +108,9 @@ The **History** table lists recent backups created for the project:
 - **Who & When**: The user who started the backup and the timestamp.
 - **Release**: The Fluxify release version that generated the backup.
 
-If a backup fails, the row displays the exact failure reason. Finished manual backup archives are kept on the server for 7 days (`ARCHIVE_RETENTION_DAYS`), after which the download link expires while the record in history remains.
+If a backup fails, the row displays the exact failure reason. Finished manual backup archives are kept on the server for 7 days, after which the download link expires while the record in history remains.
 
-Access to the Backup tab and backup history is available to project creators, editors, and administrators.
+The Backup tab and its history are available to project creators, project admins and system admins. Viewers don't see it.
 
 ## Encryption
 

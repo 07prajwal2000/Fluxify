@@ -101,7 +101,7 @@ You can start an in-place rollback from two places in **Project Settings → Bac
 - Click **Upload a backup to roll back** to upload an archive file.
 - Click **Roll back** on any row in the **Remote backups** list.
 
-Rolling back in place requires **Creator** or **Admin** role on the project (unlike creating a new project, it does not require system administrator privileges).
+Rolling back in place requires **Creator** or **Project admin** role on the project (system admins can too; unlike creating a new project, it does not require system administrator privileges).
 
 ### Keep extras vs. Exact replica
 

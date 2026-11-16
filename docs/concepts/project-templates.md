@@ -43,7 +43,7 @@ The README text is stored unencrypted inside the template archive. Never put pas
 A good template README should tell the recipient:
 
 1. **What the project does**: An overview of the API routes, workflows, and business logic included.
-2. **Required integrations**: Which databases, message brokers, or third-party APIs need to be configured (for example, "Connect a PostgreSQL database and an S3 bucket").
+2. **Required integrations**: Which databases, message brokers, or third-party APIs need to be configured (for example, "Connect a database and an S3 bucket").
 3. **Required App Config keys**: Which configuration keys must be supplied with secret values before running.
 4. **Required plugins**: Any plugins included that need approval before production compilation.
 5. **How to test**: Example payloads or instructions for running the included test suites.
