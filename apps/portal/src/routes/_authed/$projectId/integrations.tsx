@@ -383,7 +383,11 @@ export function IntegrationsList({ projectId, group }: { projectId: string; grou
 							</Table.Cell>
 							<Table.Cell>
 								<div className="flex justify-end">
-									<IntegrationTestButtons projectId={projectId} integrationId={integration.id} />
+									<IntegrationTestButtons
+										projectId={projectId}
+										integrationId={integration.id}
+										syncDev={integration.syncDev}
+									/>
 								</div>
 							</Table.Cell>
 						</Table.Row>

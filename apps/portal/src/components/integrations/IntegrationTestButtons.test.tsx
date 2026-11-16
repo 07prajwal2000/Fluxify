@@ -32,7 +32,7 @@ afterEach(() => {
 
 afterAll(() => GlobalRegistrator.unregister());
 
-function renderWithRole(role: "viewer" | "creator" | "project_admin") {
+function renderWithRole(role: "viewer" | "creator" | "project_admin", syncDev = false) {
 	authStore.setState((s) => {
 		s.state.acl = { "proj-1": role };
 		s.state.userData = { id: "u", name: "User", email: "u@fluxify.io", isSystemAdmin: false };
@@ -42,7 +42,7 @@ function renderWithRole(role: "viewer" | "creator" | "project_admin") {
 	});
 	return render(
 		<QueryClientProvider client={queryClient}>
-			<IntegrationTestButtons projectId="proj-1" integrationId="integ-123" />
+			<IntegrationTestButtons projectId="proj-1" integrationId="integ-123" syncDev={syncDev} />
 		</QueryClientProvider>,
 	);
 }
@@ -128,4 +128,11 @@ test("a finished test shows no Cancel", async () => {
 		await new Promise((r) => setTimeout(r, 10));
 	});
 	expect(view.queryByText("Cancel")).toBeNull();
+});
+
+test("Same as prod shows one Test connection button, even for creators", () => {
+	const view = renderWithRole("creator", true);
+
+	expect(view.getByText("Test connection")).toBeTruthy();
+	expect(view.queryByText("Test production credentials")).toBeNull();
 });
