@@ -163,7 +163,8 @@ SEED_USER_NAME=Admin User
 
 > [!WARNING]
 > Back up `MASTER_ENCRYPTION_KEY`. If you lose or change it after storing data,
-> every saved credential becomes unreadable.
+> every saved credential becomes unreadable. Encrypted project backups can only
+> be restored with the same key, so it must be kept safe outside the server.
 
 > [!NOTE]
 > When you supply your own services you must also supply your own

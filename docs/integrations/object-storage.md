@@ -9,6 +9,11 @@ An object storage integration connects Fluxify to one bucket. Project backups
 can be saved to it, so a copy of your project lives somewhere other than the
 Fluxify server.
 
+## Used for
+
+- [Scheduled Backups](/concepts/backup-schedules): Automatically upload recurring project backups to your bucket on a daily, weekly, or monthly schedule.
+- [Restore and Roll Back](/concepts/restore): Restore or roll back a project directly from backups stored in your bucket.
+
 The **S3 Compatible** provider works with any service that speaks the Amazon S3
 API:
 
@@ -40,6 +45,46 @@ value and pick it with a `cfg:` key, so it never sits in the integration itself.
 
 The keys need permission to **list**, **read**, **write** and **delete** objects
 in the bucket. Give them access to that bucket only.
+
+## Setup examples
+
+### Amazon S3
+
+- **Endpoint**: *(leave empty)*
+- **Region**: `us-east-1` (or your bucket's region, e.g. `eu-west-1`)
+- **Bucket**: `my-fluxify-backups`
+- **Access key ID**: `AKIAIOSFODNN7EXAMPLE`
+- **Secret access key**: `wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY`
+- **Use path-style URLs**: `off`
+
+### Cloudflare R2
+
+- **Endpoint**: `https://0123456789abcdef0123456789abcdef.r2.cloudflarestorage.com`
+- **Region**: `auto`
+- **Bucket**: `my-fluxify-backups`
+- **Access key ID**: `1a2b3c4d5e6f7a8b9c0dEXAMPLE`
+- **Secret access key**: `9876543210fedcba9876543210fedcbaEXAMPLE`
+- **Use path-style URLs**: `off`
+
+### MinIO and self-hosted S3
+
+- **Endpoint**: `http://minio.internal:9000` (or `https://s3.example.com`)
+- **Region**: `us-east-1`
+- **Bucket**: `fluxify-backups`
+- **Access key ID**: `minioadmin`
+- **Secret access key**: `minioadmin`
+- **Use path-style URLs**: **on**
+
+### Google Cloud Storage
+
+Create an **HMAC key** in the Google Cloud console under Cloud Storage → Settings → Interoperability.
+
+- **Endpoint**: `https://storage.googleapis.com`
+- **Region**: `auto`
+- **Bucket**: `my-fluxify-backups`
+- **Access key ID**: `GOOG1EEXAMPLEACCESSKEY`
+- **Secret access key**: `GOOG1ESECRETKEYEXAMPLE12345`
+- **Use path-style URLs**: `off`
 
 ## Test connection
 

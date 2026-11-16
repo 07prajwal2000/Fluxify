@@ -7,6 +7,10 @@ description: Save a route or a workflow, with its blocks and optionally its test
 
 Export saves a route or a workflow to a file. Import creates a new one from that file, in the same project or another one. Use it to move work between projects, keep a copy, or share it with a teammate.
 
+::: tip Backing up a whole project
+Export and import moves a single route or workflow. To save, move, or roll back an entire project — including its integrations, blocks, triggers, settings, and dependencies — use [Project Backups](/concepts/backups).
+:::
+
 | | Route | Workflow |
 | :--- | :--- | :--- |
 | File extension | `.fluxroute` | `.fluxworkflow` |

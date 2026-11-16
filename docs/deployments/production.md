@@ -604,6 +604,8 @@ ORCHESTRATOR_WORKER_IMAGE=ghcr.io/fluxify-rest/fluxify-worker:%%RELEASE_TAG%%
 > Back up `MASTER_ENCRYPTION_KEY`. Losing or changing it after storing data makes
 > every saved credential unreadable. Admin and workers **must** use the same
 > value — your project's configuration travels to workers encrypted with it.
+> Encrypted project backups can only be restored with the same key, so it must be
+> kept safe outside the server.
 
 > [!NOTE]
 > The compose file already sets `ENABLE_ADMIN=true` on the admin service and
