@@ -1,20 +1,21 @@
-import { Button } from "@fluxify/components";
-import { useState } from "react";
-import { MarkdownViewer } from "@/components/ai/MarkdownViewer";
 import { Section } from "@/components/common/Section";
 import { labelOf, MODE_COPY } from "@/components/settings/backup/labels";
 import type { ArchiveSummary } from "@/services/projects";
+import { NewProjectForm, type ProjectForm } from "./NewProjectForm";
 import { iconOf } from "./SectionBrowser";
 
-/** past this the README starts folded */
-const LONG_README = 1500;
-
-/** The first page: where the file comes from, what it holds, what to know, and its README. */
+/** The first page: the new project's details, where the file comes from, what it holds and what to know. */
 export function RestoreOverview({
 	summary,
+	form,
+	onForm,
+	isRestoring,
 	onOpenSection,
 }: {
 	summary: ArchiveSummary;
+	form: ProjectForm;
+	onForm: (form: ProjectForm) => void;
+	isRestoring: boolean;
 	onOpenSection: (section: string) => void;
 }) {
 	const facts = [
@@ -26,6 +27,8 @@ export function RestoreOverview({
 	return (
 		<div className="h-full overflow-y-auto p-6">
 			<div className="flex max-w-4xl flex-col gap-6">
+				<NewProjectForm form={form} onForm={onForm} isDisabled={isRestoring} />
+
 				<Section title="About this file" description={MODE_COPY[summary.mode].body}>
 					<dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
 						{facts.map(([label, value]) => (
@@ -79,28 +82,7 @@ export function RestoreOverview({
 						</ul>
 					</Section>
 				)}
-
-				{summary.readme && <Readme text={summary.readme} />}
 			</div>
 		</div>
-	);
-}
-
-/** the author's note: untrusted, so Markdown only (no raw HTML), links open in a new tab */
-function Readme({ text }: { text: string }) {
-	const long = text.length > LONG_README;
-	const [open, setOpen] = useState(!long);
-	return (
-		<section aria-label="README" className="rounded-lg border border-border px-4 pt-4">
-			<p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">README</p>
-			<div className={open ? undefined : "max-h-64 overflow-hidden"}>
-				<MarkdownViewer content={text} />
-			</div>
-			{long && (
-				<Button size="sm" variant="ghost" className="mb-2" onPress={() => setOpen(!open)}>
-					{open ? "Show less" : "Show the whole README"}
-				</Button>
-			)}
-		</section>
 	);
 }

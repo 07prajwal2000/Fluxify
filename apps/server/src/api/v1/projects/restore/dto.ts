@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { requestBodySchema } from "../create/dto";
+import { projectSettingsKeySchemaMap } from "../settings/keys/keySchemaMap";
 
 /** something the user should know about restoring a section here; never stops a restore */
 const warningSchema = z.object({ section: z.string(), message: z.string() });
@@ -53,5 +54,13 @@ export const inspectResponseSchema = z.object({
 
 export const restoreResponseSchema = z.object({ id: z.string(), warnings: z.array(warningSchema) });
 
-/** the new project's name and slug, as "create project" takes them */
-export const namesSchema = requestBodySchema.pick({ name: true, slug: true });
+/**
+ * What the new project is given, as "create project" takes it. A multipart form
+ * is flat, so the subdomain is its own field; the route files it as the
+ * project's setting, which then stands over the archive's own value.
+ */
+export const newProjectSchema = requestBodySchema
+	.pick({ name: true, slug: true, description: true })
+	.extend({
+		subdomain: projectSettingsKeySchemaMap["settings.routing.subdomain"].schema.optional(),
+	});

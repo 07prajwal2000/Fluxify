@@ -148,6 +148,44 @@ describe("restore", () => {
 		expect(await stack.routeArtifact(id, routes[0].id, "production")).toBeNull();
 	});
 
+	it("gives the new project the description and subdomain from the form", async () => {
+		const { project } = await source();
+		const queued = spyOn(publisher, "requestProjectCompile").mockResolvedValue(true);
+		const subdomain = `sd${short()}`.toLowerCase();
+		const res = await upload("/restore", await archive(project, "backup"), {
+			name: `F ${short()}`,
+			slug: `f-${short()}`,
+			description: "  A copy for the EU  ",
+			subdomain,
+		});
+		queued.mockRestore();
+		expect(res.status).toBe(200);
+		const { id, warnings } = await res.json();
+		const [row] = await stack.sql`SELECT description FROM projects WHERE id = ${id}`;
+		expect(row.description).toBe("A copy for the EU");
+		const [setting] =
+			await stack.sql`SELECT value FROM project_settings WHERE project_id = ${id} AND key = 'settings.routing.subdomain'`;
+		expect(setting.value).toBe(subdomain);
+		expect(JSON.stringify(warnings)).not.toContain("subdomain");
+	});
+
+	it("leaves the subdomain and description empty when the form leaves them blank", async () => {
+		const { project } = await source();
+		const queued = spyOn(publisher, "requestProjectCompile").mockResolvedValue(true);
+		const res = await upload("/restore", await archive(project, "template"), {
+			name: `E ${short()}`,
+			slug: `e-${short()}`,
+			description: "",
+			subdomain: "",
+		});
+		queued.mockRestore();
+		expect(res.status).toBe(200);
+		const { id } = await res.json();
+		const settings =
+			await stack.sql`SELECT value FROM project_settings WHERE project_id = ${id} AND key = 'settings.routing.subdomain' AND value <> ''`;
+		expect(settings).toEqual([]);
+	});
+
 	it("keeps a backup's production switches", async () => {
 		const { project } = await source();
 		const bytes = await archive(project, "backup");
@@ -206,6 +244,18 @@ describe("refusals create nothing", () => {
 		expect(res.status).toBe(409);
 		expect(JSON.stringify(await res.json())).toContain(`'${project}' slug`);
 		expect((await stack.sql`SELECT count(*)::int AS n FROM projects`)[0].n).toBe(before);
+	});
+
+	it("a subdomain the API would refuse", async () => {
+		const { project } = await source();
+		const slug = `v-${short()}`;
+		const res = await upload("/restore", await archive(project, "template"), {
+			name: `V ${short()}`,
+			slug,
+			subdomain: "-Not Valid-",
+		});
+		expect(res.status).toBe(400);
+		expect(await projectsWith(slug)).toEqual([]);
 	});
 
 	it("an archive that fails during the import rolls the whole project back", async () => {

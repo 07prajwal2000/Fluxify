@@ -7,13 +7,14 @@ import { SplitButton } from "@/components/common/SplitButton";
 import { parseApiError } from "@/lib/errorNotifier";
 import { projectsQuery } from "@/query/projectsQuery";
 import { type ArchiveSummary, projectsService, type RestoreResult } from "@/services/projects";
-import { type Names, RestoreDialog } from "./RestoreDialog";
+import { EMPTY_FORM, type ProjectForm } from "./NewProjectForm";
+import { RestoreDialog } from "./RestoreDialog";
 
 type Pending = {
 	file: File;
 	summary: ArchiveSummary | null;
 	refusal?: string;
-	names: Names;
+	form: ProjectForm;
 	error?: string;
 };
 
@@ -29,10 +30,12 @@ export function NewProjectButton() {
 	const open = (id: string) => navigate({ to: "/$projectId", params: { projectId: id } });
 
 	const inspect = async (file: File) => {
-		setPending({ file, summary: null, names: { name: "", slug: "" } });
+		setPending({ file, summary: null, form: EMPTY_FORM });
 		try {
 			const summary = await projectsService.inspectArchive(file);
-			setPending((p) => (p && p.file === file ? { ...p, summary, names: summary.suggested } : p));
+			setPending((p) =>
+				p && p.file === file ? { ...p, summary, form: { ...EMPTY_FORM, ...summary.suggested } } : p,
+			);
 		} catch (error) {
 			const refusal = parseApiError(error).message;
 			setPending((p) => (p && p.file === file ? { ...p, refusal } : p));
@@ -43,7 +46,7 @@ export function NewProjectButton() {
 		if (!pending) return;
 		setRestoring(true);
 		try {
-			const done = await projectsService.restore(pending.file, pending.names);
+			const done = await projectsService.restore(pending.file, pending.form);
 			setPending(null);
 			projectsQuery.invalidateAll(client);
 			if (done.warnings.length > 0) setResult(done);
@@ -92,8 +95,8 @@ export function NewProjectButton() {
 					fileName={pending.file.name}
 					summary={pending.summary}
 					refusal={pending.refusal}
-					names={pending.names}
-					onNames={(names) => setPending((p) => p && { ...p, names, error: undefined })}
+					form={pending.form}
+					onForm={(form) => setPending((p) => p && { ...p, form, error: undefined })}
 					error={pending.error}
 					isRestoring={restoring}
 					onCreate={create}
