@@ -136,6 +136,8 @@ export const AUDITED: Record<string, string> = {
 	"upload-plugin": "modules/plugins/sources/archive.ts",
 	"add-npm-plugin": "modules/plugins/sources/archive.ts",
 	"add-fs-plugin": "modules/plugins/sources/archive.ts",
+	// each dependency is registered through the same call, which records it (#899)
+	"install-plugin-dependencies": "modules/plugins/sources/archive.ts",
 	"request-plugin-url": "modules/plugins/sources/url.ts",
 	"fetch-plugin-url": "modules/plugins/sources/url.ts",
 	// instance settings
@@ -155,6 +157,7 @@ export const SKIPPED: Record<string, string> = {
 	"call-sandbox": RUNS,
 	"run-ephemeral-blocks": `${RUNS} (a scratch sandbox that is rolled back)`,
 	"check-route-import": "asks whether a route would clash and changes nothing",
+	"resolve-npm-plugin": "lists what adding a plugin would install and changes nothing",
 	"check-resource-import": "asks whether an import would clash and changes nothing",
 	"validate-test-suite": "checks a suite against its last run and changes nothing",
 	"preview-llms-txt": "fetches a page to list its links and changes nothing",

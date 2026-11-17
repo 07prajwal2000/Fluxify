@@ -7,6 +7,7 @@ import { pluginsQuery } from "@/query/pluginsQuery";
 import type { Plugin } from "@/services/plugins";
 import { ApprovalDialog } from "./ApprovalDialog";
 import { ApprovalBadge, isUpgrade, StatusBadge, versionLabel } from "./PluginBadges";
+import { PluginDependencies } from "./PluginDependencies";
 import { PluginInstallStatus } from "./PluginInstallStatus";
 import {
 	manifestOf,
@@ -34,6 +35,7 @@ const TABS = [
 	{ id: "permissions", label: "Permissions" },
 	{ id: "package", label: "Package" },
 	{ id: "installation", label: "Installation" },
+	{ id: "dependencies", label: "Dependencies" },
 	{ id: "used-by", label: "Used by" },
 ];
 
@@ -116,6 +118,16 @@ export function PluginPage({
 				)}
 			</div>
 
+			{Object.entries(plugin.blocked ?? {}).map(([env, why]) => (
+				<p
+					key={env}
+					role="alert"
+					className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm text-warning"
+				>
+					Not running in {env}: {why}
+				</p>
+			))}
+
 			{plugin.status === "error" && plugin.lastError && (
 				<p
 					role="alert"
@@ -161,6 +173,9 @@ export function PluginPage({
 				</Tabs.Panel>
 				<Tabs.Panel id="installation" className="pt-4">
 					<PluginInstallStatus projectId={projectId} name={plugin.name} />
+				</Tabs.Panel>
+				<Tabs.Panel id="dependencies" className="pt-4">
+					<PluginDependencies projectId={projectId} plugin={plugin} editable={editable} />
 				</Tabs.Panel>
 				<Tabs.Panel id="used-by" className="pt-4">
 					<PluginUsage projectId={projectId} name={plugin.name} />

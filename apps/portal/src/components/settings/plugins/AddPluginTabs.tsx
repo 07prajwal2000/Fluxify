@@ -4,6 +4,7 @@ import { parseApiError } from "@/lib/errorNotifier";
 import { pluginsQuery } from "@/query/pluginsQuery";
 import type { Plugin } from "@/services/plugins";
 import { Badge } from "./PluginBadges";
+import { InstallPlanList } from "./PluginDependencies";
 
 type TabProps = { projectId: string; onAdded: (plugin: Plugin) => void };
 
@@ -54,9 +55,46 @@ export function UploadTab({ projectId, onAdded }: TabProps) {
 	);
 }
 
+/**
+ * Resolves first: a plugin that brings other plugins along lists them (name
+ * and exact version) and installs only once confirmed (#899).
+ */
 export function NpmTab({ projectId, onAdded }: TabProps) {
+	const resolve = pluginsQuery.resolveNpm.useMutation(projectId);
 	const add = pluginsQuery.addNpm.useMutation(projectId);
 	const [spec, setSpec] = useState("");
+	const install = () => add.mutate(spec.trim(), { onSuccess: onAdded });
+	const plan = resolve.data;
+	if (plan?.dependencies.length) {
+		const count = plan.dependencies.length;
+		return (
+			<div className="flex flex-col gap-3">
+				<p className="text-sm text-foreground">
+					<span className="font-mono">
+						{plan.name}@{plan.version}
+					</span>{" "}
+					needs {count === 1 ? "another plugin" : `${count} other plugins`}. They are installed
+					first, and each waits for approval like the plugin itself:
+				</p>
+				<InstallPlanList steps={plan.dependencies} />
+				<ServerError error={add.error} />
+				<div className="flex justify-end gap-2">
+					<Button
+						variant="ghost"
+						onPress={() => {
+							resolve.reset();
+							add.reset();
+						}}
+					>
+						Back
+					</Button>
+					<Button variant="primary" isPending={add.isPending} onPress={install}>
+						Install
+					</Button>
+				</div>
+			</div>
+		);
+	}
 	return (
 		<div className="flex flex-col gap-3">
 			<TextField value={spec} onChange={setSpec}>
@@ -64,13 +102,19 @@ export function NpmTab({ projectId, onAdded }: TabProps) {
 				<Input placeholder="@acme/fluxify-slack@1.2.0" />
 			</TextField>
 			<p className={hint}>A version range or a tag such as latest is not accepted.</p>
-			<ServerError error={add.error} />
+			<ServerError error={resolve.error ?? add.error} />
 			<Button
 				variant="primary"
 				className="self-end"
 				isDisabled={!spec.trim()}
-				isPending={add.isPending}
-				onPress={() => add.mutate(spec.trim(), { onSuccess: onAdded })}
+				isPending={resolve.isPending || add.isPending}
+				onPress={() =>
+					resolve.mutate(spec.trim(), {
+						onSuccess: (p) => {
+							if (!p.dependencies.length) install();
+						},
+					})
+				}
 			>
 				Add
 			</Button>

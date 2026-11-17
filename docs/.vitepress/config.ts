@@ -361,6 +361,7 @@ export default withMermaid(
 							{ text: "Handles", link: "/plugins/authoring/handles" },
 							{ text: "Context", link: "/plugins/authoring/context" },
 							{ text: "Integrations", link: "/plugins/authoring/integrations" },
+							{ text: "Dependencies", link: "/plugins/authoring/dependencies" },
 							{ text: "Triggers", link: "/plugins/authoring/triggers" },
 							{ text: "Testing", link: "/plugins/authoring/testing" },
 							{ text: "Publishing", link: "/plugins/authoring/publishing" },

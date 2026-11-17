@@ -1,5 +1,4 @@
 import { validator } from "hono-openapi";
-import type z from "zod";
 import zodErrorCallbackParser from "../../../middlewares/zodErrorCallbackParser";
 import { pluginInstallStatus } from "../../../modules/plugins/installStatus";
 import { removePlugin } from "../../../modules/plugins/remove";
@@ -7,33 +6,20 @@ import { scanPlugin, scanProject } from "../../../modules/plugins/scanner";
 import * as service from "../../../modules/plugins/service";
 import { upgradePreview } from "../../../modules/plugins/upgrade";
 import { pluginUsedBy } from "../../../modules/plugins/usage";
-import type { HonoContext, HonoServer } from "../../../types";
-import { caller, creator, doc, project, viewer } from "./common";
+import type { HonoServer } from "../../../types";
+import { caller, creator, doc, paths, plugin, project, target, viewer } from "./common";
+import { registerDependencyRoutes } from "./dependencies";
 import {
 	approveBodySchema,
 	environmentsBodySchema,
 	installStatusSchema,
 	listResponseSchema,
-	nameParamSchema,
 	pluginSchema,
 	removeResponseSchema,
 	upgradePreviewSchema,
 	usageSchema,
 } from "./dto";
 import { registerSourceRoutes } from "./sources";
-
-const plugin = validator("param", nameParamSchema, zodErrorCallbackParser);
-
-/** `scope/name` from the path, and the project from the query */
-const target = (ctx: HonoContext) => {
-	const params = ctx.req.param() as { scope?: string; name?: string; plugin?: string };
-	const fullName = params.plugin
-		? decodeURIComponent(params.plugin)
-		: `${params.scope}/${params.name}`;
-	return [ctx.req.query("projectId")!, fullName] as const;
-};
-
-const paths = (suffix = "") => [`/:scope/:name${suffix}`, `/:plugin${suffix}`] as const;
 
 /**
  * A project's plugins (#857): read, approve, reject, and where they run.
@@ -45,6 +31,7 @@ export default {
 		const router = app.basePath("/plugins");
 		// before `/:scope/:name`, which would read `fs/discover` as a plugin
 		registerSourceRoutes(router);
+		registerDependencyRoutes(router);
 
 		router.get(
 			"/list",

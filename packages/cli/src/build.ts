@@ -5,6 +5,7 @@ import {
 	blockEntryPath,
 	type FluxifyManifest,
 	fluxifyManifestSchema,
+	grantIssues,
 	ICON_URL_MAX,
 	type IntegrationEntry,
 	integrationEntryPath,
@@ -21,6 +22,7 @@ import {
 	triggerEntrySchema,
 } from "@fluxify/sdk/triggers";
 import { z } from "zod";
+import { readDependencies, runtimeImports } from "./dependencies";
 import { inferOutputs } from "./inferOutput";
 import { lintDocs } from "./lint/docs";
 import { findGetConfig } from "./lint/getConfig";
@@ -169,7 +171,9 @@ export async function build(root: string): Promise<BuildResult> {
 				unlisted.length ? `. Not listed: ${unlisted.map((u) => u.rel).join(", ")}` : ""
 			}`,
 		);
+	const deps = await readDependencies(plugin);
 	await bundle(plugin, sources);
+	await runtimeImports(plugin, deps);
 	const found = await load(plugin, sources);
 	const blocks = found.filter((f) => f.kind === BLOCKS);
 	const integrated = found.filter((f) => f.kind === INTEGRATIONS);
@@ -213,8 +217,11 @@ export async function build(root: string): Promise<BuildResult> {
 		),
 		...(integrations.length && { integrations }),
 		...(triggers.length && { triggers }),
+		...(deps.list.length && { dependencies: deps.list }),
 	});
 	if (!manifest.success) fail(`fluxify.json is invalid: ${prettify(manifest.error)}`);
+	const grants = grantIssues(manifest.data!, deps.manifests);
+	if (grants.length) fail(...grants.map((g) => `${g.path.join(".")}: ${g.message}`));
 	await Bun.write(
 		join(root, "fluxify.json"),
 		`${JSON.stringify(manifest.data, null, 2)}

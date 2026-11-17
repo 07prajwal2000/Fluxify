@@ -42,7 +42,9 @@ export {
 	OUTPUT_PACKAGES_MAX,
 	OUTPUT_TYPE_MAX,
 	PLUGIN_NAME,
+	type PluginDependency,
 	paramSchema,
+	pluginDependencySchema,
 	SDK_RANGE,
 	visibleWhenSchema,
 } from "./src/manifest.js";
@@ -72,3 +74,4 @@ export {
 	type VisibleWhen,
 } from "./src/params.js";
 export { RESERVED_PARAM_NAMES } from "./src/validate.js";
+export { type Grants, grantIssues } from "./src/validateIntegration.js";
