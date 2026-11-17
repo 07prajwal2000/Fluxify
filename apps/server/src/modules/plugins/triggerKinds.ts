@@ -2,7 +2,8 @@ import type { FluxifyManifest } from "@fluxify/sdk/blocks";
 import { LAG_PER_WORKER, lagPerWorkerParam } from "@fluxify/sdk/triggers";
 import type { DbTransactionType } from "../../db";
 import { pluginTriggerType } from "../triggers/types";
-import { isUsableIn, liveOf } from "./meta";
+import { withDependencyGate } from "./dependencies";
+import { isUsableIn } from "./meta";
 import { listPluginRows } from "./repository";
 import { dataIcon } from "./sources/icons";
 
@@ -12,9 +13,9 @@ import { dataIcon } from "./sources/icons";
  * (`acme/pg/poller`); its rows have type `plugin:<kind>`.
  */
 
-/** the approved plugin of the project that provides trigger `kind`, as the version that loads */
+/** the approved plugin of the project that provides trigger `kind`, as the version that loads, its dependencies gating it */
 export async function findTriggerKind(projectId: string, kind: string, tx?: DbTransactionType) {
-	for (const row of (await listPluginRows(projectId, tx)).map(liveOf)) {
+	for (const row of withDependencyGate(await listPluginRows(projectId, tx))) {
 		if (row.approval !== "approved" || !kind.startsWith(`${row.name}/`)) continue;
 		const entry = row.manifest.triggers?.find((t) => t.name === kind);
 		if (entry) return { row, entry };
@@ -40,7 +41,7 @@ export const triggerKindsOf = (manifest: FluxifyManifest) =>
  */
 export async function usableTriggerKinds(projectId: string, kind?: string) {
 	const kinds = [];
-	for (const row of (await listPluginRows(projectId)).map(liveOf)) {
+	for (const row of withDependencyGate(await listPluginRows(projectId))) {
 		const environments = {
 			development: isUsableIn(row, "development"),
 			production: isUsableIn(row, "production"),

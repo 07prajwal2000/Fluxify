@@ -1,4 +1,4 @@
-import { type FluxifyManifest, fluxifyManifestSchema } from "@fluxify/sdk/blocks";
+import { type FluxifyManifest, fluxifyManifestSchema, grantIssues } from "@fluxify/sdk/blocks";
 import type { User } from "better-auth";
 import { z } from "zod";
 import { hasProjectAccess } from "../../api/auth/common";
@@ -15,6 +15,13 @@ import { audit } from "../audit";
 import type { PluginArtifact } from "../compiler/artifacts";
 import { requestProjectCompile } from "../compiler/publisher";
 import { pluginKey } from "../compiler/subjects";
+import {
+	allDependentsOf,
+	approvalBlockers,
+	cycleWith,
+	dependencyView,
+	withDependencyGate,
+} from "./dependencies";
 import { blockMetaOf, integrationKindsOf, isUsableIn, liveOf, requestedPermissions } from "./meta";
 import {
 	getPluginRow,
@@ -89,6 +96,8 @@ export async function registerPluginVersion(projectId: string, version: PluginVe
 		sdkRange: manifest.sdk,
 		manifest,
 	};
+	const cycle = cycleWith(await listPluginRows(projectId), manifest);
+	if (cycle) throw new BadRequestError(`Plugin dependencies form a cycle: ${cycle}`);
 	const existing = await getPluginRow(projectId, manifest.name);
 	if (!existing) {
 		const row = await insertPluginRow({ projectId, name: manifest.name, ...fields });
@@ -149,6 +158,7 @@ export async function approvePlugin(
 	if (integrity && integrity !== row.integrity)
 		throw new ConflictError(`Plugin ${name} changed since it was reviewed; review it again`);
 	await assertUpgradeSafe(row);
+	await assertDependenciesMet(row);
 	await assertIntegrationKindsFree(row);
 	const approved = await updateAudited(row, {
 		approval: "approved",
@@ -235,6 +245,26 @@ async function assertIntegrationKindsFree(row: PluginRecord) {
 	}
 }
 
+/**
+ * Every dependency installed in range and approved (#899), and each kind the
+ * plugin's blocks use found in it: a manifest built against another version of
+ * a dependency is refused here, not when a block first runs.
+ */
+async function assertDependenciesMet(row: PluginRecord) {
+	const rows = await listPluginRows(row.projectId);
+	const blockers = approvalBlockers(row, rows);
+	if (blockers.length)
+		throw new ConflictError(`Plugin ${row.name} cannot be approved yet: ${blockers.join("; ")}`);
+	const deps = (row.manifest.dependencies ?? []).map(
+		(d) => liveOf(rows.find((r) => r.name === d.plugin)!).manifest,
+	);
+	const issues = grantIssues(row.manifest, deps);
+	if (issues.length)
+		throw new BadRequestError(
+			`Plugin ${row.name} uses what its dependencies do not provide: ${issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}`,
+		);
+}
+
 /** the row as an API returns it: a manifest icon is a data URL or absent, never a path */
 const withSafeIcons = <R extends PluginRecord>(row: R): R => ({
 	...row,
@@ -244,13 +274,23 @@ const withSafeIcons = <R extends PluginRecord>(row: R): R => ({
 
 export const listPlugins = async (projectId: string) =>
 	(await listPluginRows(projectId)).map(withSafeIcons);
-/** with its integration variants (I6) and trigger kinds (T2) summarised for the approval page */
+/**
+ * With its integration variants (I6), trigger kinds (T2) and dependencies
+ * (#899) summarised for the approval page, and `blocked`: where a dependency
+ * stops it loading.
+ */
 export const getPlugin = async (projectId: string, name: string) => {
-	const row = withSafeIcons(await rowFor(projectId, name));
+	const rows = await listPluginRows(projectId);
+	const stored = rows.find((r) => r.name === name);
+	if (!stored) throw new NotFoundError(`Plugin ${name} is not installed in this project`);
+	const row = withSafeIcons(stored);
+	const { blocked } = withDependencyGate(rows).find((r) => r.name === name)!;
 	return {
 		...row,
 		integrations: integrationKindsOf(row.manifest),
 		triggers: triggerKindsOf(row.manifest),
+		dependencies: dependencyView(row, rows),
+		...(blocked && { blocked }),
 	};
 };
 
@@ -258,8 +298,7 @@ export const getPlugin = async (projectId: string, name: string) => {
  * What workers read: the plugin in each environment it may load in, nowhere
  * else. Approved means approved for this integrity, so the artifact carries it.
  */
-export async function publishPlugin(stored: PluginRecord) {
-	const row = liveOf(stored);
+async function publishPlugin(row: PluginRecord) {
 	const key = pluginKey(row.projectId, row.name);
 	await Promise.all(
 		ENVIRONMENTS.map((env) =>
@@ -268,8 +307,9 @@ export async function publishPlugin(stored: PluginRecord) {
 	);
 }
 
+/** each plugin as it loads (`liveOf`), withdrawn where a dependency stops it (#899) */
 export async function publishProjectPlugins(projectId: string) {
-	for (const row of await listPluginRows(projectId)) await publishPlugin(row);
+	for (const row of withDependencyGate(await listPluginRows(projectId))) await publishPlugin(row);
 }
 
 export function pluginArtifact(row: PluginRecord): PluginArtifact {
@@ -302,11 +342,14 @@ export function pluginArtifact(row: PluginRecord): PluginArtifact {
  * projects get large.
  */
 async function republish(row: PluginRecord, reason: string) {
-	await publishPlugin(row);
+	// the whole project: the plugins depending on this one load or stop with it (#899)
+	await publishProjectPlugins(row.projectId);
 	// this replica at once; the others through the artifact watch
 	await syncPluginVariants(row.projectId, row.name);
-	// its triggers follow it: published where it loads, withdrawn where it is off, rows kept
-	for (const trigger of await pluginTriggerRows(row.projectId, row.name))
-		await republishTrigger(trigger);
+	// its triggers follow it, and its dependents': published where it loads, withdrawn where it is off, rows kept
+	const followers = allDependentsOf(await listPluginRows(row.projectId), row.name);
+	for (const name of [row.name, ...followers])
+		for (const trigger of await pluginTriggerRows(row.projectId, name))
+			await republishTrigger(trigger);
 	await requestProjectCompile(row.projectId, reason);
 }

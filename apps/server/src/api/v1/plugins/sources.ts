@@ -4,9 +4,9 @@ import z from "zod";
 import { BadRequestError } from "../../../errors/badRequestError";
 import zodErrorCallbackParser from "../../../middlewares/zodErrorCallbackParser";
 import { uploadPlugin } from "../../../modules/plugins/sources/archive";
+import { addNpmPlugin } from "../../../modules/plugins/sources/dependencies";
 import { addFsPlugin, discoverFsPlugins } from "../../../modules/plugins/sources/fs";
 import { MAX_TARBALL_BYTES } from "../../../modules/plugins/sources/limits";
-import { addNpmPlugin } from "../../../modules/plugins/sources/npm";
 import {
 	fetchApprovedUrl,
 	listUrlRequests,
@@ -60,7 +60,7 @@ export function registerSourceRoutes(router: HonoServer) {
 		"/npm",
 		doc(
 			"add-npm-plugin",
-			"Adds a plugin from npm at an exact version. It waits for approval.",
+			"Adds a plugin from npm at an exact version, after the plugins it depends on that the project lacks (see npm/resolve). Each waits for approval.",
 			pluginSchema,
 		),
 		creator,

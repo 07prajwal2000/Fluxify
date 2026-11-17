@@ -8,6 +8,7 @@ import {
 import type { ManifestEntry } from "@fluxify/sdk/blocks";
 import type { DbTransactionType } from "../../db";
 import type { FluxifyEnv } from "../../lib/env";
+import { withDependencyGate } from "./dependencies";
 import { blockMetaOf, liveOf, unusableReason } from "./meta";
 import { listPluginRows } from "./repository";
 
@@ -31,7 +32,8 @@ export type PluginSet = {
 
 /** each environment's set, from one read */
 export async function loadPluginSets(projectId: string): Promise<Record<FluxifyEnv, PluginSet>> {
-	const rows = await listPluginRows(projectId);
+	// a plugin whose dependency does not load in `env` does not either (#899)
+	const gated = withDependencyGate(await listPluginRows(projectId));
 	const setFor = (env: FluxifyEnv) => {
 		const set: PluginSet = {
 			blockMeta: {},
@@ -39,7 +41,7 @@ export async function loadPluginSets(projectId: string): Promise<Record<FluxifyE
 			pluginOfBlock: new Map(),
 			plugins: new Map(),
 		};
-		for (const row of rows.map(liveOf)) {
+		for (const row of gated) {
 			const reason = unusableReason(row, env);
 			const info: PluginCompiledVersion = {
 				name: row.name,

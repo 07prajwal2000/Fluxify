@@ -18,6 +18,8 @@ export type PluginRow = {
 	prodEnabled: boolean;
 	manifest: FluxifyManifest;
 	live?: PluginLiveVersion | null;
+	/** set by `withDependencyGate`: why a dependency stops it loading, per environment (#899) */
+	blocked?: Partial<Record<FluxifyEnv, string>>;
 };
 
 /**
@@ -81,9 +83,11 @@ export const integrationKindsOf = (manifest: FluxifyManifest) =>
 		hooks: { test: e.hasTest, describe: e.hasDescribe, inspect: e.hasInspect },
 	}));
 
-/** approved, and switched on for `env`: the only state in which a plugin loads */
+/** approved, switched on for `env`, and no dependency stopping it: the only state in which a plugin loads */
 export const isUsableIn = (row: PluginRow, env: FluxifyEnv) =>
-	row.approval === "approved" && (env === "development" ? row.devEnabled : row.prodEnabled);
+	row.approval === "approved" &&
+	(env === "development" ? row.devEnabled : row.prodEnabled) &&
+	!row.blocked?.[env];
 
 /** why a plugin's blocks cannot compile in `env`, or undefined when they can */
 export function unusableReason(row: PluginRow, env: FluxifyEnv) {
@@ -91,5 +95,8 @@ export function unusableReason(row: PluginRow, env: FluxifyEnv) {
 	const plugin = `plugin ${row.name}@${row.version}`;
 	if (row.approval === "pending") return `${plugin} is waiting for a creator to approve it`;
 	if (row.approval === "rejected") return `${plugin} was rejected`;
+	const blocked = row.blocked?.[env];
+	if (blocked && (env === "development" ? row.devEnabled : row.prodEnabled))
+		return `${plugin} cannot load: ${blocked}`;
 	return `${plugin} is not enabled in ${env}`;
 }

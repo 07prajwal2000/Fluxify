@@ -88,6 +88,36 @@ export const pluginSchema = z.object({
 			}),
 		)
 		.optional(),
+	/** what it depends on (#899), in what state, and what depends on it. Get-plugin only. */
+	dependencies: z
+		.object({
+			dependsOn: z.array(
+				z.object({
+					plugin: z.string(),
+					/** the npm package it installs from */
+					package: z.string(),
+					range: z.string(),
+					installed: z
+						.object({ version: z.string(), approval: z.enum(PLUGIN_APPROVALS) })
+						.nullable(),
+					/** installed, at a version in range */
+					satisfied: z.boolean(),
+				}),
+			),
+			usedBy: z.array(
+				z.object({
+					plugin: z.string(),
+					version: z.string(),
+					range: z.string(),
+					approval: z.enum(PLUGIN_APPROVALS),
+				}),
+			),
+		})
+		.optional(),
+	/** per environment, why a dependency stops it loading there. Get-plugin only, absent when none does. */
+	blocked: z
+		.object({ development: z.string().optional(), production: z.string().optional() })
+		.optional(),
 	status: z.enum(["ok", "error"]),
 	lastError: z.string().nullable(),
 	scannedAt: z.coerce.string().nullable(),
@@ -100,6 +130,21 @@ export const listResponseSchema = z.array(pluginSchema);
 export const npmBodySchema = z.object({
 	/** `name@x.y.z` or `@scope/name@x.y.z`: an exact version, never a range or a tag */
 	spec: z.string().min(1).max(300),
+});
+/** one dependency an install adds: npm `name@version`; `from` is the version it upgrades */
+const installStepSchema = z.object({
+	name: z.string(),
+	plugin: z.string(),
+	version: z.string(),
+	from: z.string().optional(),
+});
+export const dependencyPlanSchema = z.object({ dependencies: z.array(installStepSchema) });
+export const npmResolveSchema = dependencyPlanSchema.extend({
+	/** the npm package */
+	name: z.string(),
+	/** its Fluxify name */
+	plugin: z.string(),
+	version: z.string(),
 });
 export const urlBodySchema = z.object({ url: z.string().min(1).max(2000) });
 export const urlParamSchema = z.object({ id: z.string() });

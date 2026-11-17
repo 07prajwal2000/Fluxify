@@ -2,7 +2,6 @@ import { BadRequestError } from "../../../errors/badRequestError";
 import { REGISTRY } from "../../packages/registryUrl";
 import { assertPackageName } from "../../packages/resolver";
 import { minReleaseAgeDays } from "../../packages/service";
-import { assertCreator, type Caller } from "../service";
 import { registerSourced } from "./archive";
 import { readCapped } from "./download";
 import { verifyIntegrity } from "./integrity";
@@ -15,16 +14,15 @@ import { validatePlugin } from "./validate";
  * would let the version change under an approval. Whether the package is a
  * Fluxify plugin is read from its `fluxify.json` on jsDelivr before anything is
  * downloaded; the tarball from the registry is then checked against the
- * registry's own integrity hash and validated like any other source.
+ * registry's own integrity hash and validated like any other source. Adding
+ * one, with the plugins it depends on, is `dependencies.ts`.
  */
-const CDN = "https://cdn.jsdelivr.net/npm";
-
-type Packument = {
+export type Packument = {
 	time?: Record<string, string>;
 	versions?: Record<string, { dist?: { tarball?: string; integrity?: string } }>;
 };
 
-const get = (url: string) => fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+export const get = (url: string) => fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
 
 /** `name@1.2.3` or `@scope/name@1.2.3` into its parts; anything else is refused */
 export function parseSpec(spec: string) {
@@ -39,37 +37,42 @@ export function parseSpec(spec: string) {
 	return { name, version };
 }
 
-async function registryEntry(name: string, version: string, projectId: string) {
+/** the package's registry document; a 404 is a BadRequest naming it */
+export async function packument(name: string) {
 	const res = await get(`${REGISTRY}/${name.replace("/", "%2f")}`);
 	if (res.status === 404) throw new BadRequestError(`${name} is not on the npm registry`);
 	if (!res.ok) throw new BadRequestError(`The registry answered ${res.status} for ${name}`);
-	const packument = (await res.json()) as Packument;
-	const dist = packument.versions?.[version]?.dist;
+	return (await res.json()) as Packument;
+}
+
+/** why `version` may not be installed under the project's release age rule, or undefined */
+export function releaseAgeProblem(
+	doc: Packument,
+	name: string,
+	version: string,
+	projectId: string,
+) {
+	const days = minReleaseAgeDays(projectId);
+	const published = Date.parse(doc.time?.[version] ?? "");
+	if (days > 0 && !(published <= Date.now() - days * 86_400_000))
+		return Number.isNaN(published)
+			? `The registry does not say when ${name}@${version} was published, so this project's ${days}-day release age rule cannot be checked`
+			: `${name}@${version} was published less than ${days} days ago. This project waits ${days} days before installing a release (Packages settings).`;
+	return undefined;
+}
+
+async function registryEntry(name: string, version: string, projectId: string) {
+	const doc = await packument(name);
+	const dist = doc.versions?.[version]?.dist;
 	if (!dist?.tarball || !dist.integrity)
 		throw new BadRequestError(`${name}@${version} does not exist on the registry`);
-
-	const days = minReleaseAgeDays(projectId);
-	const published = Date.parse(packument.time?.[version] ?? "");
-	if (days > 0 && !(published <= Date.now() - days * 86_400_000))
-		throw new BadRequestError(
-			Number.isNaN(published)
-				? `The registry does not say when ${name}@${version} was published, so this project's ${days}-day release age rule cannot be checked`
-				: `${name}@${version} was published less than ${days} days ago. This project waits ${days} days before installing a release (Packages settings).`,
-		);
+	const tooYoung = releaseAgeProblem(doc, name, version, projectId);
+	if (tooYoung) throw new BadRequestError(tooYoung);
 	return { tarball: dist.tarball, integrity: dist.integrity };
 }
 
-export async function addNpmPlugin(projectId: string, spec: string, caller: Caller) {
-	assertCreator(caller, projectId);
-	const { name, version } = parseSpec(spec);
-
-	const manifestFile = await get(`${CDN}/${name}@${version}/fluxify.json`);
-	if (manifestFile.status === 404)
-		throw new BadRequestError(`${name}@${version} is not a Fluxify plugin: it has no fluxify.json`);
-	if (!manifestFile.ok)
-		throw new BadRequestError(`jsDelivr answered ${manifestFile.status} for ${name}@${version}`);
-	await manifestFile.body?.cancel();
-
+/** fetches, checks and registers `name@version`, nothing else */
+export async function registerNpmVersion(projectId: string, name: string, version: string) {
 	const entry = await registryEntry(name, version, projectId);
 	const tarball = await get(entry.tarball);
 	if (!tarball.ok)
@@ -82,11 +85,26 @@ export async function addNpmPlugin(projectId: string, spec: string, caller: Call
 		throw new BadRequestError(
 			`${name}@${version} holds a package.json saying version ${valid.version}; refusing it`,
 		);
-	return registerSourced(projectId, {
+	return {
 		manifest: valid.manifest,
-		version: valid.version,
-		source: "npm",
-		location: `${name}@${version}`,
-		integrity: entry.integrity,
-	});
+		register: () =>
+			registerSourced(projectId, {
+				manifest: valid.manifest,
+				version: valid.version,
+				source: "npm",
+				location: `${name}@${version}`,
+				integrity: entry.integrity,
+			}),
+	};
+}
+
+const CDN = "https://cdn.jsdelivr.net/npm";
+
+/** `fluxify.json` of `name@version` on jsDelivr, unparsed; refused when the package has none */
+export async function cdnManifest(name: string, version: string): Promise<unknown> {
+	const res = await get(`${CDN}/${name}@${version}/fluxify.json`);
+	if (res.status === 404)
+		throw new BadRequestError(`${name}@${version} is not a Fluxify plugin: it has no fluxify.json`);
+	if (!res.ok) throw new BadRequestError(`jsDelivr answered ${res.status} for ${name}@${version}`);
+	return res.json().catch(() => null);
 }
