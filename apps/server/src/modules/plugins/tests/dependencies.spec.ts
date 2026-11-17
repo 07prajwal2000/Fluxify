@@ -6,6 +6,7 @@ import {
 	cycleWith,
 	dependencyView,
 	dependentsOf,
+	inDependencyOrder,
 	withDependencyGate,
 } from "../dependencies";
 import { isUsableIn, type PluginRow, unusableReason } from "../meta";
@@ -51,6 +52,21 @@ describe("plugin dependency graph", () => {
 		const rows = [row("x/a", { "x/b": "*" }), row("x/b")];
 		expect(cycleWith(rows, row("x/b", { "x/a": "*" }).manifest)).toBe("x/b -> x/a -> x/b");
 		expect(cycleWith(rows, row("x/c", { "x/a": "*" }).manifest)).toBeUndefined();
+	});
+});
+
+describe("dependency order", () => {
+	const order = (rows: PluginRow[]) => inDependencyOrder(rows).map((r) => r.name);
+
+	it("puts a plugin after the plugins it depends on, and keeps the given order otherwise", () => {
+		const rows = [row("x/report", { "x/sales": "*" }), row("x/sales", { "x/crm": "*" }), row("x/other"), row("x/crm")];
+		expect(order(rows)).toEqual(["x/crm", "x/sales", "x/report", "x/other"]);
+		expect(order([])).toEqual([]);
+	});
+
+	it("ignores a dependency the list does not hold, and keeps every member of a cycle", () => {
+		expect(order([row("x/a", { "x/gone": "*" }), row("x/b")])).toEqual(["x/a", "x/b"]);
+		expect(order([row("x/a", { "x/b": "*" }), row("x/b", { "x/a": "*" }), row("x/c")]).sort()).toEqual(["x/a", "x/b", "x/c"]);
 	});
 });
 

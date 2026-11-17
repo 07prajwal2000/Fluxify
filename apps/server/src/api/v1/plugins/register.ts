@@ -175,7 +175,7 @@ export default {
 				p,
 				doc(
 					"delete-plugin",
-					"Removes the plugin from the project. Refused (409, with the users) while anything uses one of its blocks. Creator or above.",
+					"Removes the plugin from the project. Refused (409, with the users) while an approved plugin depends on it, or anything uses one of its blocks. Creator or above.",
 					removeResponseSchema,
 				),
 				creator,

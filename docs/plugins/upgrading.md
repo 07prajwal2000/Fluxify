@@ -1,6 +1,6 @@
 ---
 title: Upgrading and Removing Plugins
-description: How to upgrade a plugin safely with the upgrade preview, what blocks an upgrade and how to fix it, how to cancel one, and when removal is blocked.
+description: How to upgrade a plugin safely with the upgrade preview, what blocks an upgrade and how to fix it, how to cancel one, and when removal is blocked, including by plugins that depend on it.
 ---
 
 # Upgrading and removing
@@ -77,6 +77,17 @@ These do **not** block, even while triggers exist:
 
 The trigger changes follow the same rule as blocks and integrations: the preview names each affected trigger as a link, and the upgrade is refused while one remains. Removing a trigger kind the project never used is fine.
 
+### Plugins that depend on it
+
+When other approved plugins are built on the plugin you upgrade ([plugin dependencies](./authoring/dependencies)), the preview also blocks the upgrade if the new version would break one of them. Each line names the dependent and its version:
+
+- the new version is outside the range the dependent asks for
+- a group or variant the dependent uses is gone
+- a group the dependent adds a variant to is gone
+- the new version adds a variant the dependent already provides
+
+To fix it, upgrade the dependent first, or keep the old version of this plugin. A dependent with an upgrade of its own waiting is judged by that upgrade, so two plugins can be upgraded together: approve the one they build on first.
+
 ::: info One integration row covers both environments
 An integration holds its development and production configs together. Deleting it removes both, so one row is one use in the upgrade preview.
 :::
@@ -116,6 +127,8 @@ It still works. The author is telling you to move off it, usually before a later
 On the plugin's page, press **Remove**. Removal deletes the plugin from the project, its stored files, and any link requests.
 
 Removal is **blocked while anything uses it**: a route, workflow or custom block with one of its blocks, whether in the working copy or only in a promoted production version. It is also blocked while the project has an **integration of one of the plugin's kinds**, because that integration would point at a variant nothing provides, and while the project has a **trigger created from one of its kinds**, because that trigger would have no code to start. The dialog lists each block use, each integration and each trigger as a link. Remove those first (and promote, if the use was in production), then remove the plugin.
+
+It is also blocked while an **approved plugin depends on it**. The message lists each dependent with its version and the range it needs, and any integrations of a variant a dependent added to this plugin's groups. Remove the dependents first, then this plugin.
 
 ::: tip
 To stop a plugin running without removing it, turn off its **Dev** and **Prod** switches ([approval](./approving#dev-and-prod-switches)). Its triggers stop and keep their settings, and its integrations keep working once the switch is back on.

@@ -1,8 +1,9 @@
 import { ConflictError } from "../../errors/conflictError";
 import { NotFoundError } from "../../errors/notFoundError";
+import { upgradeBlockers } from "./dependencyGates";
 import { diffManifests } from "./diff";
 import { pluginIntegrationConfigUsers } from "./integrationUsage";
-import { getPluginRow, type PluginRecord } from "./repository";
+import { getPluginRow, listPluginRows, type PluginRecord } from "./repository";
 import { pluginTriggerUsers } from "./triggerUsage";
 import { pluginUsage } from "./usage";
 import { projectIntegrationKinds } from "./variantDiff";
@@ -18,14 +19,29 @@ export async function upgradeDiff(row: PluginRecord) {
 	return {
 		from: from && { version: from.version, integrity: from.integrity },
 		to: { version: row.version, integrity: row.integrity },
-		diff: diffManifests(
-			old,
-			row.manifest,
-			await pluginUsage(row.projectId, row.name),
-			await pluginIntegrationConfigUsers(row.projectId, old),
-			await pluginTriggerUsers(row.projectId, row.name),
-			await projectIntegrationKinds(row.projectId),
+		diff: withDependentBlockers(
+			diffManifests(
+				old,
+				row.manifest,
+				await pluginUsage(row.projectId, row.name),
+				await pluginIntegrationConfigUsers(row.projectId, old),
+				await pluginTriggerUsers(row.projectId, row.name),
+				await projectIntegrationKinds(row.projectId),
+			),
+			upgradeBlockers(row, old, await listPluginRows(row.projectId)),
 		),
+	};
+}
+
+/** what the upgrade breaks in the plugins that depend on it (#899), in the list the dialog already shows */
+function withDependentBlockers<D extends { blocking: boolean; blockers: string[] }>(
+	diff: D,
+	blockers: string[],
+): D {
+	return {
+		...diff,
+		blocking: diff.blocking || blockers.length > 0,
+		blockers: [...diff.blockers, ...blockers],
 	};
 }
 

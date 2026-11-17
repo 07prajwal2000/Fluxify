@@ -311,6 +311,8 @@ export const upgradePreviewSchema = z.object({
 
 /**
  * a refused remove (409) lists the integrations of the plugin's kinds in
- * `details.integrations`, and its triggers in `details.triggers`
+ * `details.integrations`, its triggers in `details.triggers`, and the approved
+ * plugins that depend on it in `details.dependents` (name, version, range), with
+ * the integrations on variants they add to its groups in `details.integrations`
  */
 export const removeResponseSchema = z.object({ name: z.string() });

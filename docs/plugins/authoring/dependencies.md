@@ -1,6 +1,6 @@
 ---
 title: Plugin Dependencies
-description: Use and extend the integration groups another plugin adds, by declaring that plugin as a peer dependency, and what happens when a project installs, approves or switches off a plugin with dependencies.
+description: Use and extend the integration groups another plugin adds, by declaring that plugin as a peer dependency, and what happens when a project installs, approves, upgrades, removes, backs up or switches off a plugin with dependencies.
 ---
 
 # Plugin dependencies
@@ -157,6 +157,30 @@ A project holds **one version** of each plugin. When your plugin is installed:
 Plugins cannot depend on each other in a circle. If `a` needs `b` and `b` needs `a`, the install is refused and the message shows the circle: `a -> b -> a`.
 :::
 
-## Not supported yet
+## Upgrading a dependency
 
-- Removing a plugin that others depend on is not yet blocked, and a dependency's upgrade does not yet check what its dependents use.
+A project holds one version of each plugin, so upgrading `other/crm` changes what every plugin built on it runs against. An upgrade of `other/crm` is **blocked**, and the upgrade preview lists why, when it would break an approved plugin that depends on it:
+
+| What the new version does | Why it blocks |
+| :--- | :--- |
+| Falls outside a dependent's range | The dependent asked for a different version |
+| Drops an integration group a dependent uses | A dependent's block, trigger or setting names a group that is gone |
+| Drops an integration variant a dependent uses | A dependent names that variant in its permissions, in an integration setting, or in a list of variants |
+| Drops a group a dependent adds a variant to | The dependent's variant would have no group to live in |
+| Adds a variant a dependent already provides | Two plugins cannot provide the same variant in one group |
+
+Each line names the dependent and its version. To fix it, upgrade the dependent first or hold back the dependency. These lines show in the same list as the other upgrade blockers, and **Approve** stays off until none is left.
+
+A dependent that has its own upgrade waiting is judged by that upgrade, not by the version still running. That lets you upgrade `other/crm` and `acme/sales` together: approve the dependency first, then the dependent. Until the dependent's upgrade is approved, its old version is stopped, with a message that names the dependency.
+
+When you upgrade a plugin whose new version needs a newer dependency, the dependency is upgraded with it under the same rules as an install. The dialog lists it as **Upgrade from** the installed version, and a dependency the project lacks as **New**.
+
+## Removing a dependency
+
+A plugin cannot be removed while an **approved** plugin depends on it. The message lists each dependent with its version and the range it asks for. Remove the dependents first, then the dependency.
+
+If integrations were created with a variant a dependent added to the dependency's group, they are listed too: they belong to the dependent, but they sit in the dependency's group.
+
+## Backups
+
+A project backup writes plugins with each dependency before the plugins that need it, and a restore puts them back in that order. Restoring a plugin whose dependency is not in the backup is not refused: the restore warns, naming the plugin and the dependency, and the plugin is restored but stays stopped until a version of the dependency inside its range is installed.

@@ -1,3 +1,4 @@
+import { pluginDependencySchema } from "@fluxify/sdk/blocks";
 import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../../db";
@@ -12,11 +13,13 @@ import {
 } from "../../../db/schema";
 import { ENVIRONMENTS } from "../../../lib/envValues";
 import { pluginKey } from "../../compiler/subjects";
+import { inDependencyOrder } from "../../plugins/dependencies";
 import { listPluginRows } from "../../plugins/repository";
 import { pluginObjectKey } from "../../plugins/sources/location";
 import { syncProjectPluginVariants } from "../../plugins/variants";
 import type { BackupModule } from "../types";
 import { checkedTarball, exportTarball, restoredSource, tarballPath } from "./pluginBytes";
+import { missingDependencyWarnings } from "./pluginDependencies";
 import { byName } from "./rollback";
 
 /**
@@ -33,6 +36,11 @@ import { byName } from "./rollback";
  * this section holds no integration ids and doesn't depend on `integrations`.
  * The plugin's integration rows are the integrations section's; they resolve
  * once the plugin is restored and the project compiles.
+ *
+ * Plugins can depend on each other (#899), so they are written and restored
+ * dependencies first, and the project's variants are applied once every one is
+ * in. A dependency the backup lacks is warned about per plugin; the plugin
+ * still restores, and stays blocked until one in range is installed.
  */
 
 const permissions = z.object({ integrations: z.array(z.string()), appconfig: z.boolean() });
@@ -43,7 +51,11 @@ const versionSchema = z.object({
 	location: z.string(),
 	integrity: z.string().min(1),
 	/** what loads is read from the bytes on restore; this copy is what `inspect` reads */
-	manifest: z.looseObject({ name: z.string(), blocks: z.record(z.string(), z.unknown()) }),
+	manifest: z.looseObject({
+		name: z.string(),
+		blocks: z.record(z.string(), z.unknown()),
+		dependencies: z.array(pluginDependencySchema).optional(),
+	}),
 	permissions: permissions.nullable().default(null),
 });
 
@@ -92,10 +104,14 @@ export const pluginsModule: BackupModule<Section> = {
 		for (const p of plugins)
 			for (const v of mode === "template" ? [p] : versionsOf(p))
 				await checkedTarball(p.name, v, files[tarballPath(p.name, v.version)]);
-		if (mode !== "template") return [];
-		return plugins.map(
-			(p) => `Plugin "${p.name}" needs approving before routes that use its blocks will compile.`,
-		);
+		const missing = missingDependencyWarnings(plugins);
+		if (mode !== "template") return missing;
+		return [
+			...plugins.map(
+				(p) => `Plugin "${p.name}" needs approving before routes that use its blocks will compile.`,
+			),
+			...missing,
+		];
 	},
 
 	names: ({ plugins }) => plugins.map((p) => p.name),
@@ -147,7 +163,7 @@ export const pluginsModule: BackupModule<Section> = {
 		);
 		const files: Record<string, Uint8Array> = {};
 		const plugins: Plugin[] = [];
-		for (const row of rows) {
+		for (const row of inDependencyOrder(rows)) {
 			const plugin = {
 				...row,
 				approvedBy: (row.approvedBy && emails.get(row.approvedBy)) ?? null,
@@ -160,9 +176,11 @@ export const pluginsModule: BackupModule<Section> = {
 		return { data: { plugins }, files };
 	},
 
-	async import({ tx, projectId, mode, files, ids, match }, { plugins }) {
+	async import({ tx, projectId, mode, files, ids, match, afterCommit }, { plugins }) {
 		const template = mode === "template";
-		const restoring = plugins.map((p) => ({ ...p, live: template ? null : p.live }));
+		const restoring = inDependencyOrder(
+			plugins.map((p) => ({ ...p, live: template ? null : p.live })),
+		);
 		// every version is checked before anything is written, here or in the Object Store
 		const manifests = new Map<string, Awaited<ReturnType<typeof checkedTarball>>>();
 		for (const p of restoring)
@@ -217,5 +235,11 @@ export const pluginsModule: BackupModule<Section> = {
 				: await tx.insert(pluginsEntity).values(values).returning({ id: pluginsEntity.id });
 			ids.set("plugins", p.name, row!.id);
 		}
+		// a plugin's variants follow its dependencies' state, so the whole project is applied once, with every row in
+		if (restoring.length)
+			afterCommit(
+				() => syncProjectPluginVariants(projectId),
+				"Plugin integration variants were not registered, so they may not show until the admin restarts.",
+			);
 	},
 };

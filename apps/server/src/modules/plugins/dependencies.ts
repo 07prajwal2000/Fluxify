@@ -8,7 +8,7 @@ import { isUsableIn, liveOf, type PluginRow, unusableReason } from "./meta";
  * rows: which plugin needs which, what is missing, and which plugins cannot
  * load because of a dependency. A project holds one version of each plugin, so
  * a dependency is met by the row of its name, when its version is in range.
- * Install, approval and loading read these; so will removal and upgrade gates.
+ * Install, approval and loading read these; the removal and upgrade gates are in `dependencyGates.ts`.
  */
 
 export const dependenciesOf = (row: { manifest: FluxifyManifest }): PluginDependency[] =>
@@ -30,6 +30,30 @@ export function allDependentsOf(rows: readonly PluginRow[], plugin: string) {
 		for (const { row } of dependentsOf(rows, at))
 			if (!queue.includes(row.name)) queue.push(row.name);
 	return queue.slice(1);
+}
+
+/**
+ * `items` with each plugin after the plugins it depends on, the rest in the
+ * order given: how a backup writes and restores them. A cycle (refused when
+ * registering, so only a hand-edited archive holds one) keeps its given order.
+ */
+export function inDependencyOrder<
+	T extends { name: string; manifest: { dependencies?: { plugin: string }[] } },
+>(items: readonly T[]): T[] {
+	const byName = new Map(items.map((i) => [i.name, i]));
+	const ordered = new Set<T>();
+	const seen = new Set<string>();
+	const visit = (item: T) => {
+		if (seen.has(item.name)) return;
+		seen.add(item.name);
+		for (const dep of item.manifest.dependencies ?? []) {
+			const needed = byName.get(dep.plugin);
+			if (needed) visit(needed);
+		}
+		ordered.add(item);
+	};
+	for (const item of items) visit(item);
+	return [...ordered];
 }
 
 /**
