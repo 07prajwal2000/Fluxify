@@ -36,16 +36,16 @@ Its `name` starts with the plugin name, like a block's type. `integration()` che
 | Kind | What it does | Who uses it |
 | :--- | :--- | :--- |
 | **A variant of a built-in group** | Implements the same contract as the built-in variant, so built-in blocks keep working | The built-in blocks of that group, and your own blocks |
-| **A group of your own** | A new kind of connection, with a contract you design | Only your plugin's blocks |
+| **A group of your own** | A new kind of connection, with a contract you design | Your plugin's blocks, and the plugins that [depend on yours](./dependencies) |
 
 The built-in groups are `database`, `kv`, `queue`, `ai`, `observability`, `baas` and `mcp`.
 
 A variant of a built-in group shows up under that group with a **Plugin** badge, next to PostgreSQL or Redis. For example, a variant with `group: "kv"` becomes a choice for the built-in KV blocks without changing them.
 
-A group of your own is filed under your plugin's **scope**: a plugin `acme/slack` with `group: "email"` becomes `acme/email`. Only blocks of the same plugin can use it. The `group` you write is a plain name; the scope is added for you, and `integration()` refuses a group that already has a slash.
+A group of your own is filed under your plugin's **scope**: a plugin `acme/slack` with `group: "email"` becomes `acme/email`. Blocks of the same plugin can use it, and so can the blocks of a plugin that depends on yours. The `group` you write is a plain name; the scope is added for you, and `integration()` refuses a group that already has a slash.
 
 ::: info
-A plugin can use the built-in groups and its own groups. Using another plugin's group needs a dependency between plugins, which is not supported yet.
+A plugin can use the built-in groups, its own groups, and the groups of the plugins it depends on. To use another plugin's group, add that plugin to `peerDependencies`: see [Plugin dependencies](./dependencies).
 :::
 
 ## `integration({...})` field by field

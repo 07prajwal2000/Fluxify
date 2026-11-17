@@ -68,6 +68,8 @@ Approval is for one exact build of one version. A plugin returns to **Pending ap
 
 An approved plugin that gets a pending upgrade keeps serving its **old version** until you approve the new one ([upgrading](./upgrading)).
 
+A plugin that [depends on other plugins](./authoring/dependencies) can only be approved once each of them is installed at a version it accepts and approved. Approve the dependencies first. If a dependency is later switched off or rejected, the plugins that depend on it stop running in that environment too.
+
 If you **reject** a plugin that has never been approved, none of its blocks load. You can approve it later.
 
 A folder plugin whose files change on the server after approval is not reloaded: its workers report an error until you add it again from the Folder tab and approve the new contents.

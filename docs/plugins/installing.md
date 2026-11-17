@@ -28,6 +28,8 @@ Limits: 25 MB for the file, 100 MB unpacked, and 2,000 files.
 
 Type the package and the exact version. Ranges (`^1.0.0`) and tags (`latest`) are refused, because an approval is for one exact version. If the project has a package release-age rule (Settings → npm Packages), a release younger than that is refused until it is old enough.
 
+If the plugin needs other plugins that the project does not have, pressing **Add** first lists them, each with the exact version that will be installed. Press **Install** to add them all, or **Back** to change your mind; nothing is installed until you confirm. See [Plugin dependencies](./authoring/dependencies#what-happens-in-a-project).
+
 ### Link
 
 Adding a plugin from a link takes two steps, so nothing is downloaded by surprise:
