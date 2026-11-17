@@ -35,7 +35,7 @@ const { runBlocks } = await import("../../../requestRouter/executor");
 const { KvFactory } = await import("@fluxify/adapters");
 // the module, not a destructured copy: hydrating reassigns the cache
 const integrationsLoader = await import("../../../../loaders/integrationsLoader");
-const { applyPluginVariants, syncPluginVariants } = await import("../../variants");
+const { applyPluginVariants, syncProjectPluginVariants } = await import("../../variants");
 const integrationsApi = (await import("../../../../api/v1/integrations/register")).default;
 
 const VALKEY_IMAGE = "valkey/valkey:8-alpine";
@@ -356,7 +356,7 @@ describe("a plugin's integrations, from upload to removal", () => {
 			probe.close();
 			await shutdownCompiledRuntime();
 			await loadPluginIntegrations([]);
-			await syncPluginVariants(s.project, NAME);
+			await syncProjectPluginVariants(s.project);
 
 			// an upgrade that drops a param the saved integration sets is refused, naming it
 			expect((await s.upload(storeTgz("2026.10.2002", { host: KV_PARAMS.host! }))).status).toBe(200);

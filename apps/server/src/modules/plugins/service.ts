@@ -20,6 +20,7 @@ import {
 	approvalBlockers,
 	cycleWith,
 	dependencyView,
+	variantClashes,
 	withDependencyGate,
 } from "./dependencies";
 import { blockMetaOf, integrationKindsOf, isUsableIn, liveOf, requestedPermissions } from "./meta";
@@ -35,7 +36,7 @@ import { withDataIcons } from "./sources/icons";
 import { triggerKindsOf } from "./triggerKinds";
 import { pluginTriggerRows } from "./triggerUsage";
 import { assertUpgradeSafe } from "./upgrade";
-import { pluginVariantState, syncPluginVariants, syncProjectPluginVariants } from "./variants";
+import { syncProjectPluginVariants } from "./variants";
 
 /**
  * The plugin registry (#857). Sources (P2) hand a version over with
@@ -230,19 +231,10 @@ const updateAudited = (row: PluginRecord, values: Partial<PluginInsert>) =>
 		return updated;
 	});
 
-/**
- * Two plugins of one project cannot provide the same integration kind: a row
- * names its kind, not its plugin, so it could not say which it means.
- */
+/** a variant another approved plugin provides already is refused (`variantClashes`) */
 async function assertIntegrationKindsFree(row: PluginRecord) {
-	await syncProjectPluginVariants(row.projectId);
-	for (const e of row.manifest.integrations ?? []) {
-		const owner = pluginVariantState(row.projectId, e.group, e.variant)?.plugin;
-		if (owner && owner !== row.name)
-			throw new ConflictError(
-				`Plugin ${row.name} provides integration variant ${e.group}/${e.variant}, which plugin ${owner} already provides in this project`,
-			);
-	}
+	const clashes = variantClashes(row, await listPluginRows(row.projectId));
+	if (clashes.length) throw new ConflictError(clashes.join("; "));
 }
 
 /**
@@ -345,7 +337,7 @@ async function republish(row: PluginRecord, reason: string) {
 	// the whole project: the plugins depending on this one load or stop with it (#899)
 	await publishProjectPlugins(row.projectId);
 	// this replica at once; the others through the artifact watch
-	await syncPluginVariants(row.projectId, row.name);
+	await syncProjectPluginVariants(row.projectId);
 	// its triggers follow it, and its dependents': published where it loads, withdrawn where it is off, rows kept
 	const followers = allDependentsOf(await listPluginRows(row.projectId), row.name);
 	for (const name of [row.name, ...followers])
