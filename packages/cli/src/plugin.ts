@@ -22,6 +22,8 @@ export type Plugin = {
 	version: string;
 	/** every dependency and peer dependency: installed or provided by the worker, so never bundled */
 	external: string[];
+	/** peerDependencies, name -> range: the host packages, and the plugins it depends on (#899) */
+	peers: Record<string, string>;
 };
 
 const readJson = async (path: string) => JSON.parse(await Bun.file(path).text());
@@ -86,5 +88,6 @@ export async function readPlugin(root: string, { lockfile = true } = {}): Promis
 				...pkg.optionalDependencies,
 			}),
 		],
+		peers: { ...pkg.peerDependencies },
 	};
 }

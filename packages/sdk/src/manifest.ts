@@ -5,11 +5,7 @@ import type { Condition, VisibleWhenInput } from "./params.js";
 import { numberParamProblem, stringParamProblem } from "./params.js";
 import { CTX_SPAN_TYPE, ICON_URL_MAX, INVOKE_MODES } from "./reserved.js";
 import { checkEntry, RESERVED_PARAM_NAMES } from "./validate.js";
-import {
-	checkIntegrationEntry,
-	permissionKindIssue,
-	variantsIssue,
-} from "./validateIntegration.js";
+import { checkIntegrationEntry, grantIssues, permissionKindIssue } from "./validateIntegration.js";
 import { checkTriggerEntry } from "./validateTrigger.js";
 
 const scalar = z.union([z.string(), z.number(), z.boolean()]);
@@ -376,6 +372,19 @@ export type PluginDefinition = PluginMeta & {
 };
 
 /**
+ * A plugin this one depends on (#899): `name` is its npm package, which the
+ * admin installs it from; `plugin` its Fluxify name, which a project knows it
+ * by; `range` the peerDependencies range. Its integration groups are used for
+ * types only: the client always comes from the project's integrations.
+ */
+export const pluginDependencySchema = z.strictObject({
+	name: z.string().max(214).regex(NPM_PACKAGE_NAME, "must be an npm package name, like @acme/crm"),
+	plugin: z.string().regex(PLUGIN_NAME, "must be scope/name"),
+	range: z.string().min(1).max(256),
+});
+export type PluginDependency = z.infer<typeof pluginDependencySchema>;
+
+/**
  * `fluxify.json`, the manifest at the root of a plugin package: written by the
  * CLI, validated by the admin registry, rendered by the portal. A block's
  * `entry` is fixed by its type, so a manifest cannot point outside `dist/blocks`.
@@ -395,6 +404,14 @@ export const fluxifyManifestSchema = pluginMetaSchema
 			.optional(),
 		/** absent on manifests from before triggers */
 		triggers: z.array(triggerEntryFields.extend(located).superRefine(checkTriggerEntry)).optional(),
+		/** the Fluxify plugins among its npm peerDependencies; absent when none (#899) */
+		dependencies: z
+			.array(pluginDependencySchema)
+			.refine(
+				(d) => new Set(d.map((x) => x.plugin)).size === d.length,
+				"each plugin is a dependency once",
+			)
+			.optional(),
 	})
 	.superRefine((m, ctx) => {
 		for (const [type, b] of Object.entries(m.blocks)) {
@@ -407,34 +424,15 @@ export const fluxifyManifestSchema = pluginMetaSchema
 		}
 		checkIntegrations(m.name, m.integrations ?? [], ctx);
 		checkTriggers(m.name, m.triggers ?? [], ctx);
-		// the kinds a block or trigger may be granted: built-ins and this plugin's own groups (#899)
-		const own = new Set((m.integrations ?? []).map((e) => e.group).filter((g) => g.includes("/")));
-		const granted = [
-			...Object.entries(m.blocks).map(([type, b]) => [["blocks", type], b] as const),
-			...(m.triggers ?? []).map((t, i) => [["triggers", i], t] as const),
-		];
-		const provided = (m.integrations ?? []).map((e) => ({ group: e.group, variant: e.variant }));
-		for (const [at, e] of granted) {
-			for (const [name, p] of Object.entries(e.params)) {
-				if (p.type !== "integration" || !p.variants) continue;
-				const message = variantsIssue(p.kind, p.variants, provided);
-				if (message)
-					ctx.addIssue({
-						code: "custom",
-						message: `param '${name}': ${message}`,
-						path: [...at, "params", name, "variants"],
-					});
-			}
-			for (const [i, kind] of (e.permissions.integrations ?? []).entries()) {
-				const message = permissionKindIssue(kind, own);
-				if (message)
-					ctx.addIssue({
-						code: "custom",
-						message,
-						path: [...at, "permissions", "integrations", i],
-					});
-			}
-		}
+		for (const [i, d] of (m.dependencies ?? []).entries())
+			if (d.plugin === m.name)
+				ctx.addIssue({
+					code: "custom",
+					message: "a plugin cannot depend on itself",
+					path: ["dependencies", i],
+				});
+		// the kinds a block or trigger may be granted: built-ins, its own groups, and its dependencies' (#899)
+		for (const issue of grantIssues(m)) ctx.addIssue({ code: "custom", ...issue });
 	});
 
 /** where an integration's built module sits: `scope/name/a/b` is `dist/integrations/a/b.js` */

@@ -82,17 +82,70 @@ function checkGroup(e: Entry, issue: Issue) {
 
 /**
  * A block's `permissions.integrations` kind: a built-in group or a variant of
- * one, or one of this plugin's own groups (`acme/crm`, `acme/crm/Hub`). Another
- * plugin's kinds are refused until plugins can depend on each other (#899).
- * `own` holds the namespaced groups the plugin declares; undefined skips that check.
+ * one, or a group this plugin or a plugin it depends on declares (`acme/crm`,
+ * `acme/crm/Hub`, #899). `own` holds those namespaced groups; undefined skips
+ * that check.
  */
 export function permissionKindIssue(kind: string, own?: ReadonlySet<string>) {
 	const parsed = parseIntegrationKind(kind);
 	if (!parsed)
 		return `'${kind}' is not an integration kind: write a built-in group (kv, database, ...) or '<scope>/<group>'`;
 	if (own && !isBuiltInIntegrationGroup(parsed.group) && !own.has(parsed.group))
-		return `'${kind}' is not one of this plugin's own integration groups (${[...own].join(", ") || "none"}); another plugin's kinds are not supported yet`;
+		return `'${kind}' is not an integration group of this plugin or of a plugin it depends on (${[...own].join(", ") || "none"}); to use another plugin's group, add that plugin to peerDependencies`;
 	return undefined;
+}
+
+type Kinds = { group: string; variant: string };
+type Granting = {
+	params: Record<string, Param>;
+	permissions: { integrations?: string[] };
+};
+/** what of a manifest says which integration kinds its blocks and triggers may use */
+export type Grants = {
+	blocks: Record<string, Granting>;
+	triggers?: Granting[];
+	integrations?: Kinds[];
+	dependencies?: unknown[];
+};
+
+/**
+ * The integration kinds each block and trigger names (`permissions.integrations`,
+ * a param's `variants`) against what the plugin may use: built-in groups, its own
+ * groups and variants, and those of the plugins it depends on (#899).
+ * `dependencies` are those plugins' manifests. Undefined means they are not at
+ * hand (the admin parsing a manifest on its own), so a manifest that declares
+ * dependencies is not checked for groups it does not declare itself; the CLI's
+ * build and the admin's approval pass them and check everything.
+ */
+export function grantIssues(m: Grants, dependencies?: readonly { integrations?: Kinds[] }[]) {
+	const provided = [m, ...(dependencies ?? [])].flatMap((d) => d.integrations ?? []);
+	const groups = new Set(provided.map((e) => e.group).filter((g) => g.includes("/")));
+	const deferred = !dependencies && !!m.dependencies?.length;
+	const unchecked = (group: string) =>
+		deferred && !isBuiltInIntegrationGroup(group) && !groups.has(group);
+	const issues: { message: string; path: (string | number)[] }[] = [];
+	const granted = [
+		...Object.entries(m.blocks).map(([type, b]) => [["blocks", type], b] as const),
+		...(m.triggers ?? []).map((t, i) => [["triggers", i], t] as const),
+	];
+	for (const [at, e] of granted) {
+		for (const [name, p] of Object.entries(e.params)) {
+			if (p.type !== "integration" || !p.variants) continue;
+			if (unchecked(parseIntegrationKind(p.kind)?.group ?? "")) continue;
+			const message = variantsIssue(p.kind, p.variants, provided);
+			if (message)
+				issues.push({
+					message: `param '${name}': ${message}`,
+					path: [...at, "params", name, "variants"],
+				});
+		}
+		for (const [i, kind] of (e.permissions.integrations ?? []).entries()) {
+			if (unchecked(parseIntegrationKind(kind)?.group ?? "")) continue;
+			const message = permissionKindIssue(kind, groups);
+			if (message) issues.push({ message, path: [...at, "permissions", "integrations", i] });
+		}
+	}
+	return issues;
 }
 
 /**

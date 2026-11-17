@@ -67,13 +67,13 @@ export default block({
 /**
  * A plugin `acme/t` in a temp dir: one good block, a lockfile and the shared
  * node_modules. `files` add to or replace those (null removes one); `pkg`
- * merges into package.json.
+ * merges into package.json; `root` is where, by default a new temp dir.
  */
 export async function makePlugin(
 	files: Record<string, string | null> = {},
 	pkg: Record<string, unknown> = {},
+	root = tmp(),
 ) {
-	const root = tmp();
 	const all: Record<string, string | null> = {
 		"package.json": JSON.stringify({
 			name: "@acme/t",

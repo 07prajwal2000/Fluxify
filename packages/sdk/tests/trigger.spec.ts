@@ -196,7 +196,7 @@ describe("manifest triggers", () => {
 			"must be 'dist/triggers/a.js'",
 		]);
 		expect(issues([entryOf("acme/t/a", { permissions: { integrations: ["other/crm"] } })])[0]).toContain(
-			"is not one of this plugin's own integration groups",
+			"is not an integration group of this plugin or of a plugin it depends on",
 		);
 	});
 });

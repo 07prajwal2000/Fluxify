@@ -146,8 +146,10 @@ describe("manifest lint rules", () => {
 			}).error?.issues.map((i) => i.message);
 		};
 		expect(asking(["kv", "database/PostgreSQL", "acme/crm", "acme/crm/Hub"])).toBeUndefined();
-		expect(asking(["other/crm"])?.[0]).toContain("is not one of this plugin's own integration groups (acme/crm)");
-		expect(asking(["acme/billing"])?.[0]).toContain("not one of this plugin's own");
+		expect(asking(["other/crm"])?.[0]).toContain(
+			"is not an integration group of this plugin or of a plugin it depends on (acme/crm)",
+		);
+		expect(asking(["acme/billing"])?.[0]).toContain("add that plugin to peerDependencies");
 		// not a kind at all: refused by block() itself
 		expect(() => asking(["slack"])).toThrow("'slack' is not an integration kind");
 	});
