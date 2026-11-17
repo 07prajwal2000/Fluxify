@@ -6,26 +6,34 @@ try {
 	GlobalRegistrator.register({ url: "http://localhost:5601/" });
 } catch {}
 
+let search: { group?: string } = {};
+const navigate = mock();
 const router = await import("@tanstack/react-router");
 mock.module("@tanstack/react-router", () => ({
 	...router,
-	useNavigate: () => mock(),
+	useNavigate: () => navigate,
 	useBlocker: () => {},
 	createFileRoute: () => (config: any) => ({
 		...config,
 		useParams: () => ({ projectId: "p1" }),
-		useSearch: () => ({ group: "database" }),
+		useSearch: () => search,
 	}),
-	Link: ({ children, ...rest }: { children: ReactNode }) => <a {...rest}>{children}</a>,
+	Link: ({ children, params: _p, ...rest }: { children: ReactNode; params?: unknown }) => (
+		<a {...rest}>{children}</a>
+	),
 }));
 
 const { act, cleanup, fireEvent, render, within } = await import("@testing-library/react");
 const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query");
-const { IntegrationsPage, IntegrationsList } = await import("./integrations");
+const { IntegrationsPage } = await import("./integrations");
 const { integrationService } = await import("@/services/integrations");
 const { projectsService } = await import("@/services/projects");
 
-afterEach(cleanup);
+afterEach(() => {
+	cleanup();
+	search = {};
+	navigate.mockClear();
+});
 afterAll(() => GlobalRegistrator.unregister());
 
 const wrap = (node: ReactNode) =>
@@ -37,7 +45,18 @@ const wrap = (node: ReactNode) =>
 		</QueryClientProvider>,
 	);
 
-test("integrations sidebar renders built-in groups with plugin variants and namespace groups", async () => {
+const row = (id: string, name: string, group: string, variant: string) => ({
+	id,
+	name,
+	group,
+	variant,
+	hasDevConfig: false,
+	syncDev: true,
+});
+
+const settle = () => act(async () => new Promise((r) => setTimeout(r, 60)));
+
+function mockData(icon?: string) {
 	spyOn(projectsService, "getById").mockResolvedValue({ id: "p1", name: "My Project" } as any);
 	spyOn(integrationService, "getVariants").mockResolvedValue([
 		{
@@ -50,75 +69,104 @@ test("integrations sidebar renders built-in groups with plugin variants and name
 					variant: "CockroachDB",
 					label: "CockroachDB",
 					builtIn: false,
-					plugin: { id: "pl-1", name: "acme/cockroach", namespace: "acme", icon: "data:img" },
+					plugin: { id: "pl-1", name: "acme/cockroach", namespace: "acme" },
 				},
 			],
 		},
+		{ group: "kv", label: "KV", builtIn: true, variants: [] },
 		{
-			group: "crm",
+			group: "acme/crm",
 			label: "CRM",
 			builtIn: false,
 			variants: [
-				{
-					variant: "HubSpot",
-					label: "HubSpot",
-					builtIn: false,
-					plugin: { id: "pl-2", name: "acme/crm", namespace: "acme", icon: "data:crm" },
-				},
+				{ variant: "HubSpot", label: "HubSpot", builtIn: false, plugin: "acme/crm", icon },
 			],
 		},
 	] as any);
 	spyOn(integrationService, "getBasicList").mockResolvedValue([
-		{
-			id: "int-1",
-			name: "Prod Postgres",
-			group: "database",
-			variant: "PostgreSQL",
-			hasDevConfig: false,
-			syncDev: true,
-		},
-		{
-			id: "int-2",
-			name: "Cockroach Cluster",
-			group: "database",
-			variant: "CockroachDB",
-			hasDevConfig: false,
-			syncDev: true,
-		},
+		row("int-1", "Prod Postgres", "database", "PostgreSQL"),
+		row("int-2", "Old Custom DB", "database", "DisabledVariant"),
+		row("int-3", "Sales CRM", "acme/crm", "HubSpot"),
 	]);
-	spyOn(integrationService, "getAll").mockResolvedValue([
-		{
-			id: "int-1",
-			name: "Prod Postgres",
-			group: "database",
-			variant: "PostgreSQL",
-			config: {},
-			devConfig: null,
-			syncDev: true,
-		},
-	]);
+}
 
+test("shows every integration as a row with its type and category, with one filter chip per category", async () => {
+	mockData();
 	wrap(<IntegrationsPage />);
+	await settle();
 
-	await act(async () => new Promise((r) => setTimeout(r, 60)));
-
-	// Built-in categories
-	expect(document.body.textContent).toContain("Databases");
-	expect(document.body.textContent).toContain("KV");
-
-	// Plugin variant under built-in group
-	expect(document.body.textContent).toContain("CockroachDB");
-	const pluginBadges = within(document.body).getAllByText("Plugin");
-	expect(pluginBadges.length).toBeGreaterThanOrEqual(1);
-
-	// Plugin-owned group under namespace
-	expect(document.body.textContent).toContain("PLUGIN INTEGRATIONS");
-	expect(document.body.textContent).toContain("acme");
-	expect(document.body.textContent).toContain("CRM");
-	expect(document.body.textContent).toContain("HubSpot");
+	const body = within(document.body);
+	for (const name of ["Prod Postgres", "Old Custom DB", "Sales CRM"])
+		expect(body.getByText(name)).toBeTruthy();
+	expect(body.getByText("PostgreSQL • Databases")).toBeTruthy();
+	expect(body.getByText("HubSpot • CRM")).toBeTruthy();
 });
 
-test("IntegrationsList marks existing integrations whose variant is disabled as plugin disabled", async () => {
+test("marks an integration whose variant is no longer offered as plugin disabled", async () => {
+	mockData();
+	wrap(<IntegrationsPage />);
+	await settle();
+
+	expect(within(document.body).getAllByText("plugin disabled")).toHaveLength(1);
+});
+
+test("the group in the URL narrows the page to that category", async () => {
+	search = { group: "acme/crm" };
+	mockData();
+	wrap(<IntegrationsPage />);
+	await settle();
+
+	const body = within(document.body);
+	expect(body.getByText("Sales CRM")).toBeTruthy();
+	expect(body.queryByText("Prod Postgres")).toBeNull();
+});
+
+test("search narrows by name, and says so when nothing matches", async () => {
+	mockData();
+	wrap(<IntegrationsPage />);
+	await settle();
+
+	const input = within(document.body).getByPlaceholderText("Search by name or type…");
+	fireEvent.change(input, { target: { value: "hubspot" } });
+	expect(within(document.body).queryByText("Prod Postgres")).toBeNull();
+	expect(within(document.body).getByText("Sales CRM")).toBeTruthy();
+
+	fireEvent.change(input, { target: { value: "zzz" } });
+	expect(document.body.textContent).toContain("No integrations match your search");
+});
+
+test("an empty category offers to connect one", async () => {
+	search = { group: "kv" };
+	mockData();
+	wrap(<IntegrationsPage />);
+	await settle();
+
+	expect(document.body.textContent).toContain("No KV connected to this project yet.");
+	fireEvent.click(
+		within(document.body)
+			.getAllByRole("button", { name: /Connect App/ })
+			.at(-1)!,
+	);
+	expect(navigate).toHaveBeenCalledWith(expect.objectContaining({ search: { group: "kv" } }));
+});
+
+test("shows a plugin variant's own icon, and the group's when the image fails (#977)", async () => {
+	const icon = "data:image/svg+xml;base64,PHN2Zy8+";
+	search = { group: "acme/crm" };
+	mockData(icon);
+	wrap(<IntegrationsPage />);
+	await settle();
+
+	const card = document.body;
+	const img = card.querySelector("img");
+	expect(img?.getAttribute("src")).toBe(icon);
+	fireEvent.error(img!);
+	expect(card.querySelector("img")).toBeNull();
+	expect(card.querySelector("svg")).not.toBeNull();
+});
+
+test("pages a long list and keeps the footer in view", async () => {
+	spyOn(projectsService, "getById").mockResolvedValue({ id: "p1", name: "My Project" } as any);
 	spyOn(integrationService, "getVariants").mockResolvedValue([
 		{
 			group: "database",
@@ -127,67 +175,26 @@ test("IntegrationsList marks existing integrations whose variant is disabled as 
 			variants: [{ variant: "PostgreSQL", label: "PostgreSQL", builtIn: true }],
 		},
 	] as any);
-	spyOn(integrationService, "getAll").mockResolvedValue([
-		{
-			id: "int-1",
-			name: "Prod Postgres",
-			group: "database",
-			variant: "PostgreSQL",
-			config: {},
-			devConfig: null,
-			syncDev: true,
-		},
-		// int-2 was created with a plugin variant that is no longer in catalog (disabled)
-		{
-			id: "int-2",
-			name: "Old Custom DB",
-			group: "database",
-			variant: "DisabledVariant",
-			config: {},
-			devConfig: null,
-			syncDev: true,
-		},
-	]);
+	spyOn(integrationService, "getBasicList").mockResolvedValue(
+		Array.from({ length: 25 }, (_, n) => row(`i${n}`, `DB ${n}`, "database", "PostgreSQL")),
+	);
+	wrap(<IntegrationsPage />);
+	await settle();
 
-	wrap(<IntegrationsList projectId="p1" group="database" />);
+	const body = within(document.body);
+	// the default page size is 20
+	expect(body.getByText("DB 19")).toBeTruthy();
+	expect(body.queryByText("DB 20")).toBeNull();
+	expect(body.getByText("Page 1 of 2")).toBeTruthy();
 
-	await act(async () => new Promise((r) => setTimeout(r, 60)));
+	fireEvent.click(body.getByRole("button", { name: "Next" }));
+	expect(body.getByText("DB 20")).toBeTruthy();
+	expect(body.queryByText("DB 0")).toBeNull();
+	expect(body.getByText("Page 2 of 2")).toBeTruthy();
 
-	expect(document.body.textContent).toContain("Prod Postgres");
-	expect(document.body.textContent).toContain("Old Custom DB");
-	expect(document.body.textContent).toContain("plugin disabled");
-});
-
-test("IntegrationsList shows a plugin variant's own icon, and the group's when the image fails (#977)", async () => {
-	const icon = "data:image/svg+xml;base64,PHN2Zy8+";
-	spyOn(integrationService, "getVariants").mockResolvedValue([
-		{
-			group: "acme/crm",
-			label: "acme/crm",
-			builtIn: false,
-			variants: [
-				{ variant: "HubSpot", label: "HubSpot", builtIn: false, plugin: "acme/crm", icon },
-			],
-		},
-	] as any);
-	spyOn(integrationService, "getAll").mockResolvedValue([
-		{
-			id: "int-1",
-			name: "Sales CRM",
-			group: "acme/crm",
-			variant: "HubSpot",
-			config: {},
-			devConfig: null,
-			syncDev: true,
-		},
-	]);
-
-	wrap(<IntegrationsList projectId="p1" group="acme/crm" />);
-	await act(async () => new Promise((r) => setTimeout(r, 60)));
-
-	const img = document.querySelector("tbody img");
-	expect(img?.getAttribute("src")).toBe(icon);
-	fireEvent.error(img!);
-	expect(document.querySelector("tbody img")).toBeNull();
-	expect(document.querySelector("tbody svg")).not.toBeNull();
+	// searching goes back to the first page
+	fireEvent.change(body.getByPlaceholderText("Search by name or type…"), {
+		target: { value: "DB" },
+	});
+	expect(body.getByText("Page 1 of 2")).toBeTruthy();
 });
