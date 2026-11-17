@@ -114,11 +114,16 @@ export function VariantCard({
 				<div className="flex items-center gap-2">
 					<span className="truncate text-sm font-semibold text-foreground">{item}</span>
 					{isPlugin && (
-						<span className="rounded bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium text-accent">
+						<span
+							title={`Added by plugin ${meta?.plugin}`}
+							className="rounded bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium text-accent"
+						>
 							Plugin
 						</span>
 					)}
 				</div>
+				{/* the plugin that adds it: in another plugin's group, not always the group's own */}
+				{isPlugin && <span className="block truncate text-xs text-muted">{meta?.plugin}</span>}
 				{cardGroup !== currentGroup && (
 					<span className="block truncate text-xs text-muted">{catalog.labelOf(cardGroup)}</span>
 				)}

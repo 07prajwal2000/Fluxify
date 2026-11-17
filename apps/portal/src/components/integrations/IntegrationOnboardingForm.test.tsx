@@ -39,7 +39,8 @@ test("IntegrationOnboardingForm renders plugin variant card with Plugin badge", 
 					variant: "HubSpot",
 					label: "HubSpot",
 					builtIn: false,
-					plugin: { id: "pl-1", name: "acme/crm", namespace: "acme" },
+					plugin: "acme/crm",
+					namespace: "acme",
 				},
 			],
 		},
@@ -65,6 +66,43 @@ test("IntegrationOnboardingForm renders plugin variant card with Plugin badge", 
 	expect(badge).toBeTruthy();
 });
 
+test("IntegrationOnboardingForm lists a dependent's variant under the dependency's group, naming the plugin that adds it", async () => {
+	const variants = [
+		{
+			group: "other/crm",
+			label: "other/crm",
+			builtIn: false,
+			namespace: "other",
+			variants: [
+				{ variant: "Hub", label: "Hub", builtIn: false, plugin: "other/crm", namespace: "other" },
+				{ variant: "Pipe", label: "Pipe", builtIn: false, plugin: "acme/pipe", namespace: "acme" },
+			],
+		},
+	] as unknown as Awaited<ReturnType<typeof integrationService.getVariants>>;
+	spyOn(integrationService, "getVariants").mockResolvedValue(variants);
+	const qc = new QueryClient({
+		defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+	});
+	qc.setQueryData(["integration-variants", "p1"], variants);
+
+	wrap(
+		<IntegrationOnboardingForm
+			projectId="p1"
+			group="other/crm"
+			onSelect={() => {}}
+			onSaved={() => {}}
+		/>,
+		qc,
+	);
+
+	await waitFor(() => expect(document.body.textContent).toContain("Pipe"));
+	const card = within(document.body).getByText("Pipe").closest("button")!;
+	expect(within(card).getByText("Plugin").getAttribute("title")).toBe("Added by plugin acme/pipe");
+	expect(within(card).getByText("acme/pipe")).toBeTruthy();
+	const own = within(document.body).getByText("Hub").closest("button")!;
+	expect(within(own).getByText("other/crm")).toBeTruthy();
+});
+
 test("IntegrationOnboardingForm displays test connection error text verbatim", async () => {
 	const variants = [
 		{
@@ -76,7 +114,8 @@ test("IntegrationOnboardingForm displays test connection error text verbatim", a
 					variant: "CockroachDB",
 					label: "CockroachDB",
 					builtIn: false,
-					plugin: { id: "pl-1", name: "acme/cockroach", namespace: "acme" },
+					plugin: "acme/cockroach",
+					namespace: "acme",
 				},
 			],
 		},
@@ -132,7 +171,8 @@ test("IntegrationOnboardingForm renders Name field for plugin variant and sends 
 					variant: "smtp",
 					label: "SMTP",
 					builtIn: false,
-					plugin: { id: "pl-1", name: "demo/toolkit", namespace: "demo" },
+					plugin: "demo/toolkit",
+					namespace: "demo",
 					params: {
 						host: { type: "string", label: "Host", required: true },
 					},
@@ -223,7 +263,8 @@ test("IntegrationOnboardingForm keeps Connect disabled while a required param is
 					variant: "smtp",
 					label: "SMTP",
 					builtIn: false,
-					plugin: { id: "pl-1", name: "demo/toolkit", namespace: "demo" },
+					plugin: "demo/toolkit",
+					namespace: "demo",
 					params: { host: { type: "string", label: "Host", required: true } },
 				},
 			],
