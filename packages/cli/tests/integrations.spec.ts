@@ -135,7 +135,7 @@ describe("integrations create", () => {
 		const message = (f: () => Promise<unknown>) => f().then(() => "", (e) => e.problems?.[0] ?? e.message);
 		expect(await message(() => createIntegration({ cwd: root, name: "hub" }))).toContain("already exists");
 		expect(await message(() => createIntegration({ cwd: root, name: "x", group: "Acme/crm" }))).toBe(
-			"group 'Acme/crm' must be a built-in group or a lowercase name of your own",
+			"group 'Acme/crm' must be a built-in group, a lowercase name of your own or a dependency's '<scope>/<group>'",
 		);
 	});
 });

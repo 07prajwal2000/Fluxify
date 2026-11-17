@@ -59,8 +59,8 @@ describe("integration()", () => {
 	const bad = (extra: object) => () =>
 		integration({ ...base, name: "acme/t/x", group: "crm", config: {}, connect: () => ({}), ...extra } as any);
 
-	it("refuses a scoped group, a canvas-only param, app config and reserved names", () => {
-		expect(bad({ group: "acme/crm" })).toThrow("the scope is added for you");
+	it("refuses a malformed group, a canvas-only param, app config and reserved names", () => {
+		expect(bad({ group: "other/crm/x" })).toThrow("must be a built-in group, 'acme/<group>' or a dependency's");
 		expect(bad({ config: { q: param.js() } })).toThrow("cannot take a js param");
 		expect(bad({ config: { k: param.appconfig() } })).toThrow("reads app config through param.secret()");
 		expect(bad({ config: { variant: param.string() } })).toThrow("config name 'variant' is reserved");
@@ -95,12 +95,16 @@ describe("manifest lint rules", () => {
 		]);
 	});
 
-	it("a local group may not shadow a built-in group, nor sit in another scope", () => {
+	it("a local group may not shadow a built-in group; another scope's is the manifest's to check", () => {
 		const issue = (group: string) => integrationEntrySchema.safeParse(entry({ group })).error?.issues[0]?.message;
 		expect(issue("acme/kv")).toContain("shadows the built-in group");
 		expect(issue("acme/KV")).toContain("shadows the built-in group 'kv'");
 		expect(issue("acme/Crm")).toBe("group 'Crm' must be lowercase letters, digits and -");
-		expect(issue("other/crm")).toBe("group 'other/crm' must be a built-in group or 'acme/<group>'");
+		expect(issue("other/crm/x")).toBe(
+			"group 'other/crm/x' must be a built-in group, 'acme/<group>' or a dependency's '<scope>/<group>'",
+		);
+		expect(issue("kv/crm")).toBe("scope 'kv' is a built-in group name, so it cannot hold a group");
+		expect(issue("other/crm")).toBeUndefined();
 		expect(issue("acme/crm")).toBeUndefined();
 	});
 

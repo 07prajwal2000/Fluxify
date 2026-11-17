@@ -31,15 +31,28 @@ export type ConnectContext = {
 };
 
 /**
- * What `connect` must hand out: a built-in group's adapter, or anything for a
- * plugin's own group. A database's `connect` opens its pooled client (anything);
- * `adapter` builds the `DatabaseAdapter` each request gets from it.
+ * The clients of plugins' integration groups, by group (#899). A plugin
+ * declares its groups' contracts by augmenting it:
+ * `declare module "@fluxify/sdk" { interface PluginGroups { "acme/crm": CrmClient } }`.
+ * A plugin adding a variant to `acme/crm` then gets `connect` checked against
+ * `CrmClient`; a group not listed here takes any client.
+ */
+// biome-ignore lint/suspicious/noEmptyInterface: filled by module augmentation
+export interface PluginGroups {}
+
+/**
+ * What `connect` must hand out: a built-in group's adapter, a dependency's
+ * group's client (`PluginGroups`), or anything for a plugin's own group. A
+ * database's `connect` opens its pooled client (anything); `adapter` builds the
+ * `DatabaseAdapter` each request gets from it.
  */
 export type GroupContract<G extends string> = G extends "database"
 	? unknown
 	: G extends IntegrationGroup
 		? BuiltInIntegrationAdapters[G]
-		: unknown;
+		: G extends keyof PluginGroups
+			? PluginGroups[G]
+			: unknown;
 
 /** what Test connection, describe and inspect get: a database's per-request adapter, else the client */
 export type HookClient<G extends string, C> = G extends "database" ? DatabaseAdapter : C;
@@ -62,8 +75,10 @@ export type IntegrationDefinition<
 	docs?: string;
 	/**
 	 * A built-in group (`"database"`, `"kv"`, ...): `connect` must hand out that
-	 * group's adapter, and the built-in blocks use it. Any other name is this
+	 * group's adapter, and the built-in blocks use it. A plain name is this
 	 * plugin's own group; Fluxify files it under the plugin's scope (`acme/crm`).
+	 * `scope/group` is a group of a plugin this one depends on (#899): the
+	 * variant joins it, and that plugin's blocks and triggers can use it.
 	 */
 	group: G;
 	/** the variant's name in its group, as the integrations page lists it */
@@ -105,9 +120,11 @@ export type IntegrationDefinition<
 /** any `integration(...)` result */
 export type AnyIntegration = IntegrationDefinition<string, ConfigParams, any, any>;
 
-/** `acme/crm` for a plugin's own group `crm` of `acme/...`; a built-in group as is */
+/** `acme/crm` for a plugin's own group `crm` of `acme/...`; a built-in or a dependency's group (`other/crm`) as is */
 export const integrationGroup = (def: { name: string; group: string }) =>
-	isBuiltInIntegrationGroup(def.group) ? def.group : `${def.name.split("/")[0]}/${def.group}`;
+	isBuiltInIntegrationGroup(def.group) || def.group.includes("/")
+		? def.group
+		: `${def.name.split("/")[0]}/${def.group}`;
 
 /** The definition minus its hooks, as manifest data. */
 export function toIntegrationEntry(def: AnyIntegration): IntegrationEntry {
@@ -170,8 +187,10 @@ const prettify = (name: unknown, error: z.ZodError) =>
 /**
  * Defines an integration variant. Default-export the result from a file under
  * `src/integrations`. Throws on an invalid definition, naming it. A variant of a
- * built-in group must hand out that group's adapter: `connect` returning less
- * is a type error.
+ * built-in group must hand out that group's adapter, and one of a dependency's
+ * group its `PluginGroups` client: `connect` returning less is a type error.
+ * Whether a `scope/group` is a dependency's is checked by the build, which
+ * reads the dependencies.
  */
 export function integration<
 	const G extends string,
@@ -181,10 +200,6 @@ export function integration<
 >(
 	def: IntegrationDefinition<G, P, C, R> & { config: NoInfer<CheckVisible<P>> },
 ): IntegrationDefinition<G, P, C, R> {
-	if (def.group.includes("/"))
-		throw new Error(
-			`integration ${def.name}: group '${def.group}' must be a built-in group or a plain name; the scope is added for you`,
-		);
 	if (def.group === "database" && typeof (def as { adapter?: unknown }).adapter !== "function")
 		throw new Error(
 			`integration ${def.name}: a database integration needs adapter(pool, config), the adapter each request gets`,

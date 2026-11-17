@@ -63,12 +63,20 @@ function checkBuiltInVariant(group: keyof typeof BUILT_IN_VARIANT_NAMES, e: Entr
 		]);
 }
 
+/**
+ * A built-in group, the plugin's own (`acme/crm`), or another scope's
+ * (`other/crm`): whether that one is a dependency's group is the manifest's
+ * check (`dependencyGroupIssues`), which knows the dependencies.
+ */
 function checkGroup(e: Entry, issue: Issue) {
 	if (isBuiltInIntegrationGroup(e.group)) return checkBuiltInVariant(e.group, e, issue);
 	const scope = e.name.split("/")[0]!;
 	const [namespace, local, ...rest] = e.group.split("/");
-	if (namespace !== scope || !local || rest.length)
-		issue(`group '${e.group}' must be a built-in group or '${scope}/<group>'`, ["group"]);
+	if (!namespace || !local || rest.length)
+		issue(
+			`group '${e.group}' must be a built-in group, '${scope}/<group>' or a dependency's '<scope>/<group>'`,
+			["group"],
+		);
 	else if (isBuiltInIntegrationGroup(local.toLowerCase()))
 		issue(
 			`group '${local}' shadows the built-in group '${local.toLowerCase()}': write group '${local.toLowerCase()}' for a variant of it, or pick another name`,
@@ -77,7 +85,7 @@ function checkGroup(e: Entry, issue: Issue) {
 	else if (!LOCAL_GROUP.test(local))
 		issue(`group '${local}' must be lowercase letters, digits and -`, ["group"]);
 	else if (!isIntegrationGroupName(e.group))
-		issue(`scope '${scope}' is a built-in group name, so it cannot hold a group`, ["group"]);
+		issue(`scope '${namespace}' is a built-in group name, so it cannot hold a group`, ["group"]);
 }
 
 /**
@@ -102,28 +110,86 @@ type Granting = {
 };
 /** what of a manifest says which integration kinds its blocks and triggers may use */
 export type Grants = {
+	name: string;
 	blocks: Record<string, Granting>;
 	triggers?: Granting[];
 	integrations?: Kinds[];
-	dependencies?: unknown[];
+	dependencies?: { plugin: string }[];
 };
+type Dependency = { name: string; integrations?: Kinds[] };
+
+const scopeOf = (name: string) => name.split("/")[0]!;
+const foreign = (m: { name: string }, group: string) =>
+	!isBuiltInIntegrationGroup(group) && scopeOf(group) !== scopeOf(m.name);
+/**
+ * The variants a plugin declares in its own scope's groups: the groups it is
+ * the source of. A variant it adds to a dependency's group is not one, so a
+ * plugin can use and extend only its direct dependencies' groups.
+ */
+const ownVariants = (m: Dependency) => (m.integrations ?? []).filter((e) => !foreign(m, e.group));
+
+/**
+ * Each integration of `m` added to another scope's group: refused unless a
+ * plugin it depends on declares that group (#899). Without the dependencies'
+ * manifests only the scope is checked.
+ */
+function dependencyGroupIssues(m: Grants, dependencies?: readonly Dependency[]) {
+	return (m.integrations ?? []).flatMap((e, i) => {
+		if (!foreign(m, e.group)) return [];
+		const path = ["integrations", i, "group"];
+		const scoped = (m.dependencies ?? []).filter((d) => scopeOf(d.plugin) === scopeOf(e.group));
+		if (!scoped.length)
+			return [
+				{
+					message: `group '${e.group}' is not a group of a plugin this one depends on: add the plugin that declares it to peerDependencies`,
+					path,
+				},
+			];
+		if (!dependencies) return [];
+		const taken = dependencies.find((d) =>
+			d.integrations?.some((v) => v.group === e.group && same(v.variant, e.variant)),
+		);
+		if (taken)
+			return [
+				{
+					message: `variant '${e.variant}' of ${e.group} is already provided by plugin ${taken.name}`,
+					path: ["integrations", i, "variant"],
+				},
+			];
+		const candidates = dependencies.filter((d) => scopeOf(d.name) === scopeOf(e.group));
+		if (candidates.some((d) => ownVariants(d).some((v) => v.group === e.group))) return [];
+		const groups = [...new Set(candidates.flatMap((d) => ownVariants(d).map((v) => v.group)))];
+		const names = scoped.map((d) => d.plugin).join(", ");
+		return [
+			{
+				message: `${scoped.length > 1 ? "plugins" : "plugin"} ${names} ${scoped.length > 1 ? "declare" : "declares"} no integration group '${e.group}' (${groups.join(", ") || "none"})`,
+				path,
+			},
+		];
+	});
+}
 
 /**
  * The integration kinds each block and trigger names (`permissions.integrations`,
  * a param's `variants`) against what the plugin may use: built-in groups, its own
- * groups and variants, and those of the plugins it depends on (#899).
- * `dependencies` are those plugins' manifests. Undefined means they are not at
- * hand (the admin parsing a manifest on its own), so a manifest that declares
- * dependencies is not checked for groups it does not declare itself; the CLI's
- * build and the admin's approval pass them and check everything.
+ * groups and variants, and those of the plugins it depends on (#899), and each
+ * variant it adds to a dependency's group. `dependencies` are those plugins'
+ * manifests. Undefined means they are not at hand (the admin parsing a manifest
+ * on its own), so a manifest that declares dependencies is not checked for
+ * groups it does not declare itself; the CLI's build and the admin's approval
+ * pass them and check everything.
  */
-export function grantIssues(m: Grants, dependencies?: readonly { integrations?: Kinds[] }[]) {
+export function grantIssues(m: Grants, dependencies?: readonly Dependency[]) {
 	const provided = [m, ...(dependencies ?? [])].flatMap((d) => d.integrations ?? []);
-	const groups = new Set(provided.map((e) => e.group).filter((g) => g.includes("/")));
+	const groups = new Set(
+		[...(m.integrations ?? []), ...(dependencies ?? []).flatMap(ownVariants)]
+			.map((e) => e.group)
+			.filter((g) => g.includes("/")),
+	);
 	const deferred = !dependencies && !!m.dependencies?.length;
 	const unchecked = (group: string) =>
-		deferred && !isBuiltInIntegrationGroup(group) && !groups.has(group);
-	const issues: { message: string; path: (string | number)[] }[] = [];
+		deferred && !isBuiltInIntegrationGroup(group) && (foreign(m, group) || !groups.has(group));
+	const issues = dependencyGroupIssues(m, dependencies);
 	const granted = [
 		...Object.entries(m.blocks).map(([type, b]) => [["blocks", type], b] as const),
 		...(m.triggers ?? []).map((t, i) => [["triggers", i], t] as const),

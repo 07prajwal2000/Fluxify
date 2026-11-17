@@ -2,6 +2,7 @@ import { afterAll, describe, expect, it } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { build } from "../src/build";
+import { createIntegration } from "../src/create";
 import { cleanup, failures, makePlugin, tmp } from "./helpers";
 
 afterAll(cleanup);
@@ -110,5 +111,50 @@ describe("fluxify-cli build: plugin dependencies (#899)", () => {
 	it("without the peer, the dependency's group is refused as before", async () => {
 		const root = await makePlugin({ "src/blocks/find.ts": useSrc("type CrmClient = any;") });
 		expect((await failures(root)).join("\n")).toContain("add that plugin to peerDependencies");
+	});
+
+	describe("a variant of the dependency's group", () => {
+		const message = (f: () => Promise<unknown>) =>
+			f().then(
+				() => "",
+				(e) => e.problems?.[0] ?? e.message,
+			);
+
+		it("scaffolds one importing the dependency's types, and builds it into that group", async () => {
+			const root = await dependent();
+			const { files } = await createIntegration({ cwd: root, name: "pipe", group: "other/crm" });
+			expect(files).toContain("src/integrations/pipe.ts");
+			const source = await Bun.file(join(root, "src/integrations/pipe.ts")).text();
+			expect(source).toContain('import type {} from "@other/crm";');
+			expect(source).toContain('group: "other/crm"');
+			const { manifest } = await build(root);
+			expect(manifest.integrations?.map((i) => [i.group, i.variant])).toEqual([["other/crm", "pipe"]]);
+		});
+
+		it("refuses a group no dependency declares, and one of a plugin it does not depend on", async () => {
+			const root = await dependent();
+			expect(await message(() => createIntegration({ cwd: root, name: "a", group: "other/billing" }))).toBe(
+				"plugin other/crm declares no integration group 'other/billing'",
+			);
+			expect(await message(() => createIntegration({ cwd: root, name: "b", group: "zzz/crm" }))).toContain(
+				"group 'zzz/crm' is not a group of a plugin this one depends on",
+			);
+		});
+
+		it("fails the build on a variant the dependency already provides, or a group it does not declare", async () => {
+			const edited = async (from: string, to: string) => {
+				const root = await dependent();
+				await createIntegration({ cwd: root, name: "hub", group: "other/crm" });
+				const src = join(root, "src/integrations/hub.ts");
+				await Bun.write(src, (await Bun.file(src).text()).replace(from, to));
+				return failures(root);
+			};
+			expect(await edited('variant: "hub"', 'variant: "Hub"')).toEqual([
+				expect.stringContaining("variant 'Hub' of other/crm is already provided by plugin other/crm"),
+			]);
+			expect(await edited('group: "other/crm"', 'group: "other/billing"')).toEqual([
+				expect.stringContaining("plugin other/crm declares no integration group 'other/billing' (other/crm)"),
+			]);
+		});
 	});
 });
