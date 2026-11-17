@@ -1,7 +1,9 @@
 import type {
+	dependencyPlanSchema,
 	fsCandidatesSchema,
 	installStatusSchema,
 	listResponseSchema,
+	npmResolveSchema,
 	pluginSchema,
 	upgradePreviewSchema,
 	urlRequestSchema,
@@ -21,6 +23,10 @@ export type PluginFsCandidate = z.infer<typeof fsCandidatesSchema>[number];
 /** `fluxify.json`: the plugin's blocks with their shape, invoke modes, params, handles and permissions */
 export type PluginManifest = PluginLiveVersion["manifest"];
 export type PluginEnvironments = { dev: boolean; prod: boolean };
+/** what installing a plugin brings along (#899): each dependency, in install order */
+export type PluginDependencyPlan = z.infer<typeof dependencyPlanSchema>;
+export type InstallStep = PluginDependencyPlan["dependencies"][number];
+export type NpmInstallPlan = z.infer<typeof npmResolveSchema>;
 
 const base = "/v1/plugins";
 const scoped = (projectId: string) => ({ params: { projectId } });
@@ -77,6 +83,19 @@ export const pluginsService = {
 	/** `name@x.y.z`: an exact version */
 	async addNpm(projectId: string, spec: string): Promise<Plugin> {
 		return (await httpClient.post(`${base}/npm`, { spec }, scoped(projectId))).data;
+	},
+	/** what adding `spec` would install, dependencies included; installs nothing */
+	async resolveNpm(projectId: string, spec: string): Promise<NpmInstallPlan> {
+		return (await httpClient.post(`${base}/npm/resolve`, { spec }, scoped(projectId))).data;
+	},
+	/** the dependencies an added plugin still lacks, and the versions installing them would add */
+	async dependencyPlan(projectId: string, name: string): Promise<PluginDependencyPlan> {
+		return (await httpClient.get(`${base}/${name}/dependencies/plan`, scoped(projectId))).data;
+	},
+	async installDependencies(projectId: string, name: string): Promise<PluginDependencyPlan> {
+		return (
+			await httpClient.post(`${base}/${name}/dependencies/install`, undefined, scoped(projectId))
+		).data;
 	},
 	/** step 1: records the URL; nothing is downloaded until `fetchUrl` */
 	async requestUrl(projectId: string, url: string): Promise<PluginUrlRequest> {

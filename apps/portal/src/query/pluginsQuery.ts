@@ -47,6 +47,16 @@ export const pluginsQuery = {
 				enabled,
 			}),
 	},
+	/** what installing the plugin's missing dependencies would add; fetched when asked for */
+	dependencyPlan: {
+		useQuery: (projectId: string, name: string, enabled: boolean) =>
+			useQuery({
+				queryKey: [...pluginsKey(projectId), name, "dependency-plan"],
+				queryFn: () => pluginsService.dependencyPlan(projectId, name),
+				enabled,
+				retry: false,
+			}),
+	},
 	urlRequests: {
 		useQuery: (projectId: string, enabled: boolean) =>
 			useQuery({
@@ -99,6 +109,17 @@ export const pluginsQuery = {
 	addNpm: {
 		useMutation: (projectId: string) =>
 			useRegistryMutation(projectId, (spec: string) => pluginsService.addNpm(projectId, spec)),
+	},
+	/** reads only: what adding `spec` would install */
+	resolveNpm: {
+		useMutation: (projectId: string) =>
+			useMutation({ mutationFn: (spec: string) => pluginsService.resolveNpm(projectId, spec) }),
+	},
+	installDependencies: {
+		useMutation: (projectId: string) =>
+			useRegistryMutation(projectId, (name: string) =>
+				pluginsService.installDependencies(projectId, name),
+			),
 	},
 	requestUrl: {
 		useMutation: (projectId: string) =>
