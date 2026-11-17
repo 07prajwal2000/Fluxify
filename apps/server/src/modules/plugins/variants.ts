@@ -6,8 +6,9 @@ import { watchArtifacts } from "../../db/natsKv";
 import { pluginsEntity } from "../../db/schema";
 import type { FluxifyEnv } from "../../lib/env";
 import { ENVIRONMENTS } from "../../lib/envValues";
-import { liveOf, type PluginRow } from "./meta";
-import { getPluginRow, listPluginRows } from "./repository";
+import { withDependencyGate } from "./dependencies";
+import { isUsableIn, liveOf, type PluginRow } from "./meta";
+import { listPluginRows } from "./repository";
 
 /**
  * The admin's half of plugin integrations (I6): each approved plugin's variants,
@@ -27,6 +28,8 @@ type Applied = {
 	devEnabled: boolean;
 	prodEnabled: boolean;
 	version: string;
+	/** why a dependency stops it, per environment (#899) */
+	blocked?: PluginRow["blocked"];
 };
 
 /** `projectId\0name` -> what is registered for that plugin */
@@ -34,9 +37,12 @@ const applied = new Map<string, Applied>();
 const pluginOf = (projectId: string, name: string) => `${projectId}\u0000${name}`;
 
 /**
- * Registers `row`'s variants for its project, replacing what the plugin had.
- * Undefined (removed) or not approved: they all go. One that another plugin of
- * the project already registered is skipped and logged: approval refuses that.
+ * Registers `row`'s variants for its project, replacing what the plugin had,
+ * including those it adds to a dependency's group (#899), tagged with it.
+ * Undefined (removed), not approved, or blocked by a dependency in every
+ * environment it is on (`withDependencyGate`): they all go. One that another
+ * plugin of the project already registered is skipped and logged: approval
+ * refuses that.
  */
 export function applyPluginVariants(
 	projectId: string,
@@ -46,7 +52,8 @@ export function applyPluginVariants(
 ) {
 	const key = pluginOf(projectId, name);
 	const row = stored && liveOf(stored);
-	const next = row?.approval === "approved" ? (row.manifest.integrations ?? []) : [];
+	const stopped = !!row?.blocked && !ENVIRONMENTS.some((env) => isUsableIn(row, env));
+	const next = row?.approval === "approved" && !stopped ? (row.manifest.integrations ?? []) : [];
 	const before = applied.get(key);
 	for (const kind of before?.kinds ?? []) registry.unregister(kind.group, kind.variant, projectId);
 	applied.delete(key);
@@ -68,23 +75,26 @@ export function applyPluginVariants(
 		devEnabled: row.devEnabled,
 		prodEnabled: row.prodEnabled,
 		version: row.version,
+		...(row.blocked && { blocked: row.blocked }),
 	});
 }
 
-export async function syncPluginVariants(projectId: string, name: string) {
-	applyPluginVariants(projectId, name, await getPluginRow(projectId, name));
-}
-
-/** the project's plugins as the rows hold them now, including ones this replica never saw */
-export async function syncProjectPluginVariants(projectId: string) {
-	const rows = await listPluginRows(projectId);
+/**
+ * The project's plugins as `rows` hold them, including ones this replica never
+ * saw. Always the whole project: a plugin's variants follow its dependencies'
+ * state, so a change to one re-applies its dependents (#899).
+ */
+export function applyProjectPluginVariants(projectId: string, rows: readonly PluginRow[]) {
 	const names = new Set(rows.map((r) => r.name));
 	for (const key of applied.keys()) {
 		const [owner, name] = key.split("\u0000") as [string, string];
 		if (owner === projectId && !names.has(name)) applyPluginVariants(projectId, name, undefined);
 	}
-	for (const row of rows) applyPluginVariants(projectId, row.name, row);
+	for (const row of withDependencyGate(rows)) applyPluginVariants(projectId, row.name, row);
 }
+
+export const syncProjectPluginVariants = async (projectId: string) =>
+	applyProjectPluginVariants(projectId, await listPluginRows(projectId));
 
 /** which plugin of the project provides `group/variant`, with its state; undefined for anything else */
 export function pluginVariantState(projectId: string, group: string, variant: string) {
@@ -113,6 +123,8 @@ export function pluginVariantUnusable(
 	const state = pluginVariantState(projectId, group, variant);
 	if (!state) return undefined;
 	const on = env === "development" ? state.devEnabled : state.prodEnabled;
+	if (on && state.blocked?.[env])
+		return `plugin ${state.plugin} cannot load: ${state.blocked[env]}`;
 	if (on) return undefined;
 	return !state.devEnabled && !state.prodEnabled
 		? `plugin ${state.plugin} is disabled`
@@ -125,8 +137,12 @@ export function pluginVariantUnusable(
  * resolves only once its variant is registered.
  */
 export async function startPluginVariants() {
-	for (const row of await db.select().from(pluginsEntity))
-		applyPluginVariants(row.projectId, row.name, row);
+	const rows = await db.select().from(pluginsEntity);
+	for (const projectId of new Set(rows.map((r) => r.projectId)))
+		applyProjectPluginVariants(
+			projectId,
+			rows.filter((r) => r.projectId === projectId),
+		);
 	// any change to what a plugin publishes passes through its artifact, in one environment or both
 	for (const env of ENVIRONMENTS)
 		await watchArtifacts<unknown>(
@@ -134,7 +150,7 @@ export async function startPluginVariants() {
 			(key) => {
 				const [, projectId, ...name] = key.split(".");
 				if (!projectId || !name.length) return;
-				return syncPluginVariants(projectId, name.join(".")).catch((error) =>
+				return syncProjectPluginVariants(projectId).catch((error) =>
 					logger.error(`plugin variants for ${key}: ${String(error)}`, "PLUGINS"),
 				);
 			},

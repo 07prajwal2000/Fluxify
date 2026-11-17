@@ -14,7 +14,7 @@ import { ENVIRONMENTS } from "../../../lib/envValues";
 import { pluginKey } from "../../compiler/subjects";
 import { listPluginRows } from "../../plugins/repository";
 import { pluginObjectKey } from "../../plugins/sources/location";
-import { syncPluginVariants } from "../../plugins/variants";
+import { syncProjectPluginVariants } from "../../plugins/variants";
 import type { BackupModule } from "../types";
 import { checkedTarball, exportTarball, restoredSource, tarballPath } from "./pluginBytes";
 import { byName } from "./rollback";
@@ -127,7 +127,7 @@ export const pluginsModule: BackupModule<Section> = {
 				);
 				const objects = await pluginObjects();
 				for (const key of await objects.keys(`${projectId}/${name}/`)) await objects.delete(key);
-				await syncPluginVariants(projectId, name);
+				await syncProjectPluginVariants(projectId);
 			}, `Plugin "${name}" was removed, but workers may keep loading it until the admin restarts.`);
 		}
 	},

@@ -37,12 +37,15 @@ Its `name` starts with the plugin name, like a block's type. `integration()` che
 | :--- | :--- | :--- |
 | **A variant of a built-in group** | Implements the same contract as the built-in variant, so built-in blocks keep working | The built-in blocks of that group, and your own blocks |
 | **A group of your own** | A new kind of connection, with a contract you design | Your plugin's blocks, and the plugins that [depend on yours](./dependencies) |
+| **A variant of a dependency's group** | Another way to connect to a group that a plugin you depend on declares, such as a new provider for `other/crm` | That plugin's blocks and triggers, and your own blocks. See [Plugin dependencies](./dependencies#adding-a-variant-to-the-dependency-s-group) |
 
 The built-in groups are `database`, `kv`, `queue`, `ai`, `observability`, `baas` and `mcp`.
 
 A variant of a built-in group shows up under that group with a **Plugin** badge, next to PostgreSQL or Redis. For example, a variant with `group: "kv"` becomes a choice for the built-in KV blocks without changing them.
 
-A group of your own is filed under your plugin's **scope**: a plugin `acme/slack` with `group: "email"` becomes `acme/email`. Blocks of the same plugin can use it, and so can the blocks of a plugin that depends on yours. The `group` you write is a plain name; the scope is added for you, and `integration()` refuses a group that already has a slash.
+A group of your own is filed under your plugin's **scope**: a plugin `acme/slack` with `group: "email"` becomes `acme/email`. Blocks of the same plugin can use it, and so can the blocks of a plugin that depends on yours. The `group` you write is a plain name; the scope is added for you.
+
+A `group` written with a slash, such as `other/crm`, is a group of another plugin. It is accepted only when that plugin is one of your dependencies and declares that group; the build checks this.
 
 ::: info
 A plugin can use the built-in groups, its own groups, and the groups of the plugins it depends on. To use another plugin's group, add that plugin to `peerDependencies`: see [Plugin dependencies](./dependencies).
@@ -57,7 +60,7 @@ A plugin can use the built-in groups, its own groups, and the groups of the plug
 | `description` | No | One line under the label |
 | `icon` | Yes | An image inside the plugin. The build copies it into `icons/` |
 | `docs` | No | Markdown for the integration's page, in the same shape as a block's Docs tab |
-| `group` | Yes | A built-in group name, or a plain name of your own |
+| `group` | Yes | A built-in group name, a plain name of your own, or a dependency's group (`other/crm`) |
 | `variant` | Yes | This integration's name inside its group. It cannot contain `/` |
 | `config` | Yes | The form the user fills in ([below](#config)) |
 | `tabs` | No | The order of the form's tabs; default is first use, with General first |
@@ -125,7 +128,7 @@ async connect(config, ctx) {
 | `ctx.logger` | `logInfo`, `logWarn` and `logError` |
 | `ctx.signal` | Aborted when the client is closed, or when the Test connection that opened it is done. Pass it to a request library to cancel work |
 
-A **variant of a built-in group** must return that group's adapter type from `@fluxify/sdk/integrations`; leaving a method out is a type error. A **group of your own** may return anything your blocks need. Blocks get the type from `typeof yourIntegration`, so you do not write a second client type.
+A **variant of a built-in group** must return that group's adapter type from `@fluxify/sdk/integrations`; leaving a method out is a type error. A **variant of a dependency's group** must return the client that plugin declares for it, when it declares one (see [typing a group's client](./dependencies#typing-a-group-s-client)). A **group of your own** may return anything your blocks need. Blocks get the type from `typeof yourIntegration`, so you do not write a second client type.
 
 ## one client per config
 
@@ -394,10 +397,10 @@ This writes `src/integrations/mail.ts`, a test and a placeholder icon, and adds 
 
 | Flag | Meaning |
 | :--- | :--- |
-| `--group <name>` | A built-in group, or a group of your own. Left out, the file's name is the group |
+| `--group <name>` | A built-in group, a group of your own, or a dependency's group (`other/crm`). Left out, the file's name is the group |
 | `--force` | Not used by this command |
 
-The database template writes the `connect` and `adapter(pool, config)` split, so a new database variant starts in the shape transactions need. The other templates stub every method of their group's contract. Replace the stubs and run `bun test`.
+The database template writes the `connect` and `adapter(pool, config)` split, so a new database variant starts in the shape transactions need. The other templates stub every method of their group's contract. A dependency's group gets a `connect` to fill in with that plugin's client, and an `import type` of its package so the client's type is checked. Replace the stubs and run `bun test`.
 
 ## Using the integration from a block
 
@@ -536,8 +539,8 @@ Narrowing `variants` in a new plugin version blocks the upgrade only while one o
 
 ## Limits
 
-- A plugin can add variants to the seven built-in groups, and groups of its own.
-- A block can be granted a built-in group and its own plugin's groups. Another plugin's group is refused until plugin-to-plugin dependencies exist.
+- A plugin can add variants to the built-in groups, groups of its own, and the groups of the plugins it depends on directly.
+- A block can be granted a built-in group, its own plugin's groups, and the groups of the plugins it depends on directly.
 - A plugin's own group is visible only in projects that installed and approved that plugin, and only while the plugin is enabled in that environment.
 
 ## A worked example

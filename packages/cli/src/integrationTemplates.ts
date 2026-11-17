@@ -47,6 +47,11 @@ const stubsOf = (contract: { methods: string[] }, indent: string) =>
 
 function clientCode(group: string) {
 	const contract = CONTRACTS[group as keyof typeof CONTRACTS];
+	if (!contract && group.includes("/"))
+		return `// call your service with \`token\` here, and hand out the client ${group}'s blocks expect:
+		// when its package declares that client in PluginGroups, anything else is a type error
+		void token;
+		return {};`;
 	if (!contract)
 		return `// your group: hand out whatever your blocks need, typed for them by \`typeof\` this integration
 		return {
@@ -90,11 +95,19 @@ ${stubsOf(CONTRACTS.database, "\t\t\t")}
 		return client;
 	},`;
 
-export const integrationTemplate = (type: string, group: string) => {
+/** `dependency`: the npm package of the plugin whose group `group` is (#899) */
+export const integrationTemplate = (type: string, group: string, dependency?: string) => {
 	const contract = CONTRACTS[group as keyof typeof CONTRACTS];
 	const imports = contract
 		? `import type { ${contract.type} } from "@fluxify/sdk/integrations";\n`
-		: "";
+		: dependency
+			? `// types only: what ${dependency} says its group's client is (PluginGroups)\nimport type {} from "${dependency}";\n`
+			: "";
+	const about = contract
+		? `a variant of the built-in ${group} group: the built-in ${group} blocks can use it`
+		: dependency
+			? `a variant of ${group}, the group of ${dependency}: its blocks and triggers can use it`
+			: "a group of this plugin's own: Fluxify files it under the plugin's scope";
 	const extras =
 		group === "database"
 			? `\t// a database also says how hand-written conditions are written\n\textras: { conditionEditor: "sql", dbType: "${label(type)}" },\n`
@@ -108,7 +121,7 @@ export default integration({
 	name: "${type}",
 	label: "${label(type)}",
 	icon: "./icons/${label(type)}.svg",
-	// ${contract ? `a variant of the built-in ${group} group: the built-in ${group} blocks can use it` : `a group of this plugin's own: Fluxify files it under the plugin's scope`}
+	// ${about}
 	group: "${group}",
 	variant: "${label(type)}",
 ${extras}	config: {

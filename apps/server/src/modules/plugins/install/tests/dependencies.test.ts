@@ -3,7 +3,9 @@
 // What a user does, in order: preview the install of a plugin that depends on
 // another, install both, approve them (the dependent only after its
 // dependency), create an integration of the dependency's group, run the
-// dependent's block against it, then switch the dependency off.
+// dependent's block against it, then switch the dependency off. And part 2: a
+// dependent adds a variant to the dependency's group, which the dependency's
+// own block runs against.
 import { afterAll, afterEach, beforeAll, describe, expect, it, mock, spyOn } from "bun:test";
 import { BlockTypes, compileGraph } from "@fluxify/blocks";
 import { block, param, toManifestEntry } from "@fluxify/sdk/blocks";
@@ -27,10 +29,14 @@ const { initCompiledRuntime, shutdownCompiledRuntime } = await import(
 	"../../../requestRouter/compiledRuntime"
 );
 const { runBlocks } = await import("../../../requestRouter/executor");
-const { applyPluginVariants, syncPluginVariants } = await import("../../variants");
+const { applyProjectPluginVariants, pluginVariantState, syncProjectPluginVariants } = await import(
+	"../../variants"
+);
 const integrationsApi = (await import("../../../../api/v1/integrations/register")).default;
 
 const CRM = "other/crm";
+const LOOKUP = `${CRM}/lookup`;
+const PIPE = "acme/pipe";
 const SALES = "acme/sales";
 const FIND = `${SALES}/find`;
 const ICON = "data:image/svg+xml;base64,PHN2Zy8+";
@@ -78,6 +84,36 @@ const FIND_MODULE = `export default {
 	run: async ({ params, ctx }) => ({ output: await (await ctx.integrations.get(params.crm)).find(params.id) }),
 };`;
 
+/** the dependency's own block: any variant of its group */
+const lookupBlock = block({
+	name: LOOKUP,
+	label: "Lookup",
+	permissions: { integrations: [CRM] },
+	params: { crm: param.integration({ kind: CRM }), id: param.string() },
+	async run() {
+		return { output: null };
+	},
+});
+
+/** a dependent's variant of the dependency's group (#899 part 2) */
+const pipeEntry = {
+	...toIntegrationEntry({
+		name: `${PIPE}/pipe`,
+		label: "Pipe",
+		icon: ICON,
+		group: CRM,
+		variant: "Pipe",
+		config: { region: param.string({ required: true }) },
+		connect: () => ({}),
+	} as never),
+	entry: "dist/integrations/pipe.js",
+};
+const PIPE_MODULE = `export default {
+	name: "${PIPE}/pipe", label: "Pipe", icon: "x", group: "${CRM}", variant: "Pipe",
+	config: { region: { type: "string", required: true } },
+	connect: (config) => ({ find: async (id) => ({ id, region: config.region, from: "pipe" }) }),
+};`;
+
 const pkg = (name: string, plugin: string, version: string, peers: Record<string, string> = {}) =>
 	JSON.stringify({ name, version, fluxify: { name: plugin, url: URL_ }, peerDependencies: peers });
 
@@ -87,8 +123,15 @@ const crmTgz = (version: string) =>
 		"fluxify.json": JSON.stringify(crmManifest()),
 		"dist/blocks/step.js": null,
 		"dist/integrations/hub.js": HUB_MODULE,
+		"dist/blocks/lookup.js": FIND_MODULE,
 	});
-const crmManifest = () => ({ name: CRM, url: URL_, sdk: ">=2026.10.0", blocks: {}, integrations: [hubEntry] });
+const crmManifest = () => ({
+	name: CRM,
+	url: URL_,
+	sdk: ">=2026.10.0",
+	blocks: { [LOOKUP]: { ...toManifestEntry(lookupBlock), entry: "dist/blocks/lookup.js" } },
+	integrations: [hubEntry],
+});
 
 const salesManifest = () => ({
 	name: SALES,
@@ -103,6 +146,22 @@ const salesTgz = () =>
 		"fluxify.json": JSON.stringify(salesManifest()),
 		"dist/blocks/step.js": null,
 		"dist/blocks/find.js": FIND_MODULE,
+	});
+
+const pipeManifest = () => ({
+	name: PIPE,
+	url: URL_,
+	sdk: ">=2026.10.0",
+	blocks: {},
+	integrations: [pipeEntry],
+	dependencies: [{ name: "@other/crm", plugin: CRM, range: "^1.0.0" }],
+});
+const pipeTgz = () =>
+	pluginTgz({
+		"package.json": pkg("@acme/pipe", PIPE, "1.0.0", { "@other/crm": "^1.0.0" }),
+		"fluxify.json": JSON.stringify(pipeManifest()),
+		"dist/blocks/step.js": null,
+		"dist/integrations/pipe.js": PIPE_MODULE,
 	});
 
 /** the web as the admin and the worker see it: jsDelivr, the registry and its tarballs */
@@ -140,15 +199,16 @@ const serveWeb = () =>
 
 type Payload = Awaited<ReturnType<typeof buildProjectConfig>>;
 
-/** entry -> the dependent's block finding `id` through integration `crm` -> response, compiled and run */
-async function runFind(project: string, payload: Payload, crm: string, id: string) {
-	const meta = blockMetaOf({ ...toManifestEntry(findBlock), entry: "dist/blocks/find.js" } as never);
+/** entry -> plugin block `b` finding `id` through integration `crm` -> response, compiled and run */
+async function runFind(project: string, payload: Payload, crm: string, id: string, b = findBlock) {
+	const kind = b.name;
+	const meta = blockMetaOf({ ...toManifestEntry(b), entry: "dist/blocks/x.js" } as never);
 	const node = (nodeId: string, type: string, data: object = {}) => ({ id: nodeId, type, data, position: { x: 0, y: 0 } });
 	const edge = (from: string, to: string) => ({ id: `e-${from}-${to}`, from, to, fromHandle: "source", toHandle: `${from}-source` });
 	const compiled = compileGraph(
-		[node("1", BlockTypes.entrypoint), node("2", FIND, { crm, id }), node("3", BlockTypes.response, { httpCode: "200" })] as never,
+		[node("1", BlockTypes.entrypoint), node("2", kind, { crm, id }), node("3", BlockTypes.response, { httpCode: "200" })] as never,
 		[edge("1", "2"), edge("2", "3")] as never,
-		{ projectId: project, blockMeta: { [FIND]: meta } },
+		{ projectId: project, blockMeta: { [kind]: meta } },
 	);
 	await initCompiledRuntime([
 		{ key: projectConfigKey(project), value: { projectId: project, payload, compiledAt: "" } },
@@ -243,13 +303,13 @@ describe("a plugin that depends on another plugin", () => {
 			await until(worker.status, () => ready(CRM) && ready(SALES));
 			// the execution child's side, in this process: the real variant replaces the admin's metadata
 			const payload = await buildProjectConfig(s.project, "development");
-			applyPluginVariants(s.project, CRM, undefined);
+			applyProjectPluginVariants(s.project, []);
 			setPluginRefs(worker.installer.refs());
 			expect(await loadPluginIntegrations(worker.installer.integrationRefs())).toEqual([]);
 			expect(await runFind(s.project, payload, id, "7")).toEqual({ id: "7", region: "eu", from: "hub" });
 			await shutdownCompiledRuntime();
 			await loadPluginIntegrations([]);
-			await syncPluginVariants(s.project, CRM);
+			await syncProjectPluginVariants(s.project);
 
 			// the dependency switched off: the dependent stops with it, saying why
 			expect((await s.put(`/${CRM}/environments`, { dev: false, prod: false })).status).toBe(200);
@@ -282,4 +342,60 @@ describe("a plugin that depends on another plugin", () => {
 		expect(cycle.body.message).toBe("Plugin dependencies form a cycle: a/x -> b/x -> a/x");
 		expect(await s.rows()).toHaveLength(0);
 	});
+
+	it("lets a dependent add a variant to the dependency's group, which the dependency's block runs against", async () => {
+		serveWeb();
+		publish("@other/crm", { "1.0.0": { tgz: crmTgz("1.0.0"), manifest: crmManifest() } });
+		publish("@acme/pipe", { "1.0.0": { tgz: pipeTgz(), manifest: pipeManifest() } });
+		const s = await setup();
+		expect((await s.post("/npm", { spec: "@acme/pipe@1.0.0" })).status).toBe(200);
+		for (const name of [CRM, PIPE]) {
+			expect((await s.post(`/${name}/approve`, {})).status).toBe(200);
+			expect((await s.put(`/${name}/environments`, { dev: true, prod: false })).status).toBe(200);
+		}
+
+		// listed under the dependency's group, with the plugin that adds it
+		const listed = async () =>
+			((await s.api("GET", `/${s.project}/integrations/variants`)).body as { group: string; variants: { variant: string; plugin?: string }[] }[])
+				.find((g) => g.group === CRM)
+				?.variants.map((v) => [v.variant, v.plugin])
+				.sort();
+		expect(await listed()).toEqual([
+			["Hub", CRM],
+			["Pipe", PIPE],
+		]);
+
+		const created = await s.api("POST", `/${s.project}/integrations`, {
+			name: "pipe",
+			group: CRM,
+			variant: "Pipe",
+			config: { region: "us" },
+			syncDev: true,
+		});
+		expect(created.status).toBe(201);
+		const id = created.body.id as string;
+
+		const worker = await startWorker(s.project, "development");
+		const ready = (name: string) => worker.status()[pluginStatusKey(s.project, name)]?.state === "ready";
+		try {
+			await until(worker.status, () => ready(CRM) && ready(PIPE));
+			const payload = await buildProjectConfig(s.project, "development");
+			// the execution child's side: the real modules replace the admin's metadata
+			applyProjectPluginVariants(s.project, []);
+			setPluginRefs(worker.installer.refs());
+			expect(await loadPluginIntegrations(worker.installer.integrationRefs())).toEqual([]);
+			expect(await runFind(s.project, payload, id, "9", lookupBlock)).toEqual({ id: "9", region: "us", from: "pipe" });
+			await shutdownCompiledRuntime();
+			await loadPluginIntegrations([]);
+			await syncProjectPluginVariants(s.project);
+
+			// the dependency switched off: the dependent's variant is withdrawn with it
+			expect((await s.put(`/${CRM}/environments`, { dev: false, prod: false })).status).toBe(200);
+			expect(pluginVariantState(s.project, CRM, "Pipe")).toBeUndefined();
+			expect(await listed()).toBeUndefined();
+			await until(worker.installer.integrationRefs, (refs) => refs.length === 0);
+		} finally {
+			await worker.stop();
+		}
+	}, 300_000);
 });

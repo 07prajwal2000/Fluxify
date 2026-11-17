@@ -1,11 +1,11 @@
 ---
 title: Plugin Dependencies
-description: Use the integration groups another plugin adds, by declaring that plugin as a peer dependency, and what happens when a project installs, approves or switches off a plugin with dependencies.
+description: Use and extend the integration groups another plugin adds, by declaring that plugin as a peer dependency, and what happens when a project installs, approves or switches off a plugin with dependencies.
 ---
 
 # Plugin dependencies
 
-A plugin can build on another plugin. If `other/crm` adds an integration group `other/crm`, your plugin can have blocks and triggers that use that group, instead of writing the same connection again.
+A plugin can build on another plugin. If `other/crm` adds an integration group `other/crm`, your plugin can have blocks and triggers that use that group, instead of writing the same connection again. It can also add a new variant to that group, such as another CRM provider, which the blocks of `other/crm` then work with.
 
 The plugin you build on is a **dependency**. Your plugin is its **dependent**.
 
@@ -61,6 +61,78 @@ The build checks each kind against the dependency's own `fluxify.json` in `node_
 Import a dependency with `import type`, never as code. The client always comes from the project's integration, through `ctx.integrations.get`, and the worker does not install a copy of the dependency next to your plugin. A build whose output imports a dependency fails, naming the file.
 :::
 
+## Adding a variant to the dependency's group
+
+Write the dependency's group, with its scope, as the `group` of your integration:
+
+```ts
+// types only: the client other/crm expects
+import type {} from "@other/crm";
+import { param } from "@fluxify/sdk/blocks";
+import { integration } from "@fluxify/sdk/integrations";
+
+export default integration({
+	name: "acme/sales/pipe",
+	label: "Pipe CRM",
+	icon: "./icons/pipe.svg",
+	group: "other/crm",
+	variant: "Pipe",
+	config: { token: param.secret({ label: "API token", required: true }) },
+	connect(config, ctx) {
+		const token = ctx.getConfig(config.token);
+		return {
+			async findCustomer(id: string) {
+				// call Pipe CRM with the token
+				return { id, source: "pipe" };
+			},
+		};
+	},
+});
+```
+
+`bunx fluxify-cli integrations create pipe --group other/crm` writes this file for you.
+
+In a project, the variant appears under the dependency's group on the integrations page, next to the dependency's own variants, labelled with your plugin's name. The blocks and triggers of `other/crm` that take an integration of its group can pick it, and so can your own blocks.
+
+The build checks it against the dependency's `fluxify.json`:
+
+| Problem | What the build says |
+| :--- | :--- |
+| The group's plugin is not a dependency | `group 'other/crm' is not a group of a plugin this one depends on: add the plugin that declares it to peerDependencies` |
+| The dependency has no such group | `plugin other/crm declares no integration group 'other/billing' (other/crm)` |
+| The dependency already has a variant with that name | `variant 'Hub' of other/crm is already provided by plugin other/crm` |
+
+::: info Direct dependencies only
+You can add to, and use, the groups of the plugins in your own `peerDependencies`. A group of a plugin that only your dependency depends on is not available to you: add that plugin as a dependency too.
+:::
+
+When your plugin is approved in a project, a variant name already taken in that group is refused, and the message names both plugins. This covers the dependency's own variants and the ones other plugins added.
+
+Your variant is offered only while your plugin runs. When the dependency is missing, waiting for approval, rejected or switched off, your plugin stops, and its variants leave the group with it.
+
+## Typing a group's client
+
+A plugin that declares a group can say what its client looks like, so that a variant another plugin adds is checked against it. In the package of the plugin that declares the group, add the client to `PluginGroups`:
+
+```ts
+// index.d.ts of @other/crm, listed in the "files" of its package.json
+export type CrmClient = {
+	findCustomer(id: string): Promise<{ id: string; source: string }>;
+};
+
+declare module "@fluxify/sdk" {
+	interface PluginGroups {
+		"other/crm": CrmClient;
+	}
+}
+```
+
+You write this by hand; the build does not generate it. A plugin that imports the package with `import type` then gets a type error when its `connect` for `other/crm` returns something that is not a `CrmClient`. A group that is not in `PluginGroups` accepts any client, as before.
+
+::: tip
+Types are checked while you write the plugin, not in the project. A project trusts the variant like any other plugin code, and every variant names the plugin that adds it, so a broken client is easy to trace.
+:::
+
 ## What happens in a project
 
 | Step | What the project sees |
@@ -87,5 +159,4 @@ Plugins cannot depend on each other in a circle. If `a` needs `b` and `b` needs 
 
 ## Not supported yet
 
-- Adding a new variant to another plugin's group. Your plugin can use the dependency's groups, but its own integrations still go in the built-in groups or its own.
 - Removing a plugin that others depend on is not yet blocked, and a dependency's upgrade does not yet check what its dependents use.

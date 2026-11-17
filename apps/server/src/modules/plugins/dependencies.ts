@@ -138,3 +138,24 @@ export function dependencyView(row: PluginRow, rows: readonly PluginRow[]) {
 		})),
 	};
 }
+
+/**
+ * Two plugins of one project cannot provide the same integration kind: a row
+ * names its kind, not its plugin, so it could not say which it means. That
+ * holds in a dependency's group too: a variant added to it cannot take a name
+ * the dependency or another dependent has. Against every approved plugin,
+ * running or not, so no variant is ever skipped when it loads.
+ */
+export function variantClashes(row: PluginRow, rows: readonly PluginRow[]) {
+	const others = rows.map(liveOf).filter((r) => r.name !== row.name && r.approval === "approved");
+	return (row.manifest.integrations ?? []).flatMap((e) => {
+		const owner = others.find((o) =>
+			o.manifest.integrations?.some((x) => x.group === e.group && x.variant === e.variant),
+		);
+		return owner
+			? [
+					`Plugin ${row.name} provides integration variant ${e.group}/${e.variant}, which plugin ${owner.name} already provides in this project`,
+				]
+			: [];
+	});
+}

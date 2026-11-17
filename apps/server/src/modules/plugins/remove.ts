@@ -13,7 +13,7 @@ import { getPluginRow } from "./repository";
 import { assertCreator, type Caller } from "./service";
 import { pluginTriggerUsers, TriggersInUseError } from "./triggerUsage";
 import { pluginUsage } from "./usage";
-import { syncPluginVariants } from "./variants";
+import { syncProjectPluginVariants } from "./variants";
 
 /**
  * Removes a plugin (#860). Refused while a working copy or a promoted version
@@ -57,6 +57,6 @@ export async function removePlugin(projectId: string, name: string, caller: Call
 	// every version ever uploaded or fetched: `pluginObjectKey` puts them under this prefix
 	const objects = await pluginObjects();
 	for (const key of await objects.keys(`${projectId}/${name}/`)) await objects.delete(key);
-	await syncPluginVariants(projectId, name);
+	await syncProjectPluginVariants(projectId);
 	return { name };
 }

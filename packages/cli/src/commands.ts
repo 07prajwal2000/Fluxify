@@ -113,7 +113,7 @@ const buildCommand = command({
 
 const integrationsCreate = command({
 	description:
-		"Add src/integrations/<name>.ts: a variant of a built-in group (database, kv, queue, ai, observability, baas, mcp) or of a group of the plugin's own",
+		"Add src/integrations/<name>.ts: a variant of a built-in group (database, kv, queue, ai, observability, baas, mcp), of a group of the plugin's own, or of a dependency's group (--group other/crm)",
 	args: {
 		name: { type: "positional", description: "Integration name" },
 		group: { type: "string", short: "g", description: "Group it belongs to (default: <name>)" },

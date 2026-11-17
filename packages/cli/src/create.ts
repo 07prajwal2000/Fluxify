@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { basename, join } from "node:path";
 import { manifestEntrySchema } from "@fluxify/sdk/blocks";
 import { isBuiltInIntegrationGroup } from "@fluxify/sdk/integrations";
+import { readDependencies } from "./dependencies";
 import { integrationTemplate, integrationTest, PLACEHOLDER_ICON } from "./integrationTemplates";
 import { INDEX } from "./meta";
 import { fail, findPluginRoot, readPlugin } from "./plugin";
@@ -117,23 +118,55 @@ export const create = (options: { cwd: string; name: string }) =>
 const LOCAL_GROUP = /^[a-z0-9][a-z0-9-]*$/;
 
 /**
- * Adds `src/integrations/<name>.ts`, its test and a placeholder icon: a variant
- * of a built-in `group`, or of a group of the plugin's own (default `<name>`).
+ * For a dependency's group (`other/crm`, #899): the npm package of the
+ * dependency that declares it, or the reason it cannot take a variant.
  */
-export function createIntegration(options: { cwd: string; name: string; group?: string }) {
+async function dependencyGroup(cwd: string, group: string) {
+	const [scope, local, ...rest] = group.split("/");
+	if (!scope || !local || rest.length || !LOCAL_GROUP.test(scope) || !LOCAL_GROUP.test(local))
+		return {
+			problem: `group '${group}' must be a built-in group, a lowercase name of your own or a dependency's '<scope>/<group>'`,
+		};
+	const root = await findPluginRoot(cwd);
+	if (!root) return fail("not a Fluxify plugin, run `fluxify-cli init` first");
+	const deps = await readDependencies(await readPlugin(root, { lockfile: false }));
+	const scoped = deps.list.filter((d) => d.plugin.split("/")[0] === scope);
+	if (!scoped.length)
+		return {
+			problem: `group '${group}' is not a group of a plugin this one depends on: add the plugin that declares it to peerDependencies and devDependencies, then bun install`,
+		};
+	const declaring = scoped.find((d) =>
+		deps.manifests[deps.list.indexOf(d)]!.integrations?.some((e) => e.group === group),
+	);
+	if (!declaring)
+		return {
+			problem: `${scoped.map((d) => `plugin ${d.plugin}`).join(", ")} declares no integration group '${group}'`,
+		};
+	return { pkg: declaring.name };
+}
+
+/**
+ * Adds `src/integrations/<name>.ts`, its test and a placeholder icon: a variant
+ * of a built-in `group`, of a group of the plugin's own (default `<name>`), or
+ * of a dependency's group (`other/crm`).
+ */
+export async function createIntegration(options: { cwd: string; name: string; group?: string }) {
 	const group = options.group ?? basename(options.name);
+	const dep = group.includes("/") ? await dependencyGroup(options.cwd, group) : undefined;
 	return scaffold({
 		...options,
 		dir: "integrations",
 		what: "an integration",
 		suffix: "Integration",
-		source: (type) => integrationTemplate(type, group),
+		source: (type) => integrationTemplate(type, group, dep?.pkg),
 		test: integrationTest,
 		icon: true,
 		check: () =>
-			isBuiltInIntegrationGroup(group) || LOCAL_GROUP.test(group)
-				? undefined
-				: `group '${group}' must be a built-in group or a lowercase name of your own`,
+			dep
+				? dep.problem
+				: isBuiltInIntegrationGroup(group) || LOCAL_GROUP.test(group)
+					? undefined
+					: `group '${group}' must be a built-in group, a lowercase name of your own or a dependency's '<scope>/<group>'`,
 	});
 }
 

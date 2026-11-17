@@ -6,6 +6,7 @@ export {
 	type IntegrationDefinition,
 	integration,
 	integrationGroup,
+	type PluginGroups,
 	paramsConfigSchema,
 	toIntegrationEntry,
 } from "./src/integration.js";

@@ -131,8 +131,8 @@ describe("a row stored with icon paths", () => {
 		const [listed] = (await s.get("/list")).body;
 		expect(listed.manifest.triggers[0].icon).toBeUndefined();
 		// the variants endpoint reads the registry; resync it from the row
-		const { syncPluginVariants } = await import("../../variants");
-		await syncPluginVariants(s.project, NAME);
+		const { syncProjectPluginVariants } = await import("../../variants");
+		await syncProjectPluginVariants(s.project);
 		expect(await variantIcon(s)).toBeUndefined();
 	});
 
