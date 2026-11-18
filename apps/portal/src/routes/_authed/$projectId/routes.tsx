@@ -6,9 +6,7 @@ import {
 	Dropdown,
 	Input,
 	Label,
-	ListBox,
 	Modal,
-	Select,
 	Spinner,
 	Table,
 	TextField,
@@ -19,7 +17,6 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
 	TbCheck,
-	TbChevronDown,
 	TbEdit,
 	TbPackageExport,
 	TbPlayerPlay,
@@ -31,12 +28,13 @@ import {
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
 import { EnvStatusChips } from "@/components/common/EnvStatusChips";
+import { PageFooter } from "@/components/common/PageFooter";
 import { RouteApiPlayground } from "@/components/RouteApiPlayground";
 import { RecordingIndicator, RecordingLegend } from "@/components/recordings/RecordingControls";
 import { ExportModal } from "@/components/transfer/ExportModal";
 import { ImportButton } from "@/components/transfer/ImportButton";
 import { showErrorNotification } from "@/lib/errorNotifier";
-import { PAGE_SIZES, usePageSize } from "@/lib/pageSize";
+import { usePageSize } from "@/lib/pageSize";
 import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
 import { projectsQuery } from "@/query/projectsQuery";
 import { routesQuery } from "@/query/routesQuery";
@@ -310,53 +308,18 @@ function RoutesPage() {
 				</div>
 			)}
 
-			<div className="flex shrink-0 items-center gap-3 text-sm text-muted">
+			<PageFooter
+				page={page}
+				totalPages={totalPages}
+				perPage={perPage}
+				onPage={setPage}
+				onPerPage={(n) => {
+					setPerPage(n);
+					setPage(1);
+				}}
+			>
 				<RecordingLegend dev={recordsDev} prod={recordsProd} />
-				<span className="ml-auto">Rows per page:</span>
-				<Select
-					aria-label="Rows per page"
-					value={String(perPage)}
-					onChange={(v) => {
-						if (!v) return;
-						setPerPage(Number(v));
-						setPage(1);
-					}}
-					className="w-[80px]"
-				>
-					<Select.Trigger className="flex h-8 items-center justify-between gap-1 rounded-md border border-border bg-background px-2 text-sm">
-						<Select.Value />
-						<Select.Indicator>
-							<TbChevronDown size={14} className="shrink-0 text-muted" />
-						</Select.Indicator>
-					</Select.Trigger>
-					<Select.Popover>
-						<ListBox>
-							{PAGE_SIZES.map((n) => (
-								<ListBox.Item key={n} id={String(n)} textValue={String(n)}>
-									{n}
-								</ListBox.Item>
-							))}
-						</ListBox>
-					</Select.Popover>
-				</Select>
-				{totalPages > 1 && (
-					<>
-						<Button variant="outline" isDisabled={page <= 1} onPress={() => setPage((p) => p - 1)}>
-							Previous
-						</Button>
-						<span>
-							Page {page} of {totalPages}
-						</span>
-						<Button
-							variant="outline"
-							isDisabled={page >= totalPages}
-							onPress={() => setPage((p) => p + 1)}
-						>
-							Next
-						</Button>
-					</>
-				)}
-			</div>
+			</PageFooter>
 
 			<ExportModal
 				resourceType="route"
