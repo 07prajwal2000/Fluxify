@@ -3,8 +3,10 @@ import { useState } from "react";
 import { TbAlertTriangle, TbEdit, TbFlask, TbPencil, TbPlus } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
+import { PageFooter } from "@/components/common/PageFooter";
 import { usePublicSettings } from "@/hooks/usePublicSettings";
 import { showErrorNotification } from "@/lib/errorNotifier";
+import { usePageSize } from "@/lib/pageSize";
 import { sandboxesQuery } from "@/query/sandboxesQuery";
 import type { Sandbox } from "@/services/sandboxes";
 import { useCanEditProject } from "@/store/auth";
@@ -29,8 +31,14 @@ export function SandboxList({
 	const [creating, setCreating] = useState(false);
 	const [pendingRename, setPendingRename] = useState<Sandbox | null>(null);
 	const [pendingDelete, setPendingDelete] = useState<Sandbox | null>(null);
+	const [page, setPage] = useState(1);
+	const [perPage, setPerPage] = usePageSize("sandboxes", 10);
 
 	const rows = data ?? [];
+	const totalPages = Math.max(1, Math.ceil(rows.length / perPage));
+	const current = Math.min(page, totalPages);
+	const pagedRows = rows.slice((current - 1) * perPage, current * perPage);
+
 	const atLimit = max != null && rows.length >= max;
 	const nearLimit = max != null && rows.length >= max - 1;
 
@@ -39,8 +47,8 @@ export function SandboxList({
 	}
 
 	return (
-		<div className="flex flex-col gap-4">
-			<div className="flex flex-wrap items-center justify-between gap-3">
+		<div className="flex h-[calc(100vh-3rem)] flex-col gap-4 overflow-hidden">
+			<div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
 				<div>
 					<h1 className="text-xl font-semibold tracking-tight">Sandboxes</h1>
 					<p className="text-sm text-muted">
@@ -88,56 +96,71 @@ export function SandboxList({
 					}
 				/>
 			) : (
-				<Table>
-					{/* the whole row opens the canvas, as the routes and workflows tables do (#1064) */}
-					<Table.Content aria-label="Sandboxes" onRowAction={(key) => onOpen(String(key))}>
-						<Table.Header>
-							<Table.Column id="name" isRowHeader>
-								Name
-							</Table.Column>
-							<Table.Column id="updated">Last changed</Table.Column>
-							<Table.Column id="actions" aria-label="Actions">
-								{""}
-							</Table.Column>
-						</Table.Header>
-						<Table.Body items={rows}>
-							{(sandbox) => (
-								<Table.Row id={sandbox.id} className="cursor-pointer">
-									<Table.Cell>{sandbox.name}</Table.Cell>
-									<Table.Cell>
-										<span className="text-muted">
-											{new Date(sandbox.updatedAt).toLocaleString()}
-										</span>
-									</Table.Cell>
-									<Table.Cell>
-										<div className="flex items-center justify-end gap-1">
-											<Button
-												isIconOnly
-												variant="ghost"
-												aria-label={`Open ${sandbox.name}`}
-												onPress={() => onOpen(sandbox.id)}
-											>
-												<TbEdit size={16} />
-											</Button>
-											<Button
-												isIconOnly
-												variant="ghost"
-												aria-label={`Rename ${sandbox.name}`}
-												onPress={() => setPendingRename(sandbox)}
-											>
-												<TbPencil size={16} />
-											</Button>
-											<DeleteIconButton
-												aria-label={`Delete ${sandbox.name}`}
-												onPress={() => setPendingDelete(sandbox)}
-											/>
-										</div>
-									</Table.Cell>
-								</Table.Row>
-							)}
-						</Table.Body>
-					</Table.Content>
-				</Table>
+				<div className="min-h-0 flex-1 overflow-y-auto">
+					<Table>
+						{/* the whole row opens the canvas, as the routes and workflows tables do (#1064) */}
+						<Table.Content aria-label="Sandboxes" onRowAction={(key) => onOpen(String(key))}>
+							<Table.Header className="sticky top-0 z-10">
+								<Table.Column id="name" isRowHeader>
+									Name
+								</Table.Column>
+								<Table.Column id="updated">Last changed</Table.Column>
+								<Table.Column id="actions" aria-label="Actions">
+									{""}
+								</Table.Column>
+							</Table.Header>
+							<Table.Body items={pagedRows}>
+								{(sandbox) => (
+									<Table.Row id={sandbox.id} className="cursor-pointer">
+										<Table.Cell>{sandbox.name}</Table.Cell>
+										<Table.Cell>
+											<span className="text-muted">
+												{new Date(sandbox.updatedAt).toLocaleString()}
+											</span>
+										</Table.Cell>
+										<Table.Cell>
+											<div className="flex items-center justify-end gap-1">
+												<Button
+													isIconOnly
+													variant="ghost"
+													aria-label={`Open ${sandbox.name}`}
+													onPress={() => onOpen(sandbox.id)}
+												>
+													<TbEdit size={16} />
+												</Button>
+												<Button
+													isIconOnly
+													variant="ghost"
+													aria-label={`Rename ${sandbox.name}`}
+													onPress={() => setPendingRename(sandbox)}
+												>
+													<TbPencil size={16} />
+												</Button>
+												<DeleteIconButton
+													aria-label={`Delete ${sandbox.name}`}
+													onPress={() => setPendingDelete(sandbox)}
+												/>
+											</div>
+										</Table.Cell>
+									</Table.Row>
+								)}
+							</Table.Body>
+						</Table.Content>
+					</Table>
+				</div>
+			)}
+
+			{!isLoading && !isError && rows.length > 0 && (
+				<PageFooter
+					page={current}
+					totalPages={totalPages}
+					perPage={perPage}
+					onPage={setPage}
+					onPerPage={(n) => {
+						setPerPage(n);
+						setPage(1);
+					}}
+				/>
 			)}
 
 			{creating && (
