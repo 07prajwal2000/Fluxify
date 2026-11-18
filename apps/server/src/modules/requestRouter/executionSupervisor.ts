@@ -43,6 +43,22 @@ const HEARTBEAT_CHECK_MS = 500;
 const STABLE_AFTER_MS = 10_000;
 const MAX_RESTART_DELAY_MS = 30_000;
 
+/**
+ * Fire-and-forget IPC send. A child that is still booting or just died has a
+ * closed channel and `send` throws ERR_IPC_CHANNEL_CLOSED. These calls run
+ * inside KV-watch callbacks, where a throw ends the watch and exits the worker.
+ * The respawned child reads the full state at bootstrap, so a dropped message
+ * is safe.
+ */
+function trySend(
+	child: { send(message: ExecutionMessage): void } | undefined,
+	message: ExecutionMessage,
+) {
+	try {
+		child?.send(message);
+	} catch {}
+}
+
 export interface ExecutionSupervisorOptions {
 	projectId: string;
 	/** Where the child serves user traffic. */
@@ -411,16 +427,11 @@ export function createExecutionSupervisor(
 			// version of it returning (removed, then approved again) is an upgrade too
 			for (const [key, version] of versionsOf(refs, integrations, triggers))
 				refVersions.set(key, version);
-			execution?.send({
-				type: "plugin-refs",
-				refs,
-				integrations,
-				triggers,
-			} satisfies ExecutionMessage);
+			trySend(execution, { type: "plugin-refs", refs, integrations, triggers });
 		},
 
 		send(message) {
-			execution?.send(message);
+			trySend(execution, message);
 			return Boolean(execution);
 		},
 
@@ -444,7 +455,7 @@ export function createExecutionSupervisor(
 		synchronizeMonitoring() {
 			const enabled = options.timeoutsEnabled();
 			watchdog.setEnabled(enabled);
-			execution?.send({ type: "monitoring", enabled } satisfies ExecutionMessage);
+			trySend(execution, { type: "monitoring", enabled });
 			if (enabled && !watchdogTimer) {
 				watchdogTimer = setInterval(evaluateTimeouts, HEARTBEAT_CHECK_MS);
 			} else if (!enabled && watchdogTimer) {
@@ -463,12 +474,7 @@ export function createExecutionSupervisor(
 			const message: ExecutionMessage = stop
 				? { type: "run-stop", stop }
 				: { type: "run-stop-cleared", key };
-			for (const child of [execution, draining]) {
-				// a child that just died gets the entry at its respawn; a throw here would end the watch
-				try {
-					child?.send(message);
-				} catch {}
-			}
+			for (const child of [execution, draining]) trySend(child, message);
 		},
 
 		child: () => execution,
