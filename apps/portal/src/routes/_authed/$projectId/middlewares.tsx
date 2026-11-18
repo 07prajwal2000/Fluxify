@@ -13,9 +13,11 @@ import { useMemo, useState } from "react";
 import { TbEdit, TbFilter, TbPlus, TbSearch } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
+import { PageFooter } from "@/components/common/PageFooter";
 import { blockIcon } from "@/components/middlewares/ChainEditor";
 import { DeleteBlocked } from "@/components/versions/DeleteBlocked";
 import { showErrorNotification } from "@/lib/errorNotifier";
+import { usePageSize } from "@/lib/pageSize";
 import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
 import { middlewaresQuery } from "@/query/middlewaresQuery";
 import { projectsQuery } from "@/query/projectsQuery";
@@ -31,13 +33,15 @@ const DOCS_URL = "https://docs.fluxify.rest/concepts/middlewares.html";
 /** chain icons shown in a row before collapsing into "+N" */
 const MAX_ICONS = 5;
 
-function MiddlewaresPage() {
+export function MiddlewaresPage() {
 	const { projectId } = Route.useParams();
 	const { data: project } = projectsQuery.byId.useQuery(projectId);
 	usePageTitle(formatProjectTitle(project?.name, "Middlewares"));
 	const { data, isLoading, isError } = middlewaresQuery.getAll.useQuery(projectId);
 	const remove = middlewaresQuery.remove.mutation(projectId);
 	const navigate = useNavigate();
+	const [page, setPage] = useState(1);
+	const [perPage, setPerPage] = usePageSize("middlewares", 10);
 	const [search, setSearch] = useState("");
 	const [pendingDelete, setPendingDelete] = useState<MiddlewareSummary | null>(null);
 	// a refused delete (#740): who still uses the middleware, shown in the dialog
@@ -51,13 +55,17 @@ function MiddlewaresPage() {
 		);
 	}, [data, search]);
 
+	const totalPages = Math.max(1, Math.ceil(rows.length / perPage));
+	const current = Math.min(page, totalPages);
+	const pagedRows = rows.slice((current - 1) * perPage, current * perPage);
+
 	const openNew = () => navigate({ to: "/$projectId/middlewares/new", params: { projectId } });
 	const open = (middlewareId: string) =>
 		navigate({ to: "/$projectId/middlewares/$middlewareId", params: { projectId, middlewareId } });
 
 	return (
-		<div className="flex flex-col gap-4">
-			<div className="flex flex-wrap items-center justify-between gap-3">
+		<div className="flex h-[calc(100vh-3rem)] flex-col gap-4 overflow-hidden">
+			<div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
 				<div>
 					<h1 className="text-xl font-semibold tracking-tight">Middlewares</h1>
 					<p className="text-sm text-muted">
@@ -74,7 +82,14 @@ function MiddlewaresPage() {
 				</div>
 				<div className="flex items-center gap-2">
 					{data && data.length > 0 && (
-						<TextField value={search} onChange={setSearch} className="w-56">
+						<TextField
+							value={search}
+							onChange={(v) => {
+								setSearch(v);
+								setPage(1);
+							}}
+							className="w-56"
+						>
 							<Label className="sr-only">Search middlewares</Label>
 							<Input placeholder="Search middlewares" />
 						</TextField>
@@ -109,68 +124,83 @@ function MiddlewaresPage() {
 					description="Try a different name or description."
 				/>
 			) : (
-				<Table>
-					<Table.Content aria-label="Middlewares" onRowAction={(key) => open(String(key))}>
-						<Table.Header>
-							<Table.Column id="name" isRowHeader>
-								Name
-							</Table.Column>
-							<Table.Column id="chain">Chain</Table.Column>
-							<Table.Column id="routes">Used by</Table.Column>
-							<Table.Column id="actions" aria-label="Actions">
-								{""}
-							</Table.Column>
-						</Table.Header>
-						<Table.Body items={rows}>
-							{(middleware) => (
-								<Table.Row id={middleware.id} className="cursor-pointer">
-									<Table.Cell>
-										<span className="block font-medium text-foreground">{middleware.name}</span>
-										<span className="line-clamp-1 text-xs text-muted">
-											{middleware.description || "No description"}
-										</span>
-									</Table.Cell>
-									<Table.Cell>
-										<ChainPreview blocks={middleware.blocks} />
-									</Table.Cell>
-									<Table.Cell>
-										<span
-											className={
-												middleware.routeCount ? "text-sm text-foreground" : "text-sm text-muted"
-											}
-										>
-											{middleware.routeCount === 0
-												? "No routes"
-												: `${middleware.routeCount} route${middleware.routeCount === 1 ? "" : "s"}`}
-										</span>
-									</Table.Cell>
-									<Table.Cell>
-										<div className="flex items-center justify-end gap-1">
-											<Button
-												isIconOnly
-												variant="ghost"
-												aria-label={`Edit ${middleware.name}`}
-												onPress={() => open(middleware.id)}
-											>
-												<TbEdit size={16} />
-											</Button>
-											{/* a middleware routes still use can't be deleted (#579) */}
-											<DeleteIconButton
-												aria-label={
-													middleware.routeCount
-														? `Remove ${middleware.name} from its routes to delete it`
-														: `Delete ${middleware.name}`
+				<div className="min-h-0 flex-1 overflow-y-auto">
+					<Table>
+						<Table.Content aria-label="Middlewares" onRowAction={(key) => open(String(key))}>
+							<Table.Header className="sticky top-0 z-10">
+								<Table.Column id="name" isRowHeader>
+									Name
+								</Table.Column>
+								<Table.Column id="chain">Chain</Table.Column>
+								<Table.Column id="routes">Used by</Table.Column>
+								<Table.Column id="actions" aria-label="Actions">
+									{""}
+								</Table.Column>
+							</Table.Header>
+							<Table.Body items={pagedRows}>
+								{(middleware) => (
+									<Table.Row id={middleware.id} className="cursor-pointer">
+										<Table.Cell>
+											<span className="block font-medium text-foreground">{middleware.name}</span>
+											<span className="line-clamp-1 text-xs text-muted">
+												{middleware.description || "No description"}
+											</span>
+										</Table.Cell>
+										<Table.Cell>
+											<ChainPreview blocks={middleware.blocks} />
+										</Table.Cell>
+										<Table.Cell>
+											<span
+												className={
+													middleware.routeCount ? "text-sm text-foreground" : "text-sm text-muted"
 												}
-												isDisabled={!!middleware.routeCount}
-												onPress={() => setPendingDelete(middleware)}
-											/>
-										</div>
-									</Table.Cell>
-								</Table.Row>
-							)}
-						</Table.Body>
-					</Table.Content>
-				</Table>
+											>
+												{middleware.routeCount === 0
+													? "No routes"
+													: `${middleware.routeCount} route${middleware.routeCount === 1 ? "" : "s"}`}
+											</span>
+										</Table.Cell>
+										<Table.Cell>
+											<div className="flex items-center justify-end gap-1">
+												<Button
+													isIconOnly
+													variant="ghost"
+													aria-label={`Edit ${middleware.name}`}
+													onPress={() => open(middleware.id)}
+												>
+													<TbEdit size={16} />
+												</Button>
+												{/* a middleware routes still use can't be deleted (#579) */}
+												<DeleteIconButton
+													aria-label={
+														middleware.routeCount
+															? `Remove ${middleware.name} from its routes to delete it`
+															: `Delete ${middleware.name}`
+													}
+													isDisabled={!!middleware.routeCount}
+													onPress={() => setPendingDelete(middleware)}
+												/>
+											</div>
+										</Table.Cell>
+									</Table.Row>
+								)}
+							</Table.Body>
+						</Table.Content>
+					</Table>
+				</div>
+			)}
+
+			{rows.length > 0 && (
+				<PageFooter
+					page={current}
+					totalPages={totalPages}
+					perPage={perPage}
+					onPage={setPage}
+					onPerPage={(n) => {
+						setPerPage(n);
+						setPage(1);
+					}}
+				/>
 			)}
 
 			<ConfirmDialog

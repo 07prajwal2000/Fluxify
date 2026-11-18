@@ -41,7 +41,17 @@ const wrap = (node: ReactNode) =>
 		</QueryClientProvider>,
 	);
 
-const settle = () => act(async () => new Promise((r) => setTimeout(r, 60)));
+async function until<T>(check: () => T, timeout = 2000): Promise<T> {
+	const end = Date.now() + timeout;
+	for (;;) {
+		try {
+			return check();
+		} catch (e) {
+			if (Date.now() > end) throw e;
+			await act(() => new Promise((r) => setTimeout(r, 20)));
+		}
+	}
+}
 
 test("pages app config with remembered PageFooter size", async () => {
 	spyOn(projectsService, "getById").mockResolvedValue({
@@ -72,16 +82,14 @@ test("pages app config with remembered PageFooter size", async () => {
 		} as unknown as Awaited<ReturnType<typeof appConfigService.getAll>>;
 	});
 
-	wrap(<AppConfigPage />);
-	await settle();
-
-	const body = within(document.body);
-	expect(body.getByText("KEY_1")).toBeTruthy();
+	const { baseElement } = wrap(<AppConfigPage />);
+	const body = within(baseElement);
+	await until(() => expect(body.getByText("KEY_1")).toBeTruthy());
 	expect(body.getByText("Page 1 of 3")).toBeTruthy();
 	expect(getAll).toHaveBeenCalledWith("p1", expect.objectContaining({ page: 1, perPage: 20 }));
 
 	fireEvent.click(body.getByRole("button", { name: "Next" }));
-	await settle();
+	await until(() => expect(body.getByText("KEY_21")).toBeTruthy());
 
 	expect(getAll).toHaveBeenCalledWith("p1", expect.objectContaining({ page: 2, perPage: 20 }));
 	expect(body.getByText("Page 2 of 3")).toBeTruthy();
