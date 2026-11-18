@@ -41,7 +41,7 @@ const wrap = (node: ReactNode) =>
 		</QueryClientProvider>,
 	);
 
-async function until<T>(check: () => T, timeout = 2000): Promise<T> {
+async function until<T>(check: () => T, timeout = 5000): Promise<T> {
 	const end = Date.now() + timeout;
 	for (;;) {
 		try {
@@ -88,7 +88,9 @@ test("pages app config with remembered PageFooter size", async () => {
 	expect(body.getByText("Page 1 of 3")).toBeTruthy();
 	expect(getAll).toHaveBeenCalledWith("p1", expect.objectContaining({ page: 1, perPage: 20 }));
 
-	fireEvent.click(body.getByRole("button", { name: "Next" }));
+	await act(async () => {
+		fireEvent.click(body.getByRole("button", { name: "Next" }));
+	});
 	await until(() => expect(body.getByText("KEY_21")).toBeTruthy());
 
 	expect(getAll).toHaveBeenCalledWith("p1", expect.objectContaining({ page: 2, perPage: 20 }));

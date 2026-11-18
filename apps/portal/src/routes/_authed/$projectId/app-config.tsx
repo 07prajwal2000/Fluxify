@@ -46,8 +46,13 @@ export function AppConfigPage() {
 	// Debounce search input
 	useEffect(() => {
 		const timer = setTimeout(() => {
-			setDebouncedSearch(searchInput);
-			setPage(1);
+			setDebouncedSearch((prev) => {
+				if (prev !== searchInput) {
+					setPage(1);
+					return searchInput;
+				}
+				return prev;
+			});
 		}, 300);
 		return () => clearTimeout(timer);
 	}, [searchInput]);

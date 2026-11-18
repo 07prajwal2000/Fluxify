@@ -197,6 +197,41 @@ NODE_ENV=test bun test apps/portal/src/components/.../Your.test.tsx
 PowerShell: `$env:NODE_ENV="test"; bun test …`. This includes **committing**: the pre-commit hook runs `bun run test:unit` under your environment, so from a shell that exports `production` the hook fails on portal specs it never touched. Run the commit from a shell where `NODE_ENV` is `test` (or unset) rather than reaching for `--no-verify`.
 A failing `React.act is not a function` means the variable, not your component — do not "fix" it by importing `act` from `react-dom/test-utils`, which only moves the failure.
 
+### Portal RTL Specs That Await Async State Flake in Full Test Suites
+**Issue:** A React Testing Library spec passes when run in isolation, but fails or times out during a full `test:unit` run (such as the pre-commit hook or CI under CPU load). Common symptoms include fixed sleeps (`setTimeout 50ms`) failing intermittently, `waitFor` timing out, or assertions on `document.body` / `screen` querying stale DOM.
+**Cause:**
+1. Each spec file registers and unregisters happy-dom. React's scheduler and RTL can hold onto previous references, causing global `document` or `screen` queries to read stale DOM or miss unflushed updates.
+2. Fixed short delays (e.g. `const settle = () => setTimeout(r, 60)`) are fragile under CPU contention when multiple packages run tests in parallel.
+**Fix & Best Practices:**
+1. **Scope queries to `baseElement`:**
+   `const { baseElement } = render(<Component />);` and query through `within(baseElement)` instead of `document.body` or `screen`.
+2. **Use an explicit retry loop wrapped in `act()`:**
+   ```ts
+   async function until<T>(check: () => T, timeout = 2000): Promise<T> {
+   	const end = Date.now() + timeout;
+   	for (;;) {
+   		try {
+   			return check();
+   		} catch (e) {
+   			if (Date.now() > end) throw e;
+   			await act(() => new Promise((r) => setTimeout(r, 20)));
+   		}
+   	}
+   }
+   ```
+   Avoid fixed `setTimeout` waits.
+3. Flush pending state updates with `await act(async () => {})` after render and after user events.
+4. **Avoid unconditional `setPage(1)` in debounced search effects:** An un-guarded `useEffect(() => { const timer = setTimeout(() => { setDebouncedSearch(s); setPage(1); }, 300); return () => clearTimeout(timer); }, [s])` executes on component mount, resetting the page back to 1 at 300ms and racing against any test or early user interaction that flips to page 2. Guard it:
+   ```ts
+   setDebouncedSearch((prev) => {
+   	if (prev !== s) {
+   		setPage(1);
+   		return s;
+   	}
+   	return prev;
+   });
+   ```
+
 ### `mock.module("@/lib/http")` Leaks Out of the File That Set It
 **Issue:** a spec that stubs `@/lib/http` (or any module a service imports) to fake a request makes *other* spec files fail in the same `bun run test:unit` run — usually as a timeout or a `fetch is not defined`, in a file that was passing on its own. Running that file by itself passes, which is what makes it look like flakiness.
 **Cause:** `mock.module` registers against Bun's module registry for the **whole process**, not the test file, and `test:unit` loads many files into one. A stub left registered replaces the real module for every later file that imports it, including the `axios` client and its interceptors.

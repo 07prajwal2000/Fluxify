@@ -82,8 +82,14 @@ function RoutesPage() {
 
 	useEffect(() => {
 		const timer = setTimeout(() => {
-			setDebouncedSearch(search.trim());
-			setPage(1);
+			setDebouncedSearch((prev) => {
+				const trimmed = search.trim();
+				if (prev !== trimmed) {
+					setPage(1);
+					return trimmed;
+				}
+				return prev;
+			});
 		}, 300);
 		return () => clearTimeout(timer);
 	}, [search]);
