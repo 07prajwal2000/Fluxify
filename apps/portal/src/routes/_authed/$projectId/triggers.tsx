@@ -14,12 +14,14 @@ import { TbBolt, TbEdit, TbPlus, TbStack2 } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
 import { EnvStatusChips } from "@/components/common/EnvStatusChips";
+import { PageFooter } from "@/components/common/PageFooter";
 import { Badge } from "@/components/settings/plugins/PluginBadges";
 import { isPluginTriggerType, pluginKindName } from "@/components/triggers/pluginTrigger";
 import { queueName } from "@/components/triggers/SqsTriggerFields";
 import { TriggerGroupsModal } from "@/components/triggers/TriggerGroupsModal";
 import { DisabledReason } from "@/components/triggers/TriggerNotices";
 import { showErrorNotification } from "@/lib/errorNotifier";
+import { usePageSize } from "@/lib/pageSize";
 import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
 import { projectsQuery } from "@/query/projectsQuery";
 import { triggersQuery } from "@/query/triggersQuery";
@@ -40,12 +42,13 @@ export const Route = createFileRoute("/_authed/$projectId/triggers")({
  * before its workflow exists. A workflow's own settings page attaches the
  * ones it wants.
  */
-function TriggersPage() {
+export function TriggersPage() {
 	const { projectId } = Route.useParams();
 	const { data: project } = projectsQuery.byId.useQuery(projectId);
 	usePageTitle(formatProjectTitle(project?.name, "Triggers"));
 	const navigate = useNavigate();
 	const [page, setPage] = useState(1);
+	const [perPage, setPerPage] = usePageSize("triggers", 10);
 	const [search, setSearch] = useState("");
 	const [pendingDelete, setPendingDelete] = useState<TriggerListItem | null>(null);
 	const [groupsOpen, setGroupsOpen] = useState(false);
@@ -53,7 +56,7 @@ function TriggersPage() {
 	const { data, isLoading, isError } = triggersQuery.getAll.useQuery({
 		projectId,
 		page,
-		perPage: 10,
+		perPage,
 		search: search.trim() || undefined,
 	});
 	// The list carries a plugin row's type; the kind knows the label to show.
@@ -72,8 +75,8 @@ function TriggersPage() {
 		pluginKinds?.find((kind) => kind.type === type)?.label ?? pluginKindName(type);
 
 	return (
-		<div className="flex flex-col gap-4">
-			<div className="flex flex-wrap items-center justify-between gap-3">
+		<div className="flex h-[calc(100vh-3rem)] flex-col gap-4 overflow-hidden">
+			<div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
 				<div>
 					<h1 className="text-xl font-semibold tracking-tight">Triggers</h1>
 					<p className="text-sm text-muted">What starts a workflow when nobody presses Run.</p>
@@ -123,133 +126,133 @@ function TriggersPage() {
 					}
 				/>
 			) : (
-				<Table>
-					<Table.Content
-						aria-label="Triggers"
-						onRowAction={(key) =>
-							navigate({
-								to: "/$projectId/triggers/$triggerId",
-								params: { projectId, triggerId: String(key) },
-							})
-						}
-					>
-						<Table.Header>
-							<Table.Column id="name" isRowHeader>
-								Name
-							</Table.Column>
-							<Table.Column id="fires">Fires</Table.Column>
-							<Table.Column id="workflow">Workflow</Table.Column>
-							<Table.Column id="status">Status</Table.Column>
-							<Table.Column id="actions" aria-label="Actions">
-								{""}
-							</Table.Column>
-						</Table.Header>
-						<Table.Body items={rows}>
-							{(trigger) => (
-								<Table.Row id={trigger.id} className="cursor-pointer">
-									<Table.Cell>{trigger.name}</Table.Cell>
-									<Table.Cell>
-										<span className="text-muted">
-											{isPluginTriggerType(trigger.type) ? (
-												<span className="flex flex-wrap items-center gap-1.5">
-													<span className="text-xs font-medium text-foreground">
-														{kindLabel(trigger.type)}
+				<div className="min-h-0 flex-1 overflow-y-auto">
+					<Table>
+						<Table.Content
+							aria-label="Triggers"
+							onRowAction={(key) =>
+								navigate({
+									to: "/$projectId/triggers/$triggerId",
+									params: { projectId, triggerId: String(key) },
+								})
+							}
+						>
+							<Table.Header className="sticky top-0 z-10">
+								<Table.Column id="name" isRowHeader>
+									Name
+								</Table.Column>
+								<Table.Column id="fires">Fires</Table.Column>
+								<Table.Column id="workflow">Workflow</Table.Column>
+								<Table.Column id="status">Status</Table.Column>
+								<Table.Column id="actions" aria-label="Actions">
+									{""}
+								</Table.Column>
+							</Table.Header>
+							<Table.Body items={rows}>
+								{(trigger) => (
+									<Table.Row id={trigger.id} className="cursor-pointer">
+										<Table.Cell>{trigger.name}</Table.Cell>
+										<Table.Cell>
+											<span className="text-muted">
+												{isPluginTriggerType(trigger.type) ? (
+													<span className="flex flex-wrap items-center gap-1.5">
+														<span className="text-xs font-medium text-foreground">
+															{kindLabel(trigger.type)}
+														</span>
+														<Badge tone="muted">Plugin</Badge>
 													</span>
-													<Badge tone="muted">Plugin</Badge>
-												</span>
-											) : trigger.type === "schedule" ? (
-												<span className="font-mono text-xs">{trigger.schedule}</span>
-											) : trigger.type === "nats" || trigger.type === "redis" ? (
-												<span className="font-mono text-xs">
-													{trigger.type} · {(trigger.source as { stream?: string } | null)?.stream}
-												</span>
-											) : trigger.type === "kafka" ? (
-												<span className="font-mono text-xs">
-													kafka ·{" "}
-													{((trigger.source as { topics?: string[] } | null)?.topics ?? []).join(
-														", ",
-													)}
-												</span>
-											) : trigger.type === "sqs" ? (
-												<span className="font-mono text-xs">
-													sqs ·{" "}
-													{queueName(
-														(trigger.source as { queueUrl?: string } | null)?.queueUrl ?? "",
-													)}
-												</span>
-											) : trigger.type === "rabbitmq" ? (
-												<span className="font-mono text-xs">
-													rabbitmq · {(trigger.source as { queue?: string } | null)?.queue}
-												</span>
+												) : trigger.type === "schedule" ? (
+													<span className="font-mono text-xs">{trigger.schedule}</span>
+												) : trigger.type === "nats" || trigger.type === "redis" ? (
+													<span className="font-mono text-xs">
+														{trigger.type} ·{" "}
+														{(trigger.source as { stream?: string } | null)?.stream}
+													</span>
+												) : trigger.type === "kafka" ? (
+													<span className="font-mono text-xs">
+														kafka ·{" "}
+														{((trigger.source as { topics?: string[] } | null)?.topics ?? []).join(
+															", ",
+														)}
+													</span>
+												) : trigger.type === "sqs" ? (
+													<span className="font-mono text-xs">
+														sqs ·{" "}
+														{queueName(
+															(trigger.source as { queueUrl?: string } | null)?.queueUrl ?? "",
+														)}
+													</span>
+												) : trigger.type === "rabbitmq" ? (
+													<span className="font-mono text-xs">
+														rabbitmq · {(trigger.source as { queue?: string } | null)?.queue}
+													</span>
+												) : (
+													trigger.type
+												)}
+											</span>
+										</Table.Cell>
+										<Table.Cell>
+											{trigger.workflow ? (
+												<span className="line-clamp-1 text-muted">{trigger.workflow.name}</span>
+											) : trigger.sandboxId ? (
+												// only its owner sees a sandbox's trigger at all
+												<span className="text-muted">Your sandbox</span>
 											) : (
-												trigger.type
+												// An active trigger attached to nothing is the one state
+												// that looks fine and does nothing at all.
+												<span className="text-xs text-warning">None attached</span>
 											)}
-										</span>
-									</Table.Cell>
-									<Table.Cell>
-										{trigger.workflow ? (
-											<span className="line-clamp-1 text-muted">{trigger.workflow.name}</span>
-										) : trigger.sandboxId ? (
-											// only its owner sees a sandbox's trigger at all
-											<span className="text-muted">Your sandbox</span>
-										) : (
-											// An active trigger attached to nothing is the one state
-											// that looks fine and does nothing at all.
-											<span className="text-xs text-warning">None attached</span>
-										)}
-									</Table.Cell>
-									<Table.Cell>
-										<div className="flex max-w-xs flex-col gap-1">
-											{/* a sandbox's trigger runs on development alone (#735) */}
-											<EnvStatusChips
-												prod={trigger.sandboxId ? undefined : trigger.active}
-												dev={trigger.devActive}
-											/>
-											{trigger.pluginDisabled && <Badge tone="warning">Plugin disabled</Badge>}
-											<DisabledReason
-												reason={trigger.active || trigger.devActive ? null : trigger.disabledReason}
-											/>
-										</div>
-									</Table.Cell>
-									<Table.Cell>
-										<div className="flex items-center justify-end gap-1">
-											<Link
-												to="/$projectId/triggers/$triggerId"
-												params={{ projectId, triggerId: trigger.id }}
-												aria-label={`Edit ${trigger.name}`}
-												className="inline-flex size-9 items-center justify-center rounded-lg text-foreground transition-colors hover:bg-surface-secondary"
-											>
-												<TbEdit size={16} />
-											</Link>
-											<DeleteIconButton
-												aria-label="Delete trigger"
-												onPress={() => setPendingDelete(trigger)}
-											/>
-										</div>
-									</Table.Cell>
-								</Table.Row>
-							)}
-						</Table.Body>
-					</Table.Content>
-				</Table>
+										</Table.Cell>
+										<Table.Cell>
+											<div className="flex max-w-xs flex-col gap-1">
+												{/* a sandbox's trigger runs on development alone (#735) */}
+												<EnvStatusChips
+													prod={trigger.sandboxId ? undefined : trigger.active}
+													dev={trigger.devActive}
+												/>
+												{trigger.pluginDisabled && <Badge tone="warning">Plugin disabled</Badge>}
+												<DisabledReason
+													reason={
+														trigger.active || trigger.devActive ? null : trigger.disabledReason
+													}
+												/>
+											</div>
+										</Table.Cell>
+										<Table.Cell>
+											<div className="flex items-center justify-end gap-1">
+												<Link
+													to="/$projectId/triggers/$triggerId"
+													params={{ projectId, triggerId: trigger.id }}
+													aria-label={`Edit ${trigger.name}`}
+													className="inline-flex size-9 items-center justify-center rounded-lg text-foreground transition-colors hover:bg-surface-secondary"
+												>
+													<TbEdit size={16} />
+												</Link>
+												<DeleteIconButton
+													aria-label="Delete trigger"
+													onPress={() => setPendingDelete(trigger)}
+												/>
+											</div>
+										</Table.Cell>
+									</Table.Row>
+								)}
+							</Table.Body>
+						</Table.Content>
+					</Table>
+				</div>
 			)}
 
-			{totalPages > 1 && (
-				<div className="flex items-center justify-end gap-3 text-sm text-muted">
-					<Button variant="outline" isDisabled={page <= 1} onPress={() => setPage((p) => p - 1)}>
-						Previous
-					</Button>
-					<span>
-						Page {page} of {totalPages}
-					</span>
-					<Button
-						variant="outline"
-						isDisabled={page >= totalPages}
-						onPress={() => setPage((p) => p + 1)}
-					>
-						Next
-					</Button>
-				</div>
+			{rows.length > 0 && (
+				<PageFooter
+					page={page}
+					totalPages={totalPages}
+					perPage={perPage}
+					onPage={setPage}
+					onPerPage={(n) => {
+						setPerPage(n);
+						setPage(1);
+					}}
+				/>
 			)}
 
 			<ConfirmDialog
