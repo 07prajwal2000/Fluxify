@@ -12,13 +12,15 @@ import {
 	toast,
 } from "@fluxify/components";
 import type { CustomBlockUsage } from "@fluxify/server/src/lib/customBlockUsage";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { TbBoxMultiple, TbCheck, TbFilter, TbPlus, TbSearch } from "react-icons/tb";
 import { BaseBlock } from "@/components/canvas/blocks/BaseBlock";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
+import { PageFooter } from "@/components/common/PageFooter";
 import { DeleteBlocked } from "@/components/versions/DeleteBlocked";
 import { showErrorNotification } from "@/lib/errorNotifier";
+import { usePageSize } from "@/lib/pageSize";
 import { customBlocksQuery } from "@/query/customBlocksQuery";
 import { pluginsQuery } from "@/query/pluginsQuery";
 import { type Reference, referencesFromDeleteError } from "@/services/references";
@@ -58,9 +60,15 @@ export function CustomBlocksView({
 	// a refused delete (#740): who still uses the block, shown in the dialog
 	const [blocked, setBlocked] = useState<{ message: string; references: Reference[] }>();
 	const [search, setSearch] = useState("");
+	const [page, setPage] = useState(1);
+	const [perPage, setPerPage] = usePageSize("customBlocks", 10);
 	const plugins = pluginsQuery.list.useQuery(projectId);
 	const hasPluginBlocks = pluginBlockGroups(plugins.data ?? []).length > 0;
 	const pluginsShown = hasPluginBlocks && (showPlugins ?? true);
+
+	useEffect(() => {
+		setPage(1);
+	}, [search, usage]);
 
 	const blocks = useMemo(() => {
 		const q = search.trim().toLowerCase();
@@ -71,6 +79,12 @@ export function CustomBlocksView({
 				(!q || [b.label, b.name, b.description ?? ""].some((v) => v.toLowerCase().includes(q))),
 		);
 	}, [data, search, usage]);
+
+	const totalPages = Math.max(1, Math.ceil(blocks.length / perPage));
+	const current = Math.min(page, totalPages);
+	const pagedBlocks = useMemo(() => {
+		return blocks.slice((current - 1) * perPage, current * perPage);
+	}, [blocks, current, perPage]);
 
 	const setUsage = (next: string) =>
 		onUsageChange(next === "all" ? undefined : (next as CustomBlockUsage));
@@ -154,7 +168,7 @@ export function CustomBlocksView({
 					/>
 				) : (
 					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-						{blocks.map((block) => (
+						{pagedBlocks.map((block) => (
 							<div
 								key={block.id}
 								role="button"
@@ -220,6 +234,19 @@ export function CustomBlocksView({
 					<PluginBlocksSection projectId={projectId} search={search} hidden={Boolean(usage)} />
 				)}
 			</div>
+
+			{!isLoading && !isError && data && data.length > 0 && (
+				<PageFooter
+					page={current}
+					totalPages={totalPages}
+					perPage={perPage}
+					onPage={setPage}
+					onPerPage={(n) => {
+						setPerPage(n);
+						setPage(1);
+					}}
+				/>
+			)}
 
 			<ConfirmDialog
 				open={!!pendingDelete}
