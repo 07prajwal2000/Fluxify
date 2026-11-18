@@ -5,7 +5,8 @@
 // dependency), create an integration of the dependency's group, run the
 // dependent's block against it, then switch the dependency off. And part 2: a
 // dependent adds a variant to the dependency's group, which the dependency's
-// own block runs against.
+// own block runs against. And part 3: the dependency cannot be removed while a
+// dependent needs it, and an upgrade that drops what the dependent uses is blocked.
 import { afterAll, afterEach, beforeAll, describe, expect, it, mock, spyOn } from "bun:test";
 import { BlockTypes, compileGraph } from "@fluxify/blocks";
 import { block, param, toManifestEntry } from "@fluxify/sdk/blocks";
@@ -117,10 +118,10 @@ const PIPE_MODULE = `export default {
 const pkg = (name: string, plugin: string, version: string, peers: Record<string, string> = {}) =>
 	JSON.stringify({ name, version, fluxify: { name: plugin, url: URL_ }, peerDependencies: peers });
 
-const crmTgz = (version: string) =>
+const crmTgz = (version: string, manifest: object = crmManifest()) =>
 	pluginTgz({
 		"package.json": pkg("@other/crm", CRM, version),
-		"fluxify.json": JSON.stringify(crmManifest()),
+		"fluxify.json": JSON.stringify(manifest),
 		"dist/blocks/step.js": null,
 		"dist/integrations/hub.js": HUB_MODULE,
 		"dist/blocks/lookup.js": FIND_MODULE,
@@ -397,5 +398,44 @@ describe("a plugin that depends on another plugin", () => {
 		} finally {
 			await worker.stop();
 		}
+	}, 300_000);
+
+	it("refuses removing a dependency a dependent needs, and an upgrade that drops what the dependent uses", async () => {
+		serveWeb();
+		const bare = { ...crmManifest(), blocks: {}, integrations: [] };
+		publish("@other/crm", { "1.0.0": { tgz: crmTgz("1.0.0"), manifest: crmManifest() } });
+		publish("@acme/sales", { "1.0.0": { tgz: salesTgz(), manifest: salesManifest() } });
+		const s = await setup();
+		expect((await s.post("/npm", { spec: "@acme/sales@1.0.0" })).status).toBe(200);
+		for (const name of [CRM, SALES]) expect((await s.post(`/${name}/approve`, {})).status).toBe(200);
+		const remove = (name: string) => s.api("DELETE", `/plugins/${name}?projectId=${s.project}`);
+
+		// removal: named with its version and range
+		const refused = await remove(CRM);
+		expect(refused.status).toBe(409);
+		expect(refused.body.message).toBe(
+			`Plugin ${CRM} cannot be removed: ${SALES}@1.0.0 (needs ^1.0.0) depends on it. Remove that plugin first.`,
+		);
+		expect(refused.body.dependents).toEqual([{ plugin: SALES, version: "1.0.0", range: "^1.0.0" }]);
+		expect(await s.rows()).toHaveLength(2);
+
+		// upgrade: 1.3.0 is in range but has no integration group, which the dependent's block uses
+		publish("@other/crm", {
+			"1.0.0": { tgz: crmTgz("1.0.0"), manifest: crmManifest() },
+			"1.3.0": { tgz: crmTgz("1.3.0", bare), manifest: bare },
+		});
+		expect((await s.post("/npm", { spec: "@other/crm@1.3.0" })).status).toBe(200);
+		const line = `plugin ${SALES}@1.0.0 uses integration group ${CRM}, which ${CRM}@1.3.0 drops`;
+		const preview = (await s.get(`/${CRM}/upgrade-preview`)).body.diff;
+		expect(preview.blocking).toBe(true);
+		expect(preview.blockers).toContain(line);
+		const approve = await s.post(`/${CRM}/approve`, {});
+		expect(approve.status).toBe(409);
+		expect(approve.body.message).toContain(line);
+
+		// the dependent goes first, then nothing holds the dependency
+		expect((await remove(SALES)).status).toBe(200);
+		expect((await remove(CRM)).status).toBe(200);
+		expect(await s.rows()).toHaveLength(0);
 	}, 300_000);
 });

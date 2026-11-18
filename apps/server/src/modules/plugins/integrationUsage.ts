@@ -25,7 +25,7 @@ export const kindOf = (e: { group: string; variant: string }) => `${e.group}/${e
  */
 export async function pluginIntegrationUsers(
 	projectId: string,
-	...manifests: (FluxifyManifest | null | undefined)[]
+	...manifests: (Pick<FluxifyManifest, "integrations"> | null | undefined)[]
 ): Promise<IntegrationUser[]> {
 	const kinds = new Set(manifests.flatMap((m) => (m?.integrations ?? []).map(kindOf)));
 	if (!kinds.size) return [];
@@ -59,7 +59,7 @@ export async function pluginIntegrationUsers(
  */
 export async function pluginIntegrationConfigUsers(
 	projectId: string,
-	...manifests: (FluxifyManifest | null | undefined)[]
+	...manifests: (Pick<FluxifyManifest, "integrations"> | null | undefined)[]
 ): Promise<IntegrationConfigUser[]> {
 	const users = await pluginIntegrationUsers(projectId, ...manifests);
 	if (!users.length) return users;

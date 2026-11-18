@@ -117,6 +117,65 @@ describe("resolveDependencies", () => {
 		});
 	});
 
+	describe("a plan that upgrades several plugins", () => {
+		const published = {
+			"x/a": { "1.0.0": [], "2.0.0": [] },
+			"x/d": { "1.0.0": [dep("x/a", "^1.0.0")], "2.0.0": [dep("x/a", "^2.0.0")], "2.1.0": [dep("x/a", "^1.0.0")], "3.0.0": [] },
+		};
+		const installed: Installed[] = [
+			{ plugin: "x/a", version: "1.0.0", dependencies: [] },
+			{ plugin: "x/d", version: "1.0.0", dependencies: [dep("x/a", "^1.0.0")] },
+		];
+
+		it("judges a dependent by the version the plan leaves it at, not the one installed", async () => {
+			const { r } = registry(published);
+			// d 1.0.0 still needs a ^1.0.0, which the upgrade to a 2.0.0 refuses, but d is upgraded in the same plan
+			expect(await resolveDependencies(root(dep("x/a", "^2.0.0"), dep("x/d", "^2.0.0 <2.1.0")), installed, r)).toEqual([
+				{ name: "@x/a", plugin: "x/a", version: "2.0.0", from: "1.0.0" },
+				{ name: "@x/d", plugin: "x/d", version: "2.0.0", from: "1.0.0" },
+			]);
+			// the same whichever the plan names first
+			expect((await resolveDependencies(root(dep("x/d", "^2.0.0 <2.1.0"), dep("x/a", "^2.0.0")), installed, r)).map((s) => s.plugin)).toEqual([
+				"x/a",
+				"x/d",
+			]);
+		});
+
+		it("lets the upgraded dependent drop the dependency altogether", async () => {
+			const { r } = registry(published);
+			const steps = await resolveDependencies(root(dep("x/a", "^2.0.0"), dep("x/d", "^3.0.0")), installed, r);
+			expect(steps.map((s) => `${s.plugin}@${s.version}`)).toEqual(["x/a@2.0.0", "x/d@3.0.0"]);
+		});
+
+		it("refuses when the upgraded dependent still needs the old version, naming both", async () => {
+			const { r } = registry(published);
+			expect(await refusal(resolveDependencies(root(dep("x/a", "^2.0.0"), dep("x/d", "^2.1.0")), installed, r))).toEqual({
+				kind: "conflict",
+				message: "x/d needs x/a ^1.0.0, but x/root needs x/a ^2.0.0 (version 2.0.0)",
+			});
+		});
+
+		it("still holds an installed dependent the plan leaves alone to its installed range", async () => {
+			const { r } = registry(published);
+			expect((await refusal(resolveDependencies(root(dep("x/a", "^2.0.0")), installed, r))).message).toBe(
+				"x/root needs x/a ^2.0.0, so it would be upgraded from 1.0.0 to 2.0.0, but x/d needs ^1.0.0",
+			);
+		});
+	});
+
+	it("upgrading a plugin whose new version needs a newer dependency lists it as an upgrade, and a new one as new", async () => {
+		const { r } = registry({ "x/a": { "1.0.0": [], "2.3.0": [] }, "x/b": { "1.2.0": [] } });
+		const installed: Installed[] = [
+			{ plugin: "x/a", version: "1.0.0", dependencies: [] },
+			// the version of the plugin being installed that this plan replaces
+			{ plugin: "x/root", version: "1.0.0", dependencies: [dep("x/a", "^1.0.0")] },
+		];
+		expect(await resolveDependencies(root(dep("x/a", "^2.0.0"), dep("x/b", "^1.0.0")), installed, r)).toEqual([
+			{ name: "@x/a", plugin: "x/a", version: "2.3.0", from: "1.0.0" },
+			{ name: "@x/b", plugin: "x/b", version: "1.2.0" },
+		]);
+	});
+
 	it("refuses a package missing from the registry, or with no version in range", async () => {
 		const { r } = registry({ "x/a": { "1.0.0": [] } });
 		expect(await refusal(resolveDependencies(root(dep("x/gone", "^1.0.0")), [], r))).toEqual({

@@ -8,15 +8,17 @@ import { ENVIRONMENTS } from "../../lib/envValues";
 import { audit } from "../audit";
 import { pluginKey } from "../compiler/subjects";
 import { InUseError } from "../references/service";
+import { DependentsError, removalDependents, variantsAddedTo } from "./dependencyGates";
 import { IntegrationsInUseError, pluginIntegrationUsers } from "./integrationUsage";
-import { getPluginRow } from "./repository";
+import { getPluginRow, listPluginRows } from "./repository";
 import { assertCreator, type Caller } from "./service";
 import { pluginTriggerUsers, TriggersInUseError } from "./triggerUsage";
 import { pluginUsage } from "./usage";
 import { syncProjectPluginVariants } from "./variants";
 
 /**
- * Removes a plugin (#860). Refused while a working copy or a promoted version
+ * Removes a plugin (#860). Refused while an approved plugin depends on it
+ * (#899), and while a working copy or a promoted version
  * uses any of its blocks, the same rule as deleting a custom block, and while
  * an integration or a trigger of one of its kinds exists (I6, T2): those rows
  * would point at a kind nothing provides. Then the
@@ -27,10 +29,21 @@ export async function removePlugin(projectId: string, name: string, caller: Call
 	assertCreator(caller, projectId);
 	const row = await getPluginRow(projectId, name);
 	if (!row) throw new NotFoundError(`Plugin ${name} is not installed in this project`);
+	const rows = await listPluginRows(projectId);
+	// a variant a dependent adds to this plugin's groups: its integrations are the dependent's, in this plugin's group
+	const added = variantsAddedTo(rows, row);
+	const dependents = removalDependents(rows, name);
+	if (dependents.length)
+		throw new DependentsError(name, dependents, await pluginIntegrationUsers(projectId, ...added));
 	const usage = await pluginUsage(projectId, name);
 	if (usage.length) throw new InUseError("plugin", usage);
 	// the pending version's kinds too: an integration may already use one an upgrade adds
-	const integrations = await pluginIntegrationUsers(projectId, row.manifest, row.live?.manifest);
+	const integrations = await pluginIntegrationUsers(
+		projectId,
+		row.manifest,
+		row.live?.manifest,
+		...added,
+	);
 	if (integrations.length) throw new IntegrationsInUseError(name, integrations);
 	const triggers = await pluginTriggerUsers(projectId, name);
 	if (triggers.length) throw new TriggersInUseError(name, triggers);

@@ -48,8 +48,8 @@ export async function resolveDependencies(
 	const chosen = new Map<string, { version: string; by: string; range: string }>();
 	const steps: InstallStep[] = [];
 
-	/** the newest version in range, refused when an installed plugin (not the one being installed) needs another */
-	async function pick(owner: string, dep: PluginDependency, current?: Installed) {
+	/** the newest version in range */
+	async function pick(owner: string, dep: PluginDependency) {
 		const version = (await registry.versions(dep.name))
 			.filter((v) => satisfies(v, dep.range))
 			.sort(Bun.semver.order)
@@ -59,23 +59,6 @@ export async function resolveDependencies(
 				"missing",
 				`${owner} needs ${dep.name} ${dep.range}, and no version of it on the registry matches`,
 			);
-		if (current) {
-			const refusing = installed.filter(
-				(i) =>
-					i.plugin !== root.plugin &&
-					i.dependencies.some((d) => d.plugin === dep.plugin && !satisfies(version, d.range)),
-			);
-			if (refusing.length)
-				throw new DependencyError(
-					"conflict",
-					`${owner} needs ${dep.plugin} ${dep.range}, so it would be upgraded from ${current.version} to ${version}, but ${refusing
-						.map(
-							(i) =>
-								`${i.plugin} needs ${i.dependencies.find((d) => d.plugin === dep.plugin)!.range}`,
-						)
-						.join(", ")}`,
-				);
-		}
 		const manifest = await registry.manifest(dep.name, version);
 		if (manifest.name !== dep.plugin)
 			throw new DependencyError(
@@ -83,6 +66,35 @@ export async function resolveDependencies(
 				`${dep.name}@${version} is plugin ${manifest.name}, but ${owner} expects ${dep.plugin}`,
 			);
 		return { version, dependencies: manifest.dependencies ?? [] };
+	}
+
+	/**
+	 * An upgrade is refused when an installed plugin keeps a range it does not
+	 * accept. A plugin the plan settles itself (kept or upgraded) is not asked:
+	 * `visit` holds it to the range of the version the plan leaves, so a plan that
+	 * upgrades a plugin and what depends on it together is judged on the upgraded
+	 * ranges, never the installed ones. The plugin being installed counts the same.
+	 */
+	function refuseUpgradesOfUsed() {
+		for (const step of steps) {
+			if (!step.from) continue;
+			const refusing = installed.filter(
+				(i) =>
+					i.plugin !== root.plugin &&
+					!chosen.has(i.plugin) &&
+					i.dependencies.some((d) => d.plugin === step.plugin && !satisfies(step.version, d.range)),
+			);
+			if (refusing.length)
+				throw new DependencyError(
+					"conflict",
+					`${chosen.get(step.plugin)!.by} needs ${step.plugin} ${chosen.get(step.plugin)!.range}, so it would be upgraded from ${step.from} to ${step.version}, but ${refusing
+						.map(
+							(i) =>
+								`${i.plugin} needs ${i.dependencies.find((d) => d.plugin === step.plugin)!.range}`,
+						)
+						.join(", ")}`,
+				);
+		}
 	}
 
 	async function visit(owner: string, dep: PluginDependency, path: string[]) {
@@ -101,7 +113,7 @@ export async function resolveDependencies(
 		}
 		const current = have.get(dep.plugin);
 		const kept = current && satisfies(current.version, dep.range);
-		const next = kept ? current : await pick(owner, dep, current);
+		const next = kept ? current : await pick(owner, dep);
 		chosen.set(dep.plugin, { version: next.version, by: owner, range: dep.range });
 		for (const d of next.dependencies) await visit(dep.plugin, d, [...path, dep.plugin]);
 		if (!kept)
@@ -114,5 +126,6 @@ export async function resolveDependencies(
 	}
 
 	for (const dep of root.dependencies) await visit(root.plugin, dep, [root.plugin]);
+	refuseUpgradesOfUsed();
 	return steps;
 }

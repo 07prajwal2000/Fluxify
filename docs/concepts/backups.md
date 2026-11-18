@@ -29,7 +29,7 @@ When creating a backup, you can choose which parts of the project to include. Ea
 | **Integrations** | On | Connections to databases, queues and other services. |
 | **Project settings** | On | Subdomain, AI agent, telemetry and limits. |
 | **npm packages** | On | The packages your code blocks use. |
-| **Plugins** | On | Installed plugins, with their files. |
+| **Plugins** | On | Installed plugins, with their files. Plugins that depend on others are written after them. |
 | **Custom blocks** | On | Your own blocks and their versions. |
 | **Middlewares** | On | Block chains that run before or after routes. |
 | **Routes** | On | Canvas, schemas, tests and whether each is live. |
