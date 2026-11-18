@@ -1,24 +1,16 @@
-import type { Key } from "@fluxify/components";
-import {
-	Button,
-	DeleteButton,
-	Input,
-	ListBox,
-	Select,
-	Spinner,
-	TextField,
-	toast,
-} from "@fluxify/components";
+import { DeleteButton, Input, Spinner, TextField, toast } from "@fluxify/components";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { TbChevronDown, TbSearch } from "react-icons/tb";
+import { TbSearch } from "react-icons/tb";
 import { z } from "zod";
 import { AppConfigTable } from "@/components/appConfig/AppConfigTable";
 import { CreateConfigButton } from "@/components/appConfig/CreateConfigModal";
 import { EditConfigModal } from "@/components/appConfig/EditConfigModal";
 import type { ConfigRow, SortBy } from "@/components/appConfig/types";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { PageFooter } from "@/components/common/PageFooter";
 import { showErrorNotification } from "@/lib/errorNotifier";
+import { usePageSize } from "@/lib/pageSize";
 import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
 import { appConfigQuery } from "@/query/appConfigQuery";
 import { projectsQuery } from "@/query/projectsQuery";
@@ -34,13 +26,13 @@ export const Route = createFileRoute("/_authed/$projectId/app-config")({
 	component: AppConfigPage,
 });
 
-function AppConfigPage() {
+export function AppConfigPage() {
 	const { projectId } = Route.useParams();
 	const { data: project } = projectsQuery.byId.useQuery(projectId);
 	usePageTitle(formatProjectTitle(project?.name, "App Config"));
 	const { q } = Route.useSearch();
 	const [page, setPage] = useState(1);
-	const [perPage, setPerPage] = useState(20);
+	const [perPage, setPerPage] = usePageSize("appConfig", 20);
 	const [searchInput, setSearchInput] = useState(q ?? "");
 	const [debouncedSearch, setDebouncedSearch] = useState(q ?? "");
 	const [sortBy, setSortBy] = useState<SortBy>("keyName");
@@ -54,8 +46,13 @@ function AppConfigPage() {
 	// Debounce search input
 	useEffect(() => {
 		const timer = setTimeout(() => {
-			setDebouncedSearch(searchInput);
-			setPage(1);
+			setDebouncedSearch((prev) => {
+				if (prev !== searchInput) {
+					setPage(1);
+					return searchInput;
+				}
+				return prev;
+			});
 		}, 300);
 		return () => clearTimeout(timer);
 	}, [searchInput]);
@@ -75,6 +72,7 @@ function AppConfigPage() {
 	const totalPages = data?.pagination?.totalPages ?? 1;
 
 	function handleSort(column: SortBy) {
+		setPage(1);
 		if (sortBy === column) {
 			setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
 		} else {
@@ -84,9 +82,9 @@ function AppConfigPage() {
 	}
 
 	return (
-		<div className="flex flex-col gap-4">
+		<div className="flex h-[calc(100vh-3rem)] flex-col gap-4 overflow-hidden">
 			{/* Top Header */}
-			<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+			<div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 				<div>
 					<h1 className="text-xl font-semibold tracking-tight">App Config</h1>
 					<p className="text-sm text-muted">
@@ -104,7 +102,7 @@ function AppConfigPage() {
 			</div>
 
 			{/* Search & Toolbar */}
-			<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+			<div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 				<TextField
 					aria-label="Search config by key name"
 					value={searchInput}
@@ -117,35 +115,6 @@ function AppConfigPage() {
 					/>
 					<Input placeholder="Search config by key name..." className="pl-9" />
 				</TextField>
-				<div className="flex items-center gap-2 text-sm text-muted">
-					<span>Rows per page:</span>
-					<Select
-						aria-label="Rows per page"
-						value={String(perPage)}
-						onChange={(v) => {
-							if (!v) return;
-							setPerPage(Number(v as Key));
-							setPage(1);
-						}}
-						className="w-[80px]"
-					>
-						<Select.Trigger className="flex h-8 items-center justify-between gap-1 rounded-md border border-border bg-background px-2 text-sm">
-							<Select.Value />
-							<Select.Indicator>
-								<TbChevronDown size={14} className="text-muted shrink-0" />
-							</Select.Indicator>
-						</Select.Trigger>
-						<Select.Popover>
-							<ListBox>
-								{[10, 20, 50, 100].map((n) => (
-									<ListBox.Item key={n} id={String(n)} textValue={String(n)}>
-										{n}
-									</ListBox.Item>
-								))}
-							</ListBox>
-						</Select.Popover>
-					</Select>
-				</div>
 			</div>
 
 			{/* Table Content */}
@@ -162,37 +131,31 @@ function AppConfigPage() {
 						: "No config keys yet."}
 				</p>
 			) : (
-				<AppConfigTable
-					items={items}
-					selectedIds={selectedIds}
-					onSelectionChange={setSelectedIds}
-					sortBy={sortBy}
-					sortOrder={sortOrder}
-					onSort={handleSort}
-					onEdit={setEditingConfig}
-					onDelete={setPendingDelete}
-				/>
+				<div className="min-h-0 flex-1 overflow-y-auto">
+					<AppConfigTable
+						items={items}
+						selectedIds={selectedIds}
+						onSelectionChange={setSelectedIds}
+						sortBy={sortBy}
+						sortOrder={sortOrder}
+						onSort={handleSort}
+						onEdit={setEditingConfig}
+						onDelete={setPendingDelete}
+					/>
+				</div>
 			)}
 
-			{/* Pagination Controls */}
-			{totalPages > 1 && (
-				<div className="flex items-center justify-between border-t border-border pt-4 text-sm text-muted">
-					<div>
-						Showing page <b>{page}</b> of <b>{totalPages}</b>
-					</div>
-					<div className="flex items-center gap-2">
-						<Button variant="outline" isDisabled={page <= 1} onPress={() => setPage((p) => p - 1)}>
-							Previous
-						</Button>
-						<Button
-							variant="outline"
-							isDisabled={page >= totalPages}
-							onPress={() => setPage((p) => p + 1)}
-						>
-							Next
-						</Button>
-					</div>
-				</div>
+			{items.length > 0 && (
+				<PageFooter
+					page={page}
+					totalPages={totalPages}
+					perPage={perPage}
+					onPage={setPage}
+					onPerPage={(n) => {
+						setPerPage(n);
+						setPage(1);
+					}}
+				/>
 			)}
 
 			{/* Edit Config Modal */}

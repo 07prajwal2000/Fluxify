@@ -35,7 +35,7 @@ export function AppConfigTable({
 					}
 				}}
 			>
-				<Table.Header>
+				<Table.Header className="sticky top-0 z-10">
 					<Table.Column id="select">
 						<Checkbox slot="selection" aria-label="Select all rows">
 							<Checkbox.Content>

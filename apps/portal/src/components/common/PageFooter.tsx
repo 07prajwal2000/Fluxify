@@ -1,4 +1,5 @@
-import { Button, ListBox, Select } from "@fluxify/components";
+import { Button, cn, ListBox, Select } from "@fluxify/components";
+import type { ReactNode } from "react";
 import { TbChevronDown } from "react-icons/tb";
 import { PAGE_SIZES } from "@/lib/pageSize";
 
@@ -9,15 +10,25 @@ export function PageFooter({
 	perPage,
 	onPage,
 	onPerPage,
+	children,
+	className,
 }: {
 	page: number;
 	totalPages: number;
 	perPage: number;
 	onPage: (page: number) => void;
 	onPerPage: (perPage: number) => void;
+	children?: ReactNode;
+	className?: string;
 }) {
 	return (
-		<div className="flex shrink-0 items-center gap-3 border-t border-border pt-3 text-sm text-muted">
+		<div
+			className={cn(
+				"flex shrink-0 items-center gap-3 border-t border-border pt-3 text-sm text-muted",
+				className,
+			)}
+		>
+			{children}
 			<span className="ml-auto">Rows per page:</span>
 			<Select
 				aria-label="Rows per page"

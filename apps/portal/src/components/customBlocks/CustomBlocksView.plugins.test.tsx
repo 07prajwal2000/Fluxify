@@ -215,3 +215,45 @@ test("the type with the most blocks comes first, ties by name", () => {
 	]);
 	expect(groups.map((g) => g.key)).toEqual(["acme/slack/c", "acme/slack/a", "acme/slack/b"]);
 });
+
+test("pages custom blocks with PageFooter and resets on search", async () => {
+	getAll.mockResolvedValue(
+		Array.from({ length: 12 }, (_, i) => ({
+			id: `b${i + 1}`,
+			name: `custom_block_${String(i + 1).padStart(2, "0")}`,
+			label: `CustomBlock ${String(i + 1).padStart(2, "0")}`,
+			description: null,
+			inputParams: [],
+			sourceType: "user-defined",
+		})) as never,
+	);
+	list.mockResolvedValue([]);
+
+	const { baseElement } = render(
+		<QueryClientProvider
+			client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+		>
+			<Harness />
+		</QueryClientProvider>,
+	);
+
+	await until(() => expect(baseElement.textContent).toContain("CustomBlock 01"));
+	expect(baseElement.textContent).toContain("Page 1 of 2");
+	expect(baseElement.textContent).toContain("CustomBlock 10");
+	expect(baseElement.textContent).not.toContain("CustomBlock 11");
+
+	const next = [...baseElement.querySelectorAll("button")].find((b) => b.textContent === "Next")!;
+	await act(async () => void fireEvent.click(next));
+	await until(() => expect(baseElement.textContent).toContain("Page 2 of 2"));
+	expect(baseElement.textContent).toContain("CustomBlock 11");
+	expect(baseElement.textContent).not.toContain("CustomBlock 01");
+
+	const searchInput = baseElement.querySelector<HTMLInputElement>(
+		'input[placeholder="Search blocks"]',
+	)!;
+	await act(
+		async () => void fireEvent.change(searchInput, { target: { value: "CustomBlock 11" } }),
+	);
+	await until(() => expect(baseElement.textContent).toContain("CustomBlock 11"));
+	expect(baseElement.textContent).not.toContain("Page 2 of 2");
+});

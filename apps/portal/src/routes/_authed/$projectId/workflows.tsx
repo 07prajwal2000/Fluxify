@@ -15,11 +15,13 @@ import { TbEdit, TbPackageExport, TbPlus, TbRoute } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
 import { EnvStatusChips } from "@/components/common/EnvStatusChips";
+import { PageFooter } from "@/components/common/PageFooter";
 import { RecordingIndicator } from "@/components/recordings/RecordingControls";
 import { ExportModal } from "@/components/transfer/ExportModal";
 import { ImportButton } from "@/components/transfer/ImportButton";
 import { WorkflowRunButton, WorkflowRunModal } from "@/components/workflows/WorkflowRunModal";
 import { showErrorNotification } from "@/lib/errorNotifier";
+import { usePageSize } from "@/lib/pageSize";
 import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
 import { projectsQuery } from "@/query/projectsQuery";
 import { workflowsQuery } from "@/query/workflowsQuery";
@@ -33,12 +35,13 @@ export const Route = createFileRoute("/_authed/$projectId/workflows")({
 	component: WorkflowsPage,
 });
 
-function WorkflowsPage() {
+export function WorkflowsPage() {
 	const { projectId } = Route.useParams();
 	const { data: project } = projectsQuery.byId.useQuery(projectId);
 	usePageTitle(formatProjectTitle(project?.name, "Workflows"));
 	const navigate = useNavigate();
 	const [page, setPage] = useState(1);
+	const [perPage, setPerPage] = usePageSize("workflows", 10);
 	const [search, setSearch] = useState("");
 	const [pendingDelete, setPendingDelete] = useState<Workflow | null>(null);
 	const [pendingExport, setPendingExport] = useState<Workflow | null>(null);
@@ -48,7 +51,7 @@ function WorkflowsPage() {
 	const { data, isLoading, isError } = workflowsQuery.getAll.useQuery({
 		projectId,
 		page,
-		perPage: 10,
+		perPage,
 		search: search.trim() || undefined,
 	});
 	const remove = workflowsQuery.remove.mutation();
@@ -66,8 +69,8 @@ function WorkflowsPage() {
 	}
 
 	return (
-		<div className="flex flex-col gap-4">
-			<div className="flex flex-wrap items-center justify-between gap-3">
+		<div className="flex h-[calc(100vh-3rem)] flex-col gap-4 overflow-hidden">
+			<div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
 				<div>
 					<h1 className="text-xl font-semibold tracking-tight">Workflows</h1>
 					<p className="text-sm text-muted">
@@ -117,97 +120,94 @@ function WorkflowsPage() {
 					}
 				/>
 			) : (
-				<Table>
-					<Table.Content aria-label="Workflows" onRowAction={(key) => openCanvas(String(key))}>
-						<Table.Header>
-							<Table.Column id="name" isRowHeader>
-								Name
-							</Table.Column>
-							<Table.Column id="description">Description</Table.Column>
-							<Table.Column id="status">Status</Table.Column>
-							<Table.Column id="actions" aria-label="Actions">
-								{""}
-							</Table.Column>
-						</Table.Header>
-						<Table.Body items={rows}>
-							{(workflow) => (
-								<Table.Row id={workflow.id} className="cursor-pointer">
-									<Table.Cell>
-										<div className="flex items-center gap-2">
-											<span>{workflow.name}</span>
-											<RecordingIndicator
-												dev={workflow.devRecordExecution}
-												prod={workflow.recordExecution}
+				<div className="min-h-0 flex-1 overflow-y-auto">
+					<Table>
+						<Table.Content aria-label="Workflows" onRowAction={(key) => openCanvas(String(key))}>
+							<Table.Header className="sticky top-0 z-10">
+								<Table.Column id="name" isRowHeader>
+									Name
+								</Table.Column>
+								<Table.Column id="description">Description</Table.Column>
+								<Table.Column id="status">Status</Table.Column>
+								<Table.Column id="actions" aria-label="Actions">
+									{""}
+								</Table.Column>
+							</Table.Header>
+							<Table.Body items={rows}>
+								{(workflow) => (
+									<Table.Row id={workflow.id} className="cursor-pointer">
+										<Table.Cell>
+											<div className="flex items-center gap-2">
+												<span>{workflow.name}</span>
+												<RecordingIndicator
+													dev={workflow.devRecordExecution}
+													prod={workflow.recordExecution}
+												/>
+											</div>
+										</Table.Cell>
+										<Table.Cell>
+											<span className="line-clamp-1 text-muted">{workflow.description}</span>
+										</Table.Cell>
+										<Table.Cell>
+											<EnvStatusChips
+												prod={Boolean(workflow.active)}
+												dev={Boolean(workflow.devActive)}
 											/>
-										</div>
-									</Table.Cell>
-									<Table.Cell>
-										<span className="line-clamp-1 text-muted">{workflow.description}</span>
-									</Table.Cell>
-									<Table.Cell>
-										<EnvStatusChips
-											prod={Boolean(workflow.active)}
-											dev={Boolean(workflow.devActive)}
-										/>
-									</Table.Cell>
-									<Table.Cell>
-										<div className="flex items-center justify-end gap-1">
-											<Tooltip>
-												<Button
-													isIconOnly
-													variant="ghost"
-													aria-label={`Edit ${workflow.name}`}
-													onPress={() => openCanvas(workflow.id)}
-												>
-													<TbEdit size={16} />
-												</Button>
-												<Tooltip.Content>Edit workflow</Tooltip.Content>
-											</Tooltip>
-											<Tooltip>
-												<Button
-													isIconOnly
-													variant="ghost"
-													aria-label={`Export ${workflow.name}`}
-													onPress={() => setPendingExport(workflow)}
-												>
-													<TbPackageExport size={16} />
-												</Button>
-												<Tooltip.Content>Export workflow</Tooltip.Content>
-											</Tooltip>
-											<WorkflowRunButton
-												projectId={projectId}
-												active={!!workflow.active}
-												onPress={() => setPendingRun(workflow)}
-											/>
-											<DeleteIconButton
-												aria-label="Delete workflow"
-												onPress={() => setPendingDelete(workflow)}
-											/>
-										</div>
-									</Table.Cell>
-								</Table.Row>
-							)}
-						</Table.Body>
-					</Table.Content>
-				</Table>
+										</Table.Cell>
+										<Table.Cell>
+											<div className="flex items-center justify-end gap-1">
+												<Tooltip>
+													<Button
+														isIconOnly
+														variant="ghost"
+														aria-label={`Edit ${workflow.name}`}
+														onPress={() => openCanvas(workflow.id)}
+													>
+														<TbEdit size={16} />
+													</Button>
+													<Tooltip.Content>Edit workflow</Tooltip.Content>
+												</Tooltip>
+												<Tooltip>
+													<Button
+														isIconOnly
+														variant="ghost"
+														aria-label={`Export ${workflow.name}`}
+														onPress={() => setPendingExport(workflow)}
+													>
+														<TbPackageExport size={16} />
+													</Button>
+													<Tooltip.Content>Export workflow</Tooltip.Content>
+												</Tooltip>
+												<WorkflowRunButton
+													projectId={projectId}
+													active={!!workflow.active}
+													onPress={() => setPendingRun(workflow)}
+												/>
+												<DeleteIconButton
+													aria-label="Delete workflow"
+													onPress={() => setPendingDelete(workflow)}
+												/>
+											</div>
+										</Table.Cell>
+									</Table.Row>
+								)}
+							</Table.Body>
+						</Table.Content>
+					</Table>
+				</div>
 			)}
 
-			{totalPages > 1 && (
-				<div className="flex items-center justify-end gap-3 text-sm text-muted">
-					<Button variant="outline" isDisabled={page <= 1} onPress={() => setPage((p) => p - 1)}>
-						Previous
-					</Button>
-					<span>
-						Page {page} of {totalPages}
-					</span>
-					<Button
-						variant="outline"
-						isDisabled={page >= totalPages}
-						onPress={() => setPage((p) => p + 1)}
-					>
-						Next
-					</Button>
-				</div>
+			{rows.length > 0 && (
+				<PageFooter
+					page={page}
+					totalPages={totalPages}
+					perPage={perPage}
+					onPage={setPage}
+					onPerPage={(n) => {
+						setPerPage(n);
+						setPage(1);
+					}}
+				/>
 			)}
 
 			<ExportModal

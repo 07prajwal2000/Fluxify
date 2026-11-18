@@ -254,3 +254,31 @@ test("clicking a sandbox's row opens its canvas (#1064)", async () => {
 	fireEvent.click(name);
 	expect(onOpen).toHaveBeenCalledWith("s1");
 });
+
+test("pages a long list of sandboxes with PageFooter", async () => {
+	const many = Array.from({ length: 12 }, (_, i) => ({
+		id: `s${i + 1}`,
+		projectId: "p1",
+		name: `Sandbox ${String(i + 1).padStart(2, "0")}`,
+		settings: { tracingEnabled: false },
+		createdAt: "2026-10-10T10:00:00.000Z",
+		updatedAt: "2026-10-10T11:00:00.000Z",
+	}));
+	spyOn(sandboxesService, "list").mockResolvedValue(many);
+	renderList();
+
+	await until(() => {
+		const text = body().textContent ?? "";
+		if (!text.includes("Sandbox 01")) throw new Error("not yet");
+		return text;
+	});
+
+	expect(body().textContent).toContain("Page 1 of 2");
+	expect(body().textContent).toContain("Sandbox 10");
+	expect(body().textContent).not.toContain("Sandbox 11");
+
+	fireEvent.click(button("Next"));
+	await until(() => expect(body().textContent).toContain("Page 2 of 2"));
+	expect(body().textContent).toContain("Sandbox 11");
+	expect(body().textContent).not.toContain("Sandbox 01");
+});
