@@ -12,7 +12,7 @@ This works on every edition, including Community. Commits are made by hand; ther
 ## What you need
 
 - A git repository you can push to over `http://` or `https://`. It may be empty.
-- A username and a token (or password) that may push to it, saved as **App Config** values in the project. Fluxify reads them each time it commits, so a rotated token only needs updating in App Config.
+- A username and a token (or password) that may push to it. Type them in, or pick **App Config** keys that hold them (the key button next to the field), as in the integration forms. An App Config key is read each time Fluxify commits, so a rotated token only needs updating in App Config.
 
 ::: warning Plain http
 Over `http://` the token travels in cleartext. Use `http://` only on a network you trust, such as a cluster or LAN where the git server has no trusted certificate.
@@ -26,12 +26,14 @@ Open **Project Settings → Backup → Git** and fill in:
 | :--- | :--- | :--- | :--- |
 | Repository URL | Yes | — | The URL you would clone, e.g. `https://git.example.com/team/backups.git`. No username or password in it. |
 | Branch | Yes | `main` | The branch commits go to. It is created on the first commit if it doesn't exist. |
-| Folder | No | The project's slug | Where in the repository the backup goes. Leave it empty for the repository's root. |
-| Username | Yes | — | An App Config key holding the git username. |
-| Token | Yes | — | An App Config key holding the token or password. |
+| Folder | No | Empty (the repository's root) | Where in the repository the backup goes, e.g. `backups/my-project`. Set one if the repository holds anything else. |
+| Username | Yes | — | The git username, or an App Config key holding it. |
+| Token | Yes | — | The token or password, or an App Config key holding it. A typed token is stored encrypted and shown as `********` afterwards; leave it as it is to keep it. |
 | Encrypt secrets | — | On | Seals credentials and App Config values in the repository (see below). |
 
 Click **Save**.
+
+The username and token are never put in a backup, so they never reach the repository.
 
 ## Commit to git
 

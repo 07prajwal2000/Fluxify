@@ -6,11 +6,12 @@ import { projectSettingsEntity } from "../../db/schema";
 import { BadRequestError } from "../../errors/badRequestError";
 import { ConflictError } from "../../errors/conflictError";
 import { NotFoundError } from "../../errors/notFoundError";
+import { EncryptionService } from "../../lib/encryption";
 import { audit } from "../audit";
 import { decodeAppConfig } from "../integrationOps/appConfig";
 import { describeGitError, gitDestination } from "./gitDestination";
 import { commitsOf, fetchBranch, type GitRemote, readFolder } from "./gitRepo";
-import { GIT_KEYS, type GitSettings } from "./gitSettings";
+import { GIT_KEYS, type GitSettings, MASKED } from "./gitSettings";
 import { openTree } from "./gitTree";
 import { hasRunning, insertBackup, lockProjectBackups } from "./history";
 import { BACKUP_MODULES } from "./modules";
@@ -49,28 +50,58 @@ export async function readGitSettings(
 	};
 }
 
+const SEALED_TOKEN = "enc:";
+const refuse = (message: string): never => {
+	throw new BadRequestError(message);
+};
+
+/**
+ * Writes every key. A typed token is stored encrypted, as `enc:<…>`; `MASKED`
+ * (what `GET` showed for it) keeps the stored one.
+ */
 export async function writeGitSettings(projectId: string, s: GitSettings, tx: DbTransactionType) {
+	const before = await readGitSettings(projectId, tx);
+	const token =
+		s.token === MASKED
+			? before.token || refuse("Type the token again: none is saved.")
+			: s.token.startsWith("cfg:")
+				? s.token
+				: SEALED_TOKEN + EncryptionService.encrypt(s.token);
+	const values = { ...s, token };
 	for (const [field, key] of Object.entries(GIT_KEYS))
-		await upsertProjectSettingKey(projectId, key, String(s[field as keyof GitSettings]), tx);
+		await upsertProjectSettingKey(projectId, key, String(values[field as keyof GitSettings]), tx);
 }
 
-/** the saved remote, its `cfg:` username and token read from production's app config now */
+/** the settings as the portal sees them: a typed token is never sent back */
+export async function gitSettingsView(projectId: string) {
+	const settings = await readGitSettings(projectId);
+	return { ...settings, token: settings.token.startsWith(SEALED_TOKEN) ? MASKED : settings.token };
+}
+
+/** a stored username or token: read from app config, decrypted, or as typed */
+async function credential(projectId: string, stored: string) {
+	if (stored.startsWith(SEALED_TOKEN))
+		return EncryptionService.decrypt(stored.slice(SEALED_TOKEN.length));
+	if (!stored.startsWith("cfg:")) return stored;
+	const key = stored.slice(4);
+	const value = (await decodeAppConfig([key], projectId, "production")).get(key);
+	if (!value)
+		throw new BadRequestError(
+			`The app config key ${key} has no value. Set it, or choose another key for the git username or token.`,
+		);
+	return value;
+}
+
+/** the saved remote, with its username and token resolved now */
 export async function gitRemote(projectId: string) {
 	const settings = await readGitSettings(projectId);
 	if (!settings.url)
 		throw new BadRequestError("Set up the git repository in Project Settings > Backup first.");
-	const keys = [settings.username, settings.token].map((ref) => ref.slice(4));
-	const values = await decodeAppConfig(keys, projectId, "production");
-	const missing = keys.find((key) => !values.get(key));
-	if (missing)
-		throw new BadRequestError(
-			`The app config key ${missing} has no value. Set it, or choose another key for the git username and token.`,
-		);
 	const remote: GitRemote = {
 		url: settings.url,
 		branch: settings.branch,
-		username: values.get(keys[0]!)!,
-		token: values.get(keys[1]!)!,
+		username: await credential(projectId, settings.username),
+		token: await credential(projectId, settings.token),
 	};
 	return { settings, remote };
 }

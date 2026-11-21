@@ -13,7 +13,7 @@ import {
 } from "@fluxify/components";
 import { useState } from "react";
 import { TbGitCommit } from "react-icons/tb";
-import { AppConfigField } from "@/components/appConfig/AppConfigField";
+import { AppConfigSelector } from "@/components/integrations/AppConfigSelector";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { backupsQuery } from "@/query/backupsQuery";
 import type { BackupRow, GitSettingsView } from "@/services/backups";
@@ -22,10 +22,6 @@ import { GitCommits } from "./GitCommits";
 /** the rules the server checks, so the fields can say so before saving */
 const URL = /^https?:\/\/[^\s/@]+(\/\S*)?$/;
 const SEGMENTS = /^[A-Za-z0-9_-][A-Za-z0-9._-]*(\/[A-Za-z0-9_-][A-Za-z0-9._-]*)*$/;
-
-/** `cfg:KEY` ↔ the bare key the picker holds */
-const keyOf = (ref: string) => (ref.startsWith("cfg:") ? ref.slice(4) : "");
-const refOf = (key: string) => (key ? `cfg:${key}` : "");
 
 function CommitDialog({
 	isOpen,
@@ -102,7 +98,9 @@ function Warnings({ url, encrypt, saved }: { url: string; encrypt: boolean; save
 /**
  * Project settings > Backup > Git (#1150, every edition): where commits go,
  * "Commit to git" with a message, and the branch's commits to restore from.
- * Username and token are app config keys, read on the server when committing.
+ * Username and token are typed in or app config keys (`cfg:KEY`), as in the
+ * integration forms; a saved typed token comes back masked and stays as it is
+ * unless replaced.
  */
 export function GitBackup({ projectId, history }: { projectId: string; history: BackupRow[] }) {
 	const { data: view } = backupsQuery.git.useQuery(projectId);
@@ -124,7 +122,7 @@ function GitForm({
 	const commit = backupsQuery.gitCommit.useMutation(projectId);
 	const [url, setUrl] = useState(saved.url);
 	const [branch, setBranch] = useState(saved.branch);
-	const [path, setPath] = useState(saved.url ? saved.path : view.defaultPath);
+	const [path, setPath] = useState(saved.path);
 	const [username, setUsername] = useState(saved.username);
 	const [token, setToken] = useState(saved.token);
 	const [encryptSecrets, setEncrypt] = useState(saved.encryptSecrets);
@@ -133,7 +131,7 @@ function GitForm({
 	const badUrl = !URL.test(url);
 	const badBranch = !SEGMENTS.test(branch) || branch.includes("..");
 	const badPath = path !== "" && !SEGMENTS.test(path);
-	const canSave = !badUrl && !badBranch && !badPath && Boolean(username && token);
+	const canSave = !badUrl && !badBranch && !badPath && Boolean(username.trim() && token.trim());
 	const running = history.some((b) => b.status === "running");
 	const lastGit = history.find((b) => b.type === "git");
 	// the commit list follows the newest commit this page knows of
@@ -187,19 +185,19 @@ function GitForm({
 					</TextField>
 				</div>
 				<div className="grid gap-4 sm:grid-cols-2">
-					<AppConfigField
+					<AppConfigSelector
 						projectId={projectId}
 						label="Username"
-						description="The app config key holding the git username."
-						value={keyOf(username)}
-						onChange={(k) => setUsername(refOf(k))}
+						description="The git username, or an app config key holding it."
+						value={username}
+						onChange={setUsername}
 					/>
-					<AppConfigField
+					<AppConfigSelector
 						projectId={projectId}
 						label="Token"
-						description="The app config key holding the token or password."
-						value={keyOf(token)}
-						onChange={(k) => setToken(refOf(k))}
+						description="A token or password, or an app config key holding it. A typed one is stored encrypted."
+						value={token}
+						onChange={setToken}
 					/>
 				</div>
 				<Checkbox

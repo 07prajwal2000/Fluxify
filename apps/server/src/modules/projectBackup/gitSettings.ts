@@ -36,17 +36,20 @@ export const gitPathSchema = z
 	.refine((v) => v === "" || SEGMENTS.test(v), {
 		message: "Use a folder like backups/my-project, or leave it empty for the repository's root",
 	});
-/** the name of an app config key holding the value, as `cfg:KEY` */
-export const cfgRefSchema = z
-	.string()
-	.regex(/^cfg:[a-zA-Z0-9_]{3,100}$/, { message: "Choose an app config key (cfg:KEY)" });
+/**
+ * A username or token: an app config reference (`cfg:KEY`, read when committing)
+ * or the value itself. A token typed in is stored encrypted and never sent back
+ * (`MASKED` stands for it); neither is ever put in a backup.
+ */
+export const credentialSchema = z.string().trim().min(1).max(2000);
+export const MASKED = "********";
 
 export const gitSettingsSchema = z.object({
 	url: gitUrlSchema,
 	branch: gitBranchSchema,
 	path: gitPathSchema,
-	username: cfgRefSchema,
-	token: cfgRefSchema,
+	username: credentialSchema,
+	token: credentialSchema,
 	encryptSecrets: z.boolean(),
 });
 export type GitSettings = z.infer<typeof gitSettingsSchema>;

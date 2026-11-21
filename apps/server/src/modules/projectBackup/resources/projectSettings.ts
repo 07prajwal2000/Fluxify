@@ -37,7 +37,8 @@ import { integrationUses } from "./rollback";
 
 const SUBDOMAIN = "settings.routing.subdomain";
 /** the last backup's README (#1103) travels in the archive itself, not as a setting of the copy */
-const NOT_BACKED_UP = "settings.backup.readme";
+/** and the git username and token (#1150), which may be typed in: never in a backup, which is plain JSON in git and in templates */
+const NOT_BACKED_UP = new Set(["settings.backup.readme", GIT_KEYS.username, GIT_KEYS.token]);
 /**
  * Backups to object storage (#1106) restore switched off and without a prefix:
  * a copy writing to (and pruning) the source's prefix would delete the source's
@@ -60,7 +61,7 @@ export const GIT_CLEARED_WARNING =
  */
 const KEPT_ON_ROLLBACK = (key: string) =>
 	key === SUBDOMAIN ||
-	key === NOT_BACKED_UP ||
+	NOT_BACKED_UP.has(key) ||
 	key === "auditLogs.enabled" ||
 	key.startsWith("settings.backup.storage.") ||
 	gitSetting(key);
@@ -107,7 +108,7 @@ export const projectSettingsModule: BackupModule<Section> = {
 	// an integration id reads as its name
 	preview: ({ settings, integrations }) =>
 		settings
-			.filter((s) => s.key !== NOT_BACKED_UP)
+			.filter((s) => !NOT_BACKED_UP.has(s.key))
 			.map((s) => {
 				const value = s.value
 					.split(",")
@@ -169,7 +170,7 @@ export const projectSettingsModule: BackupModule<Section> = {
 				.from(projectSettingsEntity)
 				.where(eq(projectSettingsEntity.projectId, projectId));
 			const settings = rows
-				.filter((r) => r.key !== NOT_BACKED_UP)
+				.filter((r) => !NOT_BACKED_UP.has(r.key))
 				.map((r) => ({ key: r.key, value: r.value }));
 			const names = await integrationNames(projectId, tx);
 			return {

@@ -83,7 +83,7 @@ export interface RemoteBackup {
 
 export type RemoteTarget = { integrationId: string; key: string };
 
-/** commits to a git repository (#1150); username and token are `cfg:KEY` references */
+/** commits to a git repository (#1150); username and token are typed in or `cfg:KEY`; a saved typed token reads "********" */
 export interface GitSettings {
 	url: string;
 	branch: string;
@@ -95,8 +95,6 @@ export interface GitSettings {
 
 export interface GitSettingsView {
 	settings: GitSettings;
-	/** what the folder starts as: the project's slug */
-	defaultPath: string;
 }
 
 export interface GitCommit {

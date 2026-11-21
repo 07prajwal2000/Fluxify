@@ -1,14 +1,12 @@
-import { eq } from "drizzle-orm";
 import { describeRoute, resolver, validator } from "hono-openapi";
 import type { z } from "zod";
 import { db } from "../../../db";
-import { projectsEntity } from "../../../db/schema";
 import zodErrorCallbackParser from "../../../middlewares/zodErrorCallbackParser";
 import { audit } from "../../../modules/audit";
 import {
+	gitSettingsView,
 	listGitCommits,
 	openGitCommit,
-	readGitSettings,
 	startGitCommit,
 	writeGitSettings,
 } from "../../../modules/projectBackup/gitRun";
@@ -49,16 +47,7 @@ const creator = requireProjectAccess("creator", { key: "projectId", source: "par
 const project = validator("param", projectParamSchema, zodErrorCallbackParser);
 const json = <T extends z.ZodType>(schema: T) => validator("json", schema, zodErrorCallbackParser);
 
-async function view(projectId: string) {
-	const [settings, [row]] = await Promise.all([
-		readGitSettings(projectId),
-		db
-			.select({ slug: projectsEntity.slug })
-			.from(projectsEntity)
-			.where(eq(projectsEntity.id, projectId)),
-	]);
-	return { settings, defaultPath: row?.slug ?? "" };
-}
+const view = async (projectId: string) => ({ settings: await gitSettingsView(projectId) });
 
 /**
  * Commits to a git repository (#1150, every edition, manual only). The

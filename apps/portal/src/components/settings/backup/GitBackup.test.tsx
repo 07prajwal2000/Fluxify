@@ -50,7 +50,6 @@ const SAVED: GitSettingsView = {
 		token: "cfg:GIT_TOKEN",
 		encryptSecrets: true,
 	},
-	defaultPath: "shop",
 };
 
 const SUMMARY: ArchiveSummary = {
@@ -170,7 +169,7 @@ test("Commit to git asks for a message and sends it", async () => {
 });
 
 test("Commit to git waits until the repository is saved", async () => {
-	const { button } = setup({ settings: { ...SAVED.settings, url: "" }, defaultPath: "shop" });
+	const { button } = setup({ settings: { ...SAVED.settings, url: "" } });
 	expect((await until(() => button("Commit to git"))).disabled).toBe(true);
 });
 
@@ -198,4 +197,33 @@ test("only a system admin can restore", async () => {
 	const { text, button } = setup();
 	await until(() => expect(text()).toContain("nightly"));
 	expect(button("Restore").disabled).toBe(true);
+});
+
+test("the folder starts empty (the repository's root), not the project's slug", async () => {
+	const { field } = setup({ settings: { ...SAVED.settings, url: "", path: "" } });
+	expect((await until(() => field("Folder"))).value).toBe("");
+});
+
+test("a typed username and token are sent as typed; a masked token is sent back unchanged", async () => {
+	const save = spyOn(backupsService, "saveGitSettings").mockResolvedValue(SAVED);
+	const typed = { ...SAVED, settings: { ...SAVED.settings, username: "ann", token: "********" } };
+	const { field, button } = setup(typed);
+	await until(() => field("Branch"));
+	const inputs = () =>
+		[...document.body.querySelectorAll("input:not([type=checkbox])")] as HTMLInputElement[];
+	// URL, Branch, Folder, then the two credential fields
+	expect(inputs()[3]!.value).toBe("ann");
+	expect(inputs()[4]!.value).toBe("********");
+	await act(async () => {
+		fireEvent.click(button("Save"));
+	});
+	await until(() => expect(save).toHaveBeenCalledTimes(1));
+	expect(save.mock.calls[0]?.[1]).toMatchObject({ username: "ann", token: "********" });
+
+	await type(inputs()[4]!, "new-token");
+	await act(async () => {
+		fireEvent.click(button("Save"));
+	});
+	await until(() => expect(save).toHaveBeenCalledTimes(2));
+	expect(save.mock.calls[1]?.[1]).toMatchObject({ token: "new-token" });
 });

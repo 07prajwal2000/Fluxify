@@ -276,11 +276,39 @@ describe("refusals", () => {
 		for (const over of [
 			{ url: "http://user:pass@example.com/x.git" },
 			{ url: "ftp://example.com/x.git" },
-			{ token: "ghp_literal" },
 			{ path: "../up" },
 			{ path: ".git/hooks" },
 			{ branch: "a..b" },
 		])
 			expect((await call(who, "PUT", "/git", { ...base, ...over })).status).toBe(400);
+	});
+});
+
+describe("a username and token typed in", () => {
+	it("are stored encrypted, never sent back, and never committed", async () => {
+		// the app config holds no copy of the token, so any trace of it would be a leak
+		const who = await project("not-the-token");
+		const url = await gitea.repo(`typed-${short()}`);
+		await setUp(who, url, { username: GIT_USER, token: gitea.token, encryptSecrets: false });
+
+		const shown = await call(who, "GET", "/git");
+		expect(shown.body.settings).toMatchObject({ username: GIT_USER, token: "********" });
+		const [stored] = await stack.sql`SELECT value FROM project_settings
+			WHERE project_id = ${who.project} AND key = 'settings.backup.git.token'`;
+		expect(stored.value.startsWith("enc:")).toBe(true);
+		expect(stored.value).not.toContain(gitea.token);
+
+		const first = await commit(who, "typed");
+		expect(first.status).toBe("succeeded");
+		// saving again with the mask keeps the stored token
+		await setUp(who, url, { username: GIT_USER, token: "********", encryptSecrets: false });
+		expect((await commit(who, "typed again")).status).toBe("succeeded");
+
+		const { files } = await tipFiles(url, "");
+		expect(files.size).toBeGreaterThan(3);
+		for (const [path, bytes] of files) {
+			expect({ path, leaked: text(bytes).includes(gitea.token) }).toEqual({ path, leaked: false });
+			expect(text(bytes)).not.toContain("settings.backup.git.token");
+		}
 	});
 });

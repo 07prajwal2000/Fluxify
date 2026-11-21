@@ -1,7 +1,6 @@
 import z from "zod";
 import { subdomainSchema } from "../../../../../lib/hosting";
 import {
-	cfgRefSchema,
 	gitBranchSchema,
 	gitPathSchema,
 	gitUrlSchema,
@@ -222,7 +221,8 @@ export const projectSettingsKeySchemaMap = {
 	/**
 	 * Commits to a git repository (#1150). Written only through
 	 * `PUT /v1/:projectId/backups/git`; a restored project gets none of them.
-	 * The username and token are `cfg:KEY` references, read when committing.
+	 * The username and token are `cfg:KEY` references or values (a typed token is
+	 * stored encrypted); neither is ever backed up.
 	 */
 	"settings.backup.git.url": { schema: gitUrlSchema, defaultValue: "", dataType: "string" },
 	"settings.backup.git.branch": {
@@ -231,8 +231,16 @@ export const projectSettingsKeySchemaMap = {
 		dataType: "string",
 	},
 	"settings.backup.git.path": { schema: gitPathSchema, defaultValue: "", dataType: "string" },
-	"settings.backup.git.username": { schema: cfgRefSchema, defaultValue: "", dataType: "string" },
-	"settings.backup.git.token": { schema: cfgRefSchema, defaultValue: "", dataType: "string" },
+	"settings.backup.git.username": {
+		schema: z.string().max(2000),
+		defaultValue: "",
+		dataType: "string",
+	},
+	"settings.backup.git.token": {
+		schema: z.string().max(4000),
+		defaultValue: "",
+		dataType: "string",
+	},
 	"settings.backup.git.encryptSecrets": {
 		schema: z.enum(["true", "false"]),
 		defaultValue: "true",

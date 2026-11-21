@@ -162,10 +162,9 @@ export const gitSettingsResponseSchema = z.object({
 	settings: gitSettingsSchema.extend({
 		url: z.string(),
 		username: z.string(),
+		/** a `cfg:KEY` reference as saved; a typed token comes back as "********" */
 		token: z.string(),
 	}),
-	/** what the folder starts as: the project's slug */
-	defaultPath: z.string(),
 });
 export const gitCommitBodySchema = z.object({
 	message: z.string().trim().min(1).max(5000).describe("the commit message"),
