@@ -9,7 +9,7 @@ import {
 import { db } from "../../db";
 import { requestProjectCompile } from "../compiler/publisher";
 import { BACKUP_MODULES } from "./modules";
-import { type RestorePlan, readBackup, restoreBackup } from "./restore";
+import { type ArchiveSource, type RestorePlan, readBackup, restoreBackup } from "./restore";
 
 /**
  * The largest archive a person can upload to make a project from (#1104).
@@ -60,7 +60,7 @@ export function summaryOf({ manifest, readme, warnings, sections }: RestorePlan)
  * the summary, the README and warnings to show before the user confirms, and a
  * name and slug for the new project that no project here has yet.
  */
-export async function inspectArchive(bytes: Uint8Array) {
+export async function inspectArchive(bytes: Uint8Array | ArchiveSource) {
 	const summary = summaryOf(await readBackup(bytes, BACKUP_MODULES));
 	const { source } = summary;
 	return {
@@ -90,7 +90,7 @@ export async function inspectArchive(bytes: Uint8Array) {
  * where dev and prod workers pick them up.
  */
 export async function restoreProject(
-	bytes: Uint8Array,
+	bytes: Uint8Array | ArchiveSource,
 	{
 		subdomain,
 		...input

@@ -68,6 +68,7 @@ export const AUDITED: Record<string, string> = {
 	// a restore creates its project through the create service's helpers, which record it
 	"restore-project": `${V}/projects/create/service.ts`,
 	"restore-remote-backup": `${V}/projects/create/service.ts`,
+	"restore-git-backup": `${V}/projects/create/service.ts`,
 	"update-project": `${V}/projects/update/service.ts`,
 	"delete-project": `${V}/projects/delete/service.ts`,
 	"project-members-add": `${V}/projects/settings/members/add/service.ts`,
@@ -106,6 +107,9 @@ export const AUDITED: Record<string, string> = {
 	// backups to object storage (#1106): the settings save, and "Back up now" (recorded where the run starts)
 	"put-backup-schedule": `${V}/backups/schedule.ts`,
 	"start-object-storage-backup": "modules/projectBackup/storageRun.ts",
+	// commits to git (#1150): the settings save, and "Commit to git" (recorded where the run starts)
+	"put-git-backup-settings": `${V}/backups/git.ts`,
+	"commit-git-backup": "modules/projectBackup/gitRun.ts",
 	// rolling a project back in place (#1130): recorded in the rollback's transaction
 	"rollback-project": "modules/projectBackup/rollback.ts",
 	"remote-rollback-project": "modules/projectBackup/rollback.ts",
@@ -165,6 +169,7 @@ export const SKIPPED: Record<string, string> = {
 	"inspect-integration": "reads an integration (tables, a key) and changes nothing",
 	"inspect-project-archive": "reads an uploaded backup archive and changes nothing",
 	"inspect-remote-backup": "downloads a backup from the bucket and changes nothing",
+	"inspect-git-backup": "fetches a commit from the git repository and changes nothing",
 	"inspect-rollback": "reads an uploaded backup archive and the project, and changes nothing",
 	"inspect-remote-rollback": "downloads a backup from the bucket, reads the project, and changes nothing",
 	"connect-mcp-oauth":

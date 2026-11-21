@@ -10,7 +10,9 @@ const STATUS = {
 	failed: { label: "Failed", color: "danger" },
 } as const;
 
-const TYPES = { manual: "Manual", object_storage: "Object storage" } as const;
+const TYPES = { manual: "Manual", object_storage: "Object storage", git: "Git" } as const;
+
+const KEPT = { manual: "", object_storage: "In object storage", git: "In git" } as const;
 
 /** the last cell: the way to the file, or why there isn't one */
 function Outcome({ projectId, row, days }: { projectId: string; row: BackupRow; days: number }) {
@@ -20,7 +22,10 @@ function Outcome({ projectId, row, days }: { projectId: string; row: BackupRow; 
 	if (!row.downloadable)
 		return (
 			<span className="text-muted" title={row.destinationKey ?? undefined}>
-				{row.type === "object_storage" ? "In object storage" : `Expired (kept ${days} days)`}
+				{KEPT[row.type] || `Expired (kept ${days} days)`}
+				{row.type === "git" && row.destinationKey && (
+					<span className="ml-1 font-mono text-xs">{row.destinationKey.slice(0, 10)}</span>
+				)}
 			</span>
 		);
 	return (

@@ -9,6 +9,7 @@ import { type DbTransactionType, db } from "../../../db";
 import { CHAN_ON_PROJECT_SETTING_CHANGE, deleteCacheKey, publishMessage } from "../../../db/redis";
 import { projectSettingsEntity } from "../../../db/schema";
 import { constructProjectSettingCacheKey } from "../../../lib/project-settings";
+import { GIT_KEY_PREFIX, GIT_KEYS } from "../gitSettings";
 import type { BackupModule } from "../types";
 import {
 	integrationNames,
@@ -36,7 +37,8 @@ import { integrationUses } from "./rollback";
 
 const SUBDOMAIN = "settings.routing.subdomain";
 /** the last backup's README (#1103) travels in the archive itself, not as a setting of the copy */
-const NOT_BACKED_UP = "settings.backup.readme";
+/** and the git username and token (#1150), which may be typed in: never in a backup, which is plain JSON in git and in templates */
+const NOT_BACKED_UP = new Set(["settings.backup.readme", GIT_KEYS.username, GIT_KEYS.token]);
 /**
  * Backups to object storage (#1106) restore switched off and without a prefix:
  * a copy writing to (and pruning) the source's prefix would delete the source's
@@ -48,16 +50,21 @@ const SCHEDULE_OFF: Record<string, string> = {
 };
 export const SCHEDULE_OFF_WARNING =
 	"Scheduled backups are off in the restored project; choose a prefix and turn them on.";
+/** Commits to git (#1150) are never restored: a copy would push to the source's branch. */
+const gitSetting = (key: string) => key.startsWith(GIT_KEY_PREFIX);
+export const GIT_CLEARED_WARNING =
+	"Commits to git are not set up in the restored project; set the repository in Project Settings > Backup.";
 /**
  * What a rollback (#1130) leaves as it is on the live project: its address, its
- * own backups to object storage (restoring them would switch them off), and
+ * own backups to object storage (restoring them would switch them off) and git, and
  * audit logging, which a rollback must never turn off.
  */
 const KEPT_ON_ROLLBACK = (key: string) =>
 	key === SUBDOMAIN ||
-	key === NOT_BACKED_UP ||
+	NOT_BACKED_UP.has(key) ||
 	key === "auditLogs.enabled" ||
-	key.startsWith("settings.backup.storage.");
+	key.startsWith("settings.backup.storage.") ||
+	gitSetting(key);
 
 const scheduleWasOn = (settings: Section["settings"]) =>
 	settings.some((s) => s.key === "settings.backup.storage.enabled" && s.value === "true");
@@ -101,7 +108,7 @@ export const projectSettingsModule: BackupModule<Section> = {
 	// an integration id reads as its name
 	preview: ({ settings, integrations }) =>
 		settings
-			.filter((s) => s.key !== NOT_BACKED_UP)
+			.filter((s) => !NOT_BACKED_UP.has(s.key))
 			.map((s) => {
 				const value = s.value
 					.split(",")
@@ -112,6 +119,7 @@ export const projectSettingsModule: BackupModule<Section> = {
 
 	inspect({ settings, integrations }, read) {
 		const off = scheduleWasOn(settings) ? [SCHEDULE_OFF_WARNING] : [];
+		if (settings.some((s) => s.key === GIT_KEYS.url && s.value)) off.push(GIT_CLEARED_WARNING);
 		return [
 			...off,
 			...lostWarnings(
@@ -162,7 +170,7 @@ export const projectSettingsModule: BackupModule<Section> = {
 				.from(projectSettingsEntity)
 				.where(eq(projectSettingsEntity.projectId, projectId));
 			const settings = rows
-				.filter((r) => r.key !== NOT_BACKED_UP)
+				.filter((r) => !NOT_BACKED_UP.has(r.key))
 				.map((r) => ({ key: r.key, value: r.value }));
 			const names = await integrationNames(projectId, tx);
 			return {
@@ -180,7 +188,7 @@ export const projectSettingsModule: BackupModule<Section> = {
 	async import({ tx, projectId, ids, afterCommit, warn, target }, { settings, integrations }) {
 		const lookup = localIntegrations(integrations, ids);
 		for (const { key, value: raw } of settings) {
-			if (target === "existing" && KEPT_ON_ROLLBACK(key)) continue;
+			if (gitSetting(key) || (target === "existing" && KEPT_ON_ROLLBACK(key))) continue;
 			const value = accepted(key, SCHEDULE_OFF[key] ?? remapValue(raw, lookup));
 			if (value === undefined) continue;
 			const clash = key === SUBDOMAIN && value && (await subdomainClash(projectId, value, tx));

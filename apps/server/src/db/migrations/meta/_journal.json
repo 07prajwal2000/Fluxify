@@ -253,6 +253,13 @@
 			"when": 1794859382156,
 			"tag": "0035_backup_label",
 			"breakpoints": true
+		},
+		{
+			"idx": 36,
+			"version": "7",
+			"when": 1795292376427,
+			"tag": "0036_backup_git",
+			"breakpoints": true
 		}
 	]
 }

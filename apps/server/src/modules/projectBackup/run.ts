@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../../db";
 import { type projectBackupsEntity, projectsEntity } from "../../db/schema";
 import { CustomError } from "../../errors/customError";
+import type { Payload } from "./archive";
 import { archiveKey, deleteArchive, putArchive } from "./archives";
 import { createBackup } from "./backup";
 import { finishBackup } from "./history";
@@ -17,9 +18,12 @@ export type FinishedArchive = {
 	bytes: Uint8Array;
 	manifest: BackupManifest;
 	hasReadme: boolean;
+	/** the plain entries and the README, for a destination that stores them exploded (git, #1150) */
+	payload: Payload;
+	readme?: string;
 };
 
-/** Where a run puts its archive: the Object Store for a manual one (#1103), a bucket for #1106. */
+/** Where a run puts its archive: the Object Store for a manual one (#1103), a bucket for #1106, a git repository for #1150. */
 export type BackupDestination = {
 	/** stores a finished archive and returns its key; leaves nothing behind when it throws */
 	save(archive: FinishedArchive): Promise<string>;
@@ -65,7 +69,7 @@ export async function runBackup(
 			.from(projectsEntity)
 			.where(eq(projectsEntity.id, row.projectId));
 		if (!project) throw new Error("the project is gone");
-		const { bytes, manifest } = await createBackup(
+		const { bytes, manifest, payload } = await createBackup(
 			{
 				projectId: row.projectId,
 				source: { name: project.name ?? project.slug, slug: project.slug },
@@ -76,7 +80,13 @@ export async function runBackup(
 			},
 			BACKUP_MODULES,
 		);
-		const key = await destination.save({ bytes, manifest, hasReadme: Boolean(input.readme) });
+		const key = await destination.save({
+			bytes,
+			manifest,
+			hasReadme: Boolean(input.readme),
+			payload,
+			readme: input.readme,
+		});
 		await finishBackup(row.id, {
 			status: "succeeded",
 			sizeBytes: bytes.length,

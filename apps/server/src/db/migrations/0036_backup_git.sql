@@ -1,0 +1,1 @@
+ALTER TABLE "project_backups" ALTER COLUMN "label" SET DATA TYPE text;

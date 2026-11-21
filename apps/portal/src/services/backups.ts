@@ -12,7 +12,7 @@ export type BackupMode = "backup" | "template";
 /** one row of a project's backup history (#1103); dates arrive as ISO strings */
 export interface BackupRow {
 	id: string;
-	type: "manual" | "object_storage";
+	type: "manual" | "object_storage" | "git";
 	mode: BackupMode;
 	sections: string[];
 	formatVersions: Record<string, number>;
@@ -23,7 +23,7 @@ export interface BackupRow {
 	/** a finished manual archive that is still held */
 	downloadable: boolean;
 	expiresAt: string | null;
-	/** the bucket key of an object storage backup */
+	/** the bucket key of an object storage backup, or the SHA of a git commit */
 	destinationKey: string | null;
 	/** why it was taken, e.g. "Before rollback" (#1130); null for one made by hand or on schedule */
 	label: string | null;
@@ -82,6 +82,27 @@ export interface RemoteBackup {
 }
 
 export type RemoteTarget = { integrationId: string; key: string };
+
+/** commits to a git repository (#1150); username and token are typed in or `cfg:KEY`; a saved typed token reads "********" */
+export interface GitSettings {
+	url: string;
+	branch: string;
+	path: string;
+	username: string;
+	token: string;
+	encryptSecrets: boolean;
+}
+
+export interface GitSettingsView {
+	settings: GitSettings;
+}
+
+export interface GitCommit {
+	sha: string;
+	message: string;
+	author: string;
+	date: string;
+}
 
 /** rolling this project back in place (#1130) */
 export type RollbackSummary = z.infer<typeof rollbackInspectResponseSchema>;
@@ -205,6 +226,34 @@ export const backupsService = {
 	): Promise<RollbackResult> {
 		return (await httpClient.post(`${base(projectId)}/remote/rollback`, { ...target, ...choice }))
 			.data;
+	},
+
+	async gitSettings(projectId: string): Promise<GitSettingsView> {
+		return (await httpClient.get(`${base(projectId)}/git`)).data;
+	},
+
+	async saveGitSettings(projectId: string, body: GitSettings): Promise<GitSettingsView> {
+		return (await httpClient.put(`${base(projectId)}/git`, body)).data;
+	},
+
+	/** backs the project up as one commit on the branch */
+	async gitCommit(projectId: string, message: string): Promise<{ id: string }> {
+		return (await httpClient.post(`${base(projectId)}/git/commit`, { message })).data;
+	},
+
+	/** the branch's newest commits, newest first */
+	async gitCommits(projectId: string): Promise<GitCommit[]> {
+		return (await httpClient.get(`${base(projectId)}/git/commits`)).data.commits;
+	},
+
+	async inspectGit(projectId: string, sha: string): Promise<ArchiveSummary> {
+		return (await httpClient.post(`${base(projectId)}/git/inspect`, { sha })).data;
+	},
+
+	/** a new project from the commit; blank optional fields are left out */
+	async restoreGit(projectId: string, sha: string, form: ProjectForm): Promise<RestoreResult> {
+		const fields = Object.fromEntries(Object.entries(form).filter(([, v]) => v.trim()));
+		return (await httpClient.post(`${base(projectId)}/git/restore`, { sha, ...fields })).data;
 	},
 
 	/**

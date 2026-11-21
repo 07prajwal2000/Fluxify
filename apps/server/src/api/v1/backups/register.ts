@@ -13,6 +13,7 @@ import {
 	sectionsResponseSchema,
 	startBodySchema,
 } from "./dto";
+import { registerGitBackups } from "./git";
 import { registerRemoteBackups } from "./remote";
 import { registerRollback } from "./rollback";
 import * as schedule from "./schedule";
@@ -125,6 +126,8 @@ export default {
 			},
 		);
 		registerRemoteBackups(router);
+		// commits to a git repository (#1150)
+		registerGitBackups(router);
 		// rolling the project back in place (#1130)
 		registerRollback(router);
 		router.get(

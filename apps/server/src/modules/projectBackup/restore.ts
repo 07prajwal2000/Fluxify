@@ -1,7 +1,7 @@
 import { logger } from "@fluxify/common";
 import type { DbTransactionType } from "../../db";
 import { BadRequestError } from "../../errors/badRequestError";
-import { openArchive, type Payload } from "./archive";
+import { type OpenedArchive, openArchive, type Payload } from "./archive";
 import type { BackupManifest } from "./manifest";
 import { orderModules } from "./registry";
 import { upgradeSection } from "./sections";
@@ -19,14 +19,23 @@ export type RestorePlan = {
 	warnings: RestoreWarning[];
 };
 
+/** an opened archive, with what opening it skipped (a sealed section this key can't read) */
+export type ArchiveSource = OpenedArchive & { warnings?: RestoreWarning[] };
+
 /**
  * Everything a restore checks, with nothing written: the archive, its hash,
  * the key, and every section's version and shape. A registered module whose
  * section is absent (an older backup, or one left out) imports nothing.
- * Each module's `inspect` adds its warnings to the plan.
+ * Each module's `inspect` adds its warnings to the plan. `source` is the
+ * archive's bytes, or one already opened elsewhere (a git tree, #1150), with
+ * the warnings opening it produced.
  */
-export async function readBackup(tgz: Uint8Array, modules: BackupModule[]): Promise<RestorePlan> {
-	const { manifest, payload, readme } = await openArchive(tgz);
+export async function readBackup(
+	source: Uint8Array | ArchiveSource,
+	modules: BackupModule[],
+): Promise<RestorePlan> {
+	const opened: ArchiveSource = source instanceof Uint8Array ? await openArchive(source) : source;
+	const { manifest, payload, readme } = opened;
 	const unknown = Object.keys(manifest.sections).find((n) => !modules.some((m) => m.name === n));
 	if (unknown)
 		throw new BadRequestError(
@@ -34,7 +43,7 @@ export async function readBackup(tgz: Uint8Array, modules: BackupModule[]): Prom
 		);
 
 	const sections: RestorePlan["sections"] = [];
-	const warnings: RestoreWarning[] = [];
+	const warnings: RestoreWarning[] = [...(opened.warnings ?? [])];
 	const read = (name: string) => sections.find((s) => s.module.name === name)?.data;
 	const ordered = orderModules(modules);
 	for (const module of ordered) {
