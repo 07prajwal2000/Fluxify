@@ -45,9 +45,11 @@ export async function createBackup(input: CreateBackupInput, modules: BackupModu
 			payload.set(`files/${module.name}/${path}`, bytes);
 		sections[module.name] = module.version;
 	}
-	return writeArchive(
+	const archive = await writeArchive(
 		{ mode, release: releaseVersion(), createdAt: new Date().toISOString(), source, sections },
 		payload,
 		input.readme,
 	);
+	// the plain payload too, for a destination that stores it exploded (git, #1150)
+	return { ...archive, payload };
 }

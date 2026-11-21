@@ -84,7 +84,7 @@ export async function writeArchive(head: ManifestHead, payload: Payload, readme?
 	return { manifest, bytes: await pack(entries) };
 }
 
-function parseManifest(raw: Uint8Array | undefined): BackupManifest {
+export function parseManifest(raw: Uint8Array | undefined): BackupManifest {
 	let doc: { kind?: unknown; format?: unknown } | undefined;
 	try {
 		doc = raw && JSON.parse(new TextDecoder().decode(raw));
@@ -103,7 +103,7 @@ function parseManifest(raw: Uint8Array | undefined): BackupManifest {
 }
 
 /** the README of an unpacked archive; refused over the limit, since nothing has checked it yet */
-function readmeOf(entries: Payload): Uint8Array | undefined {
+export function readmeOf(entries: Payload): Uint8Array | undefined {
 	const note = entries.get(README);
 	if (note && note.length > MAX_README_BYTES)
 		throw new BadRequestError(
@@ -148,9 +148,16 @@ export async function openArchive(tgz: Uint8Array) {
 	entries.delete(MANIFEST);
 	entries.delete(README);
 	const payload = manifest.mode === "backup" ? await unseal(entries.get(SEALED)) : entries;
+	checkIntegrity(manifest, payload, note);
+	return { manifest, payload, readme: note ? new TextDecoder().decode(note) : null };
+}
+
+/** an archive opened and checked, by `openArchive` or from a git tree (`gitTree.ts`) */
+export type OpenedArchive = Awaited<ReturnType<typeof openArchive>>;
+
+export function checkIntegrity(manifest: BackupManifest, payload: Payload, note?: Uint8Array) {
 	if (hashFiles(hashed(payload, note)) !== manifest.integrity)
 		throw new BadRequestError(
 			"This backup is damaged or was altered: its contents don't match its manifest.",
 		);
-	return { manifest, payload, readme: note ? new TextDecoder().decode(note) : null };
 }
