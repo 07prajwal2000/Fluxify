@@ -77,6 +77,10 @@ The maximum archive size supported for remote download and unpack is **512 MB**.
 
 Restoring creates a brand new project and requires **System Administrator** permission. Non-admin users see the Restore button disabled.
 
+## Restore from git
+
+If the project commits its backups to a git repository, open **Project Settings → Backup → Git**, click **Restore** on one of the listed commits, review it, and click **Create project**. Like any restore, it makes a new project and needs a System Administrator. The new project has no git settings, so it never pushes to the original's branch. Credentials and App Config values committed with **Encrypt secrets** on restore only on an instance with the same `MASTER_ENCRYPTION_KEY`; elsewhere they are left out with a warning. See [Backups to Git](/concepts/git-backups).
+
 ## Disaster recovery on a fresh instance
 
 If your original server is lost or destroyed, you can recover projects completely on a new server using your backup bucket:
@@ -156,7 +160,7 @@ A rollback never alters or removes:
 - Project name, slug, and description
 - Subdomain
 - Audit logging configuration
-- Scheduled backup settings
+- Scheduled backup settings and git backup settings
 - npm dependencies (unless the backup specifically contains package dependencies)
 
 ### Why a rollback can be refused

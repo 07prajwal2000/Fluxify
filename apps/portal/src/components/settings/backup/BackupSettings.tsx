@@ -8,6 +8,7 @@ import { BackupForm } from "./BackupForm";
 import { BackupHistory } from "./BackupHistory";
 import { BackupStatusHeader } from "./BackupStatusHeader";
 import { byteLength, triggerDownload } from "./format";
+import { GitBackup } from "./GitBackup";
 import { ObjectStorageBackup } from "./ObjectStorageBackup";
 import { README_MAX_BYTES } from "./ReadmeField";
 import { RemoteBackups } from "./RemoteBackups";
@@ -170,6 +171,7 @@ export function BackupSettings({
 					}}
 				/>
 			)}
+			{view === "git" && <GitBackup projectId={projectId} history={history.backups} />}
 			{view === "history" && (
 				<BackupHistory
 					projectId={projectId}

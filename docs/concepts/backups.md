@@ -7,17 +7,17 @@ description: Save a whole project to a backup file or to your own bucket, choose
 
 A backup saves an entire project — including routes, workflows, triggers, blocks, integrations, settings, and dependencies — into a single archive file. You can restore a backup to create a brand new project, move work to another instance, or roll an existing project back to an earlier working state.
 
-Fluxify provides two ways to back up a project: manual downloads you trigger yourself, and automatic scheduled uploads to cloud storage.
+Fluxify provides three ways to back up a project: manual downloads you trigger yourself, automatic scheduled uploads to cloud storage, and commits to a git repository.
 
-## Two ways to back up
+## Three ways to back up
 
-| | Download a backup | Scheduled backups to object storage |
-|---|---|---|
-| **Edition** | Every edition (including Community) | Enterprise and Non-commercial |
-| **When** | Whenever you click **Download backup** | Daily, weekly, or monthly schedules, plus **Back up now** |
-| **Where it goes** | Downloaded to your computer (and kept on the server for 7 days for re-download) | Your own S3-compatible cloud storage bucket |
+| | Download a backup | Scheduled backups to object storage | Commit to git |
+|---|---|---|---|
+| **Edition** | Every edition (including Community) | Enterprise and Non-commercial | Every edition (including Community) |
+| **When** | Whenever you click **Download backup** | Daily, weekly, or monthly schedules, plus **Back up now** | Whenever you click **Commit to git** |
+| **Where it goes** | Downloaded to your computer (and kept on the server for 7 days for re-download) | Your own S3-compatible cloud storage bucket | A branch of your own git repository, one file per part |
 
-For details on setting up automated backups to your own bucket, see [Scheduled Backups](/concepts/backup-schedules).
+For details on setting up automated backups to your own bucket, see [Scheduled Backups](/concepts/backup-schedules). For commits to a repository, see [Backups to Git](/concepts/git-backups).
 
 ## What is in a backup
 

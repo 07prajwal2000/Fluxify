@@ -229,6 +229,7 @@ export default withMermaid(
 							{ text: "Export and Import", link: "/concepts/export-import" },
 							{ text: "Project Backups", link: "/concepts/backups" },
 							{ text: "Scheduled Backups", link: "/concepts/backup-schedules" },
+							{ text: "Backups to Git", link: "/concepts/git-backups" },
 							{ text: "Project Templates", link: "/concepts/project-templates" },
 							{ text: "Restore and Roll Back", link: "/concepts/restore" },
 							{ text: "Sandbox", link: "/concepts/sandbox" },

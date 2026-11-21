@@ -4,6 +4,7 @@ import type { BackupInterval, BackupRow } from "@/services/backups";
 export const BACKUP_VIEWS = {
 	backup: "Back up",
 	schedule: "Schedule",
+	git: "Git",
 	history: "History",
 	restore: "Restore & roll back",
 } as const;

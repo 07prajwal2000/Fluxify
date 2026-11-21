@@ -1,5 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type BackupSchedule, backupsService, type StartBackupBody } from "@/services/backups";
+import {
+	type BackupSchedule,
+	backupsService,
+	type GitSettings,
+	type StartBackupBody,
+} from "@/services/backups";
 
 const key = (projectId: string) => ["backups", projectId];
 const POLL_MS = 2000;
@@ -78,6 +83,49 @@ export const backupsQuery = {
 				enabled: enabled && Boolean(integrationId && prefix),
 				refetchOnWindowFocus: false,
 				retry: false,
+			});
+		},
+	},
+	/** commits to a git repository (#1150) */
+	git: {
+		useQuery(projectId: string) {
+			return useQuery({
+				queryKey: [...key(projectId), "git"],
+				queryFn: () => backupsService.gitSettings(projectId),
+				refetchOnWindowFocus: false,
+			});
+		},
+	},
+	saveGit: {
+		useMutation(projectId: string) {
+			const client = useQueryClient();
+			return useMutation({
+				mutationFn: (body: GitSettings) => backupsService.saveGitSettings(projectId, body),
+				onSuccess: (view) => {
+					client.setQueryData([...key(projectId), "git"], view);
+					client.invalidateQueries({ queryKey: [...key(projectId), "git-commits"] });
+				},
+			});
+		},
+	},
+	/** the branch's commits */
+	gitCommits: {
+		/** `revision` (the newest finished commit run) changes when a new commit lands */
+		useQuery(projectId: string, revision: string) {
+			return useQuery({
+				queryKey: [...key(projectId), "git-commits", revision],
+				queryFn: () => backupsService.gitCommits(projectId),
+				refetchOnWindowFocus: false,
+				retry: false,
+			});
+		},
+	},
+	gitCommit: {
+		useMutation(projectId: string) {
+			const client = useQueryClient();
+			return useMutation({
+				mutationFn: (message: string) => backupsService.gitCommit(projectId, message),
+				onSuccess: () => client.invalidateQueries({ queryKey: key(projectId) }),
 			});
 		},
 	},
