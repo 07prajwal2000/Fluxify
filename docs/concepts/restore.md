@@ -81,6 +81,10 @@ Restoring creates a brand new project and requires **System Administrator** perm
 
 If the project commits its backups to a git repository, open **Project Settings → Backup → Git**, click **Restore** on one of the listed commits, review it, and click **Create project**. Like any restore, it makes a new project and needs a System Administrator. The new project has no git settings, so it never pushes to the original's branch. Credentials and App Config values committed with **Encrypt secrets** on restore only on an instance with the same `MASTER_ENCRYPTION_KEY`; elsewhere they are left out with a warning. See [Backups to Git](/concepts/git-backups).
 
+### From any repository, with no project yet
+
+On the home page, open the arrow next to **New Project** and choose **Restore from a git repository**. Enter the repository URL, branch and folder, and a read-only token if the repository is private (it is used for this restore only and never stored). Pick a commit (the newest by default), review it, and create the project. See [Backups to Git](/concepts/git-backups#create-a-project-from-a-repository).
+
 ## Disaster recovery on a fresh instance
 
 If your original server is lost or destroyed, you can recover projects completely on a new server using your backup bucket:
