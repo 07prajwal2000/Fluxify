@@ -9,14 +9,17 @@ import { memoryFs } from "./memoryFs";
  * commit straight into the object store (no checkout, no index) and pushes.
  */
 
-export type GitRemote = { url: string; branch: string; username: string; token: string };
+/** where to fetch and push; without a token the fetch is anonymous (a public repository) */
+export type GitRemote = { url: string; branch: string; username?: string; token?: string };
 type Entry = { mode: string; path: string; oid: string; type: "blob" | "tree" | "commit" };
 export type Repo = { fs: ReturnType<typeof memoryFs>; tip: string | undefined };
 
 const dir = "/repo";
 const TREE = "040000";
 const segments = (path: string) => path.split("/").filter(Boolean);
-const auth = (remote: GitRemote) => () => ({ username: remote.username, password: remote.token });
+// a token alone is enough for GitHub, GitLab and Gitea, which ignore the username when given one
+const auth = ({ username, token }: GitRemote) =>
+	token ? () => ({ username: username || "git", password: token }) : undefined;
 
 /** a fresh repository holding the branch's newest `depth` commits; `tip` is undefined when the branch has none */
 export async function fetchBranch(remote: GitRemote, depth = 1): Promise<Repo> {
@@ -24,18 +27,24 @@ export async function fetchBranch(remote: GitRemote, depth = 1): Promise<Repo> {
 	await git.init({ fs, dir, defaultBranch: remote.branch });
 	// fetch by url alone works on an empty repo but needs the remote's refspec once the branch has commits
 	await git.addRemote({ fs, dir, remote: "origin", url: remote.url });
-	const { fetchHead } = await git.fetch({
-		fs,
-		http,
-		dir,
-		url: remote.url,
-		ref: remote.branch,
-		singleBranch: true,
-		depth,
-		tags: false,
-		onAuth: auth(remote),
-	});
-	return { fs, tip: fetchHead ?? undefined };
+	const fetched = await git
+		.fetch({
+			fs,
+			http,
+			dir,
+			url: remote.url,
+			ref: remote.branch,
+			singleBranch: true,
+			depth,
+			tags: false,
+			onAuth: auth(remote),
+		})
+		.catch((error: { code?: string; data?: { what?: string } }) => {
+			// a repository with commits, but not on this branch: it starts with the first commit
+			if (error.code === "NotFoundError" && error.data?.what === remote.branch) return null;
+			throw error;
+		});
+	return { fs, tip: fetched?.fetchHead ?? undefined };
 }
 
 const entries = async ({ fs }: Repo, oid?: string): Promise<Entry[]> =>

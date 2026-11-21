@@ -69,6 +69,7 @@ export const AUDITED: Record<string, string> = {
 	"restore-project": `${V}/projects/create/service.ts`,
 	"restore-remote-backup": `${V}/projects/create/service.ts`,
 	"restore-git-backup": `${V}/projects/create/service.ts`,
+	"restore-project-from-git": `${V}/projects/create/service.ts`,
 	"update-project": `${V}/projects/update/service.ts`,
 	"delete-project": `${V}/projects/delete/service.ts`,
 	"project-members-add": `${V}/projects/settings/members/add/service.ts`,
@@ -170,6 +171,8 @@ export const SKIPPED: Record<string, string> = {
 	"inspect-project-archive": "reads an uploaded backup archive and changes nothing",
 	"inspect-remote-backup": "downloads a backup from the bucket and changes nothing",
 	"inspect-git-backup": "fetches a commit from the git repository and changes nothing",
+	"inspect-git-restore": "fetches a commit from a repository typed in and changes nothing",
+	"list-git-restore-commits": "lists a repository's commits (POST so a token never sits in a URL) and changes nothing",
 	"inspect-rollback": "reads an uploaded backup archive and the project, and changes nothing",
 	"inspect-remote-rollback": "downloads a backup from the bucket, reads the project, and changes nothing",
 	"connect-mcp-oauth":

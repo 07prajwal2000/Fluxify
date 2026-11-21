@@ -59,11 +59,14 @@ async function writeBlobs(repo: Repo, archive: FinishedArchive, target: GitTarge
 }
 
 /** a failure as the person setting it up has to fix it; undefined for anything else */
-export function describeGitError(url: string, error: unknown) {
+export function describeGitError(url: string, error: unknown, withToken = true) {
 	const e = error as { code?: string; caller?: string; data?: { statusCode?: number } };
 	const status = e?.data?.statusCode;
+	// a private repository answers an anonymous fetch as if it weren't there, or 401
+	if (!withToken && e?.code === "HttpError" && [401, 403, 404].includes(status ?? 0))
+		return `There is no repository at ${url}, or it is private: add a token with read access.`;
 	if (e?.code === "HttpError" && (status === 401 || status === 403))
-		return `The git server refused the username or token (HTTP ${status}). Check the app config values they point to, and that the token may push to the repository.`;
+		return `The git server refused the username or token (HTTP ${status}). Check them (or the app config values they point to), and that the token may read the repository, and push to it to commit.`;
 	if (e?.code === "HttpError" && status === 404)
 		return `There is no repository at ${url} (HTTP 404), or the token can't see it.`;
 	if (e?.code === "HttpError") return `The git server at ${url} answered HTTP ${status}.`;
