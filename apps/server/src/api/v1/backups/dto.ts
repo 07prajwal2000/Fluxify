@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { BACKUP_STATUSES, BACKUP_TYPES } from "../../../db/schema";
 import { MAX_README_BYTES } from "../../../modules/projectBackup/archive";
+import { gitSettingsSchema } from "../../../modules/projectBackup/gitSettings";
 import {
 	BACKUP_INTERVALS,
 	backupMetaSchema,
@@ -45,7 +46,7 @@ export const backupSchema = z.object({
 	/** a finished manual archive that is still held */
 	downloadable: z.boolean(),
 	expiresAt: z.date().nullable(),
-	/** the bucket key of an object storage backup */
+	/** the bucket key of an object storage backup, or a git commit's SHA */
 	destinationKey: z.string().nullable(),
 	/** why it was taken, e.g. "Before rollback" (#1130); null for one made by hand or on schedule */
 	label: z.string().nullable(),
@@ -155,3 +156,29 @@ export const rollbackResponseSchema = z.object({
 	backupId: z.string(),
 	warnings: z.array(warningSchema),
 });
+
+/** commits to a git repository (#1150) */
+export const gitSettingsResponseSchema = z.object({
+	settings: gitSettingsSchema.extend({
+		url: z.string(),
+		username: z.string(),
+		token: z.string(),
+	}),
+	/** what the folder starts as: the project's slug */
+	defaultPath: z.string(),
+});
+export const gitCommitBodySchema = z.object({
+	message: z.string().trim().min(1).max(5000).describe("the commit message"),
+});
+export const gitCommitsResponseSchema = z.object({
+	commits: z.array(
+		z.object({ sha: z.string(), message: z.string(), author: z.string(), date: z.string() }),
+	),
+});
+export const gitShaSchema = z.object({
+	sha: z
+		.string()
+		.regex(/^[0-9a-f]{40}$/)
+		.describe("a commit the listing returned"),
+});
+export const gitRestoreBodySchema = newProjectSchema.extend(gitShaSchema.shape);

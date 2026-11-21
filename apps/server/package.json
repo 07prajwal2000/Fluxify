@@ -78,6 +78,7 @@
 		"hono": "^4.12.27",
 		"hono-openapi": "^1.3.0",
 		"ioredis": "^5.11.1",
+		"isomorphic-git": "^1.44.18",
 		"jsonwebtoken": "^9.0.3",
 		"tokenx": "^1.3.0",
 		"turndown": "7",

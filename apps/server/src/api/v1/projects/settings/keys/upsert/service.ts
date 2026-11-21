@@ -9,6 +9,7 @@ import { NotFoundError } from "../../../../../../errors/notFoundError";
 import { constructProjectSettingCacheKey } from "../../../../../../lib/project-settings";
 import { audit, forgetProject } from "../../../../../../modules/audit";
 import { hasRouteClaim } from "../../../../../../modules/orchestrator/claims";
+import { GIT_KEY_PREFIX } from "../../../../../../modules/projectBackup/gitSettings";
 import { getProjectSettingsKeys } from "../get-all/repository";
 import {
 	BACKUP_SCHEDULE_KEY_PREFIX,
@@ -33,8 +34,8 @@ export default async function handleRequest(
 	if (!schemaMap) {
 		throw new BadRequestError("Invalid key");
 	}
-	if (key.startsWith(BACKUP_SCHEDULE_KEY_PREFIX)) {
-		throw new BadRequestError("Change backups to object storage in Project Settings > Backup.");
+	if (key.startsWith(BACKUP_SCHEDULE_KEY_PREFIX) || key.startsWith(GIT_KEY_PREFIX)) {
+		throw new BadRequestError("Change backup destinations in Project Settings > Backup.");
 	}
 
 	let finalValue = value;

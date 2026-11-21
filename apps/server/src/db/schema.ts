@@ -1970,14 +1970,15 @@ export const auditEventsEntity = pgTable(
  * 11. PROJECT BACKUPS (#1103)
  * ============================================================================ */
 
-export const BACKUP_TYPES = ["manual", "object_storage"] as const;
+export const BACKUP_TYPES = ["manual", "object_storage", "git"] as const;
 export const BACKUP_STATUSES = ["running", "succeeded", "failed"] as const;
 
 /**
  * One backup of a project: its history, and for a manual one where the archive
  * is held until it expires. `object_storage` rows (#1106) use the same table;
  * their `destinationKey` is the object's key in the bucket, which is never
- * cleaned up here. A row outlives its archive: `destinationKey` goes null when
+ * cleaned up here. A `git` row's (#1150) is the commit's SHA, and its `label`
+ * the commit message. A row outlives its archive: `destinationKey` goes null when
  * a manual archive expires, and the row stays as history.
  */
 export const projectBackupsEntity = pgTable(
@@ -2004,8 +2005,8 @@ export const projectBackupsEntity = pgTable(
 			.notNull(),
 		error: text(),
 		destinationKey: text("destination_key"),
-		/** why it was taken, when not by hand or on schedule: "Before rollback" (#1130) */
-		label: varchar({ length: 100 }),
+		/** why it was taken, when not by hand or on schedule: "Before rollback" (#1130), or a git commit's message (#1150) */
+		label: text(),
 		createdBy: varchar("created_by", { length: 50 }).references(() => systemUsers.id, {
 			onDelete: "set null",
 		}),

@@ -9,6 +9,7 @@ import { type DbTransactionType, db } from "../../../db";
 import { CHAN_ON_PROJECT_SETTING_CHANGE, deleteCacheKey, publishMessage } from "../../../db/redis";
 import { projectSettingsEntity } from "../../../db/schema";
 import { constructProjectSettingCacheKey } from "../../../lib/project-settings";
+import { GIT_KEY_PREFIX, GIT_KEYS } from "../gitSettings";
 import type { BackupModule } from "../types";
 import {
 	integrationNames,
@@ -48,16 +49,21 @@ const SCHEDULE_OFF: Record<string, string> = {
 };
 export const SCHEDULE_OFF_WARNING =
 	"Scheduled backups are off in the restored project; choose a prefix and turn them on.";
+/** Commits to git (#1150) are never restored: a copy would push to the source's branch. */
+const gitSetting = (key: string) => key.startsWith(GIT_KEY_PREFIX);
+export const GIT_CLEARED_WARNING =
+	"Commits to git are not set up in the restored project; set the repository in Project Settings > Backup.";
 /**
  * What a rollback (#1130) leaves as it is on the live project: its address, its
- * own backups to object storage (restoring them would switch them off), and
+ * own backups to object storage (restoring them would switch them off) and git, and
  * audit logging, which a rollback must never turn off.
  */
 const KEPT_ON_ROLLBACK = (key: string) =>
 	key === SUBDOMAIN ||
 	key === NOT_BACKED_UP ||
 	key === "auditLogs.enabled" ||
-	key.startsWith("settings.backup.storage.");
+	key.startsWith("settings.backup.storage.") ||
+	gitSetting(key);
 
 const scheduleWasOn = (settings: Section["settings"]) =>
 	settings.some((s) => s.key === "settings.backup.storage.enabled" && s.value === "true");
@@ -112,6 +118,7 @@ export const projectSettingsModule: BackupModule<Section> = {
 
 	inspect({ settings, integrations }, read) {
 		const off = scheduleWasOn(settings) ? [SCHEDULE_OFF_WARNING] : [];
+		if (settings.some((s) => s.key === GIT_KEYS.url && s.value)) off.push(GIT_CLEARED_WARNING);
 		return [
 			...off,
 			...lostWarnings(
@@ -180,7 +187,7 @@ export const projectSettingsModule: BackupModule<Section> = {
 	async import({ tx, projectId, ids, afterCommit, warn, target }, { settings, integrations }) {
 		const lookup = localIntegrations(integrations, ids);
 		for (const { key, value: raw } of settings) {
-			if (target === "existing" && KEPT_ON_ROLLBACK(key)) continue;
+			if (gitSetting(key) || (target === "existing" && KEPT_ON_ROLLBACK(key))) continue;
 			const value = accepted(key, SCHEDULE_OFF[key] ?? remapValue(raw, lookup));
 			if (value === undefined) continue;
 			const clash = key === SUBDOMAIN && value && (await subdomainClash(projectId, value, tx));

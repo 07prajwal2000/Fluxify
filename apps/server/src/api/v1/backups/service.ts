@@ -48,7 +48,7 @@ export const view = (row: Row, by: { email: string | null; name: string | null }
 	error: row.error,
 	downloadable: downloadable(row),
 	expiresAt: downloadable(row) && row.finishedAt ? expiresAt(row.finishedAt) : null,
-	destinationKey: row.type === "object_storage" ? row.destinationKey : null,
+	destinationKey: row.type === "manual" ? null : row.destinationKey,
 	label: row.label,
 	createdBy: by.email ? { email: by.email, name: by.name } : null,
 	createdAt: row.createdAt,
