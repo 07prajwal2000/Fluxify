@@ -37,8 +37,13 @@ import { integrationUses } from "./rollback";
 
 const SUBDOMAIN = "settings.routing.subdomain";
 /** the last backup's README (#1103) travels in the archive itself, not as a setting of the copy */
-/** and the git username and token (#1150), which may be typed in: never in a backup, which is plain JSON in git and in templates */
-const NOT_BACKED_UP = new Set(["settings.backup.readme", GIT_KEYS.username, GIT_KEYS.token]);
+/** and the git username, email (#1153) and token (#1150), which may be typed in: never in a backup, which is plain JSON in git and in templates */
+const NOT_BACKED_UP = new Set([
+	"settings.backup.readme",
+	GIT_KEYS.username,
+	GIT_KEYS.email,
+	GIT_KEYS.token,
+]);
 /**
  * Backups to object storage (#1106) restore switched off and without a prefix:
  * a copy writing to (and pruning) the source's prefix would delete the source's

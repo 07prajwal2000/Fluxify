@@ -47,6 +47,7 @@ const SAVED: GitSettingsView = {
 		branch: "main",
 		path: "shop",
 		username: "cfg:GIT_USER",
+		email: "ann@example.com",
 		token: "cfg:GIT_TOKEN",
 		encryptSecrets: true,
 	},
@@ -211,19 +212,35 @@ test("a typed username and token are sent as typed; a masked token is sent back 
 	await until(() => field("Branch"));
 	const inputs = () =>
 		[...document.body.querySelectorAll("input:not([type=checkbox])")] as HTMLInputElement[];
-	// URL, Branch, Folder, then the two credential fields
+	// URL, Branch, Folder, then username, email and token
 	expect(inputs()[3]!.value).toBe("ann");
-	expect(inputs()[4]!.value).toBe("********");
+	expect(inputs()[5]!.value).toBe("********");
 	await act(async () => {
 		fireEvent.click(button("Save"));
 	});
 	await until(() => expect(save).toHaveBeenCalledTimes(1));
 	expect(save.mock.calls[0]?.[1]).toMatchObject({ username: "ann", token: "********" });
 
-	await type(inputs()[4]!, "new-token");
+	await type(inputs()[5]!, "new-token");
 	await act(async () => {
 		fireEvent.click(button("Save"));
 	});
 	await until(() => expect(save).toHaveBeenCalledTimes(2));
 	expect(save.mock.calls[1]?.[1]).toMatchObject({ token: "new-token" });
+});
+
+test("the email is required to save, and Commit waits for a saved one (#1153)", async () => {
+	const noEmail = { ...SAVED, settings: { ...SAVED.settings, username: "ann", email: "" } };
+	const { button, text } = setup(noEmail);
+	await until(() => button("Save"));
+	expect(text()).toContain("Add an email in the git settings.");
+	expect(button("Commit to git").disabled).toBe(true);
+	expect(button("Save").disabled).toBe(true);
+
+	const inputs = () =>
+		[...document.body.querySelectorAll("input:not([type=checkbox])")] as HTMLInputElement[];
+	await type(inputs()[4]!, "ann@example.com");
+	expect(button("Save").disabled).toBe(false);
+	// still off until it is saved
+	expect(button("Commit to git").disabled).toBe(true);
 });

@@ -27,13 +27,18 @@ Open **Project Settings → Backup → Git** and fill in:
 | Repository URL | Yes | — | The URL you would clone, e.g. `https://git.example.com/team/backups.git`. No username or password in it. |
 | Branch | Yes | `main` | The branch commits go to. It is created on the first commit if it doesn't exist. |
 | Folder | No | Empty (the repository's root) | Where in the repository the backup goes, e.g. `backups/my-project`. Set one if the repository holds anything else. |
-| Username | Yes | — | The git username, or an App Config key holding it. |
+| Username | Yes | — | The git username, or an App Config key holding it. Commits are authored with this name. |
+| Email | Yes | — | The commits' author email, or an App Config key holding it. |
 | Token | Yes | — | The token or password, or an App Config key holding it. A typed token is stored encrypted and shown as `********` afterwards; leave it as it is to keep it. |
 | Encrypt secrets | — | On | Seals credentials and App Config values in the repository (see below). |
 
 Click **Save**.
 
-The username and token are never put in a backup, so they never reach the repository.
+::: tip Which email to use
+Every commit is authored and committed as the **Username** and **Email** above, not as the Fluxify user who clicked Commit (who is still shown in the History tab). Git hosts link a commit to whoever has that email on their account, so use an email on your own git account. On GitHub you can use your noreply address (**Settings → Emails**).
+:::
+
+The username, email and token are never put in a backup, so they never reach the repository.
 
 ## Commit to git
 
@@ -102,6 +107,8 @@ The username and token are sent with each request of this restore and are not sa
 | :--- | :--- |
 | The git server refused the username or token | Check the App Config values the Username and Token point to, and that the token may push. |
 | There is no repository at … | Check the URL, and that the token can see the repository. |
+| Add an email in the git settings | Settings saved before the Email field existed: add one and save. |
+| The git email … doesn't look like an email address | Fix the Email, or the App Config value it points to. |
 | The app config key … has no value | Give the key a production value, or choose another key. |
 | Could not reach the git server | Check the URL, and that the Fluxify server can reach that host. |
 | That commit holds no Fluxify backup in the folder … | The folder doesn't match where that commit's backup is. |

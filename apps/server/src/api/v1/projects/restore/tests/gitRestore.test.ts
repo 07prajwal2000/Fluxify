@@ -63,6 +63,7 @@ async function committed(isPrivate: boolean) {
 		branch: "main",
 		path: "shop",
 		username: GIT_USER,
+		email: "restore@example.com",
 		token: gitea.token,
 		encryptSecrets: true,
 	});
