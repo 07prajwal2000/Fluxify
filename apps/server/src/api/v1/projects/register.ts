@@ -4,6 +4,7 @@ import createProjectRoute from "./create/route";
 import deleteProjectRoute from "./delete/route";
 import getAllProjectRoute from "./get-all/route";
 import getByIdProjectRoute from "./get-by-id/route";
+import { registerGitRestore } from "./restore/git";
 import restoreProjectRoute from "./restore/route";
 import registerProjectDevToken from "./settings/dev-token/route";
 import registerProjectSettingsKeys from "./settings/keys/register";
@@ -18,6 +19,8 @@ export default {
 		const router = app.basePath("/projects");
 		createProjectRoute(router);
 		restoreProjectRoute(router);
+		// a new project from a git repository (#1152)
+		registerGitRestore(router);
 		getAllProjectRoute(router);
 		getByIdProjectRoute(router);
 		updateProjectRoute(router);

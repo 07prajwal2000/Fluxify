@@ -124,6 +124,7 @@ function GitForm({
 	const [branch, setBranch] = useState(saved.branch);
 	const [path, setPath] = useState(saved.path);
 	const [username, setUsername] = useState(saved.username);
+	const [email, setEmail] = useState(saved.email ?? "");
 	const [token, setToken] = useState(saved.token);
 	const [encryptSecrets, setEncrypt] = useState(saved.encryptSecrets);
 	const [dialog, setDialog] = useState(false);
@@ -131,7 +132,8 @@ function GitForm({
 	const badUrl = !URL.test(url);
 	const badBranch = !SEGMENTS.test(branch) || branch.includes("..");
 	const badPath = path !== "" && !SEGMENTS.test(path);
-	const canSave = !badUrl && !badBranch && !badPath && Boolean(username.trim() && token.trim());
+	const canSave =
+		!badUrl && !badBranch && !badPath && Boolean(username.trim() && email.trim() && token.trim());
 	const running = history.some((b) => b.status === "running");
 	const lastGit = history.find((b) => b.type === "git");
 	// the commit list follows the newest commit this page knows of
@@ -139,7 +141,7 @@ function GitForm({
 
 	const submit = () =>
 		save.mutate(
-			{ url, branch, path, username, token, encryptSecrets },
+			{ url, branch, path, username, email, token, encryptSecrets },
 			{
 				onSuccess: () => toast.success("Git settings saved."),
 				onError: (e) => showErrorNotification(e as Error),
@@ -184,13 +186,20 @@ function GitForm({
 						<Description>Where in the repository; empty for its root.</Description>
 					</TextField>
 				</div>
-				<div className="grid gap-4 sm:grid-cols-2">
+				<div className="grid gap-4 sm:grid-cols-3">
 					<AppConfigSelector
 						projectId={projectId}
 						label="Username"
-						description="The git username, or an app config key holding it."
+						description="The git username, or an app config key holding it. Commits are authored with this name."
 						value={username}
 						onChange={setUsername}
+					/>
+					<AppConfigSelector
+						projectId={projectId}
+						label="Email"
+						description="Use an email on your git account so commits show your profile. On GitHub you can use your noreply address (Settings → Emails)."
+						value={email}
+						onChange={setEmail}
 					/>
 					<AppConfigSelector
 						projectId={projectId}
@@ -223,12 +232,17 @@ function GitForm({
 					<Button
 						variant="primary"
 						onPress={() => setDialog(true)}
-						isDisabled={!saved.url || running}
+						isDisabled={!saved.url || !saved.email || running}
 					>
 						<TbGitCommit size={16} />
 						Commit to git
 					</Button>
 				</div>
+				{saved.url && !saved.email && (
+					<p role="note" className="text-sm text-warning">
+						Add an email in the git settings.
+					</p>
+				)}
 				{lastGit?.status === "failed" && (
 					<p role="alert" className="text-sm text-danger [overflow-wrap:anywhere]">
 						The last commit failed: {lastGit.error}

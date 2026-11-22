@@ -89,6 +89,8 @@ export interface GitSettings {
 	branch: string;
 	path: string;
 	username: string;
+	/** the commits' author email (#1153), typed or `cfg:KEY`; empty in settings saved before it was asked for */
+	email: string;
 	token: string;
 	encryptSecrets: boolean;
 }

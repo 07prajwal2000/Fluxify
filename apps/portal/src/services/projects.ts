@@ -17,11 +17,21 @@ import {
 } from "@fluxify/server/src/api/v1/projects/update/dto";
 import type z from "zod";
 import { httpClient } from "@/lib/http";
+import type { GitCommit } from "./backups";
 
 const baseUrl = "/v1/projects";
 
 export type ArchiveSummary = z.infer<typeof inspectResponseSchema>;
 export type RestoreResult = z.infer<typeof restoreResponseSchema>;
+
+/** a repository typed in to restore from (#1152); the token is sent for that request only */
+export type GitRepoInput = {
+	url: string;
+	branch: string;
+	path: string;
+	username?: string;
+	token?: string;
+};
 
 // the client's JSON default would turn the form into JSON; the browser adds the boundary
 const MULTIPART = { headers: { "Content-Type": "multipart/form-data" } };
@@ -62,6 +72,22 @@ export const projectsService = {
 	async getById(id: string): Promise<z.infer<typeof getByIdResponseSchema>> {
 		const result = await httpClient.get(`${baseUrl}/${id}`);
 		return result.data;
+	},
+	/** a repository typed in (#1152): the newest commits on its branch */
+	async gitCommits(repo: GitRepoInput): Promise<GitCommit[]> {
+		return (await httpClient.post(`${baseUrl}/restore/git/commits`, repo)).data.commits;
+	},
+	async inspectGit(repo: GitRepoInput, sha: string): Promise<ArchiveSummary> {
+		return (await httpClient.post(`${baseUrl}/restore/git/inspect`, { ...repo, sha })).data;
+	},
+	/** a new project from the commit; blank optional fields are left out */
+	async restoreGit(
+		repo: GitRepoInput,
+		sha: string,
+		project: { name: string; slug: string; description?: string; subdomain?: string },
+	): Promise<RestoreResult> {
+		const fields = Object.fromEntries(Object.entries(project).filter(([, v]) => v?.trim()));
+		return (await httpClient.post(`${baseUrl}/restore/git`, { ...repo, sha, ...fields })).data;
 	},
 	/** checks a backup or template file and says what it holds; creates nothing */
 	async inspectArchive(file: File): Promise<ArchiveSummary> {

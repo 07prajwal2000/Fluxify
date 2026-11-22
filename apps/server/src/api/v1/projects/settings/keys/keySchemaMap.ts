@@ -236,6 +236,11 @@ export const projectSettingsKeySchemaMap = {
 		defaultValue: "",
 		dataType: "string",
 	},
+	"settings.backup.git.email": {
+		schema: z.string().max(2000),
+		defaultValue: "",
+		dataType: "string",
+	},
 	"settings.backup.git.token": {
 		schema: z.string().max(4000),
 		defaultValue: "",

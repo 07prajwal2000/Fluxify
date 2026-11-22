@@ -59,12 +59,18 @@ export async function startGitea(name: string) {
 		name: "backups",
 		scopes: ["write:repository"],
 	})).sha1 as string;
+	// a second token that may only read, as a restore would be given
+	const readToken = (await api(`/users/${GIT_USER}/tokens`, {
+		name: "reader",
+		scopes: ["read:repository"],
+	})).sha1 as string;
 	return {
 		url,
 		token,
+		readToken,
 		/** a new empty repository; returns its clone URL */
-		async repo(repoName: string) {
-			await api("/user/repos", { name: repoName, private: true, auto_init: false });
+		async repo(repoName: string, isPrivate = true) {
+			await api("/user/repos", { name: repoName, private: isPrivate, auto_init: false });
 			return `${url}/${GIT_USER}/${repoName}.git`;
 		},
 		stop: () => container.remove({ force: true }).catch(() => {}),

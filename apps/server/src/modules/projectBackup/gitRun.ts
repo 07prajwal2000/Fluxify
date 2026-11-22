@@ -1,18 +1,16 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { upsertProjectSettingKey } from "../../api/v1/projects/settings/keys/upsert/repository";
 import { type DbTransactionType, db } from "../../db";
-import { systemUsers } from "../../db/auth-schema";
 import { projectSettingsEntity } from "../../db/schema";
 import { BadRequestError } from "../../errors/badRequestError";
 import { ConflictError } from "../../errors/conflictError";
-import { NotFoundError } from "../../errors/notFoundError";
 import { EncryptionService } from "../../lib/encryption";
 import { audit } from "../audit";
 import { decodeAppConfig } from "../integrationOps/appConfig";
-import { describeGitError, gitDestination } from "./gitDestination";
-import { commitsOf, fetchBranch, type GitRemote, readFolder } from "./gitRepo";
+import { gitDestination } from "./gitDestination";
+import type { GitRemote } from "./gitRepo";
 import { GIT_KEYS, type GitSettings, MASKED } from "./gitSettings";
-import { openTree } from "./gitTree";
+import { listCommits, openCommit } from "./gitSource";
 import { hasRunning, insertBackup, lockProjectBackups } from "./history";
 import { BACKUP_MODULES } from "./modules";
 import { runBackup } from "./run";
@@ -22,9 +20,6 @@ import { readSchedule } from "./schedule";
  * Commits to a git repository (#1150, open source, manual only): the settings,
  * "Commit to git", the branch's commits, and a commit opened for a restore.
  */
-
-/** commits a restore picker lists, and how deep a restore fetches to find one */
-export const COMMIT_LIMIT = 50;
 
 export async function readGitSettings(
 	projectId: string,
@@ -45,6 +40,7 @@ export async function readGitSettings(
 		branch: get(GIT_KEYS.branch) || "main",
 		path: get(GIT_KEYS.path),
 		username: get(GIT_KEYS.username),
+		email: get(GIT_KEYS.email),
 		token: get(GIT_KEYS.token),
 		encryptSecrets: get(GIT_KEYS.encryptSecrets) !== "false",
 	};
@@ -106,25 +102,22 @@ export async function gitRemote(projectId: string) {
 	return { settings, remote };
 }
 
-/** a git failure the user can fix as a 400; anything else as it is */
-async function git<T>(url: string, work: () => Promise<T>) {
-	try {
-		return await work();
-	} catch (error) {
-		const message = describeGitError(url, error);
-		throw message ? new BadRequestError(message) : error;
-	}
-}
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const authorOf = async (userId: string | null) => {
-	const [user] = userId
-		? await db
-				.select({ name: systemUsers.name, email: systemUsers.email })
-				.from(systemUsers)
-				.where(eq(systemUsers.id, userId))
-		: [];
-	return { name: user?.name || "Fluxify", email: user?.email || "backups@fluxify.invalid" };
-};
+/**
+ * The commits' author and committer: the configured username and email
+ * (#1153), never the Fluxify user, since a host links a commit to whichever
+ * profile has that email. Who clicked Commit stays on the row (`createdBy`).
+ */
+async function authorOf(projectId: string, settings: GitSettings, name: string) {
+	if (!settings.email) throw new BadRequestError("Add an email in the git settings.");
+	const email = await credential(projectId, settings.email);
+	if (!EMAIL.test(email))
+		throw new BadRequestError(
+			`The git email "${email}" doesn't look like an email address. Fix it in the git settings.`,
+		);
+	return { name, email };
+}
 
 /**
  * "Commit to git": a backup of every section, with version history and app
@@ -133,6 +126,8 @@ const authorOf = async (userId: string | null) => {
  */
 export async function startGitCommit(projectId: string, userId: string | null, message: string) {
 	const { settings, remote } = await gitRemote(projectId);
+	// before the row: a bad email refuses the commit instead of failing it
+	const author = await authorOf(projectId, settings, remote.username ?? "");
 	const row = await db.transaction(async (tx) => {
 		await lockProjectBackups(tx, projectId);
 		if (await hasRunning(projectId, tx))
@@ -165,7 +160,7 @@ export async function startGitCommit(projectId: string, userId: string | null, m
 		path: settings.path,
 		encryptSecrets: settings.encryptSecrets,
 		message,
-		author: await authorOf(userId),
+		author,
 	});
 	const options = { includeVersionHistory: true, includeAppConfigValues: true };
 	return { id: row.id, done: runBackup(row, { options, readme }, destination) };
@@ -173,27 +168,11 @@ export async function startGitCommit(projectId: string, userId: string | null, m
 
 /** the branch's newest commits, newest first; none for a branch that doesn't exist yet */
 export async function listGitCommits(projectId: string) {
-	const { remote } = await gitRemote(projectId);
-	return git(remote.url, async () =>
-		commitsOf(await fetchBranch(remote, COMMIT_LIMIT), COMMIT_LIMIT),
-	);
+	return listCommits((await gitRemote(projectId)).remote);
 }
 
 /** the backup in commit `sha`, opened for `inspectArchive` / `restoreProject` */
 export async function openGitCommit(projectId: string, sha: string) {
 	const { settings, remote } = await gitRemote(projectId);
-	const files = await git(remote.url, async () => {
-		const repo = await fetchBranch(remote, COMMIT_LIMIT);
-		const known = (await commitsOf(repo, COMMIT_LIMIT)).some((c) => c.sha === sha);
-		if (!known)
-			throw new NotFoundError(
-				`That commit isn't among the newest ${COMMIT_LIMIT} on ${settings.branch}.`,
-			);
-		return readFolder(repo, sha, settings.path);
-	});
-	if (!files.has("manifest.json"))
-		throw new BadRequestError(
-			`That commit holds no backup in ${settings.path ? `the folder ${settings.path}` : "the repository's root"}.`,
-		);
-	return openTree(files);
+	return openCommit(remote, settings.path, sha);
 }

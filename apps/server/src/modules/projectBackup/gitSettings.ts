@@ -12,6 +12,7 @@ export const GIT_KEYS = {
 	branch: "settings.backup.git.branch",
 	path: "settings.backup.git.path",
 	username: "settings.backup.git.username",
+	email: "settings.backup.git.email",
 	token: "settings.backup.git.token",
 	encryptSecrets: "settings.backup.git.encryptSecrets",
 } as const;
@@ -49,6 +50,8 @@ export const gitSettingsSchema = z.object({
 	branch: gitBranchSchema,
 	path: gitPathSchema,
 	username: credentialSchema,
+	/** the commits' author email, with `username` as the name: typed or `cfg:KEY`, not secret */
+	email: credentialSchema,
 	token: credentialSchema,
 	encryptSecrets: z.boolean(),
 });

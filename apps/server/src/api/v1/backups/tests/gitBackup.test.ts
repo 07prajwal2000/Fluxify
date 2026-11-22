@@ -53,6 +53,7 @@ async function call(who: Who, method: string, path: string, body?: unknown, admi
 }
 
 const SECRET = "app-config-secret-value";
+const AUTHOR_EMAIL = "backups@example.com";
 
 /** a project with a route, a secret app config value, and the git credentials as app config */
 async function project(token = gitea.token) {
@@ -70,6 +71,7 @@ async function setUp(who: Who, url: string, over: object = {}) {
 		branch: "main",
 		path: "backups/shop",
 		username: "cfg:GIT_USER",
+		email: AUTHOR_EMAIL,
 		token: "cfg:GIT_TOKEN",
 		encryptSecrets: true,
 		...over,
@@ -201,7 +203,7 @@ describe("commit to git, encrypted", () => {
 		expect(await routesOf(restored.body.id)).toBe(1);
 		expect(await configOf(restored.body.id)).toBe(SECRET);
 		expect(await gitSettingsOf(restored.body.id)).toBe(0);
-		expect(await gitSettingsOf(who.project)).toBe(6);
+		expect(await gitSettingsOf(who.project)).toBe(7);
 	});
 
 	it("on an instance with another key, restores everything but the sealed sections", async () => {
@@ -263,17 +265,22 @@ describe("refusals", () => {
 		expect((await restore(who, "0".repeat(40))).status).toBe(404);
 	});
 
-	it("refuses settings with credentials in the URL, a literal token, or a bad folder", async () => {
+	it("refuses settings without a username or email, with credentials in the URL, or a bad folder", async () => {
 		const who = await project();
 		const base = {
 			url: "http://example.com/x.git",
 			branch: "main",
 			path: "",
 			username: "cfg:GIT_USER",
+			email: AUTHOR_EMAIL,
 			token: "cfg:GIT_TOKEN",
 			encryptSecrets: true,
 		};
 		for (const over of [
+			{ email: "" },
+			{ email: undefined },
+			{ username: "" },
+			{ username: undefined },
 			{ url: "http://user:pass@example.com/x.git" },
 			{ url: "ftp://example.com/x.git" },
 			{ path: "../up" },
@@ -310,5 +317,38 @@ describe("a username and token typed in", () => {
 			expect({ path, leaked: text(bytes).includes(gitea.token) }).toEqual({ path, leaked: false });
 			expect(text(bytes)).not.toContain("settings.backup.git.token");
 		}
+	});
+});
+
+describe("the commits' author (#1153)", () => {
+	it("is the configured username and email, not the Fluxify user", async () => {
+		const who = await project();
+		const url = await gitea.repo(`author-${short()}`);
+		await setUp(who, url);
+		const row = await commit(who, "authored");
+		expect(row.status).toBe("succeeded");
+		// who clicked stays on the row
+		expect(row.created_by).toBe(who.user);
+		const { repo, tip } = await tipFiles(url);
+		const git = (await import("isomorphic-git")).default;
+		const { commit: c } = await git.readCommit({ fs: repo.fs, dir: "/repo", oid: tip });
+		expect({ name: c.author.name, email: c.author.email }).toEqual({ name: GIT_USER, email: AUTHOR_EMAIL });
+		expect({ name: c.committer.name, email: c.committer.email }).toEqual({ name: GIT_USER, email: AUTHOR_EMAIL });
+	});
+
+	it("refuses a commit whose email isn't one, and one saved before emails were asked for", async () => {
+		const who = await project();
+		const url = await gitea.repo(`bademail-${short()}`);
+		await setUp(who, url, { email: "cfg:API_KEY" });
+		const bad = await call(who, "POST", "/git/commit", { message: "x" });
+		expect(bad.status).toBe(400);
+		expect(bad.body.message).toContain("doesn't look like an email address");
+
+		await stack.sql`DELETE FROM project_settings WHERE project_id = ${who.project} AND key = 'settings.backup.git.email'`;
+		const none = await call(who, "POST", "/git/commit", { message: "x" });
+		expect(none.status).toBe(400);
+		expect(none.body.message).toBe("Add an email in the git settings.");
+		const [rows] = await stack.sql`SELECT count(*)::int AS n FROM project_backups WHERE project_id = ${who.project}`;
+		expect(rows.n).toBe(0);
 	});
 });

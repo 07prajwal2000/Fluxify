@@ -1,15 +1,17 @@
 import { useNavigate } from "@tanstack/react-router";
-import { useRef } from "react";
-import { TbFileUpload, TbPlus } from "react-icons/tb";
+import { useRef, useState } from "react";
+import { TbBrandGit, TbFileUpload, TbPlus } from "react-icons/tb";
 import { SplitButton } from "@/components/common/SplitButton";
 import { projectsService } from "@/services/projects";
+import { GitRestoreDialog } from "./GitRestoreDialog";
 import { useRestoreFlow } from "./useRestoreFlow";
 
-/** "New Project", with a menu item that makes one from a backup or template file (#1104). */
+/** "New Project", with menu items that make one from a backup or template file (#1104) or from a git repository (#1152). */
 export function NewProjectButton() {
 	const navigate = useNavigate();
 	const input = useRef<HTMLInputElement>(null);
 	const flow = useRestoreFlow();
+	const [fromGit, setFromGit] = useState(false);
 
 	return (
 		<>
@@ -23,6 +25,12 @@ export function NewProjectButton() {
 						label: "From backup or template file",
 						icon: <TbFileUpload size={16} />,
 						onAction: () => input.current?.click(),
+					},
+					{
+						id: "from-git",
+						label: "Restore from a git repository",
+						icon: <TbBrandGit size={16} />,
+						onAction: () => setFromGit(true),
 					},
 				]}
 			>
@@ -47,6 +55,15 @@ export function NewProjectButton() {
 						});
 				}}
 			/>
+			{fromGit && (
+				<GitRestoreDialog
+					onClose={() => setFromGit(false)}
+					onPick={(source) => {
+						setFromGit(false);
+						void flow.start(source);
+					}}
+				/>
+			)}
 			{flow.element}
 		</>
 	);
