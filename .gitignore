@@ -11,6 +11,7 @@ docs_index
 .trackd
 docs/.vitepress/cache
 docs/.vitepress/dist
+.docs-versions
 apps/ai-gateway/src/harness/demo.ts
 apps/ai-gateway/src/test-trace.ts
 .claude/worktrees

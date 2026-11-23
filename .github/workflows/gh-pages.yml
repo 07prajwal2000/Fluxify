@@ -45,14 +45,27 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      # Pre-releases count: before 1.0 every release is one.
-      - name: Find the newest release
+      # Pre-releases count: before 1.0 every release is one. Newest first.
+      - name: Find the releases
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: echo "FLUXIFY_RELEASE_TAG=$(gh release list --exclude-drafts --limit 1 --json tagName --jq '.[0].tagName')" >> "$GITHUB_ENV"
+        run: |
+          releases=$(gh release list --exclude-drafts --limit 50 --json tagName --jq '[.[].tagName] | join(" ")')
+          echo "DOCS_RELEASES=$releases" >> "$GITHUB_ENV"
+          echo "FLUXIFY_RELEASE_TAG=${releases%% *}" >> "$GITHUB_ENV"
 
+      # Release builds never change. The script rebuilds them only when the
+      # version list changes (a new release), so a push to main builds /nightly/ only.
+      - name: Restore release builds
+        uses: actions/cache@v4
+        with:
+          path: .docs-versions/releases
+          key: docs-releases-${{ github.run_id }}
+          restore-keys: docs-releases-
+
+      # / is the newest release, /nightly/ is main, /<tag>/ the older releases
       - name: Build VitePress docs
-        run: bun run docs:build
+        run: bun run docs:build:versions
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
