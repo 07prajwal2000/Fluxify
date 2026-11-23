@@ -68,6 +68,12 @@ function latestRelease(): string {
 }
 const releaseTag = latestRelease();
 
+// Versioned builds (#1156), set by scripts/build-docs.ts. Every release builds
+// with its own copy of this file, so these names must never change.
+const BASE = process.env.DOCS_BASE ?? "/";
+const VERSION = process.env.DOCS_VERSION;
+const VERSIONS: DefaultTheme.NavItemWithLink[] = JSON.parse(process.env.DOCS_VERSIONS || "[]");
+
 // withMermaid wraps the config so ```mermaid code fences render as diagrams.
 // https://vitepress.dev/reference/site-config
 export default withMermaid(
@@ -78,19 +84,24 @@ export default withMermaid(
 		lang: "en-US",
 
 		// The docs live in the repo root /docs directory, so no srcDir needed.
-		// Site is deployed at https://docs.fluxify.rest
-		base: "/",
+		// Site is deployed at https://docs.fluxify.rest; older versions under /<tag>/
+		base: BASE,
 
 		// Warn on dead links but don't fail the build for pre-existing issues
 		ignoreDeadLinks: true,
 
 		// Absolute page URLs, for sitemap.xml
-		sitemap: { hostname: SITE_URL },
+		sitemap: { hostname: `${SITE_URL}${BASE}` },
 
 		head: [
-			["link", { rel: "icon", type: "image/x-icon", href: "/assets/favicon.ico" }],
-			["link", { rel: "icon", type: "image/png", href: "/assets/logo.png" }],
+			// head tags don't get the base added
+			["link", { rel: "icon", type: "image/x-icon", href: `${BASE}assets/favicon.ico` }],
+			["link", { rel: "icon", type: "image/png", href: `${BASE}assets/logo.png` }],
 			["meta", { name: "theme-color", content: "#000000" }],
+			// only the latest docs belong in search results
+			...(BASE === "/"
+				? []
+				: [["meta", { name: "robots", content: "noindex" }] as [string, Record<string, string>]]),
 		],
 
 		// Source markdown lives in docs/, config is in docs/.vitepress/
@@ -177,6 +188,7 @@ export default withMermaid(
 					],
 				},
 				{ text: "Deployments", link: "/deployments/" },
+				...(VERSION && VERSIONS.length ? [{ text: VERSION, items: VERSIONS }] : []),
 			],
 
 			sidebar: {
