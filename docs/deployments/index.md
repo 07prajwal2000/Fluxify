@@ -1,26 +1,56 @@
 ---
 title: Self-Hosting Fluxify
-description: Overview and decision guide for self-hosting Fluxify. Choose between the all-in-one Kit image for quick trials and the scale-out Admin + Workers topology for production, with shared setup steps and secret key generation.
+description: Run Fluxify in one command to try it, then choose the setup that fits — the all-in-one Kit image for trials or the scale-out Admin + Workers stack for production.
 ---
 
 # Self-Hosting Fluxify
 
-Fluxify is built to run on your own infrastructure. There are **two ways** to
-deploy it, and this page helps you pick the right one and points you to the exact
-steps for each.
+## Start it now {#quick-start}
 
-> [!TIP]
-> New to how Fluxify works internally? The [Architecture](/architecture/) section
-> explains the control plane / worker split that both setups below are built on.
+One container, one command, nothing else to install:
+
+```bash
+docker run -d --name fluxify \
+  -p 8080:8080 \
+  -v fluxify_data:/data \
+  -e SEED_USER_EMAIL=admin@example.com \
+  -e SEED_USER_PASSWORD=ChangeThisPassword123! \
+  ghcr.io/fluxify-rest/fluxify-kit:nightly
+```
+
+Give it a few seconds to boot, open `http://localhost:8080/_/admin/ui`, and log
+in with the email and password above. Create a project, save a route, and it is
+live at `http://localhost:8080/` — no project id to copy, no restart.
+
+That is the whole trial. The [Kit image](./kit) bundles the dashboard, the admin
+API, a request worker, and its own database, cache and event bus into that one
+container.
+
+> [!WARNING]
+> **The Kit is for prototypes and testing only** — not production, not even on a
+> single machine. When you are ready to serve real traffic, run the
+> [Production Setup](./production) instead: one `.env`, two commands.
 
 > [!WARNING]
 > **Alpha software.** Fluxify is in active alpha development. It is suitable for
 > self-hosted trials and early production use, but internal schemas may change
 > between versions — read the release notes before upgrading.
 
+### Where to go next
+
+| You want to | Go to |
+| :--- | :--- |
+| Try Fluxify today | You already did, above |
+| Serve production traffic | [Production Setup](./production) |
+| Run on a Kubernetes cluster | [Install on Kubernetes](./kubernetes/install) |
+| Have a coding agent deploy it | [Deploy with a Coding Agent](./coding-agent) |
+
 ---
 
-## The two ways to run Fluxify
+## Choose your setup {#choose}
+
+Fluxify runs in two shapes. Start with the Kit to evaluate, then move to Admin +
+Workers when you need to scale — your `.env` and database carry straight over.
 
 | | **Kit** (all-in-one) | **Admin + Workers** (scale-out) |
 | :--- | :--- | :--- |
@@ -31,28 +61,20 @@ steps for each.
 | **Setup effort** | Lowest — one command | Moderate |
 | **Guide** | [Quick Run with the Kit Image →](./kit) | [Production Setup →](./production) |
 
-### Which should I choose?
-
-- **Prototyping or testing?**
-  Use the **Kit**, and only for that: never for production. It bundles every service into a single container and starts
-  with one command. → [Quick Run guide](./kit)
-
-- **Anything in production**, even on a single machine?
-  Use **Admin + Workers**. The control plane runs once; stateless workers scale
-  horizontally behind Traefik. The workers run on either:
+- **Prototyping or testing?** Use the **Kit**, and only for that: never for
+  production. It bundles every service into a single container and starts with
+  one command. → [Quick Run guide](./kit)
+- **Anything in production**, even on a single machine? Use **Admin + Workers**.
+  The control plane runs once; stateless workers scale horizontally behind
+  Traefik. The workers run on either:
   - **Docker**: one host, a fixed number of workers per claim.
     → [Production guide](./production)
   - **Kubernetes**: your cluster, with workers that grow and shrink with load.
     → [Install on Kubernetes](./kubernetes/install)
 
 > [!TIP]
-> Start with the Kit to evaluate, then move to Admin + Workers when you need to
-> scale — your `.env` and database carry straight over.
-
-> [!TIP]
-> **Let a coding agent do it.** Claude Code, Cursor or Codex can deploy either
-> setup from these docs. See [Deploy with a Coding Agent](./coding-agent) for
-> copy-paste prompts and a checklist to check its work.
+> New to how Fluxify works internally? The [Architecture](/architecture/) section
+> explains the control plane / worker split that both setups are built on.
 
 ---
 
@@ -200,11 +222,9 @@ A slow project still slows the rest, since they share one worker.
 
 ## Next steps
 
-Pick your path and jump straight to the steps:
-
 - **Kit:** [run one command](./kit#bundled) →
   [turn on the request worker](./kit#worker)
-- **Admin + Workers:** [why Traefik](./production#why-traefik) →
+- **Admin + Workers:** [quick deploy](./production#quick-deploy) →
   [create your `.env`](./production#env) → [start the stack](./production#start) →
   [scale the workers](./production#scaling)
 - **With a coding agent:** [pick a prompt](./coding-agent#prompts) →

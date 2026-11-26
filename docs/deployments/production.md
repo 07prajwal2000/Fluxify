@@ -24,7 +24,48 @@ container and everything else to the workers.
 > This guide runs the workers on one Docker host. To run them on a Kubernetes
 > cluster instead, see [Install on Kubernetes](./kubernetes/install).
 
-### Which tag to pull {#image-tags}
+## Quick deploy {#quick-deploy}
+
+One Docker host, one `.env`, two commands. Every step links to the details
+below if you need them.
+
+```bash
+git clone https://github.com/Fluxify-rest/Fluxify.git && cd Fluxify
+cp docker/production/env.example docker/production/.env
+openssl rand -base64 32   # MASTER_ENCRYPTION_KEY
+openssl rand -base64 32   # BETTER_AUTH_SECRET
+openssl rand -hex 32      # SYSTEM_ACCESS_KEY
+```
+
+Open `docker/production/.env` and set at least these, then start the stack:
+
+- `SERVER_URL` and `TRUSTED_ORIGINS` — the address you will open Fluxify at.
+- `MASTER_ENCRYPTION_KEY`, `BETTER_AUTH_SECRET`, `SYSTEM_ACCESS_KEY` — the
+  generated values.
+- `SEED_USER_EMAIL` and `SEED_USER_PASSWORD` — the first admin login.
+
+```bash
+docker compose -f docker/production/docker-compose.yml up -d
+```
+
+Open `http://your-domain.com/_/admin/ui` and log in. The stack creates the
+default claim for you, so one worker already serves every project.
+
+**Check:** `docker ps` lists a `fluxify-worker-…` container, and
+`curl http://localhost:8080/_/admin/api/public-settings` returns `200`.
+
+The compose file builds admin and the orchestrator from the source you cloned,
+so the first start compiles them; the workers are pulled from
+`ORCHESTRATOR_WORKER_IMAGE`.
+
+> [!WARNING]
+> **The `.env` ships sample keys.** Replace all three, plus the Postgres
+> password and `NATS_TOKEN`, before the first start — see
+> [Step 1](#env) for the full list and the values that must match.
+
+---
+
+## Which tag to pull {#image-tags}
 
 Every release tags all three images together, so admin, orchestrator and worker
 always come from the same build. Never mix versions between them.
