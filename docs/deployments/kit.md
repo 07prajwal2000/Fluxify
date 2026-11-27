@@ -17,6 +17,23 @@ One container, one port, one command — for **prototypes and testing only**.
 > [Production Setup](./production) instead — it separates the control plane from replicated workers so you can
 > scale request handling independently.
 
+## Start in one command {#start}
+
+```bash
+docker run -d --name fluxify \
+  -p 8080:8080 \
+  -v fluxify_data:/data \
+  -e SEED_USER_EMAIL=admin@example.com \
+  -e SEED_USER_PASSWORD=ChangeThisPassword123! \
+  ghcr.io/fluxify-rest/fluxify-kit:nightly
+```
+
+Open `http://localhost:8080/_/admin/ui` and log in with those credentials.
+Create a project, save a route, and it is live at `http://localhost:8080/`.
+
+That is all you need to run it. The rest of this page is detail: what the
+container includes, the compose variant, MCP clients, upgrades and fixes.
+
 ---
 
 ## What you get
